@@ -1,5 +1,5 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { QueryClient, type UseQueryOptions, useQueryClient } from '@tanstack/react-query';
 import { del, get, set } from 'idb-keyval';
 
 const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -33,6 +33,14 @@ export const persistOptions = {
   // アプリのバージョンが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
   buster: __APP_VERSION__,
 };
+
+/** mutation の成功後に関連クエリを無効化する関数を返す。キーは各 feature の queryOptions / *_QUERY_KEY から渡す */
+export function useInvalidate(...keys: readonly (readonly unknown[])[]): () => void {
+  const queryClient = useQueryClient();
+  return () => {
+    for (const queryKey of keys) queryClient.invalidateQueries({ queryKey });
+  };
+}
 
 /**
  * ルートの loader / beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す

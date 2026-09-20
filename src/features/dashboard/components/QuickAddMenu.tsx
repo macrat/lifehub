@@ -7,6 +7,7 @@ import SpeedDial from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import { useState } from 'react';
+import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
 import { defaultEventValues, EventForm } from '../../events/components/EventForm.tsx';
 import { useCreateEvent } from '../../events/queries.ts';
 import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
@@ -33,11 +34,7 @@ export function QuickAddMenu() {
         ariaLabel="記録を追加"
         icon={<SpeedDialIcon icon={<AddIcon />} />}
         FabProps={{ size: 'medium' }}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-        }}
+        sx={FAB_SX}
       >
         <SpeedDialAction
           icon={<SpaIcon />}
@@ -62,7 +59,6 @@ export function QuickAddMenu() {
       </SpeedDial>
       {open === 'event' && (
         <EventForm
-          open
           title="予定を追加"
           initial={defaultEventValues()}
           onSubmit={(i) => createEvent.mutateAsync(i)}
@@ -71,7 +67,6 @@ export function QuickAddMenu() {
       )}
       {open === 'task' && (
         <TaskForm
-          open
           title="タスクを追加"
           initial={defaultTaskValues()}
           onSubmit={(i) => createTask.mutateAsync(i)}
@@ -79,11 +74,9 @@ export function QuickAddMenu() {
         />
       )}
       {open === 'expense' && (
-        <ExpenseForm open onSubmit={(i) => addExpense.mutateAsync(i)} onClose={close} />
+        <ExpenseForm onSubmit={(i) => addExpense.mutateAsync(i)} onClose={close} />
       )}
-      {open === 'lemon' && (
-        <CareLogForm open onSubmit={(i) => logCare.mutateAsync(i)} onClose={close} />
-      )}
+      {open === 'lemon' && <CareLogForm onSubmit={(i) => logCare.mutateAsync(i)} onClose={close} />}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 
 /**
@@ -27,17 +28,15 @@ export function parseRRule(rrule: string | null): {
   isSimple: boolean;
 } {
   if (!rrule) return { freq: 'none', until: undefined, isSimple: true };
-  const params = new Map(rrule.split(';').map((p) => p.split('=') as [string, string]));
-  const freq = params.get('FREQ') as RecurrenceFreq | undefined;
-  const untilRaw = params.get('UNTIL');
-  const until = untilRaw
-    ? (`${untilRaw.slice(0, 4)}-${untilRaw.slice(4, 6)}-${untilRaw.slice(6, 8)}` as DateString)
-    : undefined;
+  // RRULE の "KEY=VALUE;KEY=VALUE" は区切りが ; なだけのクエリ文字列なので URLSearchParams で読む
+  const params = new URLSearchParams(rrule.replaceAll(';', '&'));
+  const freq = RECURRENCE_FREQ_OPTIONS.find((o) => o.value === params.get('FREQ'))?.value;
+  const untilRaw = params.get('UNTIL') ?? '';
+  const untilDate = `${untilRaw.slice(0, 4)}-${untilRaw.slice(4, 6)}-${untilRaw.slice(6, 8)}`;
+  const until = isDateString(untilDate) ? untilDate : undefined;
   const knownKeys = new Set(['FREQ', 'UNTIL']);
   const isSimple =
-    freq !== undefined &&
-    ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq) &&
-    [...params.keys()].every((k) => knownKeys.has(k));
+    freq !== undefined && freq !== 'none' && [...params.keys()].every((k) => knownKeys.has(k));
   return { freq: isSimple && freq ? freq : 'none', until, isSimple };
 }
 

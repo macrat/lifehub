@@ -23,6 +23,18 @@ export function calendarItemsQueryOptions(range: { from: DateString; to: DateStr
   });
 }
 
+/** 項目の所有者（予定）・担当者（タスク）。null は共有 */
+export function ownerOf(item: CalendarItem): string | null {
+  return item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
+}
+
+/** タスクを時刻で示すときの基準: 期限 → 開始の優先。どちらも無ければ null */
+export function taskTime(item: CalendarTaskItem): { kind: 'due' | 'start'; at: string } | null {
+  if (item.dueAt) return { kind: 'due', at: item.dueAt };
+  if (item.startsAt) return { kind: 'start', at: item.startsAt };
+  return null;
+}
+
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
 export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
   const map = new Map<DateString, CalendarItem[]>();

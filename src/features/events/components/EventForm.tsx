@@ -5,7 +5,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   createEventSchema,
@@ -19,7 +19,7 @@ import {
   toDateString,
   toDateTimeLocalValue,
 } from '../../../lib/date.ts';
-import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
@@ -49,7 +49,6 @@ export type EventFormValues = {
 };
 
 type Props = {
-  open: boolean;
   title: string;
   initial: EventFormValues;
   /** this のときは繰り返し・所有者・通知の変更はできない（この回だけの変更は日時・タイトル・メモのみ） */
@@ -90,77 +89,61 @@ export function defaultEventValues(date?: DateString): EventFormValues {
   };
 }
 
-export function EventForm({ open, title, initial, scope = 'all', onSubmit, onClose }: Props) {
+export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
   const { options: ownerOptions } = useOwnerLabel();
   const [allDay, setAllDay] = useState(initial.allDay);
   const [freq, setFreq] = useState<RecurrenceFreq>(parseRRule(initial.rrule).freq);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const parsedRRule = parseRRule(initial.rrule);
   const thisOnly = scope === 'this';
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const fd = new FormData(event.currentTarget);
-    const text = (key: string) => {
-      const v = fd.get(key);
-      return typeof v === 'string' && v !== '' ? v : null;
-    };
-    const startsRaw = text('startsAt');
-    const endsRaw = text('endsAt');
-    const raw = {
-      title: text('title') ?? '',
-      allDay,
-      startsAt: startsRaw
-        ? allDay
-          ? fromDateValue(startsRaw as DateString)
-          : fromDateTimeLocalValue(startsRaw)
-        : '',
-      endsAt: endsRaw
-        ? allDay
-          ? fromDateValue(endsRaw as DateString)
-          : fromDateTimeLocalValue(endsRaw)
-        : '',
-      ownerUserId: thisOnly ? initial.ownerUserId : fromSelect(text('ownerUserId')),
-      location: text('location'),
-      note: text('note'),
-      rrule: thisOnly
-        ? initial.rrule
-        : parsedRRule.isSimple
-          ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
-          : initial.rrule,
-      remindBeforeMinutes: thisOnly
-        ? initial.remindBeforeMinutes
-        : fromSelect(text('remindBeforeMinutes')) === null
-          ? null
-          : Number(text('remindBeforeMinutes')),
-    };
-    const parsed = parseValues(createEventSchema, raw);
-    if (parsed.errors) {
-      setErrors(parsed.errors);
-      return;
-    }
-    setErrors({});
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      await onSubmit({
-        ...parsed.data,
-        startsAt: parsed.data.startsAt.toISOString(),
-        endsAt: parsed.data.endsAt.toISOString(),
-      });
-      onClose();
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : '保存に失敗しました');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+    schema: createEventSchema,
+    values: (fd) => {
+      const text = (key: string) => {
+        const v = fd.get(key);
+        return typeof v === 'string' && v !== '' ? v : null;
+      };
+      const startsRaw = text('startsAt');
+      const endsRaw = text('endsAt');
+      return {
+        title: text('title') ?? '',
+        allDay,
+        startsAt: startsRaw
+          ? allDay
+            ? fromDateValue(startsRaw as DateString)
+            : fromDateTimeLocalValue(startsRaw)
+          : '',
+        endsAt: endsRaw
+          ? allDay
+            ? fromDateValue(endsRaw as DateString)
+            : fromDateTimeLocalValue(endsRaw)
+          : '',
+        ownerUserId: thisOnly ? initial.ownerUserId : fromSelect(text('ownerUserId')),
+        location: text('location'),
+        note: text('note'),
+        rrule: thisOnly
+          ? initial.rrule
+          : parsedRRule.isSimple
+            ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
+            : initial.rrule,
+        remindBeforeMinutes: thisOnly
+          ? initial.remindBeforeMinutes
+          : fromSelect(text('remindBeforeMinutes')) === null
+            ? null
+            : Number(text('remindBeforeMinutes')),
+      };
+    },
+    onSubmit: (data) =>
+      onSubmit({
+        ...data,
+        startsAt: data.startsAt.toISOString(),
+        endsAt: data.endsAt.toISOString(),
+      }),
+    onSuccess: onClose,
+  });
 
   return (
     <FormDialog
-      open={open}
       onClose={onClose}
       maxWidth="sm"
       title={title}

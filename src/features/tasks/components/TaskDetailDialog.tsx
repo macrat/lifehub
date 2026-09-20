@@ -9,10 +9,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import type { CalendarTaskItem } from '../../calendar/queries.ts';
+import { useRecurrenceEditing } from '../../calendar/use-recurrence-editing.ts';
 import { RecurrenceScopeDialog } from '../../events/components/RecurrenceScopeDialog.tsx';
 import { describeRRule } from '../../events/recurrence-options.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
@@ -35,35 +34,21 @@ export function TaskDetailDialog({ item, onClose }: Props) {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const toggle = useToggleTaskCompletion();
-  const [pending, setPending] = useState<'編集' | '削除' | null>(null);
-  const [editScope, setEditScope] = useState<RecurrenceScope | null>(null);
+  const editing = useRecurrenceEditing({
+    isRecurring: item?.isRecurring ?? false,
+    onDelete: async (scope) => {
+      if (!item) return;
+      await deleteTask.mutateAsync({ id: item.id, scope, occurrenceKey: item.occurrenceKey });
+      onClose();
+    },
+  });
+  const { editScope } = editing;
   const master = useQuery({
     ...taskQueryOptions(item?.id ?? ''),
     enabled: item !== null && editScope === 'all' && item.isRecurring,
   });
 
   if (!item) return null;
-
-  const chooseScope = (action: '編集' | '削除') => {
-    if (item.isRecurring) setPending(action);
-    else proceed(action, 'all');
-  };
-
-  const proceed = async (action: '編集' | '削除', scope: RecurrenceScope) => {
-    setPending(null);
-    if (action === '編集') {
-      setEditScope(scope);
-      return;
-    }
-    if (
-      !window.confirm(
-        scope === 'all' && item.isRecurring ? 'すべての回を削除しますか？' : '削除しますか？',
-      )
-    )
-      return;
-    await deleteTask.mutateAsync({ id: item.id, scope, occurrenceKey: item.occurrenceKey });
-    onClose();
-  };
 
   const completed = item.completedAt !== null;
   const initialValues: TaskFormValues | null =
@@ -108,10 +93,10 @@ export function TaskDetailDialog({ item, onClose }: Props) {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => chooseScope('削除')}>
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => editing.start('delete')}>
             削除
           </Button>
-          <Button startIcon={<EditIcon />} onClick={() => chooseScope('編集')}>
+          <Button startIcon={<EditIcon />} onClick={() => editing.start('edit')}>
             編集
           </Button>
           <Button
@@ -132,15 +117,14 @@ export function TaskDetailDialog({ item, onClose }: Props) {
       </Dialog>
 
       <RecurrenceScopeDialog
-        open={pending !== null}
-        action={pending ?? '編集'}
-        onSelect={(scope) => pending && proceed(pending, scope)}
-        onClose={() => setPending(null)}
+        open={editing.pending !== null}
+        action={editing.pending ?? 'edit'}
+        onSelect={editing.selectScope}
+        onClose={editing.cancel}
       />
 
       {editScope !== null && initialValues && (
         <TaskForm
-          open
           title={
             editScope === 'this'
               ? 'この回だけ編集'
@@ -159,7 +143,7 @@ export function TaskDetailDialog({ item, onClose }: Props) {
             })
           }
           onClose={() => {
-            setEditScope(null);
+            editing.endEdit();
             onClose();
           }}
         />

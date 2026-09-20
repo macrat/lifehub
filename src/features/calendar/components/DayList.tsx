@@ -10,11 +10,10 @@ type Props = {
   date: DateString;
   items: CalendarItem[];
   onSelectItem: (item: CalendarItem) => void;
-  emptyText?: string;
 };
 
 /** 1 日分の見出しと行の一覧（Google カレンダーの予定リストの体裁） */
-export function DayList({ date, items, onSelectItem, emptyText = '予定なし' }: Props) {
+export function DayList({ date, items, onSelectItem }: Props) {
   const today = isToday(date);
   return (
     <Box>
@@ -34,7 +33,7 @@ export function DayList({ date, items, onSelectItem, emptyText = '予定なし' 
       </Typography>
       {items.length === 0 ? (
         <Typography variant="body2" color="text.disabled" sx={{ px: 2, pb: 1 }}>
-          {emptyText}
+          予定なし
         </Typography>
       ) : (
         items.map((item) => <ItemCard key={itemKey(item)} item={item} onClick={onSelectItem} />)

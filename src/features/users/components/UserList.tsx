@@ -6,9 +6,8 @@ import ListItem from '@mui/material/ListItem';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { hueColor } from '../../../../shared/color.ts';
 import type { User } from '../queries.ts';
+import { useUserColor } from '../use-user-color.ts';
 
 type Props = {
   users: User[];
@@ -16,7 +15,7 @@ type Props = {
 };
 
 export function UserList({ users, onEdit }: Props) {
-  const dark = useMediaQuery('(prefers-color-scheme: dark)');
+  const colorFor = useUserColor();
   return (
     <Paper>
       <List disablePadding>
@@ -35,9 +34,7 @@ export function UserList({ users, onEdit }: Props) {
             }
           >
             <ListItemAvatar>
-              <Avatar sx={{ bgcolor: hueColor(user.hue, 'fill', dark ? 'dark' : 'light') }}>
-                {user.name.slice(0, 1)}
-              </Avatar>
+              <Avatar sx={{ bgcolor: colorFor(user.id).fill }}>{user.name.slice(0, 1)}</Avatar>
             </ListItemAvatar>
             <ListItemText primary={user.name} secondary={user.email} />
           </ListItem>

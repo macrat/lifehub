@@ -1,5 +1,5 @@
 import { TZDate } from '@date-fns/tz';
-import { format, getDay, startOfMonth, subDays } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import { TIME_ZONE } from '../../shared/constants.ts';
 import { addDays, startOfDate, toDateString, today } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
@@ -106,16 +106,14 @@ export function toMonthString(date: DateString): string {
 
 /** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
 export function monthGridDays(month: string): DateString[] {
-  const first = startOfMonth(new TZDate(startOfDate(`${month}-01` as DateString), TIME_ZONE));
-  const offset = (getDay(first) + 6) % 7; // 月曜 = 0
-  const start = toDateString(subDays(first, offset));
+  const first = `${month}-01` as DateString;
+  const start = addDays(first, -weekdayIndex(first));
   return Array.from({ length: 42 }, (_, i) => addDays(start, i));
 }
 
 /** その日を含む週（月曜始まり）の 7 日 */
 export function weekDays(date: DateString): DateString[] {
-  const offset = (getDay(new TZDate(startOfDate(date), TIME_ZONE)) + 6) % 7;
-  const start = addDays(date, -offset);
+  const start = addDays(date, -weekdayIndex(date));
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
@@ -138,6 +136,16 @@ export function formatDateRange(from: DateString, to: DateString): string {
 }
 
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;
+
+/** 月曜 = 0 の曜日番号 */
+export function weekdayIndex(date: DateString): number {
+  return (getDay(new TZDate(startOfDate(date), TIME_ZONE)) + 6) % 7;
+}
+
+/** 曜日の文字色（土は青、日は赤）。MUI のパレット名で返す */
+export function weekdayColor(index: number): string {
+  return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
+}
 
 export function isToday(date: DateString): boolean {
   return date === today();

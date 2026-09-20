@@ -1,6 +1,8 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation } from '@tanstack/react-query';
 import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
+import { useInvalidate } from '../../lib/query-client.ts';
+import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
 export type Balance = InferResponseType<typeof api.expenses.balance.$get, 200>;
@@ -17,16 +19,11 @@ export const balanceQueryOptions = queryOptions({
   queryFn: async () => (await ensureOk(await api.expenses.balance.$get())).json(),
 });
 
-function useInvalidate() {
-  const queryClient = useQueryClient();
-  return () => {
-    queryClient.invalidateQueries({ queryKey: EXPENSES_QUERY_KEY });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-  };
-}
+/** 書き込み後に無効化するクエリ */
+const useInvalidateAfterWrite = () => useInvalidate(EXPENSES_QUERY_KEY, DASHBOARD_QUERY_KEY);
 
 export function useAddExpense() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async (input: CreateExpenseBody) =>
       (await ensureOk(await api.expenses.$post({ json: input }))).json(),
@@ -35,7 +32,7 @@ export function useAddExpense() {
 }
 
 export function useDeleteExpense() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async (id: string) => {
       await ensureOk(await api.expenses[':id'].$delete({ param: { id } }));

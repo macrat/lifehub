@@ -1,5 +1,11 @@
 import { createTheme } from '@mui/material/styles';
-import { DEFAULT_HUE, hueColor } from '../../shared/color.ts';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { type ColorMode, DEFAULT_HUE, hueColor } from '../../shared/color.ts';
+
+/** 表示モード。テーマは prefers-color-scheme に追従するので、色を自前で計算する部品もこれに合わせる */
+export function useColorMode(): ColorMode {
+  return useMediaQuery('(prefers-color-scheme: dark)') ? 'dark' : 'light';
+}
 
 /**
  * Material Design 3 の見た目に寄せた設定。

@@ -9,10 +9,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { formatEventRange } from '../../../lib/date.ts';
 import type { CalendarEventItem } from '../../calendar/queries.ts';
+import { useRecurrenceEditing } from '../../calendar/use-recurrence-editing.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import { eventQueryOptions, useDeleteEvent, useUpdateEvent } from '../queries.ts';
 import { describeRRule } from '../recurrence-options.ts';
@@ -32,8 +31,15 @@ export function EventDetailDialog({ item, onClose }: Props) {
   const { label } = useOwnerLabel();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
-  const [pending, setPending] = useState<'編集' | '削除' | null>(null);
-  const [editScope, setEditScope] = useState<RecurrenceScope | null>(null);
+  const editing = useRecurrenceEditing({
+    isRecurring: item?.isRecurring ?? false,
+    onDelete: async (scope) => {
+      if (!item) return;
+      await deleteEvent.mutateAsync({ id: item.id, scope, occurrenceStart: item.occurrenceStart });
+      onClose();
+    },
+  });
+  const { editScope } = editing;
   // 「すべて」の編集はマスター（先頭の回の日時）から始めるので取り直す
   const master = useQuery({
     ...eventQueryOptions(item?.id ?? ''),
@@ -41,31 +47,6 @@ export function EventDetailDialog({ item, onClose }: Props) {
   });
 
   if (!item) return null;
-
-  const chooseScope = (action: '編集' | '削除') => {
-    if (item.isRecurring) {
-      setPending(action);
-    } else {
-      proceed(action, 'all');
-    }
-  };
-
-  const proceed = async (action: '編集' | '削除', scope: RecurrenceScope) => {
-    setPending(null);
-    if (action === '編集') {
-      setEditScope(scope);
-      return;
-    }
-    if (
-      !window.confirm(
-        scope === 'all' && item.isRecurring ? 'すべての回を削除しますか？' : '削除しますか？',
-      )
-    ) {
-      return;
-    }
-    await deleteEvent.mutateAsync({ id: item.id, scope, occurrenceStart: item.occurrenceStart });
-    onClose();
-  };
 
   // この回だけ／これ以降は開いている回の日時から、すべてはマスターの日時から始める
   const initialValues: EventFormValues | null =
@@ -102,10 +83,10 @@ export function EventDetailDialog({ item, onClose }: Props) {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => chooseScope('削除')}>
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => editing.start('delete')}>
             削除
           </Button>
-          <Button startIcon={<EditIcon />} onClick={() => chooseScope('編集')}>
+          <Button startIcon={<EditIcon />} onClick={() => editing.start('edit')}>
             編集
           </Button>
           <Button onClick={onClose} variant="contained">
@@ -115,15 +96,14 @@ export function EventDetailDialog({ item, onClose }: Props) {
       </Dialog>
 
       <RecurrenceScopeDialog
-        open={pending !== null}
-        action={pending ?? '編集'}
-        onSelect={(scope) => pending && proceed(pending, scope)}
-        onClose={() => setPending(null)}
+        open={editing.pending !== null}
+        action={editing.pending ?? 'edit'}
+        onSelect={editing.selectScope}
+        onClose={editing.cancel}
       />
 
       {editScope !== null && initialValues && (
         <EventForm
-          open
           title={
             editScope === 'this'
               ? 'この回だけ編集'
@@ -142,7 +122,7 @@ export function EventDetailDialog({ item, onClose }: Props) {
             })
           }
           onClose={() => {
-            setEditScope(null);
+            editing.endEdit();
             onClose();
           }}
         />

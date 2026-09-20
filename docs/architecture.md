@@ -71,8 +71,8 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts, __tests__/）
     calendar/  events/  tasks/  expenses/  lemon/  users/  dashboard/
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定）  theme.ts  push.ts  date.ts  auth.ts
-    ui/（AppShell, ナビゲーション, 共通部品）
+    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit）  theme.ts（createAppTheme・useColorMode）  push.ts  date.ts  auth.ts
+    ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
   dev.ts                      # ローカル起動用（@hono/node-server）

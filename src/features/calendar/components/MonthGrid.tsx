@@ -4,14 +4,18 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import { isToday, monthGridDays, WEEKDAY_LABELS } from '../../../lib/date.ts';
+import { WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import type { CalendarItem } from '../queries.ts';
+import { type CalendarItem, ownerOf } from '../queries.ts';
+import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { layoutLanes } from './lane-layout.ts';
 
 type Props = {
+  /** 表示する月 "YYYY-MM"（月外の日を薄く出す判定） */
   month: string;
+  /** グリッドの 42 日（月曜始まり 6 週）。取得範囲と同じものを渡す */
+  days: DateString[];
   itemsByDate: Map<DateString, CalendarItem[]>;
   /** 日をタップしたとき（日表示へ移る） */
   onSelectDate: (date: DateString) => void;
@@ -30,12 +34,11 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
  * - 色は所有者・担当者のユーザーの色
  */
-export function MonthGrid({ month, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
+export function MonthGrid({ month, days, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down('sm'));
   const colorFor = useUserColor();
   const laneHeight = compact ? 17 : 20;
-  const days = monthGridDays(month);
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
 
   // 1 週の行に入るレーン数を実測から決める
@@ -75,7 +78,7 @@ export function MonthGrid({ month, itemsByDate, onSelectDate, onSelectItem, heig
               py: 0.25,
               lineHeight: 1.4,
               fontSize: '0.7rem',
-              color: i === 5 ? 'info.main' : i === 6 ? 'error.main' : 'text.secondary',
+              color: i < 5 ? 'text.secondary' : weekdayColor(i),
             }}
           >
             {label}
@@ -130,7 +133,7 @@ function WeekRow({
   const overflow = placed.some((q) => q.lane >= maxLanes);
   const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
   const visible = placed.filter((p) => p.lane < hiddenLaneStart);
-  const hiddenPerCol = Array(7).fill(0) as number[];
+  const hiddenPerCol = new Array<number>(7).fill(0);
   for (const p of placed) {
     if (p.lane >= hiddenLaneStart)
       for (let c = p.col; c < p.col + p.span; c++) hiddenPerCol[c] = (hiddenPerCol[c] ?? 0) + 1;
@@ -154,7 +157,6 @@ function WeekRow({
       {/* 背景の日セル: 罫線・今日・タップ */}
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
-        const today = isToday(date);
         return (
           <Box
             key={date}
@@ -178,31 +180,7 @@ function WeekRow({
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <Typography
-              variant="caption"
-              component="span"
-              sx={{
-                width: 18,
-                height: 18,
-                lineHeight: '18px',
-                textAlign: 'center',
-                borderRadius: '50%',
-                fontSize: '0.7rem',
-                fontWeight: today ? 700 : 400,
-                bgcolor: today ? 'primary.main' : 'transparent',
-                color: today
-                  ? 'primary.contrastText'
-                  : !inMonth
-                    ? 'text.disabled'
-                    : col === 5
-                      ? 'info.main'
-                      : col === 6
-                        ? 'error.main'
-                        : 'text.primary',
-              }}
-            >
-              {Number(date.slice(8))}
-            </Typography>
+            <DayNumber date={date} size={18} muted={!inMonth} />
           </Box>
         );
       })}
@@ -211,7 +189,7 @@ function WeekRow({
           key={p.key}
           placed={p}
           compact={compact}
-          colors={colorFor(p.item.kind === 'event' ? p.item.ownerUserId : p.item.assigneeUserId)}
+          colors={colorFor(ownerOf(p.item))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}

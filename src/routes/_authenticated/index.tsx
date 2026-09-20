@@ -15,7 +15,7 @@ import { formatDateWithYear, today } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { settingsNavItem } from '../../lib/ui/navigation.ts';
-import { useIsDesktop } from '../../lib/ui/useIsMobile.ts';
+import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
   loader: ({ context }) => ensureData(context.queryClient, dashboardQueryOptions),

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateRangeQuerySchema, instantSchema, uuidSchema } from './common.ts';
+import { instantSchema, uuidSchema } from './common.ts';
 
 export const REMIND_BEFORE_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440] as const;
 
@@ -67,5 +67,3 @@ export const deleteEventSchema = z
   .object(scopeFields)
   .refine(requireOccurrenceStart, occurrenceStartMessage);
 export type DeleteEventInput = z.infer<typeof deleteEventSchema>;
-
-export const listEventsQuerySchema = dateRangeQuerySchema;

@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -20,6 +21,7 @@ import {
 import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
 import { formatDate } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
+import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   loader: ({ context }) =>
@@ -44,12 +46,12 @@ function ExpensesPage() {
 
   return (
     <>
-      <div style={{ padding: '12px 16px' }}>
+      <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
           残高
         </Typography>
         {balance && <BalanceSummary balance={balance} />}
-      </div>
+      </Box>
 
       <List disablePadding>
         {expenses.length === 0 && (
@@ -85,21 +87,11 @@ function ExpensesPage() {
         ))}
       </List>
 
-      <Fab
-        color="primary"
-        aria-label="立替を追加"
-        onClick={() => setAdding(true)}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-        }}
-      >
+      <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
       {adding && (
         <ExpenseForm
-          open
           onSubmit={(input) => addExpense.mutateAsync(input)}
           onClose={() => setAdding(false)}
         />

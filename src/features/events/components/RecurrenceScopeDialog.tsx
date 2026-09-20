@@ -6,10 +6,11 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
+import type { RecurrenceAction } from '../../calendar/use-recurrence-editing.ts';
 
 type Props = {
   open: boolean;
-  action: '編集' | '削除';
+  action: RecurrenceAction;
   onSelect: (scope: RecurrenceScope) => void;
   onClose: () => void;
 };
@@ -24,7 +25,7 @@ const OPTIONS: { scope: RecurrenceScope; label: string; description: string }[] 
 export function RecurrenceScopeDialog({ open, action, onSelect, onClose }: Props) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>繰り返しの{action}</DialogTitle>
+      <DialogTitle>繰り返しの{action === 'edit' ? '編集' : '削除'}</DialogTitle>
       <List>
         {OPTIONS.map((option) => (
           <ListItemButton key={option.scope} onClick={() => onSelect(option.scope)}>

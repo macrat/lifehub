@@ -10,21 +10,26 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
-import { useTheme } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
+import { useIsDesktop } from './use-breakpoint.ts';
 
 const DRAWER_WIDTH = 220;
 /** 下部ナビの高さ。ページ側で「画面いっぱい」を計算するときに使う */
 export const BOTTOM_NAV_HEIGHT = 56;
 /** AppBar（dense）の高さ */
 export const APP_BAR_HEIGHT = 48;
+/** 右下の追加ボタン（FAB / SpeedDial）の位置。スマホでは下部ナビの上に置く */
+export const FAB_SX = {
+  position: 'fixed',
+  right: 16,
+  bottom: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 24 },
+} as const;
 
 type Props = {
   children: ReactNode;
@@ -38,8 +43,7 @@ type Props = {
  * - 設定は PC のサイドナビにだけ置く。スマホではホームの末尾から開く（下部ナビは主要 4 画面に絞る）。
  */
 export function AppShell({ children }: Props) {
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
   const busy = useIsFetching() + useIsMutating() > 0;
 

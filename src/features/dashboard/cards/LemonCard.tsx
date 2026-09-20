@@ -4,7 +4,7 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 export function LemonCard({ card }: { card: DashboardCardOf<'lemon'> }) {
   return (
-    <DashboardCardFrame title="レモン" to="/lemon">
+    <DashboardCardFrame title="レモン" link={{ to: '/lemon' }}>
       <CareStatusGrid statuses={card.data} />
     </DashboardCardFrame>
   );

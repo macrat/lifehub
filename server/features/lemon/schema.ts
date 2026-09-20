@@ -1,4 +1,5 @@
 import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { CareType } from '../../../shared/validation/lemon.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -9,8 +10,7 @@ export const lemonCareLogs = pgTable(
   'lemon_care_logs',
   {
     id: uuid('id').primaryKey(),
-    /** water / mist / fertilize / bloom / harvest / note */
-    careType: text('care_type').notNull(),
+    careType: text('care_type').$type<CareType>().notNull(),
     doneAt: timestamp('done_at', { withTimezone: true }).notNull(),
     /** note 種別は必須、他は任意 */
     note: text('note'),

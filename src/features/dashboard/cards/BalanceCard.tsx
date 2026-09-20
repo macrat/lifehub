@@ -4,7 +4,7 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 export function BalanceCard({ card }: { card: DashboardCardOf<'expenses-balance'> }) {
   return (
-    <DashboardCardFrame title="立替残高" to="/expenses">
+    <DashboardCardFrame title="立替残高" link={{ to: '/expenses' }}>
       <BalanceSummary balance={card.data} />
     </DashboardCardFrame>
   );

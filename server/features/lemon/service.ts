@@ -51,7 +51,7 @@ export async function deleteLog(id: string): Promise<void> {
 function toLog(row: LemonCareLogRow): CareLog {
   return {
     id: row.id,
-    careType: row.careType as CareType,
+    careType: row.careType,
     doneAt: row.doneAt.toISOString(),
     note: row.note,
     createdBy: row.createdBy,

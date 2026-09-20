@@ -97,7 +97,7 @@ function CalendarPage() {
         : view === 'day'
           ? [date]
           : [listFilters.from, listFilters.to];
-  const range = { from: days[0] as DateString, to: days[days.length - 1] as DateString };
+  const range = { from: days[0] ?? date, to: days.at(-1) ?? date };
   const { data: items = [] } = useQuery(calendarItemsQueryOptions(range));
   const itemsByDate = groupByDate(items);
 
@@ -123,7 +123,7 @@ function CalendarPage() {
     view === 'month'
       ? formatMonth(date)
       : view === 'week'
-        ? formatDateRange(days[0] as DateString, days[6] as DateString)
+        ? formatDateRange(days[0] ?? date, days[6] ?? date)
         : formatDateWithYear(date);
 
   const activeFilters = [
@@ -176,6 +176,7 @@ function CalendarPage() {
           {view === 'month' ? (
             <MonthGrid
               month={month}
+              days={days}
               itemsByDate={itemsByDate}
               onSelectDate={(d) => setSearch({ view: 'day', date: d })}
               onSelectItem={setSelected}
@@ -211,7 +212,6 @@ function CalendarPage() {
       <AddMenu onAddEvent={() => setCreating('event')} onAddTask={() => setCreating('task')} />
       {creating === 'event' && (
         <EventForm
-          open
           title="予定を追加"
           initial={defaultEventValues(date)}
           onSubmit={(input) => createEvent.mutateAsync(input)}
@@ -220,7 +220,6 @@ function CalendarPage() {
       )}
       {creating === 'task' && (
         <TaskForm
-          open
           title="タスクを追加"
           initial={defaultTaskValues(date)}
           onSubmit={(input) => createTask.mutateAsync(input)}

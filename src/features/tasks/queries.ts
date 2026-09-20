@@ -1,7 +1,11 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
+import { useInvalidate } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
+import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
+
+const TASKS_QUERY_KEY = ['tasks'] as const;
 
 export type CreateTaskBody = InferRequestType<typeof api.tasks.$post>['json'];
 export type UpdateTaskBody = InferRequestType<(typeof api.tasks)[':id']['$put']>['json'];
@@ -9,7 +13,7 @@ export type DeleteTaskBody = InferRequestType<(typeof api.tasks)[':id']['$delete
 
 export function taskQueryOptions(id: string) {
   return queryOptions({
-    queryKey: ['tasks', id],
+    queryKey: [...TASKS_QUERY_KEY, id],
     queryFn: async () => {
       const res = await ensureOk(await api.tasks[':id'].$get({ param: { id } }));
       return res.json();
@@ -17,17 +21,12 @@ export function taskQueryOptions(id: string) {
   });
 }
 
-function useInvalidate() {
-  const queryClient = useQueryClient();
-  return () => {
-    queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
-    queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-  };
-}
+/** 書き込み後に無効化するクエリ */
+const useInvalidateAfterWrite = () =>
+  useInvalidate(CALENDAR_QUERY_KEY, TASKS_QUERY_KEY, DASHBOARD_QUERY_KEY);
 
 export function useCreateTask() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async (input: CreateTaskBody) => {
       const res = await ensureOk(await api.tasks.$post({ json: input }));
@@ -38,7 +37,7 @@ export function useCreateTask() {
 }
 
 export function useUpdateTask() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateTaskBody & { id: string }) => {
       const res = await ensureOk(await api.tasks[':id'].$put({ param: { id }, json: input }));
@@ -49,7 +48,7 @@ export function useUpdateTask() {
 }
 
 export function useDeleteTask() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async ({ id, ...input }: DeleteTaskBody & { id: string }) => {
       await ensureOk(await api.tasks[':id'].$delete({ param: { id }, json: input }));
@@ -60,7 +59,7 @@ export function useDeleteTask() {
 
 /** 完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。 */
 export function useToggleTaskCompletion() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async ({
       id,

@@ -39,16 +39,16 @@ function AdminUsersPage() {
         </Button>
       </AppBarContent>
       <UserList users={users} onEdit={setEditing} />
-      <UserForm
-        mode="create"
-        open={creating}
-        onClose={() => setCreating(false)}
-        onSubmit={(input) => createUser.mutateAsync(input)}
-      />
+      {creating && (
+        <UserForm
+          mode="create"
+          onClose={() => setCreating(false)}
+          onSubmit={(input) => createUser.mutateAsync(input)}
+        />
+      )}
       {editing && (
         <UserForm
           mode="edit"
-          open
           user={editing}
           onClose={() => setEditing(null)}
           onSubmit={(input) => updateUser.mutateAsync({ id: editing.id, ...input })}

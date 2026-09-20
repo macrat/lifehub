@@ -1,7 +1,10 @@
 import { addDays } from 'date-fns';
 import { toDateString } from '../../../shared/date.ts';
-import type { NotificationSource } from '../../lib/notifications/types.ts';
-import { parseKeyTime } from '../../lib/notifications/types.ts';
+import {
+  type NotificationSource,
+  notificationTimeFormatter,
+  splitKey,
+} from '../../lib/notifications/types.ts';
 import { type EventOccurrence, listOccurrences } from './service.ts';
 
 const SOURCE_ID = 'event';
@@ -18,15 +21,6 @@ function remindAt(occurrence: EventOccurrence): Date | null {
     new Date(occurrence.startsAt).getTime() - occurrence.remindBeforeMinutes * 60 * 1000,
   );
 }
-
-const timeFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: 'Asia/Tokyo',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
 
 /** 予定の開始 remind_before_minutes 前に、所有者（共有なら全員）の全端末へ */
 export const eventsNotificationSource: NotificationSource = {
@@ -46,15 +40,9 @@ export const eventsNotificationSource: NotificationSource = {
     return planned;
   },
   resolve: async (key) => {
-    const parts = key.split(':');
-    const id = parts[1];
-    const scheduledAt = parseKeyTime(key);
-    if (!id || !scheduledAt) return null;
-    // "event:<id>:" の後ろから末尾の ":<at>" を除いたものが occurrenceStart
-    const occurrenceStart = key.slice(
-      `${SOURCE_ID}:${id}:`.length,
-      key.length - scheduledAt.toISOString().length - 1,
-    );
+    const parsed = splitKey(SOURCE_ID, key);
+    if (!parsed) return null;
+    const { id, rest: occurrenceStart, scheduledAt } = parsed;
     const anchor = new Date(occurrenceStart);
     if (Number.isNaN(anchor.getTime())) return null;
     const occurrences = await listOccurrences({
@@ -72,7 +60,7 @@ export const eventsNotificationSource: NotificationSource = {
       title: occurrence.title,
       body: occurrence.allDay
         ? `${toDateString(new Date(occurrence.startsAt))} 終日`
-        : `${timeFormatter.format(new Date(occurrence.startsAt))} 開始${occurrence.location ? ` ・ ${occurrence.location}` : ''}`,
+        : `${notificationTimeFormatter.format(new Date(occurrence.startsAt))} 開始${occurrence.location ? ` ・ ${occurrence.location}` : ''}`,
       url: `/calendar?date=${toDateString(new Date(occurrence.startsAt))}`,
       userIds: occurrence.ownerUserId ? [occurrence.ownerUserId] : null,
     };

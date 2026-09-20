@@ -1,7 +1,7 @@
-import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { DEFAULT_HUE, fillContrastText, hueColor } from '../../../shared/color.ts';
+import { useColorMode } from '../../lib/theme.ts';
 import { usersQueryOptions } from './queries.ts';
 
 export type ItemColors = {
@@ -19,8 +19,7 @@ export type ItemColors = {
  */
 export function useUserColor(): (userId: string | null) => ItemColors {
   const { data: users = [] } = useQuery(usersQueryOptions);
-  const dark = useMediaQuery('(prefers-color-scheme: dark)');
-  const mode = dark ? 'dark' : 'light';
+  const mode = useColorMode();
   return useCallback(
     (userId: string | null) => {
       const hue = users.find((u) => u.id === userId)?.hue ?? DEFAULT_HUE;

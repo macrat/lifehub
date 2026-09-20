@@ -11,10 +11,9 @@ import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { hueColor } from '../../../shared/color.ts';
 import { HueSlider } from '../../features/users/components/HueSlider.tsx';
 import { useUpdateUser } from '../../features/users/queries.ts';
@@ -26,6 +25,7 @@ import {
   useSubscribePush,
   useUnsubscribePush,
 } from '../../lib/push.ts';
+import { useColorMode } from '../../lib/theme.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -42,7 +42,7 @@ function SettingsPage() {
   const logout = useLogout();
   return (
     <>
-      <MyColorSection hue={me?.hue ?? 0} name={me?.name ?? ''} />
+      <MyColorSection />
       <PushSection />
       <List
         subheader={
@@ -75,13 +75,14 @@ function SettingsPage() {
   );
 }
 
-/** 自分の色。スライダーを離した時点で保存し、アクセントカラーが即座に変わる */
-function MyColorSection({ hue, name }: { hue: number; name: string }) {
+/** 色。スライダーを離した時点で保存し、アクセントカラーが即座に変わる。ドラッグ中の値だけをローカルに持ち、保存後はサーバーの値に戻す */
+function MyColorSection() {
   const { data: me } = useQuery(meQueryOptions);
   const update = useUpdateUser();
-  const [value, setValue] = useState(hue);
-  useEffect(() => setValue(hue), [hue]);
-  const dark = useMediaQuery('(prefers-color-scheme: dark)');
+  const [draft, setDraft] = useState<number | null>(null);
+  const mode = useColorMode();
+  const value = draft ?? me?.hue ?? 0;
+  const name = me?.name ?? '';
   return (
     <List
       subheader={
@@ -92,9 +93,7 @@ function MyColorSection({ hue, name }: { hue: number; name: string }) {
     >
       <ListItem>
         <ListItemAvatar>
-          <Avatar sx={{ bgcolor: hueColor(value, 'fill', dark ? 'dark' : 'light') }}>
-            {name.slice(0, 1)}
-          </Avatar>
+          <Avatar sx={{ bgcolor: hueColor(value, 'fill', mode) }}>{name.slice(0, 1)}</Avatar>
         </ListItemAvatar>
         <ListItemText
           primary={name}
@@ -104,8 +103,10 @@ function MyColorSection({ hue, name }: { hue: number; name: string }) {
       <Stack sx={{ px: 2, pb: 1 }}>
         <HueSlider
           value={value}
-          onChange={setValue}
-          onCommit={(v) => me && update.mutate({ id: me.id, hue: v })}
+          onChange={setDraft}
+          onCommit={(v) =>
+            me && update.mutate({ id: me.id, hue: v }, { onSettled: () => setDraft(null) })
+          }
         />
         {update.error && <Alert severity="error">{update.error.message}</Alert>}
       </Stack>

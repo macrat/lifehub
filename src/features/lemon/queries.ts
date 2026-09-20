@@ -1,6 +1,8 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation } from '@tanstack/react-query';
 import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
+import { useInvalidate } from '../../lib/query-client.ts';
+import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 export type CreateCareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
 export type CareStatus = InferResponseType<typeof api.lemon.status.$get, 200>[number];
@@ -17,16 +19,11 @@ export const lemonLogsQueryOptions = queryOptions({
   queryFn: async () => (await ensureOk(await api.lemon.logs.$get())).json(),
 });
 
-function useInvalidate() {
-  const queryClient = useQueryClient();
-  return () => {
-    queryClient.invalidateQueries({ queryKey: LEMON_QUERY_KEY });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-  };
-}
+/** 書き込み後に無効化するクエリ */
+const useInvalidateAfterWrite = () => useInvalidate(LEMON_QUERY_KEY, DASHBOARD_QUERY_KEY);
 
 export function useLogCare() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async (input: CreateCareLogBody) =>
       (await ensureOk(await api.lemon.logs.$post({ json: input }))).json(),
@@ -35,7 +32,7 @@ export function useLogCare() {
 }
 
 export function useDeleteCareLog() {
-  const invalidate = useInvalidate();
+  const invalidate = useInvalidateAfterWrite();
   return useMutation({
     mutationFn: async (id: string) => {
       await ensureOk(await api.lemon.logs[':id'].$delete({ param: { id } }));

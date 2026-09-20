@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
-import { type CalendarItem, groupByDate } from '../queries.ts';
+import { type CalendarItem, groupByDate, ownerOf } from '../queries.ts';
 import { DayList } from './DayList.tsx';
 
 export type ListFilters = {
@@ -121,7 +121,7 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
 
 function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.kind !== 'all' && item.kind !== f.kind) return false;
-  const owner = item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
+  const owner = ownerOf(item);
   if (f.owner === 'shared' && owner !== null) return false;
   if (f.owner !== 'all' && f.owner !== 'shared' && owner !== f.owner) return false;
   if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;

@@ -1,10 +1,15 @@
 import { addDays, toDateString } from '../../../shared/date.ts';
-import type { NotificationSource, PlannedNotification } from '../../lib/notifications/types.ts';
-import { parseKeyTime } from '../../lib/notifications/types.ts';
+import {
+  type NotificationSource,
+  notificationTimeFormatter,
+  type PlannedNotification,
+  splitKey,
+} from '../../lib/notifications/types.ts';
 import { listOccurrences, type TaskOccurrence } from './service.ts';
 
 const SOURCE_ID = 'task';
-type Kind = 'start' | 'due';
+const KINDS = ['start', 'due'] as const;
+type Kind = (typeof KINDS)[number];
 
 /** キー: task:<id>:<occurrenceKey>:<start|due>:<配信予定時刻 ISO> */
 function keyOf(occurrence: TaskOccurrence, kind: Kind, at: Date): string {
@@ -18,15 +23,6 @@ function notifyAt(occurrence: TaskOccurrence, kind: Kind): Date | null {
   return occurrence.notifyAtDue && occurrence.dueAt ? new Date(occurrence.dueAt) : null;
 }
 
-const timeFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: 'Asia/Tokyo',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
 /** タスクの開始日時・期限日時ちょうどに、担当者（共有なら全員）の全端末へ */
 export const tasksNotificationSource: NotificationSource = {
   id: SOURCE_ID,
@@ -38,7 +34,7 @@ export const tasksNotificationSource: NotificationSource = {
     );
     const planned: PlannedNotification[] = [];
     for (const occurrence of occurrences) {
-      for (const kind of ['start', 'due'] as const) {
+      for (const kind of KINDS) {
         const at = notifyAt(occurrence, kind);
         if (!at || at < range.from || at >= range.to) continue;
         planned.push({ key: keyOf(occurrence, kind, at), at });
@@ -47,18 +43,13 @@ export const tasksNotificationSource: NotificationSource = {
     return planned;
   },
   resolve: async (key) => {
-    const scheduledAt = parseKeyTime(key);
-    const parts = key.split(':');
-    const id = parts[1];
-    if (!id || !scheduledAt) return null;
-    const rest = key.slice(
-      `${SOURCE_ID}:${id}:`.length,
-      key.length - scheduledAt.toISOString().length - 1,
-    );
+    const parsed = splitKey(SOURCE_ID, key);
+    if (!parsed) return null;
+    const { id, rest, scheduledAt } = parsed;
     const kindIndex = rest.lastIndexOf(':');
     const occurrenceKey = rest.slice(0, kindIndex);
-    const kind = rest.slice(kindIndex + 1) as Kind;
-    if (kind !== 'start' && kind !== 'due') return null;
+    const kind = KINDS.find((k) => k === rest.slice(kindIndex + 1));
+    if (!kind) return null;
     const date = toDateString(scheduledAt);
     const occurrences = await listOccurrences(
       { from: addDays(date, -1), to: addDays(date, 1) },
@@ -70,7 +61,7 @@ export const tasksNotificationSource: NotificationSource = {
     if (!at || at.getTime() !== scheduledAt.getTime()) return null;
     return {
       title: `タスク: ${occurrence.title}`,
-      body: `${kind === 'start' ? '開始' : '期限'} ${timeFormatter.format(at)}`,
+      body: `${kind === 'start' ? '開始' : '期限'} ${notificationTimeFormatter.format(at)}`,
       url: `/calendar?date=${occurrence.placementDate}`,
       userIds: occurrence.assigneeUserId ? [occurrence.assigneeUserId] : null,
     };

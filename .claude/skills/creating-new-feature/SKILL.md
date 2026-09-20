@@ -23,10 +23,10 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `notifications.ts` → `server/lib/notifications/registry.ts`
    - `mcp.ts` → `server/lib/mcp/server.ts`
 6. **クライアント feature** `src/features/<name>/` を作る:
-   - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に関連クエリを invalidate）
-   - `components/`（表示に専念。状態とロジックは queries / service に置く）
+   - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に `useInvalidate`（`src/lib/query-client.ts`）で関連クエリと `DASHBOARD_QUERY_KEY` を invalidate）
+   - `components/`（表示に専念。状態とロジックは queries / service に置く。入力フォームは `FormDialog` + `useFormSubmit`（`src/lib/form.ts`）で作り、呼び出し側が条件付きでマウントする。右下の追加ボタンは `FAB_SX`）
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
-   - ホームのカードは `src/features/dashboard/cards/` に追加し、`cardRenderers` に登録する
+   - ホームのカードは `src/features/dashboard/cards/` に追加し、`cards/index.tsx` の `renderCard` に 1 行足す
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
 8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。
 

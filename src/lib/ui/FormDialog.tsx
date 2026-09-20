@@ -5,10 +5,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import type { FormEvent, ReactNode } from 'react';
-import { useIsMobile } from './useIsMobile.ts';
+import { useIsMobile } from './use-breakpoint.ts';
 
 type Props = {
-  open: boolean;
   title: string;
   /** 右下の操作（キャンセル・保存）。スマホでは画面下に固定する */
   actions: ReactNode;
@@ -19,11 +18,10 @@ type Props = {
 };
 
 /**
- * 入力フォーム用のダイアログ。<form> を含み、Enter で送信できる。
+ * 入力フォーム用のダイアログ。<form> を含み、Enter で送信できる。常に開いた状態で描画し、呼び出し側が条件付きでマウントする（閉じたら状態も消える）。
  * スマホでは全画面にして閉じるボタンを見出しに置き、操作ボタンを下端に固定する（キーボード表示時も届くように）。
  */
 export function FormDialog({
-  open,
   title,
   actions,
   onClose,
@@ -33,7 +31,7 @@ export function FormDialog({
 }: Props) {
   const isMobile = useIsMobile();
   return (
-    <Dialog open={open} onClose={onClose} fullScreen={isMobile} fullWidth maxWidth={maxWidth}>
+    <Dialog open onClose={onClose} fullScreen={isMobile} fullWidth maxWidth={maxWidth}>
       <form onSubmit={onSubmit} noValidate style={{ display: 'contents' }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
           <span style={{ flexGrow: 1 }}>{title}</span>

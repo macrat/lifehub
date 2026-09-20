@@ -22,6 +22,7 @@ import {
 } from '../../features/lemon/queries.ts';
 import { formatDateTime } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
+import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   loader: ({ context }) =>
@@ -90,17 +91,12 @@ function LemonPage() {
         color="primary"
         aria-label="レモンの記録を追加"
         onClick={() => setAdding('water')}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-        }}
+        sx={FAB_SX}
       >
         <AddIcon />
       </Fab>
       {adding && (
         <CareLogForm
-          open
           initialCareType={adding}
           onSubmit={(input) => logCare.mutateAsync(input)}
           onClose={() => setAdding(null)}

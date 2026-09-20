@@ -2,11 +2,10 @@ import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { addDays, startOfDate } from '../../../shared/date.ts';
-import { uuidSchema } from '../../../shared/validation/common.ts';
+import { dateRangeQuerySchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
   createEventSchema,
   deleteEventSchema,
-  listEventsQuerySchema,
   updateEventSchema,
 } from '../../../shared/validation/events.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
@@ -15,7 +14,7 @@ import * as service from './service.ts';
 const idParam = z.object({ id: uuidSchema });
 
 export const eventsRoutes = new Hono<AppEnv>()
-  .get('/', zValidator('query', listEventsQuerySchema), async (c) => {
+  .get('/', zValidator('query', dateRangeQuerySchema), async (c) => {
     const { from, to } = c.req.valid('query');
     const items = await service.listOccurrences({
       from: startOfDate(from),

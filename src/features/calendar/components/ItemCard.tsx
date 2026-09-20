@@ -9,7 +9,13 @@ import { useOnline } from '../../../lib/online.ts';
 import { useToggleTaskCompletion } from '../../tasks/queries.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
+import {
+  type CalendarEventItem,
+  type CalendarItem,
+  type CalendarTaskItem,
+  ownerOf,
+  taskTime,
+} from '../queries.ts';
 
 type Props = {
   item: CalendarItem;
@@ -30,7 +36,7 @@ export function ItemCard({ item, onClick }: Props) {
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
-  const ownerId = item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
+  const ownerId = ownerOf(item);
   const owner = label(ownerId);
   const colors = colorFor(ownerId);
   const meta = [owner, item.kind === 'event' ? item.location : null].filter(Boolean).join(' · ');
@@ -154,7 +160,7 @@ function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
     return sameDay ? { main: formatTime(iso) } : { main: formatDate(iso), sub: formatTime(iso) };
   };
   if (item.completedAt) return { caption: '完了', ...withDate(item.completedAt) };
-  if (item.dueAt) return { caption: '期限', ...withDate(item.dueAt) };
-  if (item.startsAt) return { caption: '開始', ...withDate(item.startsAt) };
-  return { main: '' };
+  const time = taskTime(item);
+  if (!time) return { main: '' };
+  return { caption: time.kind === 'due' ? '期限' : '開始', ...withDate(time.at) };
 }

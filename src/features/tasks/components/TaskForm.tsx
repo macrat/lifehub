@@ -5,12 +5,12 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { createTaskSchema } from '../../../../shared/validation/tasks.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
-import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import {
@@ -39,7 +39,6 @@ export type TaskFormValues = {
 };
 
 type Props = {
-  open: boolean;
   title: string;
   initial: TaskFormValues;
   /** this のときは担当・繰り返し・通知は変更できない（この回だけの変更は日時・タイトル・メモのみ） */
@@ -61,63 +60,47 @@ export function defaultTaskValues(date?: DateString): TaskFormValues {
   };
 }
 
-export function TaskForm({ open, title, initial, scope = 'all', onSubmit, onClose }: Props) {
+export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
   const { options: ownerOptions } = useOwnerLabel();
   const [freq, setFreq] = useState<RecurrenceFreq>(parseRRule(initial.rrule).freq);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const parsedRRule = parseRRule(initial.rrule);
   const thisOnly = scope === 'this';
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const fd = new FormData(event.currentTarget);
-    const text = (key: string) => {
-      const v = fd.get(key);
-      return typeof v === 'string' && v !== '' ? v : null;
-    };
-    const startsRaw = text('startsAt');
-    const dueRaw = text('dueAt');
-    const raw = {
-      title: text('title') ?? '',
-      note: text('note'),
-      assigneeUserId: thisOnly ? initial.assigneeUserId : fromSelect(text('assigneeUserId')),
-      startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
-      dueAt: dueRaw ? fromDateTimeLocalValue(dueRaw) : null,
-      rrule: thisOnly
-        ? initial.rrule
-        : parsedRRule.isSimple
-          ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
-          : initial.rrule,
-      notifyAtStart: thisOnly ? initial.notifyAtStart : fd.get('notifyAtStart') === 'on',
-      notifyAtDue: thisOnly ? initial.notifyAtDue : fd.get('notifyAtDue') === 'on',
-    };
-    const parsed = parseValues(createTaskSchema, raw);
-    if (parsed.errors) {
-      setErrors(parsed.errors);
-      return;
-    }
-    setErrors({});
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      await onSubmit({
-        ...parsed.data,
-        startsAt: parsed.data.startsAt?.toISOString() ?? null,
-        dueAt: parsed.data.dueAt?.toISOString() ?? null,
-      });
-      onClose();
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : '保存に失敗しました');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+    schema: createTaskSchema,
+    values: (fd) => {
+      const text = (key: string) => {
+        const v = fd.get(key);
+        return typeof v === 'string' && v !== '' ? v : null;
+      };
+      const startsRaw = text('startsAt');
+      const dueRaw = text('dueAt');
+      return {
+        title: text('title') ?? '',
+        note: text('note'),
+        assigneeUserId: thisOnly ? initial.assigneeUserId : fromSelect(text('assigneeUserId')),
+        startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
+        dueAt: dueRaw ? fromDateTimeLocalValue(dueRaw) : null,
+        rrule: thisOnly
+          ? initial.rrule
+          : parsedRRule.isSimple
+            ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
+            : initial.rrule,
+        notifyAtStart: thisOnly ? initial.notifyAtStart : fd.get('notifyAtStart') === 'on',
+        notifyAtDue: thisOnly ? initial.notifyAtDue : fd.get('notifyAtDue') === 'on',
+      };
+    },
+    onSubmit: (data) =>
+      onSubmit({
+        ...data,
+        startsAt: data.startsAt?.toISOString() ?? null,
+        dueAt: data.dueAt?.toISOString() ?? null,
+      }),
+    onSuccess: onClose,
+  });
 
   return (
     <FormDialog
-      open={open}
       onClose={onClose}
       maxWidth="sm"
       title={title}

@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import type { Balance } from '../queries.ts';
@@ -11,14 +12,14 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
     return <Typography color="text.secondary">精算済み</Typography>;
   }
   return (
-    <div>
+    <Box>
       <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
         {yen.format(balance.amount)}
       </Typography>
       <Typography variant="body2" color="text.secondary">
         {label(balance.fromUserId)} が {label(balance.toUserId)} に支払うと精算
       </Typography>
-    </div>
+    </Box>
   );
 }
 

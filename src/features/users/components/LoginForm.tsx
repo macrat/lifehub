@@ -1,9 +1,8 @@
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { type FormEvent, useState } from 'react';
 import { type LoginInput, loginSchema } from '../../../../shared/validation/users.ts';
-import { type FormErrors, parseForm } from '../../../lib/form.ts';
+import { formValues, useFormSubmit } from '../../../lib/form.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 
 type Props = {
@@ -11,28 +10,12 @@ type Props = {
 };
 
 export function LoginForm({ onSubmit }: Props) {
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const parsed = parseForm(loginSchema, new FormData(event.currentTarget));
-    if (parsed.errors) {
-      setErrors(parsed.errors);
-      return;
-    }
-    setErrors({});
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      await onSubmit(parsed.data);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'ログインに失敗しました');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+    schema: loginSchema,
+    values: formValues,
+    onSubmit,
+    errorMessage: 'ログインに失敗しました',
+  });
 
   return (
     <form onSubmit={handleSubmit} noValidate>

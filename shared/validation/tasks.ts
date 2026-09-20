@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateRangeQuerySchema, instantSchema, uuidSchema } from './common.ts';
+import { instantSchema, uuidSchema } from './common.ts';
 import { recurrenceScopeSchema, rruleSchema } from './events.ts';
 
 /** 単発タスクの occurrenceKey */
@@ -63,5 +63,3 @@ export type DeleteTaskInput = z.infer<typeof deleteTaskSchema>;
 export const completeTaskSchema = z.object({
   occurrenceKey: z.string().min(1).default(SINGLE_OCCURRENCE_KEY),
 });
-
-export const listTasksQuerySchema = dateRangeQuerySchema;

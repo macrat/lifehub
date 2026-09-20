@@ -7,15 +7,16 @@ import { useEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   formatTime,
-  isToday,
   minutesOfDay,
   toDateString,
   today,
   WEEKDAY_LABELS,
-  weekDays,
+  weekdayColor,
+  weekdayIndex,
 } from '../../../lib/date.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import type { CalendarItem, CalendarTaskItem } from '../queries.ts';
+import { type CalendarItem, ownerOf, taskTime } from '../queries.ts';
+import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
 import { layoutTimed, MIN_BLOCK_MINUTES, type TimedPlaced } from './timeline-layout.ts';
@@ -98,9 +99,8 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
         }}
       >
         <Box />
-        {days.map((day, i) => {
-          const isTodayCol = isToday(day);
-          const weekdayIndex = single ? weekdayOf(day) : i;
+        {days.map((day) => {
+          const weekday = weekdayIndex(day);
           return (
             <ButtonBase
               key={day}
@@ -123,32 +123,12 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
                 sx={{
                   fontSize: '0.7rem',
                   lineHeight: 1.2,
-                  color:
-                    weekdayIndex === 5
-                      ? 'info.main'
-                      : weekdayIndex === 6
-                        ? 'error.main'
-                        : 'text.secondary',
+                  color: weekday < 5 ? 'text.secondary' : weekdayColor(weekday),
                 }}
               >
-                {WEEKDAY_LABELS[weekdayIndex]}
+                {WEEKDAY_LABELS[weekday]}
               </Typography>
-              <Typography
-                component="span"
-                sx={{
-                  width: 28,
-                  height: 28,
-                  lineHeight: '28px',
-                  textAlign: 'center',
-                  borderRadius: '50%',
-                  fontSize: '0.95rem',
-                  fontWeight: isTodayCol ? 700 : 400,
-                  bgcolor: isTodayCol ? 'primary.main' : 'transparent',
-                  color: isTodayCol ? 'primary.contrastText' : 'text.primary',
-                }}
-              >
-                {Number(day.slice(8))}
-              </Typography>
+              <DayNumber date={day} size={28} />
             </ButtonBase>
           );
         })}
@@ -290,24 +270,10 @@ function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | nu
     if (item.allDay || item.dayCount > 1) return null;
     return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
   }
-  const instant = taskInstant(item);
-  if (!instant || toDateString(new Date(instant)) !== item.placementDate) return null;
-  const startMin = minutesOfDay(instant);
+  const time = taskTime(item);
+  if (!time || toDateString(new Date(time.at)) !== item.placementDate) return null;
+  const startMin = minutesOfDay(time.at);
   return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
-}
-
-/** タスクを時間軸に置くときの時刻: 期限 → 開始の優先 */
-function taskInstant(item: CalendarTaskItem): string | null {
-  return item.dueAt ?? item.startsAt;
-}
-
-function ownerOf(item: CalendarItem): string | null {
-  return item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
-}
-
-/** 月曜 = 0 の曜日番号 */
-function weekdayOf(day: DateString): number {
-  return weekDays(day).indexOf(day);
 }
 
 function TimedBlock({

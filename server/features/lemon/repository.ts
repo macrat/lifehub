@@ -1,4 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
+import type { CareType } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
 import { newId } from '../../lib/id.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
@@ -11,7 +12,7 @@ export async function findAll(): Promise<LemonCareLogRow[]> {
 }
 
 export async function insert(row: {
-  careType: string;
+  careType: CareType;
   doneAt: Date;
   note: string | null;
   createdBy: string;

@@ -4,6 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import SpeedDial from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
+import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
 
 type Props = {
   onAddEvent: () => void;
@@ -17,11 +18,7 @@ export function AddMenu({ onAddEvent, onAddTask }: Props) {
       ariaLabel="追加"
       icon={<SpeedDialIcon icon={<AddIcon />} />}
       FabProps={{ size: 'medium' }}
-      sx={{
-        position: 'fixed',
-        right: 16,
-        bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-      }}
+      sx={FAB_SX}
     >
       <SpeedDialAction
         icon={<ChecklistIcon />}

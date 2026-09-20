@@ -1,12 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { uuidSchema } from '../../../shared/validation/common.ts';
+import { dateRangeQuerySchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
   completeTaskSchema,
   createTaskSchema,
   deleteTaskSchema,
-  listTasksQuerySchema,
   updateTaskSchema,
 } from '../../../shared/validation/tasks.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
@@ -15,7 +14,7 @@ import * as service from './service.ts';
 const idParam = z.object({ id: uuidSchema });
 
 export const tasksRoutes = new Hono<AppEnv>()
-  .get('/', zValidator('query', listTasksQuerySchema), async (c) =>
+  .get('/', zValidator('query', dateRangeQuerySchema), async (c) =>
     c.json(await service.listOccurrences(c.req.valid('query'))),
   )
   .get('/:id', zValidator('param', idParam), async (c) =>
