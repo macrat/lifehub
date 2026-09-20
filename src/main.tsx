@@ -13,9 +13,37 @@ import { theme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { routeTree } from './routeTree.gen.ts';
 
+/**
+ * 検索パラメータは URLSearchParams でそのまま往復させる（既定の JSON 変換を使わない）。
+ * OAuth の認可フローでは better-auth が署名付きのクエリ（同名キーの繰り返しを含む）を /login と /consent に
+ * 付けて送ってくるため、ルーターが URL を書き換えると署名が壊れる。
+ */
+function parseSearch(searchStr: string): Record<string, string | string[]> {
+  const params = new URLSearchParams(searchStr);
+  const result: Record<string, string | string[]> = {};
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key);
+    result[key] = values.length > 1 ? values : (values[0] ?? '');
+  }
+  return result;
+}
+
+function stringifySearch(search: Record<string, unknown>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(search)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) for (const v of value) params.append(key, String(v));
+    else params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : '';
+}
+
 const router = createRouter({
   routeTree,
   context: { queryClient },
+  parseSearch,
+  stringifySearch,
   defaultPreload: 'intent',
   scrollRestoration: true,
   defaultErrorComponent: ErrorPage,

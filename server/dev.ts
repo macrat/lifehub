@@ -13,6 +13,12 @@ import { app } from './app.ts';
 const port = Number(process.env.PORT ?? 3000);
 
 const server = new Hono();
+// 本番では vercel.json の rewrite が担う（OAuth の探索メタデータ）
+server.all('/.well-known/*', (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = url.pathname.replace(/^\/\.well-known\//, '/api/well-known/');
+  return app.fetch(new Request(url, c.req.raw));
+});
 server.route('/', app);
 if (process.env.SERVE_STATIC) {
   server.use('/*', serveStatic({ root: './dist' }));

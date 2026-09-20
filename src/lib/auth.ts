@@ -1,9 +1,16 @@
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { queryOptions } from '@tanstack/react-query';
 import { createAuthClient } from 'better-auth/react';
 import { api } from './api.ts';
 
-/** better-auth のクライアント。ログイン・ログアウトだけに使い、ログイン状態の参照は meQueryOptions で行う。 */
-export const authClient = createAuthClient({ basePath: '/api/auth' });
+/**
+ * better-auth のクライアント。ログイン・ログアウト・OAuth の同意に使い、ログイン状態の参照は meQueryOptions で行う。
+ * oauthProviderClient は、MCP クライアントの認可フローでログイン／同意画面に付く署名付きクエリを API 呼び出しに添える。
+ */
+export const authClient = createAuthClient({
+  basePath: '/api/auth',
+  plugins: [oauthProviderClient()],
+});
 
 export type Me = { id: string; name: string; email: string };
 

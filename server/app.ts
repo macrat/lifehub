@@ -12,6 +12,7 @@ import { auth } from './lib/auth.ts';
 import { dashboardRoutes } from './lib/dashboard/routes.ts';
 import { db } from './lib/db.ts';
 import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
+import { mcpRoutes } from './lib/mcp/routes.ts';
 import { requireSession } from './lib/middleware.ts';
 import { notificationsRoutes } from './lib/notifications/routes.ts';
 import { pushRoutes } from './lib/push/routes.ts';
@@ -37,6 +38,15 @@ app.get('/health', async (c) => {
   return c.json({ ok: true as const, db: true as const });
 });
 app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
+// OAuth の探索メタデータはオリジン直下の /.well-known/* に置く必要がある。Vercel の rewrite と vite の
+// proxy が /.well-known/* を /api/well-known/* に転送するので、元のパスに戻して better-auth に渡す。
+app.get('/well-known/*', (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = url.pathname.replace(/^\/api\/well-known\//, '/.well-known/');
+  return auth.handler(new Request(url, c.req.raw));
+});
+// MCP は OAuth のアクセストークンで保護する（セッションではない）
+app.route('/mcp', mcpRoutes);
 // Cron secret と QStash の署名で保護する（セッションではない）
 app.route('/notifications', notificationsRoutes);
 

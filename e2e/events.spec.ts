@@ -46,5 +46,6 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   await page.getByText(title, { exact: true }).click();
   await page.getByRole('button', { name: '削除' }).click();
   await page.getByRole('button', { name: /^すべて / }).click();
-  await expect(page.getByText(title, { exact: true })).toBeHidden();
+  // 詳細ダイアログの閉じるアニメーション中はタイトルが 2 か所に見えるので、件数で待つ
+  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
 });

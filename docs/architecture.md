@@ -102,6 +102,7 @@ e2e/                          # Playwright
 - ローカル開発は `vite dev`（`/api` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は Vercel のファイルシステムルーティングで `api/[[...route]].ts` に到達するので、rewrite の対象から除外する。
 - Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
+- OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api/well-known/*` へ転送する（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントで tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
 

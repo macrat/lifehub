@@ -26,7 +26,7 @@ test('ホームからタスクとレモンの記録を追加し、カードに�
 
   // タスクをホームから完了にすると今日のタスクから消える
   await page.getByRole('checkbox', { name: `${title} を完了にする` }).click();
-  await expect(page.getByText(title)).toBeHidden();
+  await expect(page.getByText(title)).toHaveCount(0);
 });
 
 test('立替を追加すると残高が表示され、精算できる', async ({ page }) => {

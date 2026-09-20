@@ -8,7 +8,8 @@ import { LoginForm } from '../features/users/components/LoginForm.tsx';
 import { authClient, meQueryOptions } from '../lib/auth.ts';
 import { ensureData } from '../lib/query-client.ts';
 
-const searchSchema = z.object({
+// 署名付きの OAuth クエリ（未知のキー）をそのまま残すため loose にする
+const searchSchema = z.looseObject({
   redirect: z.string().optional(),
 });
 
@@ -45,13 +46,25 @@ function LoginPage() {
         </Typography>
         <LoginForm
           onSubmit={async ({ email, password }) => {
-            const { error } = await authClient.signIn.email({ email, password });
+            const { data, error } = await authClient.signIn.email({ email, password });
             if (error) {
               throw new Error(
                 error.status === 401
                   ? 'メールアドレスまたはパスワードが違います'
                   : (error.message ?? 'ログインに失敗しました'),
               );
+            }
+            // MCP クライアントの認可フロー中（署名付きクエリ付きでここに来た場合）は、
+            // better-auth が同意画面またはクライアントへの戻り先 URL を返すのでそこへ移動する
+            if (
+              data &&
+              'redirect' in data &&
+              data.redirect &&
+              'url' in data &&
+              typeof data.url === 'string'
+            ) {
+              window.location.assign(data.url);
+              return;
             }
             // ルートガードはキャッシュを見るので、遷移前にログイン後のユーザーを取り直しておく
             await queryClient.fetchQuery({ ...meQueryOptions, staleTime: 0 });

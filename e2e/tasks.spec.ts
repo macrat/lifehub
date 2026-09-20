@@ -29,5 +29,5 @@ test('タスクを追加し、カレンダーから完了にできる', async ({
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByText(title).click();
   await page.getByRole('button', { name: '削除' }).click();
-  await expect(page.getByText(title)).toBeHidden();
+  await expect(page.getByText(title)).toHaveCount(0);
 });
