@@ -1,3 +1,4 @@
+import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
@@ -24,7 +25,7 @@ function HomePage() {
           {formatDateWithYear(today())}
         </Typography>
       </AppBarContent>
-      <Stack spacing={2}>{cards.map(renderCard)}</Stack>
+      <Stack divider={<Divider />}>{cards.map(renderCard)}</Stack>
       <QuickAddMenu />
     </>
   );

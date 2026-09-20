@@ -13,7 +13,7 @@ type Props = {
 
 export function UserList({ users, onEdit }: Props) {
   return (
-    <Paper variant="outlined">
+    <Paper>
       <List disablePadding>
         {users.map((user) => (
           <ListItem

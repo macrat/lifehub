@@ -1,43 +1,30 @@
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Stack from '@mui/material/Stack';
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ItemCard } from '../../calendar/components/ItemCard.tsx';
 import { ItemDialogs } from '../../calendar/components/ItemDialogs.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
 import type { DashboardCardOf } from '../queries.ts';
+import { SectionHeading } from './DashboardCardFrame.tsx';
 
-/** 今日のタスク。カード上で完了操作ができるので、枠全体をリンクにはしない。 */
+/** 今日のタスク。行のチェックボックスで完了操作ができるので、区画全体はリンクにしない。 */
 export function TodayTasksCard({ card }: { card: DashboardCardOf<'tasks-today'> }) {
   const [selected, setSelected] = useState<CalendarItem | null>(null);
+  const navigate = useNavigate();
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Typography
-          variant="overline"
-          component={Link}
-          to="/events"
-          sx={{ display: 'block', textDecoration: 'none', color: 'text.secondary' }}
-        >
-          今日のタスク
+    <Box component="section" sx={{ py: 1 }}>
+      <SectionHeading title="今日のタスク" onClick={() => navigate({ to: '/events' })} />
+      {card.data.length === 0 ? (
+        <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
+          なし
         </Typography>
-        {card.data.length === 0 ? (
-          <Typography color="text.secondary">なし</Typography>
-        ) : (
-          <Stack spacing={1}>
-            {card.data.map((task) => (
-              <ItemCard
-                key={`${task.id}:${task.occurrenceKey}`}
-                item={task}
-                onClick={setSelected}
-              />
-            ))}
-          </Stack>
-        )}
-      </CardContent>
+      ) : (
+        card.data.map((task) => (
+          <ItemCard key={`${task.id}:${task.occurrenceKey}`} item={task} onClick={setSelected} />
+        ))
+      )}
       <ItemDialogs item={selected} onClose={() => setSelected(null)} />
-    </Card>
+    </Box>
   );
 }

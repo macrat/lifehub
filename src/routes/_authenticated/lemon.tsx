@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -40,12 +41,19 @@ function LemonPage() {
 
   return (
     <>
-      <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+      <Box sx={{ px: 2, pt: 1.5 }}>
+        <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+      </Box>
 
-      <Typography variant="subtitle1" component="h3" sx={{ mt: 3 }} gutterBottom>
+      <Typography
+        variant="subtitle2"
+        component="h3"
+        color="text.secondary"
+        sx={{ px: 2, pt: 2, fontWeight: 600 }}
+      >
         記録
       </Typography>
-      <Paper variant="outlined">
+      <Paper>
         <List disablePadding>
           {logs.length === 0 && (
             <ListItem>

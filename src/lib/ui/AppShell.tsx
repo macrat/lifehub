@@ -59,7 +59,6 @@ export function AppShell({ userName, onLogout, children }: Props) {
   const accountMenu = (
     <>
       <IconButton
-        color="inherit"
         aria-label="アカウントメニュー"
         edge="end"
         onClick={(e) => setMenuAnchor(e.currentTarget)}
@@ -96,14 +95,14 @@ export function AppShell({ userName, onLogout, children }: Props) {
   return (
     <AppBarSlotProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-        <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }} enableColorOnDark>
+        <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
             {accountMenu}
           </Toolbar>
           {/* 取得・保存中の細いインジケータ。位置を取らないよう AppBar の下端に重ねる */}
           <LinearProgress
-            color="inherit"
+            color="primary"
             sx={{
               position: 'absolute',
               left: 0,
@@ -149,8 +148,9 @@ export function AppShell({ userName, onLogout, children }: Props) {
           sx={{
             flexGrow: 1,
             minWidth: 0,
-            px: { xs: 1, md: 2 },
-            pt: { xs: 1, md: 2 },
+            // スマホは端まで使う（各部品が自分の内側余白を持つ）。PC は少し余白を取る
+            px: { xs: 0, md: 2 },
+            pt: { xs: 0, md: 1 },
             // 下部ナビと右下の追加ボタンに最後の内容が隠れないよう余白を取る
             pb: isDesktop
               ? 12
@@ -165,7 +165,6 @@ export function AppShell({ userName, onLogout, children }: Props) {
         {!isDesktop && (
           <Paper
             component="nav"
-            elevation={3}
             sx={{
               position: 'fixed',
               bottom: 0,
@@ -183,11 +182,6 @@ export function AppShell({ userName, onLogout, children }: Props) {
                   icon={<item.icon />}
                   component={Link}
                   to={item.to}
-                  sx={{
-                    minWidth: 0,
-                    px: 0.5,
-                    '& .MuiBottomNavigationAction-label': { whiteSpace: 'nowrap' },
-                  }}
                 />
               ))}
             </BottomNavigation>

@@ -19,7 +19,7 @@ export function WeekGrid({ date, itemsByDate, onSelectItem }: Props) {
       sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', xl: 'repeat(7, minmax(0, 1fr))' },
-        gap: 2,
+        gap: { xs: 0, xl: 2 },
       }}
     >
       {days.map((day) => (

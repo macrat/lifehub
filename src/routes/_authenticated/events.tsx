@@ -99,27 +99,14 @@ function EventsPage() {
           defaultValue={search.q ?? ''}
           onChange={(e) => setSearch({ q: e.target.value || undefined })}
           inputProps={{ 'aria-label': '検索' }}
-          sx={{
-            flexGrow: 1,
-            color: 'inherit',
-            bgcolor: 'rgba(255,255,255,.18)',
-            borderRadius: 1,
-            px: 1,
-            py: 0.25,
-            '& input::placeholder': { color: 'inherit', opacity: 0.8 },
-          }}
+          sx={{ flexGrow: 1, bgcolor: 'action.hover', borderRadius: 5, px: 1.5, py: 0.25 }}
         />
         <IconButton
-          color="inherit"
           aria-label="絞り込み"
           aria-expanded={filtersOpen}
           onClick={() => setFiltersOpen((v) => !v)}
         >
-          <Badge
-            badgeContent={activeFilters}
-            color="default"
-            sx={{ '& .MuiBadge-badge': { bgcolor: 'background.paper', color: 'primary.main' } }}
-          >
+          <Badge badgeContent={activeFilters} color="primary">
             <FilterListIcon />
           </Badge>
         </IconButton>

@@ -22,7 +22,7 @@ export function CareStatusGrid({ statuses, onSelect }: Props) {
       }}
     >
       {statuses.map((status) => (
-        <Card key={status.careType} variant="outlined">
+        <Card key={status.careType} sx={{ bgcolor: 'action.hover' }}>
           <CardActionArea onClick={() => onSelect?.(status)} sx={{ p: 1.5 }}>
             <Typography variant="body2" color="text.secondary">
               {CARE_TYPE_LABELS[status.careType]}

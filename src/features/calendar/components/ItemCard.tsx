@@ -1,9 +1,7 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardActionArea from '@mui/material/CardActionArea';
+import ButtonBase from '@mui/material/ButtonBase';
 import Checkbox from '@mui/material/Checkbox';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
@@ -18,9 +16,9 @@ type Props = {
 };
 
 /**
- * 一覧（日別リスト・週表示・イベント画面・ホーム）に並ぶカード。
- * 左に時刻の列（折り返さない）、右にタイトルとメタ情報の 2 行。狭い幅でも同じ形を保つ。
- * 予定は実線、タスクは破線で見分け、タスクは完了チェックを持つ。期限超過は赤、完了は薄く取り消し線。
+ * 一覧（日別リスト・週表示・イベント画面・ホーム）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
+ * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分ける。
+ * 期限超過は赤、完了は薄く取り消し線。
  */
 export function ItemCard({ item, onClick }: Props) {
   const { label } = useOwnerLabel();
@@ -30,19 +28,23 @@ export function ItemCard({ item, onClick }: Props) {
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
+  const owner = label(item.kind === 'event' ? item.ownerUserId : item.assigneeUserId);
+  const meta = [owner, item.kind === 'event' ? item.location : null].filter(Boolean).join(' · ');
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderColor: overdue ? 'error.main' : undefined,
-        borderStyle: isTask ? 'dashed' : 'solid',
-        opacity: completed ? 0.6 : 1,
-      }}
-    >
-      <Stack direction="row" sx={{ alignItems: 'stretch' }}>
-        {isTask && (
+    <Stack direction="row" sx={{ alignItems: 'stretch', opacity: completed ? 0.55 : 1 }}>
+      <Box
+        sx={{
+          width: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {isTask ? (
           <Checkbox
+            size="small"
             checked={completed}
             disabled={toggle.isPending || !online}
             onChange={(_, checked) =>
@@ -53,75 +55,82 @@ export function ItemCard({ item, onClick }: Props) {
                 'aria-label': `${item.title} を${completed ? '未完了に戻す' : '完了にする'}`,
               },
             }}
-            sx={{ alignSelf: 'center', ml: 0.5 }}
+            sx={{ p: 0.5 }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+              opacity: item.allDay ? 1 : 0.75,
+            }}
           />
         )}
-        <CardActionArea onClick={() => onClick(item)} sx={{ px: 1.5, py: 1 }}>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-            <Box sx={{ width: 76, flexShrink: 0 }}>
-              {time.caption && (
-                <Typography
-                  variant="caption"
-                  component="div"
-                  color={overdue ? 'error' : 'text.secondary'}
-                  sx={{ lineHeight: 1.2 }}
-                >
-                  {time.caption}
-                </Typography>
-              )}
-              <Typography
-                variant="body2"
-                component="div"
-                color={overdue ? 'error' : 'primary'}
-                sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 }}
-              >
-                {time.main}
-              </Typography>
-              {time.sub && (
-                <Typography
-                  variant="caption"
-                  component="div"
-                  color={overdue ? 'error' : 'text.secondary'}
-                  sx={{ lineHeight: 1.2 }}
-                >
-                  {time.sub}
-                </Typography>
-              )}
-            </Box>
-            <Stack sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography
-                sx={{
-                  overflowWrap: 'anywhere',
-                  textDecoration: completed ? 'line-through' : 'none',
-                }}
-              >
-                {item.title}
-              </Typography>
-              <Stack
-                direction="row"
-                spacing={0.75}
-                sx={{ alignItems: 'center', mt: 0.25, minWidth: 0 }}
-              >
-                <Chip
-                  size="small"
-                  label={label(item.kind === 'event' ? item.ownerUserId : item.assigneeUserId)}
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: '0.7rem' }}
-                />
-                {item.isRecurring && (
-                  <RepeatIcon sx={{ fontSize: 16 }} color="action" titleAccess="繰り返し" />
-                )}
-                {item.kind === 'event' && item.location && (
-                  <Typography variant="caption" color="text.secondary" noWrap>
-                    {item.location}
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          </Stack>
-        </CardActionArea>
-      </Stack>
-    </Card>
+      </Box>
+      <ButtonBase
+        onClick={() => onClick(item)}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          justifyContent: 'flex-start',
+          textAlign: 'left',
+          py: 0.75,
+          pr: 2,
+          gap: 1.5,
+          borderRadius: 1,
+        }}
+      >
+        <Box sx={{ width: 64, flexShrink: 0 }}>
+          {time.caption && (
+            <Typography
+              variant="caption"
+              component="div"
+              color={overdue ? 'error' : 'text.secondary'}
+              sx={{ lineHeight: 1.2 }}
+            >
+              {time.caption}
+            </Typography>
+          )}
+          <Typography
+            variant="body2"
+            component="div"
+            color={overdue ? 'error' : 'text.primary'}
+            sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 }}
+          >
+            {time.main}
+          </Typography>
+          {time.sub && (
+            <Typography
+              variant="caption"
+              component="div"
+              color={overdue ? 'error' : 'text.secondary'}
+              sx={{ lineHeight: 1.2 }}
+            >
+              {time.sub}
+            </Typography>
+          )}
+        </Box>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography
+            sx={{ overflowWrap: 'anywhere', textDecoration: completed ? 'line-through' : 'none' }}
+          >
+            {item.title}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component="div"
+            noWrap
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            {meta}
+            {item.isRecurring && <RepeatIcon sx={{ fontSize: 14 }} titleAccess="繰り返し" />}
+          </Typography>
+        </Box>
+      </ButtonBase>
+    </Stack>
   );
 }
 
@@ -144,5 +153,5 @@ function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
   if (item.completedAt) return { caption: '完了', ...withDate(item.completedAt) };
   if (item.dueAt) return { caption: '期限', ...withDate(item.dueAt) };
   if (item.startsAt) return { caption: '開始', ...withDate(item.startsAt) };
-  return { main: 'タスク' };
+  return { main: '' };
 }

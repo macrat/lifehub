@@ -1,4 +1,3 @@
-import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -33,6 +32,7 @@ import {
 } from '../../lib/date.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { useIsMobile } from '../../lib/ui/useIsMobile.ts';
 
 const searchSchema = z.object({
   view: z.enum(['month', 'week']).default('month'),
@@ -49,6 +49,7 @@ const MOBILE_GRID_HEIGHT = `calc(100dvh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEI
 
 function CalendarPage() {
   const { view, date: dateParam } = Route.useSearch();
+  const isMobile = useIsMobile();
   const navigate = useNavigate({ from: Route.fullPath });
   const date: DateString = dateParam ?? today();
   const month = toMonthString(date);
@@ -102,17 +103,15 @@ function CalendarPage() {
       </AppBarContent>
 
       {view === 'month' ? (
-        <Stack spacing={1.5}>
-          <Box sx={{ height: { xs: MOBILE_GRID_HEIGHT, md: 'auto' } }}>
-            <MonthGrid
-              month={month}
-              itemsByDate={itemsByDate}
-              selectedDate={date}
-              onSelectDate={selectDate}
-              onSelectItem={setSelected}
-              height="100%"
-            />
-          </Box>
+        <Stack spacing={0}>
+          <MonthGrid
+            month={month}
+            itemsByDate={itemsByDate}
+            selectedDate={date}
+            onSelectDate={selectDate}
+            onSelectItem={setSelected}
+            height={isMobile ? MOBILE_GRID_HEIGHT : undefined}
+          />
           <div ref={dayListRef} style={{ scrollMarginTop: APP_BAR_HEIGHT + 8 }}>
             <DayList date={date} items={itemsByDate.get(date) ?? []} onSelectItem={setSelected} />
           </div>

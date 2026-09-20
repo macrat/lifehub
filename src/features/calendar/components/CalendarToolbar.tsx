@@ -17,11 +17,11 @@ type Props = {
   onToday: () => void;
 };
 
-/** AppBar に収めるカレンダーの操作。色は AppBar から継承する。 */
+/** AppBar に収めるカレンダーの操作。 */
 export function CalendarToolbar({ title, view, onChangeView, onPrev, onNext, onToday }: Props) {
   return (
     <>
-      <IconButton color="inherit" aria-label="前へ" onClick={onPrev} size="small" edge="start">
+      <IconButton aria-label="前へ" onClick={onPrev} size="small" edge="start">
         <ChevronLeftIcon />
       </IconButton>
       <Typography
@@ -31,10 +31,10 @@ export function CalendarToolbar({ title, view, onChangeView, onPrev, onNext, onT
       >
         {title}
       </Typography>
-      <IconButton color="inherit" aria-label="次へ" onClick={onNext} size="small">
+      <IconButton aria-label="次へ" onClick={onNext} size="small">
         <ChevronRightIcon />
       </IconButton>
-      <IconButton color="inherit" aria-label="今日" onClick={onToday} size="small">
+      <IconButton aria-label="今日" onClick={onToday} size="small">
         <TodayIcon />
       </IconButton>
       <ToggleButtonGroup
@@ -42,16 +42,7 @@ export function CalendarToolbar({ title, view, onChangeView, onPrev, onNext, onT
         exclusive
         value={view}
         onChange={(_, v: CalendarView | null) => v && onChangeView(v)}
-        sx={{
-          ml: 'auto',
-          '& .MuiToggleButton-root': {
-            color: 'inherit',
-            borderColor: 'rgba(255,255,255,.5)',
-            px: 1,
-            py: 0.25,
-            '&.Mui-selected': { color: 'inherit', bgcolor: 'rgba(255,255,255,.25)' },
-          },
-        }}
+        sx={{ ml: 'auto', '& .MuiToggleButton-root': { px: 1, py: 0.25 } }}
       >
         <ToggleButton value="month" aria-label="月表示">
           月

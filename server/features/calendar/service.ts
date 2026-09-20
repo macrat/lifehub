@@ -41,7 +41,8 @@ export async function listItems(
   return items.sort(compareItems);
 }
 
-function placeEvent(
+/** 予定の発生を日ごとの CalendarItem にする（範囲外の日は除く）。ホームの「次の予定」も同じ形を使う */
+export function placeEvent(
   occurrence: events.EventOccurrence,
   range: { from: DateString; to: DateString },
 ): CalendarEventItem[] {

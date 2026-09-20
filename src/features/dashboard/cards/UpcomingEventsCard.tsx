@@ -1,38 +1,31 @@
-import Stack from '@mui/material/Stack';
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { formatEventRange } from '../../../lib/date.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
+import { DayList } from '../../calendar/components/DayList.tsx';
+import { ItemDialogs } from '../../calendar/components/ItemDialogs.tsx';
+import { type CalendarItem, groupByDate } from '../../calendar/queries.ts';
 import type { DashboardCardOf } from '../queries.ts';
-import { DashboardCardFrame } from './DashboardCardFrame.tsx';
+import { SectionHeading } from './DashboardCardFrame.tsx';
 
+/** 次の予定。カレンダーの一覧と同じ行の部品で、日付ごとにまとめて表示する。 */
 export function UpcomingEventsCard({ card }: { card: DashboardCardOf<'events-upcoming'> }) {
-  const { label } = useOwnerLabel();
+  const [selected, setSelected] = useState<CalendarItem | null>(null);
+  const navigate = useNavigate();
+  const grouped = groupByDate(card.data);
   return (
-    <DashboardCardFrame title="次の予定" to="/calendar">
-      {card.data.length === 0 ? (
-        <Typography color="text.secondary">なし</Typography>
+    <Box component="section" sx={{ py: 1 }}>
+      <SectionHeading title="次の予定" onClick={() => navigate({ to: '/calendar' })} />
+      {grouped.size === 0 ? (
+        <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
+          なし
+        </Typography>
       ) : (
-        <Stack spacing={0.5}>
-          {card.data.map((e) => (
-            <Stack
-              key={`${e.id}:${e.occurrenceStart}`}
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: 'baseline' }}
-            >
-              <Typography variant="body2" color="primary" sx={{ flexShrink: 0 }}>
-                {formatEventRange(e.startsAt, e.endsAt, e.allDay)}
-              </Typography>
-              <Typography sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-                {e.title}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                {label(e.ownerUserId)}
-              </Typography>
-            </Stack>
-          ))}
-        </Stack>
+        [...grouped.entries()].map(([date, items]) => (
+          <DayList key={date} date={date} items={items} onSelectItem={setSelected} />
+        ))
       )}
-    </DashboardCardFrame>
+      <ItemDialogs item={selected} onClose={() => setSelected(null)} />
+    </Box>
   );
 }

@@ -45,7 +45,7 @@ function ExpensesPage() {
 
   return (
     <>
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Paper sx={{ px: 2, py: 1.5 }}>
         <Stack
           direction="row"
           spacing={2}
@@ -74,10 +74,15 @@ function ExpensesPage() {
         </Stack>
       </Paper>
 
-      <Typography variant="subtitle1" component="h3" gutterBottom>
-        立替の履歴
+      <Typography
+        variant="subtitle2"
+        component="h3"
+        color="text.secondary"
+        sx={{ px: 2, pt: 1.5, fontWeight: 600 }}
+      >
+        立替
       </Typography>
-      <Paper variant="outlined" sx={{ mb: 3 }}>
+      <Paper>
         <List disablePadding>
           {history?.expenses.length === 0 && (
             <ListItem>
@@ -109,10 +114,15 @@ function ExpensesPage() {
         </List>
       </Paper>
 
-      <Typography variant="subtitle1" component="h3" gutterBottom>
-        精算の履歴
+      <Typography
+        variant="subtitle2"
+        component="h3"
+        color="text.secondary"
+        sx={{ px: 2, pt: 1.5, fontWeight: 600 }}
+      >
+        精算
       </Typography>
-      <Paper variant="outlined">
+      <Paper>
         <List disablePadding>
           {history?.settlements.length === 0 && (
             <ListItem>
