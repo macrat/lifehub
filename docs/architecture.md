@@ -35,7 +35,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
 | テスト | Vitest（クライアント: jsdom、サーバー: Node）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
 | Lint / Format | Biome | 単一ツールで完結し設定量が少ない。 |
-| IaC | Terraform（`vercel/vercel`, `neondatabase/neon`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon の全設定をコードとして確認・編集できるようにする。 |
+| IaC | Terraform（`vercel/vercel`, `kislerdm/neon`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon の全設定をコードとして確認・編集できるようにする。 |
 | CI/CD | GitHub Actions。main へのプッシュで Terraform apply → DB マイグレーション → Vercel 本番デプロイ | Vercel の Git 連携（自動デプロイ）は使わない。順序を 1 つのワークフローで保証するため。 |
 | パッケージ管理 | pnpm | 高速・厳格。 |
 
