@@ -2,30 +2,18 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { createTaskSchema } from '../../../../shared/validation/tasks.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
+import { formSelect, formText, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
-import {
-  buildRRule,
-  parseRRule,
-  RECURRENCE_FREQ_OPTIONS,
-  type RecurrenceFreq,
-} from '../../events/recurrence-options.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { RecurrenceFields } from '../../events/components/RecurrenceFields.tsx';
+import { OwnerSelect } from '../../users/components/OwnerSelect.tsx';
 import type { CreateTaskBody } from '../queries.ts';
-
-/** Select の「共有」を表す値。空文字だとラベルが選択済みに見えないため */
-const NONE = 'none';
-const fromSelect = (value: string | null): string | null =>
-  value === null || value === NONE ? null : value;
 
 export type TaskFormValues = {
   title: string;
@@ -61,31 +49,20 @@ export function defaultTaskValues(date?: DateString): TaskFormValues {
 }
 
 export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
-  const { options: ownerOptions } = useOwnerLabel();
-  const [freq, setFreq] = useState<RecurrenceFreq>(parseRRule(initial.rrule).freq);
-  const parsedRRule = parseRRule(initial.rrule);
   const thisOnly = scope === 'this';
 
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createTaskSchema,
     values: (fd) => {
-      const text = (key: string) => {
-        const v = fd.get(key);
-        return typeof v === 'string' && v !== '' ? v : null;
-      };
-      const startsRaw = text('startsAt');
-      const dueRaw = text('dueAt');
+      const startsRaw = formText(fd, 'startsAt');
+      const dueRaw = formText(fd, 'dueAt');
       return {
-        title: text('title') ?? '',
-        note: text('note'),
-        assigneeUserId: thisOnly ? initial.assigneeUserId : fromSelect(text('assigneeUserId')),
+        title: formText(fd, 'title') ?? '',
+        note: formText(fd, 'note'),
+        assigneeUserId: thisOnly ? initial.assigneeUserId : formSelect(fd, 'assigneeUserId'),
         startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
         dueAt: dueRaw ? fromDateTimeLocalValue(dueRaw) : null,
-        rrule: thisOnly
-          ? initial.rrule
-          : parsedRRule.isSimple
-            ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
-            : initial.rrule,
+        rrule: thisOnly ? initial.rrule : formText(fd, 'rrule'),
         notifyAtStart: thisOnly ? initial.notifyAtStart : fd.get('notifyAtStart') === 'on',
         notifyAtDue: thisOnly ? initial.notifyAtDue : fd.get('notifyAtDue') === 'on',
       };
@@ -146,19 +123,7 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
           />
         </Stack>
         {!thisOnly && (
-          <TextField
-            name="assigneeUserId"
-            label="担当"
-            select
-            defaultValue={initial.assigneeUserId ?? NONE}
-            fullWidth
-          >
-            {ownerOptions.map((o) => (
-              <MenuItem key={o.value ?? NONE} value={o.value ?? NONE}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <OwnerSelect name="assigneeUserId" label="担当" defaultValue={initial.assigneeUserId} />
         )}
         <TextField
           name="note"
@@ -168,41 +133,7 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
           minRows={2}
           fullWidth
         />
-        {!thisOnly && parsedRRule.isSimple && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="繰り返し"
-              select
-              value={freq}
-              onChange={(e) => setFreq(e.target.value as RecurrenceFreq)}
-              error={Boolean(errors.rrule)}
-              helperText={errors.rrule}
-              fullWidth
-            >
-              {RECURRENCE_FREQ_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            {freq !== 'none' && (
-              <TextField
-                name="until"
-                label="繰り返しの終了日"
-                type="date"
-                defaultValue={parsedRRule.until ?? ''}
-                slotProps={{ inputLabel: { shrink: true } }}
-                helperText="空欄なら無期限"
-                fullWidth
-              />
-            )}
-          </Stack>
-        )}
-        {!thisOnly && !parsedRRule.isSimple && (
-          <Alert severity="info">
-            繰り返しルール: {initial.rrule}（API で設定された詳細ルールはここでは変更できません）
-          </Alert>
-        )}
+        {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
         {!thisOnly && (
           <Stack direction="row" spacing={2}>
             <FormControlLabel

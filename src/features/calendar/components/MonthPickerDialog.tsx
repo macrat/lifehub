@@ -11,7 +11,6 @@ import { useState } from 'react';
 import { today, toMonthString } from '../../../lib/date.ts';
 
 type Props = {
-  open: boolean;
   /** 今表示している月 "YYYY-MM" */
   month: string;
   onClose: () => void;
@@ -19,17 +18,11 @@ type Props = {
 };
 
 /** 年月を選ぶダイアログ。AppBar の年月をタップして開く。年を ‹ › で送り、月を 1 つ選ぶ。 */
-export function MonthPickerDialog({ open, month, onClose, onSelect }: Props) {
+export function MonthPickerDialog({ month, onClose, onSelect }: Props) {
   const [year, setYear] = useState(Number(month.slice(0, 4)));
   const thisMonth = toMonthString(today());
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      aria-labelledby="month-picker-year"
-    >
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="month-picker-year">
       <DialogContent sx={{ p: 2 }}>
         <Stack
           direction="row"

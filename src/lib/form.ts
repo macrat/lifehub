@@ -5,6 +5,21 @@ export type FormErrors = Record<string, string>;
 
 export type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
 
+/** Select の「なし／共有」を表す値。空文字だとラベルが選択済みに見えないため */
+export const SELECT_NONE = 'none';
+
+/** FormData の文字列項目。未入力（空文字）は null */
+export function formText(formData: FormData, key: string): string | null {
+  const value = formData.get(key);
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/** Select の値。SELECT_NONE は null にする */
+export function formSelect(formData: FormData, key: string): string | null {
+  const value = formText(formData, key);
+  return value === SELECT_NONE ? null : value;
+}
+
 /** `<form>` の FormData を素の値にする。空文字は未入力として undefined にする（optional なフィールドをそのまま扱えるようにするため） */
 export function formValues(formData: FormData): Record<string, unknown> {
   const raw: Record<string, unknown> = {};

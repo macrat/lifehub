@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
+import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   createEventSchema,
@@ -19,22 +20,12 @@ import {
   toDateString,
   toDateTimeLocalValue,
 } from '../../../lib/date.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
+import { formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { OwnerSelect } from '../../users/components/OwnerSelect.tsx';
 import type { CreateEventBody } from '../queries.ts';
-import {
-  buildRRule,
-  parseRRule,
-  RECURRENCE_FREQ_OPTIONS,
-  type RecurrenceFreq,
-} from '../recurrence-options.ts';
-
-/** Select の「なし」を表す値。空文字だとラベルが選択済みに見えないため */
-const NONE = 'none';
-const fromSelect = (value: string | null): string | null =>
-  value === null || value === NONE ? null : value;
+import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 export type EventFormValues = {
   title: string;
@@ -90,47 +81,30 @@ export function defaultEventValues(date?: DateString): EventFormValues {
 }
 
 export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
-  const { options: ownerOptions } = useOwnerLabel();
   const [allDay, setAllDay] = useState(initial.allDay);
-  const [freq, setFreq] = useState<RecurrenceFreq>(parseRRule(initial.rrule).freq);
-  const parsedRRule = parseRRule(initial.rrule);
   const thisOnly = scope === 'this';
 
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => {
-      const text = (key: string) => {
-        const v = fd.get(key);
-        return typeof v === 'string' && v !== '' ? v : null;
-      };
-      const startsRaw = text('startsAt');
-      const endsRaw = text('endsAt');
+      const startsRaw = formText(fd, 'startsAt');
+      const endsRaw = formText(fd, 'endsAt');
+      const toInstant = (raw: string) =>
+        allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
       return {
-        title: text('title') ?? '',
+        title: formText(fd, 'title') ?? '',
         allDay,
-        startsAt: startsRaw
-          ? allDay
-            ? fromDateValue(startsRaw as DateString)
-            : fromDateTimeLocalValue(startsRaw)
-          : '',
-        endsAt: endsRaw
-          ? allDay
-            ? fromDateValue(endsRaw as DateString)
-            : fromDateTimeLocalValue(endsRaw)
-          : '',
-        ownerUserId: thisOnly ? initial.ownerUserId : fromSelect(text('ownerUserId')),
-        location: text('location'),
-        note: text('note'),
-        rrule: thisOnly
-          ? initial.rrule
-          : parsedRRule.isSimple
-            ? buildRRule(freq, (text('until') as DateString | null) ?? undefined)
-            : initial.rrule,
+        startsAt: startsRaw ? toInstant(startsRaw) : '',
+        endsAt: endsRaw ? toInstant(endsRaw) : '',
+        ownerUserId: thisOnly ? initial.ownerUserId : formSelect(fd, 'ownerUserId'),
+        location: formText(fd, 'location'),
+        note: formText(fd, 'note'),
+        rrule: thisOnly ? initial.rrule : formText(fd, 'rrule'),
         remindBeforeMinutes: thisOnly
           ? initial.remindBeforeMinutes
-          : fromSelect(text('remindBeforeMinutes')) === null
+          : formSelect(fd, 'remindBeforeMinutes') === null
             ? null
-            : Number(text('remindBeforeMinutes')),
+            : Number(formText(fd, 'remindBeforeMinutes')),
       };
     },
     onSubmit: (data) =>
@@ -228,19 +202,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
           )}
         </Stack>
         {!thisOnly && (
-          <TextField
-            name="ownerUserId"
-            label="誰の予定"
-            select
-            defaultValue={initial.ownerUserId ?? NONE}
-            fullWidth
-          >
-            {ownerOptions.map((o) => (
-              <MenuItem key={o.value ?? NONE} value={o.value ?? NONE}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <OwnerSelect name="ownerUserId" label="誰の予定" defaultValue={initial.ownerUserId} />
         )}
         <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
         <TextField
@@ -251,48 +213,16 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
           minRows={2}
           fullWidth
         />
-        {!thisOnly && parsedRRule.isSimple && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="繰り返し"
-              select
-              value={freq}
-              onChange={(e) => setFreq(e.target.value as RecurrenceFreq)}
-              fullWidth
-            >
-              {RECURRENCE_FREQ_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            {freq !== 'none' && (
-              <TextField
-                name="until"
-                label="繰り返しの終了日"
-                type="date"
-                defaultValue={parsedRRule.until ?? ''}
-                slotProps={{ inputLabel: { shrink: true } }}
-                helperText="空欄なら無期限"
-                fullWidth
-              />
-            )}
-          </Stack>
-        )}
-        {!thisOnly && !parsedRRule.isSimple && (
-          <Alert severity="info">
-            繰り返しルール: {initial.rrule}（API で設定された詳細ルールはここでは変更できません）
-          </Alert>
-        )}
+        {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
         {!thisOnly && (
           <TextField
             name="remindBeforeMinutes"
             label="通知"
             select
-            defaultValue={initial.remindBeforeMinutes ?? NONE}
+            defaultValue={initial.remindBeforeMinutes ?? SELECT_NONE}
             fullWidth
           >
-            <MenuItem value={NONE}>通知しない</MenuItem>
+            <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
             {REMIND_BEFORE_OPTIONS.map((m) => (
               <MenuItem key={m} value={m}>
                 {REMIND_LABELS[m]}

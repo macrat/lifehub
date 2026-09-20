@@ -1,10 +1,9 @@
 import Box from '@mui/material/Box';
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
+import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type CalendarItem, ownerOf } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -35,8 +34,7 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 色は所有者・担当者のユーザーの色
  */
 export function MonthGrid({ month, days, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
-  const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('sm'));
+  const compact = useIsMobile();
   const colorFor = useUserColor();
   const laneHeight = compact ? 17 : 20;
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));

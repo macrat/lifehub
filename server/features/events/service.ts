@@ -8,12 +8,7 @@ import type {
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { enqueueUpcoming } from '../../lib/notifications/service.ts';
-import {
-  expandOccurrences,
-  InvalidRRuleError,
-  normalizeRRule,
-  withUntilBefore,
-} from '../../lib/recurrence/index.ts';
+import { expandOccurrences, normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import * as repository from './repository.ts';
 import type { EventOverrideRow, EventRow } from './schema.ts';
 
@@ -187,15 +182,7 @@ function normalizeInput(input: CreateEventInput) {
     startsAt = startOfDay(startsAt);
     endsAt = addDaysFn(startOfDay(endsAt), 1);
   }
-  let rrule: string | null = null;
-  if (input.rrule) {
-    try {
-      rrule = normalizeRRule(input.rrule);
-    } catch (error) {
-      if (error instanceof InvalidRRuleError) throw new ValidationError(error.message);
-      throw error;
-    }
-  }
+  const rrule = input.rrule ? normalizeRRule(input.rrule) : null;
   return {
     title: input.title,
     allDay: input.allDay,

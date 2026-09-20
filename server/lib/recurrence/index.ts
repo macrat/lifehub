@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { TZDate } from '@date-fns/tz';
 import type { RRule as RRuleType } from 'rrule';
 import { TIME_ZONE } from '../../../shared/constants.ts';
+import { ValidationError } from '../errors.ts';
 
 // rrule は package.json に exports が無く、ESM ビルドも "type": "module" を持たないため、Node の
 // ESM ローダーからは名前付き import ができない（UMD の main だけが読める）。CJS として読み込む。
@@ -45,8 +46,6 @@ function fromFloating(floating: Date): Date {
   );
 }
 
-export class InvalidRRuleError extends Error {}
-
 /**
  * RRULE 文字列を検証し、正規形（rrule ライブラリの出力）にして返す。
  * DTSTART を含むものは拒否する（DTSTART は行の日時列で持つため）。
@@ -57,19 +56,19 @@ export function normalizeRRule(rrule: string): string {
     .toUpperCase()
     .replace(/^RRULE:/, '');
   if (trimmed.includes('DTSTART')) {
-    throw new InvalidRRuleError('RRULE に DTSTART は含めないでください');
+    throw new ValidationError('RRULE に DTSTART は含めないでください');
   }
   let options: ReturnType<typeof RRule.parseString>;
   try {
     options = RRule.parseString(trimmed);
   } catch {
-    throw new InvalidRRuleError('繰り返しルールの形式が正しくありません');
+    throw new ValidationError('繰り返しルールの形式が正しくありません');
   }
   if (options.freq === undefined) {
-    throw new InvalidRRuleError('繰り返しルールには FREQ が必要です');
+    throw new ValidationError('繰り返しルールには FREQ が必要です');
   }
   if (options.freq > RRule.DAILY) {
-    throw new InvalidRRuleError('繰り返しの最小単位は日です');
+    throw new ValidationError('繰り返しの最小単位は日です');
   }
   return RRule.optionsToString(options).replace(/^RRULE:/, '');
 }

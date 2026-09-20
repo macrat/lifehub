@@ -1,24 +1,21 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import {
-  formatTime,
   minutesOfDay,
   toDateString,
-  today,
   WEEKDAY_LABELS,
   weekdayColor,
   weekdayIndex,
 } from '../../../lib/date.ts';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
+import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { type CalendarItem, ownerOf, taskTime } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
+import { TimeGrid } from './TimeGrid.tsx';
 import { layoutTimed, MIN_BLOCK_MINUTES, type TimedPlaced } from './timeline-layout.ts';
 
 type Props = {
@@ -37,18 +34,15 @@ const LANE_HEIGHT = 20;
 
 /**
  * 週・日のタイムライン表示（Google カレンダー方式）。
- * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸。
- * 時間指定の予定は開始〜終了の高さの塗りブロック、時刻付きのタスクはその時刻に小さなブロック。
- * 同じ時間帯に重なる項目は横に並べる。今日の列には現在時刻の線を引く。
+ * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
+ * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  */
 export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, height }: Props) {
-  const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('sm'));
+  const compact = useIsMobile();
   const colorFor = useUserColor();
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
-  // 終日欄と時間軸に振り分ける
   const allDayByDate = new Map<DateString, CalendarItem[]>();
   const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
   for (const day of days) {
@@ -64,27 +58,6 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
   }
   const lanes = layoutLanes(days, allDayByDate);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
-
-  // 現在時刻の線（1 分ごとに更新）
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
-  const nowMin = minutesOfDay(now);
-  const todayStr = today(now);
-
-  // 初期スクロール: 今日を含むなら現在時刻の少し上、それ以外は 7 時
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const daysKey = days.join(',');
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 表示する日が変わったときに合わせ直す
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
-    el.scrollTop = Math.max(0, target);
-  }, [daysKey, hourHeight]);
-
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
@@ -163,12 +136,7 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
         {days.map((day, i) => (
           <Box
             key={day}
-            sx={{
-              gridColumn: i + 2,
-              gridRow: '1 / -1',
-              borderLeft: 1,
-              borderColor: 'divider',
-            }}
+            sx={{ gridColumn: i + 2, gridRow: '1 / -1', borderLeft: 1, borderColor: 'divider' }}
           />
         ))}
         {lanes.map((p) => (
@@ -183,83 +151,13 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
         ))}
       </Box>
 
-      {/* 時間軸 */}
-      <Box ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: columns,
-            height: hourHeight * 24,
-            position: 'relative',
-          }}
-        >
-          {/* 時刻の目盛り */}
-          <Box sx={{ position: 'relative' }}>
-            {Array.from({ length: 23 }, (_, h) => h + 1).map((h) => (
-              <Typography
-                key={h}
-                variant="caption"
-                sx={{
-                  position: 'absolute',
-                  top: h * hourHeight - 7,
-                  right: 4,
-                  fontSize: '0.65rem',
-                  lineHeight: 1,
-                  color: 'text.secondary',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {h}:00
-              </Typography>
-            ))}
-          </Box>
-          {days.map((day) => (
-            <Box
-              key={day}
-              sx={{
-                position: 'relative',
-                borderLeft: 1,
-                borderColor: 'divider',
-                backgroundImage: (t) =>
-                  `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight}px)`,
-              }}
-            >
-              {(timedByDate.get(day) ?? []).map((p) => (
-                <TimedBlock
-                  key={p.key}
-                  placed={p}
-                  hourHeight={hourHeight}
-                  colors={colorFor(ownerOf(p.item))}
-                  onClick={() => onSelectItem(p.item)}
-                />
-              ))}
-              {day === todayStr && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    top: (nowMin / 60) * hourHeight,
-                    height: 2,
-                    bgcolor: 'error.main',
-                    pointerEvents: 'none',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      left: -5,
-                      top: -4,
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      bgcolor: 'error.main',
-                    },
-                  }}
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-      </Box>
+      <TimeGrid
+        days={days}
+        timedByDate={timedByDate}
+        hourHeight={hourHeight}
+        gutterWidth={GUTTER_WIDTH}
+        onSelectItem={onSelectItem}
+      />
     </Box>
   );
 }
@@ -274,63 +172,4 @@ function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | nu
   if (!time || toDateString(new Date(time.at)) !== item.placementDate) return null;
   const startMin = minutesOfDay(time.at);
   return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
-}
-
-function TimedBlock({
-  placed,
-  hourHeight,
-  colors,
-  onClick,
-}: {
-  placed: TimedPlaced<CalendarItem>;
-  hourHeight: number;
-  colors: ItemColors;
-  onClick: () => void;
-}) {
-  const { item, startMin, endMin, col, cols } = placed;
-  const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
-  const top = (startMin / 60) * hourHeight;
-  const heightPx = Math.max(((endMin - startMin) / 60) * hourHeight, 18) - 2;
-  const showTime = heightPx >= 34;
-  const width = 100 / cols;
-  return (
-    <ButtonBase
-      onClick={onClick}
-      aria-label={item.title}
-      sx={{
-        position: 'absolute',
-        top: top + 1,
-        height: heightPx,
-        left: `calc(${col * width}% + 1px)`,
-        width: `calc(${width}% - 3px)`,
-        boxSizing: 'border-box',
-        display: 'block',
-        textAlign: 'left',
-        overflow: 'hidden',
-        borderRadius: '4px',
-        px: 0.5,
-        py: '2px',
-        bgcolor: isTask ? colors.tint : colors.fill,
-        color: isTask ? 'text.primary' : colors.text,
-        borderLeft: isTask ? `3px solid ${colors.fill}` : 'none',
-        opacity: completed ? 0.6 : 1,
-        textDecoration: completed ? 'line-through' : 'none',
-        '&:hover': { filter: 'brightness(0.95)' },
-      }}
-    >
-      <Typography
-        component="div"
-        sx={{ fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.25, overflowWrap: 'anywhere' }}
-      >
-        {isTask && (item.completedAt ? '☑ ' : '☐ ')}
-        {item.title}
-      </Typography>
-      {showTime && item.kind === 'event' && (
-        <Typography component="div" sx={{ fontSize: '0.65rem', lineHeight: 1.2, opacity: 0.9 }}>
-          {formatTime(item.startsAt)}〜{formatTime(item.endsAt)}
-        </Typography>
-      )}
-    </ButtonBase>
-  );
 }

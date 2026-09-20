@@ -9,7 +9,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
 
-export type CalendarView = 'month' | 'week' | 'day' | 'list';
+type CalendarView = 'month' | 'week' | 'day' | 'list';
 
 const VIEW_LABELS: Record<CalendarView, string> = {
   month: '月',

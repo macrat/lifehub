@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { createExpenseSchema } from '../../../../shared/validation/expenses.ts';
 import { today } from '../../../lib/date.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
+import { formSelect, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
@@ -15,8 +15,6 @@ type Props = {
   onSubmit: (input: CreateExpenseBody) => Promise<unknown>;
   onClose: () => void;
 };
-
-const SHARED = 'shared';
 
 /**
  * 立替の追加（借方・貸方）。To は誰のために払ったか（既定は共有 = 折半）、From は払った人
@@ -28,10 +26,9 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createExpenseSchema,
     values: (fd) => {
-      const to = fd.get('toUserId');
       return {
         fromUserId: fd.get('fromUserId'),
-        toUserId: to === SHARED ? null : to,
+        toUserId: formSelect(fd, 'toUserId'),
         amount: fd.get('amount') === '' ? undefined : Number(fd.get('amount')),
         description: fd.get('description'),
         spentOn: fd.get('spentOn'),
@@ -79,12 +76,12 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
             name="toUserId"
             label="To"
             select
-            defaultValue={SHARED}
+            defaultValue={SELECT_NONE}
             error={Boolean(errors.toUserId)}
             helperText={errors.toUserId}
             fullWidth
           >
-            <MenuItem value={SHARED}>共有</MenuItem>
+            <MenuItem value={SELECT_NONE}>共有</MenuItem>
             {people.map((o) => (
               <MenuItem key={o.value} value={o.value ?? ''}>
                 {o.label}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { ValidationError } from '../../errors.ts';
 import {
   expandOccurrences,
-  InvalidRRuleError,
   iterateOccurrences,
   normalizeRRule,
   withUntilBefore,
@@ -15,10 +15,10 @@ describe('normalizeRRule', () => {
   });
   it('DTSTART や不正な文字列は拒否する', () => {
     expect(() => normalizeRRule('DTSTART:20260101T000000Z\nRRULE:FREQ=DAILY')).toThrow(
-      InvalidRRuleError,
+      ValidationError,
     );
-    expect(() => normalizeRRule('hello')).toThrow(InvalidRRuleError);
-    expect(() => normalizeRRule('FREQ=HOURLY')).toThrow(InvalidRRuleError);
+    expect(() => normalizeRRule('hello')).toThrow(ValidationError);
+    expect(() => normalizeRRule('FREQ=HOURLY')).toThrow(ValidationError);
   });
 });
 

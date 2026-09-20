@@ -67,11 +67,11 @@ api/
   [[...route]].ts             # Vercel Function のエントリ。server/app.ts の Hono アプリをそのまま export するだけ
 src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
-  routes/                     # TanStack Router ファイルベースルート。ページは features の部品を組み立てるだけ
-  features/                   # 機能ごとの UI（components/, queries.ts, __tests__/）
+  routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
+  features/                   # 機能ごとの UI（components/, queries.ts, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  tasks/  expenses/  lemon/  users/  dashboard/
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit）  theme.ts（createAppTheme・useColorMode）  push.ts  date.ts  auth.ts
+    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit・formText・formSelect）  theme.ts（createAppTheme・useColorMode）  use-now.ts  push.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）

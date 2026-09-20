@@ -6,7 +6,6 @@ import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -54,38 +53,36 @@ function LemonPage() {
       >
         記録
       </Typography>
-      <Paper>
-        <List disablePadding>
-          {logs.length === 0 && (
-            <ListItem>
-              <ListItemText secondary="まだ記録はありません" />
-            </ListItem>
-          )}
-          {logs.map((log) => (
-            <ListItem
-              key={log.id}
-              divider
-              secondaryAction={
-                <IconButton
-                  edge="end"
-                  aria-label={`${CARE_TYPE_LABELS[log.careType]}の記録を削除`}
-                  onClick={() => {
-                    if (window.confirm('この記録を削除しますか？')) deleteLog.mutate(log.id);
-                  }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              }
-            >
-              <ListItemText
-                primary={CARE_TYPE_LABELS[log.careType]}
-                secondary={[formatDateTime(log.doneAt), log.note].filter(Boolean).join(' ・ ')}
-                slotProps={{ secondary: { sx: { whiteSpace: 'pre-wrap' } } }}
-              />
-            </ListItem>
-          ))}
-        </List>
-      </Paper>
+      <List disablePadding>
+        {logs.length === 0 && (
+          <ListItem>
+            <ListItemText secondary="まだ記録はありません" />
+          </ListItem>
+        )}
+        {logs.map((log) => (
+          <ListItem
+            key={log.id}
+            divider
+            secondaryAction={
+              <IconButton
+                edge="end"
+                aria-label={`${CARE_TYPE_LABELS[log.careType]}の記録を削除`}
+                onClick={() => {
+                  if (window.confirm('この記録を削除しますか？')) deleteLog.mutate(log.id);
+                }}
+              >
+                <DeleteIcon />
+              </IconButton>
+            }
+          >
+            <ListItemText
+              primary={CARE_TYPE_LABELS[log.careType]}
+              secondary={[formatDateTime(log.doneAt), log.note].filter(Boolean).join(' ・ ')}
+              slotProps={{ secondary: { sx: { whiteSpace: 'pre-wrap' } } }}
+            />
+          </ListItem>
+        ))}
+      </List>
 
       <Fab
         color="primary"
