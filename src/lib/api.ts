@@ -1,4 +1,4 @@
-import { hc } from 'hono/client';
+import { type ClientResponse, hc } from 'hono/client';
 import type { AppType } from '../../server/app.ts';
 
 /** API が 401 を返したときに発火する。main.tsx がこれを受けてログイン画面へ遷移する。 */
@@ -18,9 +18,19 @@ export const api = hc<AppType>('', {
   },
 }).api;
 
-/** レスポンスが成功でなければ、サーバーのメッセージを含む Error を投げる */
-export async function ensureOk<T extends Response>(res: T): Promise<T> {
-  if (res.ok) return res;
+/** 成功（2xx）のレスポンス型だけを残す（Hono の FilterClientResponseByStatusCode 相当。同型は export されていない） */
+export type OkResponse<R> =
+  R extends ClientResponse<infer T, infer S, infer F>
+    ? S extends 200 | 201 | 204
+      ? ClientResponse<T, S, F>
+      : never
+    : never;
+
+/** レスポンスが成功でなければ、サーバーのメッセージを含む Error を投げる。型は成功時のものに絞られる。 */
+export async function ensureOk<R extends ClientResponse<unknown, number, string>>(
+  res: R,
+): Promise<OkResponse<R>> {
+  if (res.ok) return res as unknown as OkResponse<R>;
   let message = `リクエストに失敗しました（${res.status}）`;
   try {
     const body = (await res.json()) as { message?: string };

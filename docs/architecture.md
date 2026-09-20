@@ -29,7 +29,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | プッシュ通知 | Web Push（VAPID）、`web-push` | ブラウザ標準。iOS はホーム画面に追加した PWA で対応。 |
 | 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は 1 日 1 回のため、分単位の配信は QStash の遅延配信で行う。 |
 | UI | MUI（Material UI） | マテリアルデザインを「書かずに」得る。 |
-| カレンダー UI | MUI Date Pickers（入力）+ 自作の月／週グリッド（MUI 部品で構成） | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。 |
+| カレンダー UI | 自作の月／週グリッド（MUI 部品で構成）。日時の入力は `<input type="datetime-local">` / `<input type="date">`（MUI の TextField 経由） | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。日時入力は Web 標準で足り、スマホではネイティブのピッカーが使える。MUI X Date Pickers は date-fns アダプタがタイムゾーン非対応のため採用しない。 |
 | フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
 | 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`） | `Temporal` が Safari/Chrome 安定版で使えるようになった時点で移行を検討。 |
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |

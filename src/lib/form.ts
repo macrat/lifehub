@@ -2,7 +2,7 @@ import type { z } from 'zod';
 
 export type FormErrors = Record<string, string>;
 
-export type ParseFormResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
+export type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
 
 /**
  * `<form>` の FormData を Zod スキーマで検証する。フォームライブラリを入れない代わりの最小限の共通処理。
@@ -11,12 +11,20 @@ export type ParseFormResult<T> = { data: T; errors: null } | { data: null; error
 export function parseForm<S extends z.ZodType>(
   schema: S,
   formData: FormData,
-): ParseFormResult<z.output<S>> {
+): ParseResult<z.output<S>> {
   const raw: Record<string, unknown> = {};
   for (const [key, value] of formData.entries()) {
     raw[key] = value === '' ? undefined : value;
   }
-  const result = schema.safeParse(raw);
+  return parseValues(schema, raw);
+}
+
+/** 組み立て済みの値を Zod スキーマで検証し、フィールドごとのエラーにまとめる */
+export function parseValues<S extends z.ZodType>(
+  schema: S,
+  values: unknown,
+): ParseResult<z.output<S>> {
+  const result = schema.safeParse(values);
   if (result.success) return { data: result.data, errors: null };
   const errors: FormErrors = {};
   for (const issue of result.error.issues) {

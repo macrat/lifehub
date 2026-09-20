@@ -20,3 +20,18 @@ function createDatabase(): Database {
 }
 
 export const db: Database = createDatabase();
+
+type BatchQuery = Promise<unknown>;
+
+/**
+ * 複数の文を原子的に実行する。neon-http は対話的トランザクションを持たないため `db.batch()` を使う。
+ * node-postgres（ローカル・テスト）には batch が無いので順次実行する（原子性はローカルでは保証しない）。
+ * 呼び出し側は未実行のクエリビルダを渡す（Drizzle のクエリは await されるまで実行されない）。
+ */
+export async function runBatch(queries: [BatchQuery, ...BatchQuery[]]): Promise<void> {
+  if ('batch' in db && typeof db.batch === 'function') {
+    await (db.batch as (q: [BatchQuery, ...BatchQuery[]]) => Promise<unknown>)(queries);
+    return;
+  }
+  for (const query of queries) await query;
+}
