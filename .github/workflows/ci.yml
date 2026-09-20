@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
+  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+  TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
+  TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
+  TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
+  TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
+  TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
+
+jobs:
+  check:
+    name: typecheck / lint / test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lifehub
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm db:migrate
+      - run: pnpm test
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm e2e
+        env:
+          CI: "1"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  terraform:
+    name: terraform plan
+    runs-on: ubuntu-latest
+    env:
+      TF_CLOUD_ORGANIZATION: macrat
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform -chdir=infra fmt -check
+      - run: terraform -chdir=infra init -input=false
+      - run: terraform -chdir=infra validate
+      - id: plan
+        run: terraform -chdir=infra plan -no-color -input=false -out=tfplan | tee plan.txt
+      - name: Comment plan on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: terraform-plan
+          path: plan.txt
+
+  preview:
+    name: preview deploy
+    needs: [check]
+    runs-on: ubuntu-latest
+    env:
+      TF_CLOUD_ORGANIZATION: macrat
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - run: terraform -chdir=infra init -input=false
+      - name: Read terraform outputs
+        run: |
+          echo "VERCEL_ORG_ID=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_ENV"
+          echo "NEON_PROJECT_ID=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_ENV"
+      - name: Create Neon preview branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ env.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          database: lifehub
+          role: lifehub
+      - name: Migrate preview branch
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+      - run: pnpm exec vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - run: pnpm exec vercel build --token="$VERCEL_TOKEN"
+      - id: deploy
+        run: |
+          url=$(pnpm exec vercel deploy --prebuilt --token="$VERCEL_TOKEN" --env DATABASE_URL="${{ steps.neon.outputs.db_url_pooled }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview
+          message: |
+            **Preview:** ${{ steps.deploy.outputs.url }}
+            **Neon branch:** `preview/pr-${{ github.event.pull_request.number }}`

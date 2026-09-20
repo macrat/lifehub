@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_CLOUD_ORGANIZATION: macrat
+  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+  TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
+  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+  TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
+  TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
+  TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
+  TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
+  TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  deploy:
+    name: terraform apply → migrate → deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      # プロバイダの更新は Renovate の PR で行うため -upgrade は付けない（Neon のリソース再作成事故を防ぐ）
+      - run: terraform -chdir=infra init -input=false
+      - run: terraform -chdir=infra apply -auto-approve -input=false
+      - name: Read terraform outputs
+        run: |
+          echo "VERCEL_ORG_ID=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_ENV"
+          echo "::add-mask::$(terraform -chdir=infra output -raw database_url)"
+          echo "DATABASE_URL=$(terraform -chdir=infra output -raw database_url)" >> "$GITHUB_ENV"
+      - run: pnpm db:migrate
+      - run: pnpm exec vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: pnpm exec vercel build --prod --token="$VERCEL_TOKEN"
+      - run: pnpm exec vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

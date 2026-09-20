@@ -1,0 +1,216 @@
+# アーキテクチャ
+
+LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md](../AGENTS.md) の理念（シンプル至上主義・Web 標準優先・保守性 > 短さ）に従う。
+
+## 前提
+
+- 利用者は 2 人、データ量は小規模。スケーラビリティよりも単純さと正しさを優先する。
+- 少人数がヘビーに使うため、初回ロードより **2 回目以降の起動速度とオフライン閲覧** を重視する。
+- インフラはすべて無料枠（Vercel Hobby / Neon Free / Upstash QStash Free / HCP Terraform Free）。
+- ブラウザ互換性は考慮しない。最新の Chrome と Safari（iOS 含む）のみを対象とし、ポリフィルを入れない。
+- 業務ロジックはサーバー（Hono）に置く。クライアントは表示と入力に徹し、UI と MCP と通知処理が同じ Service 層を共有する。
+
+## 技術スタック
+
+| 領域 | 採用 | 理由 |
+|---|---|---|
+| ホスティング | Vercel（Hobby） | 外部 DNS からの CNAME だけで独自ドメインを割り当てられる。静的配信と Serverless Function を 1 プロジェクトで扱える。無料・カード不要。 |
+| フロントエンド | React + TypeScript（strict）、Vite ビルドの SPA | オフライン対応と積極的キャッシュを単純に実現するため、SSR ではなく静的なアプリシェルにする。 |
+| ルーティング | TanStack Router（ファイルベース） | 型安全なルート・検索パラメータ。TanStack Query と統合できる。 |
+| データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
+| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `hono/vercel` アダプタで `api/` に配置。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
+| DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `db.batch()` で書く。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
+| ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
+| バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォーム・API の入力・MCP ツールの引数を同じスキーマで検証する。 |
+| 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
+| MCP サーバー | `@hono/mcp` + `@modelcontextprotocol/sdk`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。サーバーレスのためセッションを持たない。 |
+| 繰り返しルール | RFC 5545 RRULE（`rrule` ライブラリ） | 予定・タスクで同じ仕組みを使う。展開ロジックを自作しない。 |
+| プッシュ通知 | Web Push（VAPID）、`web-push` | ブラウザ標準。iOS はホーム画面に追加した PWA で対応。 |
+| 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は 1 日 1 回のため、分単位の配信は QStash の遅延配信で行う。 |
+| UI | MUI（Material UI） | マテリアルデザインを「書かずに」得る。 |
+| カレンダー UI | MUI Date Pickers（入力）+ 自作の月／週グリッド（MUI 部品で構成） | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。 |
+| フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
+| 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`） | `Temporal` が Safari/Chrome 安定版で使えるようになった時点で移行を検討。 |
+| PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
+| テスト | Vitest（クライアント: jsdom、サーバー: Node）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
+| Lint / Format | Biome | 単一ツールで完結し設定量が少ない。 |
+| IaC | Terraform（`vercel/vercel`, `neondatabase/neon`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon の全設定をコードとして確認・編集できるようにする。 |
+| CI/CD | GitHub Actions。main へのプッシュで Terraform apply → DB マイグレーション → Vercel 本番デプロイ | Vercel の Git 連携（自動デプロイ）は使わない。順序を 1 つのワークフローで保証するため。 |
+| パッケージ管理 | pnpm | 高速・厳格。 |
+
+## レイヤー構成
+
+```
+[クライアント: React SPA（静的配信）]
+  features/*/queries.ts ──(Hono RPC client)──┐
+                                             ▼
+[Vercel Function: Hono]           routes.ts（Zod 検証 → Service を呼ぶ薄い層）
+  MCP tools (mcp.ts) ────────────────────────┤
+  Cron / QStash コールバック (通知) ───────────┤
+                                             ▼
+                                      Service 層 ──→ Repository 層 (Drizzle) ──→ Neon Postgres
+                                             ▲
+                              shared/ の Zod スキーマ・型（両者で共有）
+```
+
+- UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
+- Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
+- Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
+- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。
+- カレンダー／イベント画面は `calendar` feature の統合 API（`CalendarItem[]`）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）にのみ現れる。書き込みは `events` / `tasks` の各 API に送る。
+
+## ディレクトリ構成（機能単位で凝集）
+
+```
+api/
+  [[...route]].ts             # Vercel Function のエントリ。server/app.ts を hono/vercel で export するだけ
+src/                          # クライアント（Vite + React）
+  main.tsx  router.tsx  sw.ts（Service Worker: push / notificationclick）
+  routes/                     # TanStack Router ファイルベースルート。ページは features の部品を組み立てるだけ
+  features/                   # 機能ごとの UI（components/, queries.ts, __tests__/）
+    calendar/  events/  tasks/  expenses/  lemon/  users/  dashboard/
+  lib/                        # 横断
+    api.ts（Hono RPC client）  query-client.ts（永続化設定）  theme.ts  push.ts  date.ts  auth.ts
+    ui/（AppShell, ナビゲーション, 共通部品）
+server/                       # サーバー（Hono）
+  app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
+  dev.ts                      # ローカル起動用（@hono/node-server）
+  features/<name>/            # 1 機能 = 1 ディレクトリ
+    schema.ts                 # Drizzle テーブル定義
+    repository.ts             # DB アクセス
+    service.ts                # 業務ロジック（繰り返し展開を含む）
+    routes.ts                 # Hono ルート（Zod 検証 → service）
+    mcp.ts                    # MCP ツール定義
+    dashboard.ts              # ホーム画面への指標提供
+    notifications.ts          # 通知対象の列挙と配信時再検証
+    __tests__/
+  lib/
+    db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
+    recurrence/（RRULE 展開・例外適用）  dashboard/（registry）  notifications/（registry, enqueue, deliver）
+shared/                       # クライアント・サーバー共通
+  validation/<feature>.ts     # Zod スキーマ（入力）
+  types.ts  constants.ts
+drizzle/                      # マイグレーション SQL（生成物・コミットする）
+infra/                        # Terraform
+.github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml
+scripts/                      # create-user.ts / generate-vapid-keys.ts
+e2e/                          # Playwright
+```
+
+- ローカル開発は `vite dev`（`/api` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
+- 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は Vercel のファイルシステムルーティングで `api/[[...route]].ts` に到達するので、rewrite の対象から除外する。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
+- サーバーとクライアントで tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
+- import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
+
+## 拡張ポイント（機能追加を「登録」で済ませる仕組み）
+
+横断的な処理（ホーム・通知・MCP）が個別機能を知らなくて済むよう、各機能が共通インターフェースを実装して registry に登録する。
+
+```ts
+// server/lib/dashboard/types.ts
+export type DashboardWidget = {
+  id: string;
+  order: number;
+  load: (ctx: { userId: string }) => Promise<DashboardCardData>;
+};
+
+// server/lib/notifications/types.ts
+export type NotificationSource = {
+  id: string;
+  /** 指定期間に発火すべき通知を列挙する（key は冪等性のための一意キー） */
+  list: (range: { from: Date; to: Date }) => Promise<PlannedNotification[]>;
+  /** 配信直前に再検証する（削除・変更されていれば null） */
+  resolve: (key: string) => Promise<NotificationPayload | null>;
+};
+```
+
+- `server/features/*/dashboard.ts` が `DashboardWidget` を、`server/features/*/notifications.ts` が `NotificationSource` を export し、`server/lib/dashboard/registry.ts` / `server/lib/notifications/registry.ts` に列挙する。MCP ツールも `server/features/*/mcp.ts` を `server/lib/mcp/server.ts` で登録する。
+- 新機能の追加は「feature ディレクトリを（クライアントとサーバーに）作り、registry に 1 行ずつ足す」で完了する。手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
+
+## 認証・認可
+
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP を除く）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
+- パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
+- MCP の認可は OAuth 2.1 のみ。詳細は [features/mcp.md](features/mcp.md)。
+
+## オフラインと起動速度
+
+- アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。
+- TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
+- オフライン時は閲覧のみ。書き込み操作はオフライン中は無効化し、その旨を表示する。オフライン書き込み（キューして再送）は将来の拡張とし、初期スコープに含めない。
+- API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
+
+## UI / UX 方針
+
+- マテリアルデザインをベースにした、シンプルで洗練された UI。装飾は最小限。
+- アクセントカラー: 赤紫 `#A0148C`（MUI theme `primary.main`）。ダークモードでは `#D06AC0`。secondary は使わず、強調はすべて primary で統一する。
+- ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
+- レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation）、PC ではサイドナビ（permanent Drawer）に切り替える。ページ自体は共通。
+- 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
+- 更新系は TanStack Query の mutation で行い、成功後に関連クエリを invalidate する。楽観的更新は必要になるまで入れない。
+- フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。
+
+## PWA
+
+- Web App Manifest（`name: LifeHub`, `display: standalone`, `theme_color` = `#A0148C`, アイコン 192/512/maskable）。
+- iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。
+- Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。
+
+## 運用
+
+原則: インフラの設定はすべて `infra/` の Terraform に書き、ダッシュボードで直接変更しない。デプロイは main ブランチへのプッシュで完結する。手動作業は初回セットアップ（[README](../README.md#初回セットアップ人が一度だけ行う手作業)）だけに限定する。
+
+### Terraform（`infra/`）
+
+| 対象 | リソース | 備考 |
+|---|---|---|
+| Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う） |
+| ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。すべて `sensitive`。`APP_URL` は production のみ |
+| Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
+| 内部シークレット | `random_password` | Terraform が生成し state に保持する |
+| Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |
+| 出力 | `vercel_org_id`, `vercel_project_id`, `dns_cname_target`, `database_url`(sensitive), `neon_project_id` | GitHub Actions と初回セットアップが参照する |
+
+- Terraform の入力（変数）として外部から渡すもの: Vercel API トークン、Neon API キー、QStash トークンと署名鍵、VAPID 鍵ペア。GitHub Secrets → `TF_VAR_*` として渡す。
+- Terraform 対象外: Vercel Cron の定義（`vercel.json`）、外部 DNS の CNAME、DB マイグレーション、初期ユーザー作成。
+- state は HCP Terraform（Free）のワークスペース `lifehub` にリモート保存し、GitHub Actions からは `TF_API_TOKEN` で接続する。
+- プロバイダの更新は Renovate の PR で行い、CI では `terraform init -upgrade` を使わない（Neon 公式が警告するリソース再作成事故を防ぐ）。PR の `terraform plan` に replace が含まれる場合はマージしない。
+
+### デプロイフロー（GitHub Actions）
+
+**PR（`ci.yml`）**:
+1. `typecheck` → `lint` → `test` → `e2e`
+2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）
+3. Neon ブランチ `preview/pr-<番号>` を `main` から作成（既にあれば再利用。`neondatabase/create-branch-action`）
+4. そのブランチに `drizzle-kit migrate` を適用（本番相当のデータに対してマイグレーションを検証する）
+5. `vercel pull --environment=preview` → `vercel build` → `vercel deploy --prebuilt` に `--env DATABASE_URL=<PR ブランチの接続文字列>` を付けて Preview デプロイ
+6. Preview URL と Neon ブランチ名を PR コメントに投稿（更新時は同じコメントを書き換える）
+
+**PR クローズ／マージ（`preview-cleanup.yml`）**: Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブランチ数上限（10）を超えないよう必ず行う。
+
+**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
+
+Preview 環境の挙動:
+- Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。
+- `VERCEL_ENV !== 'production'` のとき、日次 Cron の通知予約と QStash への publish を無効化する（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。配信コールバックの署名検証は Preview でも行う。
+- better-auth の `baseURL` は `VERCEL_URL` から導出し、Preview URL でもログインと MCP の OAuth が動くようにする。
+
+運用上の注意:
+- マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
+- ロールバックはアプリ側は `vercel rollback`、インフラ側は Terraform の変更を revert してプッシュ。
+- バックアップは Neon の PITR に依存。加えて月次で `pg_dump` を手動取得する運用を検討。
+- 無料枠の制約: Vercel Hobby は Cron 日次のみ・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日。
+
+## 品質基準
+
+- TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
+- Biome で lint/format を CI で強制。警告ゼロを維持。
+- テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
+- Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
+- コミットは Conventional Commits。PR 単位で機能を追加する。
+- 依存関係は Renovate で定期更新し、常に最新安定版に追従する。
