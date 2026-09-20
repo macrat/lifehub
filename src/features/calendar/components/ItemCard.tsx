@@ -8,6 +8,7 @@ import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { useToggleTaskCompletion } from '../../tasks/queries.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
 
 type Props = {
@@ -16,19 +17,22 @@ type Props = {
 };
 
 /**
- * 一覧（日別リスト・週表示・イベント画面・ホーム）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
- * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分ける。
+ * 一覧（リスト表示・ホーム）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
+ * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分け、色は所有者・担当者のユーザーの色。
  * 期限超過は赤、完了は薄く取り消し線。
  */
 export function ItemCard({ item, onClick }: Props) {
   const { label } = useOwnerLabel();
+  const colorFor = useUserColor();
   const toggle = useToggleTaskCompletion();
   const online = useOnline();
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
-  const owner = label(item.kind === 'event' ? item.ownerUserId : item.assigneeUserId);
+  const ownerId = item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
+  const owner = label(ownerId);
+  const colors = colorFor(ownerId);
   const meta = [owner, item.kind === 'event' ? item.location : null].filter(Boolean).join(' · ');
 
   return (
@@ -55,7 +59,7 @@ export function ItemCard({ item, onClick }: Props) {
                 'aria-label': `${item.title} を${completed ? '未完了に戻す' : '完了にする'}`,
               },
             }}
-            sx={{ p: 0.5 }}
+            sx={{ p: 0.5, color: colors.fill, '&.Mui-checked': { color: colors.fill } }}
           />
         ) : (
           <Box
@@ -63,8 +67,7 @@ export function ItemCard({ item, onClick }: Props) {
               width: 10,
               height: 10,
               borderRadius: '50%',
-              bgcolor: 'primary.main',
-              opacity: item.allDay ? 1 : 0.75,
+              bgcolor: colors.fill,
             }}
           />
         )}

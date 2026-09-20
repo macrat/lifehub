@@ -14,7 +14,10 @@ export function TodayTasksCard({ card }: { card: DashboardCardOf<'tasks-today'> 
   const navigate = useNavigate();
   return (
     <Box component="section" sx={{ py: 1 }}>
-      <SectionHeading title="今日のタスク" onClick={() => navigate({ to: '/events' })} />
+      <SectionHeading
+        title="今日のタスク"
+        onClick={() => navigate({ to: '/calendar', search: { view: 'list', kind: 'task' } })}
+      />
       {card.data.length === 0 ? (
         <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
           なし

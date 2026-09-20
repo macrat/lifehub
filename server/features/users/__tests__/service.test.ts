@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { app } from '../../../app.ts';
 import { ConflictError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
@@ -21,6 +22,25 @@ describe('users service', () => {
     const created = await createUser(alice);
     expect(created).toMatchObject({ name: 'Alice', email: 'alice@example.com' });
     expect(await listUsers()).toEqual([created]);
+  });
+
+  it('色相を省略すると既存ユーザーと離れた色相が割り当てられ、指定すればその値になる', async () => {
+    const first = await createUser(alice);
+    expect(first.hue).toBe(DEFAULT_HUE);
+    const second = await createUser({
+      email: 'bob@example.com',
+      name: 'Bob',
+      password: 'password-bob-12',
+    });
+    expect(Math.abs(second.hue - first.hue)).toBeGreaterThan(90);
+    const third = await createUser({
+      email: 'carol@example.com',
+      name: 'Carol',
+      password: 'password-carol-1',
+      hue: 120,
+    });
+    expect(third.hue).toBe(120);
+    expect((await updateUser(third.id, { hue: 10 })).hue).toBe(10);
   });
 
   it('同じメールアドレスは登録できない', async () => {

@@ -1,29 +1,24 @@
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AppBar from '@mui/material/AppBar';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
-import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import { useTheme } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useIsFetching, useIsMutating } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useState } from 'react';
+import { Link, useLocation } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
-import { primaryNavItems, secondaryNavItems } from './navigation.ts';
+import { primaryNavItems } from './navigation.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 
 const DRAWER_WIDTH = 220;
@@ -33,63 +28,23 @@ export const BOTTOM_NAV_HEIGHT = 56;
 export const APP_BAR_HEIGHT = 48;
 
 type Props = {
-  userName: string;
-  onLogout: () => void;
   children: ReactNode;
 };
 
 /**
  * 全ページ共通の骨格。画面は主役（各ページの内容）に最大の面積を割く:
  * - ページタイトルは出さない（下部ナビ／サイドナビが現在地を示す）
- * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）
+ * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）。それ以外は何も置かない
  * - スマホは AppBar + BottomNavigation、PC は permanent Drawer。ページ自体は共通。
  */
-export function AppShell({ userName, onLogout, children }: Props) {
+export function AppShell({ children }: Props) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const busy = useIsFetching() + useIsMutating() > 0;
 
   const activeIndex = primaryNavItems.findIndex((item) =>
     item.to === '/' ? pathname === '/' : pathname.startsWith(item.to ?? ''),
-  );
-
-  const accountMenu = (
-    <>
-      <IconButton
-        aria-label="アカウントメニュー"
-        edge="end"
-        onClick={(e) => setMenuAnchor(e.currentTarget)}
-      >
-        <AccountCircleIcon />
-      </IconButton>
-      <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
-        <MenuItem disabled>{userName}</MenuItem>
-        <Divider />
-        {secondaryNavItems.map((item) => (
-          <MenuItem
-            key={item.to}
-            onClick={() => {
-              setMenuAnchor(null);
-              navigate({ to: item.to });
-            }}
-          >
-            {item.label}
-          </MenuItem>
-        ))}
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setMenuAnchor(null);
-            onLogout();
-          }}
-        >
-          ログアウト
-        </MenuItem>
-      </Menu>
-    </>
   );
 
   return (
@@ -98,7 +53,6 @@ export function AppShell({ userName, onLogout, children }: Props) {
         <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
-            {accountMenu}
           </Toolbar>
           {/* 取得・保存中の細いインジケータ。位置を取らないよう AppBar の下端に重ねる */}
           <LinearProgress

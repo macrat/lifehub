@@ -1,15 +1,15 @@
 import { registerSW } from 'virtual:pwa-register';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
-import { useIsRestoring } from '@tanstack/react-query';
+import { useIsRestoring, useQuery } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
-import { StrictMode } from 'react';
+import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { meQueryOptions } from './lib/auth.ts';
 import { persistOptions, queryClient } from './lib/query-client.ts';
-import { theme } from './lib/theme.ts';
+import { createAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { routeTree } from './routeTree.gen.ts';
 
@@ -76,13 +76,22 @@ function App() {
   return <RouterProvider router={router} />;
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
+/** テーマのアクセントはログイン中のユーザーの色。取得はルートのガードに任せ、ここはキャッシュを読むだけ */
+function ThemedApp() {
+  const { data: me } = useQuery({ ...meQueryOptions, enabled: false });
+  const theme = useMemo(() => createAppTheme(me?.hue), [me?.hue]);
+  return (
     <ThemeProvider theme={theme} noSsr>
       <CssBaseline />
-      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-        <App />
-      </PersistQueryClientProvider>
+      <App />
     </ThemeProvider>
+  );
+}
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+      <ThemedApp />
+    </PersistQueryClientProvider>
   </StrictMode>,
 );

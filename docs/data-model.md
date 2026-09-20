@@ -15,7 +15,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 | テーブル | 主な列 | 備考 |
 |---|---|---|
-| `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 | `users.name` を表示名として使う（「自分／相手」の表示に用いる）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
+| `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 + `users.hue` | `users.name` を表示名として使う（「自分／相手」の表示に用いる）。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
 | `push_subscriptions` | `user_id`, `endpoint`(unique), `p256dh`, `auth`, `user_agent` | 端末ごとに 1 行。配信失敗（410/404）で削除 |
 | `events` | `title`, `starts_at`, `ends_at`, `all_day`, `owner_user_id` (null=共有), `location`, `note`, `rrule` (null=単発), `remind_before_minutes` (null=通知なし) | 予定。終日は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。`remind_before_minutes` の選択肢は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、既定は null |
 | `event_overrides` | `event_id`, `occurrence_start`(元の開始日時), `cancelled`, `starts_at`, `ends_at`, `title`, `note` | 繰り返し予定の個別変更・削除（RFC 5545 の RECURRENCE-ID 相当）。unique(`event_id`, `occurrence_start`) |

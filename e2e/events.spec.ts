@@ -23,29 +23,29 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   await page.getByLabel('繰り返し', { exact: true }).click();
   await page.getByRole('option', { name: '毎週' }).click();
   await page.getByRole('button', { name: '保存' }).click();
-  await expect(page.getByText(title)).toBeVisible();
+  // 週表示はタイムライン。予定はブロック（ボタン）として出る
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
 
   // 翌週に移動しても表示される
-  await page.getByRole('button', { name: '次へ' }).click();
-  await expect(page.getByText(title)).toBeVisible();
+  await page.goto('/calendar?view=week&date=2030-01-14');
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
 
   // この回だけタイトルを変更
-  await page.getByText(title).click();
+  await page.getByRole('button', { name: title }).click();
   await page.getByRole('button', { name: '編集' }).click();
   await page.getByRole('button', { name: 'この回だけ' }).click();
   await page.getByLabel('タイトル').fill(`${title}（変更）`);
   await page.getByRole('button', { name: '保存' }).click();
-  await expect(page.getByText(`${title}（変更）`)).toBeVisible();
+  await expect(page.getByRole('button', { name: `${title}（変更）` })).toBeVisible();
 
   // 元の週は変わっていない
-  await page.getByRole('button', { name: '前へ' }).click();
-  await expect(page.getByText(title, { exact: true })).toBeVisible();
+  await page.goto('/calendar?view=week&date=2030-01-07');
+  await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
 
   // すべて削除
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByText(title, { exact: true }).click();
+  await page.getByRole('button', { name: title, exact: true }).click();
   await page.getByRole('button', { name: '削除' }).click();
   await page.getByRole('button', { name: /^すべて / }).click();
-  // 詳細ダイアログの閉じるアニメーション中はタイトルが 2 か所に見えるので、件数で待つ
-  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(0);
 });

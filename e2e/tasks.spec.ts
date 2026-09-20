@@ -9,9 +9,9 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL('/');
 });
 
-test('タスクを追加し、カレンダーから完了にできる', async ({ page }) => {
+test('タスクを追加し、カレンダーのリスト表示から完了にできる', async ({ page }) => {
   const title = `E2E タスク ${Date.now()}`;
-  await page.goto('/calendar?view=week');
+  await page.goto('/calendar?view=list');
 
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();

@@ -15,7 +15,10 @@ export function UpcomingEventsCard({ card }: { card: DashboardCardOf<'events-upc
   const grouped = groupByDate(card.data);
   return (
     <Box component="section" sx={{ py: 1 }}>
-      <SectionHeading title="次の予定" onClick={() => navigate({ to: '/calendar' })} />
+      <SectionHeading
+        title="次の予定"
+        onClick={() => navigate({ to: '/calendar', search: { view: 'list' } })}
+      />
       {grouped.size === 0 ? (
         <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
           なし

@@ -2,9 +2,9 @@ import { and, asc, eq } from 'drizzle-orm';
 import { db } from '../../lib/db.ts';
 import { accounts, users } from './schema.ts';
 
-export type UserRow = { id: string; name: string; email: string };
+export type UserRow = { id: string; name: string; email: string; hue: number };
 
-const publicColumns = { id: users.id, name: users.name, email: users.email };
+const publicColumns = { id: users.id, name: users.name, email: users.email, hue: users.hue };
 
 export async function findAll(): Promise<UserRow[]> {
   return db.select(publicColumns).from(users).orderBy(asc(users.createdAt));
@@ -20,8 +20,11 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
-export async function updateName(id: string, name: string): Promise<void> {
-  await db.update(users).set({ name }).where(eq(users.id, id));
+export async function updateProfile(
+  id: string,
+  values: { name?: string; hue?: number },
+): Promise<void> {
+  await db.update(users).set(values).where(eq(users.id, id));
 }
 
 /** パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く */

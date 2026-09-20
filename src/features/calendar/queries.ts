@@ -17,6 +17,9 @@ export function calendarItemsQueryOptions(range: { from: DateString; to: DateStr
       const res = await ensureOk(await api.calendar.items.$get({ query: range }));
       return res.json();
     },
+    // 表示のたびに取り直す（キャッシュはまず出す）。永続化キャッシュは書き込みが 1 秒遅れるため、
+    // 変更直後に再読み込みすると古い一覧が復元されることがあり、既定の staleTime だとそれが残る
+    staleTime: 0,
   });
 }
 

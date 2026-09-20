@@ -126,6 +126,17 @@ export function addMonths(month: string, n: number): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
+/** 瞬間 → JST のその日の 0:00 からの分 */
+export function minutesOfDay(value: Date | string): number {
+  const z = new TZDate(toDate(value), TIME_ZONE);
+  return z.getHours() * 60 + z.getMinutes();
+}
+
+/** "9/14(月)〜9/20(日)" */
+export function formatDateRange(from: DateString, to: DateString): string {
+  return `${formatDate(from)}〜${formatDate(to)}`;
+}
+
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;
 
 export function isToday(date: DateString): boolean {

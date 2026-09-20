@@ -1,56 +1,125 @@
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import TodayIcon from '@mui/icons-material/Today';
+import Badge from '@mui/material/Badge';
+import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Typography from '@mui/material/Typography';
+import InputBase from '@mui/material/InputBase';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import { useState } from 'react';
 
-export type CalendarView = 'month' | 'week';
+export type CalendarView = 'month' | 'week' | 'day' | 'list';
 
-type Props = {
-  title: string;
-  view: CalendarView;
-  onChangeView: (view: CalendarView) => void;
-  onPrev: () => void;
-  onNext: () => void;
-  onToday: () => void;
+export const VIEW_LABELS: Record<CalendarView, string> = {
+  month: '月',
+  week: '週',
+  day: '日',
+  list: 'リスト',
 };
 
-/** AppBar に収めるカレンダーの操作。 */
-export function CalendarToolbar({ title, view, onChangeView, onPrev, onNext, onToday }: Props) {
+type Props = {
+  view: CalendarView;
+  /** 月・週・日表示の見出し（タップで年月の選択） */
+  title: string;
+  onOpenPicker: () => void;
+  onToday: () => void;
+  onChangeView: (view: CalendarView) => void;
+  /** リスト表示の検索と絞り込み */
+  list: {
+    query: string;
+    onChangeQuery: (q: string) => void;
+    filtersOpen: boolean;
+    onToggleFilters: () => void;
+    activeFilters: number;
+  };
+};
+
+/**
+ * AppBar に収めるカレンダーの操作。前後への移動はスワイプ（スマホ）や表示切替に任せ、ボタンは置かない。
+ * 左: 年月（タップで選択ダイアログ）／リスト表示では検索。右: 今日、表示の切替。
+ */
+export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeView, list }: Props) {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
-      <IconButton aria-label="前へ" onClick={onPrev} size="small" edge="start">
-        <ChevronLeftIcon />
-      </IconButton>
-      <Typography
-        variant="subtitle1"
-        component="h2"
-        sx={{ minWidth: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+      {view === 'list' ? (
+        <>
+          <InputBase
+            type="search"
+            placeholder="検索"
+            value={list.query}
+            onChange={(e) => list.onChangeQuery(e.target.value)}
+            inputProps={{ 'aria-label': '検索' }}
+            sx={{
+              flexGrow: 1,
+              minWidth: 0,
+              bgcolor: 'action.hover',
+              borderRadius: 5,
+              px: 1.5,
+              py: 0.25,
+            }}
+          />
+          <IconButton
+            aria-label="絞り込み"
+            aria-expanded={list.filtersOpen}
+            onClick={list.onToggleFilters}
+            size="small"
+          >
+            <Badge badgeContent={list.activeFilters} color="primary">
+              <FilterListIcon />
+            </Badge>
+          </IconButton>
+        </>
+      ) : (
+        <>
+          <Button
+            color="inherit"
+            onClick={onOpenPicker}
+            endIcon={<ArrowDropDownIcon />}
+            aria-label={`${title}（年月を選ぶ）`}
+            sx={{
+              minWidth: 0,
+              px: 1,
+              ml: -1,
+              fontSize: '1rem',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              fontVariantNumeric: 'tabular-nums',
+              '& .MuiButton-endIcon': { ml: 0 },
+            }}
+          >
+            {title}
+          </Button>
+          <IconButton aria-label="今日" onClick={onToday} size="small" sx={{ ml: 'auto' }}>
+            <TodayIcon />
+          </IconButton>
+        </>
+      )}
+      <Button
+        color="inherit"
+        onClick={(e) => setMenuAnchor(e.currentTarget)}
+        endIcon={<ArrowDropDownIcon />}
+        aria-label="表示の切替"
+        aria-haspopup="menu"
+        sx={{ minWidth: 0, px: 1, whiteSpace: 'nowrap', '& .MuiButton-endIcon': { ml: 0 } }}
       >
-        {title}
-      </Typography>
-      <IconButton aria-label="次へ" onClick={onNext} size="small">
-        <ChevronRightIcon />
-      </IconButton>
-      <IconButton aria-label="今日" onClick={onToday} size="small">
-        <TodayIcon />
-      </IconButton>
-      <ToggleButtonGroup
-        size="small"
-        exclusive
-        value={view}
-        onChange={(_, v: CalendarView | null) => v && onChangeView(v)}
-        sx={{ ml: 'auto', '& .MuiToggleButton-root': { px: 1, py: 0.25 } }}
-      >
-        <ToggleButton value="month" aria-label="月表示">
-          月
-        </ToggleButton>
-        <ToggleButton value="week" aria-label="週表示">
-          週
-        </ToggleButton>
-      </ToggleButtonGroup>
+        {VIEW_LABELS[view]}
+      </Button>
+      <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
+        {(Object.keys(VIEW_LABELS) as CalendarView[]).map((v) => (
+          <MenuItem
+            key={v}
+            selected={v === view}
+            onClick={() => {
+              setMenuAnchor(null);
+              onChangeView(v);
+            }}
+          >
+            {VIEW_LABELS[v]}
+          </MenuItem>
+        ))}
+      </Menu>
     </>
   );
 }

@@ -14,7 +14,6 @@ import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedLemonRouteImport } from './routes/_authenticated/lemon'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -44,11 +43,6 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedEventsRoute = AuthenticatedEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
@@ -75,7 +69,6 @@ export interface FileRoutesByFullPath {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/events': typeof AuthenticatedEventsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -85,7 +78,6 @@ export interface FileRoutesByTo {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/events': typeof AuthenticatedEventsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -98,7 +90,6 @@ export interface FileRoutesById {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/events': typeof AuthenticatedEventsRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/lemon': typeof AuthenticatedLemonRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -112,7 +103,6 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/events'
     | '/expenses'
     | '/lemon'
     | '/settings'
@@ -122,7 +112,6 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/events'
     | '/expenses'
     | '/lemon'
     | '/settings'
@@ -134,7 +123,6 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/_authenticated/calendar'
-    | '/_authenticated/events'
     | '/_authenticated/expenses'
     | '/_authenticated/lemon'
     | '/_authenticated/settings'
@@ -185,13 +173,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/events': {
-      id: '/_authenticated/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof AuthenticatedEventsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/expenses': {
       id: '/_authenticated/expenses'
       path: '/expenses'
@@ -225,7 +206,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedEventsRoute: typeof AuthenticatedEventsRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedLemonRoute: typeof AuthenticatedLemonRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -235,7 +215,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedEventsRoute: AuthenticatedEventsRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedLemonRoute: AuthenticatedLemonRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,

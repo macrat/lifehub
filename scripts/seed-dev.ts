@@ -25,11 +25,13 @@ const me = await users.createUser({
   email: 'taro@example.com',
   name: '太郎',
   password: 'password-123456',
+  hue: 335,
 });
 const partner = await users.createUser({
   email: 'hanako@example.com',
   name: '花子',
   password: 'password-123456',
+  hue: 200,
 });
 const t = today();
 const at = (d: string, hm: string) => new Date(`${d}T${hm}:00+09:00`).toISOString();

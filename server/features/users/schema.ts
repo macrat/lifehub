@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { DEFAULT_HUE } from '../../../shared/color.ts';
 
 /**
  * better-auth が管理するテーブル（メール＋パスワード認証）。
@@ -10,6 +11,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
+  /** ユーザーの色（OKLCH の色相 0〜359）。アクセントカラーとカレンダーの色に使う（shared/color.ts） */
+  hue: integer('hue').notNull().default(DEFAULT_HUE),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

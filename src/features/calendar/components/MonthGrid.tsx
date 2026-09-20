@@ -1,22 +1,26 @@
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import { formatTime, isToday, monthGridDays, WEEKDAY_LABELS } from '../../../lib/date.ts';
+import { isToday, monthGridDays, WEEKDAY_LABELS } from '../../../lib/date.ts';
+import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import type { CalendarItem } from '../queries.ts';
+import { GridChip } from './GridChip.tsx';
+import { layoutLanes } from './lane-layout.ts';
+
+export { itemKey } from './lane-layout.ts';
 
 type Props = {
   month: string;
   itemsByDate: Map<DateString, CalendarItem[]>;
-  selectedDate: DateString;
+  /** 日をタップしたとき（日表示へ移る） */
   onSelectDate: (date: DateString) => void;
+  /** 項目をクリックしたとき（広い画面のみ。スマホでは項目はタップできず、日をタップする） */
   onSelectItem: (item: CalendarItem) => void;
-  /** グリッド全体の高さ（例: 画面の残り全部）。省略時は内容に合わせる */
-  height?: string;
+  /** グリッド全体の高さ（画面の残り全部） */
+  height: string;
 };
 
 const DAY_NUMBER_HEIGHT = 22;
@@ -25,30 +29,21 @@ const DAY_NUMBER_HEIGHT = 22;
  * 月グリッド（Google カレンダー方式）。
  * - 複数日の予定は週の行をまたいで 1 本の帯にする（レーンを割り当てて重ならないように置く）
  * - 終日は塗り帯、時間指定の予定は点＋タイトル、タスクはチェック印＋タイトル。タイトルを優先し、時刻は PC でだけ添える
- * - 高さが与えられれば 6 週で等分し、入りきらない項目は「+n」にまとめる
+ * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
+ * - 色は所有者・担当者のユーザーの色
  */
-export function MonthGrid({
-  month,
-  itemsByDate,
-  selectedDate,
-  onSelectDate,
-  onSelectItem,
-  height,
-}: Props) {
+export function MonthGrid({ month, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down('sm'));
+  const colorFor = useUserColor();
   const laneHeight = compact ? 17 : 20;
   const days = monthGridDays(month);
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
 
-  // 1 週の行に入るレーン数を実測から決める（高さ固定のとき）。可変のときは一定数にする
+  // 1 週の行に入るレーン数を実測から決める
   const firstWeekRef = useRef<HTMLDivElement>(null);
-  const [maxLanes, setMaxLanes] = useState(4);
+  const [maxLanes, setMaxLanes] = useState(3);
   useLayoutEffect(() => {
-    if (!height) {
-      setMaxLanes(4);
-      return;
-    }
     const el = firstWeekRef.current;
     if (!el) return;
     const measure = () => {
@@ -59,13 +54,13 @@ export function MonthGrid({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [height, laneHeight]);
+  }, [laneHeight]);
 
   return (
     <Box
       sx={{
         display: 'grid',
-        gridTemplateRows: height ? 'auto repeat(6, minmax(0, 1fr))' : undefined,
+        gridTemplateRows: 'auto repeat(6, minmax(0, 1fr))',
         height,
         borderTop: 1,
         borderColor: 'divider',
@@ -96,89 +91,16 @@ export function MonthGrid({
           days={week}
           month={month}
           itemsByDate={itemsByDate}
-          selectedDate={selectedDate}
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
+          colorFor={colorFor}
           maxLanes={maxLanes}
           laneHeight={laneHeight}
           compact={compact}
-          fixed={height !== undefined}
         />
       ))}
     </Box>
   );
-}
-
-type Placed = {
-  key: string;
-  item: CalendarItem;
-  col: number;
-  span: number;
-  lane: number;
-  roundStart: boolean;
-  roundEnd: boolean;
-};
-
-/** 1 週分の項目にレーン（行）を割り当てる。複数日の帯を先に、次に日ごとの項目を左から順に置く */
-function layoutWeek(days: DateString[], itemsByDate: Map<DateString, CalendarItem[]>): Placed[] {
-  const entries: Omit<Placed, 'lane'>[] = [];
-  const seenBars = new Set<string>();
-  days.forEach((day, col) => {
-    for (const item of itemsByDate.get(day) ?? []) {
-      if (item.kind === 'event' && item.dayCount > 1) {
-        const key = `${item.id}:${item.occurrenceStart}`;
-        if (seenBars.has(key)) continue;
-        seenBars.add(key);
-        let span = 1;
-        while (
-          col + span < 7 &&
-          (itemsByDate.get(days[col + span] as DateString) ?? []).some(
-            (i) => i.kind === 'event' && `${i.id}:${i.occurrenceStart}` === key,
-          )
-        ) {
-          span++;
-        }
-        entries.push({
-          key,
-          item,
-          col,
-          span,
-          roundStart: item.dayIndex === 1,
-          roundEnd: item.dayIndex + span - 1 === item.dayCount,
-        });
-      }
-    }
-  });
-  // 帯は開始が早く、長いものを上に
-  entries.sort((a, b) => a.col - b.col || b.span - a.span);
-  days.forEach((day, col) => {
-    for (const item of itemsByDate.get(day) ?? []) {
-      if (item.kind === 'event' && item.dayCount > 1) continue;
-      const key =
-        item.kind === 'event'
-          ? `${item.id}:${item.occurrenceStart}`
-          : `${item.id}:${item.occurrenceKey}`;
-      entries.push({ key, item, col, span: 1, roundStart: true, roundEnd: true });
-    }
-  });
-
-  const lanes: boolean[][] = [];
-  return entries.map((entry) => {
-    let lane = 0;
-    for (;;) {
-      let row = lanes[lane];
-      if (!row) {
-        row = Array(7).fill(false);
-        lanes[lane] = row;
-      }
-      if (row.slice(entry.col, entry.col + entry.span).every((used) => !used)) {
-        row.fill(true, entry.col, entry.col + entry.span);
-        break;
-      }
-      lane++;
-    }
-    return { ...entry, lane };
-  });
 }
 
 type WeekRowProps = {
@@ -186,13 +108,12 @@ type WeekRowProps = {
   days: DateString[];
   month: string;
   itemsByDate: Map<DateString, CalendarItem[]>;
-  selectedDate: DateString;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
+  colorFor: (userId: string | null) => ItemColors;
   maxLanes: number;
   laneHeight: number;
   compact: boolean;
-  fixed: boolean;
 };
 
 function WeekRow({
@@ -200,26 +121,22 @@ function WeekRow({
   days,
   month,
   itemsByDate,
-  selectedDate,
   onSelectDate,
   onSelectItem,
+  colorFor,
   maxLanes,
   laneHeight,
   compact,
-  fixed,
 }: WeekRowProps) {
-  const placed = layoutWeek(days, itemsByDate);
-  const visible = placed.filter(
-    (p) => p.lane < maxLanes - (placed.some((q) => q.lane >= maxLanes) ? 1 : 0),
-  );
-  const hiddenLaneStart = visible.length === placed.length ? maxLanes : maxLanes - 1;
+  const placed = layoutLanes(days, itemsByDate);
+  const overflow = placed.some((q) => q.lane >= maxLanes);
+  const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
+  const visible = placed.filter((p) => p.lane < hiddenLaneStart);
   const hiddenPerCol = Array(7).fill(0) as number[];
   for (const p of placed) {
     if (p.lane >= hiddenLaneStart)
       for (let c = p.col; c < p.col + p.span; c++) hiddenPerCol[c] = (hiddenPerCol[c] ?? 0) + 1;
   }
-  const usedLanes = Math.max(0, ...placed.map((p) => p.lane + 1));
-  const rows = fixed ? maxLanes : Math.max(1, Math.min(usedLanes, maxLanes));
 
   return (
     <Box
@@ -228,17 +145,16 @@ function WeekRow({
         position: 'relative',
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gridTemplateRows: `${DAY_NUMBER_HEIGHT}px repeat(${rows}, ${laneHeight}px)`,
-        minHeight: fixed ? 0 : DAY_NUMBER_HEIGHT + laneHeight * 3 + 4,
+        gridTemplateRows: `${DAY_NUMBER_HEIGHT}px repeat(${maxLanes}, ${laneHeight}px)`,
+        minHeight: 0,
         overflow: 'hidden',
         borderBottom: 1,
         borderColor: 'divider',
       }}
     >
-      {/* 背景の日セル: 罫線・選択・今日・タップ */}
+      {/* 背景の日セル: 罫線・今日・タップ */}
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
-        const selected = date === selectedDate;
         const today = isToday(date);
         return (
           <Box
@@ -246,7 +162,6 @@ function WeekRow({
             role="button"
             tabIndex={0}
             aria-label={date}
-            aria-pressed={selected}
             onClick={() => onSelectDate(date)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') onSelectDate(date);
@@ -256,12 +171,12 @@ function WeekRow({
               gridRow: '1 / -1',
               borderLeft: col === 0 ? 0 : 1,
               borderColor: 'divider',
-              bgcolor: selected ? 'action.selected' : 'transparent',
               cursor: 'pointer',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'flex-start',
               pt: '2px',
+              '&:hover': { bgcolor: 'action.hover' },
             }}
           >
             <Typography
@@ -292,12 +207,12 @@ function WeekRow({
           </Box>
         );
       })}
-      {/* 項目 */}
       {visible.map((p) => (
         <GridChip
           key={p.key}
           placed={p}
           compact={compact}
+          colors={colorFor(p.item.kind === 'event' ? p.item.ownerUserId : p.item.assigneeUserId)}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}
@@ -306,14 +221,12 @@ function WeekRow({
           <Typography
             key={days[col]}
             variant="caption"
-            component="button"
-            type="button"
-            onClick={() => onSelectDate(days[col] as DateString)}
+            component="span"
             sx={{
               all: 'unset',
               gridColumn: col + 1,
               gridRow: hiddenLaneStart + 2,
-              cursor: 'pointer',
+              pointerEvents: 'none',
               px: 0.5,
               fontSize: compact ? '0.6rem' : '0.7rem',
               lineHeight: `${laneHeight}px`,
@@ -327,110 +240,4 @@ function WeekRow({
       )}
     </Box>
   );
-}
-
-/**
- * セル内の 1 項目。帯（終日・複数日）／点＋タイトル（時間指定）／チェック印＋タイトル（タスク）。
- * onClick が無ければ表示専用（スマホ）: 小さな項目を狙わせず、セルのどこをタップしても日を選ぶ
- * （Google カレンダーのスマホ月表示と同じ）。項目はグリッド下の日別一覧から開く。
- */
-function GridChip({
-  placed,
-  compact,
-  onClick,
-}: {
-  placed: Placed;
-  compact: boolean;
-  onClick?: () => void;
-}) {
-  const { item, col, span, lane, roundStart, roundEnd } = placed;
-  // 終日と複数日の予定は塗り帯にする（時間指定でも日をまたぐなら帯）
-  const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
-  const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
-  const overdue = isTask && item.isOverdue;
-  const time = item.kind === 'event' && !item.allDay && !compact ? formatTime(item.startsAt) : null;
-  const radius = 4;
-  return (
-    <Box
-      component={onClick ? 'button' : 'span'}
-      type={onClick ? 'button' : undefined}
-      onClick={
-        onClick
-          ? (e: React.MouseEvent) => {
-              e.stopPropagation();
-              onClick();
-            }
-          : undefined
-      }
-      aria-label={item.title}
-      sx={{
-        all: 'unset',
-        boxSizing: 'border-box',
-        pointerEvents: onClick ? 'auto' : 'none',
-        gridColumn: `${col + 1} / span ${span}`,
-        gridRow: lane + 2,
-        alignSelf: 'center',
-        height: '100%',
-        mx: isBar ? (roundStart && roundEnd ? '2px' : 0) : '2px',
-        ml: isBar && !roundStart ? 0 : '2px',
-        mr: isBar && !roundEnd ? 0 : '2px',
-        px: '3px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '3px',
-        minWidth: 0,
-        cursor: onClick ? 'pointer' : 'default',
-        fontSize: compact ? '0.62rem' : '0.72rem',
-        lineHeight: 1,
-        borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
-        bgcolor: isBar ? 'primary.main' : 'transparent',
-        color: isBar
-          ? 'primary.contrastText'
-          : overdue
-            ? 'error.main'
-            : completed
-              ? 'text.disabled'
-              : 'text.primary',
-        textDecoration: completed ? 'line-through' : 'none',
-        '&:hover': { bgcolor: isBar ? 'primary.dark' : 'action.hover' },
-      }}
-    >
-      {isTask ? (
-        completed ? (
-          <CheckBoxIcon sx={{ fontSize: compact ? 10 : 12, flexShrink: 0 }} />
-        ) : (
-          <CheckBoxOutlineBlankIcon sx={{ fontSize: compact ? 10 : 12, flexShrink: 0 }} />
-        )
-      ) : (
-        !isBar && (
-          <Box
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              bgcolor: 'primary.main',
-              flexShrink: 0,
-            }}
-          />
-        )
-      )}
-      <Box
-        component="span"
-        sx={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
-      >
-        {time && (
-          <Box component="span" sx={{ color: 'text.secondary', mr: '3px' }}>
-            {time}
-          </Box>
-        )}
-        {item.title}
-      </Box>
-    </Box>
-  );
-}
-
-export function itemKey(item: CalendarItem): string {
-  const occurrence = item.kind === 'event' ? item.occurrenceStart : item.occurrenceKey;
-  return `${item.kind}:${item.id}:${occurrence}:${item.placementDate}`;
 }

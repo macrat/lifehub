@@ -3,6 +3,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { type FormEvent, useState } from 'react';
+import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import {
   type CreateUserInput,
   createUserSchema,
@@ -13,6 +14,7 @@ import { type FormErrors, parseForm } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { User } from '../queries.ts';
+import { HueSlider } from './HueSlider.tsx';
 
 type CreateProps = {
   mode: 'create';
@@ -34,10 +36,13 @@ export function UserForm(props: CreateProps | EditProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // 色は登録時は省略可（サーバーが既存ユーザーと離れた色相を選ぶ）。編集時は今の色から始める
+  const [hue, setHue] = useState<number | null>(props.mode === 'edit' ? props.user.hue : null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (hue !== null) formData.set('hue', String(hue));
     const parsed =
       props.mode === 'create'
         ? parseForm(createUserSchema, formData)
@@ -109,6 +114,7 @@ export function UserForm(props: CreateProps | EditProps) {
           helperText={errors.password ?? '12文字以上'}
           fullWidth
         />
+        <HueSlider value={hue ?? DEFAULT_HUE} onChange={setHue} />
       </Stack>
     </FormDialog>
   );

@@ -9,11 +9,20 @@
 | 画面 | パス | 内容 |
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
-| 管理 | `/admin/users` | ユーザー一覧、登録（名前・メール・パスワード）、名前の変更、パスワードの変更 |
+| 設定 | `/settings` | 自分の色（スライダー）、この端末のプッシュ通知、ユーザー管理へのリンク、ログアウト |
+| 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更 |
 
 - 未認証で保護ページを開くと `/login?redirect=<元のパス>` へ遷移する（UX 目的のガード。防御はサーバーの 401）。
 - API が 401 を返したら、クライアントは `/login` へ遷移する。
-- ナビゲーションにログアウトを置く。
+- ログアウトは設定画面に置く。AppBar にアカウントメニューは置かない（画面の帯は各ページの操作にだけ使う）。
+
+## ユーザーの色
+
+- 各ユーザーは **OKLCH の色相（`hue`、0〜359）だけ**を選ぶ。彩度と明度はアプリが用途ごとに決めて使い回す（`shared/color.ts`: アクセント `accent`、カレンダーの帯 `fill`、薄い背景 `tint`。ライト／ダークで別の値）。OKLCH は色相を変えても知覚的な明るさ・鮮やかさが揃うので、どの色相でも同じ強さになる。
+- ログイン中のユーザーの色相がアプリのアクセントカラー（MUI の `primary`）になる（`src/lib/theme.ts` の `createAppTheme`、`src/main.tsx`）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相 335）。
+- カレンダーでは予定の所有者・タスクの担当者の色を使う（`src/features/users/use-user-color.ts`）。共有（`null`）は既定の色相。
+- MUI のパレットは hex を要求するため、OKLCH → sRGB の変換を自前で持つ（色域外は彩度を落として収める）。CSS の `oklch()` には頼らない。
+- 登録時に色相を省略すると、既存ユーザーと既定の色相から最も離れた色相を自動で割り当てる（`pickDistinctHue`）。
 
 ## 認証
 
@@ -28,9 +37,10 @@
 | メソッド | パス | 内容 |
 |---|---|---|
 | ANY | `/api/auth/*` | better-auth のハンドラ |
-| GET | `/api/users` | ユーザー一覧（id, name, email） |
-| POST | `/api/users` | ユーザー作成 |
-| PATCH | `/api/users/:id` | 名前・パスワードの変更 |
+| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue）。`hue` は better-auth のセッションに載らないので users から読み直す |
+| GET | `/api/users` | ユーザー一覧（id, name, email, hue） |
+| POST | `/api/users` | ユーザー作成（`hue` は任意） |
+| PATCH | `/api/users/:id` | 名前・色相・パスワードの変更 |
 
 `/api/users` は `server/features/users/routes.ts`。入力スキーマは `shared/validation/users.ts`。
 

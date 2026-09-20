@@ -7,6 +7,7 @@ import { expensesRoutes } from './features/expenses/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { tasksRoutes } from './features/tasks/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
+import { getUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { dashboardRoutes } from './lib/dashboard/routes.ts';
@@ -54,10 +55,8 @@ app.route('/notifications', notificationsRoutes);
 app.use('*', requireSession);
 
 const routes = app
-  .get('/me', (c) => {
-    const user = c.get('user');
-    return c.json({ id: user.id, name: user.name, email: user.email });
-  })
+  // 色（hue）は better-auth のセッションに載らないので、users から読み直す
+  .get('/me', async (c) => c.json(await getUser(c.get('user').id)))
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
   .route('/tasks', tasksRoutes)

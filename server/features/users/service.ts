@@ -1,4 +1,5 @@
 import { hashPassword } from 'better-auth/crypto';
+import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { auth } from '../../lib/auth.ts';
 import { ConflictError, NotFoundError } from '../../lib/errors.ts';
@@ -25,14 +26,20 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
   if (await repository.findByEmail(input.email)) {
     throw new ConflictError('このメールアドレスは既に登録されています');
   }
-  const result = await auth.api.signUpEmail({ body: input });
-  return { id: result.user.id, name: result.user.name, email: result.user.email };
+  const { hue, ...credentials } = input;
+  const result = await auth.api.signUpEmail({ body: credentials });
+  // 色は better-auth の外側の属性なので、作成後に自前で更新する。指定が無ければ既存のユーザーと離れた色相にする
+  const existing = await repository.findAll();
+  const resolvedHue =
+    hue ?? pickDistinctHue(existing.filter((u) => u.id !== result.user.id).map((u) => u.hue));
+  await repository.updateProfile(result.user.id, { hue: resolvedHue });
+  return getUser(result.user.id);
 }
 
 export async function updateUser(id: string, input: UpdateUserInput): Promise<repository.UserRow> {
   await getUser(id);
-  if (input.name !== undefined) {
-    await repository.updateName(id, input.name);
+  if (input.name !== undefined || input.hue !== undefined) {
+    await repository.updateProfile(id, { name: input.name, hue: input.hue });
   }
   if (input.password !== undefined) {
     await repository.updatePasswordHash(id, await hashPassword(input.password));
