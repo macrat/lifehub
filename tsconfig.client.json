@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "WebWorker"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "vite-plugin-pwa/client", "@testing-library/jest-dom/vitest"]
+  },
+  "include": ["src", "shared", "server/app.ts", "server/features/*/routes.ts", "vite.config.ts"]
+}

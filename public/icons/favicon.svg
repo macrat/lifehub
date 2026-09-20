@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LifeHub"><title>LifeHub</title>
+  <rect width="64" height="64" rx="14" fill="#A0148C"/>
+  <path d="M18 44V20h6v18h10v6z" fill="#fff"/>
+  <path d="M38 44V20h6v9h6v-9h6v24h-6v-9h-6v9z" fill="#fff" opacity=".9"/>
+</svg>
