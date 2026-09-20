@@ -22,7 +22,7 @@ export const calendarSearchSchema = z.object({
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
   kind: z.enum(['all', 'event', 'task']).default('all'),
-  owner: z.string().default('all'),
+  participant: z.string().default('all'),
   completed: z.enum(['all', 'open', 'done']).default('all'),
   q: z.string().optional(),
 });
@@ -42,13 +42,13 @@ export function useCalendarPage(search: CalendarSearch) {
     from: search.from ?? addDays(date, -7),
     to: search.to ?? addDays(date, 21),
     kind: search.kind,
-    owner: search.owner,
+    participant: search.participant,
     completed: search.completed,
     q: search.q ?? '',
   };
   const activeFilters = [
     search.kind !== 'all',
-    search.owner !== 'all',
+    search.participant !== 'all',
     search.completed !== 'all',
     search.from !== undefined || search.to !== undefined,
   ].filter(Boolean).length;

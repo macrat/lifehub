@@ -1,35 +1,87 @@
 import AddIcon from '@mui/icons-material/Add';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import EventIcon from '@mui/icons-material/Event';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import SpaIcon from '@mui/icons-material/Spa';
 import SpeedDial from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
+import { useState } from 'react';
+import type { DateString } from '../../../../shared/types.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
+import { EventForm } from '../../events/components/EventForm.tsx';
+import { TaskForm } from '../../events/components/TaskForm.tsx';
+import { defaultEventValues, defaultTaskValues } from '../../events/form-values.ts';
+import { useCreateEvent } from '../../events/queries.ts';
+import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
+import { useAddExpense } from '../../expenses/queries.ts';
+import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
+import { useLogCare } from '../../lemon/queries.ts';
 
-type Props = {
-  onAddEvent: () => void;
-  onAddTask: () => void;
+export type AddKind = 'event' | 'task' | 'expense' | 'lemon';
+
+const ACTIONS: Record<AddKind, { label: string; icon: typeof EventIcon }> = {
+  event: { label: '予定', icon: EventIcon },
+  task: { label: 'タスク', icon: ChecklistIcon },
+  expense: { label: '立替', icon: PaymentsIcon },
+  lemon: { label: 'レモン', icon: SpaIcon },
 };
 
-/** 右下の追加ボタン。予定とタスクのどちらを追加するか選ぶ。 */
-export function AddMenu({ onAddEvent, onAddTask }: Props) {
+type Props = {
+  /** 出す順（SpeedDial は下から上に開くので、先頭が一番下） */
+  kinds: AddKind[];
+  /** 予定・タスクの初期日付。無ければ今 */
+  date?: DateString;
+};
+
+/** 右下の追加ボタン。選んだ種類のフォームをその場で開く。ホームは 4 種、カレンダーは予定・タスクだけ。 */
+export function AddMenu({ kinds, date }: Props) {
+  const [open, setOpen] = useState<AddKind | null>(null);
+  const createEvent = useCreateEvent();
+  const addExpense = useAddExpense();
+  const logCare = useLogCare();
+  const close = () => setOpen(null);
+
   return (
-    <SpeedDial
-      ariaLabel="追加"
-      icon={<SpeedDialIcon icon={<AddIcon />} />}
-      FabProps={{ size: 'medium' }}
-      sx={FAB_SX}
-    >
-      <SpeedDialAction
-        icon={<ChecklistIcon />}
-        slotProps={{ tooltip: { title: 'タスク' } }}
-        onClick={onAddTask}
-      />
-      <SpeedDialAction
-        icon={<EventIcon />}
-        slotProps={{ tooltip: { title: '予定' } }}
-        onClick={onAddEvent}
-      />
-    </SpeedDial>
+    <>
+      <SpeedDial
+        ariaLabel="追加"
+        icon={<SpeedDialIcon icon={<AddIcon />} />}
+        FabProps={{ size: 'medium' }}
+        sx={FAB_SX}
+      >
+        {kinds.map((kind) => {
+          const { label, icon: Icon } = ACTIONS[kind];
+          return (
+            <SpeedDialAction
+              key={kind}
+              icon={<Icon />}
+              slotProps={{ tooltip: { title: label } }}
+              onClick={() => setOpen(kind)}
+            />
+          );
+        })}
+      </SpeedDial>
+      {open === 'event' && (
+        <EventForm
+          title="予定を追加"
+          initial={defaultEventValues(date)}
+          onSubmit={(i) => createEvent.mutateAsync(i)}
+          onClose={close}
+        />
+      )}
+      {open === 'task' && (
+        <TaskForm
+          title="タスクを追加"
+          initial={defaultTaskValues(date)}
+          onSubmit={(i) => createEvent.mutateAsync(i)}
+          onClose={close}
+        />
+      )}
+      {open === 'expense' && (
+        <ExpenseForm onSubmit={(i) => addExpense.mutateAsync(i)} onClose={close} />
+      )}
+      {open === 'lemon' && <CareLogForm onSubmit={(i) => logCare.mutateAsync(i)} onClose={close} />}
+    </>
   );
 }

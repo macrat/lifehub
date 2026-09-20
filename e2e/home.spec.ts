@@ -12,13 +12,13 @@ test.beforeEach(async ({ page }) => {
 test('ホームからタスクとレモンの記録を追加し、カードに反映される', async ({ page }) => {
   const title = `E2E ホーム ${Date.now()}`;
 
-  await page.getByRole('button', { name: '記録を追加' }).hover();
+  await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();
   await page.getByLabel('タイトル').fill(title);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(title)).toBeVisible();
 
-  await page.getByRole('button', { name: '記録を追加' }).hover();
+  await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'レモン' }).click();
   await page.getByRole('button', { name: '保存' }).click();
   // 水やりの経過日数が「今日」になる（レモンのカード内）

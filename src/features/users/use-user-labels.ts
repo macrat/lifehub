@@ -8,7 +8,7 @@ type OwnerOption = { value: string | null; label: string };
  * ユーザーの表示名と選択肢。ユーザーはログイン中の人を先頭に並べる（自分も名前で出す）。
  * label(null) は「共有」（立替の To）。
  */
-export function useOwnerLabel() {
+export function useUserLabels() {
   const { data: me } = useQuery(meQueryOptions);
   const { data } = useQuery(usersQueryOptions);
   const users: User[] = (data ?? [])

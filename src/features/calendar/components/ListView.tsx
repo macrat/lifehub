@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate } from '../queries.ts';
 import { DayList } from './DayList.tsx';
 
@@ -14,7 +14,7 @@ export type ListFilters = {
   to: DateString;
   kind: 'all' | 'event' | 'task';
   /** 'all' = すべて、それ以外は参加者のユーザー ID */
-  owner: string;
+  participant: string;
   /** タスクの完了状態。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
   completed: 'all' | 'open' | 'done';
   q: string;
@@ -28,9 +28,9 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
 };
 
-/** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・誰の・完了状態・キーワードで絞り込める時系列の一覧。 */
+/** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・参加者・完了状態・キーワードで絞り込める時系列の一覧。 */
 export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
-  const { users } = useOwnerLabel();
+  const { users } = useUserLabels();
   const grouped = groupByDate(items.filter((item) => matches(item, filters)));
   return (
     <>
@@ -76,11 +76,11 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
             <MenuItem value="task">タスク</MenuItem>
           </TextField>
           <TextField
-            label="誰の"
+            label="参加者"
             select
             size="small"
-            value={filters.owner}
-            onChange={(e) => onChangeFilters({ owner: e.target.value })}
+            value={filters.participant}
+            onChange={(e) => onChangeFilters({ participant: e.target.value })}
           >
             <MenuItem value="all">すべて</MenuItem>
             {users.map((u) => (
@@ -121,7 +121,7 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
 
 function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.kind !== 'all' && item.kind !== f.kind) return false;
-  if (f.owner !== 'all' && !item.participantIds.includes(f.owner)) return false;
+  if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
   if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;
   if (f.completed === 'done' && (item.kind !== 'task' || item.completedAt === null)) return false;
   if (f.q) {

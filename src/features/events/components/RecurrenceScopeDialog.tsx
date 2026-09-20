@@ -6,7 +6,7 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
-import type { RecurrenceAction } from '../../calendar/use-recurrence-editing.ts';
+import type { RecurrenceAction } from '../use-recurrence-editing.ts';
 
 type Props = {
   open: boolean;

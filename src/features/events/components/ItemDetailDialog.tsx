@@ -9,28 +9,38 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import { formatEventRange } from '../../../lib/date.ts';
-import type { CalendarEventItem } from '../../calendar/queries.ts';
-import { useRecurrenceEditing } from '../../calendar/use-recurrence-editing.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
-import { eventQueryOptions, useDeleteEvent, useUpdateEvent } from '../queries.ts';
+import { formatDateTime, formatEventRange } from '../../../lib/date.ts';
+import type { CalendarItem } from '../../calendar/queries.ts';
+import { useUserLabels } from '../../users/use-user-labels.ts';
+import type { ItemFormValues } from '../form-values.ts';
+import {
+  eventQueryOptions,
+  useDeleteEvent,
+  useToggleCompletion,
+  useUpdateEvent,
+} from '../queries.ts';
 import { describeRRule } from '../recurrence-options.ts';
-import { EventForm, type EventFormValues } from './EventForm.tsx';
+import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
+import { EventForm } from './EventForm.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
+import { TaskForm } from './TaskForm.tsx';
 
 type Props = {
-  item: CalendarEventItem | null;
+  item: CalendarItem | null;
   onClose: () => void;
 };
 
+const EDIT_TITLES = { this: 'この回だけ編集', following: 'これ以降を編集', all: '編集' } as const;
+
 /**
- * 予定の詳細。編集・削除の入口で、繰り返しなら範囲（この回だけ／これ以降／すべて）を先に選ばせる。
- * 状態の変更は mutation（queries.ts）に集約し、ここは表示と操作の受け渡しに徹する。
+ * 予定・タスクの詳細。編集・削除の入口で、繰り返しなら範囲（この回だけ／これ以降／すべて）を先に選ばせる。
+ * タスクは完了／取り消しもここから。状態の変更は mutation（queries.ts）に集約し、ここは表示と操作の受け渡しに徹する。
  */
-export function EventDetailDialog({ item, onClose }: Props) {
-  const { label } = useOwnerLabel();
+export function ItemDetailDialog({ item, onClose }: Props) {
+  const { label } = useUserLabels();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const toggle = useToggleCompletion();
   const editing = useRecurrenceEditing({
     isRecurring: item?.isRecurring ?? false,
     onDelete: async (scope) => {
@@ -52,17 +62,39 @@ export function EventDetailDialog({ item, onClose }: Props) {
 
   if (!item) return null;
 
+  const isTask = item.kind === 'task';
+  const completed = item.completedAt !== null;
   // この回だけ／これ以降は開いている回の値から、すべては繰り返し元の値から始める
-  const initialValues: EventFormValues | null =
+  const initialValues: ItemFormValues | null =
     editScope === 'all' && item.isRecurring ? (master.data ?? null) : item;
+  const Form = isTask ? TaskForm : EventForm;
 
   return (
     <>
       <Dialog open={editScope === null} onClose={onClose} fullWidth maxWidth="xs">
-        <DialogTitle>{item.title}</DialogTitle>
+        <DialogTitle sx={{ textDecoration: completed ? 'line-through' : 'none' }}>
+          {item.title}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
-            <Typography>{formatEventRange(item.startsAt, item.endsAt, item.allDay)}</Typography>
+            {item.kind === 'event' ? (
+              <Typography>{formatEventRange(item.startsAt, item.endsAt, item.allDay)}</Typography>
+            ) : (
+              <>
+                {item.startsAt && <Typography>開始: {formatDateTime(item.startsAt)}</Typography>}
+                {item.endsAt && (
+                  <Typography color={item.isOverdue ? 'error' : 'text.primary'}>
+                    期限: {formatDateTime(item.endsAt)}
+                    {item.isOverdue && '（超過）'}
+                  </Typography>
+                )}
+                {item.completedAt && (
+                  <Typography color="text.secondary">
+                    完了: {formatDateTime(item.completedAt)}
+                  </Typography>
+                )}
+              </>
+            )}
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
               {item.participantIds.map((id) => (
                 <Chip key={id} size="small" label={label(id)} />
@@ -86,16 +118,33 @@ export function EventDetailDialog({ item, onClose }: Props) {
             )}
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexWrap: 'wrap', rowGap: 1 }}>
           <Button color="error" startIcon={<DeleteIcon />} onClick={() => editing.start('delete')}>
             削除
           </Button>
           <Button startIcon={<EditIcon />} onClick={() => editing.start('edit')}>
             編集
           </Button>
-          <Button onClick={onClose} variant="contained">
-            閉じる
-          </Button>
+          {isTask ? (
+            <Button
+              variant="contained"
+              disabled={toggle.isPending}
+              onClick={async () => {
+                await toggle.mutateAsync({
+                  id: item.id,
+                  occurrenceStart: item.occurrenceStart,
+                  completed: !completed,
+                });
+                onClose();
+              }}
+            >
+              {completed ? '完了を取り消す' : '完了にする'}
+            </Button>
+          ) : (
+            <Button onClick={onClose} variant="contained">
+              閉じる
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -107,14 +156,8 @@ export function EventDetailDialog({ item, onClose }: Props) {
       />
 
       {editScope !== null && initialValues && (
-        <EventForm
-          title={
-            editScope === 'this'
-              ? 'この回だけ編集'
-              : editScope === 'following'
-                ? 'これ以降を編集'
-                : '予定を編集'
-          }
+        <Form
+          title={EDIT_TITLES[editScope]}
           initial={initialValues}
           scope={editScope}
           onSubmit={(input) =>

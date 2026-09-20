@@ -6,9 +6,9 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
-import { ItemDialogs } from '../../calendar/components/ItemDialogs.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import { type CalendarItem, colorUserOf, taskTime } from '../../calendar/queries.ts';
+import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import type { DashboardCardOf } from '../queries.ts';
@@ -33,7 +33,7 @@ export function TodayCard({ card }: { card: DashboardCardOf<'today'> }) {
       ) : (
         card.data.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
       )}
-      <ItemDialogs item={selected} onClose={() => setSelected(null)} />
+      <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />
     </DashboardCardFrame>
   );
 }

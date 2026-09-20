@@ -45,13 +45,13 @@ async function itemsAround(range: { from: Date; to: Date }): Promise<CalendarIte
   });
 }
 
-function body(item: CalendarItem, edge: Edge, at: Date): string {
+/** 本文: 「開始 9/20 15:00 ・ 場所」。終日の予定は日付だけ */
+function body(item: CalendarItem, edge: Edge): string {
   if (item.kind === 'event' && item.allDay) return `${toDateString(new Date(item.startsAt))} 終日`;
   const label = edge === 'start' ? '開始' : item.kind === 'task' ? '期限' : '終了';
-  const time = notificationTimeFormatter.format(new Date(at.getTime()));
-  const anchor = edge === 'start' ? item.startsAt : item.endsAt;
+  const anchor = new Date((edge === 'start' ? item.startsAt : item.endsAt) as string);
   const location = item.location ? ` ・ ${item.location}` : '';
-  return `${label} ${anchor ? notificationTimeFormatter.format(new Date(anchor)) : time}${location}`;
+  return `${label} ${notificationTimeFormatter.format(anchor)}${location}`;
 }
 
 /** 予定・タスクの開始／終了（期限）の n 分前に、参加者の全端末へ */
@@ -89,7 +89,7 @@ export const eventsNotificationSource: NotificationSource = {
     if (!at || at.getTime() !== scheduledAt.getTime()) return null;
     return {
       title: item.kind === 'task' ? `タスク: ${item.title}` : item.title,
-      body: body(item, edge, at),
+      body: body(item, edge),
       url: `/calendar?date=${item.placementDate}`,
       userIds: item.participantIds,
     };

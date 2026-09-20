@@ -1,5 +1,5 @@
 {
-  "id": "5d5cbfbc-08a0-449d-93bc-f7531f78a9da",
+  "id": "98f3657d-9310-49cf-a250-3a897ddd2137",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -343,23 +343,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "expenses_spent_on_idx": {
-          "name": "expenses_spent_on_idx",
-          "columns": [
-            {
-              "expression": "spent_on",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "expenses_from_user_id_users_id_fk": {
           "name": "expenses_from_user_id_users_id_fk",
@@ -456,23 +440,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "lemon_care_logs_done_at_idx": {
-          "name": "lemon_care_logs_done_at_idx",
-          "columns": [
-            {
-              "expression": "done_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "lemon_care_logs_created_by_users_id_fk": {
           "name": "lemon_care_logs_created_by_users_id_fk",
@@ -2118,12 +2086,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {
@@ -2155,19 +2117,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "push_subscriptions_created_by_users_id_fk": {
-          "name": "push_subscriptions_created_by_users_id_fk",
-          "tableFrom": "push_subscriptions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

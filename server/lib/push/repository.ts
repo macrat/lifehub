@@ -12,7 +12,7 @@ export async function upsert(row: {
 }): Promise<void> {
   await db
     .insert(pushSubscriptions)
-    .values({ ...row, id: newId(), createdBy: row.userId })
+    .values({ ...row, id: newId() })
     .onConflictDoUpdate({
       target: pushSubscriptions.endpoint,
       set: {

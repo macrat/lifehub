@@ -4,7 +4,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import { formatDate } from '../../../lib/date.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
+import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense } from '../queries.ts';
 import { formatYen } from './BalanceSummary.tsx';
 
@@ -15,7 +15,7 @@ type Props = {
 
 /** 立替の履歴（新しい順）。共有なら From だけ、相手が決まっていれば「From → To」 */
 export function ExpenseList({ expenses, onDelete }: Props) {
-  const { label } = useOwnerLabel();
+  const { label } = useUserLabels();
   return (
     <List disablePadding>
       {expenses.length === 0 && (

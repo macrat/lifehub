@@ -1,7 +1,4 @@
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import {
@@ -13,7 +10,6 @@ import {
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
-import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { CreateCareLogBody } from '../queries.ts';
 
 type Props = {
@@ -49,48 +45,41 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
       maxWidth="xs"
       title="レモンの記録"
       onSubmit={handleSubmit}
-      actions={
-        <>
-          <Button onClick={onClose}>キャンセル</Button>
-          <SubmitButton disabled={submitting} />
-        </>
-      }
+      submitting={submitting}
+      error={submitError}
     >
-      <Stack spacing={2} sx={{ mt: 1 }}>
-        {submitError && <Alert severity="error">{submitError}</Alert>}
-        <TextField
-          label="種別"
-          select
-          value={careType}
-          onChange={(e) => setCareType(e.target.value as CareType)}
-          fullWidth
-        >
-          {CARE_TYPES.map((t) => (
-            <MenuItem key={t} value={t}>
-              {CARE_TYPE_LABELS[t]}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          name="doneAt"
-          label="日時"
-          type="datetime-local"
-          defaultValue={toDateTimeLocalValue(new Date())}
-          slotProps={{ inputLabel: { shrink: true } }}
-          error={Boolean(errors.doneAt)}
-          helperText={errors.doneAt}
-          fullWidth
-        />
-        <TextField
-          name="note"
-          label={careType === 'note' ? 'メモ（必須）' : 'メモ'}
-          multiline
-          minRows={2}
-          error={Boolean(errors.note)}
-          helperText={errors.note}
-          fullWidth
-        />
-      </Stack>
+      <TextField
+        label="種別"
+        select
+        value={careType}
+        onChange={(e) => setCareType(e.target.value as CareType)}
+        fullWidth
+      >
+        {CARE_TYPES.map((t) => (
+          <MenuItem key={t} value={t}>
+            {CARE_TYPE_LABELS[t]}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        name="doneAt"
+        label="日時"
+        type="datetime-local"
+        defaultValue={toDateTimeLocalValue(new Date())}
+        slotProps={{ inputLabel: { shrink: true } }}
+        error={Boolean(errors.doneAt)}
+        helperText={errors.doneAt}
+        fullWidth
+      />
+      <TextField
+        name="note"
+        label={careType === 'note' ? 'メモ（必須）' : 'メモ'}
+        multiline
+        minRows={2}
+        error={Boolean(errors.note)}
+        helperText={errors.note}
+        fullWidth
+      />
     </FormDialog>
   );
 }

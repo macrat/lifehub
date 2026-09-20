@@ -4,7 +4,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import FormHelperText from '@mui/material/FormHelperText';
 import FormLabel from '@mui/material/FormLabel';
-import { useOwnerLabel } from '../use-owner-label.ts';
+import { useUserLabels } from '../use-user-labels.ts';
 
 type Props = {
   name: string;
@@ -15,7 +15,7 @@ type Props = {
 
 /** 参加者の複数選択（ユーザーごとのチェックボックス）。値は FormData から formList で読む */
 export function ParticipantsField({ name, defaultValue, error }: Props) {
-  const { users } = useOwnerLabel();
+  const { users } = useUserLabels();
   return (
     <FormControl error={Boolean(error)}>
       <FormLabel sx={{ fontSize: '0.75rem' }}>参加者</FormLabel>

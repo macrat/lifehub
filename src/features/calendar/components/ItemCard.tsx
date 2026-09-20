@@ -7,8 +7,8 @@ import Typography from '@mui/material/Typography';
 import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { useToggleCompletion } from '../../events/queries.ts';
-import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
+import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
   type CalendarEventItem,
   type CalendarItem,
@@ -28,7 +28,7 @@ type Props = {
  * 期限超過は赤、完了は薄く取り消し線。
  */
 export function ItemCard({ item, onClick }: Props) {
-  const { label } = useOwnerLabel();
+  const { label } = useUserLabels();
   const colorFor = useUserColor();
   const toggle = useToggleCompletion();
   const online = useOnline();

@@ -4,7 +4,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
-import { ItemDialogs } from '../../features/calendar/components/ItemDialogs.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { MonthGrid } from '../../features/calendar/components/MonthGrid.tsx';
 import { MonthPickerDialog } from '../../features/calendar/components/MonthPickerDialog.tsx';
@@ -19,9 +18,7 @@ import {
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
 import { useSwipe } from '../../features/calendar/use-swipe.ts';
-import { defaultEventValues, EventForm } from '../../features/events/components/EventForm.tsx';
-import { defaultTaskValues, TaskForm } from '../../features/events/components/TaskForm.tsx';
-import { useCreateEvent } from '../../features/events/queries.ts';
+import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
@@ -51,10 +48,8 @@ function CalendarPage() {
   const itemsByDate = groupByDate(items);
 
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [creating, setCreating] = useState<'event' | 'task' | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const createEvent = useCreateEvent();
 
   const swipeRef = useRef<HTMLDivElement>(null);
   useSwipe(swipeRef, { onSwipeLeft: () => page.move(1), onSwipeRight: () => page.move(-1) });
@@ -131,24 +126,8 @@ function CalendarPage() {
         />
       )}
 
-      <AddMenu onAddEvent={() => setCreating('event')} onAddTask={() => setCreating('task')} />
-      {creating === 'event' && (
-        <EventForm
-          title="予定を追加"
-          initial={defaultEventValues(page.date)}
-          onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setCreating(null)}
-        />
-      )}
-      {creating === 'task' && (
-        <TaskForm
-          title="タスクを追加"
-          initial={defaultTaskValues(page.date)}
-          onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setCreating(null)}
-        />
-      )}
-      <ItemDialogs item={selected} onClose={() => setSelected(null)} />
+      <AddMenu kinds={['task', 'event']} date={page.date} />
+      <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />
     </>
   );
 }
