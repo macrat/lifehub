@@ -2,6 +2,7 @@ import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
+import { PASSWORD_MIN_LENGTH } from '../../../../shared/constants.ts';
 import {
   type CreateUserInput,
   createUserSchema,
@@ -77,7 +78,7 @@ export function UserForm(props: CreateProps | EditProps) {
         type="password"
         autoComplete="new-password"
         error={Boolean(errors.password)}
-        helperText={errors.password ?? '12文字以上'}
+        helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
         fullWidth
       />
       <HueSlider value={hue ?? DEFAULT_HUE} onChange={setHue} />
