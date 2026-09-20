@@ -19,17 +19,12 @@
 
 | ツール | 内容 |
 |---|---|
-| `events_list` | 期間内の予定の発生を列挙する |
-| `events_create` | 予定を作成する |
-| `events_update` | 予定を更新する（`scope`: all / this / following） |
-| `events_delete` | 予定を削除する（`scope`: all / this / following） |
-| `tasks_list` | 期間内のタスク（表示規則適用済み）を列挙する |
-| `tasks_create` | タスクを作成する |
-| `tasks_complete` | タスクの発生を完了にする |
-| `tasks_uncomplete` | 完了を取り消す |
-| `tasks_update` | タスクを更新する（`scope`: all / this / following） |
-| `tasks_delete` | タスクを削除する（`scope`: all / this / following） |
-| `calendar_list_items` | 予定＋タスクの統合一覧（`placementDate` 付き） |
+| `events_list` | 期間内の予定とタスク（繰り返し展開済み、`placementDate` 付き）を列挙する |
+| `events_create` | 予定またはタスクを作成する（`kind`） |
+| `events_update` | 更新する（`scope`: all / this / following） |
+| `events_delete` | 削除する（`scope`: all / this / following） |
+| `events_complete` | タスクを完了にする（繰り返しは `occurrenceStart` で回を指定） |
+| `events_uncomplete` | 完了を取り消す |
 | `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
 | `expenses_get_balance` | 立替残高を返す |
 | `expenses_list` | 立替の履歴（精算を含む） |

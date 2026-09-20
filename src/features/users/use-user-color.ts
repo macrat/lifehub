@@ -14,8 +14,7 @@ export type ItemColors = {
 };
 
 /**
- * 項目の所有者（予定の ownerUserId / タスクの assigneeUserId）から表示色を返す。
- * 共有（null）はアプリ既定の色相。表示モード（ライト／ダーク）ごとに明度・彩度を変える。
+ * ユーザーから表示色を返す。null（参加者が複数の項目）はアプリ既定の色相。表示モード（ライト／ダーク）ごとに明度・彩度を変える。
  */
 export function useUserColor(): (userId: string | null) => ItemColors {
   const { data: users = [] } = useQuery(usersQueryOptions);

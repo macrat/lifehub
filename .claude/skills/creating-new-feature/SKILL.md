@@ -5,7 +5,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 
 # 機能追加の手順
 
-新機能は「feature ディレクトリを（クライアントとサーバーに）作り、registry に 1 行ずつ足す」で完了する。既存機能（例: `tasks`, `expenses`）をひな形にし、同じ構造・同じパターンで作る。設計の前提は [docs/architecture.md](../../../docs/architecture.md)、データ規約は [docs/data-model.md](../../../docs/data-model.md)。
+新機能は「feature ディレクトリを（クライアントとサーバーに）作り、registry に 1 行ずつ足す」で完了する。既存機能（例: `lemon`, `expenses`）をひな形にし、同じ構造・同じパターンで作る。設計の前提は [docs/architecture.md](../../../docs/architecture.md)、データ規約は [docs/data-model.md](../../../docs/data-model.md)。
 
 ## チェックリスト
 

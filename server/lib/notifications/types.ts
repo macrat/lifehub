@@ -16,8 +16,8 @@ export type NotificationPayload = {
   body: string;
   /** タップで開く画面（アプリ内パス） */
   url: string;
-  /** 送信先。null なら全員 */
-  userIds: string[] | null;
+  /** 送信先（参加者） */
+  userIds: string[];
 };
 
 export type NotificationSource = {

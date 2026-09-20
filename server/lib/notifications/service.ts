@@ -55,7 +55,7 @@ export async function enqueueUpcoming(now: Date = new Date()): Promise<void> {
 /** 配信: 台帳に無いキーだけ、再検証して送る。 */
 export async function deliver(
   key: string,
-  send: (userIds: string[] | null, message: PushMessage) => Promise<unknown> = sendToUsers,
+  send: (userIds: string[], message: PushMessage) => Promise<unknown> = sendToUsers,
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   const inserted = await db
     .insert(sentNotifications)

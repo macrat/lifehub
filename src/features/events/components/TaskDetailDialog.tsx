@@ -12,15 +12,15 @@ import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
 import type { CalendarTaskItem } from '../../calendar/queries.ts';
 import { useRecurrenceEditing } from '../../calendar/use-recurrence-editing.ts';
-import { RecurrenceScopeDialog } from '../../events/components/RecurrenceScopeDialog.tsx';
-import { describeRRule } from '../../events/recurrence-options.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import {
-  taskQueryOptions,
-  useDeleteTask,
-  useToggleTaskCompletion,
-  useUpdateTask,
+  eventQueryOptions,
+  useDeleteEvent,
+  useToggleCompletion,
+  useUpdateEvent,
 } from '../queries.ts';
+import { describeRRule } from '../recurrence-options.ts';
+import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 import { TaskForm, type TaskFormValues } from './TaskForm.tsx';
 
 type Props = {
@@ -31,20 +31,24 @@ type Props = {
 /** タスクの詳細。完了／取り消し、編集・削除（繰り返しなら範囲を先に選ぶ）。 */
 export function TaskDetailDialog({ item, onClose }: Props) {
   const { label } = useOwnerLabel();
-  const updateTask = useUpdateTask();
-  const deleteTask = useDeleteTask();
-  const toggle = useToggleTaskCompletion();
+  const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
+  const toggle = useToggleCompletion();
   const editing = useRecurrenceEditing({
     isRecurring: item?.isRecurring ?? false,
     onDelete: async (scope) => {
       if (!item) return;
-      await deleteTask.mutateAsync({ id: item.id, scope, occurrenceKey: item.occurrenceKey });
+      await deleteEvent.mutateAsync({
+        id: item.id,
+        scope,
+        occurrenceStart: item.occurrenceStart ?? undefined,
+      });
       onClose();
     },
   });
   const { editScope } = editing;
   const master = useQuery({
-    ...taskQueryOptions(item?.id ?? ''),
+    ...eventQueryOptions(item?.id ?? ''),
     enabled: item !== null && editScope === 'all' && item.isRecurring,
   });
 
@@ -52,9 +56,7 @@ export function TaskDetailDialog({ item, onClose }: Props) {
 
   const completed = item.completedAt !== null;
   const initialValues: TaskFormValues | null =
-    editScope === 'all' && item.isRecurring
-      ? ((master.data as TaskFormValues | undefined) ?? null)
-      : item;
+    editScope === 'all' && item.isRecurring ? (master.data ?? null) : item;
 
   return (
     <>
@@ -65,9 +67,9 @@ export function TaskDetailDialog({ item, onClose }: Props) {
         <DialogContent>
           <Stack spacing={1.5}>
             {item.startsAt && <Typography>開始: {formatDateTime(item.startsAt)}</Typography>}
-            {item.dueAt && (
+            {item.endsAt && (
               <Typography color={item.isOverdue ? 'error' : 'text.primary'}>
-                期限: {formatDateTime(item.dueAt)}
+                期限: {formatDateTime(item.endsAt)}
                 {item.isOverdue && '（超過）'}
               </Typography>
             )}
@@ -77,7 +79,9 @@ export function TaskDetailDialog({ item, onClose }: Props) {
               </Typography>
             )}
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-              <Chip size="small" label={label(item.assigneeUserId)} />
+              {item.participantIds.map((id) => (
+                <Chip key={id} size="small" label={label(id)} />
+              ))}
               {item.isRecurring && (
                 <Chip size="small" variant="outlined" label={describeRRule(item.rrule)} />
               )}
@@ -85,6 +89,11 @@ export function TaskDetailDialog({ item, onClose }: Props) {
                 <Chip size="small" variant="outlined" label="この回だけ変更あり" />
               )}
             </Stack>
+            {item.location && (
+              <Typography variant="body2" color="text.secondary">
+                場所: {item.location}
+              </Typography>
+            )}
             {item.note && (
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                 {item.note}
@@ -105,7 +114,7 @@ export function TaskDetailDialog({ item, onClose }: Props) {
             onClick={async () => {
               await toggle.mutateAsync({
                 id: item.id,
-                occurrenceKey: item.occurrenceKey,
+                occurrenceStart: item.occurrenceStart,
                 completed: !completed,
               });
               onClose();
@@ -135,11 +144,11 @@ export function TaskDetailDialog({ item, onClose }: Props) {
           initial={initialValues}
           scope={editScope}
           onSubmit={(input) =>
-            updateTask.mutateAsync({
+            updateEvent.mutateAsync({
               id: item.id,
               ...input,
               scope: editScope,
-              occurrenceKey: item.occurrenceKey,
+              occurrenceStart: item.occurrenceStart ?? undefined,
             })
           }
           onClose={() => {

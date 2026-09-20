@@ -14,6 +14,11 @@ export function formText(formData: FormData, key: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+/** 同じ name のチェックボックス群の値（チェックされたものだけ） */
+export function formList(formData: FormData, key: string): string[] {
+  return formData.getAll(key).filter((v): v is string => typeof v === 'string');
+}
+
 /** Select の値。SELECT_NONE は null にする */
 export function formSelect(formData: FormData, key: string): string | null {
   const value = formText(formData, key);

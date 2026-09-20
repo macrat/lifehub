@@ -6,7 +6,6 @@
 export * from '../features/events/schema.ts';
 export * from '../features/expenses/schema.ts';
 export * from '../features/lemon/schema.ts';
-export * from '../features/tasks/schema.ts';
 export * from '../features/users/schema.ts';
 export * from './mcp/schema.ts';
 export * from './notifications/schema.ts';

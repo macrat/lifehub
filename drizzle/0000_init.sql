@@ -1,31 +1,35 @@
-CREATE TABLE "event_overrides" (
-	"id" uuid PRIMARY KEY NOT NULL,
+CREATE TABLE "event_participants" (
 	"event_id" uuid NOT NULL,
-	"occurrence_start" timestamp with time zone NOT NULL,
-	"cancelled" boolean DEFAULT false NOT NULL,
-	"starts_at" timestamp with time zone,
-	"ends_at" timestamp with time zone,
-	"title" text,
-	"note" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_by" uuid NOT NULL
+	"user_id" uuid NOT NULL,
+	CONSTRAINT "event_participants_event_id_user_id_pk" PRIMARY KEY("event_id","user_id")
 );
 --> statement-breakpoint
 CREATE TABLE "events" (
 	"id" uuid PRIMARY KEY NOT NULL,
+	"kind" text NOT NULL,
 	"title" text NOT NULL,
-	"starts_at" timestamp with time zone NOT NULL,
-	"ends_at" timestamp with time zone NOT NULL,
 	"all_day" boolean DEFAULT false NOT NULL,
-	"owner_user_id" uuid,
+	"starts_at" timestamp with time zone,
+	"ends_at" timestamp with time zone,
+	"completed_at" timestamp with time zone,
 	"location" text,
 	"note" text,
+	"remind_start_minutes" integer,
+	"remind_end_minutes" integer,
 	"rrule" text,
-	"remind_before_minutes" integer,
+	"series_id" uuid,
+	"occurrence_start" timestamp with time zone,
+	"cancelled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_by" uuid NOT NULL
+	"created_by" uuid NOT NULL,
+	CONSTRAINT "events_kind_check" CHECK ("events"."kind" in ('event', 'task')),
+	CONSTRAINT "events_event_has_range_check" CHECK ("events"."kind" <> 'event' or ("events"."starts_at" is not null and "events"."ends_at" is not null)),
+	CONSTRAINT "events_task_only_completed_check" CHECK ("events"."kind" = 'task' or "events"."completed_at" is null),
+	CONSTRAINT "events_recurring_has_base_check" CHECK ("events"."rrule" is null or "events"."starts_at" is not null or "events"."ends_at" is not null),
+	CONSTRAINT "events_series_pair_check" CHECK (("events"."series_id" is null) = ("events"."occurrence_start" is null)),
+	CONSTRAINT "events_series_not_recurring_check" CHECK ("events"."series_id" is null or "events"."rrule" is null),
+	CONSTRAINT "events_cancelled_only_series_check" CHECK (not "events"."cancelled" or "events"."series_id" is not null)
 );
 --> statement-breakpoint
 CREATE TABLE "expenses" (
@@ -45,46 +49,6 @@ CREATE TABLE "lemon_care_logs" (
 	"care_type" text NOT NULL,
 	"done_at" timestamp with time zone NOT NULL,
 	"note" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_by" uuid NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "task_completions" (
-	"id" uuid PRIMARY KEY NOT NULL,
-	"task_id" uuid NOT NULL,
-	"occurrence_key" text NOT NULL,
-	"completed_at" timestamp with time zone NOT NULL,
-	"completed_by" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_by" uuid NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "task_overrides" (
-	"id" uuid PRIMARY KEY NOT NULL,
-	"task_id" uuid NOT NULL,
-	"occurrence_key" text NOT NULL,
-	"cancelled" boolean DEFAULT false NOT NULL,
-	"title" text,
-	"note" text,
-	"starts_at" timestamp with time zone,
-	"due_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_by" uuid NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "tasks" (
-	"id" uuid PRIMARY KEY NOT NULL,
-	"title" text NOT NULL,
-	"note" text,
-	"assignee_user_id" uuid,
-	"starts_at" timestamp with time zone,
-	"due_at" timestamp with time zone,
-	"rrule" text,
-	"notify_at_start" boolean DEFAULT false NOT NULL,
-	"notify_at_due" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid NOT NULL
@@ -292,21 +256,14 @@ CREATE TABLE "push_subscriptions" (
 	CONSTRAINT "push_subscriptions_endpoint_unique" UNIQUE("endpoint")
 );
 --> statement-breakpoint
-ALTER TABLE "event_overrides" ADD CONSTRAINT "event_overrides_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event_overrides" ADD CONSTRAINT "event_overrides_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "events" ADD CONSTRAINT "events_owner_user_id_users_id_fk" FOREIGN KEY ("owner_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event_participants" ADD CONSTRAINT "event_participants_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event_participants" ADD CONSTRAINT "event_participants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_series_id_events_id_fk" FOREIGN KEY ("series_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expenses" ADD CONSTRAINT "expenses_from_user_id_users_id_fk" FOREIGN KEY ("from_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expenses" ADD CONSTRAINT "expenses_to_user_id_users_id_fk" FOREIGN KEY ("to_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expenses" ADD CONSTRAINT "expenses_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lemon_care_logs" ADD CONSTRAINT "lemon_care_logs_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_completions" ADD CONSTRAINT "task_completions_task_id_tasks_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_completions" ADD CONSTRAINT "task_completions_completed_by_users_id_fk" FOREIGN KEY ("completed_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_completions" ADD CONSTRAINT "task_completions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_overrides" ADD CONSTRAINT "task_overrides_task_id_tasks_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_overrides" ADD CONSTRAINT "task_overrides_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "tasks" ADD CONSTRAINT "tasks_assignee_user_id_users_id_fk" FOREIGN KEY ("assignee_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "tasks" ADD CONSTRAINT "tasks_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_clients_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -323,15 +280,10 @@ ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_session_
 ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "event_overrides_event_occurrence_uq" ON "event_overrides" USING btree ("event_id","occurrence_start");--> statement-breakpoint
-CREATE INDEX "events_starts_at_idx" ON "events" USING btree ("starts_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "events_series_occurrence_uq" ON "events" USING btree ("series_id","occurrence_start");--> statement-breakpoint
+CREATE INDEX "events_series_id_idx" ON "events" USING btree ("series_id");--> statement-breakpoint
 CREATE INDEX "expenses_spent_on_idx" ON "expenses" USING btree ("spent_on");--> statement-breakpoint
 CREATE INDEX "lemon_care_logs_done_at_idx" ON "lemon_care_logs" USING btree ("done_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "task_completions_task_occurrence_uq" ON "task_completions" USING btree ("task_id","occurrence_key");--> statement-breakpoint
-CREATE INDEX "task_completions_completed_at_idx" ON "task_completions" USING btree ("completed_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "task_overrides_task_occurrence_uq" ON "task_overrides" USING btree ("task_id","occurrence_key");--> statement-breakpoint
-CREATE INDEX "tasks_starts_at_idx" ON "tasks" USING btree ("starts_at");--> statement-breakpoint
-CREATE INDEX "tasks_due_at_idx" ON "tasks" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "accounts_user_id_idx" ON "accounts" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "sessions_user_id_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verifications_identifier_idx" ON "verifications" USING btree ("identifier");--> statement-breakpoint

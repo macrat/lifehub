@@ -35,12 +35,16 @@ export function EventDetailDialog({ item, onClose }: Props) {
     isRecurring: item?.isRecurring ?? false,
     onDelete: async (scope) => {
       if (!item) return;
-      await deleteEvent.mutateAsync({ id: item.id, scope, occurrenceStart: item.occurrenceStart });
+      await deleteEvent.mutateAsync({
+        id: item.id,
+        scope,
+        occurrenceStart: item.occurrenceStart ?? undefined,
+      });
       onClose();
     },
   });
   const { editScope } = editing;
-  // 「すべて」の編集はマスター（先頭の回の日時）から始めるので取り直す
+  // 「すべて」の編集は繰り返し元（先頭の回の日時）から始めるので取り直す
   const master = useQuery({
     ...eventQueryOptions(item?.id ?? ''),
     enabled: item !== null && editScope === 'all' && item.isRecurring,
@@ -48,11 +52,9 @@ export function EventDetailDialog({ item, onClose }: Props) {
 
   if (!item) return null;
 
-  // この回だけ／これ以降は開いている回の日時から、すべてはマスターの日時から始める
+  // この回だけ／これ以降は開いている回の値から、すべては繰り返し元の値から始める
   const initialValues: EventFormValues | null =
-    editScope === 'all' && item.isRecurring
-      ? ((master.data as EventFormValues | undefined) ?? null)
-      : item;
+    editScope === 'all' && item.isRecurring ? (master.data ?? null) : item;
 
   return (
     <>
@@ -61,8 +63,10 @@ export function EventDetailDialog({ item, onClose }: Props) {
         <DialogContent>
           <Stack spacing={1.5}>
             <Typography>{formatEventRange(item.startsAt, item.endsAt, item.allDay)}</Typography>
-            <Stack direction="row" spacing={1}>
-              <Chip size="small" label={label(item.ownerUserId)} />
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+              {item.participantIds.map((id) => (
+                <Chip key={id} size="small" label={label(id)} />
+              ))}
               {item.isRecurring && (
                 <Chip size="small" variant="outlined" label={describeRRule(item.rrule)} />
               )}
@@ -118,7 +122,7 @@ export function EventDetailDialog({ item, onClose }: Props) {
               id: item.id,
               ...input,
               scope: editScope,
-              occurrenceStart: item.occurrenceStart,
+              occurrenceStart: item.occurrenceStart ?? undefined,
             })
           }
           onClose={() => {

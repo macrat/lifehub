@@ -25,9 +25,9 @@ function ensureConfigured(): boolean {
   return true;
 }
 
-/** 対象ユーザー（null なら全員）の全端末へ送る。410/404 を返した購読は削除する。 */
+/** 対象ユーザーの全端末へ送る。410/404 を返した購読は削除する。 */
 export async function sendToUsers(
-  userIds: string[] | null,
+  userIds: string[],
   message: PushMessage,
 ): Promise<{ sent: number }> {
   if (!ensureConfigured()) {

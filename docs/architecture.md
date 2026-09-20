@@ -58,7 +58,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。
-- カレンダー（月・週・日・リスト）は `calendar` feature の統合 API（`CalendarItem[]`）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）にのみ現れる。書き込みは `events` / `tasks` の各 API に送る。
+- 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/events` が返す `CalendarItem[]` だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
 
@@ -69,7 +69,7 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    calendar/  events/  tasks/  expenses/  lemon/  users/  push/  dashboard/
+    calendar/  events/  expenses/  lemon/  users/  push/  dashboard/
   lib/                        # 横断
     api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit・formText・formSelect）  theme.ts（createAppTheme・useColorMode）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）

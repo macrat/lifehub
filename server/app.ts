@@ -1,11 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { calendarRoutes } from './features/calendar/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
-import { tasksRoutes } from './features/tasks/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { getUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
@@ -59,8 +57,6 @@ const routes = app
   .get('/me', async (c) => c.json(await getUser(c.get('user').id)))
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
-  .route('/tasks', tasksRoutes)
-  .route('/calendar', calendarRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
   .route('/dashboard', dashboardRoutes)

@@ -1,51 +1,77 @@
-# 予定（events）
+# 予定とタスク（events）
 
 ## 目的
 
-2 人の予定を管理する。誰の予定か（どちらのユーザーか／共有）を区別し、繰り返し設定と開始前のプッシュ通知に対応する。過去の予定も記録として保持する。
+予定（時間の枠）とタスク（やること）を 1 つのイベントとして扱う。どちらも参加者（1 人以上）、繰り返し、開始／終了（期限）前のプッシュ通知を持つ。違いは `kind` だけで、タスクは完了でき、表示位置に固有の規則がある。過去のものも記録として保持する。専用画面は持たず、カレンダー（[calendar.md](calendar.md)）の中で確認・管理する。
 
 ## 画面
 
-- カレンダー `/calendar`（月・週・日・リスト）に、タスクと並べて表示する（[calendar.md](calendar.md)）。
-- 予定のフォームは `src/features/events/components/EventForm.tsx`。ホームのクイック追加とカレンダーで同じフォームを使う。
-- 入力項目: タイトル、終日、開始日時、終了日時、所有者（ユーザー名／共有）、場所、メモ、繰り返し（なし／毎日／毎週／毎月／毎年、UNTIL）、リマインド（なし／0/5/10/15/30/60/120/1440 分前）。
-- 繰り返し予定の編集・削除は「この回だけ」「これ以降すべて」「すべて」の 3 択。
+- カレンダー `/calendar`（月・週・日・リスト）に予定とタスクを並べて表示する。
+- 予定のフォームは `src/features/events/components/EventForm.tsx`、タスクのフォームは `TaskForm.tsx`。ホームのクイック追加とカレンダーで同じフォームを使う。
+  - 予定: タイトル、終日、開始日時、終了日時、参加者、場所、メモ、繰り返し（なし／毎日／毎週／毎月／毎年、UNTIL）、通知（なし／0/5/10/15/30/60/120/1440 分前）。
+  - タスク: タイトル、開始日時、期限日時（どちらも任意）、参加者、メモ、繰り返し、開始日時に通知、期限日時に通知。
+- 参加者はユーザーごとのチェックボックス（`ParticipantsField`）。新規作成の既定は全員。
+- 繰り返しの編集・削除は「この回だけ」「これ以降すべて」「すべて」の 3 択。「この回だけ」では繰り返しの設定以外の全項目を変更できる。
+- タスクは詳細ダイアログの「完了にする」と、リスト・ホームの行のチェックボックスから完了にできる。完了の取り消しも可。
 
 ## データ
 
-`events`, `event_overrides`（[data-model.md](../data-model.md)）。
+`events`, `event_participants`（[data-model.md](../data-model.md)）。
 
-- 終日は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。
-- 繰り返しは RRULE 文字列（`rrule` 列、DTSTART を含まない正規形）。DTSTART は `starts_at`。展開は `server/lib/recurrence`。UNTIL は JST の壁時計として解釈する（`UNTIL=20261231T235959` = JST 12/31 23:59:59）。頻度は日以上（HOURLY 以下は拒否）。
-- API 入力の `endsAt` は、終日の予定では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00（排他的）に正規化する。レスポンスの `endsAt` は常に排他的。
+- `kind` が `event` なら `starts_at` と `ends_at` が必須（CHECK）。`task` ではどちらも任意で、`ends_at` が期限。`completed_at` はタスクだけが持つ（CHECK）。
+- 終日は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。API 入力の `endsAt` は終日では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00 に正規化する。レスポンスの `endsAt` は常に排他的。
+- 繰り返しは RRULE 文字列（`rrule` 列、DTSTART を含まない正規形）。DTSTART（基準日時）は `starts_at`、無ければ `ends_at`。展開は `server/lib/recurrence`。UNTIL は JST の壁時計として解釈する（`UNTIL=20261231T235959` = JST 12/31 23:59:59）。頻度は日以上（HOURLY 以下は拒否）。繰り返しでは開始と終了の両方が回ごとに同じ間隔でずれる。
 - フォームは頻度（毎日／毎週／毎月／毎年）と終了日だけを扱う。BYDAY などの詳細ルールは API / MCP から RRULE で直接指定でき、フォームでは表示のみ。
-- 「この回だけ」の変更・削除は `event_overrides`（`occurrence_start` = 元の開始日時）。
-- 「これ以降すべて」は元の `rrule` に `UNTIL`（対象回の直前）を付け、対象回以降を新しいマスターとして作る。
+- **繰り返しの回の実体化**: 「この回だけ」の変更・取り消し・完了は、その回を繰り返し元の全項目の複製として作った行で表す（`series_id` = 繰り返し元、`occurrence_start` = 元の発生の基準日時、取り消しは `cancelled`）。実効値は行そのもので、繰り返し元との合成はしない。繰り返し元を「すべて」で編集しても、実体化済みの回には反映されない（Google カレンダーと同じ）。
+- 「これ以降すべて」は元の `rrule` に `UNTIL`（対象回の直前）を付け、対象回以降の実体化された回を消し、対象回以降を新しい繰り返し元として作る。
+
+## タスクの表示規則（placementDate）
+
+タスクは「どの日付に置くか」を次の規則で決める。
+
+| 状態 | 表示位置 |
+|---|---|
+| 未完了・開始日時が未来 | 開始日時の位置 |
+| 未完了・開始日時が過去（または今日）、または開始日時が未設定 | **今日**の位置（完了するまで毎日繰り越される） |
+| 完了 | 完了した日時の位置 |
+
+- 開始日時が未設定の未完了タスクは、期限の有無にかかわらず今日の位置に置く。
+- 期限は表示位置には使わず、カードに「期限」として併記する。期限超過（`isOverdue`）はカードを強調表示する。
+- 繰り返しタスクは発生ごとに同じ規則を適用する。ただし**同じタスクは同時に最大 2 つまでしか表示しない**:
+  - 表示するのは、取り消されていない未完了の発生のうち基準日時が最も早い 2 つ。過去の発生は今日の位置、未来の発生はその日時の位置に置く。3 つ目以降の未来の発生は表示しない。
+  - 未完了の発生 N は、発生 N+2 の基準日時が到来した時点で**放棄**され、表示されなくなる（放棄は計算で導き、保存しない）。つまり未完了の繰り越しは「2 つ後の発生が来るまで」。
+  - 例: 毎週月曜のタスクで 9/7 を未完了のまま 9/14 を迎えると 9/7 と 9/14 が今日の位置に並び、9/21 を迎えると 9/7 は消えて 9/14 と 9/21 が並ぶ。
+  - 系列の最後の回は 2 つ先が無いので放棄されず、完了するまで今日に残る（単発タスクと同じ振る舞い）。
+- 完了は単発なら行の `completed_at`、繰り返しならその回を実体化した行の `completed_at`。完了した回は完了日に表示し、走査の外で完了した回（放棄後に MCP から完了した等）も完了日に表示する。
+- 実装は `server/features/events/occurrences.ts` の `listItems`。
 
 ## API（`server/features/events/routes.ts`）
 
 | メソッド | パス | 内容 |
 |---|---|---|
-| GET | `/api/events?from&to` | 期間内の発生（展開済み、例外適用済み）を返す。`from`/`to` は JST 暦日（両端含む） |
-| GET | `/api/events/:id` | マスターを返す |
-| POST | `/api/events` | 作成 |
-| PUT | `/api/events/:id` | 更新。`scope`（`all` / `this` / `following`）と `occurrenceStart`（元の発生の開始日時）を指定。単発の予定は常に `all` |
+| GET | `/api/events?from&to` | `from`〜`to`（JST 暦日、両端含む）の `CalendarItem[]`（[calendar.md](calendar.md)）。繰り返しは展開済み、実体化された回を反映済み |
+| GET | `/api/events/:id` | 行そのものを返す（繰り返しの「すべて」を編集する起点） |
+| POST | `/api/events` | 作成（`kind` を含む全項目） |
+| PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`）と `occurrenceStart`（元の発生の基準日時）を指定。単発では常に `all` |
 | DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` を指定 |
+| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定 |
+| DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
 
-- `this`: `event_overrides` を upsert する。変更できるのは日時・タイトル・メモ。
-- `following`: 元のマスターの `rrule` に UNTIL（対象回の直前）を付け、対象回以降の例外を削除し、新しいマスターを作る（3 文を `db.batch()` で原子的に）。先頭の回への `following` は `all` と同じ。
-- `all`: マスターを更新する。開始日時または `rrule` が変わった場合は例外をすべて捨てる（元の発生日時をキーにした例外が意味を失うため）。
+- `this`: 回を実体化する（無ければ複製を作り、あれば更新）。`rrule` は持たない。
+- `following`: 元の `rrule` に UNTIL（対象回の直前）を付け、対象回以降の実体化された回を消し、新しい繰り返し元を作る（`db.batch()` で原子的に）。先頭の回への `following` は `all` と同じ。
+- `all`: 行を更新する。基準日時または `rrule` が変わった場合は、未完了の実体化された回を捨てる（元の発生日時をキーにした回が意味を失うため）。完了した回は履歴として残す。
+- `occurrenceStart` はルール上に実在する発生でなければ拒否する（400）。
 
 入力スキーマは `shared/validation/events.ts`。
 
 ## MCP ツール
 
-`events_list`, `events_create`, `events_update`, `events_delete`（[mcp.md](mcp.md)）。
+`events_list`, `events_create`, `events_update`, `events_delete`, `events_complete`, `events_uncomplete`（[mcp.md](mcp.md)）。
 
 ## 通知
 
-開始の `remind_before_minutes` 前に、所有者（共有なら 2 人）の全端末へ送る。既定は通知なし。通知キーは `event:<id>:<occurrenceStart ISO>:<配信予定時刻 ISO>`。詳細は [notifications.md](notifications.md)。
+開始の `remind_start_minutes` 前と、終了（期限）の `remind_end_minutes` 前に、参加者の全端末へ送る。既定はどちらも通知なし。完了したタスクには送らない。通知キーは `event:<id>:<occurrenceStart ISO | single>:<start|end>:<配信予定時刻 ISO>`。詳細は [notifications.md](notifications.md)。
 
 ## ホームのカード
 
-専用のカードは無い。ホームの「今日」（[calendar.md](calendar.md)）に今日の予定がタスクと一緒に並ぶ。
+専用のカードは無い。ホームの「今日」（[calendar.md](calendar.md)）に今日の予定と今日の位置にある未完了タスクが並び、タスクはチェックで完了にできる。

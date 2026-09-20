@@ -9,13 +9,12 @@ import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import { useState } from 'react';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
 import { defaultEventValues, EventForm } from '../../events/components/EventForm.tsx';
+import { defaultTaskValues, TaskForm } from '../../events/components/TaskForm.tsx';
 import { useCreateEvent } from '../../events/queries.ts';
 import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
 import { useAddExpense } from '../../expenses/queries.ts';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import { useLogCare } from '../../lemon/queries.ts';
-import { defaultTaskValues, TaskForm } from '../../tasks/components/TaskForm.tsx';
-import { useCreateTask } from '../../tasks/queries.ts';
 
 type Kind = 'event' | 'task' | 'expense' | 'lemon';
 
@@ -23,7 +22,6 @@ type Kind = 'event' | 'task' | 'expense' | 'lemon';
 export function QuickAddMenu() {
   const [open, setOpen] = useState<Kind | null>(null);
   const createEvent = useCreateEvent();
-  const createTask = useCreateTask();
   const addExpense = useAddExpense();
   const logCare = useLogCare();
   const close = () => setOpen(null);
@@ -69,7 +67,7 @@ export function QuickAddMenu() {
         <TaskForm
           title="タスクを追加"
           initial={defaultTaskValues()}
-          onSubmit={(i) => createTask.mutateAsync(i)}
+          onSubmit={(i) => createEvent.mutateAsync(i)}
           onClose={close}
         />
       )}

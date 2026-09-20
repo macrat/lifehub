@@ -17,8 +17,7 @@ export type Placed = {
 };
 
 export function itemKey(item: CalendarItem): string {
-  const occurrence = item.kind === 'event' ? item.occurrenceStart : item.occurrenceKey;
-  return `${item.kind}:${item.id}:${occurrence}:${item.placementDate}`;
+  return `${item.kind}:${item.id}:${item.occurrenceStart}:${item.placementDate}`;
 }
 
 /**

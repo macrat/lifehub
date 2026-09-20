@@ -21,7 +21,7 @@
 
 - 各ユーザーは **OKLCH の色相（`hue`、0〜359）だけ**を選ぶ。彩度と明度はアプリが用途ごとに決めて使い回す（`shared/color.ts`: アクセント `accent`、カレンダーの帯 `fill`、薄い背景 `tint`。ライト／ダークで別の値）。OKLCH は色相を変えても知覚的な明るさ・鮮やかさが揃うので、どの色相でも同じ強さになる。
 - ログイン中のユーザーの色相がアプリのアクセントカラー（MUI の `primary`）になる（`src/lib/theme.ts` の `createAppTheme`、`src/main.tsx`）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相 335）。
-- カレンダーでは予定の所有者・タスクの担当者の色を使う（`src/features/users/use-user-color.ts`）。共有（`null`）は既定の色相。
+- カレンダーでは参加者が 1 人の項目にそのユーザーの色を使う（`src/features/users/use-user-color.ts`）。参加者が複数（`null`）なら既定の色相。
 - MUI のパレットは hex を要求するため、OKLCH → sRGB の変換を自前で持つ（色域外は彩度を落として収める）。CSS の `oklch()` には頼らない。
 - 登録時に色相を省略すると、既存ユーザーと既定の色相から最も離れた色相を自動で割り当てる（`pickDistinctHue`）。
 
@@ -51,7 +51,7 @@
 
 ## 表示名
 
-所有者・担当者は常にユーザー名で表示する（「自分」とは表示しない）。共有は「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-owner-label.ts`）。
+参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-owner-label.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
 
 ## 初期ユーザー
 

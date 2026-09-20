@@ -1,4 +1,4 @@
-import { todayWidget } from '../../features/calendar/dashboard.ts';
+import { todayWidget } from '../../features/events/dashboard.ts';
 import { expensesWidget } from '../../features/expenses/dashboard.ts';
 import { lemonWidget } from '../../features/lemon/dashboard.ts';
 import type { CardOf } from './types.ts';

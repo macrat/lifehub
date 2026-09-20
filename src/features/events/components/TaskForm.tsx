@@ -5,46 +5,49 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import type { DateString } from '../../../../shared/types.ts';
-import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
-import { createTaskSchema } from '../../../../shared/validation/tasks.ts';
+import { createEventSchema, type RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
-import { formSelect, formText, useFormSubmit } from '../../../lib/form.ts';
+import { formList, formText, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
-import { RecurrenceFields } from '../../events/components/RecurrenceFields.tsx';
-import { OwnerSelect } from '../../users/components/OwnerSelect.tsx';
-import type { CreateTaskBody } from '../queries.ts';
+import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
+import type { CreateEventBody } from '../queries.ts';
+import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 export type TaskFormValues = {
   title: string;
   note: string | null;
-  assigneeUserId: string | null;
+  participantIds: string[];
   startsAt: string | null;
-  dueAt: string | null;
+  /** 期限 */
+  endsAt: string | null;
   rrule: string | null;
-  notifyAtStart: boolean;
-  notifyAtDue: boolean;
+  /** 0 = 開始時刻に通知、null = 通知しない */
+  remindStartMinutes: number | null;
+  /** 0 = 期限に通知、null = 通知しない */
+  remindEndMinutes: number | null;
 };
 
 type Props = {
   title: string;
   initial: TaskFormValues;
-  /** this のときは担当・繰り返し・通知は変更できない（この回だけの変更は日時・タイトル・メモのみ） */
+  /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
-  onSubmit: (input: CreateTaskBody) => Promise<unknown>;
+  onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onClose: () => void;
 };
 
+/** 既定値: 参加者は全員 */
 export function defaultTaskValues(date?: DateString): TaskFormValues {
   return {
     title: '',
     note: null,
-    assigneeUserId: null,
+    participantIds: [],
     startsAt: date ? new Date(`${date}T09:00:00+09:00`).toISOString() : null,
-    dueAt: null,
+    endsAt: null,
     rrule: null,
-    notifyAtStart: false,
-    notifyAtDue: false,
+    remindStartMinutes: null,
+    remindEndMinutes: null,
   };
 }
 
@@ -52,26 +55,28 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
   const thisOnly = scope === 'this';
 
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
-    schema: createTaskSchema,
+    schema: createEventSchema,
     values: (fd) => {
       const startsRaw = formText(fd, 'startsAt');
-      const dueRaw = formText(fd, 'dueAt');
+      const endsRaw = formText(fd, 'endsAt');
       return {
+        kind: 'task',
         title: formText(fd, 'title') ?? '',
+        allDay: false,
         note: formText(fd, 'note'),
-        assigneeUserId: thisOnly ? initial.assigneeUserId : formSelect(fd, 'assigneeUserId'),
+        participantIds: formList(fd, 'participantIds'),
         startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
-        dueAt: dueRaw ? fromDateTimeLocalValue(dueRaw) : null,
+        endsAt: endsRaw ? fromDateTimeLocalValue(endsRaw) : null,
         rrule: thisOnly ? initial.rrule : formText(fd, 'rrule'),
-        notifyAtStart: thisOnly ? initial.notifyAtStart : fd.get('notifyAtStart') === 'on',
-        notifyAtDue: thisOnly ? initial.notifyAtDue : fd.get('notifyAtDue') === 'on',
+        remindStartMinutes: fd.get('notifyAtStart') === 'on' ? 0 : null,
+        remindEndMinutes: fd.get('notifyAtEnd') === 'on' ? 0 : null,
       };
     },
     onSubmit: (data) =>
       onSubmit({
         ...data,
         startsAt: data.startsAt?.toISOString() ?? null,
-        dueAt: data.dueAt?.toISOString() ?? null,
+        endsAt: data.endsAt?.toISOString() ?? null,
       }),
     onSuccess: onClose,
   });
@@ -112,19 +117,21 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
             fullWidth
           />
           <TextField
-            name="dueAt"
+            name="endsAt"
             label="期限日時"
             type="datetime-local"
-            defaultValue={initial.dueAt ? toDateTimeLocalValue(initial.dueAt) : ''}
-            error={Boolean(errors.dueAt)}
-            helperText={errors.dueAt}
+            defaultValue={initial.endsAt ? toDateTimeLocalValue(initial.endsAt) : ''}
+            error={Boolean(errors.endsAt)}
+            helperText={errors.endsAt}
             slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
           />
         </Stack>
-        {!thisOnly && (
-          <OwnerSelect name="assigneeUserId" label="担当" defaultValue={initial.assigneeUserId} />
-        )}
+        <ParticipantsField
+          name="participantIds"
+          defaultValue={initial.participantIds}
+          error={errors.participantIds}
+        />
         <TextField
           name="note"
           label="メモ"
@@ -134,18 +141,20 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
           fullWidth
         />
         {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
-        {!thisOnly && (
-          <Stack direction="row" spacing={2}>
-            <FormControlLabel
-              control={<Checkbox name="notifyAtStart" defaultChecked={initial.notifyAtStart} />}
-              label="開始日時に通知"
-            />
-            <FormControlLabel
-              control={<Checkbox name="notifyAtDue" defaultChecked={initial.notifyAtDue} />}
-              label="期限日時に通知"
-            />
-          </Stack>
-        )}
+        <Stack direction="row" spacing={2}>
+          <FormControlLabel
+            control={
+              <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
+            }
+            label="開始日時に通知"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />
+            }
+            label="期限日時に通知"
+          />
+        </Stack>
       </Stack>
     </FormDialog>
   );

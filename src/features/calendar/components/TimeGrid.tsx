@@ -6,7 +6,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { type CalendarItem, ownerOf } from '../queries.ts';
+import { type CalendarItem, colorUserOf } from '../queries.ts';
 import type { TimedPlaced } from './timeline-layout.ts';
 
 type Props = {
@@ -83,7 +83,7 @@ export function TimeGrid({ days, timedByDate, hourHeight, gutterWidth, onSelectI
                 key={p.key}
                 placed={p}
                 hourHeight={hourHeight}
-                colors={colorFor(ownerOf(p.item))}
+                colors={colorFor(colorUserOf(p.item))}
                 onClick={() => onSelectItem(p.item)}
               />
             ))}

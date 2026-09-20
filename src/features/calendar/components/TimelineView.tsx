@@ -11,7 +11,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { type CalendarItem, ownerOf, taskTime } from '../queries.ts';
+import { type CalendarItem, colorUserOf, taskTime } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
@@ -145,7 +145,7 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
             placed={{ ...p, col: p.col + 1 }}
             compact={compact}
             showTime={false}
-            colors={colorFor(ownerOf(p.item))}
+            colors={colorFor(colorUserOf(p.item))}
             onClick={() => onSelectItem(p.item)}
           />
         ))}

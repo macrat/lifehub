@@ -5,7 +5,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import { WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { type CalendarItem, ownerOf } from '../queries.ts';
+import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { layoutLanes } from './lane-layout.ts';
@@ -187,7 +187,7 @@ function WeekRow({
           key={p.key}
           placed={p}
           compact={compact}
-          colors={colorFor(ownerOf(p.item))}
+          colors={colorFor(colorUserOf(p.item))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}

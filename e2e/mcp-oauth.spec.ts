@@ -77,7 +77,7 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   });
   expect(listTools.ok(), await listTools.text()).toBe(true);
   const body = (await listTools.json()) as { result: { tools: { name: string }[] } };
-  expect(body.result.tools.map((t) => t.name)).toContain('calendar_list_items');
+  expect(body.result.tools.map((t) => t.name)).toContain('events_list');
 
   const whoami = await request.post('/api/mcp', {
     headers: {

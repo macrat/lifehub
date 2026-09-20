@@ -1,12 +1,10 @@
 import * as events from '../server/features/events/service.ts';
 import * as expenses from '../server/features/expenses/service.ts';
 import * as lemon from '../server/features/lemon/service.ts';
-import * as tasks from '../server/features/tasks/service.ts';
 import * as users from '../server/features/users/service.ts';
 import { truncateAll } from '../server/lib/test-db.ts';
 import { addDays, startOfDate, today } from '../shared/date.ts';
 import { createEventSchema } from '../shared/validation/events.ts';
-import { createTaskSchema } from '../shared/validation/tasks.ts';
 
 /**
  * ローカル開発用のサンプルデータ。全テーブルを空にしてから投入する（本番では絶対に実行しない）。
@@ -38,104 +36,82 @@ const at = (d: string, hm: string) => new Date(`${d}T${hm}:00+09:00`).toISOStrin
 const dayAt = (offset: number, hour: number) =>
   new Date(startOfDate(addDays(t, offset)).getTime() + hour * 3600e3);
 
-await events.createEvent(
-  createEventSchema.parse({
-    title: '歯医者',
-    startsAt: at(t, '15:00'),
-    endsAt: at(t, '16:00'),
-    ownerUserId: me.id,
-    location: '駅前デンタル',
-    remindBeforeMinutes: 30,
-  }),
-  me.id,
-);
-await events.createEvent(
-  createEventSchema.parse({
-    title: '週次ミーティング',
-    startsAt: at(addDays(t, 1), '09:30'),
-    endsAt: at(addDays(t, 1), '10:00'),
-    ownerUserId: me.id,
-    rrule: 'FREQ=WEEKLY',
-  }),
-  me.id,
-);
-await events.createEvent(
-  createEventSchema.parse({
-    title: '実家に帰省',
-    allDay: true,
-    startsAt: at(addDays(t, 3), '00:00'),
-    endsAt: at(addDays(t, 5), '00:00'),
-    note: '新幹線 10:20 発',
-  }),
-  me.id,
-);
-await events.createEvent(
-  createEventSchema.parse({
+const both = [me.id, partner.id];
+const event = (input: Record<string, unknown>, by = me.id) =>
+  events.createEvent(
+    createEventSchema.parse({ kind: 'event', participantIds: both, ...input }),
+    by,
+  );
+const task = (input: Record<string, unknown>, by = me.id) =>
+  events.createEvent(createEventSchema.parse({ kind: 'task', participantIds: both, ...input }), by);
+
+await event({
+  title: '歯医者',
+  startsAt: at(t, '15:00'),
+  endsAt: at(t, '16:00'),
+  participantIds: [me.id],
+  location: '駅前デンタル',
+  remindStartMinutes: 30,
+});
+await event({
+  title: '週次ミーティング',
+  startsAt: at(addDays(t, 1), '09:30'),
+  endsAt: at(addDays(t, 1), '10:00'),
+  participantIds: [me.id],
+  rrule: 'FREQ=WEEKLY',
+});
+await event({
+  title: '実家に帰省',
+  allDay: true,
+  startsAt: at(addDays(t, 3), '00:00'),
+  endsAt: at(addDays(t, 5), '00:00'),
+  note: '新幹線 10:20 発',
+});
+await event(
+  {
     title: 'ヨガ',
     startsAt: at(addDays(t, 2), '19:00'),
     endsAt: at(addDays(t, 2), '20:00'),
-    ownerUserId: partner.id,
+    participantIds: [partner.id],
     rrule: 'FREQ=WEEKLY',
-  }),
+  },
   partner.id,
 );
-await events.createEvent(
-  createEventSchema.parse({
-    title: '結婚記念日',
-    allDay: true,
-    startsAt: at(addDays(t, 12), '00:00'),
-    endsAt: at(addDays(t, 12), '00:00'),
-    rrule: 'FREQ=YEARLY',
-    remindBeforeMinutes: 1440,
-  }),
-  me.id,
-);
-await events.createEvent(
-  createEventSchema.parse({
+await event({
+  title: '結婚記念日',
+  allDay: true,
+  startsAt: at(addDays(t, 12), '00:00'),
+  endsAt: at(addDays(t, 12), '00:00'),
+  rrule: 'FREQ=YEARLY',
+  remindStartMinutes: 1440,
+});
+await event(
+  {
     title: '友人と食事',
     startsAt: at(addDays(t, -2), '19:00'),
     endsAt: at(addDays(t, -2), '21:30'),
-    ownerUserId: partner.id,
+    participantIds: [partner.id],
     location: '新宿',
-  }),
+  },
   partner.id,
 );
 
-await tasks.createTask(
-  createTaskSchema.parse({ title: '牛乳と卵を買う', dueAt: at(t, '20:00'), notifyAtDue: true }),
-  me.id,
-);
-await tasks.createTask(
-  createTaskSchema.parse({
-    title: '燃えるゴミを出す',
-    startsAt: at(addDays(t, -1), '07:00'),
-    rrule: 'FREQ=WEEKLY',
-    notifyAtStart: true,
-  }),
-  me.id,
-);
-await tasks.createTask(
-  createTaskSchema.parse({
-    title: '税金の支払い',
-    dueAt: at(addDays(t, -3), '23:59'),
-    assigneeUserId: me.id,
-  }),
-  me.id,
-);
-await tasks.createTask(
-  createTaskSchema.parse({
-    title: 'プレゼントを選ぶ',
-    startsAt: at(addDays(t, 4), '10:00'),
-    dueAt: at(addDays(t, 10), '18:00'),
-    assigneeUserId: partner.id,
-  }),
-  me.id,
-);
-const done = await tasks.createTask(
-  createTaskSchema.parse({ title: '電球を交換する', assigneeUserId: me.id }),
-  me.id,
-);
-await tasks.completeTask(done.id, 'single', me.id, dayAt(0, 9));
+await task({ title: '牛乳と卵を買う', endsAt: at(t, '20:00'), remindEndMinutes: 0 });
+await task({
+  title: '燃えるゴミを出す',
+  startsAt: at(addDays(t, -1), '07:00'),
+  rrule: 'FREQ=WEEKLY',
+  remindStartMinutes: 0,
+});
+await task({ title: '税金の支払い', endsAt: at(addDays(t, -3), '23:59'), participantIds: [me.id] });
+await task({
+  title: 'プレゼントを選ぶ',
+  startsAt: at(addDays(t, 4), '10:00'),
+  endsAt: at(addDays(t, 10), '18:00'),
+  participantIds: [partner.id],
+});
+const done = await task({ title: '電球を交換する', participantIds: [me.id] });
+await events.completeEvent(done.id, {}, me.id, dayAt(0, 9));
 
 await expenses.addExpense(
   {

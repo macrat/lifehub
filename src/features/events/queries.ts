@@ -12,7 +12,7 @@ export type CreateEventBody = InferRequestType<typeof api.events.$post>['json'];
 export type UpdateEventBody = InferRequestType<(typeof api.events)[':id']['$put']>['json'];
 export type DeleteEventBody = InferRequestType<(typeof api.events)[':id']['$delete']>['json'];
 
-/** マスター（保存されている予定そのもの）。繰り返しの「すべて」を編集するときに使う。 */
+/** 保存されている行そのもの。繰り返しの「すべて」を編集するときに使う。 */
 export function eventQueryOptions(id: string) {
   return queryOptions({
     queryKey: [...EVENTS_QUERY_KEY, id],
@@ -54,6 +54,30 @@ export function useDeleteEvent() {
   return useMutation({
     mutationFn: async ({ id, ...input }: DeleteEventBody & { id: string }) => {
       await ensureOk(await api.events[':id'].$delete({ param: { id }, json: input }));
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
+export function useToggleCompletion() {
+  const invalidate = useInvalidateAfterWrite();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      occurrenceStart,
+      completed,
+    }: {
+      id: string;
+      occurrenceStart: string | null;
+      completed: boolean;
+    }) => {
+      const args = { param: { id }, json: { occurrenceStart: occurrenceStart ?? undefined } };
+      if (completed) {
+        await ensureOk(await api.events[':id'].complete.$post(args));
+      } else {
+        await ensureOk(await api.events[':id'].complete.$delete(args));
+      }
     },
     onSuccess: invalidate,
   });

@@ -1,110 +1,31 @@
 {
-  "id": "88c557d4-2619-4668-a1a5-930ae57e02c7",
+  "id": "5d5cbfbc-08a0-449d-93bc-f7531f78a9da",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.event_overrides": {
-      "name": "event_overrides",
+    "public.event_participants": {
+      "name": "event_participants",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
         "event_id": {
           "name": "event_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "occurrence_start": {
-          "name": "occurrence_start",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cancelled": {
-          "name": "cancelled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "starts_at": {
-          "name": "starts_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ends_at": {
-          "name": "ends_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
+        "user_id": {
+          "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         }
       },
-      "indexes": {
-        "event_overrides_event_occurrence_uq": {
-          "name": "event_overrides_event_occurrence_uq",
-          "columns": [
-            {
-              "expression": "event_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "occurrence_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "event_overrides_event_id_events_id_fk": {
-          "name": "event_overrides_event_id_events_id_fk",
-          "tableFrom": "event_overrides",
+        "event_participants_event_id_events_id_fk": {
+          "name": "event_participants_event_id_events_id_fk",
+          "tableFrom": "event_participants",
           "tableTo": "events",
           "columnsFrom": [
             "event_id"
@@ -115,21 +36,29 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "event_overrides_created_by_users_id_fk": {
-          "name": "event_overrides_created_by_users_id_fk",
-          "tableFrom": "event_overrides",
+        "event_participants_user_id_users_id_fk": {
+          "name": "event_participants_user_id_users_id_fk",
+          "tableFrom": "event_participants",
           "tableTo": "users",
           "columnsFrom": [
-            "created_by"
+            "user_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "event_participants_event_id_user_id_pk": {
+          "name": "event_participants_event_id_user_id_pk",
+          "columns": [
+            "event_id",
+            "user_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -145,21 +74,15 @@
           "primaryKey": true,
           "notNull": true
         },
-        "title": {
-          "name": "title",
+        "kind": {
+          "name": "kind",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "starts_at": {
-          "name": "starts_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ends_at": {
-          "name": "ends_at",
-          "type": "timestamp with time zone",
+        "title": {
+          "name": "title",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -170,9 +93,21 @@
           "notNull": true,
           "default": false
         },
-        "owner_user_id": {
-          "name": "owner_user_id",
-          "type": "uuid",
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -188,17 +123,42 @@
           "primaryKey": false,
           "notNull": false
         },
+        "remind_start_minutes": {
+          "name": "remind_start_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remind_end_minutes": {
+          "name": "remind_end_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "rrule": {
           "name": "rrule",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "remind_before_minutes": {
-          "name": "remind_before_minutes",
-          "type": "integer",
+        "series_id": {
+          "name": "series_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "occurrence_start": {
+          "name": "occurrence_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelled": {
+          "name": "cancelled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -222,11 +182,32 @@
         }
       },
       "indexes": {
-        "events_starts_at_idx": {
-          "name": "events_starts_at_idx",
+        "events_series_occurrence_uq": {
+          "name": "events_series_occurrence_uq",
           "columns": [
             {
-              "expression": "starts_at",
+              "expression": "series_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurrence_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "events_series_id_idx": {
+          "name": "events_series_id_idx",
+          "columns": [
+            {
+              "expression": "series_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -239,17 +220,17 @@
         }
       },
       "foreignKeys": {
-        "events_owner_user_id_users_id_fk": {
-          "name": "events_owner_user_id_users_id_fk",
+        "events_series_id_events_id_fk": {
+          "name": "events_series_id_events_id_fk",
           "tableFrom": "events",
-          "tableTo": "users",
+          "tableTo": "events",
           "columnsFrom": [
-            "owner_user_id"
+            "series_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "events_created_by_users_id_fk": {
@@ -269,7 +250,36 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "events_kind_check": {
+          "name": "events_kind_check",
+          "value": "\"events\".\"kind\" in ('event', 'task')"
+        },
+        "events_event_has_range_check": {
+          "name": "events_event_has_range_check",
+          "value": "\"events\".\"kind\" <> 'event' or (\"events\".\"starts_at\" is not null and \"events\".\"ends_at\" is not null)"
+        },
+        "events_task_only_completed_check": {
+          "name": "events_task_only_completed_check",
+          "value": "\"events\".\"kind\" = 'task' or \"events\".\"completed_at\" is null"
+        },
+        "events_recurring_has_base_check": {
+          "name": "events_recurring_has_base_check",
+          "value": "\"events\".\"rrule\" is null or \"events\".\"starts_at\" is not null or \"events\".\"ends_at\" is not null"
+        },
+        "events_series_pair_check": {
+          "name": "events_series_pair_check",
+          "value": "(\"events\".\"series_id\" is null) = (\"events\".\"occurrence_start\" is null)"
+        },
+        "events_series_not_recurring_check": {
+          "name": "events_series_not_recurring_check",
+          "value": "\"events\".\"series_id\" is null or \"events\".\"rrule\" is null"
+        },
+        "events_cancelled_only_series_check": {
+          "name": "events_cancelled_only_series_check",
+          "value": "not \"events\".\"cancelled\" or \"events\".\"series_id\" is not null"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.expenses": {
@@ -467,424 +477,6 @@
         "lemon_care_logs_created_by_users_id_fk": {
           "name": "lemon_care_logs_created_by_users_id_fk",
           "tableFrom": "lemon_care_logs",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.task_completions": {
-      "name": "task_completions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "occurrence_key": {
-          "name": "occurrence_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "completed_by": {
-          "name": "completed_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "task_completions_task_occurrence_uq": {
-          "name": "task_completions_task_occurrence_uq",
-          "columns": [
-            {
-              "expression": "task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "occurrence_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_completions_completed_at_idx": {
-          "name": "task_completions_completed_at_idx",
-          "columns": [
-            {
-              "expression": "completed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "task_completions_task_id_tasks_id_fk": {
-          "name": "task_completions_task_id_tasks_id_fk",
-          "tableFrom": "task_completions",
-          "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "task_completions_completed_by_users_id_fk": {
-          "name": "task_completions_completed_by_users_id_fk",
-          "tableFrom": "task_completions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "completed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "task_completions_created_by_users_id_fk": {
-          "name": "task_completions_created_by_users_id_fk",
-          "tableFrom": "task_completions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.task_overrides": {
-      "name": "task_overrides",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "occurrence_key": {
-          "name": "occurrence_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cancelled": {
-          "name": "cancelled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "starts_at": {
-          "name": "starts_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "due_at": {
-          "name": "due_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "task_overrides_task_occurrence_uq": {
-          "name": "task_overrides_task_occurrence_uq",
-          "columns": [
-            {
-              "expression": "task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "occurrence_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "task_overrides_task_id_tasks_id_fk": {
-          "name": "task_overrides_task_id_tasks_id_fk",
-          "tableFrom": "task_overrides",
-          "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "task_overrides_created_by_users_id_fk": {
-          "name": "task_overrides_created_by_users_id_fk",
-          "tableFrom": "task_overrides",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.tasks": {
-      "name": "tasks",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "assignee_user_id": {
-          "name": "assignee_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "starts_at": {
-          "name": "starts_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "due_at": {
-          "name": "due_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rrule": {
-          "name": "rrule",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notify_at_start": {
-          "name": "notify_at_start",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "notify_at_due": {
-          "name": "notify_at_due",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "tasks_starts_at_idx": {
-          "name": "tasks_starts_at_idx",
-          "columns": [
-            {
-              "expression": "starts_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "tasks_due_at_idx": {
-          "name": "tasks_due_at_idx",
-          "columns": [
-            {
-              "expression": "due_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "tasks_assignee_user_id_users_id_fk": {
-          "name": "tasks_assignee_user_id_users_id_fk",
-          "tableFrom": "tasks",
-          "tableTo": "users",
-          "columnsFrom": [
-            "assignee_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "tasks_created_by_users_id_fk": {
-          "name": "tasks_created_by_users_id_fk",
-          "tableFrom": "tasks",
           "tableTo": "users",
           "columnsFrom": [
             "created_by"

@@ -1,5 +1,5 @@
 import { EventDetailDialog } from '../../events/components/EventDetailDialog.tsx';
-import { TaskDetailDialog } from '../../tasks/components/TaskDetailDialog.tsx';
+import { TaskDetailDialog } from '../../events/components/TaskDetailDialog.tsx';
 import type { CalendarItem } from '../queries.ts';
 
 type Props = {

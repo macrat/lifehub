@@ -20,29 +20,29 @@ import {
   toDateString,
   toDateTimeLocalValue,
 } from '../../../lib/date.ts';
-import { formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
+import { formList, formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
-import { OwnerSelect } from '../../users/components/OwnerSelect.tsx';
+import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { CreateEventBody } from '../queries.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 export type EventFormValues = {
   title: string;
   allDay: boolean;
-  startsAt: string;
-  endsAt: string;
-  ownerUserId: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  participantIds: string[];
   location: string | null;
   note: string | null;
   rrule: string | null;
-  remindBeforeMinutes: number | null;
+  remindStartMinutes: number | null;
 };
 
 type Props = {
   title: string;
   initial: EventFormValues;
-  /** this のときは繰り返し・所有者・通知の変更はできない（この回だけの変更は日時・タイトル・メモのみ） */
+  /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onClose: () => void;
@@ -59,7 +59,7 @@ const REMIND_LABELS: Record<number, string> = {
   1440: '1日前',
 };
 
-/** 既定値: 次の正時から 1 時間 */
+/** 既定値: 次の正時から 1 時間、参加者は全員 */
 export function defaultEventValues(date?: DateString): EventFormValues {
   const base = date ? new Date(`${date}T10:00:00+09:00`) : new Date();
   if (!date) {
@@ -72,17 +72,19 @@ export function defaultEventValues(date?: DateString): EventFormValues {
     allDay: false,
     startsAt: base.toISOString(),
     endsAt: end.toISOString(),
-    ownerUserId: null,
+    participantIds: [],
     location: null,
     note: null,
     rrule: null,
-    remindBeforeMinutes: null,
+    remindStartMinutes: null,
   };
 }
 
 export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
   const [allDay, setAllDay] = useState(initial.allDay);
   const thisOnly = scope === 'this';
+  const initialStart = initial.startsAt ?? new Date().toISOString();
+  const initialEnd = initial.endsAt ?? initialStart;
 
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
@@ -92,26 +94,27 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
       const toInstant = (raw: string) =>
         allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
       return {
+        kind: 'event',
         title: formText(fd, 'title') ?? '',
         allDay,
-        startsAt: startsRaw ? toInstant(startsRaw) : '',
-        endsAt: endsRaw ? toInstant(endsRaw) : '',
-        ownerUserId: thisOnly ? initial.ownerUserId : formSelect(fd, 'ownerUserId'),
+        startsAt: startsRaw ? toInstant(startsRaw) : null,
+        endsAt: endsRaw ? toInstant(endsRaw) : null,
+        participantIds: formList(fd, 'participantIds'),
         location: formText(fd, 'location'),
         note: formText(fd, 'note'),
         rrule: thisOnly ? initial.rrule : formText(fd, 'rrule'),
-        remindBeforeMinutes: thisOnly
-          ? initial.remindBeforeMinutes
-          : formSelect(fd, 'remindBeforeMinutes') === null
+        remindStartMinutes:
+          formSelect(fd, 'remindStartMinutes') === null
             ? null
-            : Number(formText(fd, 'remindBeforeMinutes')),
+            : Number(formText(fd, 'remindStartMinutes')),
+        remindEndMinutes: null,
       };
     },
     onSubmit: (data) =>
       onSubmit({
         ...data,
-        startsAt: data.startsAt.toISOString(),
-        endsAt: data.endsAt.toISOString(),
+        startsAt: data.startsAt?.toISOString() ?? null,
+        endsAt: data.endsAt?.toISOString() ?? null,
       }),
     onSuccess: onClose,
   });
@@ -152,7 +155,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
                 name="startsAt"
                 label="開始日"
                 type="date"
-                defaultValue={toDateString(new Date(initial.startsAt))}
+                defaultValue={toDateString(new Date(initialStart))}
                 error={Boolean(errors.startsAt)}
                 helperText={errors.startsAt}
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -164,9 +167,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
                 label="終了日"
                 type="date"
                 defaultValue={
-                  initial.allDay
-                    ? inclusiveEndDate(initial.endsAt)
-                    : toDateString(new Date(initial.endsAt))
+                  initial.allDay ? inclusiveEndDate(initialEnd) : toDateString(new Date(initialEnd))
                 }
                 error={Boolean(errors.endsAt)}
                 helperText={errors.endsAt}
@@ -181,7 +182,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
                 name="startsAt"
                 label="開始"
                 type="datetime-local"
-                defaultValue={toDateTimeLocalValue(initial.startsAt)}
+                defaultValue={toDateTimeLocalValue(initialStart)}
                 error={Boolean(errors.startsAt)}
                 helperText={errors.startsAt}
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -192,7 +193,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
                 name="endsAt"
                 label="終了"
                 type="datetime-local"
-                defaultValue={toDateTimeLocalValue(initial.endsAt)}
+                defaultValue={toDateTimeLocalValue(initialEnd)}
                 error={Boolean(errors.endsAt)}
                 helperText={errors.endsAt}
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -201,9 +202,11 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
             </>
           )}
         </Stack>
-        {!thisOnly && (
-          <OwnerSelect name="ownerUserId" label="誰の予定" defaultValue={initial.ownerUserId} />
-        )}
+        <ParticipantsField
+          name="participantIds"
+          defaultValue={initial.participantIds}
+          error={errors.participantIds}
+        />
         <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
         <TextField
           name="note"
@@ -214,22 +217,20 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
           fullWidth
         />
         {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
-        {!thisOnly && (
-          <TextField
-            name="remindBeforeMinutes"
-            label="通知"
-            select
-            defaultValue={initial.remindBeforeMinutes ?? SELECT_NONE}
-            fullWidth
-          >
-            <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
-            {REMIND_BEFORE_OPTIONS.map((m) => (
-              <MenuItem key={m} value={m}>
-                {REMIND_LABELS[m]}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
+        <TextField
+          name="remindStartMinutes"
+          label="通知"
+          select
+          defaultValue={initial.remindStartMinutes ?? SELECT_NONE}
+          fullWidth
+        >
+          <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
+          {REMIND_BEFORE_OPTIONS.map((m) => (
+            <MenuItem key={m} value={m}>
+              {REMIND_LABELS[m]}
+            </MenuItem>
+          ))}
+        </TextField>
       </Stack>
     </FormDialog>
   );

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
-import { createTaskSchema } from '../../../../shared/validation/tasks.ts';
-import { createEvent, deleteEvent, updateEvent } from '../../../features/events/service.ts';
-import { completeTask, createTask } from '../../../features/tasks/service.ts';
+import {
+  completeEvent,
+  createEvent,
+  deleteEvent,
+  updateEvent,
+} from '../../../features/events/service.ts';
 import { createUser } from '../../../features/users/service.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { listAll, resolve } from '../registry.ts';
@@ -24,65 +27,72 @@ describe('notifications', () => {
   it('予定の開始 N 分前と、タスクの開始・期限を列挙する', async () => {
     const event = await createEvent(
       createEventSchema.parse({
+        kind: 'event',
         title: '歯医者',
         startsAt: iso('2026-09-15T10:00:00'),
         endsAt: iso('2026-09-15T11:00:00'),
-        remindBeforeMinutes: 30,
-        ownerUserId: userId,
+        remindStartMinutes: 30,
+        participantIds: [userId],
       }),
       userId,
     );
     await createEvent(
       createEventSchema.parse({
+        kind: 'event',
         title: '通知なし',
         startsAt: iso('2026-09-15T12:00:00'),
         endsAt: iso('2026-09-15T13:00:00'),
+        participantIds: [userId],
       }),
       userId,
     );
-    const task = await createTask(
-      createTaskSchema.parse({
+    const task = await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
         title: '提出',
         startsAt: iso('2026-09-14T09:00:00'),
-        dueAt: iso('2026-09-15T17:00:00'),
-        notifyAtStart: true,
-        notifyAtDue: true,
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
+        remindEndMinutes: 0,
+        participantIds: [userId],
       }),
       userId,
     );
     const planned = await listAll(tomorrow);
     expect(planned.map((p) => [p.key, p.at.toISOString()])).toEqual([
-      [
-        `event:${event.id}:${iso('2026-09-15T10:00:00')}:${iso('2026-09-15T09:30:00')}`,
-        iso('2026-09-15T09:30:00'),
-      ],
-      [`task:${task.id}:single:due:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
+      [`event:${task.id}:single:end:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
+      [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
     ]);
   });
 
   it('配信時に再検証し、削除・変更・完了済みなら送らない', async () => {
-    const event = await createEvent(
+    const input = createEventSchema.parse({
+      kind: 'event',
+      title: '歯医者',
+      startsAt: iso('2026-09-15T10:00:00'),
+      endsAt: iso('2026-09-15T11:00:00'),
+      remindStartMinutes: 30,
+      participantIds: [userId],
+    });
+    const event = await createEvent(input, userId);
+    const task = await createEvent(
       createEventSchema.parse({
-        title: '歯医者',
-        startsAt: iso('2026-09-15T10:00:00'),
-        endsAt: iso('2026-09-15T11:00:00'),
-        remindBeforeMinutes: 30,
-      }),
-      userId,
-    );
-    const task = await createTask(
-      createTaskSchema.parse({
+        kind: 'task',
         title: '提出',
-        dueAt: iso('2026-09-15T17:00:00'),
-        notifyAtDue: true,
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
       }),
       userId,
     );
-    const [eventKey, taskKey] = (await listAll(tomorrow)).map((p) => p.key) as [string, string];
+    const keys = (await listAll(tomorrow)).map((p) => p.key);
+    const eventKey = keys.find((k) => k.includes(event.id)) as string;
+    const taskKey = keys.find((k) => k.includes(task.id)) as string;
 
     expect(await resolve(eventKey)).toMatchObject({
       title: '歯医者',
-      userIds: null,
+      body: '開始 9/15 10:00',
+      userIds: [userId],
       url: '/calendar?date=2026-09-15',
     });
     expect(await resolve(taskKey)).toMatchObject({
@@ -94,12 +104,9 @@ describe('notifications', () => {
     await updateEvent(
       event.id,
       {
-        ...createEventSchema.parse({
-          title: '歯医者',
-          startsAt: iso('2026-09-15T11:00:00'),
-          endsAt: iso('2026-09-15T12:00:00'),
-          remindBeforeMinutes: 30,
-        }),
+        ...input,
+        startsAt: jst('2026-09-15T11:00:00'),
+        endsAt: jst('2026-09-15T12:00:00'),
         scope: 'all',
       },
       userId,
@@ -108,16 +115,18 @@ describe('notifications', () => {
     await deleteEvent(event.id, { scope: 'all' }, userId);
     expect(await resolve(eventKey)).toBeNull();
 
-    await completeTask(task.id, 'single', userId);
+    await completeEvent(task.id, {}, userId);
     expect(await resolve(taskKey)).toBeNull();
   });
 
   it('同じキーは一度しか送らず、予約先が無ければ列挙だけする', async () => {
-    await createTask(
-      createTaskSchema.parse({
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
         title: '提出',
-        dueAt: iso('2026-09-15T17:00:00'),
-        notifyAtDue: true,
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
       }),
       userId,
     );
@@ -128,11 +137,11 @@ describe('notifications', () => {
     expect(await enqueueRange(tomorrow, null)).toEqual({ planned: 1, published: 0 });
 
     const sent: string[] = [];
-    const send = async (_: string[] | null, m: { title: string }) => void sent.push(m.title);
+    const send = async (_: string[], m: { title: string }) => void sent.push(m.title);
     const key = published[0] as string;
     expect(await deliver(key, send)).toBe('sent');
     expect(await deliver(key, send)).toBe('duplicate');
-    expect(await deliver('task:unknown', send)).toBe('stale');
+    expect(await deliver('event:unknown', send)).toBe('stale');
     expect(sent).toEqual(['タスク: 提出']);
   });
 });

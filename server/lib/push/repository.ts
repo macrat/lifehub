@@ -38,9 +38,7 @@ export async function findByEndpoint(endpoint: string): Promise<PushSubscription
   return rows[0];
 }
 
-/** userIds が null なら全員（共有の予定・タスク） */
-export async function findByUserIds(userIds: string[] | null): Promise<PushSubscriptionRow[]> {
-  if (userIds === null) return db.select().from(pushSubscriptions);
+export async function findByUserIds(userIds: string[]): Promise<PushSubscriptionRow[]> {
   if (userIds.length === 0) return [];
   return db.select().from(pushSubscriptions).where(inArray(pushSubscriptions.userId, userIds));
 }

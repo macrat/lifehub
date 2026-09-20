@@ -6,14 +6,14 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
-import { type CalendarItem, groupByDate, ownerOf } from '../queries.ts';
+import { type CalendarItem, groupByDate } from '../queries.ts';
 import { DayList } from './DayList.tsx';
 
 export type ListFilters = {
   from: DateString;
   to: DateString;
   kind: 'all' | 'event' | 'task';
-  /** 'all' = すべて、'shared' = 共有、それ以外はユーザー ID */
+  /** 'all' = すべて、それ以外は参加者のユーザー ID */
   owner: string;
   /** タスクの完了状態。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
   completed: 'all' | 'open' | 'done';
@@ -30,7 +30,7 @@ type Props = {
 
 /** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・誰の・完了状態・キーワードで絞り込める時系列の一覧。 */
 export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
-  const { options: ownerOptions } = useOwnerLabel();
+  const { users } = useOwnerLabel();
   const grouped = groupByDate(items.filter((item) => matches(item, filters)));
   return (
     <>
@@ -83,9 +83,9 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
             onChange={(e) => onChangeFilters({ owner: e.target.value })}
           >
             <MenuItem value="all">すべて</MenuItem>
-            {ownerOptions.map((o) => (
-              <MenuItem key={o.value ?? 'shared'} value={o.value ?? 'shared'}>
-                {o.label}
+            {users.map((u) => (
+              <MenuItem key={u.id} value={u.id}>
+                {u.name}
               </MenuItem>
             ))}
           </TextField>
@@ -121,15 +121,13 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
 
 function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.kind !== 'all' && item.kind !== f.kind) return false;
-  const owner = ownerOf(item);
-  if (f.owner === 'shared' && owner !== null) return false;
-  if (f.owner !== 'all' && f.owner !== 'shared' && owner !== f.owner) return false;
+  if (f.owner !== 'all' && !item.participantIds.includes(f.owner)) return false;
   if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;
   if (f.completed === 'done' && (item.kind !== 'task' || item.completedAt === null)) return false;
   if (f.q) {
     const q = f.q.toLowerCase();
-    const location = item.kind === 'event' ? (item.location ?? '') : '';
-    if (!`${item.title} ${location} ${item.note ?? ''}`.toLowerCase().includes(q)) return false;
+    const text = `${item.title} ${item.location ?? ''} ${item.note ?? ''}`.toLowerCase();
+    if (!text.includes(q)) return false;
   }
   return true;
 }

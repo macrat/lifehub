@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createTaskSchema } from '../../shared/validation/tasks.ts';
+import { createEventSchema } from '../../shared/validation/events.ts';
+import { createEvent } from '../features/events/service.ts';
 import { addExpense } from '../features/expenses/service.ts';
-import { createTask } from '../features/tasks/service.ts';
 import { createUser } from '../features/users/service.ts';
 import { loadDashboard } from '../lib/dashboard/registry.ts';
 import { truncateAll } from '../lib/test-db.ts';
@@ -13,7 +13,10 @@ describe('dashboard', () => {
       .id;
     const b = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' }))
       .id;
-    await createTask(createTaskSchema.parse({ title: '今日やる' }), a);
+    await createEvent(
+      createEventSchema.parse({ kind: 'task', title: '今日やる', participantIds: [a] }),
+      a,
+    );
     await addExpense(
       { fromUserId: a, toUserId: null, amount: 1000, description: 'x', spentOn: '2026-09-01' },
       a,

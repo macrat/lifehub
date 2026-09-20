@@ -20,9 +20,8 @@ import {
 } from '../../features/calendar/use-calendar-page.ts';
 import { useSwipe } from '../../features/calendar/use-swipe.ts';
 import { defaultEventValues, EventForm } from '../../features/events/components/EventForm.tsx';
+import { defaultTaskValues, TaskForm } from '../../features/events/components/TaskForm.tsx';
 import { useCreateEvent } from '../../features/events/queries.ts';
-import { defaultTaskValues, TaskForm } from '../../features/tasks/components/TaskForm.tsx';
-import { useCreateTask } from '../../features/tasks/queries.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
@@ -56,7 +55,6 @@ function CalendarPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const createEvent = useCreateEvent();
-  const createTask = useCreateTask();
 
   const swipeRef = useRef<HTMLDivElement>(null);
   useSwipe(swipeRef, { onSwipeLeft: () => page.move(1), onSwipeRight: () => page.move(-1) });
@@ -146,7 +144,7 @@ function CalendarPage() {
         <TaskForm
           title="タスクを追加"
           initial={defaultTaskValues(page.date)}
-          onSubmit={(input) => createTask.mutateAsync(input)}
+          onSubmit={(input) => createEvent.mutateAsync(input)}
           onClose={() => setCreating(null)}
         />
       )}

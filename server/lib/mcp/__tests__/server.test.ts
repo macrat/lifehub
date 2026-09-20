@@ -38,13 +38,8 @@ describe('MCP server', () => {
         'events_create',
         'events_update',
         'events_delete',
-        'tasks_list',
-        'tasks_create',
-        'tasks_complete',
-        'tasks_uncomplete',
-        'tasks_update',
-        'tasks_delete',
-        'calendar_list_items',
+        'events_complete',
+        'events_uncomplete',
         'expenses_get_balance',
         'expenses_list',
         'expenses_add',
@@ -65,9 +60,11 @@ describe('MCP server', () => {
     await client.callTool({
       name: 'events_create',
       arguments: {
+        kind: 'event',
         title: '歯医者',
         startsAt: '2030-01-07T09:00:00+09:00',
         endsAt: '2030-01-07T10:00:00+09:00',
+        participantIds: [userId],
         rrule: 'FREQ=WEEKLY',
       },
     });
@@ -82,16 +79,18 @@ describe('MCP server', () => {
     expect(events).toHaveLength(4);
 
     const created = JSON.parse(
-      text(await client.callTool({ name: 'tasks_create', arguments: { title: '提出' } })),
+      text(
+        await client.callTool({
+          name: 'events_create',
+          arguments: { kind: 'task', title: '提出', participantIds: [userId] },
+        }),
+      ),
     );
-    await client.callTool({
-      name: 'tasks_complete',
-      arguments: { id: created.id, occurrenceKey: 'single' },
-    });
+    await client.callTool({ name: 'events_complete', arguments: { id: created.id } });
     const items = JSON.parse(
       text(
         await client.callTool({
-          name: 'calendar_list_items',
+          name: 'events_list',
           arguments: { from: '2000-01-01', to: '2100-01-01' },
         }),
       ),

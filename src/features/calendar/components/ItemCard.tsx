@@ -6,14 +6,14 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
-import { useToggleTaskCompletion } from '../../tasks/queries.ts';
+import { useToggleCompletion } from '../../events/queries.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import {
   type CalendarEventItem,
   type CalendarItem,
   type CalendarTaskItem,
-  ownerOf,
+  colorUserOf,
   taskTime,
 } from '../queries.ts';
 
@@ -24,22 +24,22 @@ type Props = {
 
 /**
  * 一覧（リスト表示・ホーム）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
- * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分け、色は所有者・担当者のユーザーの色。
+ * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分け、色は参加者（1 人のとき）のユーザーの色。
  * 期限超過は赤、完了は薄く取り消し線。
  */
 export function ItemCard({ item, onClick }: Props) {
   const { label } = useOwnerLabel();
   const colorFor = useUserColor();
-  const toggle = useToggleTaskCompletion();
+  const toggle = useToggleCompletion();
   const online = useOnline();
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
-  const ownerId = ownerOf(item);
-  const owner = label(ownerId);
-  const colors = colorFor(ownerId);
-  const meta = [owner, item.kind === 'event' ? item.location : null].filter(Boolean).join(' · ');
+  const colors = colorFor(colorUserOf(item));
+  const meta = [item.participantIds.map(label).join('・'), item.location]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Stack direction="row" sx={{ alignItems: 'stretch', opacity: completed ? 0.55 : 1 }}>
@@ -58,7 +58,11 @@ export function ItemCard({ item, onClick }: Props) {
             checked={completed}
             disabled={toggle.isPending || !online}
             onChange={(_, checked) =>
-              toggle.mutate({ id: item.id, occurrenceKey: item.occurrenceKey, completed: checked })
+              toggle.mutate({
+                id: item.id,
+                occurrenceStart: item.occurrenceStart,
+                completed: checked,
+              })
             }
             slotProps={{
               input: {

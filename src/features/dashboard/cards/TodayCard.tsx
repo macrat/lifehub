@@ -8,8 +8,8 @@ import { formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { ItemDialogs } from '../../calendar/components/ItemDialogs.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
-import { type CalendarItem, ownerOf, taskTime } from '../../calendar/queries.ts';
-import { useToggleTaskCompletion } from '../../tasks/queries.ts';
+import { type CalendarItem, colorUserOf, taskTime } from '../../calendar/queries.ts';
+import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import type { DashboardCardOf } from '../queries.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
@@ -46,10 +46,10 @@ function TodayRow({
   onClick: (item: CalendarItem) => void;
 }) {
   const colorFor = useUserColor();
-  const toggle = useToggleTaskCompletion();
+  const toggle = useToggleCompletion();
   const online = useOnline();
   const isTask = item.kind === 'task';
-  const colors = colorFor(ownerOf(item));
+  const colors = colorFor(colorUserOf(item));
   return (
     <Stack direction="row" sx={{ alignItems: 'center', minHeight: 36 }}>
       <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
@@ -59,7 +59,7 @@ function TodayRow({
             checked={false}
             disabled={toggle.isPending || !online}
             onChange={() =>
-              toggle.mutate({ id: item.id, occurrenceKey: item.occurrenceKey, completed: true })
+              toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: true })
             }
             slotProps={{ input: { 'aria-label': `${item.title} を完了にする` } }}
             sx={{ p: 0.5, color: colors.fill, '&.Mui-checked': { color: colors.fill } }}

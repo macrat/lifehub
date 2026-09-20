@@ -1,104 +1,128 @@
-import { and, asc, eq, gt, gte, inArray, isNotNull, lt, or } from 'drizzle-orm';
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { db, runBatch } from '../../lib/db.ts';
 import { newId } from '../../lib/id.ts';
-import {
-  type EventOverrideRow,
-  type EventRow,
-  eventOverrides,
-  events,
-  type NewEventOverrideRow,
-  type NewEventRow,
-} from './schema.ts';
+import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
+
+export type ParticipantRow = { eventId: string; userId: string };
 
 export async function findById(id: string): Promise<EventRow | undefined> {
   const rows = await db.select().from(events).where(eq(events.id, id)).limit(1);
   return rows[0];
 }
 
-/** [from, to) に発生を持ちうるマスター（繰り返しは開始が to より前なら候補、単発は期間と重なるもの） */
+/**
+ * [from, to) に発生を持ちうる繰り返し元・単発の行。
+ * タスクは表示位置が「今日」に依存し DB で絞れないため全件、予定は期間と重なるもの（繰り返しは開始が to より前なら候補）。
+ */
 export async function findCandidates(from: Date, to: Date): Promise<EventRow[]> {
   return db
     .select()
     .from(events)
-    .where(and(lt(events.startsAt, to), or(isNotNull(events.rrule), gt(events.endsAt, from))))
-    .orderBy(asc(events.startsAt));
+    .where(
+      and(
+        isNull(events.seriesId),
+        or(
+          eq(events.kind, 'task'),
+          and(lt(events.startsAt, to), or(isNotNull(events.rrule), gt(events.endsAt, from))),
+        ),
+      ),
+    )
+    .orderBy(events.startsAt, events.createdAt);
 }
 
-export async function findOverridesByEventIds(eventIds: string[]): Promise<EventOverrideRow[]> {
+/** 繰り返し元に属する実体化された回 */
+export async function findBySeriesIds(seriesIds: string[]): Promise<EventRow[]> {
+  if (seriesIds.length === 0) return [];
+  return db.select().from(events).where(inArray(events.seriesId, seriesIds));
+}
+
+export async function findOccurrence(
+  seriesId: string,
+  occurrenceStart: Date,
+): Promise<EventRow | undefined> {
+  const rows = await db
+    .select()
+    .from(events)
+    .where(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function findParticipants(eventIds: string[]): Promise<ParticipantRow[]> {
   if (eventIds.length === 0) return [];
-  return db.select().from(eventOverrides).where(inArray(eventOverrides.eventId, eventIds));
+  return db
+    .select({ eventId: eventParticipants.eventId, userId: eventParticipants.userId })
+    .from(eventParticipants)
+    .where(inArray(eventParticipants.eventId, eventIds));
 }
 
-export async function insert(row: Omit<NewEventRow, 'id'>): Promise<EventRow> {
-  const inserted = await db
-    .insert(events)
-    .values({ ...row, id: newId() })
-    .returning();
-  const event = inserted[0];
-  if (!event) throw new Error('insert returned no row');
-  return event;
+function participantRows(eventId: string, userIds: string[]) {
+  return userIds.map((userId) => ({ eventId, userId }));
 }
 
+/** 行と参加者を原子的に作る。id を返す */
+export async function insert(
+  row: Omit<NewEventRow, 'id'>,
+  participantIds: string[],
+): Promise<string> {
+  const id = newId();
+  await runBatch([
+    db.insert(events).values({ ...row, id }),
+    db.insert(eventParticipants).values(participantRows(id, participantIds)),
+  ]);
+  return id;
+}
+
+/** 行を更新する。participantIds を渡すと参加者を置き換える */
 export async function update(
   id: string,
   values: Partial<NewEventRow>,
-): Promise<EventRow | undefined> {
-  const rows = await db.update(events).set(values).where(eq(events.id, id)).returning();
-  return rows[0];
+  participantIds?: string[],
+): Promise<void> {
+  if (participantIds === undefined) {
+    await db.update(events).set(values).where(eq(events.id, id));
+    return;
+  }
+  await runBatch([
+    db.update(events).set(values).where(eq(events.id, id)),
+    db.delete(eventParticipants).where(eq(eventParticipants.eventId, id)),
+    db.insert(eventParticipants).values(participantRows(id, participantIds)),
+  ]);
 }
 
 export async function remove(id: string): Promise<void> {
   await db.delete(events).where(eq(events.id, id));
 }
 
-export async function upsertOverride(row: Omit<NewEventOverrideRow, 'id'>): Promise<void> {
-  await db
-    .insert(eventOverrides)
-    .values({ ...row, id: newId() })
-    .onConflictDoUpdate({
-      target: [eventOverrides.eventId, eventOverrides.occurrenceStart],
-      set: {
-        cancelled: row.cancelled,
-        startsAt: row.startsAt,
-        endsAt: row.endsAt,
-        title: row.title,
-        note: row.note,
-        updatedAt: new Date(),
-      },
-    });
-}
-
-export async function deleteOverrides(eventId: string): Promise<void> {
-  await db.delete(eventOverrides).where(eq(eventOverrides.eventId, eventId));
+/** 繰り返し元に属する回のうち、完了していないものを消す（完了した回は履歴として残す） */
+export async function deleteUncompletedOccurrences(seriesId: string): Promise<void> {
+  await db.delete(events).where(and(eq(events.seriesId, seriesId), isNull(events.completedAt)));
 }
 
 /**
- * 「これ以降すべて」の分割: 元のマスターを UNTIL 付きに更新し、以降の例外を消し、新しいマスターを作る。
- * 3 文は原子的に実行する（runBatch）。
+ * 「これ以降すべて」の分割: 元の繰り返しを UNTIL 付きに更新し、以降の回を消し、新しい繰り返し元を作る。
+ * 全文を原子的に実行する（runBatch）。新しい行の id を返す
  */
 export async function splitFollowing(input: {
   masterId: string;
   masterRRule: string;
   splitAt: Date;
   newRow: Omit<NewEventRow, 'id'>;
+  participantIds: string[];
 }): Promise<string> {
-  const newId_ = newId();
+  const id = newId();
   await runBatch([
     db.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
     db
-      .delete(eventOverrides)
-      .where(
-        and(
-          eq(eventOverrides.eventId, input.masterId),
-          gte(eventOverrides.occurrenceStart, input.splitAt),
-        ),
-      ),
-    db.insert(events).values({ ...input.newRow, id: newId_ }),
+      .delete(events)
+      .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
+    db.insert(events).values({ ...input.newRow, id }),
+    db.insert(eventParticipants).values(participantRows(id, input.participantIds)),
   ]);
-  return newId_;
+  return id;
 }
 
-/** 「これ以降すべて」の削除: 元のマスターを UNTIL 付きに更新し、以降の例外を消す。 */
+/** 「これ以降すべて」の削除: 元の繰り返しを UNTIL 付きに更新し、以降の回を消す */
 export async function truncateFollowing(input: {
   masterId: string;
   masterRRule: string;
@@ -107,12 +131,7 @@ export async function truncateFollowing(input: {
   await runBatch([
     db.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
     db
-      .delete(eventOverrides)
-      .where(
-        and(
-          eq(eventOverrides.eventId, input.masterId),
-          gte(eventOverrides.occurrenceStart, input.splitAt),
-        ),
-      ),
+      .delete(events)
+      .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
   ]);
 }
