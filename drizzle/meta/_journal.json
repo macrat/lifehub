@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1789898717061,
+      "when": 1789911056244,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789899577049,
-      "tag": "0001_events",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789900445311,
-      "tag": "0002_tasks",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789900947440,
-      "tag": "0003_expenses_lemon",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1789902008311,
-      "tag": "0004_push_notifications",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1789902411348,
-      "tag": "0005_oauth_mcp",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1789906509544,
-      "tag": "0006_user_hue",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1789909766247,
-      "tag": "0007_expenses_from_to",
       "breakpoints": true
     }
   ]

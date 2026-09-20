@@ -1,1 +1,0 @@
-ALTER TABLE "users" ADD COLUMN "hue" integer DEFAULT 335 NOT NULL;
