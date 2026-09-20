@@ -1,5 +1,5 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import { del, get, set } from 'idb-keyval';
 
 const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -33,3 +33,16 @@ export const persistOptions = {
   // アプリのバージョンが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
   buster: __APP_VERSION__,
 };
+
+/**
+ * ルートの loader / beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
+ * （TanStack Query はオフライン中の取得を一時停止するため、ensureQueryData が完了しなくなる）。
+ * キャッシュが無ければ undefined。
+ */
+export async function ensureData<T, K extends readonly unknown[]>(
+  client: QueryClient,
+  options: UseQueryOptions<T, Error, T, K> & { queryKey: K },
+): Promise<T | undefined> {
+  if (!navigator.onLine) return client.getQueryData<T>(options.queryKey);
+  return client.ensureQueryData(options);
+}

@@ -1,10 +1,10 @@
 import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { type FormEvent, useState } from 'react';
 import { type LoginInput, loginSchema } from '../../../../shared/validation/users.ts';
 import { type FormErrors, parseForm } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 
 type Props = {
   onSubmit: (input: LoginInput) => Promise<void>;
@@ -57,9 +57,9 @@ export function LoginForm({ onSubmit }: Props) {
           helperText={errors.password}
           fullWidth
         />
-        <Button type="submit" variant="contained" size="large" disabled={submitting}>
+        <SubmitButton size="large" disabled={submitting}>
           ログイン
-        </Button>
+        </SubmitButton>
       </Stack>
     </form>
   );

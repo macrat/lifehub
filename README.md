@@ -37,6 +37,7 @@ pnpm dev                          # http://localhost:5173
 | `pnpm db:generate` / `pnpm db:migrate` | drizzle-kit のマイグレーション生成／適用 |
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |
+| `pnpm icons:generate` | `public/icons/favicon.svg` から PWA アイコンの PNG を生成 |
 | `pnpm tf:plan` / `pnpm tf:apply` | `infra/` の Terraform（ローカルから手動で実行する場合。通常は CI に任せる） |
 
 ## 初回セットアップ（人が一度だけ行う手作業）

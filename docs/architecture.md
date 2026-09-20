@@ -146,6 +146,9 @@ export type NotificationSource = {
 - TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
 - オフライン時は閲覧のみ。書き込み操作はオフライン中は無効化し、その旨を表示する。オフライン書き込み（キューして再送）は将来の拡張とし、初期スコープに含めない。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
+- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。loader / beforeLoad は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
+- ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。
+- オフライン時は `useOnline`（`navigator.onLine` + online/offline イベント）で判定し、`SubmitButton` と完了チェックを無効化し、`OfflineBanner` で案内する。
 
 ## UI / UX 方針
 
@@ -161,7 +164,8 @@ export type NotificationSource = {
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, `theme_color` = `#A0148C`, アイコン 192/512/maskable）。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。
-- Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。
+- Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
+- アイコンは `public/icons/favicon.svg` を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
 
 ## 運用
 

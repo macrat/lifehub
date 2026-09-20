@@ -23,13 +23,14 @@ import {
 } from '../../features/expenses/queries.ts';
 import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
 import { formatDate } from '../../lib/date.ts';
+import { ensureData } from '../../lib/query-client.ts';
 import { PageTitle } from '../../lib/ui/PageTitle.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(balanceQueryOptions),
-      context.queryClient.ensureQueryData(expenseHistoryQueryOptions),
+      ensureData(context.queryClient, balanceQueryOptions),
+      ensureData(context.queryClient, expenseHistoryQueryOptions),
     ]),
   component: ExpensesPage,
 });

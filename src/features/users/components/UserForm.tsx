@@ -14,6 +14,7 @@ import {
   updateUserSchema,
 } from '../../../../shared/validation/users.ts';
 import { type FormErrors, parseForm } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { User } from '../queries.ts';
 
 type CreateProps = {
@@ -106,9 +107,7 @@ export function UserForm(props: CreateProps | EditProps) {
         </DialogContent>
         <DialogActions>
           <Button onClick={props.onClose}>キャンセル</Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            保存
-          </Button>
+          <SubmitButton disabled={submitting} />
         </DialogActions>
       </form>
     </Dialog>

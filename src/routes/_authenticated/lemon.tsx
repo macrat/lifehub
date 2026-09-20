@@ -20,13 +20,14 @@ import {
   useLogCare,
 } from '../../features/lemon/queries.ts';
 import { formatDateTime } from '../../lib/date.ts';
+import { ensureData } from '../../lib/query-client.ts';
 import { PageTitle } from '../../lib/ui/PageTitle.tsx';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(lemonStatusQueryOptions),
-      context.queryClient.ensureQueryData(lemonLogsQueryOptions),
+      ensureData(context.queryClient, lemonStatusQueryOptions),
+      ensureData(context.queryClient, lemonLogsQueryOptions),
     ]),
   component: LemonPage,
 });

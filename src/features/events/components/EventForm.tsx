@@ -24,6 +24,7 @@ import {
   toDateTimeLocalValue,
 } from '../../../lib/date.ts';
 import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import type { CreateEventBody } from '../queries.ts';
 import {
@@ -315,9 +316,7 @@ export function EventForm({ open, title, initial, scope = 'all', onSubmit, onClo
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>キャンセル</Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            保存
-          </Button>
+          <SubmitButton disabled={submitting} />
         </DialogActions>
       </form>
     </Dialog>

@@ -11,6 +11,7 @@ import { type FormEvent, useState } from 'react';
 import { createExpenseSchema } from '../../../../shared/validation/expenses.ts';
 import { today } from '../../../lib/date.ts';
 import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import type { CreateExpenseBody } from '../queries.ts';
 
@@ -108,9 +109,7 @@ export function ExpenseForm({ open, onSubmit, onClose }: Props) {
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>キャンセル</Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            保存
-          </Button>
+          <SubmitButton disabled={submitting} />
         </DialogActions>
       </form>
     </Dialog>

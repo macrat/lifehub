@@ -21,6 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { primaryNavItems, secondaryNavItems } from './navigation.ts';
+import { OfflineBanner } from './OfflineBanner.tsx';
 
 const DRAWER_WIDTH = 220;
 
@@ -127,6 +128,7 @@ export function AppShell({ userName, onLogout, children }: Props) {
         }}
       >
         <Toolbar />
+        <OfflineBanner />
         {children}
       </Box>
 

@@ -1,6 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import { authClient, meQueryOptions } from '../lib/auth.ts';
+import { ensureData } from '../lib/query-client.ts';
 import { AppShell } from '../lib/ui/AppShell.tsx';
 
 /**
@@ -9,7 +10,12 @@ import { AppShell } from '../lib/ui/AppShell.tsx';
  */
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ context, location }) => {
-    const me = await context.queryClient.ensureQueryData(meQueryOptions);
+    // キャッシュにユーザーがあればそれを信じて即起動する（期限切れはサーバーの 401 で検出する）。
+    // キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後に永続化が追いつかない場合があるため）。
+    let me = await ensureData(context.queryClient, meQueryOptions);
+    if (!me && navigator.onLine) {
+      me = await context.queryClient.fetchQuery({ ...meQueryOptions, staleTime: 0 });
+    }
     if (!me) {
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }

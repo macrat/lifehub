@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { formatDateTime, formatTime, toDateString } from '../../../lib/date.ts';
+import { useOnline } from '../../../lib/online.ts';
 import { useToggleTaskCompletion } from '../../tasks/queries.ts';
 import { useOwnerLabel } from '../../users/use-owner-label.ts';
 import type { CalendarItem, CalendarTaskItem } from '../queries.ts';
@@ -19,6 +20,7 @@ type Props = {
 export function ItemCard({ item, onClick }: Props) {
   const { label } = useOwnerLabel();
   const toggle = useToggleTaskCompletion();
+  const online = useOnline();
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
@@ -36,7 +38,7 @@ export function ItemCard({ item, onClick }: Props) {
         {isTask && (
           <Checkbox
             checked={completed}
-            disabled={toggle.isPending}
+            disabled={toggle.isPending || !online}
             onChange={(_, checked) =>
               toggle.mutate({ id: item.id, occurrenceKey: item.occurrenceKey, completed: checked })
             }

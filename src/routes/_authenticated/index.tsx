@@ -4,10 +4,11 @@ import { createFileRoute } from '@tanstack/react-router';
 import { renderCard } from '../../features/dashboard/cards/index.tsx';
 import { QuickAddMenu } from '../../features/dashboard/components/QuickAddMenu.tsx';
 import { dashboardQueryOptions } from '../../features/dashboard/queries.ts';
+import { ensureData } from '../../lib/query-client.ts';
 import { PageTitle } from '../../lib/ui/PageTitle.tsx';
 
 export const Route = createFileRoute('/_authenticated/')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQueryOptions),
+  loader: ({ context }) => ensureData(context.queryClient, dashboardQueryOptions),
   component: HomePage,
 });
 

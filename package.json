@@ -61,7 +61,8 @@
     "vitest": "^5.0.1",
     "workbox-core": "^7.4.1",
     "workbox-precaching": "^7.4.1",
-    "workbox-routing": "^7.4.1"
+    "workbox-routing": "^7.4.1",
+    "workbox-window": "^7.4.1"
   },
   "scripts": {
     "dev": "concurrently -n web,api -c blue,magenta \"vite\" \"tsx watch --env-file-if-exists=.env.local server/dev.ts\"",
@@ -79,6 +80,7 @@
     "user:create": "tsx --env-file-if-exists=.env.local scripts/create-user.ts",
     "vapid:generate": "tsx scripts/generate-vapid-keys.ts",
     "tf:plan": "terraform -chdir=infra plan",
-    "tf:apply": "terraform -chdir=infra apply"
+    "tf:apply": "terraform -chdir=infra apply",
+    "icons:generate": "tsx scripts/generate-icons.ts"
   }
 }

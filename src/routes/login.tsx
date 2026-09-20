@@ -6,6 +6,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { LoginForm } from '../features/users/components/LoginForm.tsx';
 import { authClient, meQueryOptions } from '../lib/auth.ts';
+import { ensureData } from '../lib/query-client.ts';
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -15,7 +16,9 @@ export const Route = createFileRoute('/login')({
   validateSearch: searchSchema,
   beforeLoad: async ({ context, search }) => {
     // ログイン済みならログイン画面を見せない
-    const me = await context.queryClient.ensureQueryData(meQueryOptions);
+    const me = navigator.onLine
+      ? await context.queryClient.fetchQuery({ ...meQueryOptions, staleTime: 0 })
+      : await ensureData(context.queryClient, meQueryOptions);
     if (me) throw redirect({ to: search.redirect ?? '/' });
   },
   component: LoginPage,

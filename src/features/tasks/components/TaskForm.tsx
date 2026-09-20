@@ -15,6 +15,7 @@ import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { createTaskSchema } from '../../../../shared/validation/tasks.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import {
   buildRRule,
   parseRRule,
@@ -225,9 +226,7 @@ export function TaskForm({ open, title, initial, scope = 'all', onSubmit, onClos
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>キャンセル</Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            保存
-          </Button>
+          <SubmitButton disabled={submitting} />
         </DialogActions>
       </form>
     </Dialog>

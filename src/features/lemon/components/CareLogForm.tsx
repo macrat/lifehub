@@ -16,6 +16,7 @@ import {
 } from '../../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { CreateCareLogBody } from '../queries.ts';
 
 type Props = {
@@ -106,9 +107,7 @@ export function CareLogForm({ open, initialCareType = 'water', onSubmit, onClose
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>キャンセル</Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            保存
-          </Button>
+          <SubmitButton disabled={submitting} />
         </DialogActions>
       </form>
     </Dialog>
