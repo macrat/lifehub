@@ -1,8 +1,10 @@
 import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListSubheader from '@mui/material/ListSubheader';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+import Switch from '@mui/material/Switch';
 import { createFileRoute } from '@tanstack/react-router';
 import {
   isStandalone,
@@ -18,24 +20,43 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-/** 設定: この端末でプッシュ通知を受け取るかどうか。 */
+/** 設定: この端末でプッシュ通知を受け取るかどうか。Google 系アプリの設定画面と同じ「見出し + スイッチ行」。 */
 function SettingsPage() {
   const status = usePushStatus();
   const subscribe = useSubscribePush();
   const unsubscribe = useUnsubscribePush();
   const subscribed = status.data?.subscribed ?? false;
   const denied = status.data?.permission === 'denied';
+  const busy = subscribe.isPending || unsubscribe.isPending || (status.isPending && pushSupported);
   const error = subscribe.error ?? unsubscribe.error;
 
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
-      <Stack spacing={2}>
-        <Typography variant="h6" component="h3">
+    <List
+      subheader={
+        <ListSubheader component="h3" disableSticky>
           プッシュ通知
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          予定の開始前と、タスクの開始日時・期限日時に通知します。端末ごとに設定します。
-        </Typography>
+        </ListSubheader>
+      }
+    >
+      <ListItem
+        secondaryAction={
+          <Switch
+            edge="end"
+            checked={subscribed}
+            disabled={!pushSupported || denied || busy}
+            onChange={(_, checked) => (checked ? subscribe.mutate() : unsubscribe.mutate())}
+            slotProps={{ input: { 'aria-label': 'この端末で通知を受け取る' } }}
+          />
+        }
+      >
+        <ListItemText
+          // secondaryAction の既定の余白（48px）ではスイッチ（58px）と説明文が重なる
+          sx={{ pr: 5 }}
+          primary="この端末で通知を受け取る"
+          secondary="予定の開始前と、タスクの開始日時・期限日時に通知します。端末ごとに設定します。"
+        />
+      </ListItem>
+      <Stack spacing={1} sx={{ px: 2, pt: 1 }}>
         {!pushSupported && (
           <Alert severity="warning">このブラウザはプッシュ通知に対応していません。</Alert>
         )}
@@ -51,32 +72,7 @@ function SettingsPage() {
           </Alert>
         )}
         {error && <Alert severity="error">{error.message}</Alert>}
-        <Typography>
-          この端末:{' '}
-          {status.isPending && pushSupported
-            ? '確認中…'
-            : subscribed
-              ? '通知を受け取る'
-              : '受け取らない'}
-        </Typography>
-        {subscribed ? (
-          <Button
-            variant="outlined"
-            disabled={unsubscribe.isPending}
-            onClick={() => unsubscribe.mutate()}
-          >
-            この端末の通知を止める
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            disabled={!pushSupported || denied || subscribe.isPending}
-            onClick={() => subscribe.mutate()}
-          >
-            この端末で通知を受け取る
-          </Button>
-        )}
       </Stack>
-    </Paper>
+    </List>
   );
 }

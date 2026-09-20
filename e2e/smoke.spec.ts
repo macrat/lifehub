@@ -41,5 +41,5 @@ test('設定画面が表示される', async ({ page }) => {
   await expect(page).toHaveURL('/');
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'この端末で通知を受け取る' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'この端末で通知を受け取る' })).toBeVisible();
 });

@@ -17,17 +17,18 @@ export function CareStatusGrid({ statuses, onSelect }: Props) {
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-        gap: 1.5,
+        // スマホは 3 列（5 種別が 2 行に収まる）。広い画面では自然に 1 行に並ぶ。
+        gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(5, minmax(0, 1fr))' },
+        gap: 1,
       }}
     >
       {statuses.map((status) => (
         <Card key={status.careType} sx={{ bgcolor: 'action.hover' }}>
-          <CardActionArea onClick={() => onSelect?.(status)} sx={{ p: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
+          <CardActionArea onClick={() => onSelect?.(status)} sx={{ p: 1, height: '100%' }}>
+            <Typography variant="caption" color="text.secondary" component="p">
               {CARE_TYPE_LABELS[status.careType]}
             </Typography>
-            <Typography variant="h5" component="p">
+            <Typography variant="h6" component="p" sx={{ lineHeight: 1.3 }}>
               {status.daysSince === null
                 ? '—'
                 : status.daysSince === 0

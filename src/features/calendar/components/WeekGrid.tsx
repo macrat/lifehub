@@ -24,7 +24,12 @@ export function WeekGrid({ date, itemsByDate, onSelectItem }: Props) {
     >
       {days.map((day) => (
         <Stack key={day}>
-          <DayList date={day} items={itemsByDate.get(day) ?? []} onSelectItem={onSelectItem} />
+          <DayList
+            date={day}
+            items={itemsByDate.get(day) ?? []}
+            onSelectItem={onSelectItem}
+            compactEmpty
+          />
         </Stack>
       ))}
     </Box>
