@@ -18,7 +18,7 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const persister = createAsyncStoragePersister({
+const persister = createAsyncStoragePersister({
   storage: {
     getItem: (key) => get<string>(key),
     setItem: (key, value) => set(key, value),

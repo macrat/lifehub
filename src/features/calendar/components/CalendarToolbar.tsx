@@ -11,7 +11,7 @@ import { useState } from 'react';
 
 export type CalendarView = 'month' | 'week' | 'day' | 'list';
 
-export const VIEW_LABELS: Record<CalendarView, string> = {
+const VIEW_LABELS: Record<CalendarView, string> = {
   month: '月',
   week: '週',
   day: '日',

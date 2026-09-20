@@ -7,7 +7,7 @@ import * as tasks from '../tasks/service.ts';
  * カレンダー／イベント画面が読む統合項目。予定とタスクの差はカードの描画と操作にだけ現れる。
  * placementDate は JST の暦日。複数日にまたがる予定は日ごとに 1 件になる。タスクの位置は tasks service の規則。
  */
-export type CalendarEventItem = events.EventOccurrence & {
+type CalendarEventItem = events.EventOccurrence & {
   kind: 'event';
   placementDate: DateString;
   /** 複数日の予定での何日目か（1 始まり）と総日数 */
@@ -15,7 +15,7 @@ export type CalendarEventItem = events.EventOccurrence & {
   dayCount: number;
 };
 
-export type CalendarTaskItem = tasks.TaskOccurrence & { kind: 'task' };
+type CalendarTaskItem = tasks.TaskOccurrence & { kind: 'task' };
 
 export type CalendarItem = CalendarEventItem | CalendarTaskItem;
 
@@ -42,7 +42,7 @@ export async function listItems(
 }
 
 /** 予定の発生を日ごとの CalendarItem にする（範囲外の日は除く） */
-export function placeEvent(
+function placeEvent(
   occurrence: events.EventOccurrence,
   range: { from: DateString; to: DateString },
 ): CalendarEventItem[] {

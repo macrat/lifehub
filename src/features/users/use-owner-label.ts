@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { usersQueryOptions } from './queries.ts';
 
-export type OwnerOption = { value: string | null; label: string };
+type OwnerOption = { value: string | null; label: string };
 
 /**
  * 所有者・担当者の表示と選択肢。null は「共有」、それ以外はユーザー名（自分も名前で出す）。

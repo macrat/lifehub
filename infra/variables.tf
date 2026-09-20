@@ -1,4 +1,4 @@
-# 外部から渡す資格情報。GitHub Secrets → TF_VAR_* として渡す（§13.4）。
+# 外部から渡す資格情報。GitHub Secrets → TF_VAR_* として渡す（README の初回セットアップを参照）。
 
 variable "vercel_api_token" {
   type      = string

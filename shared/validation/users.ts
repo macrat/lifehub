@@ -2,13 +2,13 @@ import { z } from 'zod';
 import { HUE_MAX } from '../color.ts';
 import { PASSWORD_MIN_LENGTH } from '../constants.ts';
 
-export const passwordSchema = z
+const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, `パスワードは${PASSWORD_MIN_LENGTH}文字以上にしてください`)
   .max(128);
 
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
-export const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
+const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
 
 export const createUserSchema = z.object({
   email: z.email('メールアドレスの形式が正しくありません'),

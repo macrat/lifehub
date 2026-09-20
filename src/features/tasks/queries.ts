@@ -1,12 +1,11 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InferRequestType, InferResponseType } from 'hono/client';
+import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 
 export type CreateTaskBody = InferRequestType<typeof api.tasks.$post>['json'];
 export type UpdateTaskBody = InferRequestType<(typeof api.tasks)[':id']['$put']>['json'];
 export type DeleteTaskBody = InferRequestType<(typeof api.tasks)[':id']['$delete']>['json'];
-export type TaskMaster = InferResponseType<(typeof api.tasks)[':id']['$get'], 200>;
 
 export function taskQueryOptions(id: string) {
   return queryOptions({

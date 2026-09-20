@@ -8,6 +8,5 @@ export const pushSubscriptionSchema = z.object({
     auth: z.string().min(1),
   }),
 });
-export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
 
 export const unsubscribeSchema = z.object({ endpoint: z.url() });

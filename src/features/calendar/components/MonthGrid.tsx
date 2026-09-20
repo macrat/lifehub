@@ -10,8 +10,6 @@ import type { CalendarItem } from '../queries.ts';
 import { GridChip } from './GridChip.tsx';
 import { layoutLanes } from './lane-layout.ts';
 
-export { itemKey } from './lane-layout.ts';
-
 type Props = {
   month: string;
   itemsByDate: Map<DateString, CalendarItem[]>;

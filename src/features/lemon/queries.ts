@@ -3,10 +3,9 @@ import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 
 export type CreateCareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
-export type CareLog = InferResponseType<typeof api.lemon.logs.$get, 200>[number];
 export type CareStatus = InferResponseType<typeof api.lemon.status.$get, 200>[number];
 
-export const LEMON_QUERY_KEY = ['lemon'] as const;
+const LEMON_QUERY_KEY = ['lemon'] as const;
 
 export const lemonStatusQueryOptions = queryOptions({
   queryKey: [...LEMON_QUERY_KEY, 'status'],

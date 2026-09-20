@@ -3,10 +3,9 @@ import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 
 export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
-export type Expense = InferResponseType<typeof api.expenses.$get, 200>[number];
 export type Balance = InferResponseType<typeof api.expenses.balance.$get, 200>;
 
-export const EXPENSES_QUERY_KEY = ['expenses'] as const;
+const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
 export const expensesQueryOptions = queryOptions({
   queryKey: [...EXPENSES_QUERY_KEY, 'list'],

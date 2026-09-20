@@ -18,7 +18,7 @@ type RRule = RRuleType;
  */
 
 /** 瞬間 → 浮動 Date（UTC フィールド = JST の壁時計） */
-export function toFloating(date: Date): Date {
+function toFloating(date: Date): Date {
   const z = new TZDate(date, TIME_ZONE);
   return datetime(
     z.getFullYear(),
@@ -31,7 +31,7 @@ export function toFloating(date: Date): Date {
 }
 
 /** 浮動 Date → 瞬間 */
-export function fromFloating(floating: Date): Date {
+function fromFloating(floating: Date): Date {
   return new Date(
     new TZDate(
       floating.getUTCFullYear(),
@@ -109,15 +109,6 @@ export function withUntilBefore(rrule: string, instant: Date): string {
   const options = RRule.parseString(rrule);
   const until = toFloating(new Date(instant.getTime() - 1000));
   return RRule.optionsToString({ ...options, until, count: undefined }).replace(/^RRULE:/, '');
-}
-
-/** 繰り返しが dtstart 以外に 1 つも発生を持たないか（分割で「これ以降」が先頭なら丸ごと削除する判断に使う） */
-export function isFirstOccurrence(input: {
-  rrule: string;
-  dtstart: Date;
-  occurrence: Date;
-}): boolean {
-  return input.occurrence.getTime() === input.dtstart.getTime();
 }
 
 function buildRule(rrule: string, dtstart: Date): RRule {

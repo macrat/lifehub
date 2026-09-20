@@ -17,7 +17,7 @@ export function isStandalone(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches || 'standalone' in navigator;
 }
 
-export const vapidKeyQueryOptions = queryOptions({
+const vapidKeyQueryOptions = queryOptions({
   queryKey: ['push', 'vapid'],
   queryFn: async () => (await ensureOk(await api.push['vapid-public-key'].$get())).json(),
   staleTime: Number.POSITIVE_INFINITY,
@@ -30,7 +30,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
 }
 
 /** この端末が購読済みか（ブラウザの購読があり、サーバーにも自分のものとして登録されているか） */
-export const pushStatusQueryOptions = queryOptions({
+const pushStatusQueryOptions = queryOptions({
   queryKey: ['push', 'status'],
   queryFn: async () => {
     const subscription = await currentSubscription();

@@ -59,7 +59,7 @@ export function pickDistinctHue(existing: number[]): number {
   return best;
 }
 
-export function normalizeHue(hue: number): number {
+function normalizeHue(hue: number): number {
   return ((Math.round(hue) % 360) + 360) % 360;
 }
 

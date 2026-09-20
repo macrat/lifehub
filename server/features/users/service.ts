@@ -5,8 +5,6 @@ import { auth } from '../../lib/auth.ts';
 import { ConflictError, NotFoundError } from '../../lib/errors.ts';
 import * as repository from './repository.ts';
 
-export type { UserRow } from './repository.ts';
-
 export async function listUsers() {
   return repository.findAll();
 }

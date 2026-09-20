@@ -59,11 +59,11 @@
 
 ## MCP ツール
 
-`tasks_list`, `tasks_create`, `tasks_complete`, `tasks_update`（[mcp.md](mcp.md)）。
+`tasks_list`, `tasks_create`, `tasks_update`, `tasks_delete`, `tasks_complete`, `tasks_uncomplete`（[mcp.md](mcp.md)）。
 
 ## 通知
 
-`starts_at` と `due_at` それぞれの時刻ちょうど（`notify_at_start` / `notify_at_due` で個別に ON/OFF）。送信先は担当者（共有なら 2 人）の全端末。通知キーは `task:<id>:<occurrenceKey>:start` / `:due`。
+`starts_at` と `due_at` それぞれの時刻ちょうど（`notify_at_start` / `notify_at_due` で個別に ON/OFF）。送信先は担当者（共有なら 2 人）の全端末。通知キーは `task:<id>:<occurrenceKey>:<start|due>:<配信予定時刻 ISO>`。
 
 ## ホームのカード
 

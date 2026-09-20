@@ -10,6 +10,7 @@
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
 | 設定 | `/settings` | 自分の色（スライダー）、この端末のプッシュ通知、ユーザー管理へのリンク、ログアウト。PC はサイドナビ、スマホはホームの末尾から開く |
+| OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
 | 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更 |
 
 - 未認証で保護ページを開くと `/login?redirect=<元のパス>` へ遷移する（UX 目的のガード。防御はサーバーの 401）。
@@ -43,6 +44,10 @@
 | PATCH | `/api/users/:id` | 名前・色相・パスワードの変更 |
 
 `/api/users` は `server/features/users/routes.ts`。入力スキーマは `shared/validation/users.ts`。
+
+## MCP ツール
+
+`users_list`（[mcp.md](mcp.md)）。
 
 ## 表示名
 

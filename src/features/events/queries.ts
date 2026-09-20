@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InferRequestType, InferResponseType } from 'hono/client';
+import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 
@@ -7,7 +7,6 @@ import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 export type CreateEventBody = InferRequestType<typeof api.events.$post>['json'];
 export type UpdateEventBody = InferRequestType<(typeof api.events)[':id']['$put']>['json'];
 export type DeleteEventBody = InferRequestType<(typeof api.events)[':id']['$delete']>['json'];
-export type EventMaster = InferResponseType<(typeof api.events)[':id']['$get'], 200>;
 
 /** マスター（保存されている予定そのもの）。繰り返しの「すべて」を編集するときに使う。 */
 export function eventQueryOptions(id: string) {

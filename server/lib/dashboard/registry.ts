@@ -4,7 +4,7 @@ import { lemonWidget } from '../../features/lemon/dashboard.ts';
 import type { CardOf } from './types.ts';
 
 /** ホームのカード一覧。新しい feature のカードはここに 1 行足す。 */
-export const widgets = [todayWidget, expensesWidget, lemonWidget] as const;
+const widgets = [todayWidget, expensesWidget, lemonWidget] as const;
 
 export type DashboardCard = CardOf<(typeof widgets)[number]>;
 

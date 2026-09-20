@@ -2,7 +2,7 @@ import Button, { type ButtonProps } from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import { useOnline } from '../online.ts';
 
-export const OFFLINE_MESSAGE = 'オフラインのため保存できません';
+const OFFLINE_MESSAGE = 'オフラインのため保存できません';
 
 /** フォームの保存ボタン。オフライン時は無効化し、理由を示す。 */
 export function SubmitButton({ disabled, children = '保存', ...props }: ButtonProps) {

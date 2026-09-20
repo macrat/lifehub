@@ -4,7 +4,7 @@ import { TIME_ZONE } from '../../shared/constants.ts';
 import { addDays, startOfDate, toDateString, today } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
 
-export { addDays, diffDays, toDateString, today } from '../../shared/date.ts';
+export { addDays, toDateString, today } from '../../shared/date.ts';
 
 /**
  * 表示用の日付・時刻フォーマット。すべて JST。表示は Intl に任せ、計算は date-fns（TZDate）に任せる。

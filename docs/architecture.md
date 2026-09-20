@@ -18,7 +18,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | フロントエンド | React + TypeScript（strict）、Vite ビルドの SPA | オフライン対応と積極的キャッシュを単純に実現するため、SSR ではなく静的なアプリシェルにする。 |
 | ルーティング | TanStack Router（ファイルベース） | 型安全なルート・検索パラメータ。TanStack Query と統合できる。 |
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
-| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `hono/vercel` アダプタで `api/` に配置。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
+| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/[[...route]].ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
 | DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `db.batch()` で書く。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
@@ -64,9 +64,9 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 
 ```
 api/
-  [[...route]].ts             # Vercel Function のエントリ。server/app.ts を hono/vercel で export するだけ
+  [[...route]].ts             # Vercel Function のエントリ。server/app.ts の Hono アプリをそのまま export するだけ
 src/                          # クライアント（Vite + React）
-  main.tsx  router.tsx  sw.ts（Service Worker: push / notificationclick）
+  main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品を組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts, __tests__/）
     calendar/  events/  tasks/  expenses/  lemon/  users/  dashboard/
@@ -95,7 +95,7 @@ shared/                       # クライアント・サーバー共通
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
 .github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml
-scripts/                      # create-user.ts / generate-vapid-keys.ts
+scripts/                      # create-user.ts / seed-dev.ts / generate-vapid-keys.ts / generate-icons.ts
 e2e/                          # Playwright
 ```
 
@@ -136,8 +136,9 @@ export type NotificationSource = {
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP を除く）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・`/api/well-known/*`・通知コールバック・MCP を除く）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
+- `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
 - MCP の認可は OAuth 2.1 のみ。詳細は [features/mcp.md](features/mcp.md)。
 
@@ -163,7 +164,7 @@ export type NotificationSource = {
 - スマホでは main の余白を 0 にし、一覧やグリッドを画面端まで広げる（edge-to-edge）。PC のみ最小限の余白を置く。
 - カレンダーの月・週・日表示は画面の残り全部を占める（AppShell が下に確保する余白は負のマージンで打ち消す）。日をタップすると日表示へ、スマホでは左右のスワイプで前後へ、年月をタップすると選択ダイアログ。前後ボタンは置かない。
 - 月グリッドは Google カレンダー流: 複数日・終日の予定は週ごとに 1 本の連続したバー（レーン割り当て）、時刻付き予定は「● タイトル」（時刻は PC のみ）、タスクはチェック印付き。常にタイトルを優先し、収まらない分は「+n」でまとめる。週・日は Google カレンダーと同じタイムライン（時間軸に塗りブロック、終日欄、現在時刻の線）。
-- 一覧はカードを重ねずフラットな行（左に時刻列、右にタイトルと補足）で並べる。ホームもカレンダーと同じ行コンポーネント（`DayList` / `ItemCard`）を使い、画面ごとに見た目を変えない。
+- 一覧はカードを重ねずフラットな行（左に時刻列、右にタイトルと補足）で並べる。カレンダーのリスト表示は `DayList` / `ItemCard`、ホームの「今日」は同じ体裁のより簡素な行（印・時刻・タイトルだけ）。
 - 入力フォームのダイアログはスマホでは全画面（`FormDialog`）。閉じるボタンを見出しに、保存ボタンを下端に固定する。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
 - 更新系は TanStack Query の mutation で行い、成功後に関連クエリを invalidate する。楽観的更新は必要になるまで入れない。
@@ -225,7 +226,7 @@ Preview 環境の挙動:
 ## 品質基準
 
 - TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
-- Biome で lint/format を CI で強制。警告ゼロを維持。
+- Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

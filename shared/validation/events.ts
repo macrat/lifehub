@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { dateRangeQuerySchema, instantSchema, uuidSchema } from './common.ts';
 
 export const REMIND_BEFORE_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440] as const;
-export type RemindBeforeMinutes = (typeof REMIND_BEFORE_OPTIONS)[number];
 
 /** RRULE 文字列（DTSTART なし）。厳密な検証はサーバーの recurrence ライブラリで行う。 */
 export const rruleSchema = z

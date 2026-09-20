@@ -7,7 +7,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 - 主キーは `uuid`。アプリ側で UUID v7 を生成する（時系列ソート可能）。better-auth 管理のテーブルも `generateId` で UUID v7 を使う。
 - 日時は `timestamptz`（UTC 保存、表示時に JST 変換）。日付のみは `date`。
 - 金額は `integer`（円）。
-- 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。better-auth 管理のテーブルは better-auth の規約に従う。
+- 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。台帳の `sent_notifications` と better-auth 管理のテーブルは例外（それぞれの規約に従う）。
 - 論理削除は使わない。
 - テーブル名・列名は snake_case、TypeScript 側のキーは camelCase。
 
@@ -28,8 +28,8 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 ## 計算ルール
 
-- **立替残高**（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 + ΣA→B 精算 − ΣB→A 精算（X→Y 精算 = X が Y に支払った額）。端数は切り捨て。
+- **立替残高**（A が B に対して持つ債権）= (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。共有は折半。精算も「払った人 → 受け取った人」の同じ形の行）。端数は切り捨て。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、DB には発生行を作らない（マスター + 例外／完了 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。
 - **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/tasks.md](features/tasks.md) の規則で `tasks` service が算出し、`calendar` service が予定と統合する。
 - **タスクの `placementDate`** は保存せず、毎回算出する（「今日」に依存するため保存すると陳腐化する）。
-- **繰り返し予定・タスクの編集**は「この回だけ」「これ以降すべて」「すべて」の 3 択。「この回だけ」は `event_overrides` / `task_overrides`、「これ以降すべて」は元の `rrule` に `UNTIL` を付けて新しいマスターを作る、「すべて」はマスターを更新する。「これ以降すべて」の 2 文は `db.batch()` で原子的に実行する（ローカルの node-postgres では順次実行になる）。
+- **繰り返し予定・タスクの編集**は「この回だけ」「これ以降すべて」「すべて」の 3 択。「この回だけ」は `event_overrides` / `task_overrides`、「これ以降すべて」は元の `rrule` に `UNTIL` を付けて新しいマスターを作る、「すべて」はマスターを更新する。「これ以降すべて」の複数文は `db.batch()` で原子的に実行する（ローカルの node-postgres では順次実行になる）。

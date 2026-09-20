@@ -44,7 +44,7 @@
 
 ## 通知
 
-開始の `remind_before_minutes` 前に、所有者（共有なら 2 人）の全端末へ送る。既定は通知なし。通知キーは `event:<id>:<occurrenceStart ISO>`。詳細は [notifications.md](notifications.md)。
+開始の `remind_before_minutes` 前に、所有者（共有なら 2 人）の全端末へ送る。既定は通知なし。通知キーは `event:<id>:<occurrenceStart ISO>:<配信予定時刻 ISO>`。詳細は [notifications.md](notifications.md)。
 
 ## ホームのカード
 
