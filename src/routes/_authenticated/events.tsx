@@ -116,6 +116,9 @@ function EventsPage() {
           sx={{
             display: 'grid',
             gap: 1,
+            // スマホは main の余白が 0 なので左右を空け、上はアウトラインのラベル分（切れないように）
+            px: { xs: 2, md: 0 },
+            pt: 1,
             mb: 2,
             gridTemplateColumns: {
               xs: 'repeat(2, minmax(0, 1fr))',

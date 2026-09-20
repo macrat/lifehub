@@ -294,7 +294,12 @@ function WeekRow({
       })}
       {/* 項目 */}
       {visible.map((p) => (
-        <GridChip key={p.key} placed={p} compact={compact} onClick={() => onSelectItem(p.item)} />
+        <GridChip
+          key={p.key}
+          placed={p}
+          compact={compact}
+          onClick={compact ? undefined : () => onSelectItem(p.item)}
+        />
       ))}
       {hiddenPerCol.map((n, col) =>
         n > 0 ? (
@@ -324,7 +329,11 @@ function WeekRow({
   );
 }
 
-/** セル内の 1 項目。帯（終日・複数日）／点＋タイトル（時間指定）／チェック印＋タイトル（タスク） */
+/**
+ * セル内の 1 項目。帯（終日・複数日）／点＋タイトル（時間指定）／チェック印＋タイトル（タスク）。
+ * onClick が無ければ表示専用（スマホ）: 小さな項目を狙わせず、セルのどこをタップしても日を選ぶ
+ * （Google カレンダーのスマホ月表示と同じ）。項目はグリッド下の日別一覧から開く。
+ */
 function GridChip({
   placed,
   compact,
@@ -332,7 +341,7 @@ function GridChip({
 }: {
   placed: Placed;
   compact: boolean;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   const { item, col, span, lane, roundStart, roundEnd } = placed;
   // 終日と複数日の予定は塗り帯にする（時間指定でも日をまたぐなら帯）
@@ -344,16 +353,21 @@ function GridChip({
   const radius = 4;
   return (
     <Box
-      component="button"
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      component={onClick ? 'button' : 'span'}
+      type={onClick ? 'button' : undefined}
+      onClick={
+        onClick
+          ? (e: React.MouseEvent) => {
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
       aria-label={item.title}
       sx={{
         all: 'unset',
         boxSizing: 'border-box',
+        pointerEvents: onClick ? 'auto' : 'none',
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
@@ -366,7 +380,7 @@ function GridChip({
         alignItems: 'center',
         gap: '3px',
         minWidth: 0,
-        cursor: 'pointer',
+        cursor: onClick ? 'pointer' : 'default',
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
         borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
