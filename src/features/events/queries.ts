@@ -25,6 +25,7 @@ function useInvalidateCalendar() {
   return () => {
     queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: ['events'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
 }
 

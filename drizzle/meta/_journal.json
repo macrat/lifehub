@@ -22,6 +22,13 @@
       "when": 1789900445311,
       "tag": "0002_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789900947440,
+      "tag": "0003_expenses_lemon",
+      "breakpoints": true
     }
   ]
 }

@@ -29,7 +29,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 ## 計算ルール
 
-- **立替残高**（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 − ΣA→B 精算 + ΣB→A 精算。端数は切り捨て。
+- **立替残高**（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 + ΣA→B 精算 − ΣB→A 精算（X→Y 精算 = X が Y に支払った額）。端数は切り捨て。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、DB には発生行を作らない（マスター + 例外／完了 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。
 - **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/tasks.md](features/tasks.md) の規則で `tasks` service が算出し、`calendar` service が予定と統合する。
 - **タスクの `placementDate`** は保存せず、毎回算出する（「今日」に依存するため保存すると陳腐化する）。

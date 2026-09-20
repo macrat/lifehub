@@ -1,0 +1,29 @@
+import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { users } from '../users/schema.ts';
+
+/**
+ * レモンの木の世話記録。対象は 1 本に固定。
+ * 植物を増やす場合は plants テーブルと plant_id を追加して拡張する。
+ */
+export const lemonCareLogs = pgTable(
+  'lemon_care_logs',
+  {
+    id: uuid('id').primaryKey(),
+    /** water / mist / fertilize / bloom / harvest / note */
+    careType: text('care_type').notNull(),
+    doneAt: timestamp('done_at', { withTimezone: true }).notNull(),
+    /** note 種別は必須、他は任意 */
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+  },
+  (table) => [index('lemon_care_logs_done_at_idx').on(table.doneAt)],
+);
+
+export type LemonCareLogRow = typeof lemonCareLogs.$inferSelect;

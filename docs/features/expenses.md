@@ -14,9 +14,13 @@
 
 `expenses`, `settlements`（[data-model.md](../data-model.md)）。
 
+## 前提
+
+利用者は 2 人固定。残高の計算は登録順の先頭 2 人を A, B として行い、2 人未満なら 400 を返す。
+
 ## 計算ルール
 
-立替残高（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 − ΣA→B 精算 + ΣB→A 精算。端数は切り捨て。計算は `server/features/expenses/service.ts` だけで行う。
+立替残高（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 + ΣA→B 精算 − ΣB→A 精算（X→Y 精算 = X が Y に支払った額）。端数は切り捨て。計算は `server/features/expenses/service.ts` だけで行う。
 
 ## API（`server/features/expenses/routes.ts`）
 

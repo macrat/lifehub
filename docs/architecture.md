@@ -111,11 +111,14 @@ e2e/                          # Playwright
 
 ```ts
 // server/lib/dashboard/types.ts
-export type DashboardWidget = {
-  id: string;
+export type DashboardWidget<Id extends string, Data> = {
+  id: Id;
   order: number;
-  load: (ctx: { userId: string }) => Promise<DashboardCardData>;
+  load: (ctx: { userId: string; now: Date }) => Promise<Data>;
 };
+// registry.ts の widgets から DashboardCard（id ごとの data 型の union）を導き、
+// GET /api/dashboard のレスポンス型として Hono RPC でクライアントへ伝える。
+// クライアントは src/features/dashboard/cards/index.tsx で id ごとの描画を登録する。
 
 // server/lib/notifications/types.ts
 export type NotificationSource = {
