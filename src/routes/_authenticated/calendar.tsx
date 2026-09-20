@@ -1,7 +1,8 @@
+import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
@@ -23,13 +24,15 @@ import { useCreateTask } from '../../features/tasks/queries.ts';
 import {
   addDays,
   addMonths,
+  formatDate,
   formatMonth,
   monthGridDays,
   today,
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
-import { PageTitle } from '../../lib/ui/PageTitle.tsx';
+import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
+import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
 const searchSchema = z.object({
   view: z.enum(['month', 'week']).default('month'),
@@ -40,6 +43,9 @@ export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: searchSchema,
   component: CalendarPage,
 });
+
+/** スマホで月グリッドが画面の残り全部を占めるための高さ。AppBar・下部ナビ・上下の余白を引く */
+const MOBILE_GRID_HEIGHT = `calc(100dvh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEIGHT}px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)`;
 
 function CalendarPage() {
   const { view, date: dateParam } = Route.useSearch();
@@ -69,34 +75,53 @@ function CalendarPage() {
     }
   };
 
+  // 月表示で日付をタップしたら、グリッドの下にある一覧まで送る（スマホでは画面外にあるため）
+  const dayListRef = useRef<HTMLDivElement>(null);
+  const selectDate = (d: DateString) => {
+    if (d === date) {
+      dayListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setSearch({ date: d });
+  };
+
   return (
     <>
-      <PageTitle title="カレンダー" />
-      <CalendarToolbar
-        title={view === 'month' ? formatMonth(date) : `${days[0]}〜${days[6]}`}
-        view={view}
-        onChangeView={(v) => setSearch({ view: v })}
-        onPrev={() => move(-1)}
-        onNext={() => move(1)}
-        onToday={() => setSearch({ date: today() })}
-      />
+      <AppBarContent>
+        <CalendarToolbar
+          title={
+            view === 'month'
+              ? formatMonth(date)
+              : `${formatDate(days[0] as DateString)}〜${formatDate(days[6] as DateString)}`
+          }
+          view={view}
+          onChangeView={(v) => setSearch({ view: v })}
+          onPrev={() => move(-1)}
+          onNext={() => move(1)}
+          onToday={() => setSearch({ date: today() })}
+        />
+      </AppBarContent>
+
       {view === 'month' ? (
-        <Stack spacing={2}>
-          <MonthGrid
-            month={month}
-            itemsByDate={itemsByDate}
-            selectedDate={date}
-            onSelectDate={(d) => setSearch({ date: d })}
-            onSelectItem={setSelected}
-          />
-          <DayList date={date} items={itemsByDate.get(date) ?? []} onSelectItem={setSelected} />
+        <Stack spacing={1.5}>
+          <Box sx={{ height: { xs: MOBILE_GRID_HEIGHT, md: 'auto' } }}>
+            <MonthGrid
+              month={month}
+              itemsByDate={itemsByDate}
+              selectedDate={date}
+              onSelectDate={selectDate}
+              onSelectItem={setSelected}
+              height="100%"
+            />
+          </Box>
+          <div ref={dayListRef} style={{ scrollMarginTop: APP_BAR_HEIGHT + 8 }}>
+            <DayList date={date} items={itemsByDate.get(date) ?? []} onSelectItem={setSelected} />
+          </div>
         </Stack>
       ) : (
         <WeekGrid date={date} itemsByDate={itemsByDate} onSelectItem={setSelected} />
       )}
 
       <AddMenu onAddEvent={() => setCreating('event')} onAddTask={() => setCreating('task')} />
-
       {creating === 'event' && (
         <EventForm
           open

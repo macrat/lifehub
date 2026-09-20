@@ -1,3 +1,9 @@
+import FilterListIcon from '@mui/icons-material/FilterList';
+import Badge from '@mui/material/Badge';
+import Box from '@mui/material/Box';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
+import InputBase from '@mui/material/InputBase';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -22,14 +28,14 @@ import { defaultTaskValues, TaskForm } from '../../features/tasks/components/Tas
 import { useCreateTask } from '../../features/tasks/queries.ts';
 import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
 import { addDays, today } from '../../lib/date.ts';
-import { PageTitle } from '../../lib/ui/PageTitle.tsx';
+import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
 const searchSchema = z.object({
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
   kind: z.enum(['all', 'event', 'task']).default('all'),
-  /** 'shared' = 共有、それ以外はユーザー ID */
-  owner: z.string().optional(),
+  /** 'all' = すべて、'shared' = 共有、それ以外はユーザー ID */
+  owner: z.string().default('all'),
   /** タスクの完了状態。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
   completed: z.enum(['all', 'open', 'done']).default('all'),
   q: z.string().optional(),
@@ -53,7 +59,7 @@ function EventsPage() {
     if (search.kind !== 'all' && item.kind !== search.kind) return false;
     const owner = item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
     if (search.owner === 'shared' && owner !== null) return false;
-    if (search.owner && search.owner !== 'shared' && owner !== search.owner) return false;
+    if (search.owner !== 'all' && search.owner !== 'shared' && owner !== search.owner) return false;
     if (search.completed === 'open' && item.kind === 'task' && item.completedAt !== null)
       return false;
     if (search.completed === 'done' && (item.kind !== 'task' || item.completedAt === null))
@@ -70,6 +76,13 @@ function EventsPage() {
 
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   const [creating, setCreating] = useState<'event' | 'task' | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [
+    search.kind !== 'all',
+    search.owner !== 'all',
+    search.completed !== 'all',
+    search.from !== undefined || search.to !== undefined,
+  ].filter(Boolean).length;
   const createEvent = useCreateEvent();
   const createTask = useCreateTask();
 
@@ -78,73 +91,105 @@ function EventsPage() {
 
   return (
     <>
-      <PageTitle title="イベント" />
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ flexWrap: 'wrap', rowGap: 1, mb: 2, '& > *': { minWidth: 140 } }}
-      >
-        <TextField
-          label="開始"
-          type="date"
-          size="small"
-          value={from}
-          onChange={(e) => setSearch({ from: e.target.value as DateString })}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          label="終了"
-          type="date"
-          size="small"
-          value={to}
-          onChange={(e) => setSearch({ to: e.target.value as DateString })}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          label="種別"
-          select
-          size="small"
-          value={search.kind}
-          onChange={(e) => setSearch({ kind: e.target.value as 'all' | 'event' | 'task' })}
-        >
-          <MenuItem value="all">すべて</MenuItem>
-          <MenuItem value="event">予定</MenuItem>
-          <MenuItem value="task">タスク</MenuItem>
-        </TextField>
-        <TextField
-          label="誰の"
-          select
-          size="small"
-          value={search.owner ?? ''}
-          onChange={(e) => setSearch({ owner: e.target.value || undefined })}
-        >
-          <MenuItem value="">すべて</MenuItem>
-          {ownerOptions.map((o) => (
-            <MenuItem key={o.value ?? 'shared'} value={o.value ?? 'shared'}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label="完了"
-          select
-          size="small"
-          value={search.completed}
-          onChange={(e) => setSearch({ completed: e.target.value as 'all' | 'open' | 'done' })}
-        >
-          <MenuItem value="all">すべて</MenuItem>
-          <MenuItem value="open">未完了</MenuItem>
-          <MenuItem value="done">完了済み</MenuItem>
-        </TextField>
-        <TextField
-          label="検索"
+      <AppBarContent>
+        {/* 検索は常に手が届く位置（AppBar）に。細かい絞り込みは必要なときだけ開く */}
+        <InputBase
           type="search"
-          size="small"
+          placeholder="検索"
           defaultValue={search.q ?? ''}
           onChange={(e) => setSearch({ q: e.target.value || undefined })}
-          sx={{ flexGrow: 1 }}
+          inputProps={{ 'aria-label': '検索' }}
+          sx={{
+            flexGrow: 1,
+            color: 'inherit',
+            bgcolor: 'rgba(255,255,255,.18)',
+            borderRadius: 1,
+            px: 1,
+            py: 0.25,
+            '& input::placeholder': { color: 'inherit', opacity: 0.8 },
+          }}
         />
-      </Stack>
+        <IconButton
+          color="inherit"
+          aria-label="絞り込み"
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          <Badge
+            badgeContent={activeFilters}
+            color="default"
+            sx={{ '& .MuiBadge-badge': { bgcolor: 'background.paper', color: 'primary.main' } }}
+          >
+            <FilterListIcon />
+          </Badge>
+        </IconButton>
+      </AppBarContent>
+      <Collapse in={filtersOpen}>
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 1,
+            mb: 2,
+            gridTemplateColumns: {
+              xs: 'repeat(2, minmax(0, 1fr))',
+              md: 'repeat(5, minmax(0, 1fr))',
+            },
+          }}
+        >
+          <TextField
+            label="開始"
+            type="date"
+            size="small"
+            value={from}
+            onChange={(e) => setSearch({ from: e.target.value as DateString })}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label="終了"
+            type="date"
+            size="small"
+            value={to}
+            onChange={(e) => setSearch({ to: e.target.value as DateString })}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label="種別"
+            select
+            size="small"
+            value={search.kind}
+            onChange={(e) => setSearch({ kind: e.target.value as 'all' | 'event' | 'task' })}
+          >
+            <MenuItem value="all">すべて</MenuItem>
+            <MenuItem value="event">予定</MenuItem>
+            <MenuItem value="task">タスク</MenuItem>
+          </TextField>
+          <TextField
+            label="誰の"
+            select
+            size="small"
+            value={search.owner}
+            onChange={(e) => setSearch({ owner: e.target.value })}
+          >
+            <MenuItem value="all">すべて</MenuItem>
+            {ownerOptions.map((o) => (
+              <MenuItem key={o.value ?? 'shared'} value={o.value ?? 'shared'}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="完了"
+            select
+            size="small"
+            value={search.completed}
+            onChange={(e) => setSearch({ completed: e.target.value as 'all' | 'open' | 'done' })}
+          >
+            <MenuItem value="all">すべて</MenuItem>
+            <MenuItem value="open">未完了</MenuItem>
+            <MenuItem value="done">完了済み</MenuItem>
+          </TextField>
+        </Box>
+      </Collapse>
 
       {grouped.size === 0 ? (
         <Typography color="text.secondary">この期間の項目はありません</Typography>

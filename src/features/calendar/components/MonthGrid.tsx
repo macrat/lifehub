@@ -5,24 +5,36 @@ import { isToday, monthGridDays, WEEKDAY_LABELS } from '../../../lib/date.ts';
 import type { CalendarItem } from '../queries.ts';
 import { ItemChip } from './ItemChip.tsx';
 
-const MAX_CHIPS = 3;
-
 type Props = {
   month: string;
   itemsByDate: Map<DateString, CalendarItem[]>;
   selectedDate: DateString;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
+  /** グリッド全体の高さ（例: 画面の残り全部）。省略時は内容に合わせる */
+  height?: string;
 };
 
-/** 月グリッド（月曜始まり・6 週）。セルをタップすると日付を選択し、下の一覧に反映される。 */
-export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSelectItem }: Props) {
+/**
+ * 月グリッド（月曜始まり・6 週）。高さが与えられれば 6 行で等分し、セルに入るだけ項目を並べる
+ * （溢れた分は「+n」）。セルをタップすると日付を選択し、下の一覧に反映される。
+ */
+export function MonthGrid({
+  month,
+  itemsByDate,
+  selectedDate,
+  onSelectDate,
+  onSelectItem,
+  height,
+}: Props) {
   const days = monthGridDays(month);
   return (
     <Box
       sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+        gridTemplateRows: height ? 'auto repeat(6, minmax(0, 1fr))' : undefined,
+        height,
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,
@@ -35,7 +47,8 @@ export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSe
           variant="caption"
           align="center"
           sx={{
-            py: 0.5,
+            py: 0.25,
+            lineHeight: 1.4,
             bgcolor: 'action.hover',
             color: i === 5 ? 'info.main' : i === 6 ? 'error.main' : 'text.secondary',
           }}
@@ -60,7 +73,9 @@ export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSe
               if (e.key === 'Enter' || e.key === ' ') onSelectDate(date);
             }}
             sx={{
-              minHeight: { xs: 64, md: 96 },
+              minHeight: height ? 0 : { xs: 64, md: 96 },
+              display: 'flex',
+              flexDirection: 'column',
               p: 0.25,
               borderTop: 1,
               borderLeft: weekday === 0 ? 0 : 1,
@@ -75,11 +90,12 @@ export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSe
               variant="caption"
               component="div"
               sx={{
-                width: 22,
-                height: 22,
-                lineHeight: '22px',
+                width: 20,
+                height: 20,
+                lineHeight: '20px',
                 textAlign: 'center',
                 borderRadius: '50%',
+                flexShrink: 0,
                 bgcolor: isToday(date) ? 'primary.main' : 'transparent',
                 color: isToday(date)
                   ? 'primary.contrastText'
@@ -92,27 +108,47 @@ export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSe
             >
               {Number(date.slice(8))}
             </Typography>
-            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {items.slice(0, MAX_CHIPS).map((item) => (
-                <ItemChip key={itemKey(item)} item={item} onClick={onSelectItem} />
-              ))}
-              {items.length > MAX_CHIPS && (
-                <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
-                  +{items.length - MAX_CHIPS}
-                </Typography>
-              )}
-            </Box>
-            <Box sx={{ display: { xs: 'flex', sm: 'none' }, gap: 0.25, flexWrap: 'wrap', px: 0.5 }}>
-              {items.slice(0, 4).map((item) => (
-                <Box
-                  key={itemKey(item)}
-                  sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' }}
-                />
-              ))}
-            </Box>
+            <CellItems items={items} onSelectItem={onSelectItem} />
           </Box>
         );
       })}
+    </Box>
+  );
+}
+
+/** セル内の項目。入るだけ並べ、溢れた分は「+n」で示す（行の高さから入る数を CSS で決める） */
+function CellItems({
+  items,
+  onSelectItem,
+}: {
+  items: CalendarItem[];
+  onSelectItem: (item: CalendarItem) => void;
+}) {
+  const MAX = 4;
+  const shown = items.slice(0, MAX);
+  const rest = items.length - shown.length;
+  return (
+    <Box
+      sx={{
+        minHeight: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1px',
+      }}
+    >
+      {shown.map((item) => (
+        <ItemChip key={itemKey(item)} item={item} onClick={onSelectItem} />
+      ))}
+      {rest > 0 && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ px: 0.5, lineHeight: 1.4, fontSize: '0.65rem' }}
+        >
+          +{rest}
+        </Typography>
+      )}
     </Box>
   );
 }

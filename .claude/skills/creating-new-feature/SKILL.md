@@ -25,7 +25,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 6. **クライアント feature** `src/features/<name>/` を作る:
    - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に関連クエリを invalidate）
    - `components/`（表示に専念。状態とロジックは queries / service に置く）
-   - `src/routes/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する
+   - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
    - ホームのカードは `src/features/dashboard/cards/` に追加し、`cardRenderers` に登録する
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
 8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。

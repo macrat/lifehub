@@ -40,8 +40,9 @@ export function ItemChip({ item, onClick }: Props) {
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
-        fontSize: '0.72rem',
-        lineHeight: 1.6,
+        fontSize: { xs: '0.62rem', sm: '0.72rem' },
+        lineHeight: 1.5,
+        flexShrink: 0,
         '&:hover': { bgcolor: filled ? 'primary.dark' : 'action.hover' },
       }}
       aria-label={item.title}

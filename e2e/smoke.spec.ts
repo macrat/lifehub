@@ -19,7 +19,7 @@ test('未ログインではログイン画面に送られ、ログインする�
   await page.getByLabel('パスワード').fill(E2E_USER.password);
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL('/');
-  await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
+  await expect(page.getByText('次の予定')).toBeVisible();
 
   // ユーザー管理へ移動し、自分が一覧に出る
   await page.getByRole('button', { name: 'アカウントメニュー' }).click();

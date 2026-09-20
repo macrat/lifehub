@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
+import LinearProgress from '@mui/material/LinearProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -18,12 +19,18 @@ import { useTheme } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
+import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { primaryNavItems, secondaryNavItems } from './navigation.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 
 const DRAWER_WIDTH = 220;
+/** 下部ナビの高さ。ページ側で「画面いっぱい」を計算するときに使う */
+export const BOTTOM_NAV_HEIGHT = 56;
+/** AppBar（dense）の高さ */
+export const APP_BAR_HEIGHT = 48;
 
 type Props = {
   userName: string;
@@ -32,7 +39,10 @@ type Props = {
 };
 
 /**
- * 全ページ共通の骨格。スマホは AppBar + BottomNavigation、PC は permanent Drawer。ページ自体は共通。
+ * 全ページ共通の骨格。画面は主役（各ページの内容）に最大の面積を割く:
+ * - ページタイトルは出さない（下部ナビ／サイドナビが現在地を示す）
+ * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）
+ * - スマホは AppBar + BottomNavigation、PC は permanent Drawer。ページ自体は共通。
  */
 export function AppShell({ userName, onLogout, children }: Props) {
   const theme = useTheme();
@@ -40,6 +50,7 @@ export function AppShell({ userName, onLogout, children }: Props) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const busy = useIsFetching() + useIsMutating() > 0;
 
   const activeIndex = primaryNavItems.findIndex((item) =>
     item.to === '/' ? pathname === '/' : pathname.startsWith(item.to ?? ''),
@@ -50,6 +61,7 @@ export function AppShell({ userName, onLogout, children }: Props) {
       <IconButton
         color="inherit"
         aria-label="アカウントメニュー"
+        edge="end"
         onClick={(e) => setMenuAnchor(e.currentTarget)}
       >
         <AccountCircleIcon />
@@ -82,82 +94,106 @@ export function AppShell({ userName, onLogout, children }: Props) {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }} enableColorOnDark>
-        <Toolbar>
-          <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>
-            LifeHub
-          </Typography>
-          {accountMenu}
-        </Toolbar>
-      </AppBar>
+    <AppBarSlotProvider>
+      <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
+        <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }} enableColorOnDark>
+          <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
+            <AppBarSlotOutlet />
+            {accountMenu}
+          </Toolbar>
+          {/* 取得・保存中の細いインジケータ。位置を取らないよう AppBar の下端に重ねる */}
+          <LinearProgress
+            color="inherit"
+            sx={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 2,
+              opacity: busy ? 0.7 : 0,
+              transition: 'opacity .2s',
+            }}
+          />
+        </AppBar>
 
-      {isDesktop && (
-        <Drawer
-          variant="permanent"
+        {isDesktop && (
+          <Drawer
+            variant="permanent"
+            sx={{
+              width: DRAWER_WIDTH,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+            }}
+          >
+            <Toolbar variant="dense" />
+            <Typography variant="h6" component="div" sx={{ px: 2, pt: 2, pb: 1 }}>
+              LifeHub
+            </Typography>
+            <List component="nav">
+              {primaryNavItems.map((item, index) => (
+                <ListItem key={item.to} disablePadding>
+                  <ListItemButton component={Link} to={item.to} selected={index === activeIndex}>
+                    <ListItemIcon>
+                      <item.icon />
+                    </ListItemIcon>
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Drawer>
+        )}
+
+        <Box
+          component="main"
           sx={{
-            width: DRAWER_WIDTH,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+            flexGrow: 1,
+            minWidth: 0,
+            px: { xs: 1, md: 2 },
+            pt: { xs: 1, md: 2 },
+            // 下部ナビと右下の追加ボタンに最後の内容が隠れないよう余白を取る
+            pb: isDesktop
+              ? 12
+              : `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 96px)`,
           }}
         >
-          <Toolbar />
-          <List component="nav">
-            {primaryNavItems.map((item, index) => (
-              <ListItem key={item.to} disablePadding>
-                <ListItemButton component={Link} to={item.to} selected={index === activeIndex}>
-                  <ListItemIcon>
-                    <item.icon />
-                  </ListItemIcon>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </Drawer>
-      )}
+          <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)' }} />
+          <OfflineBanner />
+          {children}
+        </Box>
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          px: 2,
-          py: 2,
-          pb: isDesktop ? 2 : 'calc(56px + env(safe-area-inset-bottom) + 16px)',
-        }}
-      >
-        <Toolbar />
-        <OfflineBanner />
-        {children}
+        {!isDesktop && (
+          <Paper
+            component="nav"
+            elevation={3}
+            sx={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              pb: 'env(safe-area-inset-bottom)',
+              zIndex: (t) => t.zIndex.appBar,
+            }}
+          >
+            <BottomNavigation value={activeIndex} showLabels sx={{ height: BOTTOM_NAV_HEIGHT }}>
+              {primaryNavItems.map((item) => (
+                <BottomNavigationAction
+                  key={item.to}
+                  label={item.label}
+                  icon={<item.icon />}
+                  component={Link}
+                  to={item.to}
+                  sx={{
+                    minWidth: 0,
+                    px: 0.5,
+                    '& .MuiBottomNavigationAction-label': { whiteSpace: 'nowrap' },
+                  }}
+                />
+              ))}
+            </BottomNavigation>
+          </Paper>
+        )}
       </Box>
-
-      {!isDesktop && (
-        <Paper
-          component="nav"
-          elevation={3}
-          sx={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            pb: 'env(safe-area-inset-bottom)',
-            zIndex: (t) => t.zIndex.appBar,
-          }}
-        >
-          <BottomNavigation value={activeIndex} showLabels>
-            {primaryNavItems.map((item) => (
-              <BottomNavigationAction
-                key={item.to}
-                label={item.label}
-                icon={<item.icon />}
-                component={Link}
-                to={item.to}
-              />
-            ))}
-          </BottomNavigation>
-        </Paper>
-      )}
-    </Box>
+    </AppBarSlotProvider>
   );
 }

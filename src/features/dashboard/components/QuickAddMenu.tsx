@@ -32,6 +32,7 @@ export function QuickAddMenu() {
       <SpeedDial
         ariaLabel="記録を追加"
         icon={<SpeedDialIcon icon={<AddIcon />} />}
+        FabProps={{ size: 'medium' }}
         sx={{
           position: 'fixed',
           right: 16,

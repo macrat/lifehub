@@ -21,7 +21,6 @@ import {
 } from '../../features/lemon/queries.ts';
 import { formatDateTime } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
-import { PageTitle } from '../../lib/ui/PageTitle.tsx';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   loader: ({ context }) =>
@@ -41,7 +40,6 @@ function LemonPage() {
 
   return (
     <>
-      <PageTitle title="レモン" />
       <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
 
       <Typography variant="subtitle1" component="h3" sx={{ mt: 3 }} gutterBottom>

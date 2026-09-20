@@ -11,9 +11,14 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
     return <Typography color="text.secondary">精算済み</Typography>;
   }
   return (
-    <Typography variant="h6" component="p">
-      {label(balance.fromUserId)} → {label(balance.toUserId)} に {yen.format(balance.amount)}
-    </Typography>
+    <div>
+      <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {yen.format(balance.amount)}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {label(balance.fromUserId)} が {label(balance.toUserId)} に支払うと精算
+      </Typography>
+    </div>
   );
 }
 

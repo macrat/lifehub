@@ -24,7 +24,6 @@ import {
 import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
 import { formatDate } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
-import { PageTitle } from '../../lib/ui/PageTitle.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   loader: ({ context }) =>
@@ -46,7 +45,6 @@ function ExpensesPage() {
 
   return (
     <>
-      <PageTitle title="立替" />
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Stack
           direction="row"

@@ -1,9 +1,5 @@
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { type FormEvent, useState } from 'react';
@@ -14,6 +10,7 @@ import {
   updateUserSchema,
 } from '../../../../shared/validation/users.ts';
 import { type FormErrors, parseForm } from '../../../lib/form.ts';
+import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { User } from '../queries.ts';
 
@@ -67,49 +64,52 @@ export function UserForm(props: CreateProps | EditProps) {
   };
 
   return (
-    <Dialog open={props.open} onClose={props.onClose} fullWidth maxWidth="xs">
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle>{props.mode === 'create' ? 'ユーザーを登録' : 'ユーザーを編集'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {submitError && <Alert severity="error">{submitError}</Alert>}
-            {errors._ && <Alert severity="error">{errors._}</Alert>}
-            <TextField
-              name="name"
-              label="名前"
-              defaultValue={props.mode === 'edit' ? props.user.name : ''}
-              error={Boolean(errors.name)}
-              helperText={errors.name}
-              autoFocus
-              fullWidth
-            />
-            {props.mode === 'create' && (
-              <TextField
-                name="email"
-                label="メールアドレス"
-                type="email"
-                autoComplete="off"
-                error={Boolean(errors.email)}
-                helperText={errors.email}
-                fullWidth
-              />
-            )}
-            <TextField
-              name="password"
-              label={props.mode === 'create' ? 'パスワード' : '新しいパスワード（変更する場合）'}
-              type="password"
-              autoComplete="new-password"
-              error={Boolean(errors.password)}
-              helperText={errors.password ?? '12文字以上'}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
+    <FormDialog
+      open={props.open}
+      onClose={props.onClose}
+      maxWidth="xs"
+      title={props.mode === 'create' ? 'ユーザーを登録' : 'ユーザーを編集'}
+      onSubmit={handleSubmit}
+      actions={
+        <>
           <Button onClick={props.onClose}>キャンセル</Button>
           <SubmitButton disabled={submitting} />
-        </DialogActions>
-      </form>
-    </Dialog>
+        </>
+      }
+    >
+      <Stack spacing={2} sx={{ mt: 1 }}>
+        {submitError && <Alert severity="error">{submitError}</Alert>}
+        {errors._ && <Alert severity="error">{errors._}</Alert>}
+        <TextField
+          name="name"
+          label="名前"
+          defaultValue={props.mode === 'edit' ? props.user.name : ''}
+          error={Boolean(errors.name)}
+          helperText={errors.name}
+          autoFocus
+          fullWidth
+        />
+        {props.mode === 'create' && (
+          <TextField
+            name="email"
+            label="メールアドレス"
+            type="email"
+            autoComplete="off"
+            error={Boolean(errors.email)}
+            helperText={errors.email}
+            fullWidth
+          />
+        )}
+        <TextField
+          name="password"
+          label={props.mode === 'create' ? 'パスワード' : '新しいパスワード（変更する場合）'}
+          type="password"
+          autoComplete="new-password"
+          error={Boolean(errors.password)}
+          helperText={errors.password ?? '12文字以上'}
+          fullWidth
+        />
+      </Stack>
+    </FormDialog>
   );
 }

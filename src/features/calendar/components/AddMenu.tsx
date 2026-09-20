@@ -16,6 +16,7 @@ export function AddMenu({ onAddEvent, onAddTask }: Props) {
     <SpeedDial
       ariaLabel="追加"
       icon={<SpeedDialIcon icon={<AddIcon />} />}
+      FabProps={{ size: 'medium' }}
       sx={{
         position: 'fixed',
         right: 16,

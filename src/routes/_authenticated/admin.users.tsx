@@ -12,7 +12,7 @@ import {
   useUpdateUser,
 } from '../../features/users/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
-import { PageTitle } from '../../lib/ui/PageTitle.tsx';
+import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
   loader: ({ context }) => ensureData(context.queryClient, usersQueryOptions),
@@ -28,14 +28,16 @@ function AdminUsersPage() {
 
   return (
     <>
-      <PageTitle
-        title="ユーザー管理"
-        actions={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreating(true)}>
-            登録
-          </Button>
-        }
-      />
+      <AppBarContent>
+        <Button
+          color="inherit"
+          startIcon={<AddIcon />}
+          onClick={() => setCreating(true)}
+          sx={{ ml: 'auto' }}
+        >
+          ユーザーを登録
+        </Button>
+      </AppBarContent>
       <UserList users={users} onEdit={setEditing} />
       <UserForm
         mode="create"

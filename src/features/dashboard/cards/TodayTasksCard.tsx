@@ -19,8 +19,7 @@ export function TodayTasksCard({ card }: { card: DashboardCardOf<'tasks-today'> 
           variant="overline"
           component={Link}
           to="/events"
-          color="text.secondary"
-          sx={{ display: 'block', textDecoration: 'none' }}
+          sx={{ display: 'block', textDecoration: 'none', color: 'text.secondary' }}
         >
           今日のタスク
         </Typography>

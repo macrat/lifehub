@@ -37,7 +37,7 @@ test('立替を追加すると残高が表示され、精算できる', async ({
   await page.getByLabel('内容').fill(description);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(description)).toBeVisible();
-  await expect(page.getByText(/→ .* に ￥\d/)).toBeVisible();
+  await expect(page.getByText(/が .* に支払うと精算/)).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '精算する' }).click();

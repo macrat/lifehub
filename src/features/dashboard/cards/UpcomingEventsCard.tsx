@@ -23,7 +23,7 @@ export function UpcomingEventsCard({ card }: { card: DashboardCardOf<'events-upc
               <Typography variant="body2" color="primary" sx={{ flexShrink: 0 }}>
                 {formatEventRange(e.startsAt, e.endsAt, e.allDay)}
               </Typography>
-              <Typography noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Typography sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
                 {e.title}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>

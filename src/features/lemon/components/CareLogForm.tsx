@@ -1,9 +1,5 @@
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -16,6 +12,7 @@ import {
 } from '../../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, parseValues } from '../../../lib/form.ts';
+import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import type { CreateCareLogBody } from '../queries.ts';
 
@@ -65,51 +62,54 @@ export function CareLogForm({ open, initialCareType = 'water', onSubmit, onClose
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle>レモンの記録</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {submitError && <Alert severity="error">{submitError}</Alert>}
-            <TextField
-              label="種別"
-              select
-              value={careType}
-              onChange={(e) => setCareType(e.target.value as CareType)}
-              fullWidth
-            >
-              {CARE_TYPES.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {CARE_TYPE_LABELS[t]}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              name="doneAt"
-              label="日時"
-              type="datetime-local"
-              defaultValue={toDateTimeLocalValue(new Date())}
-              slotProps={{ inputLabel: { shrink: true } }}
-              error={Boolean(errors.doneAt)}
-              helperText={errors.doneAt}
-              fullWidth
-            />
-            <TextField
-              name="note"
-              label={careType === 'note' ? 'メモ（必須）' : 'メモ'}
-              multiline
-              minRows={2}
-              error={Boolean(errors.note)}
-              helperText={errors.note}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      title="レモンの記録"
+      onSubmit={handleSubmit}
+      actions={
+        <>
           <Button onClick={onClose}>キャンセル</Button>
           <SubmitButton disabled={submitting} />
-        </DialogActions>
-      </form>
-    </Dialog>
+        </>
+      }
+    >
+      <Stack spacing={2} sx={{ mt: 1 }}>
+        {submitError && <Alert severity="error">{submitError}</Alert>}
+        <TextField
+          label="種別"
+          select
+          value={careType}
+          onChange={(e) => setCareType(e.target.value as CareType)}
+          fullWidth
+        >
+          {CARE_TYPES.map((t) => (
+            <MenuItem key={t} value={t}>
+              {CARE_TYPE_LABELS[t]}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          name="doneAt"
+          label="日時"
+          type="datetime-local"
+          defaultValue={toDateTimeLocalValue(new Date())}
+          slotProps={{ inputLabel: { shrink: true } }}
+          error={Boolean(errors.doneAt)}
+          helperText={errors.doneAt}
+          fullWidth
+        />
+        <TextField
+          name="note"
+          label={careType === 'note' ? 'メモ（必須）' : 'メモ'}
+          multiline
+          minRows={2}
+          error={Boolean(errors.note)}
+          helperText={errors.note}
+          fullWidth
+        />
+      </Stack>
+    </FormDialog>
   );
 }
