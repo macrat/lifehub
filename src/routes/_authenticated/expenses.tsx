@@ -32,6 +32,7 @@ export const Route = createFileRoute('/_authenticated/expenses')({
 
 /**
  * 立替（借方・貸方）。残高と履歴。精算は専用の操作ではなく「誰かが誰かに払った額」を立替として追加する。
+ * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。
  */
 function ExpensesPage() {
   const { data: balance } = useQuery(balanceQueryOptions);
@@ -74,7 +75,11 @@ function ExpensesPage() {
           >
             <ListItemText
               primary={`${formatYen(e.amount)} ${e.description}`}
-              secondary={`${formatDate(e.spentOn)} ・ ${label(e.fromUserId)} → ${label(e.toUserId)}`}
+              secondary={`${formatDate(e.spentOn)} ・ ${
+                e.toUserId === null
+                  ? label(e.fromUserId)
+                  : `${label(e.fromUserId)} → ${label(e.toUserId)}`
+              }`}
             />
           </ListItem>
         ))}

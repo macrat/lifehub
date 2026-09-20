@@ -44,9 +44,9 @@ test('共有の立替で残高が出て、相手からの支払いを記録す�
   await page.getByRole('button', { name: '立替を追加' }).click();
   await page.getByLabel('金額（円）').fill('500');
   await page.getByLabel('内容').fill('精算');
-  await page.getByLabel('From（払った人）').click();
+  await page.getByLabel('From').click();
   await page.getByRole('option', { name: '相手' }).click();
-  await page.getByLabel('To（誰のために）').click();
+  await page.getByLabel('To').click();
   await page.getByRole('option', { name: 'E2E' }).click();
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText('精算済み')).toBeVisible();

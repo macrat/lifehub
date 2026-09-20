@@ -28,8 +28,8 @@ type Props = {
 const SHARED = 'shared';
 
 /**
- * 立替の追加（借方・貸方）。From は払った人（既定はログイン中のユーザー）、To は誰のために払ったか
- * （既定は共有 = 折半）。精算は From に払った人、To に受け取った人を選んで記録する。
+ * 立替の追加（借方・貸方）。To は誰のために払ったか（既定は共有 = 折半）、From は払った人
+ * （既定はログイン中のユーザー）。精算は To に受け取った人、From に払った人を選んで記録する。
  */
 export function ExpenseForm({ open, onSubmit, onClose, initial }: Props) {
   const { options, meId } = useOwnerLabel();
@@ -102,37 +102,40 @@ export function ExpenseForm({ open, onSubmit, onClose, initial }: Props) {
           helperText={errors.description}
           fullWidth
         />
-        <TextField
-          name="fromUserId"
-          label="From（払った人）"
-          select
-          defaultValue={initial?.fromUserId ?? meId ?? people[0]?.value ?? ''}
-          error={Boolean(errors.fromUserId)}
-          helperText={errors.fromUserId}
-          fullWidth
-        >
-          {people.map((o) => (
-            <MenuItem key={o.value} value={o.value ?? ''}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          name="toUserId"
-          label="To（誰のために）"
-          select
-          defaultValue={initial?.toUserId === undefined ? SHARED : (initial.toUserId ?? SHARED)}
-          error={Boolean(errors.toUserId)}
-          helperText={errors.toUserId ?? '共有は折半。精算は受け取った人を選ぶ'}
-          fullWidth
-        >
-          <MenuItem value={SHARED}>共有</MenuItem>
-          {people.map((o) => (
-            <MenuItem key={o.value} value={o.value ?? ''}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
+        {/* 簿記に倣い To（貸方）を左、From（借方）を右に横並び */}
+        <Stack direction="row" spacing={1}>
+          <TextField
+            name="toUserId"
+            label="To"
+            select
+            defaultValue={initial?.toUserId === undefined ? SHARED : (initial.toUserId ?? SHARED)}
+            error={Boolean(errors.toUserId)}
+            helperText={errors.toUserId}
+            fullWidth
+          >
+            <MenuItem value={SHARED}>共有</MenuItem>
+            {people.map((o) => (
+              <MenuItem key={o.value} value={o.value ?? ''}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            name="fromUserId"
+            label="From"
+            select
+            defaultValue={initial?.fromUserId ?? meId ?? people[0]?.value ?? ''}
+            error={Boolean(errors.fromUserId)}
+            helperText={errors.fromUserId}
+            fullWidth
+          >
+            {people.map((o) => (
+              <MenuItem key={o.value} value={o.value ?? ''}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
         <TextField
           name="spentOn"
           label="日付"
