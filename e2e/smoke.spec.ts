@@ -32,3 +32,14 @@ test('未ログインではログイン画面に送られ、ログインする�
   await page.getByRole('menuitem', { name: 'ログアウト' }).click();
   await expect(page).toHaveURL(/\/login/);
 });
+
+test('設定画面が表示される', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
+  await page.getByLabel('パスワード').fill(E2E_USER.password);
+  await page.getByRole('button', { name: 'ログイン' }).click();
+  await expect(page).toHaveURL('/');
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'この端末で通知を受け取る' })).toBeVisible();
+});

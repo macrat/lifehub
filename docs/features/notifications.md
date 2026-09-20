@@ -15,9 +15,10 @@
 
 予定の変更・削除のたびに予約をキャンセルする処理を書かなくて済むようにするため、予約は使い捨てにし、配信時に再検証する。
 
-1. Vercel Cron（日次 00:00 JST = UTC `0 15 * * *`）が `GET /api/notifications/enqueue` を呼ぶ（`Authorization: Bearer <CRON_SECRET>` で保護）。全 `NotificationSource` から翌日分（JST の翌日 0:00〜翌々日 0:00）を列挙し、QStash に配信時刻付きで予約する。`deduplicationId` = 通知キー（例 `event:<id>:<occurrence>`）で重複を防ぐ。
+1. Vercel Cron（日次 00:00 JST = UTC `0 15 * * *`）が `GET /api/notifications/enqueue` を呼ぶ（`Authorization: Bearer <CRON_SECRET>` で保護。Vercel は `CRON_SECRET` があればこのヘッダを自動で付ける）。全 `NotificationSource` から翌日分（JST の翌日 0:00〜翌々日 0:00）を列挙し、QStash に `notBefore`（配信時刻）付きで予約する。`deduplicationId` = 通知キーで重複を防ぐ。
+   - キーは配信予定時刻を含む: `event:<id>:<occurrenceStart>:<at>`、`task:<id>:<occurrenceKey>:<start|due>:<at>`。開始時刻や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
 2. 予定・タスクの作成／変更で当日〜翌日に新たな通知が発生する場合は、その場で同様に予約する（dedupe により重複しない）。service の `create` / `update` から `enqueueUpcoming()` を呼ぶ。
-3. 配信時刻に QStash が `POST /api/notifications/deliver` を呼ぶ。QStash の署名を検証後、`resolve(key)` で対象を再読込し、削除・変更済みなら送らない。`sent_notifications` に無い key のみ送信し、送信後に記録する。
+3. 配信時刻に QStash が `POST /api/notifications/deliver` を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolve(key)` で対象を再読込する。削除・変更（配信予定時刻がずれた）・完了済みなら送らない。
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
 
@@ -34,11 +35,11 @@ export type NotificationSource = {
 };
 ```
 
-`server/features/events/notifications.ts` と `server/features/tasks/notifications.ts` が実装し、`server/lib/notifications/registry.ts` に列挙する。キーの先頭（`event:` / `task:`）で `resolve` の振り分けを行う。
+`server/features/events/notifications.ts` と `server/features/tasks/notifications.ts` が実装し、`server/lib/notifications/registry.ts` に列挙する。キーの先頭（`event:` / `task:`）で `resolve` の振り分けを行う。予約・配信の共通処理は `server/lib/notifications/service.ts`、QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/lib/push/send.ts`。
 
 ## 購読
 
-- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。
+- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存（`src/lib/push.ts`）。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。購読状態は `GET /api/push/subscriptions/status?endpoint=`。
 - iOS はホーム画面に追加した PWA でのみ有効であることを UI で案内する。
 - VAPID 公開鍵は `GET /api/push/vapid-public-key` で配る。
 

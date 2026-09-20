@@ -13,6 +13,8 @@ import { dashboardRoutes } from './lib/dashboard/routes.ts';
 import { db } from './lib/db.ts';
 import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { requireSession } from './lib/middleware.ts';
+import { notificationsRoutes } from './lib/notifications/routes.ts';
+import { pushRoutes } from './lib/push/routes.ts';
 
 /**
  * Hono アプリ本体。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。
@@ -35,6 +37,8 @@ app.get('/health', async (c) => {
   return c.json({ ok: true as const, db: true as const });
 });
 app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
+// Cron secret と QStash の署名で保護する（セッションではない）
+app.route('/notifications', notificationsRoutes);
 
 // これ以降はすべてログイン必須
 app.use('*', requireSession);
@@ -50,6 +54,7 @@ const routes = app
   .route('/calendar', calendarRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
-  .route('/dashboard', dashboardRoutes);
+  .route('/dashboard', dashboardRoutes)
+  .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

@@ -8,6 +8,7 @@ import {
   type UpdateTaskInput,
 } from '../../../shared/validation/tasks.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import {
   expandOccurrences,
   InvalidRRuleError,
@@ -84,10 +85,22 @@ export async function listOccurrences(
 
 export async function createTask(input: CreateTaskInput, userId: string): Promise<TaskMaster> {
   const row = await repository.insert({ ...normalizeInput(input), createdBy: userId });
+  await enqueueUpcoming();
   return toMaster(row);
 }
 
 export async function updateTask(
+  id: string,
+  input: UpdateTaskInput,
+  userId: string,
+): Promise<TaskMaster> {
+  const result = await applyUpdate(id, input, userId);
+  // 当日〜翌日に新たな通知が発生する場合はその場で予約する（重複は dedupe で防ぐ）
+  await enqueueUpcoming();
+  return result;
+}
+
+async function applyUpdate(
   id: string,
   input: UpdateTaskInput,
   userId: string,

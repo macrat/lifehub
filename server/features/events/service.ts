@@ -7,6 +7,7 @@ import type {
   UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import {
   expandOccurrences,
   InvalidRRuleError,
@@ -61,10 +62,22 @@ export async function listOccurrences(range: { from: Date; to: Date }): Promise<
 
 export async function createEvent(input: CreateEventInput, userId: string): Promise<EventMaster> {
   const row = await repository.insert({ ...normalizeInput(input), createdBy: userId });
+  await enqueueUpcoming();
   return toMaster(row);
 }
 
 export async function updateEvent(
+  id: string,
+  input: UpdateEventInput,
+  userId: string,
+): Promise<EventMaster> {
+  const result = await applyUpdate(id, input, userId);
+  // 当日〜翌日に新たな通知が発生する場合はその場で予約する（重複は dedupe で防ぐ）
+  await enqueueUpcoming();
+  return result;
+}
+
+async function applyUpdate(
   id: string,
   input: UpdateEventInput,
   userId: string,
