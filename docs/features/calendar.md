@@ -8,7 +8,7 @@
 
 | 画面 | パス | 内容 |
 |---|---|---|
-| カレンダー | `/calendar?view=month\|week\|day\|list&date=YYYY-MM-DD` | 予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示し、追加・編集・削除する。初期表示は今月の月表示。 |
+| カレンダー | `/calendar?view=month\|week\|day\|list&date=YYYY-MM-DD`（リスト表示の絞り込みは `from` / `to` / `kind`=`all\|event\|task` / `participant`=`all` かユーザー ID / `completed`=`all\|open\|done` / `q`） | 予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示し、追加・編集・削除する。初期表示は今月の月表示。 |
 
 表示は AppBar 右端のメニューで切り替える。すべて `CalendarItem[]` だけを読み、予定とタスクの差は描画と操作（完了の有無）にのみ現れる。部品は MUI で自作（`src/features/calendar/components/`）し、汎用カレンダーライブラリは使わない。週の始まりは月曜。
 

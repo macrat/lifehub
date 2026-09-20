@@ -31,10 +31,11 @@ pnpm dev                          # http://localhost:5173
 | コマンド | 内容 |
 |---|---|
 | `pnpm dev` | `compose.yaml` の Postgres を前提に、`vite dev` と `server/dev.ts` を同時起動 |
-| `pnpm build` | クライアントの `vite build`（サーバーは Vercel のビルドに任せる） |
-| `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm e2e` | 品質チェック。CI と同じものをローカルで実行 |
+| `pnpm build` / `pnpm preview` | クライアントの `vite build`（サーバーは Vercel のビルドに任せる）と、その成果物のプレビュー |
+| `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm e2e` | 品質チェック。CI と同じものをローカルで実行（単体テストの監視実行は `pnpm test:watch`） |
 | `pnpm format` | Biome でフォーマットと自動修正 |
 | `pnpm db:generate` / `pnpm db:migrate` | drizzle-kit のマイグレーション生成／適用 |
+| `pnpm db:studio` | drizzle-kit studio でローカルの DB を見る |
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
 | `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |

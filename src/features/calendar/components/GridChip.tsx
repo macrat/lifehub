@@ -19,7 +19,7 @@ type Props = {
 /**
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
- * 色は所有者・担当者のユーザーの色。タイトルを優先し、時刻は広い画面でだけ添える。
+ * 色は参加者が 1 人ならそのユーザーの色、複数なら既定の色相。タイトルを優先し、時刻は広い画面でだけ添える。
  */
 export function GridChip({ placed, compact, colors, onClick, showTime = !compact }: Props) {
   const { item, col, span, lane, roundStart, roundEnd } = placed;

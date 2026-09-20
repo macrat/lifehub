@@ -20,7 +20,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
 | バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/[[...route]].ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `db.batch()` で書く。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `server/lib/db.ts` の `runBatch()` で書く（neon-http では `db.batch()`、node-postgres では順次実行になる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォーム・API の入力・MCP ツールの引数を同じスキーマで検証する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
@@ -71,7 +71,7 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit・formText・formSelect）  theme.ts（createAppTheme・useColorMode）  use-now.ts  date.ts  auth.ts
+    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate・ensureData）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
@@ -85,12 +85,13 @@ server/                       # サーバー（Hono）
     notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
     __tests__/
   lib/
-    db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts
+    db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
+    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  id.ts（UUID v7）  test-db.ts（テスト・seed 用の truncate）
     mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
     recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
-  types.ts  constants.ts
+  types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
 .github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml
@@ -134,7 +135,7 @@ e2e/                          # Playwright
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
 - Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、ボタンは pill 形。影（elevation）は既定で 0。
-- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。secondary は使わず、強調はすべて primary で統一する。カレンダーの項目は所有者・担当者のユーザーの色。
+- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。secondary は使わず、強調はすべて primary で統一する。カレンダーの項目は参加者が 1 人ならそのユーザーの色、複数なら既定の色相（`src/features/calendar/queries.ts` の `colorUserOf`、`src/features/users/use-user-color.ts`）。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。
 - **画面の表示領域は貴重な資産**として扱う。「ホーム」「カレンダー」のような情報を持たないページタイトルは出さない（現在地はナビが示す）。同じ情報を複数箇所に出さない。主役（カレンダーのグリッド、一覧、カード）が最も広い面積を占めるようにする。
@@ -165,7 +166,7 @@ e2e/                          # Playwright
 |---|---|---|
 | Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う） |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
-| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。すべて `sensitive`。`APP_URL` は production のみ |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。production / preview 共通でいずれも `sensitive`。`APP_URL` は production のみで `sensitive` ではない |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
 | Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |
