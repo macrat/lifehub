@@ -10,6 +10,16 @@ variable "neon_api_key" {
   sensitive = true
 }
 
+# Neon の組織 ID（org-...）。プロジェクトは組織の下に作る（個人アカウントも組織として扱われる）
+variable "neon_org_id" {
+  type = string
+}
+
+# Vercel のチーム（slug か ID）。Hobby でもアカウントはチームなので、プロジェクトはその下に作る
+variable "vercel_team" {
+  type = string
+}
+
 variable "qstash_token" {
   type      = string
   sensitive = true
