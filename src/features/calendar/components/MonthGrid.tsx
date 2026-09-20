@@ -145,7 +145,8 @@ function WeekRow({
         position: 'relative',
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gridTemplateRows: `${DAY_NUMBER_HEIGHT}px repeat(${maxLanes}, ${laneHeight}px)`,
+        // 最後に伸びる行を置き、日セル（1 / -1）が行の下端まで届くようにする（罫線が途中で切れない）
+        gridTemplateRows: `${DAY_NUMBER_HEIGHT}px repeat(${maxLanes}, ${laneHeight}px) minmax(0, 1fr)`,
         minHeight: 0,
         overflow: 'hidden',
         borderBottom: 1,

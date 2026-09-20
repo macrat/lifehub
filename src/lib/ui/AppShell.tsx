@@ -12,13 +12,12 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import { useTheme } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
-import { primaryNavItems } from './navigation.ts';
+import { bottomNavItems, primaryNavItems } from './navigation.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 
 const DRAWER_WIDTH = 220;
@@ -35,7 +34,8 @@ type Props = {
  * 全ページ共通の骨格。画面は主役（各ページの内容）に最大の面積を割く:
  * - ページタイトルは出さない（下部ナビ／サイドナビが現在地を示す）
  * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）。それ以外は何も置かない
- * - スマホは AppBar + BottomNavigation、PC は permanent Drawer。ページ自体は共通。
+ * - スマホは AppBar + BottomNavigation、PC は permanent Drawer（アプリ名は出さない）。ページ自体は共通。
+ * - 設定は PC のサイドナビにだけ置く。スマホではホームの末尾から開く（下部ナビは主要 4 画面に絞る）。
  */
 export function AppShell({ children }: Props) {
   const theme = useTheme();
@@ -43,9 +43,9 @@ export function AppShell({ children }: Props) {
   const { pathname } = useLocation();
   const busy = useIsFetching() + useIsMutating() > 0;
 
-  const activeIndex = primaryNavItems.findIndex((item) =>
-    item.to === '/' ? pathname === '/' : pathname.startsWith(item.to ?? ''),
-  );
+  const isActive = (to: string | undefined) =>
+    to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
+  const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
 
   return (
     <AppBarSlotProvider>
@@ -79,13 +79,10 @@ export function AppShell({ children }: Props) {
             }}
           >
             <Toolbar variant="dense" />
-            <Typography variant="h6" component="div" sx={{ px: 2, pt: 2, pb: 1 }}>
-              LifeHub
-            </Typography>
             <List component="nav">
-              {primaryNavItems.map((item, index) => (
+              {primaryNavItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemButton component={Link} to={item.to} selected={index === activeIndex}>
+                  <ListItemButton component={Link} to={item.to} selected={isActive(item.to)}>
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -128,8 +125,8 @@ export function AppShell({ children }: Props) {
               zIndex: (t) => t.zIndex.appBar,
             }}
           >
-            <BottomNavigation value={activeIndex} showLabels sx={{ height: BOTTOM_NAV_HEIGHT }}>
-              {primaryNavItems.map((item) => (
+            <BottomNavigation value={bottomIndex} showLabels sx={{ height: BOTTOM_NAV_HEIGHT }}>
+              {bottomNavItems.map((item) => (
                 <BottomNavigationAction
                   key={item.to}
                   label={item.label}

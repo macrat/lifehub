@@ -21,7 +21,7 @@ test('未ログインではログイン画面に送られ、ログインする�
   await expect(page).toHaveURL('/');
   await expect(page.getByText('次の予定')).toBeVisible();
 
-  // 設定 → ユーザー管理へ移動し、自分が一覧に出る
+  // 設定（PC はサイドナビ）→ ユーザー管理へ移動し、自分が一覧に出る
   await page.getByRole('link', { name: '設定' }).click();
   await page.getByRole('link', { name: /ユーザー管理/ }).click();
   await expect(page).toHaveURL('/admin/users');
