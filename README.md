@@ -47,7 +47,7 @@ pnpm dev                          # http://localhost:5173
 インフラの設定はすべて `infra/` の Terraform に書き、ダッシュボードで直接変更しない。デプロイは main ブランチへのプッシュで完結する。
 
 1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、GitHub リポジトリ。いずれもカード登録不要。
-2. トークン発行: Vercel API トークン、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。
+2. トークン発行: Vercel API トークン、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。
 3. Upstash コンソールで QStash を有効化し、トークンと Current/Next Signing Key を控える。
 4. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
 5. 上記を GitHub Secrets に登録する:

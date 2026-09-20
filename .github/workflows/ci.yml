@@ -66,15 +66,28 @@ jobs:
     env:
       TF_CLOUD_ORGANIZATION: macrat
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+    outputs:
+      # main への最初のデプロイ（terraform apply）が済んでいるか。済むまで preview は作れない
+      applied: ${{ steps.state.outputs.applied }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
       - run: terraform -chdir=infra fmt -check
       - run: terraform -chdir=infra init -input=false
       - run: terraform -chdir=infra validate
+      - id: state
+        run: |
+          if terraform -chdir=infra output -raw vercel_project_id >/dev/null 2>&1; then
+            echo "applied=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "applied=false" >> "$GITHUB_OUTPUT"
+          fi
       - id: plan
+        # 明示的な bash は pipefail 付きなので、tee を挟んでも terraform の失敗がジョブの失敗になる
+        shell: bash
         run: terraform -chdir=infra plan -no-color -input=false -out=tfplan | tee plan.txt
       - name: Comment plan on PR
+        if: always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: terraform-plan
@@ -82,7 +95,9 @@ jobs:
 
   preview:
     name: preview deploy
-    needs: [check]
+    needs: [check, terraform]
+    # 初回の apply 前（Vercel / Neon のプロジェクトが無い）は preview を作らない
+    if: needs.terraform.outputs.applied == 'true'
     runs-on: ubuntu-latest
     env:
       TF_CLOUD_ORGANIZATION: macrat
