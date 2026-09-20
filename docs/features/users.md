@@ -18,7 +18,8 @@
 ## 認証
 
 - better-auth（メール＋パスワード、Drizzle アダプタ、`usePlural`）。セッション Cookie、同一オリジン。
-- サインアップは無効（`disableSignUp`）。ユーザー作成は `/admin/users`（`auth.api.createUser` を使う内部 API）と `scripts/create-user.ts` だけ。
+- 公開のサインアップ経路は `disabledPaths` で閉じる。ユーザー作成は users service（サーバー内部から `auth.api.signUpEmail` を呼ぶ。`disableSignUp` は内部呼び出しも拒否するため使わない）経由で、`/admin/users` と `scripts/create-user.ts` だけが行う。メールの重複は service が事前に確認する（`autoSignIn: false` の better-auth は列挙対策として重複時も成功を装うため）。
+- 名前・パスワードの変更は他人の分も行えるため better-auth の API ではなく repository で直接更新する（パスワードは `better-auth/crypto` の `hashPassword`）。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。
 - ID は UUID v7（`advanced.database.generateId`）。他テーブルの `created_by` 等が `users.id` を参照する。
 
@@ -43,4 +44,4 @@
 pnpm user:create --email you@example.com --name あなた --password 'xxxxxxxxxxxx'
 ```
 
-`DATABASE_URL` に直接接続し、better-auth の `createUser` で投入する。
+`DATABASE_URL` に直接接続し、users service で投入する。
