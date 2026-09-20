@@ -39,7 +39,7 @@ export type NotificationSource = {
 
 ## 購読
 
-- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存（`src/lib/push.ts`）。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。購読状態は `GET /api/push/subscriptions/status?endpoint=`。
+- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存（`src/features/push/queries.ts`、画面は `PushSection`）。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。購読状態は `GET /api/push/subscriptions/status?endpoint=`。
 - iOS はホーム画面に追加した PWA でのみ有効であることを UI で案内する。
 - VAPID 公開鍵は `GET /api/push/vapid-public-key` で配る。
 

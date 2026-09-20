@@ -5,6 +5,7 @@ import { useInvalidate } from '../../lib/query-client.ts';
 import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
+export type Expense = InferResponseType<typeof api.expenses.$get, 200>[number];
 export type Balance = InferResponseType<typeof api.expenses.balance.$get, 200>;
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;

@@ -1,25 +1,19 @@
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
-import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { BalanceSummary, formatYen } from '../../features/expenses/components/BalanceSummary.tsx';
+import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
+import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
   balanceQueryOptions,
   expensesQueryOptions,
   useAddExpense,
   useDeleteExpense,
 } from '../../features/expenses/queries.ts';
-import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
-import { formatDate } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 
@@ -39,7 +33,6 @@ export const Route = createFileRoute('/_authenticated/expenses')({
 function ExpensesPage() {
   const { data: balance } = useQuery(balanceQueryOptions);
   const { data: expenses = [] } = useQuery(expensesQueryOptions);
-  const { label } = useOwnerLabel();
   const addExpense = useAddExpense();
   const deleteExpense = useDeleteExpense();
   const [adding, setAdding] = useState(false);
@@ -53,39 +46,7 @@ function ExpensesPage() {
         {balance && <BalanceSummary balance={balance} />}
       </Box>
 
-      <List disablePadding>
-        {expenses.length === 0 && (
-          <ListItem>
-            <ListItemText secondary="まだ立替はありません" />
-          </ListItem>
-        )}
-        {expenses.map((e) => (
-          <ListItem
-            key={e.id}
-            divider
-            secondaryAction={
-              <IconButton
-                edge="end"
-                aria-label={`${e.description} を削除`}
-                onClick={() => {
-                  if (window.confirm('この立替を削除しますか？')) deleteExpense.mutate(e.id);
-                }}
-              >
-                <DeleteIcon />
-              </IconButton>
-            }
-          >
-            <ListItemText
-              primary={`${formatYen(e.amount)} ${e.description}`}
-              secondary={`${formatDate(e.spentOn)} ・ ${
-                e.toUserId === null
-                  ? label(e.fromUserId)
-                  : `${label(e.fromUserId)} → ${label(e.toUserId)}`
-              }`}
-            />
-          </ListItem>
-        ))}
-      </List>
+      <ExpenseList expenses={expenses} onDelete={(id) => deleteExpense.mutate(id)} />
 
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />

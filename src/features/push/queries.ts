@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ensureOk } from './api.ts';
+import { api, ensureOk } from '../../lib/api.ts';
 
 /**
  * この端末でのプッシュ通知の購読。

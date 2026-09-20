@@ -1,17 +1,13 @@
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
-import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { CARE_TYPE_LABELS, type CareType } from '../../../shared/validation/lemon.ts';
+import type { CareType } from '../../../shared/validation/lemon.ts';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
+import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
 import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
   lemonLogsQueryOptions,
@@ -19,7 +15,6 @@ import {
   useDeleteCareLog,
   useLogCare,
 } from '../../features/lemon/queries.ts';
-import { formatDateTime } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 
@@ -53,36 +48,7 @@ function LemonPage() {
       >
         記録
       </Typography>
-      <List disablePadding>
-        {logs.length === 0 && (
-          <ListItem>
-            <ListItemText secondary="まだ記録はありません" />
-          </ListItem>
-        )}
-        {logs.map((log) => (
-          <ListItem
-            key={log.id}
-            divider
-            secondaryAction={
-              <IconButton
-                edge="end"
-                aria-label={`${CARE_TYPE_LABELS[log.careType]}の記録を削除`}
-                onClick={() => {
-                  if (window.confirm('この記録を削除しますか？')) deleteLog.mutate(log.id);
-                }}
-              >
-                <DeleteIcon />
-              </IconButton>
-            }
-          >
-            <ListItemText
-              primary={CARE_TYPE_LABELS[log.careType]}
-              secondary={[formatDateTime(log.doneAt), log.note].filter(Boolean).join(' ・ ')}
-              slotProps={{ secondary: { sx: { whiteSpace: 'pre-wrap' } } }}
-            />
-          </ListItem>
-        ))}
-      </List>
+      <CareLogList logs={logs} onDelete={(id) => deleteLog.mutate(id)} />
 
       <Fab
         color="primary"
