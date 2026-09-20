@@ -50,6 +50,13 @@
       "when": 1789906509544,
       "tag": "0006_user_hue",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789909766247,
+      "tag": "0007_expenses_from_to",
+      "breakpoints": true
     }
   ]
 }

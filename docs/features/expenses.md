@@ -1,18 +1,18 @@
-# 立替・精算（expenses）
+# 立替（expenses）
 
 ## 目的
 
-どちらが立て替えたかと金額を記録し、常に折半で貸借残高を計算する。精算で残高をゼロに戻す。
+誰が誰のために払ったかを借方・貸方で記録し、2 人の貸借残高を計算する。精算も「誰かが誰かに払った額」として同じ形で記録する。
 
 ## 画面
 
-- 立替 `/expenses`: 残高（「A→B に n 円」、0 なら「精算済み」）、立替履歴（新しい順）、精算履歴、立替の追加・削除、精算の実行。
-- 立替フォーム（`src/features/expenses/components/ExpenseForm.tsx`）: 支払者（既定は自分）、金額、内容、日付（既定は今日）。ホームのクイック追加でも使う。
-- 精算は「現在の残高をそのまま精算する」1 ボタン。金額の手入力はしない。
+- 立替 `/expenses`: 残高（「A が B に n 円払うと精算」、0 なら「精算済み」）と履歴（新しい順、削除可）。
+- 立替フォーム（`src/features/expenses/components/ExpenseForm.tsx`）: 金額、内容、**From**（払った人。既定はログイン中のユーザー）、**To**（誰のために払ったか。既定は「共有」= 折半。ユーザーを選ぶと全額そのユーザーの負担）、日付（既定は今日）。ホームのクイック追加でも使う。
+- 精算ボタンは無い。精算は From に払った人、To に受け取った人を選んで立替として追加する。
 
 ## データ
 
-`expenses`, `settlements`（[data-model.md](../data-model.md)）。
+`expenses`（[data-model.md](../data-model.md)）。`to_user_id` が null なら共有。
 
 ## 前提
 
@@ -20,24 +20,23 @@
 
 ## 計算ルール
 
-立替残高（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 + ΣA→B 精算 − ΣB→A 精算（X→Y 精算 = X が Y に支払った額）。端数は切り捨て。計算は `server/features/expenses/service.ts` だけで行う。
+A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。端数は切り捨て）。精算「B が A に払った」も B→A の行として同じ式に入るので、払えば債権が減る。計算は `server/features/expenses/service.ts` だけで行う。
 
 ## API（`server/features/expenses/routes.ts`）
 
 | メソッド | パス | 内容 |
 |---|---|---|
-| GET | `/api/expenses` | 立替と精算の履歴 |
+| GET | `/api/expenses` | 履歴（新しい順） |
 | GET | `/api/expenses/balance` | 残高（`{ fromUserId, toUserId, amount }`。0 なら `amount: 0`） |
-| POST | `/api/expenses` | 立替を追加 |
-| DELETE | `/api/expenses/:id` | 立替を削除 |
-| POST | `/api/expenses/settle` | 現在の残高で精算 |
+| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない |
+| DELETE | `/api/expenses/:id` | 削除 |
 
 入力スキーマは `shared/validation/expenses.ts`。
 
 ## MCP ツール
 
-`expenses_get_balance`, `expenses_add`, `expenses_settle`（[mcp.md](mcp.md)）。
+`expenses_get_balance`, `expenses_list`, `expenses_add`（[mcp.md](mcp.md)）。
 
 ## ホームのカード
 
-「立替残高」: 「A→B に n 円」の 1 行表示。0 なら「精算済み」。`server/features/expenses/dashboard.ts`。
+「立替残高」: 「A が B に n 円払うと精算」の 1 行表示。0 なら「精算済み」。`server/features/expenses/dashboard.ts`。

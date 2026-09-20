@@ -5,8 +5,8 @@ import { usersQueryOptions } from './queries.ts';
 export type OwnerOption = { value: string | null; label: string };
 
 /**
- * 「自分／相手／共有」の表示と選択肢。users と me から決める。
- * null は共有、自分は「自分」、それ以外は相手の名前。
+ * 所有者・担当者の表示と選択肢。null は「共有」、それ以外はユーザー名（自分も名前で出す）。
+ * 選択肢はログイン中のユーザーを先頭にする。
  */
 export function useOwnerLabel() {
   const { data: me } = useQuery(meQueryOptions);
@@ -14,8 +14,7 @@ export function useOwnerLabel() {
 
   const label = (userId: string | null): string => {
     if (userId === null) return '共有';
-    if (userId === me?.id) return '自分';
-    return users.find((u) => u.id === userId)?.name ?? '相手';
+    return users.find((u) => u.id === userId)?.name ?? '';
   };
 
   const options: OwnerOption[] = [

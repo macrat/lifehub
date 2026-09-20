@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ConflictError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
-import { addExpense, deleteExpense, getBalance, listHistory, settle } from '../service.ts';
+import { addExpense, deleteExpense, getBalance, listExpenses } from '../service.ts';
 
 let a: string;
 let b: string;
+
+const on = '2026-09-01';
 
 describe('expenses service', () => {
   beforeEach(async () => {
@@ -16,37 +17,54 @@ describe('expenses service', () => {
 
   it('立替が無ければ精算済み', async () => {
     expect(await getBalance()).toEqual({ amount: 0, fromUserId: null, toUserId: null });
-    await expect(settle(a)).rejects.toBeInstanceOf(ConflictError);
   });
 
-  it('常に折半で残高を計算し、端数は切り捨てる', async () => {
-    await addExpense({ paidBy: a, amount: 3001, description: '食材', spentOn: '2026-09-01' }, a);
-    await addExpense({ paidBy: b, amount: 1000, description: '日用品', spentOn: '2026-09-02' }, b);
+  it('共有（To なし）は折半で残高を計算し、端数は切り捨てる', async () => {
+    await addExpense(
+      { fromUserId: a, toUserId: null, amount: 3001, description: '食材', spentOn: on },
+      a,
+    );
+    await addExpense(
+      { fromUserId: b, toUserId: null, amount: 1000, description: '日用品', spentOn: on },
+      b,
+    );
     // (3001 - 1000) / 2 = 1000.5 → 1000。B が A に払う
     expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
   });
 
-  it('精算で残高がゼロに戻り、その後の立替は新たに積み上がる', async () => {
-    await addExpense({ paidBy: a, amount: 2000, description: '食材', spentOn: '2026-09-01' }, a);
-    const settlement = await settle(a, new Date('2026-09-10T03:00:00Z'));
-    expect(settlement).toMatchObject({
-      fromUser: b,
-      toUser: a,
-      amount: 1000,
-      settledOn: '2026-09-10',
-    });
+  it('To にユーザーを指定すると全額がそのユーザーの負担になる', async () => {
+    await addExpense(
+      { fromUserId: a, toUserId: b, amount: 2000, description: 'B の分', spentOn: on },
+      a,
+    );
+    expect(await getBalance()).toEqual({ amount: 2000, fromUserId: b, toUserId: a });
+  });
+
+  it('精算は「払った人 → 受け取った人」の行として記録し、残高がゼロに戻る', async () => {
+    await addExpense(
+      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
+      a,
+    );
+    expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
+    await addExpense(
+      { fromUserId: b, toUserId: a, amount: 1000, description: '精算', spentOn: on },
+      b,
+    );
     expect(await getBalance()).toEqual({ amount: 0, fromUserId: null, toUserId: null });
 
-    await addExpense({ paidBy: b, amount: 500, description: 'コーヒー', spentOn: '2026-09-11' }, b);
+    await addExpense(
+      { fromUserId: b, toUserId: null, amount: 500, description: 'コーヒー', spentOn: on },
+      b,
+    );
     expect(await getBalance()).toEqual({ amount: 250, fromUserId: a, toUserId: b });
   });
 
   it('立替を削除できる', async () => {
     const expense = await addExpense(
-      { paidBy: a, amount: 2000, description: '食材', spentOn: '2026-09-01' },
+      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
     await deleteExpense(expense.id);
-    expect((await listHistory()).expenses).toHaveLength(0);
+    expect(await listExpenses()).toHaveLength(0);
   });
 });

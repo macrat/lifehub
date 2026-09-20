@@ -1,11 +1,10 @@
-import { eventsWidget } from '../../features/events/dashboard.ts';
+import { todayWidget } from '../../features/calendar/dashboard.ts';
 import { expensesWidget } from '../../features/expenses/dashboard.ts';
 import { lemonWidget } from '../../features/lemon/dashboard.ts';
-import { tasksWidget } from '../../features/tasks/dashboard.ts';
 import type { CardOf } from './types.ts';
 
 /** ホームのカード一覧。新しい feature のカードはここに 1 行足す。 */
-export const widgets = [eventsWidget, tasksWidget, expensesWidget, lemonWidget] as const;
+export const widgets = [todayWidget, expensesWidget, lemonWidget] as const;
 
 export type DashboardCard = CardOf<(typeof widgets)[number]>;
 

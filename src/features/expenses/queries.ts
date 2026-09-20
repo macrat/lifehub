@@ -3,13 +3,13 @@ import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 
 export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
-export type ExpenseHistory = InferResponseType<typeof api.expenses.$get, 200>;
+export type Expense = InferResponseType<typeof api.expenses.$get, 200>[number];
 export type Balance = InferResponseType<typeof api.expenses.balance.$get, 200>;
 
 export const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
-export const expenseHistoryQueryOptions = queryOptions({
-  queryKey: [...EXPENSES_QUERY_KEY, 'history'],
+export const expensesQueryOptions = queryOptions({
+  queryKey: [...EXPENSES_QUERY_KEY, 'list'],
   queryFn: async () => (await ensureOk(await api.expenses.$get())).json(),
 });
 
@@ -41,14 +41,6 @@ export function useDeleteExpense() {
     mutationFn: async (id: string) => {
       await ensureOk(await api.expenses[':id'].$delete({ param: { id } }));
     },
-    onSuccess: invalidate,
-  });
-}
-
-export function useSettle() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: async () => (await ensureOk(await api.expenses.settle.$post())).json(),
     onSuccess: invalidate,
   });
 }

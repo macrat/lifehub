@@ -48,7 +48,6 @@ describe('MCP server', () => {
         'expenses_get_balance',
         'expenses_list',
         'expenses_add',
-        'expenses_settle',
         'lemon_get_status',
         'lemon_log_care',
       ].sort(),
@@ -106,7 +105,7 @@ describe('MCP server', () => {
     const client = await connect(userId);
     const result = await client.callTool({
       name: 'expenses_add',
-      arguments: { paidBy: 'x', amount: -1, description: '', spentOn: 'bad' },
+      arguments: { fromUserId: 'x', toUserId: null, amount: -1, description: '', spentOn: 'bad' },
     });
     expect(result.isError).toBe(true);
   });

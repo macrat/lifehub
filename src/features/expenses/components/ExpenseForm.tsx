@@ -16,12 +16,24 @@ type Props = {
   open: boolean;
   onSubmit: (input: CreateExpenseBody) => Promise<unknown>;
   onClose: () => void;
+  /** 精算の記録など、初期値を差し込むとき */
+  initial?: Partial<{
+    amount: number;
+    description: string;
+    fromUserId: string;
+    toUserId: string | null;
+  }>;
 };
 
-/** 立替の追加。支払者の既定は自分、日付の既定は今日。 */
-export function ExpenseForm({ open, onSubmit, onClose }: Props) {
+const SHARED = 'shared';
+
+/**
+ * 立替の追加（借方・貸方）。From は払った人（既定はログイン中のユーザー）、To は誰のために払ったか
+ * （既定は共有 = 折半）。精算は From に払った人、To に受け取った人を選んで記録する。
+ */
+export function ExpenseForm({ open, onSubmit, onClose, initial }: Props) {
   const { options, meId } = useOwnerLabel();
-  const payers = options.filter((o) => o.value !== null);
+  const people = options.filter((o) => o.value !== null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -29,8 +41,10 @@ export function ExpenseForm({ open, onSubmit, onClose }: Props) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const fd = new FormData(event.currentTarget);
+    const to = fd.get('toUserId');
     const raw = {
-      paidBy: fd.get('paidBy'),
+      fromUserId: fd.get('fromUserId'),
+      toUserId: to === SHARED ? null : to,
       amount: fd.get('amount') === '' ? undefined : Number(fd.get('amount')),
       description: fd.get('description'),
       spentOn: fd.get('spentOn'),
@@ -73,6 +87,7 @@ export function ExpenseForm({ open, onSubmit, onClose }: Props) {
           name="amount"
           label="金額（円）"
           type="number"
+          defaultValue={initial?.amount ?? ''}
           slotProps={{ htmlInput: { inputMode: 'numeric', min: 1, step: 1 } }}
           error={Boolean(errors.amount)}
           helperText={errors.amount}
@@ -82,20 +97,37 @@ export function ExpenseForm({ open, onSubmit, onClose }: Props) {
         <TextField
           name="description"
           label="内容"
+          defaultValue={initial?.description ?? ''}
           error={Boolean(errors.description)}
           helperText={errors.description}
           fullWidth
         />
         <TextField
-          name="paidBy"
-          label="支払った人"
+          name="fromUserId"
+          label="From（払った人）"
           select
-          defaultValue={meId ?? payers[0]?.value ?? ''}
-          error={Boolean(errors.paidBy)}
-          helperText={errors.paidBy}
+          defaultValue={initial?.fromUserId ?? meId ?? people[0]?.value ?? ''}
+          error={Boolean(errors.fromUserId)}
+          helperText={errors.fromUserId}
           fullWidth
         >
-          {payers.map((o) => (
+          {people.map((o) => (
+            <MenuItem key={o.value} value={o.value ?? ''}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          name="toUserId"
+          label="To（誰のために）"
+          select
+          defaultValue={initial?.toUserId === undefined ? SHARED : (initial.toUserId ?? SHARED)}
+          error={Boolean(errors.toUserId)}
+          helperText={errors.toUserId ?? '共有は折半。精算は受け取った人を選ぶ'}
+          fullWidth
+        >
+          <MenuItem value={SHARED}>共有</MenuItem>
+          {people.map((o) => (
             <MenuItem key={o.value} value={o.value ?? ''}>
               {o.label}
             </MenuItem>

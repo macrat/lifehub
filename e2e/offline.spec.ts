@@ -10,7 +10,7 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   await page.getByLabel('パスワード').fill(E2E_USER.password);
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL('/');
-  await expect(page.getByText('次の予定')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
 
   // Service Worker の precache と TanStack Query の永続化が終わるのを待つ
   await page.waitForFunction(

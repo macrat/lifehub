@@ -32,9 +32,8 @@
 | `calendar_list_items` | 予定＋タスクの統合一覧（`placementDate` 付き） |
 | `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
 | `expenses_get_balance` | 立替残高を返す |
-| `expenses_list` | 立替と精算の履歴 |
-| `expenses_add` | 立替を追加する |
-| `expenses_settle` | 現在の残高で精算する |
+| `expenses_list` | 立替の履歴（精算を含む） |
+| `expenses_add` | 立替（精算を含む）を追加する |
 | `lemon_get_status` | レモンの世話状況（種別ごとの最終実施日と経過日数） |
 | `lemon_log_care` | レモンの世話を記録する |
 

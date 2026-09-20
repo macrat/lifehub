@@ -138,16 +138,45 @@ const done = await tasks.createTask(
 await tasks.completeTask(done.id, 'single', me.id, dayAt(0, 9));
 
 await expenses.addExpense(
-  { paidBy: me.id, amount: 6480, description: '食材（スーパー）', spentOn: addDays(t, -1) },
+  {
+    fromUserId: me.id,
+    toUserId: null,
+    amount: 6480,
+    description: '食材（スーパー）',
+    spentOn: addDays(t, -1),
+  },
   me.id,
 );
 await expenses.addExpense(
-  { paidBy: partner.id, amount: 2200, description: '日用品', spentOn: addDays(t, -3) },
+  {
+    fromUserId: partner.id,
+    toUserId: null,
+    amount: 2200,
+    description: '日用品',
+    spentOn: addDays(t, -3),
+  },
   partner.id,
 );
 await expenses.addExpense(
-  { paidBy: me.id, amount: 12000, description: '電気代', spentOn: addDays(t, -7) },
+  {
+    fromUserId: me.id,
+    toUserId: null,
+    amount: 12000,
+    description: '電気代',
+    spentOn: addDays(t, -7),
+  },
   me.id,
+);
+
+await expenses.addExpense(
+  {
+    fromUserId: partner.id,
+    toUserId: me.id,
+    amount: 5000,
+    description: '精算',
+    spentOn: addDays(t, -2),
+  },
+  partner.id,
 );
 
 await lemon.logCare({ careType: 'water', doneAt: dayAt(-2, 8), note: null }, me.id);

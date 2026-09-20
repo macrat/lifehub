@@ -15,15 +15,14 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 | テーブル | 主な列 | 備考 |
 |---|---|---|
-| `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 + `users.hue` | `users.name` を表示名として使う（「自分／相手」の表示に用いる）。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
+| `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 + `users.hue` | `users.name` を表示名として使う。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
 | `push_subscriptions` | `user_id`, `endpoint`(unique), `p256dh`, `auth`, `user_agent` | 端末ごとに 1 行。配信失敗（410/404）で削除 |
 | `events` | `title`, `starts_at`, `ends_at`, `all_day`, `owner_user_id` (null=共有), `location`, `note`, `rrule` (null=単発), `remind_before_minutes` (null=通知なし) | 予定。終日は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。`remind_before_minutes` の選択肢は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、既定は null |
 | `event_overrides` | `event_id`, `occurrence_start`(元の開始日時), `cancelled`, `starts_at`, `ends_at`, `title`, `note` | 繰り返し予定の個別変更・削除（RFC 5545 の RECURRENCE-ID 相当）。unique(`event_id`, `occurrence_start`) |
 | `tasks` | `title`, `note`, `assignee_user_id` (null=共有), `starts_at`, `due_at`, `rrule`, `notify_at_start`, `notify_at_due` | タスク。`starts_at`/`due_at` はいずれも任意。`rrule` を持つ場合は `starts_at` または `due_at` の少なくとも一方が必須（DTSTART になる）。繰り返しでは両方の日時が発生ごとに同じ間隔でずれる |
 | `task_overrides` | `task_id`, `occurrence_key`, `cancelled`, `title`, `note`, `starts_at`, `due_at` | 繰り返しタスクの特定の回だけの変更・取り消し（`event_overrides` と同じ仕組み）。unique(`task_id`, `occurrence_key`) |
 | `task_completions` | `task_id`, `occurrence_key`, `completed_at`, `completed_by` | `occurrence_key` は単発なら `'single'`、繰り返しなら発生の基準日時の ISO 8601（UTC）。unique(`task_id`, `occurrence_key`) |
-| `expenses` | `paid_by`(user), `amount`, `description`, `spent_on` | 立替。常に折半 |
-| `settlements` | `from_user`, `to_user`, `amount`, `settled_on` | 精算 |
+| `expenses` | `from_user_id`(user), `to_user_id`(user, null=共有), `amount`, `description`, `spent_on` | 立替（借方・貸方）。from が to のために払った。to が null なら折半。精算も同じ行（from = 払った人、to = 受け取った人） |
 | `lemon_care_logs` | `care_type` (`water` 水やり / `mist` 葉水 / `fertilize` 施肥 / `bloom` 開花 / `harvest` 収穫 / `note` メモ), `done_at`, `note` | `note` 種別は本文必須。他の種別は本文任意。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
 

@@ -86,7 +86,7 @@ function MyColorSection({ hue, name }: { hue: number; name: string }) {
     <List
       subheader={
         <ListSubheader component="h3" disableSticky>
-          自分の色
+          色
         </ListSubheader>
       }
     >
@@ -98,7 +98,7 @@ function MyColorSection({ hue, name }: { hue: number; name: string }) {
         </ListItemAvatar>
         <ListItemText
           primary={name}
-          secondary="ボタンや選択の色と、カレンダーで自分の予定・タスクに付く色"
+          secondary="ボタンや選択の色と、カレンダーでこのユーザーの予定・タスクに付く色"
         />
       </ListItem>
       <Stack sx={{ px: 2, pb: 1 }}>
