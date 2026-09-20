@@ -3,7 +3,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { createExpenseSchema } from '../../../../shared/validation/expenses.ts';
 import { today } from '../../../lib/date.ts';
-import { formSelect, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
+import { formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { CreateExpenseBody } from '../queries.ts';
@@ -22,15 +22,13 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
   const people = options.filter((o) => o.value !== null);
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createExpenseSchema,
-    values: (fd) => {
-      return {
-        fromUserId: fd.get('fromUserId'),
-        toUserId: formSelect(fd, 'toUserId'),
-        amount: fd.get('amount') === '' ? undefined : Number(fd.get('amount')),
-        description: fd.get('description'),
-        spentOn: fd.get('spentOn'),
-      };
-    },
+    values: (fd) => ({
+      fromUserId: formText(fd, 'fromUserId'),
+      toUserId: formSelect(fd, 'toUserId'),
+      amount: formText(fd, 'amount') === null ? undefined : Number(formText(fd, 'amount')),
+      description: formText(fd, 'description') ?? '',
+      spentOn: formText(fd, 'spentOn'),
+    }),
     onSubmit,
     onSuccess: onClose,
   });

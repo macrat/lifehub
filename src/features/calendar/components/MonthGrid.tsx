@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import { WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
+import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
@@ -156,22 +157,16 @@ function WeekRow({
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
         return (
-          <Box
+          <ButtonBase
             key={date}
-            role="button"
-            tabIndex={0}
-            aria-label={date}
+            aria-label={formatDateWithYear(date)}
             onClick={() => onSelectDate(date)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onSelectDate(date);
-            }}
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
               borderLeft: col === 0 ? 0 : 1,
               borderColor: 'divider',
-              cursor: 'pointer',
-              display: 'flex',
+              borderRadius: 0,
               justifyContent: 'center',
               alignItems: 'flex-start',
               pt: '2px',
@@ -179,7 +174,7 @@ function WeekRow({
             }}
           >
             <DayNumber date={date} size={18} muted={!inMonth} />
-          </Box>
+          </ButtonBase>
         );
       })}
       {visible.map((p) => (

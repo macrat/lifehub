@@ -37,6 +37,10 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 
 `expenses_get_balance`, `expenses_list`, `expenses_add`（[mcp.md](mcp.md)）。
 
+## 前提
+
+残高は登録順の先頭 2 人で計算する。ユーザーが 2 人でないときは計算せずエラーにする（3 人以上のとき先頭 2 人だけで黙って計算しない）。
+
 ## ホームのカード
 
-「立替残高」: 「A が B に n 円払うと精算」の 1 行表示。0 なら「精算済み」。`server/features/expenses/dashboard.ts`。
+「立替残高」: 「A が B に n 円払うと精算」の 1 行表示。0 なら「精算済み」。立替ページと同じ `balanceQueryOptions` を読む（`src/features/dashboard/cards/BalanceCard.tsx`）。

@@ -38,15 +38,13 @@ export function layoutLanes(
         const key = `${item.id}:${item.occurrenceStart}`;
         if (seenBars.has(key)) continue;
         seenBars.add(key);
-        let span = 1;
-        while (
-          col + span < n &&
-          (itemsByDate.get(days[col + span] as DateString) ?? []).some(
+        const continues = (day: DateString | undefined) =>
+          day !== undefined &&
+          (itemsByDate.get(day) ?? []).some(
             (i) => i.kind === 'event' && `${i.id}:${i.occurrenceStart}` === key,
-          )
-        ) {
-          span++;
-        }
+          );
+        let span = 1;
+        while (continues(days[col + span])) span++;
         entries.push({
           key,
           item,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses } from '../service.ts';
@@ -6,7 +7,7 @@ import { addExpense, deleteExpense, getBalance, listExpenses } from '../service.
 let a: string;
 let b: string;
 
-const on = '2026-09-01';
+const on = dateStringSchema.parse('2026-09-01');
 
 describe('expenses service', () => {
   beforeEach(async () => {

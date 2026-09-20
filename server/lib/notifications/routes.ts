@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import { notificationRefSchema } from '../../features/events/notifications.ts';
 import type { AppEnv } from '../app-env.ts';
 import { env } from '../env.ts';
 import { verifyQStashSignature } from '../qstash.ts';
 import { deliver, enqueueTomorrow } from './service.ts';
 
-const deliverBodySchema = z.object({ key: z.string().min(1) });
+const deliverBodySchema = z.object({ key: z.string().min(1), ref: notificationRefSchema });
 
 /**
  * 通知の外部エントリ。セッションではなく、Cron secret と QStash の署名で保護する。
@@ -26,5 +27,5 @@ export const notificationsRoutes = new Hono<AppEnv>()
     }
     const parsed = deliverBodySchema.safeParse(JSON.parse(rawBody));
     if (!parsed.success) throw new HTTPException(400, { message: 'invalid body' });
-    return c.json({ result: await deliver(parsed.data.key) });
+    return c.json({ result: await deliver(parsed.data.key, parsed.data.ref) });
   });

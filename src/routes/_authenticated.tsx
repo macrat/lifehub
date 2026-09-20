@@ -18,7 +18,6 @@ export const Route = createFileRoute('/_authenticated')({
     if (!me) {
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
-    return { me };
   },
   component: AuthenticatedLayout,
 });

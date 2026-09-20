@@ -3,7 +3,6 @@ import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useInvalidate } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
-import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 const EVENTS_QUERY_KEY = ['events'] as const;
 
@@ -24,8 +23,7 @@ export function eventQueryOptions(id: string) {
 }
 
 /** 書き込み後に無効化するクエリ */
-const useInvalidateAfterWrite = () =>
-  useInvalidate(CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, DASHBOARD_QUERY_KEY);
+const useInvalidateAfterWrite = () => useInvalidate(CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY);
 
 export function useCreateEvent() {
   const invalidate = useInvalidateAfterWrite();

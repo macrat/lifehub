@@ -66,7 +66,10 @@ function toExpense(row: ExpenseRow): Expense {
 async function twoUsers(): Promise<[string, string]> {
   const list = await users.listUsers();
   const [a, b] = list;
-  if (!a || !b) throw new ValidationError('立替の計算にはユーザーが 2 人必要です');
+  // 3 人以上のときに先頭 2 人だけで黙って計算しない
+  if (!a || !b || list.length !== 2) {
+    throw new ValidationError('立替の計算はユーザーが 2 人のときだけ行えます');
+  }
   return [a.id, b.id];
 }
 

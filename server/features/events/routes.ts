@@ -9,33 +9,39 @@ import {
   updateEventSchema,
 } from '../../../shared/validation/events.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
+import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
 const idParam = z.object({ id: uuidSchema });
 
 export const eventsRoutes = new Hono<AppEnv>()
-  .get('/', zValidator('query', dateRangeQuerySchema), async (c) =>
+  .get('/', zValidator('query', dateRangeQuerySchema, validationHook), async (c) =>
     c.json(await service.listItems(c.req.valid('query'))),
   )
-  .get('/:id', zValidator('param', idParam), async (c) =>
+  .get('/:id', zValidator('param', idParam, validationHook), async (c) =>
     c.json(await service.getEvent(c.req.valid('param').id)),
   )
-  .post('/', zValidator('json', createEventSchema), async (c) => {
+  .post('/', zValidator('json', createEventSchema, validationHook), async (c) => {
     const event = await service.createEvent(c.req.valid('json'), c.get('user').id);
     return c.json(event, 201);
   })
-  .put('/:id', zValidator('param', idParam), zValidator('json', updateEventSchema), async (c) => {
-    const event = await service.updateEvent(
-      c.req.valid('param').id,
-      c.req.valid('json'),
-      c.get('user').id,
-    );
-    return c.json(event);
-  })
+  .put(
+    '/:id',
+    zValidator('param', idParam, validationHook),
+    zValidator('json', updateEventSchema, validationHook),
+    async (c) => {
+      const event = await service.updateEvent(
+        c.req.valid('param').id,
+        c.req.valid('json'),
+        c.get('user').id,
+      );
+      return c.json(event);
+    },
+  )
   .delete(
     '/:id',
-    zValidator('param', idParam),
-    zValidator('json', deleteEventSchema),
+    zValidator('param', idParam, validationHook),
+    zValidator('json', deleteEventSchema, validationHook),
     async (c) => {
       await service.deleteEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);
@@ -43,8 +49,8 @@ export const eventsRoutes = new Hono<AppEnv>()
   )
   .post(
     '/:id/complete',
-    zValidator('param', idParam),
-    zValidator('json', completeEventSchema),
+    zValidator('param', idParam, validationHook),
+    zValidator('json', completeEventSchema, validationHook),
     async (c) => {
       await service.completeEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);
@@ -52,8 +58,8 @@ export const eventsRoutes = new Hono<AppEnv>()
   )
   .delete(
     '/:id/complete',
-    zValidator('param', idParam),
-    zValidator('json', completeEventSchema),
+    zValidator('param', idParam, validationHook),
+    zValidator('json', completeEventSchema, validationHook),
     async (c) => {
       await service.uncompleteEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);

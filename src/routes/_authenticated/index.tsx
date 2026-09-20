@@ -6,11 +6,13 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
-import { renderCard } from '../../features/dashboard/cards/index.tsx';
-import { dashboardQueryOptions } from '../../features/dashboard/queries.ts';
+import { BalanceCard } from '../../features/dashboard/cards/BalanceCard.tsx';
+import { LemonCard } from '../../features/dashboard/cards/LemonCard.tsx';
+import { TodayCard, todayItemsQueryOptions } from '../../features/dashboard/cards/TodayCard.tsx';
+import { balanceQueryOptions } from '../../features/expenses/queries.ts';
+import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
 import { formatDateWithYear, today } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -18,13 +20,18 @@ import { settingsNavItem } from '../../lib/ui/navigation.ts';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
-  loader: ({ context }) => ensureData(context.queryClient, dashboardQueryOptions),
+  // 各カードのクエリを先読みする（オフラインならキャッシュから）
+  loader: ({ context }) =>
+    Promise.all([
+      ensureData(context.queryClient, todayItemsQueryOptions()),
+      ensureData(context.queryClient, balanceQueryOptions),
+      ensureData(context.queryClient, lemonStatusQueryOptions),
+    ]),
   component: HomePage,
 });
 
-/** ホーム（ダッシュボード）。カードはサーバーの registry の順に並ぶ。スマホでは末尾に設定への入口を置く。 */
+/** ホーム。各機能のカードを並べる（それぞれが自分の機能のクエリを読む）。スマホでは末尾に設定への入口を置く。 */
 function HomePage() {
-  const { data: cards = [] } = useQuery(dashboardQueryOptions);
   const isDesktop = useIsDesktop();
   return (
     <>
@@ -34,7 +41,9 @@ function HomePage() {
         </Typography>
       </AppBarContent>
       <Stack divider={<Divider />}>
-        {cards.map(renderCard)}
+        <TodayCard />
+        <BalanceCard />
+        <LemonCard />
         {!isDesktop && (
           <List disablePadding>
             <ListItem disablePadding>

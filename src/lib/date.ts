@@ -105,8 +105,13 @@ export function toMonthString(date: DateString): string {
 }
 
 /** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
+/** 年月（YYYY-MM）の 1 日 */
+export function firstDayOfMonth(month: string): DateString {
+  return toDateString(startOfDate(`${month}-01` as DateString));
+}
+
 export function monthGridDays(month: string): DateString[] {
-  const first = `${month}-01` as DateString;
+  const first = firstDayOfMonth(month);
   const start = addDays(first, -weekdayIndex(first));
   return Array.from({ length: 42 }, (_, i) => addDays(start, i));
 }

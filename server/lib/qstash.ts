@@ -1,4 +1,5 @@
 import { Client, Receiver } from '@upstash/qstash';
+import type { PlannedNotification } from '../features/events/notifications.ts';
 import { env, isProduction, resolveBaseUrl } from './env.ts';
 
 /**
@@ -7,7 +8,7 @@ import { env, isProduction, resolveBaseUrl } from './env.ts';
  * 署名検証は Preview でも行う。
  */
 export type Publisher = {
-  publish: (input: { key: string; at: Date }) => Promise<void>;
+  publish: (input: PlannedNotification) => Promise<void>;
 };
 
 export function createPublisher(): Publisher | null {
@@ -15,10 +16,10 @@ export function createPublisher(): Publisher | null {
   const client = new Client({ token: env.QSTASH_TOKEN });
   const url = `${resolveBaseUrl()}/api/notifications/deliver`;
   return {
-    publish: async ({ key, at }) => {
+    publish: async ({ key, at, ref }) => {
       await client.publishJSON({
         url,
-        body: { key },
+        body: { key, ref },
         notBefore: Math.ceil(at.getTime() / 1000),
         deduplicationId: key,
         retries: 3,

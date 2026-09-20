@@ -5,7 +5,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 
 # 機能追加の手順
 
-新機能は「feature ディレクトリを（クライアントとサーバーに）作り、registry に 1 行ずつ足す」で完了する。既存機能（例: `lemon`, `expenses`）をひな形にし、同じ構造・同じパターンで作る。設計の前提は [docs/architecture.md](../../../docs/architecture.md)、データ規約は [docs/data-model.md](../../../docs/data-model.md)。
+新機能は「feature ディレクトリを（クライアントとサーバーに）作り、ルートと MCP に 1 行ずつ足す」で完了する。既存機能（例: `lemon`, `expenses`）をひな形にし、同じ構造・同じパターンで作る。設計の前提は [docs/architecture.md](../../../docs/architecture.md)、データ規約は [docs/data-model.md](../../../docs/data-model.md)。
 
 ## チェックリスト
 
@@ -16,17 +16,14 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `server/lib/schema.ts` に `export * from '../features/<name>/schema.ts'` を追加
    - `pnpm db:generate` でマイグレーションを生成し、`drizzle/` をコミットする
 4. **`repository.ts` → `service.ts` → `routes.ts`** の順に実装する。
-   - repository は Drizzle クエリのみ。service に業務ロジック。routes は `zValidator` で検証して service を呼ぶだけ。
+   - repository は Drizzle クエリのみ。service に業務ロジック。routes は `zValidator(target, schema, validationHook)`（`server/lib/validator.ts`）で検証して service を呼ぶだけ。
    - `server/app.ts` の `.route('/<name>', <name>Routes)` チェーンに追加する（型が Hono RPC クライアントへ伝わる）。
-5. **横断機能に登録する**（必要なものだけ）:
-   - `dashboard.ts` → `server/lib/dashboard/registry.ts`
-   - `notifications.ts` → `server/lib/notifications/registry.ts`
-   - `mcp.ts` → `server/lib/mcp/server.ts`
+5. **MCP に登録する**: `mcp.ts` → `server/lib/mcp/server.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/lib/notifications/service.ts` から呼ぶ。
 6. **クライアント feature** `src/features/<name>/` を作る:
-   - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に `useInvalidate`（`src/lib/query-client.ts`）で関連クエリと `DASHBOARD_QUERY_KEY` を invalidate）
+   - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に `useInvalidate`（`src/lib/query-client.ts`）で関連クエリを invalidate）
    - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。入力フォームは `FormDialog`（キャンセル・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類を 1 つ足す）か `FAB_SX`）
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
-   - ホームのカードは `src/features/dashboard/cards/` に追加し、`cards/index.tsx` の `renderCard` に 1 行足す
+   - ホームのカードは `src/features/dashboard/cards/` に追加し（`DashboardCardFrame` の中で自分の機能のクエリを読む）、`src/routes/_authenticated/index.tsx` に置く。loader の先読みにもそのクエリを足す
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
 8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。
 

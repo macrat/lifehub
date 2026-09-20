@@ -3,37 +3,49 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { formatTime, toDateString } from '../../../lib/date.ts';
+import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
-import { type CalendarItem, colorUserOf, taskTime } from '../../calendar/queries.ts';
+import {
+  type CalendarItem,
+  calendarItemsQueryOptions,
+  colorUserOf,
+  taskTime,
+} from '../../calendar/queries.ts';
 import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import type { DashboardCardOf } from '../queries.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
+/** 今日の項目のクエリ（カレンダーの 1 日分と同じ）。ホームの loader もこれを先読みする */
+export const todayItemsQueryOptions = () =>
+  calendarItemsQueryOptions({ from: today(), to: today() });
+
 /**
- * 今日の予定とタスクを 1 つの一覧に。1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
+ * 今日の予定と未完了のタスクを 1 つの一覧に。1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
  * タスクはチェックで完了、行をタップすると詳細。
  */
-export function TodayCard({ card }: { card: DashboardCardOf<'today'> }) {
+export function TodayCard() {
+  const { data = [], error } = useQuery(todayItemsQueryOptions());
+  const items = data.filter((item) => item.completedAt === null);
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   return (
     <DashboardCardFrame
       title="今日"
       link={{ to: '/calendar', search: { view: 'day' } }}
+      error={error}
       disableGutters
     >
-      {card.data.length === 0 ? (
+      {items.length === 0 ? (
         <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
           なし
         </Typography>
       ) : (
-        card.data.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
+        items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
       )}
-      <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />
+      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
     </DashboardCardFrame>
   );
 }

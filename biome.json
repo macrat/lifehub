@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": ["**", "!src/routeTree.gen.ts", "!drizzle", "!dist", "!dev-dist", "!infra"]
   },
@@ -24,7 +28,11 @@
       "correctness": {
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
-        "useExhaustiveDependencies": "error"
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error"
+      },
+      "a11y": {
+        "useSemanticElements": "error"
       }
     }
   },
@@ -41,5 +49,27 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/features/*/components/**", "src/features/*/cards/**", "src/routes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API はコンポーネントから直接呼ばず、features/*/queries.ts のフック経由にする"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

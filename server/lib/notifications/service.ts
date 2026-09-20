@@ -1,10 +1,14 @@
 import { addDays } from 'date-fns';
 import { lt } from 'drizzle-orm';
 import { startOfDay } from '../../../shared/date.ts';
+import {
+  listNotifications,
+  type NotificationRef,
+  resolveNotification,
+} from '../../features/events/notifications.ts';
 import { db } from '../db.ts';
 import { type PushMessage, sendToUsers } from '../push/send.ts';
 import { createPublisher, type Publisher } from '../qstash.ts';
-import { listAll, resolve } from './registry.ts';
 import { sentNotifications } from './schema.ts';
 
 const SENT_RETENTION_DAYS = 30;
@@ -14,7 +18,7 @@ export async function enqueueRange(
   range: { from: Date; to: Date },
   publisher: Publisher | null = createPublisher(),
 ): Promise<{ planned: number; published: number }> {
-  const planned = await listAll(range);
+  const planned = await listNotifications(range);
   if (!publisher) return { planned: planned.length, published: 0 };
   let published = 0;
   for (const item of planned) {
@@ -52,9 +56,10 @@ export async function enqueueUpcoming(now: Date = new Date()): Promise<void> {
   }
 }
 
-/** 配信: 台帳に無いキーだけ、再検証して送る。 */
+/** 配信: 台帳に無いキーだけ、参照を再検証して送る。 */
 export async function deliver(
   key: string,
+  ref: NotificationRef,
   send: (userIds: string[], message: PushMessage) => Promise<unknown> = sendToUsers,
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   const inserted = await db
@@ -63,7 +68,7 @@ export async function deliver(
     .onConflictDoNothing()
     .returning({ key: sentNotifications.key });
   if (inserted.length === 0) return 'duplicate';
-  const payload = await resolve(key);
+  const payload = await resolveNotification(ref);
   if (!payload) return 'stale';
   await send(payload.userIds, {
     title: payload.title,

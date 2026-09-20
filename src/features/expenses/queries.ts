@@ -2,7 +2,6 @@ import { queryOptions, useMutation } from '@tanstack/react-query';
 import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useInvalidate } from '../../lib/query-client.ts';
-import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
 export type Expense = InferResponseType<typeof api.expenses.$get, 200>[number];
@@ -21,7 +20,7 @@ export const balanceQueryOptions = queryOptions({
 });
 
 /** 書き込み後に無効化するクエリ */
-const useInvalidateAfterWrite = () => useInvalidate(EXPENSES_QUERY_KEY, DASHBOARD_QUERY_KEY);
+const useInvalidateAfterWrite = () => useInvalidate(EXPENSES_QUERY_KEY);
 
 export function useAddExpense() {
   const invalidate = useInvalidateAfterWrite();

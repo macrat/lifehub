@@ -5,7 +5,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 ## 共通規約（Postgres）
 
 - 主キーは `uuid`。アプリ側で UUID v7 を生成する（時系列ソート可能）。better-auth 管理のテーブルも `generateId` で UUID v7 を使う。
-- 日時は `timestamptz`（UTC 保存、表示時に JST 変換）。日付のみは `date`。
+- 日時は `timestamptz`（UTC 保存、表示時に JST 変換）。日付のみは `date`。TypeScript では JST の暦日を `DateString`（`shared/types.ts`。検証済みの文字列にだけ付く brand 型）で表し、`shared/date.ts` の変換関数と `dateStringSchema` だけが作る。
 - 金額は `integer`（円）。
 - 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。例外は、台帳の `sent_notifications`、結合テーブルの `event_participants`、`user_id` が持ち主そのものである `push_subscriptions`、better-auth 管理のテーブル（それぞれの規約に従う）。
 - インデックスは実際に絞り込みや結合で使う列だけに張る。全件を読んで並べる小さなテーブル（`expenses`, `lemon_care_logs`）には張らない。

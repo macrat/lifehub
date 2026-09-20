@@ -69,7 +69,7 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    calendar/  events/  expenses/  lemon/  users/  push/  dashboard/
+    calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
     api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate）  form.ts（useFormSubmit・formText・formSelect）  theme.ts（createAppTheme・useColorMode）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）
@@ -82,13 +82,12 @@ server/                       # サーバー（Hono）
     service.ts                # 業務ロジック（繰り返し展開を含む）
     routes.ts                 # Hono ルート（Zod 検証 → service）
     mcp.ts                    # MCP ツール定義
-    dashboard.ts              # ホーム画面への指標提供
-    notifications.ts          # 通知対象の列挙と配信時再検証
+    notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts
     mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
-    recurrence/（RRULE 展開・例外適用）  dashboard/（registry）  notifications/（registry, enqueue, deliver）
+    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   types.ts  constants.ts
@@ -106,33 +105,12 @@ e2e/                          # Playwright
 - サーバーとクライアントで tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
 
-## 拡張ポイント（機能追加を「登録」で済ませる仕組み）
+## 横断機能との接続
 
-横断的な処理（ホーム・通知・MCP）が個別機能を知らなくて済むよう、各機能が共通インターフェースを実装して registry に登録する。
-
-```ts
-// server/lib/dashboard/types.ts
-export type DashboardWidget<Id extends string, Data> = {
-  id: Id;
-  order: number;
-  load: (ctx: { userId: string; now: Date }) => Promise<Data>;
-};
-// registry.ts の widgets から DashboardCard（id ごとの data 型の union）を導き、
-// GET /api/dashboard のレスポンス型として Hono RPC でクライアントへ伝える。
-// クライアントは src/features/dashboard/cards/index.tsx で id ごとの描画を登録する。
-
-// server/lib/notifications/types.ts
-export type NotificationSource = {
-  id: string;
-  /** 指定期間に発火すべき通知を列挙する（key は冪等性のための一意キー） */
-  list: (range: { from: Date; to: Date }) => Promise<PlannedNotification[]>;
-  /** 配信直前に再検証する（削除・変更されていれば null） */
-  resolve: (key: string) => Promise<NotificationPayload | null>;
-};
-```
-
-- `server/features/*/dashboard.ts` が `DashboardWidget` を、`server/features/*/notifications.ts` が `NotificationSource` を export し、`server/lib/dashboard/registry.ts` / `server/lib/notifications/registry.ts` に列挙する。MCP ツールも `server/features/*/mcp.ts` を `server/lib/mcp/server.ts` で登録する。
-- 新機能の追加は「feature ディレクトリを（クライアントとサーバーに）作り、registry に 1 行ずつ足す」で完了する。手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
+- **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/lib/mcp/server.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
+- **ホーム**: 集約 API は持たない。`src/features/dashboard/cards/*` の各カードが自分の機能のクエリ（`calendarItemsQueryOptions` / `balanceQueryOptions` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無く、書き込み後の無効化はその機能のキーだけで済む。カードごとに読み込みとエラーを出せる。
+- **通知**: 通知源は events だけなので registry を置かず、`server/lib/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
+- 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 
 ## 認証・認可
 

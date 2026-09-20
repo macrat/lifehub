@@ -8,7 +8,7 @@ import {
   createCareLogSchema,
 } from '../../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
+import { formText, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import type { CreateCareLogBody } from '../queries.ts';
 
@@ -24,15 +24,11 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createCareLogSchema,
     values: (fd) => {
-      const doneAtRaw = fd.get('doneAt');
-      const note = fd.get('note');
+      const doneAt = formText(fd, 'doneAt');
       return {
         careType,
-        doneAt:
-          typeof doneAtRaw === 'string' && doneAtRaw !== ''
-            ? fromDateTimeLocalValue(doneAtRaw)
-            : undefined,
-        note: typeof note === 'string' && note !== '' ? note : null,
+        doneAt: doneAt === null ? undefined : fromDateTimeLocalValue(doneAt),
+        note: formText(fd, 'note'),
       };
     },
     onSubmit: (data) => onSubmit({ ...data, doneAt: data.doneAt.toISOString() }),

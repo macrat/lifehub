@@ -65,7 +65,7 @@ function CalendarPage() {
           onChangeView={(view) => page.setSearch({ view })}
           list={{
             query: page.filters.q,
-            onChangeQuery: (q) => page.setSearch({ q: q || undefined }),
+            onChangeQuery: (q) => page.setSearch({ q: q || undefined }, { replace: true }),
             filtersOpen,
             onToggleFilters: () => setFiltersOpen((v) => !v),
             activeFilters: page.activeFilters,
@@ -79,7 +79,10 @@ function CalendarPage() {
           filters={page.filters}
           filtersOpen={filtersOpen}
           onChangeFilters={(next) =>
-            page.setSearch({ ...next, q: next.q === undefined ? undefined : next.q || undefined })
+            page.setSearch(
+              { ...next, q: next.q === undefined ? undefined : next.q || undefined },
+              { replace: true },
+            )
           }
           onSelectItem={setSelected}
         />
@@ -127,7 +130,7 @@ function CalendarPage() {
       )}
 
       <AddMenu kinds={['task', 'event']} date={page.date} />
-      <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />
+      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db, runBatch } from '../../lib/db.ts';
 import { newId } from '../../lib/id.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
@@ -12,7 +12,7 @@ export async function findById(id: string): Promise<EventRow | undefined> {
 
 /**
  * [from, to) に発生を持ちうる繰り返し元・単発の行。
- * タスクは表示位置が「今日」に依存し DB で絞れないため全件、予定は期間と重なるもの（繰り返しは開始が to より前なら候補）。
+ * 未完了のタスクは表示位置が「今日」に依存し DB で絞れないため全件、予定は期間と重なるもの（繰り返しは開始が to より前なら候補）。
  */
 export async function findCandidates(from: Date, to: Date): Promise<EventRow[]> {
   return db
@@ -22,7 +22,11 @@ export async function findCandidates(from: Date, to: Date): Promise<EventRow[]> 
       and(
         isNull(events.seriesId),
         or(
-          eq(events.kind, 'task'),
+          // 完了したタスクは完了日にしか置かれないので、範囲より前に完了したものは読まない
+          and(
+            eq(events.kind, 'task'),
+            or(isNull(events.completedAt), gte(events.completedAt, from)),
+          ),
           and(lt(events.startsAt, to), or(isNotNull(events.rrule), gt(events.endsAt, from))),
         ),
       ),
@@ -34,18 +38,6 @@ export async function findCandidates(from: Date, to: Date): Promise<EventRow[]> 
 export async function findBySeriesIds(seriesIds: string[]): Promise<EventRow[]> {
   if (seriesIds.length === 0) return [];
   return db.select().from(events).where(inArray(events.seriesId, seriesIds));
-}
-
-export async function findOccurrence(
-  seriesId: string,
-  occurrenceStart: Date,
-): Promise<EventRow | undefined> {
-  const rows = await db
-    .select()
-    .from(events)
-    .where(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)))
-    .limit(1);
-  return rows[0];
 }
 
 export async function findParticipants(eventIds: string[]): Promise<ParticipantRow[]> {
@@ -87,6 +79,34 @@ export async function update(
     db.update(events).set(values).where(eq(events.id, id)),
     db.delete(eventParticipants).where(eq(eventParticipants.eventId, id)),
     db.insert(eventParticipants).values(participantRows(id, participantIds)),
+  ]);
+}
+
+/**
+ * 繰り返しの回を実体化する。無ければ row で作り、あれば patch だけを当てる（同じ回への同時操作でも
+ * 一意制約違反にならない）。inserted は新しく作ったかどうか（Postgres の xmax = 0 の慣用句）
+ */
+export async function upsertOccurrence(
+  row: Omit<NewEventRow, 'id'>,
+  patch: Partial<NewEventRow>,
+): Promise<{ id: string; inserted: boolean }> {
+  const rows = await db
+    .insert(events)
+    .values({ ...row, id: newId() })
+    .onConflictDoUpdate({
+      target: [events.seriesId, events.occurrenceStart],
+      set: { ...patch, updatedAt: new Date() },
+    })
+    .returning({ id: events.id, inserted: sql<boolean>`(xmax = 0)` });
+  const result = rows[0];
+  if (!result) throw new Error('upsert returned no row');
+  return result;
+}
+
+export async function setParticipants(eventId: string, userIds: string[]): Promise<void> {
+  await runBatch([
+    db.delete(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
+    db.insert(eventParticipants).values(participantRows(eventId, userIds)),
   ]);
 }
 

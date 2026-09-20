@@ -5,6 +5,7 @@ import { dateStringSchema } from '../../../shared/validation/common.ts';
 import {
   addDays,
   addMonths,
+  firstDayOfMonth,
   formatDateRange,
   formatDateWithYear,
   formatMonth,
@@ -27,6 +28,8 @@ export const calendarSearchSchema = z.object({
   q: z.string().optional(),
 });
 export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
+/** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
+export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
 /**
  * カレンダー画面の状態は検索パラメータだけで決まる（表示・日付・絞り込み）。
@@ -71,14 +74,20 @@ export function useCalendarPage(search: CalendarSearch) {
         ? formatDateRange(range.from, range.to)
         : formatDateWithYear(date);
 
-  const setSearch = (next: Partial<CalendarSearch>) =>
-    navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
+  /**
+   * 検索パラメータの更新。表示や日付の切り替えは履歴に積み（戻るで前の表示に戻れる）、
+   * スワイプでの前後移動と絞り込みの入力は置き換える（戻るが連打の巻き戻しにならない）
+   */
+  const setSearch = (next: SearchPatch, { replace = false } = {}) =>
+    navigate({ search: (prev) => ({ ...prev, ...next }), replace });
 
   /** 前後の月・週・日へ（リスト表示では何もしない） */
   const move = (direction: 1 | -1) => {
-    if (view === 'month') setSearch({ date: `${addMonths(month, direction)}-01` as DateString });
-    else if (view === 'week') setSearch({ date: addDays(date, 7 * direction) });
-    else if (view === 'day') setSearch({ date: addDays(date, direction) });
+    const replace = { replace: true };
+    if (view === 'month')
+      setSearch({ date: firstDayOfMonth(addMonths(month, direction)) }, replace);
+    else if (view === 'week') setSearch({ date: addDays(date, 7 * direction) }, replace);
+    else if (view === 'day') setSearch({ date: addDays(date, direction) }, replace);
   };
 
   return {
@@ -96,6 +105,6 @@ export function useCalendarPage(search: CalendarSearch) {
     openDay: (d: DateString) => setSearch({ view: 'day', date: d }),
     /** 年月の選択: 今の月なら今日、それ以外は 1 日へ */
     selectMonth: (m: string) =>
-      setSearch({ date: m === toMonthString(today()) ? today() : (`${m}-01` as DateString) }),
+      setSearch({ date: m === toMonthString(today()) ? today() : firstDayOfMonth(m) }),
   };
 }

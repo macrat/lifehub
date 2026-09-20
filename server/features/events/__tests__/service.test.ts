@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { ValidationError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
@@ -18,7 +19,7 @@ const iso = (s: string) => jst(s).toISOString();
 
 // 「今日」を 2026-09-14（月）の正午に固定する
 const now = jst('2026-09-14T12:00:00');
-const september = { from: '2026-09-01', to: '2026-09-30' } as const;
+const september = dateRangeQuerySchema.parse({ from: '2026-09-01', to: '2026-09-30' });
 
 let userId: string;
 let partnerId: string;
@@ -163,7 +164,10 @@ describe('events service', () => {
         }),
         userId,
       );
-      const items = await listItems({ from: '2026-09-20', to: '2026-09-21' }, now);
+      const items = await listItems(
+        dateRangeQuerySchema.parse({ from: '2026-09-20', to: '2026-09-21' }),
+        now,
+      );
       expect(
         items.map((i) => [
           i.placementDate,
@@ -388,7 +392,10 @@ describe('events service', () => {
         }),
         userId,
       );
-      const list = await listItems({ from: '2026-09-01', to: '2026-12-31' }, now);
+      const list = await listItems(
+        dateRangeQuerySchema.parse({ from: '2026-09-01', to: '2026-12-31' }),
+        now,
+      );
       expect(list.map((t) => [t.startsAt, t.endsAt])).toEqual([
         [iso('2026-09-20T00:00:00'), iso('2026-09-27T00:00:00')],
         [iso('2026-10-20T00:00:00'), iso('2026-10-27T00:00:00')],

@@ -2,7 +2,6 @@ import { queryOptions, useMutation } from '@tanstack/react-query';
 import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useInvalidate } from '../../lib/query-client.ts';
-import { DASHBOARD_QUERY_KEY } from '../dashboard/queries.ts';
 
 export type CreateCareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
 export type CareLog = InferResponseType<typeof api.lemon.logs.$get, 200>[number];
@@ -21,7 +20,7 @@ export const lemonLogsQueryOptions = queryOptions({
 });
 
 /** 書き込み後に無効化するクエリ */
-const useInvalidateAfterWrite = () => useInvalidate(LEMON_QUERY_KEY, DASHBOARD_QUERY_KEY);
+const useInvalidateAfterWrite = () => useInvalidate(LEMON_QUERY_KEY);
 
 export function useLogCare() {
   const invalidate = useInvalidateAfterWrite();

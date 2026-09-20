@@ -26,7 +26,7 @@ import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 import { TaskForm } from './TaskForm.tsx';
 
 type Props = {
-  item: CalendarItem | null;
+  item: CalendarItem;
   onClose: () => void;
 };
 
@@ -35,6 +35,7 @@ const EDIT_TITLES = { this: 'この回だけ編集', following: 'これ以降を
 /**
  * 予定・タスクの詳細。編集・削除の入口で、繰り返しなら範囲（この回だけ／これ以降／すべて）を先に選ばせる。
  * タスクは完了／取り消しもここから。状態の変更は mutation（queries.ts）に集約し、ここは表示と操作の受け渡しに徹する。
+ * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function ItemDetailDialog({ item, onClose }: Props) {
   const { label } = useUserLabels();
@@ -42,9 +43,8 @@ export function ItemDetailDialog({ item, onClose }: Props) {
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
   const editing = useRecurrenceEditing({
-    isRecurring: item?.isRecurring ?? false,
+    isRecurring: item.isRecurring,
     onDelete: async (scope) => {
-      if (!item) return;
       await deleteEvent.mutateAsync({
         id: item.id,
         scope,
@@ -56,11 +56,9 @@ export function ItemDetailDialog({ item, onClose }: Props) {
   const { editScope } = editing;
   // 「すべて」の編集は繰り返し元（先頭の回の日時）から始めるので取り直す
   const master = useQuery({
-    ...eventQueryOptions(item?.id ?? ''),
-    enabled: item !== null && editScope === 'all' && item.isRecurring,
+    ...eventQueryOptions(item.id),
+    enabled: editScope === 'all' && item.isRecurring,
   });
-
-  if (!item) return null;
 
   const isTask = item.kind === 'task';
   const completed = item.completedAt !== null;

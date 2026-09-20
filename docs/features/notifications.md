@@ -15,26 +15,24 @@
 予定の変更・削除のたびに予約をキャンセルする処理を書かなくて済むようにするため、予約は使い捨てにし、配信時に再検証する。
 
 1. Vercel Cron（日次 00:00 JST = UTC `0 15 * * *`）が `GET /api/notifications/enqueue` を呼ぶ（`Authorization: Bearer <CRON_SECRET>` で保護。Vercel は `CRON_SECRET` があればこのヘッダを自動で付ける）。全 `NotificationSource` から翌日分（JST の翌日 0:00〜翌々日 0:00）を列挙し、QStash に `notBefore`（配信時刻）付きで予約する。`deduplicationId` = 通知キーで重複を防ぐ。
-   - キーは配信予定時刻を含む: `event:<id>:<occurrenceStart ISO | single>:<start|end>:<at>`。日時や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
+   - キーは配信予定時刻を含む（`event:<id>:<occurrenceStart ISO | single>:<start|end>:<at>`）。日時や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
 2. 予定・タスクの作成／変更で当日〜翌日に新たな通知が発生する場合は、その場で同様に予約する（dedupe により重複しない）。service の `create` / `update` から `enqueueUpcoming()` を呼ぶ。
-3. 配信時刻に QStash が `POST /api/notifications/deliver` を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolve(key)` で対象を再読込する。削除・変更（配信予定時刻がずれた）・完了済みなら送らない。
+3. 配信時刻に QStash が `POST /api/notifications/deliver` を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolveNotification(ref)` で対象を再読込する。削除・変更（配信予定時刻がずれた）・完了済みなら送らない。
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
 
 `VERCEL_ENV !== 'production'` のとき、1 と 2 の QStash への publish を行わない（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。3 の署名検証は Preview でも行う。`QSTASH_TOKEN` 未設定（ローカル）でも publish を行わない。
 
-## 拡張ポイント
+## 構成
 
 ```ts
-// server/lib/notifications/types.ts
-export type NotificationSource = {
-  id: string;
-  list: (range: { from: Date; to: Date }) => Promise<PlannedNotification[]>;
-  resolve: (key: string) => Promise<NotificationPayload | null>;
-};
+// server/features/events/notifications.ts
+export const notificationRefSchema = z.object({ id, occurrenceStart, edge: 'start' | 'end', at });
+export function listNotifications(range): Promise<{ key; at; ref }[]>;   // 予約する通知の列挙
+export function resolveNotification(ref): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```
 
-`server/features/events/notifications.ts` が実装し、`server/lib/notifications/registry.ts` に列挙する。キーの先頭（`event:`）で `resolve` の振り分けを行う。予約・配信の共通処理は `server/lib/notifications/service.ts`、QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/lib/push/send.ts`。
+通知源は予定・タスク（events）だけなので registry は置かず、`server/lib/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/lib/push/send.ts`。
 
 ## 購読
 

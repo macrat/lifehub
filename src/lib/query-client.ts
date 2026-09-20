@@ -34,11 +34,14 @@ export const persistOptions = {
   buster: __APP_VERSION__,
 };
 
-/** mutation の成功後に関連クエリを無効化する関数を返す。キーは各 feature の queryOptions / *_QUERY_KEY から渡す */
-export function useInvalidate(...keys: readonly (readonly unknown[])[]): () => void {
+/**
+ * mutation の成功後に関連クエリを無効化する関数を返す。キーは各 feature の queryOptions / *_QUERY_KEY から渡す。
+ * 再取得の完了を待つので、mutateAsync / isPending が新しいデータの到着まで伸びる（連打の抑止にもなる）
+ */
+export function useInvalidate(...keys: readonly (readonly unknown[])[]): () => Promise<void> {
   const queryClient = useQueryClient();
-  return () => {
-    for (const queryKey of keys) queryClient.invalidateQueries({ queryKey });
+  return async () => {
+    await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
   };
 }
 

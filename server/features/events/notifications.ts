@@ -1,20 +1,36 @@
+import { z } from 'zod';
 import { addDays, toDateString } from '../../../shared/date.ts';
+import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
-  type NotificationSource,
+  type NotificationPayload,
   notificationTimeFormatter,
-  type PlannedNotification,
-  splitKey,
 } from '../../lib/notifications/types.ts';
 import { type CalendarItem, listItems } from './occurrences.ts';
 
-const SOURCE_ID = 'event';
 const EDGES = ['start', 'end'] as const;
 type Edge = (typeof EDGES)[number];
 const MAX_REMIND_MS = 1440 * 60 * 1000;
 
-/** キー: event:<id>:<occurrenceStart ISO | single>:<start|end>:<配信予定時刻 ISO> */
-function keyOf(item: CalendarItem, edge: Edge, at: Date): string {
-  return `${SOURCE_ID}:${item.id}:${item.occurrenceStart ?? 'single'}:${edge}:${at.toISOString()}`;
+/** 配信時に再検証するための参照。QStash のメッセージ本文に載せ、配信時に Zod で読み直す */
+export const notificationRefSchema = z.object({
+  id: uuidSchema,
+  /** 繰り返しの回。単発は null */
+  occurrenceStart: z.string().nullable(),
+  edge: z.enum(EDGES),
+  /** 予約したときの配信予定時刻。日時が変わってずれていたら送らない */
+  at: instantSchema,
+});
+export type NotificationRef = z.infer<typeof notificationRefSchema>;
+
+export type PlannedNotification = {
+  /** 冪等性のための一意キー（QStash の deduplicationId と送信台帳の主キー）。中身は読まない */
+  key: string;
+  at: Date;
+  ref: NotificationRef;
+};
+
+function keyOf(ref: NotificationRef): string {
+  return `event:${ref.id}:${ref.occurrenceStart ?? 'single'}:${ref.edge}:${ref.at.toISOString()}`;
 }
 
 /** 開始／終了（期限）の n 分前。完了したタスクには送らない */
@@ -26,7 +42,7 @@ function remindAt(item: CalendarItem, edge: Edge): Date | null {
   return new Date(new Date(anchor).getTime() - minutes * 60 * 1000);
 }
 
-/** 配信予定時刻が [from, to) に入る発生を、日ごとの重複（複数日の予定）を除いて列挙する */
+/** 配信予定時刻が [from, to) に入りうる発生を、日ごとの重複（複数日の予定）を除いて列挙する */
 async function itemsAround(range: { from: Date; to: Date }): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
@@ -54,44 +70,39 @@ function body(item: CalendarItem, edge: Edge): string {
   return `${label} ${notificationTimeFormatter.format(anchor)}${location}`;
 }
 
-/** 予定・タスクの開始／終了（期限）の n 分前に、参加者の全端末へ */
-export const eventsNotificationSource: NotificationSource = {
-  id: SOURCE_ID,
-  list: async (range) => {
-    const planned: PlannedNotification[] = [];
-    for (const item of await itemsAround(range)) {
-      for (const edge of EDGES) {
-        const at = remindAt(item, edge);
-        if (!at || at < range.from || at >= range.to) continue;
-        planned.push({ key: keyOf(item, edge, at), at });
-      }
+/** [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ） */
+export async function listNotifications(range: {
+  from: Date;
+  to: Date;
+}): Promise<PlannedNotification[]> {
+  const planned: PlannedNotification[] = [];
+  for (const item of await itemsAround(range)) {
+    for (const edge of EDGES) {
+      const at = remindAt(item, edge);
+      if (!at || at < range.from || at >= range.to) continue;
+      const ref = { id: item.id, occurrenceStart: item.occurrenceStart, edge, at };
+      planned.push({ key: keyOf(ref), at, ref });
     }
-    return planned;
-  },
-  resolve: async (key) => {
-    const parsed = splitKey(SOURCE_ID, key);
-    if (!parsed) return null;
-    const { id, rest, scheduledAt } = parsed;
-    const edgeIndex = rest.lastIndexOf(':');
-    const occurrenceStart = rest.slice(0, edgeIndex);
-    const edge = EDGES.find((e) => e === rest.slice(edgeIndex + 1));
-    if (!edge) return null;
-    const items = await itemsAround({
-      from: new Date(scheduledAt.getTime() - MAX_REMIND_MS),
-      to: new Date(scheduledAt.getTime() + MAX_REMIND_MS),
-    });
-    const item = items.find(
-      (i) => i.id === id && (i.occurrenceStart ?? 'single') === occurrenceStart,
-    );
-    if (!item) return null;
-    const at = remindAt(item, edge);
-    // 通知設定が消えた、または日時が変わって配信時刻がずれたら送らない（新しい時刻で別途予約される）
-    if (!at || at.getTime() !== scheduledAt.getTime()) return null;
-    return {
-      title: item.kind === 'task' ? `タスク: ${item.title}` : item.title,
-      body: body(item, edge),
-      url: `/calendar?date=${item.placementDate}`,
-      userIds: item.participantIds,
-    };
-  },
-};
+  }
+  return planned;
+}
+
+/** 配信直前の再検証。削除・変更（配信予定時刻がずれた）・完了済みなら null */
+export async function resolveNotification(
+  ref: NotificationRef,
+): Promise<NotificationPayload | null> {
+  const items = await itemsAround({
+    from: new Date(ref.at.getTime() - MAX_REMIND_MS),
+    to: new Date(ref.at.getTime() + MAX_REMIND_MS),
+  });
+  const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
+  if (!item) return null;
+  const at = remindAt(item, ref.edge);
+  if (!at || at.getTime() !== ref.at.getTime()) return null;
+  return {
+    title: item.kind === 'task' ? `タスク: ${item.title}` : item.title,
+    body: body(item, ref.edge),
+    url: `/calendar?date=${item.placementDate}`,
+    userIds: item.participantIds,
+  };
+}

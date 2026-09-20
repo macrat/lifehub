@@ -74,6 +74,12 @@ export function GridChip({ placed, compact, colors, onClick, showTime = !compact
           filter: isBar ? 'brightness(0.92)' : undefined,
           bgcolor: isBar ? colors.fill : 'action.hover',
         },
+        // all: unset はフォーカスの輪郭も消すので、キーボード操作のときだけ戻す
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: -2,
+        },
       }}
     >
       {isTask ? (

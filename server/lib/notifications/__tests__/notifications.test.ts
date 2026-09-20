@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import {
+  listNotifications,
+  type NotificationRef,
+  type PlannedNotification,
+  resolveNotification,
+} from '../../../features/events/notifications.ts';
+import {
   completeEvent,
   createEvent,
   deleteEvent,
@@ -8,7 +14,6 @@ import {
 } from '../../../features/events/service.ts';
 import { createUser } from '../../../features/users/service.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
-import { listAll, resolve } from '../registry.ts';
 import { deliver, enqueueRange } from '../service.ts';
 
 const jst = (s: string) => new Date(`${s}+09:00`);
@@ -58,7 +63,7 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const planned = await listAll(tomorrow);
+    const planned = await listNotifications(tomorrow);
     expect(planned.map((p) => [p.key, p.at.toISOString()])).toEqual([
       [`event:${task.id}:single:end:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
       [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
@@ -85,17 +90,17 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const keys = (await listAll(tomorrow)).map((p) => p.key);
-    const eventKey = keys.find((k) => k.includes(event.id)) as string;
-    const taskKey = keys.find((k) => k.includes(task.id)) as string;
+    const planned = await listNotifications(tomorrow);
+    const eventRef = planned.find((p) => p.ref.id === event.id)?.ref as NotificationRef;
+    const taskRef = planned.find((p) => p.ref.id === task.id)?.ref as NotificationRef;
 
-    expect(await resolve(eventKey)).toMatchObject({
+    expect(await resolveNotification(eventRef)).toMatchObject({
       title: '歯医者',
       body: '開始 9/15 10:00',
       userIds: [userId],
       url: '/calendar?date=2026-09-15',
     });
-    expect(await resolve(taskKey)).toMatchObject({
+    expect(await resolveNotification(taskRef)).toMatchObject({
       title: 'タスク: 提出',
       body: '期限 9/15 17:00',
     });
@@ -111,12 +116,12 @@ describe('notifications', () => {
       },
       userId,
     );
-    expect(await resolve(eventKey)).toBeNull();
+    expect(await resolveNotification(eventRef)).toBeNull();
     await deleteEvent(event.id, { scope: 'all' }, userId);
-    expect(await resolve(eventKey)).toBeNull();
+    expect(await resolveNotification(eventRef)).toBeNull();
 
     await completeEvent(task.id, {}, userId);
-    expect(await resolve(taskKey)).toBeNull();
+    expect(await resolveNotification(taskRef)).toBeNull();
   });
 
   it('同じキーは一度しか送らず、予約先が無ければ列挙だけする', async () => {
@@ -130,18 +135,18 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const published: string[] = [];
+    const published: PlannedNotification[] = [];
     expect(
-      await enqueueRange(tomorrow, { publish: async ({ key }) => void published.push(key) }),
+      await enqueueRange(tomorrow, { publish: async (item) => void published.push(item) }),
     ).toEqual({ planned: 1, published: 1 });
     expect(await enqueueRange(tomorrow, null)).toEqual({ planned: 1, published: 0 });
 
     const sent: string[] = [];
     const send = async (_: string[], m: { title: string }) => void sent.push(m.title);
-    const key = published[0] as string;
-    expect(await deliver(key, send)).toBe('sent');
-    expect(await deliver(key, send)).toBe('duplicate');
-    expect(await deliver('event:unknown', send)).toBe('stale');
+    const { key, ref } = published[0] as PlannedNotification;
+    expect(await deliver(key, ref, send)).toBe('sent');
+    expect(await deliver(key, ref, send)).toBe('duplicate');
+    expect(await deliver('event:unknown', { ...ref, id: userId }, send)).toBe('stale');
     expect(sent).toEqual(['タスク: 提出']);
   });
 });

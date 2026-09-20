@@ -176,7 +176,7 @@ function requireOccurrence(master: EventRow, value: Date | undefined): Date {
 }
 
 /**
- * 繰り返しの回を実体化する（無ければ繰り返し元の複製を作り、あれば更新する）。
+ * 繰り返しの回を実体化する（無ければ繰り返し元の複製に values を重ねて作り、あれば values だけを当てる）。
  * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する。
  */
 async function materialize(
@@ -186,13 +186,8 @@ async function materialize(
   participantIds: string[] | undefined,
   userId: string,
 ): Promise<void> {
-  const existing = await repository.findOccurrence(master.id, occurrenceStart);
-  if (existing) {
-    await repository.update(existing.id, values, participantIds);
-    return;
-  }
   const { id: _id, createdAt: _c, updatedAt: _u, ...copy } = master;
-  await repository.insert(
+  const { id, inserted } = await repository.upsertOccurrence(
     {
       ...copy,
       ...shiftTo(master, occurrenceStart),
@@ -202,8 +197,10 @@ async function materialize(
       createdBy: userId,
       ...values,
     },
-    participantIds ?? (await participantsOf(master.id)),
+    values,
   );
+  const ids = participantIds ?? (inserted ? await participantsOf(master.id) : undefined);
+  if (ids) await repository.setParticipants(id, ids);
 }
 
 /**

@@ -8,7 +8,6 @@ import { usersRoutes } from './features/users/routes.ts';
 import { getUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
-import { dashboardRoutes } from './lib/dashboard/routes.ts';
 import { db } from './lib/db.ts';
 import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { mcpRoutes } from './lib/mcp/routes.ts';
@@ -59,7 +58,6 @@ const routes = app
   .route('/events', eventsRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
-  .route('/dashboard', dashboardRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

@@ -4,6 +4,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate } from '../queries.ts';
@@ -24,7 +25,8 @@ type Props = {
   items: CalendarItem[];
   filters: ListFilters;
   filtersOpen: boolean;
-  onChangeFilters: (next: Partial<ListFilters>) => void;
+  /** 更新する項目だけ。undefined は既定に戻す */
+  onChangeFilters: (next: { [K in keyof ListFilters]?: ListFilters[K] | undefined }) => void;
   onSelectItem: (item: CalendarItem) => void;
 };
 
@@ -53,7 +55,7 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
             type="date"
             size="small"
             value={filters.from}
-            onChange={(e) => onChangeFilters({ from: e.target.value as DateString })}
+            onChange={(e) => onChangeFilters({ from: dateOrDefault(e.target.value) })}
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
@@ -61,7 +63,7 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
             type="date"
             size="small"
             value={filters.to}
-            onChange={(e) => onChangeFilters({ to: e.target.value as DateString })}
+            onChange={(e) => onChangeFilters({ to: dateOrDefault(e.target.value) })}
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
@@ -117,6 +119,11 @@ export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelec
       )}
     </>
   );
+}
+
+/** date 入力は消すと空文字になるので、そのときは既定の期間に戻す */
+function dateOrDefault(value: string): DateString | undefined {
+  return isDateString(value) ? value : undefined;
 }
 
 function matches(item: CalendarItem, f: ListFilters): boolean {
