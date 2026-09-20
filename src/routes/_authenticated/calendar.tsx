@@ -163,7 +163,16 @@ function CalendarPage() {
           onSelectItem={setSelected}
         />
       ) : (
-        <Box ref={swipeRef} sx={{ height: FILL_HEIGHT, mb: FILL_MARGIN_BOTTOM }}>
+        <Box
+          ref={swipeRef}
+          sx={{
+            height: FILL_HEIGHT,
+            mb: FILL_MARGIN_BOTTOM,
+            // 横スワイプはこちらで扱う（ブラウザの「戻る」ジェスチャや横スクロールに取られない）
+            touchAction: 'pan-y',
+            overscrollBehaviorX: 'contain',
+          }}
+        >
           {view === 'month' ? (
             <MonthGrid
               month={month}
