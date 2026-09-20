@@ -4,4 +4,5 @@
  */
 
 export * from '../features/events/schema.ts';
+export * from '../features/tasks/schema.ts';
 export * from '../features/users/schema.ts';

@@ -34,7 +34,13 @@ describe('calendar service', () => {
       userId,
     );
     const items = await listItems({ from: '2026-09-20', to: '2026-09-21' });
-    expect(items.map((i) => [i.placementDate, i.title, i.dayIndex, i.dayCount])).toEqual([
+    expect(
+      items.map((i) => [
+        i.placementDate,
+        i.title,
+        ...(i.kind === 'event' ? [i.dayIndex, i.dayCount] : []),
+      ]),
+    ).toEqual([
       ['2026-09-20', '旅行', 1, 3],
       ['2026-09-20', '朝食', 1, 1],
       ['2026-09-21', '旅行', 2, 3],
@@ -51,6 +57,8 @@ describe('calendar service', () => {
       userId,
     );
     const items = await listItems({ from: '2026-09-21', to: '2026-09-21' });
-    expect(items.map((i) => [i.placementDate, i.dayIndex])).toEqual([['2026-09-21', 2]]);
+    expect(items.map((i) => [i.placementDate, i.kind === 'event' ? i.dayIndex : null])).toEqual([
+      ['2026-09-21', 2],
+    ]);
   });
 });

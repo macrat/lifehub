@@ -118,5 +118,6 @@ export function MonthGrid({ month, itemsByDate, selectedDate, onSelectDate, onSe
 }
 
 export function itemKey(item: CalendarItem): string {
-  return `${item.kind}:${item.id}:${item.occurrenceStart}:${item.placementDate}`;
+  const occurrence = item.kind === 'event' ? item.occurrenceStart : item.occurrenceKey;
+  return `${item.kind}:${item.id}:${occurrence}:${item.placementDate}`;
 }

@@ -31,6 +31,6 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 - **立替残高**（A が B に対して持つ債権）= (ΣA 立替 − ΣB 立替) / 2 − ΣA→B 精算 + ΣB→A 精算。端数は切り捨て。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、DB には発生行を作らない（マスター + 例外／完了 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。
-- **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/tasks.md](features/tasks.md) の規則で `calendar` service が算出する。展開は「未完了の発生を基準日時順に走査し、2 つ見つかるか、2 つ後の発生が今日以前になった時点で打ち切る」。
-- **タスクの `placementDate`** は保存せず、`calendar` service が毎回算出する（「今日」に依存するため保存すると陳腐化する）。
+- **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/tasks.md](features/tasks.md) の規則で `tasks` service が算出し、`calendar` service が予定と統合する。
+- **タスクの `placementDate`** は保存せず、毎回算出する（「今日」に依存するため保存すると陳腐化する）。
 - **繰り返し予定・タスクの編集**は「この回だけ」「これ以降すべて」「すべて」の 3 択。「この回だけ」は `event_overrides` / `task_overrides`、「これ以降すべて」は元の `rrule` に `UNTIL` を付けて新しいマスターを作る、「すべて」はマスターを更新する。「これ以降すべて」の 2 文は `db.batch()` で原子的に実行する（ローカルの node-postgres では順次実行になる）。

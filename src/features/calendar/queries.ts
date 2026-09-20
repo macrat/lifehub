@@ -5,6 +5,7 @@ import { api, ensureOk } from '../../lib/api.ts';
 
 export type CalendarItem = InferResponseType<typeof api.calendar.items.$get, 200>[number];
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
+export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 export const CALENDAR_QUERY_KEY = ['calendar'] as const;
 

@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { calendarRoutes } from './features/calendar/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
+import { tasksRoutes } from './features/tasks/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
@@ -42,6 +43,7 @@ const routes = app
   })
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
+  .route('/tasks', tasksRoutes)
   .route('/calendar', calendarRoutes);
 
 export type AppType = typeof routes;

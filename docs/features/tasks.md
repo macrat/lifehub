@@ -29,6 +29,9 @@
   - 例: 毎週月曜のタスクで 9/7 を未完了のまま 9/14 を迎えると 9/7 と 9/14 が今日の位置に並び、9/21 を迎えると 9/7 は消えて 9/14 と 9/21 が並ぶ。
 - 完了操作は `task_completions` に `completed_at` を記録し、そのタスクは完了日時の位置へ移る。
 - 基準日時 = `starts_at`（未設定なら `due_at`）。繰り返しの DTSTART も同じ。
+- 繰り返しの走査は「未完了の発生を基準日時順に走査し、2 つ見つかるか、表示範囲の終わりを超えた時点で打ち切る」。放棄の判定には 2 つ先の発生の基準日時を使う。系列の最後の回は 2 つ先が無いので放棄されず、完了するまで今日に残る（単発タスクと同じ振る舞い）。
+- 走査の外で完了した回（放棄後に MCP から完了した等）も完了日に表示する。
+- 表示規則の実装は `server/features/tasks/service.ts` の `listOccurrences`。`calendar` service はこれをそのまま統合する。
 
 ## データ
 
@@ -41,14 +44,18 @@
 
 | メソッド | パス | 内容 |
 |---|---|---|
+| GET | `/api/tasks?from&to` | 期間内に表示位置を持つ発生（表示規則適用済み） |
 | GET | `/api/tasks/:id` | マスターを返す |
 | POST | `/api/tasks` | 作成 |
 | PUT | `/api/tasks/:id` | 更新。`scope`（`all` / `this` / `following`）と `occurrenceKey` を指定 |
 | DELETE | `/api/tasks/:id` | 削除。`scope` と `occurrenceKey` を指定 |
 | POST | `/api/tasks/:id/complete` | `occurrenceKey` を完了にする |
-| DELETE | `/api/tasks/:id/complete` | 完了を取り消す |
+| DELETE | `/api/tasks/:id/complete` | 完了を取り消す（body に `occurrenceKey`） |
 
-一覧は `calendar` の統合 API から取得する。入力スキーマは `shared/validation/tasks.ts`。
+- `this`: `task_overrides` を upsert（タイトル・メモ・開始・期限）。`following`: 元の `rrule` に UNTIL を付け、対象回以降の例外と完了記録を消し、新しいマスターを作る。`all`: マスターを更新し、基準日時か `rrule` が変わったら例外を捨てる（完了記録は履歴として残す）。
+- `occurrenceKey` はルール上に実在する発生でなければ拒否する（400）。
+
+画面の一覧は `calendar` の統合 API から取得する。入力スキーマは `shared/validation/tasks.ts`。
 
 ## MCP ツール
 

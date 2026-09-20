@@ -1,5 +1,3 @@
-import AddIcon from '@mui/icons-material/Add';
-import Fab from '@mui/material/Fab';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -7,8 +5,10 @@ import { useState } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DayList } from '../../features/calendar/components/DayList.tsx';
+import { ItemDialogs } from '../../features/calendar/components/ItemDialogs.tsx';
 import { MonthGrid } from '../../features/calendar/components/MonthGrid.tsx';
 import { WeekGrid } from '../../features/calendar/components/WeekGrid.tsx';
 import {
@@ -16,9 +16,10 @@ import {
   calendarItemsQueryOptions,
   groupByDate,
 } from '../../features/calendar/queries.ts';
-import { EventDetailDialog } from '../../features/events/components/EventDetailDialog.tsx';
 import { defaultEventValues, EventForm } from '../../features/events/components/EventForm.tsx';
 import { useCreateEvent } from '../../features/events/queries.ts';
+import { defaultTaskValues, TaskForm } from '../../features/tasks/components/TaskForm.tsx';
+import { useCreateTask } from '../../features/tasks/queries.ts';
 import {
   addDays,
   addMonths,
@@ -53,8 +54,9 @@ function CalendarPage() {
   const itemsByDate = groupByDate(items);
 
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<'event' | 'task' | null>(null);
   const createEvent = useCreateEvent();
+  const createTask = useCreateTask();
 
   const setSearch = (next: { view?: 'month' | 'week'; date?: DateString }) =>
     navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
@@ -93,32 +95,27 @@ function CalendarPage() {
         <WeekGrid date={date} itemsByDate={itemsByDate} onSelectItem={setSelected} />
       )}
 
-      <Fab
-        color="primary"
-        aria-label="予定を追加"
-        onClick={() => setCreating(true)}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-        }}
-      >
-        <AddIcon />
-      </Fab>
+      <AddMenu onAddEvent={() => setCreating('event')} onAddTask={() => setCreating('task')} />
 
-      {creating && (
+      {creating === 'event' && (
         <EventForm
           open
           title="予定を追加"
           initial={defaultEventValues(date)}
           onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setCreating(false)}
+          onClose={() => setCreating(null)}
         />
       )}
-      <EventDetailDialog
-        item={selected?.kind === 'event' ? selected : null}
-        onClose={() => setSelected(null)}
-      />
+      {creating === 'task' && (
+        <TaskForm
+          open
+          title="タスクを追加"
+          initial={defaultTaskValues(date)}
+          onSubmit={(input) => createTask.mutateAsync(input)}
+          onClose={() => setCreating(null)}
+        />
+      )}
+      <ItemDialogs item={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

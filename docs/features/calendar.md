@@ -31,7 +31,10 @@ type CalendarItem =
 |---|---|---|
 | GET | `/api/calendar/items?from&to` | `from`〜`to`（JST 日付、両端含む）の `CalendarItem[]`。`placementDate` 昇順、同日内は終日 → 時刻順 |
 
-`server/features/calendar/service.ts` が events / tasks の service を呼び、`placementDate` を付与して統合する。クライアントで再計算しない。
+`server/features/calendar/service.ts` が events / tasks の service を呼び、予定に `placementDate`（複数日は日ごと）を付与し、タスク（tasks service が表示規則を適用済み）と統合する。クライアントで再計算しない。同日内の順序は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+
+- 右下の追加ボタン（SpeedDial）から予定・タスクのどちらも追加できる。
+- 項目の詳細ダイアログは種別ごと（`EventDetailDialog` / `TaskDetailDialog`）。タスクはカードのチェックボックスからも完了できる。
 
 ## MCP ツール
 

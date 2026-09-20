@@ -1,5 +1,3 @@
-import AddIcon from '@mui/icons-material/Add';
-import Fab from '@mui/material/Fab';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -10,15 +8,18 @@ import { useState } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { DayList } from '../../features/calendar/components/DayList.tsx';
+import { ItemDialogs } from '../../features/calendar/components/ItemDialogs.tsx';
 import {
   type CalendarItem,
   calendarItemsQueryOptions,
   groupByDate,
 } from '../../features/calendar/queries.ts';
-import { EventDetailDialog } from '../../features/events/components/EventDetailDialog.tsx';
 import { defaultEventValues, EventForm } from '../../features/events/components/EventForm.tsx';
 import { useCreateEvent } from '../../features/events/queries.ts';
+import { defaultTaskValues, TaskForm } from '../../features/tasks/components/TaskForm.tsx';
+import { useCreateTask } from '../../features/tasks/queries.ts';
 import { useOwnerLabel } from '../../features/users/use-owner-label.ts';
 import { addDays, today } from '../../lib/date.ts';
 import { PageTitle } from '../../lib/ui/PageTitle.tsx';
@@ -29,6 +30,8 @@ const searchSchema = z.object({
   kind: z.enum(['all', 'event', 'task']).default('all'),
   /** 'shared' = 共有、それ以外はユーザー ID */
   owner: z.string().optional(),
+  /** タスクの完了状態。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
+  completed: z.enum(['all', 'open', 'done']).default('all'),
   q: z.string().optional(),
 });
 
@@ -48,12 +51,17 @@ function EventsPage() {
   const { data: items = [] } = useQuery(calendarItemsQueryOptions({ from, to }));
   const filtered = items.filter((item) => {
     if (search.kind !== 'all' && item.kind !== search.kind) return false;
-    if (search.owner === 'shared' && item.ownerUserId !== null) return false;
-    if (search.owner && search.owner !== 'shared' && item.ownerUserId !== search.owner)
+    const owner = item.kind === 'event' ? item.ownerUserId : item.assigneeUserId;
+    if (search.owner === 'shared' && owner !== null) return false;
+    if (search.owner && search.owner !== 'shared' && owner !== search.owner) return false;
+    if (search.completed === 'open' && item.kind === 'task' && item.completedAt !== null)
+      return false;
+    if (search.completed === 'done' && (item.kind !== 'task' || item.completedAt === null))
       return false;
     if (search.q) {
       const q = search.q.toLowerCase();
-      const haystack = `${item.title} ${item.location ?? ''} ${item.note ?? ''}`.toLowerCase();
+      const location = item.kind === 'event' ? (item.location ?? '') : '';
+      const haystack = `${item.title} ${location} ${item.note ?? ''}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
@@ -61,8 +69,9 @@ function EventsPage() {
   const grouped = groupByDate(filtered);
 
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<'event' | 'task' | null>(null);
   const createEvent = useCreateEvent();
+  const createTask = useCreateTask();
 
   const setSearch = (next: Partial<z.infer<typeof searchSchema>>) =>
     navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
@@ -117,6 +126,17 @@ function EventsPage() {
           ))}
         </TextField>
         <TextField
+          label="完了"
+          select
+          size="small"
+          value={search.completed}
+          onChange={(e) => setSearch({ completed: e.target.value as 'all' | 'open' | 'done' })}
+        >
+          <MenuItem value="all">すべて</MenuItem>
+          <MenuItem value="open">未完了</MenuItem>
+          <MenuItem value="done">完了済み</MenuItem>
+        </TextField>
+        <TextField
           label="検索"
           type="search"
           size="small"
@@ -136,31 +156,26 @@ function EventsPage() {
         </Stack>
       )}
 
-      <Fab
-        color="primary"
-        aria-label="予定を追加"
-        onClick={() => setCreating(true)}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: { xs: 'calc(56px + env(safe-area-inset-bottom) + 16px)', md: 24 },
-        }}
-      >
-        <AddIcon />
-      </Fab>
-      {creating && (
+      <AddMenu onAddEvent={() => setCreating('event')} onAddTask={() => setCreating('task')} />
+      {creating === 'event' && (
         <EventForm
           open
           title="予定を追加"
           initial={defaultEventValues()}
           onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setCreating(false)}
+          onClose={() => setCreating(null)}
         />
       )}
-      <EventDetailDialog
-        item={selected?.kind === 'event' ? selected : null}
-        onClose={() => setSelected(null)}
-      />
+      {creating === 'task' && (
+        <TaskForm
+          open
+          title="タスクを追加"
+          initial={defaultTaskValues()}
+          onSubmit={(input) => createTask.mutateAsync(input)}
+          onClose={() => setCreating(null)}
+        />
+      )}
+      <ItemDialogs item={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

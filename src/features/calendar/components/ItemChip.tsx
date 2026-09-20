@@ -8,9 +8,12 @@ type Props = {
   onClick: (item: CalendarItem) => void;
 };
 
-/** 月グリッドのセル内に並ぶ 1 行表示。予定は塗り、タスクは枠線で見分ける（タスクは M3 で追加）。 */
+/** 月グリッドのセル内に並ぶ 1 行表示。終日の予定は塗り、タスクは破線の枠で見分ける。 */
 export function ItemChip({ item, onClick }: Props) {
-  const time = item.allDay ? null : formatTime(item.startsAt);
+  const isTask = item.kind === 'task';
+  const filled = item.kind === 'event' && item.allDay;
+  const time = item.kind === 'event' ? (item.allDay ? null : formatTime(item.startsAt)) : null;
+  const completed = isTask && item.completedAt !== null;
   return (
     <Box
       component="button"
@@ -27,14 +30,19 @@ export function ItemChip({ item, onClick }: Props) {
         cursor: 'pointer',
         px: 0.5,
         borderRadius: 0.5,
-        bgcolor: item.allDay ? 'primary.main' : 'transparent',
-        color: item.allDay ? 'primary.contrastText' : 'text.primary',
+        bgcolor: filled ? 'primary.main' : 'transparent',
+        color: filled ? 'primary.contrastText' : 'text.primary',
+        border: isTask ? 1 : 0,
+        borderStyle: 'dashed',
+        borderColor: isTask && item.isOverdue ? 'error.main' : 'divider',
+        textDecoration: completed ? 'line-through' : 'none',
+        opacity: completed ? 0.6 : 1,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
         fontSize: '0.72rem',
         lineHeight: 1.6,
-        '&:hover': { bgcolor: item.allDay ? 'primary.dark' : 'action.hover' },
+        '&:hover': { bgcolor: filled ? 'primary.dark' : 'action.hover' },
       }}
       aria-label={item.title}
     >
