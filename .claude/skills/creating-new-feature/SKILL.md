@@ -24,7 +24,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `mcp.ts` → `server/lib/mcp/server.ts`
 6. **クライアント feature** `src/features/<name>/` を作る:
    - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。成功後に `useInvalidate`（`src/lib/query-client.ts`）で関連クエリと `DASHBOARD_QUERY_KEY` を invalidate）
-   - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。入力フォームは `FormDialog` + `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。所有者の選択は `OwnerSelect`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `FAB_SX`）
+   - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。入力フォームは `FormDialog`（キャンセル・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類を 1 つ足す）か `FAB_SX`）
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
    - ホームのカードは `src/features/dashboard/cards/` に追加し、`cards/index.tsx` の `renderCard` に 1 行足す
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。

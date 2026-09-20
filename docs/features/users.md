@@ -51,7 +51,7 @@
 
 ## 表示名
 
-参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-owner-label.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
+参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
 
 ## 初期ユーザー
 

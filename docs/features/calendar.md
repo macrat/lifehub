@@ -44,8 +44,8 @@ type CalendarItem =
 
 `GET /api/events?from&to`（[events.md](events.md)）が `from`〜`to`（JST 日付、両端含む）の `CalendarItem[]` を `placementDate` 昇順で返す。`server/features/events/occurrences.ts` が繰り返しを展開し、予定に `placementDate`（複数日は日ごと）を付与し、タスクに表示規則を適用する。クライアントで再計算しない。同日内の順序は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
 
-- 右下の追加ボタン（SpeedDial）から予定・タスクのどちらも追加できる。初期日付は表示中の日。
-- 項目の詳細ダイアログは種別ごと（`EventDetailDialog` / `TaskDetailDialog`、いずれも `src/features/events/components/`）。リストとホームでは行のチェックボックスからも完了できる。
+- 右下の追加ボタン（`AddMenu`。ホームと同じ部品で、出す種類を `kinds` で選ぶ）から予定・タスクのどちらも追加できる。初期日付は表示中の日。
+- 項目の詳細ダイアログは `ItemDetailDialog`（`src/features/events/components/`）。予定とタスクの違いは本文の日時の出し方と「完了にする」の有無だけ。リストとホームでは行のチェックボックスからも完了できる。
 - カレンダーの取得（`calendarItemsQueryOptions`）は `staleTime: 0`。永続化キャッシュの書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い一覧が復元されることがあり、表示のたびに取り直す（キャッシュはまず出す）。
 
 ## ホームのカード
