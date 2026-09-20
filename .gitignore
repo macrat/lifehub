@@ -9,7 +9,6 @@ test-results/
 playwright-report/
 .vercel/
 infra/.terraform/
-infra/.terraform.lock.hcl
 infra/*.tfstate*
 infra/*.tfvars
 *.log
