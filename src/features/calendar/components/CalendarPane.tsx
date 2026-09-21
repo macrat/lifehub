@@ -1,15 +1,16 @@
+import { memo, useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { EventDraft } from '../draft.ts';
 import type { CalendarItem } from '../queries.ts';
-import type { CalendarPeriod, PeriodView } from '../use-calendar-page.ts';
+import { type PeriodView, periodOf } from '../use-calendar-page.ts';
 import { usePaneItems } from '../use-pane-items.ts';
 import { MonthGrid } from './MonthGrid.tsx';
 import { TimelineView } from './TimelineView.tsx';
 
 type Props = {
   view: PeriodView;
-  /** この面が受け持つ 1 ページ分（前後の面は表示中の前後の期間） */
-  period: CalendarPeriod;
+  /** この面が受け持つページを代表する日（月なら 1 日）。期間はここから組み立てる */
+  date: DateString;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている予定の範囲。控えの面には出さないので null が来る */
@@ -22,15 +23,20 @@ type Props = {
  * カレンダー 1 ページ分（1 か月・1 週・1 日）の表示。スワイプでは前後のページも同時に描くので、
  * 項目は面ごとに自分の範囲を読む（前後の分が先に読まれていて、スワイプした先も取得済み）。
  * 枠（日付の並び）は取得も項目の描画も待たずに出し、項目は次の描画で載せる（use-pane-items.ts）。
+ *
+ * memo: スワイプで 1 つ進んでも 3 面のうち 2 面は同じページのままなので、props が変わらなければ
+ * 描き直さない。これで 1 回のスワイプで描くのは新しく要る 1 面だけになる（SwipePager 参照）。
+ * props は日付・表示のような値だけにし、渡す関数は呼び出し側で固定しておくこと。
  */
-export function CalendarPane({
+export const CalendarPane = memo(function CalendarPane({
   view,
-  period,
+  date,
   onSelectDate,
   onSelectItem,
   draft,
   onChangeDraft,
 }: Props) {
+  const period = useMemo(() => periodOf(view, date), [view, date]);
   const itemsByDate = usePaneItems(period.range);
 
   return view === 'month' ? (
@@ -55,4 +61,4 @@ export function CalendarPane({
       height="100%"
     />
   );
-}
+});

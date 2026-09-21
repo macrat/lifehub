@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
@@ -53,6 +53,11 @@ function CalendarPage() {
   const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
+  const changeDraft = useCallback(
+    (range: EventDraft, editing: boolean) => setDraft({ range, editing }),
+    [],
+  );
 
   return (
     <>
@@ -82,16 +87,16 @@ function CalendarPage() {
         />
       ) : (
         <Box sx={{ height: FILL_HEIGHT, mb: FILL_MARGIN_BOTTOM }}>
-          <SwipePager page={`${view}:${page.date}`} onMove={page.move}>
-            {(offset) => (
+          <SwipePager pages={page.pages} onMove={page.move}>
+            {(date, offset) => (
               <CalendarPane
                 view={view}
-                period={page.periodAt(offset)}
+                date={date}
                 onSelectDate={page.openDay}
                 onSelectItem={setSelected}
                 // 下書きは表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
                 draft={offset === 0 ? (draft?.range ?? null) : null}
-                onChangeDraft={(range, editing) => setDraft({ range, editing })}
+                onChangeDraft={changeDraft}
               />
             )}
           </SwipePager>
