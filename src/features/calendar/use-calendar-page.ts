@@ -98,7 +98,9 @@ export function useCalendarPage(search: CalendarSearch) {
    * スワイプでの前後移動と絞り込みの入力は置き換える（戻るが連打の巻き戻しにならない）
    */
   const setSearch = (next: SearchPatch, { replace = false } = {}) =>
-    navigate({ search: (prev) => ({ ...prev, ...next }), replace });
+    // resetScroll: false = 画面のスクロール位置に触らない。既定だと router が移動のたびに位置を復元し、
+    // スワイプの面（SwipePager）を中央へ戻した直後に元の位置へ引き戻してしまう
+    navigate({ search: (prev) => ({ ...prev, ...next }), replace, resetScroll: false });
 
   /** 前後の月・週・日へ（スワイプ） */
   const move = (direction: 1 | -1) => setSearch({ date: dateAt(direction) }, { replace: true });
