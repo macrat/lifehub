@@ -24,13 +24,25 @@ import * as schema from './schema.ts';
  */
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
+
+/** このデプロイの Vercel 上の URL。Vercel のシステム環境変数なので、公開設定が無ければ空になる。 */
+const vercelHosts = [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter(
+  (host): host is string => !!host,
+);
+
 export const auth = betterAuth({
-  // Vercel の他の利用者のホストは信頼せず、このデプロイとブランチの URL だけを許可する。
-  baseURL: env.APP_URL ?? {
-    allowedHosts: [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter((host): host is string => !!host),
-    protocol: 'https',
-    fallback: baseUrl,
-  },
+  /**
+   * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。APP_URL が無い Preview は
+   * URL がデプロイごとに変わるので、このデプロイとブランチの URL に限ってリクエストのホストから
+   * 決める（Vercel の他の利用者のホストは信頼しない）。
+   * どちらも分からないときに空の allowedHosts を渡すと better-auth が起動時に例外を投げ、
+   * API が丸ごと落ちて何も使えなくなる。ログインできないだけで済むよう固定 URL に倒す。
+   */
+  baseURL:
+    env.APP_URL ??
+    (vercelHosts.length > 0
+      ? { allowedHosts: vercelHosts, protocol: 'https', fallback: baseUrl }
+      : baseUrl),
   basePath: '/api/auth',
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {

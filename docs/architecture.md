@@ -174,9 +174,9 @@ e2e/                          # Playwright
 
 | 対象 | リソース | 備考 |
 |---|---|---|
-| Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う） |
+| Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う）。`automatically_expose_system_environment_variables` を有効にし、`VERCEL`・`VERCEL_ENV`・`VERCEL_URL`・`VERCEL_BRANCH_URL` を関数に渡す |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
-| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。production / preview 共通でいずれも `sensitive`。`APP_URL` は production のみで `sensitive` ではない |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
 | Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |
@@ -205,7 +205,7 @@ e2e/                          # Playwright
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。
 - `VERCEL_ENV !== 'production'` のとき、日次 Cron の通知予約と QStash への publish を無効化する（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。配信コールバックの署名検証は Preview でも行う。
-- better-auth の `baseURL` は、`APP_URL` があればそれに固定し、無ければ（= Preview）`*.vercel.app` に限ってリクエストのホストから決める。Preview は URL がデプロイごとに変わるため、固定値では origin チェックに落ちてログインできない。
+- better-auth の `baseURL` は、`APP_URL` があればそれに固定し、無ければ（= Preview）`VERCEL_URL`・`VERCEL_BRANCH_URL` のホストに限ってリクエストのホストから決める。Preview は URL がデプロイごとに変わるため、固定値では origin チェックに落ちてログインできない。この 2 つは Vercel のシステム環境変数なので、プロジェクト設定の公開（`automatically_expose_system_environment_variables`）が前提になる。
 
 運用上の注意:
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。

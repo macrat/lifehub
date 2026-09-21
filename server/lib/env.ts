@@ -16,9 +16,13 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
-  /** Vercel が自動で設定する。`production` のときだけ通知の予約を行う。 */
+  // ここから下は Vercel のシステム環境変数。Vercel プロジェクトの「システム環境変数の公開」
+  // （infra/vercel.tf の automatically_expose_system_environment_variables）が有効なときだけ存在する。
+  /** `production` のときだけ通知の予約を行う。 */
   VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
+  /** このデプロイ固有の URL（`<project>-<hash>-<scope>.vercel.app`）。 */
   VERCEL_URL: z.string().optional(),
+  /** ブランチの最新デプロイを指す URL（`<project>-git-<branch>-<scope>.vercel.app`）。 */
   VERCEL_BRANCH_URL: z.string().optional(),
   /** Vercel 上で実行中かどうか。DB ドライバの切替に使う。 */
   VERCEL: z.string().optional(),
