@@ -1,0 +1,25 @@
+version: 2
+
+updates:
+  # pnpm の依存（package.json / pnpm-lock.yaml）。pnpm は npm エコシステムとして扱われる。
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+
+    # pnpm-workspace.yaml の minimumReleaseAge と同じ 3 日の猶予。Dependabot は pnpm の設定を
+    # 読まない独立した解決系なので、同じ制限をこちらにも書く。GitHub のデフォルトも現状 3 日だが、
+    # 依存の取り込み基準をデフォルト任せにしないよう明示する。
+    # security updates（脆弱性修正の PR）は Dependabot の仕様で cooldown の対象外になる。
+    cooldown:
+      default-days: 3
+
+    # 更新をまとめて 1 つの PR にする。CI は PR ごとに Neon ブランチと Vercel Preview を作るので、
+    # PR を分けると無料枠を圧迫するため。まとめても個々の変更はロックファイルの差分で追える。
+    groups:
+      npm:
+        patterns:
+          - '*'
+
+# GitHub Actions と Terraform は対象にしない。Terraform のプロバイダ更新はリソース再作成の事故を
+# 避けるためバージョン制約を編集する PR で行う（docs/architecture.md）。

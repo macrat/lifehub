@@ -216,5 +216,6 @@ Preview 環境の挙動:
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。
-- 依存関係の自動更新ツールは導入していない。更新は手動の PR で行う。
-- npm パッケージは公開から 3 日以上経ったものだけを取り込む（`pnpm-workspace.yaml` の `minimumReleaseAge: 4320`（分））。乗っ取られたアカウントからの publish が発覚・取り下げされるまでの猶予を取り、サプライチェーン攻撃を避けるため。強制されるのはロックファイルを解決し直す操作（`pnpm add` / `pnpm update` / ロックファイル再生成）で、CI の `pnpm install --frozen-lockfile` は解決済みのロックファイルをそのまま入れるので再検査しない。
+- 依存の更新は Dependabot（`.github/dependabot.yml`）が npm のみ・週次・まとめて 1 PR で提案し、マージは人が判断する。GitHub Actions と Terraform は対象外（プロバイダ更新はリソース再作成の事故を避けるため、バージョン制約を編集する PR で行う）。
+- npm パッケージは公開から 3 日以上経ったものだけを取り込む。乗っ取られたアカウントからの publish が発覚・取り下げされるまでの猶予を取り、サプライチェーン攻撃を避けるため。Dependabot は pnpm の設定を読まない別の解決系なので、経路ごとに同じ猶予を書く: pnpm は `pnpm-workspace.yaml` の `minimumReleaseAge: 4320`（分）、Dependabot は `.github/dependabot.yml` の `cooldown.default-days: 3`。
+- この猶予が効かない経路が 2 つある: CI の `pnpm install --frozen-lockfile` は解決済みのロックファイルをそのまま入れるので再検査しない。Dependabot の security updates は仕様上 cooldown の対象外で、即座に PR が作られる。
