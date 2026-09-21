@@ -8,16 +8,13 @@ export { addDays, toDateString, today } from '../../shared/date.ts';
 
 /**
  * 表示用の日付・時刻フォーマット。すべて JST。表示は Intl に任せ、計算は date-fns（TZDate）に任せる。
+ * 年を含む表示は "2026年09月20日（日）"・"2026年09月" に揃える。AppBar の見出しのように
+ * 日付だけが入れ替わる場所で、桁が揃っていると横幅が動かず読み取りやすいため。
+ * ja-JP の既定は "2026/9/20(日)" で年月日の区切りも 2 桁揃えも出せないので、
+ * 桁の揃っている DateString（"YYYY-MM-DD"）から組み立て、Intl には曜日だけを任せる。
  */
 const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: TIME_ZONE,
-  month: 'numeric',
-  day: 'numeric',
-  weekday: 'short',
-});
-const dateWithYearFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: TIME_ZONE,
-  year: 'numeric',
   month: 'numeric',
   day: 'numeric',
   weekday: 'short',
@@ -28,10 +25,9 @@ const timeFormatter = new Intl.DateTimeFormat('ja-JP', {
   minute: '2-digit',
   hourCycle: 'h23',
 });
-const monthFormatter = new Intl.DateTimeFormat('ja-JP', {
+const weekdayFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: TIME_ZONE,
-  year: 'numeric',
-  month: 'long',
+  weekday: 'short',
 });
 
 /** "9/20(日)" */
@@ -39,9 +35,10 @@ export function formatDate(value: Date | string | DateString): string {
   return dateFormatter.format(toDate(value));
 }
 
-/** "2026/9/20(日)" */
+/** "2026年09月20日（日）" */
 export function formatDateWithYear(value: Date | string | DateString): string {
-  return dateWithYearFormatter.format(toDate(value));
+  const date = toDateString(toDate(value));
+  return `${formatMonth(date)}${date.slice(8, 10)}日（${weekdayFormatter.format(startOfDate(date))}）`;
 }
 
 /** "09:00" */
@@ -49,9 +46,9 @@ export function formatTime(value: Date | string): string {
   return timeFormatter.format(toDate(value));
 }
 
-/** "2026年9月" */
+/** "2026年09月" */
 export function formatMonth(date: DateString): string {
-  return monthFormatter.format(startOfDate(date));
+  return `${date.slice(0, 4)}年${date.slice(5, 7)}月`;
 }
 
 /** "9/20(日) 09:00" */
@@ -162,9 +159,25 @@ export function minutesOfDay(value: Date | string): number {
   return z.getHours() * 60 + z.getMinutes();
 }
 
-/** "9/14(月)〜9/20(日)" */
-export function formatDateRange(from: DateString, to: DateString): string {
-  return `${formatDate(from)}〜${formatDate(to)}`;
+/**
+ * 週（月曜始まり）の見出し。"09月14日〜20日"、月をまたぐなら "08月31日〜09月06日"、
+ * 始まりが今年でなければ年から書いて "2030年01月14日〜20日"。
+ *
+ * 週は必ず月曜から日曜なので曜日は書かず、終わりからは始まりと重なる年月を省く。
+ * 始まりの年も、ほとんどの場合は今年を見ているので言わずに済む。
+ * 両端を "2026年09月14日（月）〜2026年09月20日（日）" と書くと AppBar に収まらないため。
+ */
+export function formatWeekRange(monday: DateString): string {
+  const sunday = addDays(monday, 6);
+  const start =
+    monday.slice(0, 4) === today().slice(0, 4)
+      ? `${monday.slice(5, 7)}月${monday.slice(8, 10)}日`
+      : `${formatMonth(monday)}${monday.slice(8, 10)}日`;
+  const end =
+    toMonthString(monday) === toMonthString(sunday)
+      ? `${sunday.slice(8, 10)}日`
+      : `${sunday.slice(5, 7)}月${sunday.slice(8, 10)}日`;
+  return `${start}〜${end}`;
 }
 
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;

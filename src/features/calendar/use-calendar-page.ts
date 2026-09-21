@@ -6,9 +6,9 @@ import {
   addDays,
   addMonths,
   firstDayOfMonth,
-  formatDateRange,
   formatDateWithYear,
   formatMonth,
+  formatWeekRange,
   monthGridDays,
   today,
   toMonthString,
@@ -90,7 +90,7 @@ export function useCalendarPage(search: CalendarSearch) {
     view === 'month'
       ? formatMonth(date)
       : view === 'week'
-        ? formatDateRange(period.range.from, period.range.to)
+        ? formatWeekRange(period.range.from)
         : formatDateWithYear(date);
 
   /**
