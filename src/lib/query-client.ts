@@ -16,7 +16,7 @@ const ONE_DAY = 1000 * 60 * 60 * 24;
  * - staleTime は 0。画面を開くたびに取り直し、届いたら差し替える。キャッシュは表示され続けるので
  *   遷移で一度空になることはない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると
  *   古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう
- * - 取り直しを抑えたいクエリ（`me` や VAPID 鍵など）は、それぞれで staleTime を指定する
+ * - 取り直しを抑えたいクエリ（`me` や VAPID 鍵、カレンダーの項目）は、それぞれで staleTime を指定する
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
