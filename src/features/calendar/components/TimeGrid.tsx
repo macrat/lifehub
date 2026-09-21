@@ -90,8 +90,12 @@ export function TimeGrid({
               position: 'relative',
               borderLeft: 1,
               borderColor: 'divider',
-              backgroundImage: (t) =>
-                `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight}px)`,
+              // 1 時間ごとの横罫線。CSS 変数テーマなので divider は t.vars 側から取る
+              // （t.palette はライト固定の値で、ダークでは黒い線になって背景に沈む）
+              backgroundImage: (t) => {
+                const line = (t.vars ?? t).palette.divider;
+                return `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${line} ${hourHeight - 1}px, ${line} ${hourHeight}px)`;
+              },
             }}
           >
             {(timedByDate.get(day) ?? []).map((p) => (
