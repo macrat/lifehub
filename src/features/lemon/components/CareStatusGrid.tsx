@@ -11,7 +11,11 @@ type Props = {
   onSelect?: (status: CareStatus) => void;
 };
 
-/** 種別ごとの最終実施日と経過日数。タップでその種別の記録フォームを開く。 */
+/**
+ * 種別ごとの最終実施日と経過日数。タップでその種別の記録フォームを開く。
+ * ホーム（水やり・葉水だけ）とレモン画面（5 種別）のどちらもこれを出すので、行き来するときは
+ * 同じ種別のカードがその場から動き、片方にしかない種別はフェードする（View Transition）。
+ */
 export function CareStatusGrid({ statuses, onSelect }: Props) {
   return (
     <Box
@@ -23,7 +27,10 @@ export function CareStatusGrid({ statuses, onSelect }: Props) {
       }}
     >
       {statuses.map((status) => (
-        <Card key={status.careType} sx={{ bgcolor: 'action.hover' }}>
+        <Card
+          key={status.careType}
+          sx={{ bgcolor: 'action.hover', viewTransitionName: `care-${status.careType}` }}
+        >
           <CardActionArea onClick={() => onSelect?.(status)} sx={{ p: 1, height: '100%' }}>
             <Typography variant="caption" color="text.secondary" component="p">
               {CARE_TYPE_LABELS[status.careType]}

@@ -42,4 +42,4 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 
 ## ホームのカード
 
-「立替残高」: 「A が B に n 円払うと精算」の 1 行表示。0 なら「精算済み」。立替ページと同じ `balanceQueryOptions` を読む（`src/features/dashboard/cards/BalanceCard.tsx`）。
+「立替残高」: 「A が B に n 円払うと精算」の 1 行表示。0 なら「精算済み」。立替ページと同じ `balanceQueryOptions` を読む（`src/features/dashboard/cards/BalanceCard.tsx`）。どちらの画面も同じ `BalanceSummary` を出すので、行き来するときは残高がその場から動く（View Transition。名前は `balance`）。
