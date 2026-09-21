@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
-import { addExpense, deleteExpense, getBalance, listExpenses } from '../service.ts';
+import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;
 let b: string;
@@ -58,6 +58,29 @@ describe('expenses service', () => {
       b,
     );
     expect(await getBalance()).toEqual({ amount: 250, fromUserId: a, toUserId: b });
+  });
+
+  it('立替を編集すると全項目が置き換わり、残高に反映される', async () => {
+    const expense = await addExpense(
+      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
+      a,
+    );
+    const updated = await updateExpense(expense.id, {
+      fromUserId: b,
+      toUserId: a,
+      amount: 500,
+      description: 'A の分',
+      spentOn: dateStringSchema.parse('2026-09-02'),
+    });
+    expect(updated).toMatchObject({
+      id: expense.id,
+      fromUserId: b,
+      toUserId: a,
+      amount: 500,
+      description: 'A の分',
+      spentOn: '2026-09-02',
+    });
+    expect(await getBalance()).toEqual({ amount: 500, fromUserId: a, toUserId: b });
   });
 
   it('立替を削除できる', async () => {

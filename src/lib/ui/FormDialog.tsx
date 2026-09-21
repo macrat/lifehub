@@ -22,6 +22,8 @@ type Props = {
   /** 保存の失敗など、項目に紐づかないエラー */
   error?: string | null;
   maxWidth?: 'xs' | 'sm';
+  /** 項目を下端まで広げる。電卓のように余白をすべて使う項目（flexGrow）があるとき */
+  fill?: boolean;
   children: ReactNode;
 };
 
@@ -44,6 +46,7 @@ export function FormDialog({
   onSubmit,
   error,
   maxWidth = 'sm',
+  fill = false,
   children,
 }: Props) {
   const isMobile = useIsMobile();
@@ -81,8 +84,8 @@ export function FormDialog({
           )}
           {title}
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+        <DialogContent sx={fill ? { display: 'flex', flexDirection: 'column' } : undefined}>
+          <Stack spacing={2} sx={{ mt: 1, flexGrow: fill ? 1 : undefined }}>
             {error && <Alert severity="error">{error}</Alert>}
             {children}
           </Stack>

@@ -95,4 +95,10 @@ test('保存に失敗したら投機的な表示を取り消し、入力した�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText('直した立替')).toBeVisible();
+
+  // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: /直した立替/ }).click();
+  await page.getByRole('button', { name: '削除' }).click();
+  await expect(page.getByText('直した立替')).toHaveCount(0);
 });

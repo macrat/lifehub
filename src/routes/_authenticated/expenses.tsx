@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
+import { ExpenseDetailDialog } from '../../features/expenses/components/ExpenseDetailDialog.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
   balanceQueryOptions,
+  type Expense,
   expensesQueryOptions,
   useAddExpense,
-  useDeleteExpense,
 } from '../../features/expenses/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
@@ -28,14 +29,14 @@ export const Route = createFileRoute('/_authenticated/expenses')({
 
 /**
  * 立替（借方・貸方）。残高と履歴。精算は専用の操作ではなく「誰かが誰かに払った額」を立替として追加する。
- * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。
+ * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細（編集・削除）が開く。
  */
 function ExpensesPage() {
   const { data: balance } = useQuery(balanceQueryOptions);
   const { data: expenses = [] } = useQuery(expensesQueryOptions);
   const addExpense = useAddExpense();
-  const deleteExpense = useDeleteExpense();
   const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState<Expense | null>(null);
 
   return (
     <>
@@ -46,12 +47,13 @@ function ExpensesPage() {
         {balance && <BalanceSummary balance={balance} />}
       </Box>
 
-      <ExpenseList expenses={expenses} onDelete={(id) => deleteExpense.mutate(id)} />
+      <ExpenseList expenses={expenses} onSelect={setSelected} />
 
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
       {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
+      {selected && <ExpenseDetailDialog expense={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

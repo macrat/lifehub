@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { dateStringSchema, uuidSchema } from './common.ts';
 
-export const createExpenseSchema = z
+/** 立替の入力。追加と編集で同じ（編集は全項目を置き換える） */
+export const expenseSchema = z
   .object({
     /** From: 払った人 */
     fromUserId: uuidSchema,
@@ -17,4 +18,4 @@ export const createExpenseSchema = z
     message: 'From と To に同じ人は選べません',
     path: ['toUserId'],
   });
-export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+export type ExpenseInput = z.infer<typeof expenseSchema>;

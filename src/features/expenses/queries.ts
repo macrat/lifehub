@@ -10,7 +10,8 @@ import { api, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
 
-export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
+/** 追加と編集で同じ形（編集は全項目を置き換える） */
+export type ExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
 /** 行と残高の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
@@ -28,7 +29,7 @@ export const balanceQueryOptions = queryOptions({
 
 export function useAddExpense() {
   return useOptimisticMutation({
-    mutationFn: async (input: CreateExpenseBody) =>
+    mutationFn: async (input: ExpenseBody) =>
       (await ensureOk(await api.expenses.$post({ json: input }))).json(),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, input) => {
@@ -37,11 +38,22 @@ export function useAddExpense() {
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
       };
-      client.setQueryData(
-        expensesQueryOptions.queryKey,
-        (expenses) => expenses && sortExpenses([expense, ...expenses]),
+      updateList(client, (expenses) => sortExpenses([expense, ...expenses]));
+    },
+  });
+}
+
+export function useUpdateExpense() {
+  return useOptimisticMutation({
+    mutationFn: async ({ id, ...input }: ExpenseBody & { id: string }) =>
+      (await ensureOk(await api.expenses[':id'].$put({ param: { id }, json: input }))).json(),
+    keys: [EXPENSES_QUERY_KEY],
+    apply: (client, { id, ...input }) => {
+      updateList(client, (expenses) =>
+        sortExpenses(
+          expenses.map((expense) => (expense.id === id ? { ...expense, ...input } : expense)),
+        ),
       );
-      recomputeBalance(client);
     },
   });
 }
@@ -53,22 +65,23 @@ export function useDeleteExpense() {
     },
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, id) => {
-      client.setQueryData(expensesQueryOptions.queryKey, (expenses) =>
-        expenses?.filter((expense) => expense.id !== id),
-      );
-      recomputeBalance(client);
+      updateList(client, (expenses) => expenses.filter((expense) => expense.id !== id));
     },
   });
 }
 
 /**
- * 残高を一覧から導き直す（式は shared/expenses.ts）。
- * 一覧かユーザー（2 人）が未取得なら何もしない（再取得でサーバーの値が入る）。
+ * 履歴を書き換え、残高を導き直す（式は shared/expenses.ts）。
+ * 履歴が未取得なら何もせず、ユーザー（2 人）が未取得なら残高だけ触らない（再取得でサーバーの値が入る）。
  */
-function recomputeBalance(client: QueryClient): void {
+function updateList(client: QueryClient, update: (expenses: Expense[]) => Expense[]): void {
   const expenses = client.getQueryData(expensesQueryOptions.queryKey);
+  if (!expenses) return;
+  const next = update(expenses);
+  client.setQueryData(expensesQueryOptions.queryKey, next);
+
   const users = client.getQueryData(usersQueryOptions.queryKey);
   const [a, b] = users ?? [];
-  if (!expenses || !a || !b || users?.length !== 2) return;
-  client.setQueryData(balanceQueryOptions.queryKey, computeBalance(expenses, [a.id, b.id]));
+  if (!a || !b || users?.length !== 2) return;
+  client.setQueryData(balanceQueryOptions.queryKey, computeBalance(next, [a.id, b.id]));
 }

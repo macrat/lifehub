@@ -7,8 +7,8 @@ import {
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
-import { isDateString } from '../../../shared/date.ts';
 import type { RecurrenceScope } from '../../../shared/validation/events.ts';
+import { monthRange } from '../../lib/date.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import type { CreateEventBody, UpdateEventBody } from './queries.ts';
 
@@ -71,7 +71,7 @@ export function setCompleted(client: QueryClient, target: Target, completed: boo
   );
 }
 
-/** 取得済みのカレンダー（期間ごとのクエリ）をまとめて書き換える。未取得のクエリには触らない */
+/** 取得済みのカレンダー（暦月ごとのクエリ）をまとめて書き換える。未取得のクエリには触らない */
 function updateCalendars(
   client: QueryClient,
   update: (items: CalendarItem[], range: DateRange, now: Date) => CalendarItem[],
@@ -86,11 +86,10 @@ function updateCalendars(
   }
 }
 
-/** クエリキー [calendar, from, to] が表す期間 */
+/** クエリキー [calendar, YYYY-MM] が表す期間 */
 function rangeOf(queryKey: readonly unknown[]): DateRange | null {
-  const [, from, to] = queryKey;
-  if (typeof from !== 'string' || typeof to !== 'string') return null;
-  return isDateString(from) && isDateString(to) ? { from, to } : null;
+  const [, month] = queryKey;
+  return typeof month === 'string' ? monthRange(month) : null;
 }
 
 /** 操作の対象に当たる項目か（この回だけ／これ以降／すべて） */
