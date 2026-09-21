@@ -15,6 +15,12 @@ import { useDialogHistory } from './dialog-history.ts';
 import { SubmitButton } from './SubmitButton.tsx';
 import { useIsMobile } from './use-breakpoint.ts';
 
+/**
+ * 中身の左右の余白。Material 3 のダイアログは四辺 24dp（`material-web` の dialog も同じ）なので
+ * PC ではそれに合わせ、画面の端まで使うスマホのシートは 16dp にする。
+ */
+const GUTTER = { xs: 2, sm: 3 };
+
 /** 三点リーダーのメニューに並べる操作。削除のような、表に出しておきたくない操作を集める */
 export type RecordAction = {
   label: string;
@@ -122,7 +128,7 @@ function Body({
           {actions.length > 0 && <ActionsMenu actions={actions} />}
         </SheetHeader>
         {error && (
-          <Alert severity="error" sx={{ mx: 2 }}>
+          <Alert severity="error" sx={{ mx: GUTTER }}>
             {error}
           </Alert>
         )}
@@ -135,10 +141,11 @@ function Body({
           minHeight: 0,
           overflowY: 'auto',
           touchAction: 'pan-y',
-          px: 2,
+          px: GUTTER,
           // 縮んだラベルは入力欄の上端にはみ出すので、その分の余白を空ける
           pt: 1,
-          pb: 'calc(16px + env(safe-area-inset-bottom))',
+          // シートは指の届く端まで使う（下端は画面の端）。ダイアログは四辺とも同じ余白にする
+          pb: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 3 },
         }}
       >
         {children}
@@ -164,7 +171,15 @@ export function SheetHeader({
   children: ReactNode;
 }) {
   return (
-    <Stack direction="row" sx={{ px: 1, alignItems: 'center' }}>
+    // アイコンは 40px のボタンの中で 8px 内側にあるので、その分だけ左右を詰めて字面を中身に揃える
+    <Stack
+      direction="row"
+      sx={{
+        px: { xs: 1, sm: 2 },
+        pt: { xs: 0, sm: 2 },
+        alignItems: 'center',
+      }}
+    >
       <IconButton aria-label="閉じる" onClick={onClose}>
         <CloseIcon />
       </IconButton>
