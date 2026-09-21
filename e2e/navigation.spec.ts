@@ -23,7 +23,7 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
   // 立替の画面（AppBar の検索窓）が出て、ホームのカードは残っていない
-  await expect(page.getByLabel('内容を検索')).toBeVisible({ timeout: 3000 });
+  await expect(page.getByLabel('立替を検索')).toBeVisible({ timeout: 3000 });
   await expect(page.getByRole('heading', { name: '今日' })).toHaveCount(0);
   // 履歴の場所には骨組みが出ていて、届いたら消える
   await expect(page.locator('[aria-busy="true"]')).toBeVisible();

@@ -8,6 +8,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseDetailDialog } from '../../features/expenses/components/ExpenseDetailDialog.tsx';
+import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
@@ -16,35 +17,50 @@ import {
   expensesQueryOptions,
   useAddExpense,
 } from '../../features/expenses/queries.ts';
-import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
+import {
+  expenseSearchSchema,
+  matchesExpense,
+  useExpenseSearch,
+} from '../../features/expenses/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
-  validateSearch: keywordSearchSchema,
+  validateSearch: expenseSearchSchema,
   component: ExpensesPage,
 });
 
 /**
  * 立替（借方・貸方）。残高と履歴。精算は専用の操作ではなく「誰かが誰かに払った額」を立替として追加する。
  * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細（編集・削除）が開く。
- * AppBar の検索窓は内容で履歴を絞り込む（残高は絞り込みに関わらず全体の貸借を示す）。
+ * AppBar の検索窓は内容で履歴を絞り込み、その右の絞り込みボタンで金額・日付の範囲と To・From の
+ * 詳細な検索を AppBar の下に開く（残高は絞り込みに関わらず全体の貸借を示す）。
  */
 function ExpensesPage() {
-  const [keyword, setKeyword] = useKeywordSearch(Route.useSearch().q ?? '');
+  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(Route.useSearch());
   const balanceQuery = useQuery(balanceQueryOptions);
   const expensesQuery = useQuery(expensesQueryOptions);
   const addExpense = useAddExpense();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
+  const filtering = filters.q !== '' || activeFilters > 0;
 
   return (
     <>
       <AppBarContent>
-        <SearchField label="内容を検索" value={keyword} onChange={setKeyword} />
+        <SearchField label="立替を検索" value={filters.q} onChange={setKeyword} />
+        <FilterButton
+          open={filtersOpen}
+          count={activeFilters}
+          onToggle={() => setFiltersOpen((v) => !v)}
+        />
       </AppBarContent>
+
+      <ExpenseFilterForm open={filtersOpen} filters={filters} onChange={setFilters} />
 
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
@@ -61,8 +77,8 @@ function ExpensesPage() {
       <QueryView query={expensesQuery} skeleton={<ListSkeleton />}>
         {(expenses) => (
           <ExpenseList
-            expenses={expenses.filter((e) => matchesKeyword(keyword, e.description))}
-            emptyMessage={keyword ? '一致する立替はありません' : 'まだ立替はありません'}
+            expenses={expenses.filter((e) => matchesExpense(e, filters))}
+            emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
             onSelect={setSelected}
           />
         )}

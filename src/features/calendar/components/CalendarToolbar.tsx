@@ -1,12 +1,11 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import TodayIcon from '@mui/icons-material/Today';
-import Badge from '@mui/material/Badge';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
+import { FilterButton } from '../../../lib/ui/FilterButton.tsx';
 import { SearchField } from '../../../lib/ui/SearchField.tsx';
 
 type CalendarView = 'month' | 'week' | 'day' | 'list';
@@ -53,16 +52,11 @@ export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeVi
       {view === 'list' ? (
         <>
           <SearchField label="検索" value={list.query} onChange={list.onChangeQuery} />
-          <IconButton
-            aria-label="絞り込み"
-            aria-expanded={list.filtersOpen}
-            onClick={list.onToggleFilters}
-            size="small"
-          >
-            <Badge badgeContent={list.activeFilters} color="primary">
-              <FilterListIcon />
-            </Badge>
-          </IconButton>
+          <FilterButton
+            open={list.filtersOpen}
+            count={list.activeFilters}
+            onToggle={list.onToggleFilters}
+          />
         </>
       ) : (
         <>
