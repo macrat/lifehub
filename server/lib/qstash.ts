@@ -11,9 +11,19 @@ export type Publisher = {
   publish: (input: PlannedNotification) => Promise<void>;
 };
 
+/**
+ * QStash の US リージョン（us-east-1）のエンドポイント。日本からのレイテンシが EU より小さい。
+ * SDK の既定は EU（https://qstash.upstash.io）で、リージョンごとにアカウント・トークン・署名鍵が
+ * 独立しているため、US のトークンを既定のまま使うと publish が 404 で失敗する。
+ * SDK は QSTASH_URL 環境変数でも切り替えられるが、環境変数を増やすと設定漏れで EU に戻り、
+ * しかもその失敗は通知が飛ばないという形でしか表に出ないので、コードに固定する。
+ * 署名検証（Receiver）は鍵だけで完結しネットワークに出ないので、この URL は使わない。
+ */
+const QSTASH_US_URL = 'https://qstash-us-east-1.upstash.io';
+
 export function createPublisher(): Publisher | null {
   if (!isProduction || !env.QSTASH_TOKEN) return null;
-  const client = new Client({ token: env.QSTASH_TOKEN });
+  const client = new Client({ baseUrl: QSTASH_US_URL, token: env.QSTASH_TOKEN });
   const url = `${resolveBaseUrl()}/api/notifications/deliver`;
   return {
     publish: async ({ key, at, ref }) => {
