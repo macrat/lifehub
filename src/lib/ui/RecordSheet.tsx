@@ -134,13 +134,11 @@ function Body({
         )}
       </Stack>
       <Stack
-        data-sheet-scroll
         spacing={2}
         sx={{
           flexGrow: 1,
           minHeight: 0,
           overflowY: 'auto',
-          touchAction: 'pan-y',
           px: GUTTER,
           // 縮んだラベルは入力欄の上端にはみ出すので、その分の余白を空ける
           pt: 1,

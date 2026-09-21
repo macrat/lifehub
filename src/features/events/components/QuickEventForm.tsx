@@ -160,15 +160,13 @@ export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand,
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
         {peek}
-        {/* 上の段でだけ見える残りの項目。ここは自分でスクロールする（シートのドラッグには使わない） */}
+        {/* 上の段でだけ見える残りの項目。ここは自分でスクロールする（はみ出していればそちらが優先される） */}
         <Stack
-          data-sheet-scroll
           spacing={2}
           sx={{
             flexGrow: 1,
             minHeight: 0,
             overflowY: 'auto',
-            touchAction: 'pan-y',
             px: 2,
             pt: 1,
             pb: 'calc(16px + env(safe-area-inset-bottom))',

@@ -44,15 +44,29 @@ test('記録をタップすると読むだけのシートが出て、鉛筆で�
   expect(editing.height).toBeGreaterThan(viewing.height);
   expect(Math.round(editing.y + editing.height)).toBe(Math.round(viewing.y + viewing.height));
 
-  // 上へのスワイプでも同じところへ行ける（読むだけで開いたシートを指だけで広げられる）
+  // 上へのスワイプでも同じところへ行ける。なぞり始めるのはつまむ帯に限らず、本文の上からでもよい
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
   await row.click();
-  const again = await settled();
+  await settled();
   const x = (page.viewportSize()?.width ?? 0) / 2;
-  await touchDrag(page, { x, y: again.y + 8 }, { x, y: again.y - 80 });
+  const body = await page.getByText(note, { exact: true }).boundingBox();
+  if (!body) throw new Error('本文が見つからない');
+  await touchDrag(page, { x, y: body.y + 4 }, { x, y: body.y - 96 });
   await expect(page.getByLabel('メモ', { exact: true })).toHaveValue(note);
   expect((await settled()).height).toBe(editing.height);
+
+  // 入力欄の上から下へなぞっても閉じられる（タップは今までどおり入力欄に届く）
+  const memo = await page.getByLabel('メモ', { exact: true }).boundingBox();
+  if (!memo) throw new Error('メモ欄が見つからない');
+  await page.getByLabel('メモ', { exact: true }).click();
+  await expect(page.getByLabel('メモ', { exact: true })).toBeFocused();
+  await touchDrag(page, { x, y: memo.y + 8 }, { x, y: memo.y + 208 });
+  await expect(sheet).toHaveCount(0);
+  await row.click();
+  await settled();
+  await page.getByRole('button', { name: '編集' }).click();
+  await expect(page.getByLabel('メモ', { exact: true })).toHaveValue(note);
 
   // 直して保存すると一覧に反映される
   await page.getByLabel('メモ', { exact: true }).fill(`${note}（直した）`);

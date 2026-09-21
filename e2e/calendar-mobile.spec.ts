@@ -102,6 +102,13 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
     const from = { x: paper.x + paper.width / 2, y: (await sheetTop()) + 8 };
     await touchDrag(page, from, { x: from.x, y: from.y + dy });
   };
+  /** 入力欄の上から縦になぞる（つまむ帯だけでなく、中身の上からでもシートは動く） */
+  const dragField = async (label: string, dy: number) => {
+    const box = await page.getByLabel(label).boundingBox();
+    if (!box) throw new Error(`${label} が見つからない`);
+    const from = { x: box.x + box.width / 2, y: box.y + 8 };
+    await touchDrag(page, from, { x: from.x, y: from.y + dy });
+  };
   /** 段の移動はアニメーションするので、動き終えてから測る */
   const settledAt = async (expected: 'peek' | 'full') => {
     await expect.poll(() => sheet.evaluate((el) => el.getAnimations().length)).toBe(0);
@@ -117,8 +124,9 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await settledAt('peek');
   await expect(page.getByLabel('メモ')).not.toBeInViewport();
 
-  // 少し上へドラッグすると一番上まで行き、そこで全項目を入力できる（ダイアログは出さない）
-  await dragSheet(-60);
+  // 少し上へドラッグすると一番上まで行き、そこで全項目を入力できる（ダイアログは出さない）。
+  // なぞり始めるのは入力欄の上でもよい（つまむ帯だけでは狭すぎる）
+  await dragField('タイトルを追加', -60);
   await settledAt('full');
   await expect(page.getByLabel('メモ')).toBeInViewport();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -127,7 +135,7 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await page.getByLabel('メモ').fill('シートから入力');
 
   // 少し下へドラッグすると下の段へ戻り、直した日時が見出しとグリッドの枠に映る
-  await dragSheet(60);
+  await dragField('メモ', 60);
   await settledAt('peek');
   await expect(page.getByText('6/5(木) 09:00〜11:00')).toBeVisible();
   await expect(page.getByLabel('メモ')).not.toBeInViewport();
