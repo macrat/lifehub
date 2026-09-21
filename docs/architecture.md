@@ -136,7 +136,7 @@ e2e/                          # Playwright
 ## UI / UX 方針
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
-- Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、ボタンは pill 形。影（elevation）は既定で 0。
+- Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
 - アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。secondary は使わず、強調はすべて primary で統一する。カレンダーの項目は参加者が 1 人ならそのユーザーの色、共有（参加者が 1 人でない）なら彩度 0 の無彩色（`src/features/calendar/queries.ts` の `colorUserOf`、`src/features/users/use-user-color.ts`）。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。
