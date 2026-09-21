@@ -22,16 +22,20 @@ const OUTLINE = {
 } as const;
 
 /**
- * 選んでいる時間帯（週・日の時間軸）。つまんで直せるときは、枠そのもので長さを保ったまま動かし、
- * 端の丸で開始・終了を変える。枠がポインタを受けるので、枠の中から選び直すことはできない
- * （選び直しは空いている所から）。
+ * 選んでいる時間帯（週・日の時間軸）。つまんで直せるときは、枠そのもので長さを保ったまま動かし
+ * （左右に動かせば別の日へ移る）、端の丸で開始・終了を変える。枠がポインタを受けるので、
+ * 枠の中から選び直すことはできない（選び直しは空いている所から）。
+ * `DraftBar` と同じく時間軸のグリッドの直接の子で、列の中には入れない（`TimeGrid`）。
  */
 export function DraftBlock({
   draft,
+  column,
   hourHeight,
   grab,
 }: {
   draft: TimedDraft;
+  /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
+  column: number;
   hourHeight: number;
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
@@ -43,11 +47,15 @@ export function DraftBlock({
       {...grab?.move}
       sx={{
         ...OUTLINE,
-        position: 'absolute',
-        top: (startMin / 60) * hourHeight + 1,
+        gridColumn: column + 1,
+        gridRow: 1,
+        // 行の上端から開始の分だけ下げる（列と同じ高さに伸びないよう start 揃え）
+        alignSelf: 'start',
+        position: 'relative',
+        mt: `${(startMin / 60) * hourHeight + 1}px`,
         height: ((endMin - startMin) / 60) * hourHeight - 2,
-        left: 1,
-        right: 2,
+        ml: '1px',
+        mr: '2px',
         px: 0.5,
         // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
         pointerEvents: grab ? 'auto' : 'none',

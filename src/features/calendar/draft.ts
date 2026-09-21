@@ -48,8 +48,9 @@ const TAP_MINUTES = 60;
  * 空いている所からのドラッグ（grab が null）は触れた枠をすべて含め（上向きも同じ）、
  * 読めない高さにならないよう最短 MIN_BLOCK_MINUTES を保つ。動かしていなければ押した枠から 1 時間。
  * 下書きをつまんだときは、動かした分だけをその枠に反映する（つまんだだけで動かしていなければそのまま）。
- * 端をつまんだときは反対の端を越えられない（最短 STEP_MINUTES を残す）。
- * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。
+ * 端をつまんだときは反対の端を越えられない（最短 STEP_MINUTES を残す）。日は変わらない。
+ * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。こちらは指の下の列の日に移るので、
+ * 週表示では左右に動かして別の日へ持っていける（日表示は列が 1 つなので日が変わらない）。
  */
 export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): EventDraft {
   if (grab === null) return selectDraft(from, to, moved);
@@ -64,7 +65,7 @@ export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>):
     case 'move': {
       const length = endMin - startMin;
       const start = clamp(snap(startMin + (to.min - from.min)), 0, DAY_MINUTES - length);
-      return { ...grab.draft, startMin: start, endMin: start + length };
+      return { ...grab.draft, date: to.date, startMin: start, endMin: start + length };
     }
   }
 }

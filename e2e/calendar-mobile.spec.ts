@@ -83,6 +83,44 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
 });
 
+test('週表示では枠を長押しして左右に動かすと別の日へ移る', async ({ page }) => {
+  const title = `E2E 日をまたぐ ${Date.now()}`;
+  await page.goto('/calendar?view=week&date=2031-06-05');
+
+  /** 時間軸の列（終日欄にも同じ data-date があるので最後のものを取る） */
+  const column = async (date: string) => {
+    const box = await page.locator(`[data-date="${date}"]`).last().boundingBox();
+    if (!box) throw new Error('時間軸の列が見つからない');
+    return box;
+  };
+  const thu = await column('2031-06-05');
+  const y = (minutes: number) => thu.y + (minutes / 60) * (thu.height / 24);
+  const center = (box: { x: number; width: number }) => box.x + box.width / 2;
+
+  await page.touchscreen.tap(center(thu), y(10 * 60 + 10));
+  await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
+
+  // 長押しから隣の列までなぞると、時間帯はそのままで日だけが翌日に移る
+  const fri = await column('2031-06-06');
+  await touchDrag(
+    page,
+    { x: center(thu), y: y(10 * 60 + 30) },
+    { x: center(fri), y: y(10 * 60 + 30) },
+    { hold: 400 },
+  );
+  await expect(page.getByText('6/6(金) 10:00〜11:00')).toBeVisible();
+
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await expect(page.getByText('6/6(金) 10:00〜11:00')).toBeVisible();
+  await detailAction(page, '削除');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
 test('月表示はタップで日表示、長押しで終日の予定を作れる', async ({ page }) => {
   const title = `E2E 長押し ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-15');
