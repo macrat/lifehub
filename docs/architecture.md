@@ -173,7 +173,8 @@ e2e/                          # Playwright
 |---|---|---|
 | Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う） |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
-| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。production / preview 共通でいずれも `sensitive`。`APP_URL` は production のみで `sensitive` ではない |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）はいずれも production のみ・`sensitive`。`APP_URL` も production のみで `sensitive` ではない。Preview には `BETTER_AUTH_SECRET` を別に渡し、`DATABASE_URL` はデプロイ時に CI が渡す |
+| システム環境変数 | `vercel_project.automatically_expose_system_environment_variables` | `VERCEL_ENV` / `VERCEL` を実行時に渡す。本番判定（`server/lib/env.ts`）と DB ドライバの選択（`server/lib/db.ts`）がこれを読むので、既定に任せず明示する |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
 | Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |

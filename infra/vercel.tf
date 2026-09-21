@@ -8,6 +8,11 @@ resource "vercel_project" "lifehub" {
   install_command  = "pnpm install --frozen-lockfile"
   output_directory = "dist"
 
+  # VERCEL_ENV / VERCEL を実行時に渡す。本番かどうかの判定（server/lib/env.ts）と DB ドライバの
+  # 選択（server/lib/db.ts）がこれを読む。露出していないと本番判定が false に倒れ、必須の環境変数の
+  # 検査も通知の予約も黙って行われなくなるので、既定に任せず明示する。
+  automatically_expose_system_environment_variables = true
+
   # Preview URL を Vercel 認証で保護する
   vercel_authentication = {
     deployment_type = "standard_protection_new"

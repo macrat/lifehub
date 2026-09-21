@@ -48,3 +48,5 @@ export function resolveNotification(ref): Promise<NotificationPayload | null>; /
 ## 環境変数
 
 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `CRON_SECRET`。Vercel の環境変数（Sensitive）として Terraform が設定する。
+
+いずれも本番では必須で、1 つでも欠けていればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。欠けたままでも予約（`createPublisher()` が `null` を返す）と送信（`ensureConfigured()` が `false` を返す）は何もせずに正常終了してしまい、画面にもログにも異常が出ないため、起動時に落とす以外に気づく手段が無い。この判定は `VERCEL_ENV` を読むので、Vercel のシステム環境変数を実行時に公開しておく必要がある（`infra/vercel.tf`）。ローカルと Preview は通知用の秘密情報を持たないので対象外。
