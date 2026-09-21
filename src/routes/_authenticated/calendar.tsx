@@ -1,22 +1,17 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
+import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
-import { MonthGrid } from '../../features/calendar/components/MonthGrid.tsx';
-import { TimelineView } from '../../features/calendar/components/TimelineView.tsx';
-import {
-  type CalendarItem,
-  groupByDate,
-  useCalendarItems,
-} from '../../features/calendar/queries.ts';
+import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
+import type { CalendarItem } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
-import { useSwipe } from '../../features/calendar/use-swipe.ts';
 import type { TimeSelection } from '../../features/calendar/use-time-drag.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
@@ -42,14 +37,13 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
- * - 日をタップするとその日の日表示へ。スマホでは左右のスワイプで前後の月・週・日へ
+ * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - 週・日表示では時間軸をドラッグすると、その時間帯の予定を追加できる
  */
 function CalendarPage() {
   const page = useCalendarPage(Route.useSearch());
-  const { items } = useCalendarItems(page.range);
-  const itemsByDate = groupByDate(items);
+  const { view } = page;
 
   const createEvent = useCreateEvent();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
@@ -57,14 +51,11 @@ function CalendarPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const swipeRef = useRef<HTMLDivElement>(null);
-  useSwipe(swipeRef, { onSwipeLeft: () => page.move(1), onSwipeRight: () => page.move(-1) });
-
   return (
     <>
       <AppBarContent>
         <CalendarToolbar
-          view={page.view}
+          view={view}
           title={page.title}
           onOpenPicker={() => setPickerOpen(true)}
           onToday={page.goToday}
@@ -79,9 +70,8 @@ function CalendarPage() {
         />
       </AppBarContent>
 
-      {page.view === 'list' ? (
+      {view === 'list' ? (
         <ListView
-          items={items}
           filters={page.filters}
           filtersOpen={filtersOpen}
           onChangeFilters={(next) =>
@@ -93,41 +83,24 @@ function CalendarPage() {
           onSelectItem={setSelected}
         />
       ) : (
-        <Box
-          ref={swipeRef}
-          sx={{
-            height: FILL_HEIGHT,
-            mb: FILL_MARGIN_BOTTOM,
-            // 横スワイプはこちらで扱う（ブラウザの「戻る」ジェスチャや横スクロールに取られない）
-            touchAction: 'pan-y',
-            overscrollBehaviorX: 'contain',
-          }}
-        >
-          {page.view === 'month' ? (
-            <MonthGrid
-              month={page.month}
-              days={page.days}
-              itemsByDate={itemsByDate}
-              onSelectDate={page.openDay}
-              onSelectItem={setSelected}
-              height="100%"
-            />
-          ) : (
-            <TimelineView
-              days={page.days}
-              itemsByDate={itemsByDate}
-              onSelectItem={setSelected}
-              onSelectDate={page.view === 'week' ? page.openDay : undefined}
-              onSelectRange={setRange}
-              height="100%"
-            />
-          )}
+        <Box sx={{ height: FILL_HEIGHT, mb: FILL_MARGIN_BOTTOM }}>
+          <SwipePager page={`${view}:${page.date}`} onMove={page.move}>
+            {(offset) => (
+              <CalendarPane
+                view={view}
+                period={page.periodAt(offset)}
+                onSelectDate={page.openDay}
+                onSelectItem={setSelected}
+                onSelectRange={setRange}
+              />
+            )}
+          </SwipePager>
         </Box>
       )}
 
-      {pickerOpen && page.view !== 'list' && (
+      {pickerOpen && view !== 'list' && (
         <DatePickerDialog
-          unit={page.view}
+          unit={view}
           date={page.date}
           onClose={() => setPickerOpen(false)}
           onSelect={(date) => {

@@ -79,7 +79,7 @@ export function useTimeDrag({
   const dragging = selection !== null;
   useEffect(() => {
     if (!dragging) return;
-    // ドラッグ中のタッチは選択にだけ使う。capture で先に受けて、縦スクロールと横スワイプ（use-swipe）に渡さない
+    // ドラッグ中のタッチは選択にだけ使う。capture で先に受けて、縦スクロールと横スワイプ（SwipePager）に渡さない
     const block = (e: TouchEvent) => {
       e.preventDefault();
       e.stopPropagation();
