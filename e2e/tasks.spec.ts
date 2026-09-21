@@ -16,7 +16,8 @@ test('タスクを追加し、カレンダーのリスト表示から完了に�
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();
   await page.getByLabel('タイトル').fill(title);
-  await page.getByRole('textbox', { name: '開始日時' }).fill('');
+  // 日時は既定で空欄なので、タイトルだけで保存できる
+  await expect(page.getByRole('textbox', { name: '開始日時' })).toHaveValue('');
   await page.getByRole('button', { name: '保存' }).click();
 
   // 開始日時なしのタスクは今日の位置に出る
