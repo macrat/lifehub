@@ -32,7 +32,7 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 複数日の予定は週の行をまたいで 1 本の帯にする（レーンを割り当てて重ならないように置く）
  * - 終日は塗り帯、時間指定の予定は点＋タイトル、タスクはチェック印＋タイトル。タイトルを優先し、時刻は PC でだけ添える
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
- * - 色は参加者が 1 人ならそのユーザーの色、複数なら既定の色相
+ * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
  */
 export function MonthGrid({ month, days, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
   const compact = useIsMobile();
