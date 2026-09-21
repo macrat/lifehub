@@ -14,6 +14,13 @@ export type Expense = {
   createdAt: string;
 };
 
+/** 「誰が誰のために払ったか」ごとの合計。toUserId が null なら共有（折半） */
+export type ExpenseTotal = {
+  fromUserId: string;
+  toUserId: string | null;
+  amount: number;
+};
+
 /** 残高。fromUserId が toUserId に amount 円を支払うと精算される。0 なら両方 null */
 export type Balance =
   | { amount: 0; fromUserId: null; toUserId: null }
@@ -25,10 +32,13 @@ export type Balance =
  * （X→Y = X が Y のために払った額。共有は折半。端数は切り捨て）
  * 精算も「B が A に払った」= B→A の行として同じ式に入るので、払えば債権が減る。
  * 利用者は 2 人固定で、登録順の先頭 2 人を A, B とする。
+ *
+ * 式はここ 1 か所だけに置く。サーバーは SQL で出した合計を渡し（全行を読まずに済む）、
+ * クライアントは手元の履歴をそのまま渡す（Expense は ExpenseTotal として読める）ので、答えは必ず一致する。
  */
-export function computeBalance(expenses: Expense[], [a, b]: [string, string]): Balance {
+export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Balance {
   const total = (from: string, to: string | null) =>
-    sum(expenses.filter((e) => e.fromUserId === from && e.toUserId === to).map((e) => e.amount));
+    sum(totals.filter((t) => t.fromUserId === from && t.toUserId === to).map((t) => t.amount));
   const claimOfA = Math.trunc((total(a, null) - total(b, null)) / 2) + total(a, b) - total(b, a);
   if (claimOfA === 0) return { amount: 0, fromUserId: null, toUserId: null };
   return claimOfA > 0

@@ -58,7 +58,7 @@
 | DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
 
 - `this`: 回を実体化する（無ければ複製を作り、あれば更新）。`rrule` は持たない。
-- `following`: 元の `rrule` に UNTIL（対象回の直前）を付け、対象回以降の実体化された回を消し、新しい繰り返し元を作る（`runBatch` で原子的に。ローカルの node-postgres では順次実行）。先頭の回への `following` は `all` と同じ。
+- `following`: 元の `rrule` に UNTIL（対象回の直前）を付け、対象回以降の実体化された回を消し、新しい繰り返し元を作る（`runBatch` で原子的に）。先頭の回への `following` は `all` と同じ。
 - `all`: 行を更新する。基準日時または `rrule` が変わった場合は、未完了の実体化された回を捨てる（元の発生日時をキーにした回が意味を失うため）。完了した回は履歴として残す。
 - `occurrenceStart` はルール上に実在する発生でなければ拒否する（400）。
 

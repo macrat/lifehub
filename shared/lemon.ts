@@ -21,19 +21,31 @@ export type CareStatus = {
   daysSince: number | null;
 };
 
-/** 記録（新しい順）から種別ごとの状態を導く。これからの予定（未来の記録）はまだ実施していないものとして扱う */
-export function careStatuses(logs: CareLog[], now: Date): CareStatus[] {
+/**
+ * 種別ごとの最終実施日時から状態を導く。規則はここ 1 か所だけに置く。
+ * サーバーは SQL で種別ごとの最新だけを読んでこれに渡し（全行を読まずに済む）、
+ * クライアントは手元の記録から最新を選んで渡すので、両者の答えは必ず一致する。
+ */
+export function careStatusesOf(lastDoneAt: Partial<Record<CareType, string>>, now: Date) {
   const todayDate = toDateString(now);
   return TRACKED_CARE_TYPES.map((careType) => {
-    const last = logs.find(
-      (log) => log.careType === careType && new Date(log.doneAt).getTime() <= now.getTime(),
-    );
+    const last = lastDoneAt[careType] ?? null;
     return {
       careType,
-      lastDoneAt: last?.doneAt ?? null,
-      daysSince: last ? diffDays(toDateString(new Date(last.doneAt)), todayDate) : null,
+      lastDoneAt: last,
+      daysSince: last ? diffDays(toDateString(new Date(last)), todayDate) : null,
     };
   });
+}
+
+/** 記録（新しい順）から種別ごとの状態を導く。これからの予定（未来の記録）はまだ実施していないものとして扱う */
+export function careStatuses(logs: CareLog[], now: Date): CareStatus[] {
+  const lastDoneAt: Partial<Record<CareType, string>> = {};
+  for (const log of logs) {
+    if (new Date(log.doneAt).getTime() > now.getTime()) continue;
+    lastDoneAt[log.careType] ??= log.doneAt;
+  }
+  return careStatusesOf(lastDoneAt, now);
 }
 
 /** 一覧の並び: 実施日時の新しい順。同じ日時は元の並び（登録の新しい順）のままにする */
