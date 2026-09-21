@@ -119,6 +119,18 @@ export function firstDayOfMonth(month: string): DateString {
   return toDateString(startOfDate(`${month}-01` as DateString));
 }
 
+/** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
+export function monthRange(month: string): { from: DateString; to: DateString } {
+  return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
+}
+
+/** [from, to]（両端含む）に掛かる年月（YYYY-MM）を昇順で */
+export function monthsInRange(from: DateString, to: DateString): string[] {
+  const months: string[] = [];
+  for (let m = toMonthString(from); m <= toMonthString(to); m = addMonths(m, 1)) months.push(m);
+  return months;
+}
+
 /** 月表示のグリッドの 6 週。各要素はその週の月曜で、先頭はその月の 1 日を含む週。 */
 export function monthGridWeeks(month: string): DateString[] {
   const first = firstDayOfMonth(month);
