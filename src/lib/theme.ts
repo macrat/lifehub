@@ -94,6 +94,8 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
       MuiDialog: {
         styleOverrides: {
           paper: { borderRadius: 28 },
+          // スマホの全画面フォームはページとして見せるので角丸にしない
+          paperFullScreen: { borderRadius: 0 },
         },
       },
       MuiButton: {

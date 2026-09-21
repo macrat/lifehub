@@ -130,7 +130,7 @@ export function AddMenu({ kinds, date }: Props) {
         <EventForm
           title="予定を追加"
           initial={defaultEventValues(date)}
-          onSubmit={(i) => createEvent.mutateAsync(i)}
+          onSubmit={createEvent.mutateAsync}
           onClose={close}
         />
       )}
@@ -138,14 +138,12 @@ export function AddMenu({ kinds, date }: Props) {
         <TaskForm
           title="タスクを追加"
           initial={defaultTaskValues(date)}
-          onSubmit={(i) => createEvent.mutateAsync(i)}
+          onSubmit={createEvent.mutateAsync}
           onClose={close}
         />
       )}
-      {form === 'expense' && (
-        <ExpenseForm onSubmit={(i) => addExpense.mutateAsync(i)} onClose={close} />
-      )}
-      {form === 'lemon' && <CareLogForm onSubmit={(i) => logCare.mutateAsync(i)} onClose={close} />}
+      {form === 'expense' && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={close} />}
+      {form === 'lemon' && <CareLogForm onSubmit={logCare.mutateAsync} onClose={close} />}
     </>
   );
 }

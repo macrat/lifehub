@@ -57,7 +57,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
-- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。
+- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/events` が返す `CalendarItem[]` だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
@@ -68,11 +68,11 @@ api/
 src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
-  features/                   # 機能ごとの UI（components/, queries.ts, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
+  features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定・useInvalidate・ensureData）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
-    ui/（AppShell（FAB_SX など）, ナビゲーション, FormDialog, CenteredPage, 共通部品）
+    api.ts（Hono RPC client）  query-client.ts（永続化設定・useOptimisticMutation・ensureData）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
+    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, FormDialog, notice.ts（保存の失敗などの通知）, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -92,6 +92,7 @@ server/                       # サーバー（Hono）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
+  calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と残高の式）  lemon.ts（世話の記録と状態）
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
 .github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml
@@ -136,7 +137,7 @@ e2e/                          # Playwright
 ## UI / UX 方針
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
-- Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
+- Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px（スマホの全画面フォームは角丸なし）、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
 - アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。secondary は使わず、強調はすべて primary で統一する。カレンダーの項目は参加者が 1 人ならそのユーザーの色、共有（参加者が 1 人でない）なら彩度 0 の無彩色（`src/features/calendar/queries.ts` の `colorUserOf`、`src/features/users/use-user-color.ts`）。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。
@@ -146,9 +147,11 @@ e2e/                          # Playwright
 - カレンダーの月・週・日表示は画面の残り全部を占める（AppShell が下に確保する余白は負のマージンで打ち消す）。日をタップすると日表示へ、スマホでは左右のスワイプで前後へ、年月をタップすると選択ダイアログ。前後ボタンは置かない。
 - 月グリッドは Google カレンダー流: 複数日・終日の予定は週ごとに 1 本の連続したバー（レーン割り当て）、時刻付き予定は「● タイトル」（時刻は PC のみ）、タスクはチェック印付き。常にタイトルを優先し、収まらない分は「+n」でまとめる。週・日は Google カレンダーと同じタイムライン（時間軸に塗りブロック、終日欄、現在時刻の線）。
 - 一覧はカードを重ねずフラットな行（左に時刻列、右にタイトルと補足）で並べる。カレンダーのリスト表示は `DayList` / `ItemCard`、ホームの「今日」は同じ体裁のより簡素な行（印・時刻・タイトルだけ）。
-- 入力フォームのダイアログはスマホでは全画面（`FormDialog`）。閉じるボタンを見出しに、保存ボタンを下端に固定する。
+- 入力フォームのダイアログ（`FormDialog`）はスマホではページが切り替わったように右から差し込む全画面表示にする（角丸なし、見出しは AppBar と同じ帯で戻る矢印つき）。PC では中央のダイアログ。どちらも保存ボタンは下端に固定する。保存を押したら送信の完了を待たずに閉じる（結果は楽観的更新で即座に画面に出る）。失敗したときだけ、入力したまま開き直して理由をフォームの先頭に出す（入力をやり直さずに直せる）。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
-- 更新系は TanStack Query の mutation で行い、成功後に関連クエリを invalidate する。楽観的更新は必要になるまで入れない。
+- 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
+- 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
+- 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。
 
 ## PWA

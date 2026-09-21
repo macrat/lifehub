@@ -1,0 +1,151 @@
+import { addDays as addDaysFn } from 'date-fns';
+import { addDays, diffDays, startOfDay, toDateString, today } from './date.ts';
+import type { DateString } from './types.ts';
+import type { EventKind } from './validation/events.ts';
+
+/**
+ * カレンダーに並ぶ項目の形と、発生（1 回分）を暦日に置く規則。
+ * サーバーの一覧（`server/features/events/occurrences.ts`）と、クライアントの楽観的更新
+ * （`src/features/events/optimistic.ts`）が同じ規則を使うため、共通に置く。
+ */
+
+/** 保存されている行そのもの（単発、繰り返し元、または実体化された回） */
+export type EventMaster = {
+  id: string;
+  kind: EventKind;
+  title: string;
+  allDay: boolean;
+  startsAt: string | null;
+  /** 予定では排他的な終端（終日は翌日 JST 0:00）。タスクでは期限 */
+  endsAt: string | null;
+  completedAt: string | null;
+  location: string | null;
+  note: string | null;
+  participantIds: string[];
+  rrule: string | null;
+  remindStartMinutes: number | null;
+  remindEndMinutes: number | null;
+};
+
+/** 1 回の発生（繰り返しを展開し、実体化された回を反映したもの）。id は繰り返し元（単発ならその行）の id */
+export type Occurrence = EventMaster & {
+  /** 繰り返しの回を指す元の発生の基準日時。単発では null */
+  occurrenceStart: string | null;
+  isRecurring: boolean;
+  /** この回だけ、ルールから導かれる値と違う項目があるか */
+  isModified: boolean;
+};
+
+/**
+ * カレンダーが読む項目。placementDate は JST の暦日。
+ * 予定は日ごとに 1 件（複数日は dayIndex / dayCount）、タスクは表示規則で 1 件。
+ */
+export type CalendarItem =
+  | (Occurrence & {
+      kind: 'event';
+      startsAt: string;
+      endsAt: string;
+      placementDate: DateString;
+      /** 複数日の予定での何日目か（1 始まり）と総日数 */
+      dayIndex: number;
+      dayCount: number;
+    })
+  | (Occurrence & { kind: 'task'; placementDate: DateString; isOverdue: boolean });
+
+/** 両端を含む JST 暦日の期間 */
+export type DateRange = { from: DateString; to: DateString };
+
+/**
+ * 入力の日時を保存形式に合わせる。終日は開始をその日の JST 0:00 に、
+ * 終了を「終了日（含む）」の翌日 JST 0:00（排他的）にする。
+ */
+export function normalizeInstants(
+  allDay: boolean,
+  startsAt: Date | null,
+  endsAt: Date | null,
+): { startsAt: Date | null; endsAt: Date | null } {
+  if (!allDay) return { startsAt, endsAt };
+  return {
+    startsAt: startsAt && startOfDay(startsAt),
+    endsAt: endsAt && addDaysFn(startOfDay(endsAt), 1),
+  };
+}
+
+/** 発生を [from, to] の暦日に置く（範囲に掛からなければ空）。予定は掛かる日ごとに 1 件 */
+export function placeOccurrence(
+  occurrence: Occurrence,
+  range: DateRange,
+  now: Date,
+): CalendarItem[] {
+  if (occurrence.kind === 'event') return placeEvent(occurrence, range);
+  const task = placeTask(occurrence, now);
+  return task.placementDate >= range.from && task.placementDate <= range.to ? [task] : [];
+}
+
+/** 一覧の並び: placementDate 順、同日内は 終日の予定 → 時刻のある項目 → 時刻の無いタスク */
+export function sortItems(items: CalendarItem[]): CalendarItem[] {
+  return [...items].sort(compareItems);
+}
+
+/**
+ * タスクの表示位置（docs/features/events.md）:
+ * - 未完了で開始日時が未来 → 開始日時の日。未完了で開始が過去／今日／未設定 → 今日（完了まで繰り越し）
+ * - 完了 → 完了した日
+ */
+function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { kind: 'task' }> {
+  const todayDate = today(now);
+  const startsAt = occurrence.startsAt ? new Date(occurrence.startsAt) : null;
+  const endsAt = occurrence.endsAt ? new Date(occurrence.endsAt) : null;
+  const completedAt = occurrence.completedAt ? new Date(occurrence.completedAt) : null;
+  let placementDate: DateString;
+  if (completedAt) placementDate = toDateString(completedAt);
+  else if (startsAt && toDateString(startsAt) > todayDate) placementDate = toDateString(startsAt);
+  else placementDate = todayDate;
+  return {
+    ...occurrence,
+    kind: 'task',
+    placementDate,
+    isOverdue: !completedAt && endsAt !== null && endsAt.getTime() < now.getTime(),
+  };
+}
+
+/** 予定の発生を日ごとの項目にする（範囲外の日は除く） */
+function placeEvent(
+  occurrence: Occurrence,
+  range: DateRange,
+): Extract<CalendarItem, { kind: 'event' }>[] {
+  if (!occurrence.startsAt || !occurrence.endsAt) return [];
+  const startsAt = new Date(occurrence.startsAt);
+  const endsAt = new Date(occurrence.endsAt);
+  const firstDay = toDateString(startsAt);
+  // 終端は排他的なので 1ms 手前の日。長さ 0 なら開始日
+  const lastDay =
+    endsAt.getTime() > startsAt.getTime() ? toDateString(new Date(endsAt.getTime() - 1)) : firstDay;
+  const dayCount = diffDays(firstDay, lastDay) + 1;
+  const result: Extract<CalendarItem, { kind: 'event' }>[] = [];
+  for (let i = 0; i < dayCount; i++) {
+    const day = addDays(firstDay, i);
+    if (day < range.from || day > range.to) continue;
+    result.push({
+      ...occurrence,
+      kind: 'event',
+      startsAt: occurrence.startsAt,
+      endsAt: occurrence.endsAt,
+      placementDate: day,
+      dayIndex: i + 1,
+      dayCount,
+    });
+  }
+  return result;
+}
+
+/** 同日内の並び順のキー: 終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク */
+function sortKey(item: CalendarItem): string {
+  if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
+  return item.startsAt ?? item.endsAt ?? '~';
+}
+
+function compareItems(a: CalendarItem, b: CalendarItem): number {
+  if (a.placementDate !== b.placementDate) return a.placementDate < b.placementDate ? -1 : 1;
+  return sortKey(a).localeCompare(sortKey(b));
+}
