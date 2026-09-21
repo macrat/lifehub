@@ -10,7 +10,7 @@ import {
   updateUserSchema,
 } from '../../../../shared/validation/users.ts';
 import { formValues, useFormSubmit } from '../../../lib/form.ts';
-import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
+import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { User } from '../queries.ts';
 import { HueSlider } from './HueSlider.tsx';
 
@@ -27,7 +27,7 @@ type EditProps = {
   onSubmit: (input: UpdateUserInput) => Promise<unknown>;
 };
 
-/** ユーザーの登録（create）と、名前・パスワードの変更（edit）を 1 つのダイアログで扱う。 */
+/** ユーザーの登録（create）と、名前・パスワードの変更（edit）を 1 つのシートで扱う。 */
 export function UserForm(props: CreateProps | EditProps) {
   // 色は登録時は省略可（サーバーが既存ユーザーと離れた色相を選ぶ）。編集時は今の色から始める
   const [hue, setHue] = useState<number | null>(props.mode === 'edit' ? props.user.hue : null);
@@ -43,11 +43,10 @@ export function UserForm(props: CreateProps | EditProps) {
   });
 
   return (
-    <FormDialog
+    <RecordSheet
       open={!submitted}
       error={submitError}
       onClose={props.onClose}
-      maxWidth="xs"
       title={props.mode === 'create' ? 'ユーザーを登録' : 'ユーザーを編集'}
       onSubmit={handleSubmit}
     >
@@ -82,6 +81,6 @@ export function UserForm(props: CreateProps | EditProps) {
         fullWidth
       />
       <HueSlider value={hue ?? DEFAULT_HUE} onChange={setHue} />
-    </FormDialog>
+    </RecordSheet>
   );
 }

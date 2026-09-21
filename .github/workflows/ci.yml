@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+    # labeled は preview ラベルを付けた瞬間に Preview デプロイを始めるために要る。
+    # types を書くと既定値が消えるので、既定の 3 つも並べて書く。
+    types: [opened, synchronize, reopened, labeled]
 
 concurrency:
   group: ci-${{ github.event.pull_request.number }}
@@ -100,8 +103,15 @@ jobs:
   preview:
     name: preview deploy
     needs: [check, terraform]
-    # 初回の apply 前（Vercel / Neon のプロジェクトが無い）は preview を作らない
-    if: needs.terraform.outputs.applied == 'true'
+    # preview ラベルの付いた PR だけをデプロイする。Vercel の 1 日あたりのデプロイ数上限に
+    # 当たったため、Preview が要る PR をラベルで明示してもらう。ラベルが付いていれば
+    # ラベルを付けたとき・push したとき・PR を開き直したときにデプロイする。関係ない
+    # ラベルを付け外ししただけのときは、同じ内容を作り直すだけなので何もしない。
+    # 初回の apply 前（Vercel / Neon のプロジェクトが無い）も preview を作れない。
+    if: >-
+      needs.terraform.outputs.applied == 'true'
+      && contains(github.event.pull_request.labels.*.name, 'preview')
+      && (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

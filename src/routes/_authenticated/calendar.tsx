@@ -1,25 +1,26 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
-import type { EventDraft } from '../../features/calendar/draft.ts';
+import { defaultDraft, type EventDraft } from '../../features/calendar/draft.ts';
 import type { CalendarItem } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
-import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
+import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
 import type { ItemFormValues } from '../../features/events/form-values.ts';
 import { useCreateEvent } from '../../features/events/queries.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
 
 export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
@@ -38,28 +39,49 @@ const FILL_HEIGHT = {
 };
 const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 
+/** 追加しようとしている予定 */
+type Draft = {
+  /** グリッドに出す枠 */
+  range: EventDraft;
+  /** 入力を出すか（なぞっている間は出さない） */
+  editing: boolean;
+  /** 入力を開く段。グリッドからは下の段、追加ボタンからは全項目の段 */
+  detent: SheetDetent;
+};
+
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
+ * - 追加ボタンの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
  */
 function CalendarPage() {
-  const page = useCalendarPage(Route.useSearch());
+  const search = Route.useSearch();
+  const page = useCalendarPage(search);
   const { view } = page;
 
   const createEvent = useCreateEvent();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  // 追加しようとしている予定。editing はポインタを離した後（なぞっている間は入力を出さない）
-  const [draft, setDraft] = useState<{ range: EventDraft; editing: boolean } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
   const changeDraft = useCallback(
-    (range: EventDraft, editing: boolean) => setDraft({ range, editing }),
+    (range: EventDraft, editing: boolean) => setDraft({ range, editing, detent: 'peek' }),
     [],
   );
+
+  // 追加ボタンから来たら、その日の既定の時間帯を枠にして全項目の段から始める。
+  // しるしは使ったらすぐ消す（履歴に積まず、再読み込みで開き直さない）
+  const { setSearch } = page;
+  const addEvent = search.add === 'event';
+  useEffect(() => {
+    if (!addEvent) return;
+    setDraft({ range: defaultDraft(page.date), editing: true, detent: 'full' });
+    setSearch({ add: undefined }, { replace: true });
+  }, [addEvent, page.date, setSearch]);
 
   return (
     <>
@@ -119,13 +141,14 @@ function CalendarPage() {
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
       {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
-      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
+      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
       {draft && (
         <QuickEventForm
           draft={draft.range}
           open={draft.editing}
+          initialDetent={draft.detent}
           onSubmit={(input) => createEvent.mutateAsync(input)}
-          onChangeDraft={(range) => setDraft({ range, editing: true })}
+          onChangeDraft={(range) => setDraft((prev) => prev && { ...prev, range, editing: true })}
           onExpand={(values) => {
             setDraftValues(values);
             setDraft(null);
@@ -135,7 +158,6 @@ function CalendarPage() {
       )}
       {draftValues && (
         <EventForm
-          title="予定を追加"
           initial={draftValues}
           onSubmit={(input) => createEvent.mutateAsync(input)}
           onClose={() => setDraftValues(null)}

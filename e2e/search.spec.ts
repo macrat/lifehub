@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 
 test.beforeEach(async ({ page }) => {
@@ -98,7 +99,7 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   for (const row of [smallRow, largeRow]) {
     page.once('dialog', (dialog) => dialog.accept());
     await row.click();
-    await page.getByRole('button', { name: '削除' }).click();
+    await detailAction(page, '削除');
     await expect(row).toHaveCount(0);
   }
 });
@@ -163,7 +164,7 @@ test('レモンの詳細検索で種別と日付の範囲で絞り込める', as
   for (const row of [wateredRow, fertilizedRow]) {
     page.once('dialog', (dialog) => dialog.accept());
     await row.click();
-    await page.getByRole('button', { name: '削除' }).click();
+    await detailAction(page, '削除');
     await expect(row).toHaveCount(0);
   }
 });

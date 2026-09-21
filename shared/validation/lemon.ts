@@ -16,7 +16,8 @@ export const CARE_TYPE_LABELS: Record<CareType, string> = {
 /** ホームのカードや状態表示で経過日数を出す種別（メモは除く） */
 export const TRACKED_CARE_TYPES = ['water', 'mist', 'fertilize', 'bloom', 'harvest'] as const;
 
-export const createCareLogSchema = z
+/** 追加と編集で同じ形（編集は全項目を置き換える） */
+export const careLogSchema = z
   .object({
     careType: z.enum(CARE_TYPES),
     doneAt: instantSchema,
@@ -26,4 +27,4 @@ export const createCareLogSchema = z
     message: 'メモの本文を入力してください',
     path: ['note'],
   });
-export type CreateCareLogInput = z.infer<typeof createCareLogSchema>;
+export type CareLogInput = z.infer<typeof careLogSchema>;

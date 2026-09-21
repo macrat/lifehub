@@ -1,5 +1,5 @@
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
-import type { CreateCareLogInput } from '../../../shared/validation/lemon.ts';
+import type { CareLogInput } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
@@ -19,8 +19,15 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
   );
 }
 
-export async function logCare(input: CreateCareLogInput, userId: string): Promise<CareLog> {
+export async function logCare(input: CareLogInput, userId: string): Promise<CareLog> {
   return toLog(await repository.insert({ ...input, createdBy: userId }));
+}
+
+/** 全項目を置き換える。記録した人（createdBy）は変えない */
+export async function updateLog(id: string, input: CareLogInput): Promise<CareLog> {
+  const row = await repository.update(id, input);
+  if (!row) throw new NotFoundError('記録が見つかりません');
+  return toLog(row);
 }
 
 export async function deleteLog(id: string): Promise<void> {

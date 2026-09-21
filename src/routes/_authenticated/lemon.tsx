@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { CareLogDetailDialog } from '../../features/lemon/components/CareLogDetailDialog.tsx';
+import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
@@ -101,7 +101,7 @@ function LemonPage() {
           onClose={() => setAdding(null)}
         />
       )}
-      {selected && <CareLogDetailDialog log={selected} onClose={() => setSelected(null)} />}
+      {selected && <CareLogDetailSheet log={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

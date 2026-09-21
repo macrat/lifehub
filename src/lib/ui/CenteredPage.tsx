@@ -7,7 +7,9 @@ export function CenteredPage({ maxWidth, children }: { maxWidth: number; childre
   return (
     <Box
       sx={{
-        minHeight: '100dvh',
+        // AppShell と同じく svh（ブラウザの URL バーなどが最大に出ている状態の高さ）を基準にする。
+        // dvh はそれらの出入りで値が変わり、読み込み直後に画面より高くなってスクロールが要る表示になる
+        minHeight: '100svh',
         display: 'grid',
         placeItems: 'center',
         px: 2,

@@ -9,8 +9,13 @@ import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
-import { type CalendarItem, colorUserOf, useCalendarItems } from '../../calendar/queries.ts';
-import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
+import {
+  type CalendarItem,
+  colorUserOf,
+  useCalendarItems,
+  useRefreshCalendarItems,
+} from '../../calendar/queries.ts';
+import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
@@ -18,8 +23,12 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 /**
  * 今日の予定と未完了のタスクを 1 つの一覧に。1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
  * タスクはチェックで完了、行をタップすると詳細。
+ *
+ * カレンダーと同じ月のキャッシュを読む。そのキャッシュは古くならないので、ホームに入るたびに
+ * 取り直す（`useRefreshCalendarItems`。カレンダー画面と同じ扱い）。
  */
 export function TodayCard() {
+  useRefreshCalendarItems();
   const query = useCalendarItems({ from: today(), to: today() });
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   return (
@@ -40,7 +49,7 @@ export function TodayCard() {
           );
         }}
       </QueryView>
-      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
+      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
     </DashboardCardFrame>
   );
 }

@@ -14,7 +14,7 @@ type Props = {
   onSelect: (log: CareLog) => void;
 };
 
-/** 世話の記録（新しい順）。行をタップで詳細（削除はそこに集める） */
+/** 世話の記録（新しい順）。行をタップで詳細（編集・削除はそこに集める） */
 export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
   return (
     <List disablePadding>

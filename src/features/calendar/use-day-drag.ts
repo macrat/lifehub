@@ -23,10 +23,16 @@ export function useDayDrag({
     const date = cell?.dataset.date;
     return date !== undefined && isDateString(date) ? date : null;
   };
-  return useRangeDrag<DateString, EventDraft>({
+  const drag = useRangeDrag<DateString, DateString, EventDraft>({
     locate,
-    rangeOf: dayDraft,
+    // 端をつまんだときは動かさない方の端（掴んだ物）を起点に選び直す。空いている所からは押した日が起点
+    rangeOf: ({ grab, from, to }) => dayDraft(grab ?? from, to),
     onChange,
     onTouchTap: onTapDate,
   });
+  return {
+    props: drag.props,
+    /** 端の丸をつまんで広げ縮めする。anchor は動かさない方の端 */
+    handleProps: (anchor: DateString) => drag.grabProps(anchor, { instant: true }),
+  };
 }

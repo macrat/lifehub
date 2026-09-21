@@ -1,4 +1,4 @@
-import { createCareLogSchema } from '../../../shared/validation/lemon.ts';
+import { careLogSchema } from '../../../shared/validation/lemon.ts';
 import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -20,7 +20,7 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
       title: 'レモンの世話を記録',
       description:
         'レモンの木の世話を記録する。careType は water / mist / fertilize / bloom / harvest / note。doneAt は ISO 8601（省略時は現在時刻を指定すること）。note 種別は本文（note）が必須。',
-      inputSchema: createCareLogSchema,
+      inputSchema: careLogSchema,
     },
     async (input) => jsonResult(await service.logCare(input, ctx.userId)),
   );

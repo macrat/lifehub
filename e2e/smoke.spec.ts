@@ -43,4 +43,7 @@ test('設定画面が表示される', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
   await expect(page.getByRole('switch', { name: 'この端末で通知を受け取る' })).toBeVisible();
   await expect(page.getByRole('slider', { name: '色' })).toBeVisible();
+  // バージョンはビルド時の define で埋め込む。埋め込みが外れると値ごと消えるので中身まで見る
+  await expect(page.getByRole('heading', { name: 'バージョン' })).toBeVisible();
+  await expect(page.getByText(/^[0-9a-f]{7}$/)).toBeVisible();
 });

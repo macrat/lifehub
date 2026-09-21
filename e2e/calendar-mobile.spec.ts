@@ -1,5 +1,7 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
+import { touchDrag } from './touch.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
 test.use({ ...devices['Pixel 7'] });
@@ -11,35 +13,6 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL('/');
 });
-
-/**
- * 指でのなぞり（タッチ）。Playwright の touchscreen はタップだけなので、CDP で touchstart〜touchend を送る。
- * hold はなぞり始めるまで押さえている時間（ミリ秒。月表示の長押しに使う）。
- */
-async function touchDrag(
-  page: Page,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  { hold = 0 } = {},
-) {
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
-  if (hold > 0) await page.waitForTimeout(hold);
-  const steps = 5;
-  for (let i = 1; i <= steps; i++) {
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [
-        {
-          x: from.x + ((to.x - from.x) * i) / steps,
-          y: from.y + ((to.y - from.y) * i) / steps,
-        },
-      ],
-    });
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
-}
 
 test('日表示でタップして選び、端をつまんで広げて予定を作れる', async ({ page }) => {
   const title = `E2E タップ ${Date.now()}`;
@@ -73,8 +46,41 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('日表示で枠をつまんで動かし、端の丸は反対の端を越えない', async ({ page }) => {
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  const column = page.locator('[data-date="2031-06-05"]').last();
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const x = box.x + box.width / 2;
+  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  /** 端の丸の中心。丸は枠の左右の内側にあるので、位置は毎回測り直す */
+  const handle = async (end: 'start' | 'end') => {
+    const dot = await page.locator(`[data-handle="${end}"]`).boundingBox();
+    if (!dot) throw new Error('つまむ丸が見つからない');
+    return { x: dot.x + dot.width / 2, y: dot.y + dot.height / 2 };
+  };
+
+  await page.touchscreen.tap(x, y(10 * 60 + 10));
+  await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
+
+  // 丸ではない所から長押しでなぞると、長さ 1 時間を保ったまま 3 時間ぶん下がる
+  await touchDrag(page, { x, y: y(10 * 60 + 30) }, { x, y: y(13 * 60 + 30) }, { hold: 400 });
+  await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
+
+  // 終了の丸は開始より上へ行けず、開始の 15 分後で止まる
+  await touchDrag(page, await handle('end'), { x, y: y(11 * 60) });
+  await expect(page.getByText('6/5(木) 13:00〜13:15')).toBeVisible();
+
+  // 終了の丸を戻して 1 時間にし、開始の丸は終了の 15 分前で止まることを確かめる
+  await touchDrag(page, await handle('end'), { x, y: y(14 * 60) });
+  await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
+  await touchDrag(page, await handle('start'), { x, y: y(16 * 60) });
+  await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
 });
 
 test('月表示はタップで日表示、長押しで終日の予定を作れる', async ({ page }) => {
@@ -105,7 +111,7 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
@@ -129,6 +135,13 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
     const from = { x: paper.x + paper.width / 2, y: (await sheetTop()) + 8 };
     await touchDrag(page, from, { x: from.x, y: from.y + dy });
   };
+  /** 入力欄の上から縦になぞる（つまむ帯だけでなく、中身の上からでもシートは動く） */
+  const dragField = async (label: string, dy: number) => {
+    const box = await page.getByLabel(label).boundingBox();
+    if (!box) throw new Error(`${label} が見つからない`);
+    const from = { x: box.x + box.width / 2, y: box.y + 8 };
+    await touchDrag(page, from, { x: from.x, y: from.y + dy });
+  };
   /** 段の移動はアニメーションするので、動き終えてから測る */
   const settledAt = async (expected: 'peek' | 'full') => {
     await expect.poll(() => sheet.evaluate((el) => el.getAnimations().length)).toBe(0);
@@ -144,8 +157,9 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await settledAt('peek');
   await expect(page.getByLabel('メモ')).not.toBeInViewport();
 
-  // 少し上へドラッグすると一番上まで行き、そこで全項目を入力できる（ダイアログは出さない）
-  await dragSheet(-60);
+  // 少し上へドラッグすると一番上まで行き、そこで全項目を入力できる（ダイアログは出さない）。
+  // なぞり始めるのは入力欄の上でもよい（つまむ帯だけでは狭すぎる）
+  await dragField('タイトルを追加', -60);
   await settledAt('full');
   await expect(page.getByLabel('メモ')).toBeInViewport();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -154,7 +168,7 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await page.getByLabel('メモ').fill('シートから入力');
 
   // 少し下へドラッグすると下の段へ戻り、直した日時が見出しとグリッドの枠に映る
-  await dragSheet(60);
+  await dragField('メモ', 60);
   await settledAt('peek');
   await expect(page.getByText('6/5(木) 09:00〜11:00')).toBeVisible();
   await expect(page.getByLabel('メモ')).not.toBeInViewport();
@@ -177,6 +191,6 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
   await expect(page.getByText('シートから入力')).toBeVisible();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
