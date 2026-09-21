@@ -23,7 +23,10 @@ import type { CreateEventBody } from '../queries.ts';
 type Props = {
   /** グリッドで選んだ範囲。日時はこれで決まり、ここでは変えない（調整はグリッドの端をつまむ） */
   draft: EventDraft;
-  /** 入力できる状態か。ドラッグの最中は出さない */
+  /**
+   * なぞり終えて入力できる状態か。PC の吹き出しはドラッグの最中は出さない（枠に重なって選べなくなるため）。
+   * スマホのシートは画面の下に出るだけでグリッドを隠さないので、なぞっている間も出したままにする。
+   */
   open: boolean;
   /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
