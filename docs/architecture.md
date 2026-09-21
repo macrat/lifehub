@@ -176,7 +176,7 @@ e2e/                          # Playwright
 - GitHub Secrets はワークフローやジョブの `env` に置かず、それを使うステップの `env` にだけ渡す。テストやアプリのビルドなど依存パッケージのコードが動くステップにクレデンシャルを渡さないため。`typecheck / lint / test` ジョブは Secrets を一切受け取らず、`vercel build` にはトークンを渡さない。Terraform の出力（DB 接続文字列など）も `GITHUB_ENV` ではなくステップ出力にして、使うステップにだけ渡す。
 - Terraform 対象外: Vercel Cron の定義（`vercel.json`）、外部 DNS の CNAME、DB マイグレーション、初期ユーザー作成。
 - state は HCP Terraform（Free）のワークスペース `lifehub` にリモート保存し、GitHub Actions からは `TF_API_TOKEN` で接続する。
-- プロバイダの更新は Renovate の PR で行い、CI では `terraform init -upgrade` を使わない（Neon 公式が警告するリソース再作成事故を防ぐ）。PR の `terraform plan` に replace が含まれる場合はマージしない。
+- プロバイダの更新はバージョン制約を編集する PR で行い、CI では `terraform init -upgrade` を使わない（Neon 公式が警告するリソース再作成事故を防ぐ）。PR の `terraform plan` に replace が含まれる場合はマージしない。
 
 ### デプロイフロー（GitHub Actions）
 
@@ -210,4 +210,4 @@ Preview 環境の挙動:
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。
-- 依存関係は Renovate で定期更新し、常に最新安定版に追従する。
+- 依存関係の自動更新ツールは導入していない。更新は手動の PR で行う。
