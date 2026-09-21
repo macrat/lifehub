@@ -1,12 +1,13 @@
-import { createRequire } from 'node:module';
 import { TZDate } from '@date-fns/tz';
-import type { RRule as RRuleType } from 'rrule';
+import rrule, { type RRule as RRuleType } from 'rrule';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { ValidationError } from '../errors.ts';
 
 // rrule は package.json に exports が無く、ESM ビルドも "type": "module" を持たないため、Node の
-// ESM ローダーからは名前付き import ができない（UMD の main だけが読める）。CJS として読み込む。
-const { RRule, datetime } = createRequire(import.meta.url)('rrule') as typeof import('rrule');
+// ESM ローダーからは名前付き import ができない（UMD の main だけが読める）。default import で
+// module.exports を受け取る。createRequire で読むと Vercel の依存トレース（nft）が追えず、
+// 関数のバンドルに dist/es5/rrule.js が入らない。
+const { RRule, datetime } = rrule;
 type RRule = RRuleType;
 
 /**
