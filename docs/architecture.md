@@ -195,7 +195,7 @@ e2e/                          # Playwright
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。
 - `VERCEL_ENV !== 'production'` のとき、日次 Cron の通知予約と QStash への publish を無効化する（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。配信コールバックの署名検証は Preview でも行う。
-- better-auth の `baseURL` は `VERCEL_URL` から導出し、Preview URL でもログインと MCP の OAuth が動くようにする。
+- better-auth の `baseURL` は、`APP_URL` があればそれに固定し、無ければ（= Preview）`*.vercel.app` に限ってリクエストのホストから決める。Preview は URL がデプロイごとに変わるため、固定値では origin チェックに落ちてログインできない。
 
 運用上の注意:
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
