@@ -146,10 +146,23 @@ describe('timeDraft（下書きをつまむ）', () => {
     });
   });
 
-  it('日は変わらない（列をまたいでも）', () => {
+  it('枠は左右に動かすと指の下の列の日に移る（長さも時間帯も保つ）', () => {
     expect(
-      grabbed(draft, 'move', at(9 * 60 + 30), { date: '2031-06-06' as DateString, min: 10 * 60 }),
-    ).toMatchObject({ date: DAY });
+      grabbed(draft, 'move', at(9 * 60 + 30), {
+        date: '2031-06-06' as DateString,
+        min: 9 * 60 + 30,
+      }),
+    ).toEqual({ allDay: false, date: '2031-06-06', startMin: 9 * 60, endMin: 10 * 60 });
+  });
+
+  it('端の丸は日を変えない（列をまたいでも）', () => {
+    const next = '2031-06-06' as DateString;
+    expect(grabbed(draft, 'start', at(9 * 60), { date: next, min: 8 * 60 })).toMatchObject({
+      date: DAY,
+    });
+    expect(grabbed(draft, 'end', at(10 * 60), { date: next, min: 11 * 60 })).toMatchObject({
+      date: DAY,
+    });
   });
 });
 

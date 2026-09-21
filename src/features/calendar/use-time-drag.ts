@@ -9,10 +9,17 @@ import {
 } from './draft.ts';
 import { useRangeDrag } from './use-range-drag.ts';
 
+/** 時間軸（`data-time-grid`）の中で、その x にある列（`data-date`）。外にはみ出したら端の列に寄せる */
+function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
+  const columns = [...grid.querySelectorAll<HTMLElement>('[data-date]')];
+  return columns.findLast((c) => c.getBoundingClientRect().left <= clientX) ?? columns[0];
+}
+
 /**
- * 時間軸（週・日表示）を縦になぞって時間帯を選ぶ。下書きは端をつまんで広げ縮め、枠をつまんで動かせる。
- * 位置は列（`data-date`）の上端からの px を分に直して求める。つまんだときも同じ列を見るので、
- * 掴んだ要素からではなく `data-date` を持つ祖先から測る。
+ * 時間軸（週・日表示）をなぞって時間帯を選ぶ。下書きは端をつまんで広げ縮め、枠をつまんで動かせる。
+ * 日は指の下にある列、分はその列の上端からの px で求める（列はどれも上端が同じ）。
+ * 列を掴んだ要素からではなく位置から引くので、枠をつまんだまま隣の日へ持っていける。
+ * 探すのは同じ時間軸の列だけで、その外（終日欄・別の面）の日は拾わない。
  */
 export function useTimeDrag({
   hourHeight,
@@ -22,7 +29,8 @@ export function useTimeDrag({
   onChange: (draft: EventDraft, done: boolean) => void;
 }) {
   const locate = (event: PointerEvent<HTMLElement>): TimePoint | null => {
-    const column = event.currentTarget.closest<HTMLElement>('[data-date]');
+    const grid = event.currentTarget.closest<HTMLElement>('[data-time-grid]');
+    const column = grid ? columnAt(grid, event.clientX) : undefined;
     const date = column?.dataset.date;
     if (!column || date === undefined || !isDateString(date)) return null;
     const y = event.clientY - column.getBoundingClientRect().top;

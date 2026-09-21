@@ -34,7 +34,8 @@ type Props = {
  * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
  * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
- * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き、端の丸をつまむと開始・終了だけが動く。
+ * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
+ * 端の丸をつまむと開始・終了だけが動く。
  */
 export function TimeGrid({
   days,
@@ -50,6 +51,8 @@ export function TimeGrid({
   const compact = useIsMobile();
   const drag = useTimeDrag({ hourHeight, onChange: onChangeDraft });
   const timedDraft = draft?.allDay === false ? draft : null;
+  // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の下書きは出さない
+  const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -79,6 +82,7 @@ export function TimeGrid({
   return (
     <Box {...syncScrollProps} ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
       <Box
+        data-time-grid
         sx={{
           display: 'grid',
           gridTemplateColumns: `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`,
@@ -86,7 +90,7 @@ export function TimeGrid({
           position: 'relative',
         }}
       >
-        <Box sx={{ position: 'relative' }}>
+        <Box sx={{ gridColumn: 1, gridRow: 1, position: 'relative' }}>
           {Array.from({ length: 23 }, (_, h) => h + 1).map((h) => (
             <Typography
               key={h}
@@ -105,12 +109,16 @@ export function TimeGrid({
             </Typography>
           ))}
         </Box>
-        {days.map((day) => (
+        {days.map((day, i) => (
           <Box
             key={day}
             data-date={day}
             {...drag.props}
             sx={{
+              // どの子も置く場所を明示する。下書きの枠が列に重なれるようにするため
+              // （1 つでも自動配置のままだと、枠に取られた列を避けて次の行へ送られる）
+              gridColumn: i + 2,
+              gridRow: 1,
               position: 'relative',
               borderLeft: 1,
               borderColor: 'divider',
@@ -131,24 +139,30 @@ export function TimeGrid({
                 onClick={() => onSelectItem(p.item)}
               />
             ))}
-            {timedDraft?.date === day && (
-              <DraftBlock
-                draft={timedDraft}
-                hourHeight={hourHeight}
-                grab={
-                  compact
-                    ? {
-                        move: drag.moveProps(timedDraft),
-                        start: drag.resizeProps('start', timedDraft),
-                        end: drag.resizeProps('end', timedDraft),
-                      }
-                    : null
-                }
-              />
-            )}
             {day === todayStr && <NowLine top={(nowMin / 60) * hourHeight} />}
           </Box>
         ))}
+        {/*
+          枠は列の中ではなく、列に重ねて置く。日が変わっても同じ要素のまま列を移るので、
+          つまんだ指を離さずに隣の日へ持っていける（列の中に置くと日ごとに要素が入れ替わり、
+          掴んでいた要素が DOM から消えた時点でタッチが途切れて横スワイプに化ける）
+        */}
+        {timedDraft && draftCol >= 0 && (
+          <DraftBlock
+            draft={timedDraft}
+            column={draftCol + 1}
+            hourHeight={hourHeight}
+            grab={
+              compact
+                ? {
+                    move: drag.moveProps(timedDraft),
+                    start: drag.resizeProps('start', timedDraft),
+                    end: drag.resizeProps('end', timedDraft),
+                  }
+                : null
+            }
+          />
+        )}
       </Box>
     </Box>
   );
