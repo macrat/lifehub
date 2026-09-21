@@ -1,4 +1,5 @@
-import { queryOptions, useQueries } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { api, ensureOk } from '../../lib/api.ts';
@@ -22,6 +23,15 @@ export const CALENDAR_QUERY_KEY = ['calendar'] as const;
 function calendarMonthQueryOptions(month: string) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, month],
+    /**
+     * 一度取った月は古くならない。取り直しは画面に入ったとき（`useRefreshCalendarItems`）と
+     * 書き込みの後（`useOptimisticMutation` の invalidate）にだけ起こす。
+     * WHY: 月・週・日・リストの切り替えは同じ月のキャッシュを読むだけで、内容は変わらない。
+     * 既定（staleTime: 0）だと切り替えのたびに読む側が付け替わって、そこで毎回取り直しになる。
+     * WHY NOT 'static': 'static' は invalidate や refetch でも取り直さなくなり、書き込み後に
+     * サーバーの値へ合わせられない。
+     */
+    staleTime: Number.POSITIVE_INFINITY,
     // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
     queryFn: async (): Promise<CalendarItem[]> => {
       const res = await ensureOk(await api.events.$get({ query: monthRange(month) }));
@@ -52,6 +62,21 @@ export function useCalendarItems(range: {
       error: results.find((result) => result.error)?.error ?? null,
     }),
   });
+}
+
+/**
+ * カレンダーの項目を出す画面（カレンダー・ホームの「今日」カード）が、入ったときに取り直すためのもの。
+ * マウントの 1 回だけ取り直すので、同じ画面に留まる限り（表示や日付の切り替え）取り直しは起きない。
+ * 画面を行き来したとき（マウントし直す）と、再読み込みしたとき（読み込み直す）だけサーバーに問い合わせる。
+ *
+ * 出している月はその場で取り直し、キャッシュにあるだけの月は古い印を付ける（次に出すときに取り直す）。
+ * cancelRefetch: false = 始まっている取得はそのまま使う（初回表示の取得を中断して二重に投げない）。
+ */
+export function useRefreshCalendarItems() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: CALENDAR_QUERY_KEY }, { cancelRefetch: false });
+  }, [queryClient]);
 }
 
 /** 項目の色を決めるユーザー: 参加者が 1 人ならその人、複数ならアプリ既定の色（null） */

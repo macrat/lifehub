@@ -8,12 +8,13 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
+import { today } from '../../../lib/date.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { EventForm } from '../../events/components/EventForm.tsx';
 import { TaskForm } from '../../events/components/TaskForm.tsx';
-import { defaultEventValues, defaultTaskValues } from '../../events/form-values.ts';
+import { defaultTaskValues } from '../../events/form-values.ts';
 import { useCreateEvent } from '../../events/queries.ts';
 import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
 import { useAddExpense } from '../../expenses/queries.ts';
@@ -79,18 +80,29 @@ type Props = {
 
 /**
  * 右下の追加ボタン。選んだ種類のフォームをその場で開く。ホームは 4 種、カレンダーは予定・タスクだけ。
+ * 予定だけは、選んだ時間帯を見ながら入れたいので、その日の日表示へ送ってそこで下書きを置く
+ * （グリッドをなぞって作るのと同じ流れに合流する。カレンダー画面の `add` パラメータ）。
  *
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
 export function AddMenu({ kinds, date }: Props) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [form, setForm] = useState<AddKind | null>(null);
+  const [form, setForm] = useState<Exclude<AddKind, 'event'> | null>(null);
   const createEvent = useCreateEvent();
   const addExpense = useAddExpense();
   const logCare = useLogCare();
   const close = () => setForm(null);
   const collapse = () => setExpanded(false);
+  const open = (kind: AddKind) => {
+    collapse();
+    if (kind !== 'event') return setForm(kind);
+    navigate({
+      to: '/calendar',
+      search: { view: 'day', date: date ?? today(), add: 'event' },
+    });
+  };
 
   return (
     <>
@@ -118,25 +130,13 @@ export function AddMenu({ kinds, date }: Props) {
                 </>
               }
               slotProps={{ fab: { variant: 'extended', sx: PILL_SX } }}
-              onClick={() => {
-                collapse();
-                setForm(kind);
-              }}
+              onClick={() => open(kind)}
             />
           );
         })}
       </SpeedDial>
-      {form === 'event' && (
-        <EventForm
-          title="予定を追加"
-          initial={defaultEventValues(date)}
-          onSubmit={createEvent.mutateAsync}
-          onClose={close}
-        />
-      )}
       {form === 'task' && (
         <TaskForm
-          title="タスクを追加"
           initial={defaultTaskValues()}
           onSubmit={createEvent.mutateAsync}
           onClose={close}

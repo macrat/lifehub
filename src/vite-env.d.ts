@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 /// <reference types="vite-plugin-pwa/client" />
 
-/** vite.config.ts の define で注入される。永続化キャッシュの buster に使う。 */
-declare const __APP_VERSION__: string;
+/** ビルドしたコミットの SHA（`build-info.ts` の define で注入される） */
+declare const __BUILD_COMMIT__: string;
+
+/** ビルドした日時（ISO 8601。`build-info.ts` の define で注入される） */
+declare const __BUILD_TIME__: string;

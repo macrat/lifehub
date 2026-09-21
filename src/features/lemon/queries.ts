@@ -10,7 +10,8 @@ import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
-export type CreateCareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
+/** 追加と編集で同じ形（編集は全項目を置き換える） */
+export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
 /** 記録と状態の形はサーバーと共有する（楽観的更新もこの形で導く。shared/lemon.ts） */
 export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 
@@ -29,7 +30,7 @@ export const lemonLogsQueryOptions = queryOptions({
 
 export function useLogCare() {
   return useOptimisticMutation({
-    mutationFn: async (input: CreateCareLogBody) =>
+    mutationFn: async (input: CareLogBody) =>
       (await ensureOk(await api.lemon.logs.$post({ json: input }))).json(),
     keys: [LEMON_QUERY_KEY],
     apply: (client, input) => {
@@ -48,6 +49,28 @@ export function useLogCare() {
         lemonStatusQueryOptions.queryKey,
         (statuses) => statuses && advanceStatus(statuses, log),
       );
+    },
+  });
+}
+
+export function useUpdateCareLog() {
+  return useOptimisticMutation({
+    mutationFn: async ({ id, ...input }: CareLogBody & { id: string }) =>
+      (await ensureOk(await api.lemon.logs[':id'].$put({ param: { id }, json: input }))).json(),
+    keys: [LEMON_QUERY_KEY],
+    apply: (client, { id, ...input }) => {
+      client.setQueryData(
+        lemonLogsQueryOptions.queryKey,
+        (logs) =>
+          logs &&
+          sortCareLogs(
+            logs.map((log) =>
+              log.id === id ? { ...log, ...input, note: input.note ?? null } : log,
+            ),
+          ),
+      );
+      // 日時も種別も変えられるので、タイル 1 つを進めるのではなく記録から導き直す
+      recomputeStatus(client);
     },
   });
 }

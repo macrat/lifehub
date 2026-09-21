@@ -17,10 +17,16 @@ import {
 } from '../../lib/date.ts';
 import { useKeywordSearch } from '../../lib/search.ts';
 import type { ListFilters } from './components/ListView.tsx';
+import { useRefreshCalendarItems } from './queries.ts';
 
 export const calendarSearchSchema = z.object({
   view: z.enum(['month', 'week', 'day', 'list']).default('month'),
   date: dateStringSchema.optional(),
+  /**
+   * 追加ボタンから来たしるし。日表示に既定の時間帯の下書きを置いて入力を開く。
+   * 置いたらすぐ消す（開いている物は画面の状態で、URL に残すものではない）。
+   */
+  add: z.enum(['event']).optional(),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
@@ -52,8 +58,12 @@ export type CalendarPeriod = {
  * カレンダー画面の状態は検索パラメータで決まる（表示・日付・絞り込み）。
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
  * キーワードだけは例外で手元に持つ（下記）。
+ *
+ * 項目の取り直しは画面に入ったときだけ（`useRefreshCalendarItems`）。表示や日付の切り替えは
+ * 検索パラメータが変わるだけでこの画面に留まるので、取り直さず手元のキャッシュをそのまま出す。
  */
 export function useCalendarPage(search: CalendarSearch) {
+  useRefreshCalendarItems();
   const navigate = useNavigate({ from: '/calendar' });
   // キーワードは打つたびに反映するので、URL を往復させず手元に持つ（URL は置き換えるだけ）
   const [query, setQuery] = useKeywordSearch(search.q ?? '');
