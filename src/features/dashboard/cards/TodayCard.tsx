@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { taskTime } from '../../../../shared/calendar.ts';
 import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
+import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import { type CalendarItem, colorUserOf, useCalendarItems } from '../../calendar/queries.ts';
 import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
@@ -19,23 +20,26 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
  * タスクはチェックで完了、行をタップすると詳細。
  */
 export function TodayCard() {
-  const { items: all, error } = useCalendarItems({ from: today(), to: today() });
-  const items = all.filter((item) => item.completedAt === null);
+  const query = useCalendarItems({ from: today(), to: today() });
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   return (
     <DashboardCardFrame
       title="今日"
       link={{ to: '/calendar', search: { view: 'day' } }}
-      error={error}
       disableGutters
     >
-      {items.length === 0 ? (
-        <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
-          なし
-        </Typography>
-      ) : (
-        items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
-      )}
+      <QueryView query={query} skeleton={<ListSkeleton rows={2} />}>
+        {(all) => {
+          const items = all.filter((item) => item.completedAt === null);
+          return items.length === 0 ? (
+            <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
+              なし
+            </Typography>
+          ) : (
+            items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
+          );
+        }}
+      </QueryView>
       {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
     </DashboardCardFrame>
   );

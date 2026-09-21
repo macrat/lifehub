@@ -29,7 +29,8 @@ export function CalendarPane({
   draft,
   onChangeDraft,
 }: Props) {
-  const { items } = useCalendarItems(period.range);
+  // 月の枠は待たずに描く（届いていない間は空の枠が骨組みになる）
+  const { data: items = [] } = useCalendarItems(period.range);
   const itemsByDate = groupByDate(items);
 
   return view === 'month' ? (

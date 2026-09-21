@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -15,19 +16,14 @@ import {
   expensesQueryOptions,
   useAddExpense,
 } from '../../features/expenses/queries.ts';
-import { ensureData } from '../../lib/query-client.ts';
 import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   validateSearch: keywordSearchSchema,
-  loader: ({ context }) =>
-    Promise.all([
-      ensureData(context.queryClient, balanceQueryOptions),
-      ensureData(context.queryClient, expensesQueryOptions),
-    ]),
   component: ExpensesPage,
 });
 
@@ -38,13 +34,11 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const [keyword, setKeyword] = useKeywordSearch(Route.useSearch().q ?? '');
-  const { data: balance } = useQuery(balanceQueryOptions);
-  const { data: expenses = [] } = useQuery(expensesQueryOptions);
+  const balanceQuery = useQuery(balanceQueryOptions);
+  const expensesQuery = useQuery(expensesQueryOptions);
   const addExpense = useAddExpense();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
-
-  const found = expenses.filter((e) => matchesKeyword(keyword, e.description));
 
   return (
     <>
@@ -56,14 +50,23 @@ function ExpensesPage() {
         <Typography variant="body2" color="text.secondary">
           残高
         </Typography>
-        {balance && <BalanceSummary balance={balance} />}
+        <QueryView
+          query={balanceQuery}
+          skeleton={<Skeleton variant="text" width={180} height={40} />}
+        >
+          {(balance) => <BalanceSummary balance={balance} />}
+        </QueryView>
       </Box>
 
-      <ExpenseList
-        expenses={found}
-        emptyMessage={keyword ? '一致する立替はありません' : 'まだ立替はありません'}
-        onSelect={setSelected}
-      />
+      <QueryView query={expensesQuery} skeleton={<ListSkeleton />}>
+        {(expenses) => (
+          <ExpenseList
+            expenses={expenses.filter((e) => matchesKeyword(keyword, e.description))}
+            emptyMessage={keyword ? '一致する立替はありません' : 'まだ立替はありません'}
+            onSelect={setSelected}
+          />
+        )}
+      </QueryView>
 
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />

@@ -44,6 +44,12 @@ export const persistOptions = {
   buster: __APP_VERSION__,
 };
 
+/**
+ * 画面が読むクエリの状態（`useQuery` / `useQueries` の結果をそのまま渡せる形）。
+ * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
+ */
+export type QueryState<T> = { data: T | undefined; error: Error | null };
+
 type OptimisticMutationOptions<TInput> = {
   mutationFn: (input: TInput) => Promise<unknown>;
   /** この mutation が変えるクエリのキー（各 feature の queryOptions / *_QUERY_KEY から渡す） */
@@ -85,7 +91,7 @@ export function useOptimisticMutation<TInput>({
 }
 
 /**
- * ルートの loader / beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
+ * ルートの beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
  * （TanStack Query はオフライン中の取得を一時停止するため、ensureQueryData が完了しなくなる）。
  * キャッシュが無ければ undefined。
  */
