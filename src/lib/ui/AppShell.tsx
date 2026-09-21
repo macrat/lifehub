@@ -56,7 +56,9 @@ export function AppShell({ children }: Props) {
 
   return (
     <AppBarSlotProvider>
-      <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
+      {/* 画面いっぱいの基準は svh（ブラウザの URL バーなどが最大に出ている状態の高さ）。
+          dvh はそれらの出入りで値が変わり、再読み込みの直後に画面より高くなってスクロールが要る表示になる */}
+      <Box sx={{ display: 'flex', minHeight: '100svh' }}>
         <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
