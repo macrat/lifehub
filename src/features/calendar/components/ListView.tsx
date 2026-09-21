@@ -1,5 +1,3 @@
-import Box from '@mui/material/Box';
-import Collapse from '@mui/material/Collapse';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -7,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { matchesKeyword } from '../../../lib/search.ts';
+import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
@@ -42,76 +41,62 @@ export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }
   const itemsQuery = useCalendarItems({ from: filters.from, to: filters.to });
   return (
     <>
-      <Collapse in={filtersOpen}>
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 1,
-            px: { xs: 2, md: 0 },
-            pt: 1,
-            mb: 2,
-            gridTemplateColumns: {
-              xs: 'repeat(2, minmax(0, 1fr))',
-              md: 'repeat(5, minmax(0, 1fr))',
-            },
-          }}
+      <FilterPanel open={filtersOpen}>
+        <TextField
+          label="開始"
+          type="date"
+          size="small"
+          value={filters.from}
+          onChange={(e) => onChangeFilters({ from: dateOrDefault(e.target.value) })}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          label="終了"
+          type="date"
+          size="small"
+          value={filters.to}
+          onChange={(e) => onChangeFilters({ to: dateOrDefault(e.target.value) })}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          label="種別"
+          select
+          size="small"
+          value={filters.kind}
+          onChange={(e) => onChangeFilters({ kind: e.target.value as ListFilters['kind'] })}
         >
-          <TextField
-            label="開始"
-            type="date"
-            size="small"
-            value={filters.from}
-            onChange={(e) => onChangeFilters({ from: dateOrDefault(e.target.value) })}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            label="終了"
-            type="date"
-            size="small"
-            value={filters.to}
-            onChange={(e) => onChangeFilters({ to: dateOrDefault(e.target.value) })}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            label="種別"
-            select
-            size="small"
-            value={filters.kind}
-            onChange={(e) => onChangeFilters({ kind: e.target.value as ListFilters['kind'] })}
-          >
-            <MenuItem value="all">すべて</MenuItem>
-            <MenuItem value="event">予定</MenuItem>
-            <MenuItem value="task">タスク</MenuItem>
-          </TextField>
-          <TextField
-            label="参加者"
-            select
-            size="small"
-            value={filters.participant}
-            onChange={(e) => onChangeFilters({ participant: e.target.value })}
-          >
-            <MenuItem value="all">すべて</MenuItem>
-            {users.map((u) => (
-              <MenuItem key={u.id} value={u.id}>
-                {u.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="完了"
-            select
-            size="small"
-            value={filters.completed}
-            onChange={(e) =>
-              onChangeFilters({ completed: e.target.value as ListFilters['completed'] })
-            }
-          >
-            <MenuItem value="all">すべて</MenuItem>
-            <MenuItem value="open">未完了</MenuItem>
-            <MenuItem value="done">完了済み</MenuItem>
-          </TextField>
-        </Box>
-      </Collapse>
+          <MenuItem value="all">すべて</MenuItem>
+          <MenuItem value="event">予定</MenuItem>
+          <MenuItem value="task">タスク</MenuItem>
+        </TextField>
+        <TextField
+          label="参加者"
+          select
+          size="small"
+          value={filters.participant}
+          onChange={(e) => onChangeFilters({ participant: e.target.value })}
+        >
+          <MenuItem value="all">すべて</MenuItem>
+          {users.map((u) => (
+            <MenuItem key={u.id} value={u.id}>
+              {u.name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="完了"
+          select
+          size="small"
+          value={filters.completed}
+          onChange={(e) =>
+            onChangeFilters({ completed: e.target.value as ListFilters['completed'] })
+          }
+        >
+          <MenuItem value="all">すべて</MenuItem>
+          <MenuItem value="open">未完了</MenuItem>
+          <MenuItem value="done">完了済み</MenuItem>
+        </TextField>
+      </FilterPanel>
       <QueryView query={itemsQuery} skeleton={<ListSkeleton rows={4} />}>
         {(items) => {
           const grouped = groupByDate(items.filter((item) => matches(item, filters)));
