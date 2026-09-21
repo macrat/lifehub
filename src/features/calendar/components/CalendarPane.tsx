@@ -1,7 +1,7 @@
 import type { DateString } from '../../../../shared/types.ts';
+import type { EventDraft } from '../draft.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import type { CalendarPeriod, PeriodView } from '../use-calendar-page.ts';
-import type { TimeSelection } from '../use-time-drag.ts';
 import { MonthGrid } from './MonthGrid.tsx';
 import { TimelineView } from './TimelineView.tsx';
 
@@ -11,15 +11,24 @@ type Props = {
   period: CalendarPeriod;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  /** 週・日表示で時間帯をドラッグして選んだとき（予定の追加へ） */
-  onSelectRange: (selection: TimeSelection) => void;
+  /** 追加しようとしている予定の範囲。控えの面には出さないので null が来る */
+  draft: EventDraft | null;
+  /** グリッドをなぞって範囲を選んだとき。done はポインタを離したか */
+  onChangeDraft: (draft: EventDraft, done: boolean) => void;
 };
 
 /**
  * カレンダー 1 ページ分（1 か月・1 週・1 日）の表示。スワイプでは前後のページも同時に描くので、
  * 項目は面ごとに自分の範囲を読む（前後の分が先に読まれていて、スワイプした先がすぐ出る）。
  */
-export function CalendarPane({ view, period, onSelectDate, onSelectItem, onSelectRange }: Props) {
+export function CalendarPane({
+  view,
+  period,
+  onSelectDate,
+  onSelectItem,
+  draft,
+  onChangeDraft,
+}: Props) {
   const { items } = useCalendarItems(period.range);
   const itemsByDate = groupByDate(items);
 
@@ -30,6 +39,8 @@ export function CalendarPane({ view, period, onSelectDate, onSelectItem, onSelec
       itemsByDate={itemsByDate}
       onSelectDate={onSelectDate}
       onSelectItem={onSelectItem}
+      draft={draft}
+      onChangeDraft={onChangeDraft}
       height="100%"
     />
   ) : (
@@ -38,7 +49,8 @@ export function CalendarPane({ view, period, onSelectDate, onSelectItem, onSelec
       itemsByDate={itemsByDate}
       onSelectItem={onSelectItem}
       onSelectDate={view === 'week' ? onSelectDate : undefined}
-      onSelectRange={onSelectRange}
+      draft={draft}
+      onChangeDraft={onChangeDraft}
       height="100%"
     />
   );

@@ -11,9 +11,11 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
+import { draftColumns, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf, taskTime } from '../queries.ts';
-import type { TimeSelection } from '../use-time-drag.ts';
+import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
+import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
 import { TimeGrid } from './TimeGrid.tsx';
@@ -26,8 +28,10 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
   onSelectDate?: (date: DateString) => void;
-  /** 時間軸の空いている時間帯をドラッグして選んだとき（予定の追加へ） */
-  onSelectRange: (selection: TimeSelection) => void;
+  /** 追加しようとしている予定の範囲（終日欄と時間軸に出す） */
+  draft: EventDraft | null;
+  /** 空いている所をなぞって範囲を選んだとき。done はポインタを離したか */
+  onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
 };
@@ -39,17 +43,20 @@ const LANE_HEIGHT = 20;
  * 週・日のタイムライン表示（Google カレンダー方式）。
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
+ * 終日欄をなぞると終日の予定、時間軸をなぞるとその時間帯の予定を追加できる。
  */
 export function TimelineView({
   days,
   itemsByDate,
   onSelectItem,
   onSelectDate,
-  onSelectRange,
+  draft,
+  onChangeDraft,
   height,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
+  const dayDrag = useDayDrag({ onChange: onChangeDraft });
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
@@ -68,6 +75,8 @@ export function TimelineView({
   }
   const lanes = layoutLanes(days, allDayByDate);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
+  // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
+  const draftCols = draft && draftColumns(draft, days);
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
@@ -122,7 +131,7 @@ export function TimelineView({
         sx={{
           display: 'grid',
           gridTemplateColumns: columns,
-          gridTemplateRows: `0px repeat(${laneCount}, ${LANE_HEIGHT}px)`,
+          gridTemplateRows: `0px repeat(${laneCount + (draftCols ? 1 : 0)}, ${LANE_HEIGHT}px)`,
           borderBottom: 1,
           borderColor: 'divider',
           pb: '2px',
@@ -146,6 +155,8 @@ export function TimelineView({
         {days.map((day, i) => (
           <Box
             key={day}
+            data-date={day}
+            {...dayDrag.props}
             sx={{ gridColumn: i + 2, gridRow: '1 / -1', borderLeft: 1, borderColor: 'divider' }}
           />
         ))}
@@ -159,6 +170,14 @@ export function TimelineView({
             onClick={() => onSelectItem(p.item)}
           />
         ))}
+        {draft?.allDay && draftCols && (
+          <DraftBar
+            draft={draft}
+            columns={{ ...draftCols, col: draftCols.col + 1 }}
+            lane={laneCount}
+            handleProps={compact ? dayDrag.handleProps : null}
+          />
+        )}
       </Box>
 
       <TimeGrid
@@ -167,7 +186,8 @@ export function TimelineView({
         hourHeight={hourHeight}
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
-        onSelectRange={onSelectRange}
+        draft={draft}
+        onChangeDraft={onChangeDraft}
       />
     </Box>
   );

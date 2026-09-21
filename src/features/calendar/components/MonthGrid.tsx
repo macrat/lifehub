@@ -6,10 +6,13 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
+import { draftColumns, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
+import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
-import { layoutLanes } from './lane-layout.ts';
+import { freeLane, layoutLanes } from './lane-layout.ts';
 
 type Props = {
   /** 表示する月 "YYYY-MM"（月外の日を薄く出す判定） */
@@ -17,10 +20,14 @@ type Props = {
   /** グリッドの 42 日（月曜始まり 6 週）。取得範囲と同じものを渡す */
   days: DateString[];
   itemsByDate: Map<DateString, CalendarItem[]>;
-  /** 日をタップしたとき（日表示へ移る） */
+  /** 日を選んだとき（日表示へ移る）。スマホはセルのタップ、PC は日付の数字 */
   onSelectDate: (date: DateString) => void;
   /** 項目をクリックしたとき（広い画面のみ。スマホでは項目はタップできず、日をタップする） */
   onSelectItem: (item: CalendarItem) => void;
+  /** 追加しようとしている終日の予定の範囲 */
+  draft: EventDraft | null;
+  /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
+  onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
   height: string;
 };
@@ -33,10 +40,24 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 終日は塗り帯、時間指定の予定は点＋タイトル、タスクはチェック印＋タイトル。タイトルを優先し、時刻は PC でだけ添える
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
+ * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）
  */
-export function MonthGrid({ month, days, itemsByDate, onSelectDate, onSelectItem, height }: Props) {
+export function MonthGrid({
+  month,
+  days,
+  itemsByDate,
+  onSelectDate,
+  onSelectItem,
+  draft,
+  onChangeDraft,
+  height,
+}: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
+  const drag = useDayDrag({
+    onChange: onChangeDraft,
+    onTapDate: compact ? onSelectDate : undefined,
+  });
   const laneHeight = compact ? 17 : 20;
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
 
@@ -93,6 +114,8 @@ export function MonthGrid({ month, days, itemsByDate, onSelectDate, onSelectItem
           itemsByDate={itemsByDate}
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
+          draft={draft}
+          drag={drag}
           colorFor={colorFor}
           maxLanes={maxLanes}
           laneHeight={laneHeight}
@@ -110,6 +133,8 @@ type WeekRowProps = {
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
+  draft: EventDraft | null;
+  drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   maxLanes: number;
   laneHeight: number;
@@ -123,12 +148,15 @@ function WeekRow({
   itemsByDate,
   onSelectDate,
   onSelectItem,
+  draft,
+  drag,
   colorFor,
   maxLanes,
   laneHeight,
   compact,
 }: WeekRowProps) {
   const placed = layoutLanes(days, itemsByDate);
+  const draftCols = draft && draftColumns(draft, days);
   const overflow = placed.some((q) => q.lane >= maxLanes);
   const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
   const visible = placed.filter((p) => p.lane < hiddenLaneStart);
@@ -153,28 +181,34 @@ function WeekRow({
         borderColor: 'divider',
       }}
     >
-      {/* 背景の日セル: 罫線・今日・タップ */}
+      {/* 背景の日セル: 罫線・予定の追加（なぞって選ぶ）。日表示へはスマホならセルのタップ、PC は日付の数字から */}
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
         return (
-          <ButtonBase
+          <Box
             key={date}
-            aria-label={formatDateWithYear(date)}
-            onClick={() => onSelectDate(date)}
+            data-date={date}
+            {...drag.props}
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
               borderLeft: col === 0 ? 0 : 1,
               borderColor: 'divider',
-              borderRadius: 0,
+              display: 'flex',
               justifyContent: 'center',
               alignItems: 'flex-start',
               pt: '2px',
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <DayNumber date={date} size={18} muted={!inMonth} />
-          </ButtonBase>
+            <ButtonBase
+              aria-label={formatDateWithYear(date)}
+              onClick={() => onSelectDate(date)}
+              sx={{ borderRadius: '50%' }}
+            >
+              <DayNumber date={date} size={18} muted={!inMonth} />
+            </ButtonBase>
+          </Box>
         );
       })}
       {visible.map((p) => (
@@ -186,6 +220,16 @@ function WeekRow({
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}
+      {draft?.allDay && draftCols && (
+        // 月の帯は 1 行が低く、丸を置くと日付や項目に重なって窮屈なので端はつままない。
+        // 期間を変えるときは選び直す（週の終日欄や時間軸では丸を出す）
+        <DraftBar
+          draft={draft}
+          columns={draftCols}
+          lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
+          handleProps={null}
+        />
+      )}
       {hiddenPerCol.map((n, col) =>
         n > 0 ? (
           <Typography

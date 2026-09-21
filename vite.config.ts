@@ -25,8 +25,11 @@ export default defineConfig({
         lang: 'ja',
         display: 'standalone',
         start_url: '/',
-        theme_color: '#A0148C',
-        background_color: '#ffffff',
+        // vite-plugin-pwa の既定値（theme_color: #42b883, background_color: #ffffff）を
+        // 打ち消して、どちらも manifest に出力しない。色を宣言しなければブラウザが
+        // OS の配色に合わせた既定色を使い、ライト／ダークの切り替えに自動で追従する。
+        theme_color: undefined,
+        background_color: undefined,
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
