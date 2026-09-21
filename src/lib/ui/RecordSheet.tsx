@@ -110,6 +110,7 @@ function Centered(props: Props) {
       open={props.open ?? true}
       keepMounted
       onClose={props.onClose}
+      label={props.title}
       fullWidth
       maxWidth={props.full ? 'sm' : 'xs'}
     >

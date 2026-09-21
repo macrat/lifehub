@@ -4,7 +4,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -27,13 +26,13 @@ import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import { DayNumber } from './DayNumber.tsx';
 
 /** 選ぶ単位。表示（月・週・日）と揃える */
-export type PickerUnit = 'month' | 'week' | 'day';
+type PickerUnit = 'month' | 'week' | 'day';
 
-/** 何を選ぶのか。ダイアログの見出しと、それを開く AppBar のボタンで同じ文言を使う */
-export const PICKER_LABELS: Record<PickerUnit, string> = {
-  month: '年月を選ぶ',
-  week: '週を選ぶ',
-  day: '日付を選ぶ',
+/** 何を選ぶダイアログか（読み上げ用の名前）。開くボタンの文言（「年月を選ぶ」）とは言い回しが違う */
+const PICKER_NAMES: Record<PickerUnit, string> = {
+  month: '年月の選択',
+  week: '週の選択',
+  day: '日付の選択',
 };
 
 type Props = {
@@ -49,7 +48,7 @@ const COLUMNS = 'repeat(7, minmax(0, 1fr))';
 
 /**
  * 年月・週・日を選ぶダイアログ。AppBar の見出しをタップして開く。
- * 選ぶだけのダイアログなので、見出しには何を選ぶのかを出す。
+ * 選択肢そのものが何を選ぶのかを示すので、見出しは置かない（名前は読み上げにだけ渡す）。
  * 見出しが指すものと選べるものを揃える: 月表示は年を ‹ › で送って 12 か月から、
  * 週・日表示は月を ‹ › で送って月グリッドの週・日から選ぶ。
  */
@@ -58,8 +57,7 @@ export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
   // 選ぶ範囲が広い月表示は年ごと、週・日表示は月ごとに送る
   const step = unit === 'month' ? 12 : 1;
   return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{PICKER_LABELS[unit]}</DialogTitle>
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth label={PICKER_NAMES[unit]}>
       <DialogContent sx={{ p: 2 }}>
         <Stack
           direction="row"

@@ -1,6 +1,5 @@
 import Button from '@mui/material/Button';
 import DialogActions from '@mui/material/DialogActions';
-import DialogTitle from '@mui/material/DialogTitle';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -14,8 +13,11 @@ type Props = {
   onClose: () => void;
 };
 
-/** 見出しと説明文は操作に合わせる（削除の選択肢に「変更する」と書かない） */
-const VERBS: Record<RecurrenceAction, string> = { edit: '変更', delete: '削除' };
+/** 読み上げ用の名前と説明文は操作に合わせる（削除の選択肢に「変更する」と書かない） */
+const ACTIONS: Record<RecurrenceAction, { name: string; verb: string }> = {
+  edit: { name: '繰り返しの編集', verb: '変更' },
+  delete: { name: '繰り返しの削除', verb: '削除' },
+};
 
 const OPTIONS: { scope: RecurrenceScope; label: string; target: string }[] = [
   { scope: 'this', label: 'この回だけ', target: 'この日の分だけ' },
@@ -25,13 +27,12 @@ const OPTIONS: { scope: RecurrenceScope; label: string; target: string }[] = [
 
 /**
  * 繰り返し予定・タスクの編集・削除で対象範囲を選ぶ。範囲を選ぶ間だけ呼び出し側がマウントする。
- * 選ぶだけのダイアログなので、見出しには何を選ぶのかを出す。
+ * 選択肢そのものが何を選ぶのかを示すので、見出しは置かない（名前は読み上げにだけ渡す）。
  */
 export function RecurrenceScopeDialog({ action, onSelect, onClose }: Props) {
-  const verb = VERBS[action];
+  const { name, verb } = ACTIONS[action];
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>{verb}する範囲を選ぶ</DialogTitle>
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs" label={name}>
       <List>
         {OPTIONS.map((option) => (
           <ListItemButton key={option.scope} onClick={() => onSelect(option.scope)}>
