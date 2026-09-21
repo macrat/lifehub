@@ -139,13 +139,25 @@ function placeEvent(
   return result;
 }
 
-/** 同日内の並び順のキー: 終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク */
+/**
+ * 同日内の並び順のキー: 終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク。
+ * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す。
+ */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
   return item.startsAt ?? item.endsAt ?? '~';
 }
 
+/**
+ * キーは符号位置で比べる（localeCompare を使わない）。ICU の照合は記号の重みが弱く、
+ * 時刻の無いタスクの番兵 '~' が ISO 日時より前に来てしまう。並びはサーバーとクライアントで
+ * 同じでなければならず、ロケールに左右されてもいけない。
+ */
+function compareKeys(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function compareItems(a: CalendarItem, b: CalendarItem): number {
-  if (a.placementDate !== b.placementDate) return a.placementDate < b.placementDate ? -1 : 1;
-  return sortKey(a).localeCompare(sortKey(b));
+  if (a.placementDate !== b.placementDate) return compareKeys(a.placementDate, b.placementDate);
+  return compareKeys(sortKey(a), sortKey(b));
 }
