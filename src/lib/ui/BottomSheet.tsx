@@ -20,6 +20,7 @@ type Stepped = {
   detent: SheetDetent;
   onChangeDetent: (detent: SheetDetent) => void;
   label?: never;
+  full?: never;
   onExpand?: never;
 };
 
@@ -33,6 +34,8 @@ type Plain = {
   onChangeDetent?: never;
   /** ダイアログとしての名前（読み上げ用）。見出しと同じ文言を渡す */
   label: string;
+  /** 中身の高さではなく画面いっぱいで出す（項目が多くて結局画面を覆うフォーム） */
+  full?: boolean;
   /**
    * 上へスワイプしたとき。段を持たないシートに「次の段」を決められるのは中身だけなので、
    * 広げるかどうかは呼び出し側に任せる（詳細なら編集に移る = 鉛筆と同じ）。
@@ -96,6 +99,7 @@ export function BottomSheet({
   detent,
   onChangeDetent,
   label,
+  full = false,
   onExpand,
   children,
 }: Props) {
@@ -254,7 +258,7 @@ export function BottomSheet({
         right: 0,
         bottom: 0,
         // 2 段のシートは上の段で後ろを覆いきるよう常に画面いっぱい。段が無ければ中身の高さのまま
-        height: peekRef ? '100dvh' : 'auto',
+        height: peekRef || full ? '100dvh' : 'auto',
         maxHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',

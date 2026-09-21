@@ -14,10 +14,12 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   const title = `E2E 週次 ${Date.now()}`;
   await page.goto('/calendar?view=week&date=2030-01-07');
 
-  // 作成（毎週）
+  // 作成（毎週）。予定の追加は日表示の下書きから始まり、PC は吹き出しから全項目のフォームへ移る
   // SpeedDial はホバーで開く（クリックだと開閉が反転する）
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: '予定' }).click();
+  await expect(page).toHaveURL(/view=day&date=2030-01-07/);
+  await page.getByRole('button', { name: 'その他のオプション' }).click();
   await page.getByLabel('タイトル').fill(title);
   await page.getByLabel('開始').fill('2030-01-07T09:00');
   await page.getByLabel('終了').fill('2030-01-07T10:00');

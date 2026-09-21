@@ -1,5 +1,5 @@
 import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
-import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
+import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
 import { useItemForm } from '../use-item-form.ts';
@@ -28,15 +28,15 @@ export function TaskForm({ title, initial, scope, onSubmit, onClose }: Props) {
   });
 
   return (
-    <FormDialog
+    <RecordSheet
       open={!submitted}
       error={submitError}
       onClose={onClose}
-      maxWidth="sm"
+      full
       title={title}
       onSubmit={handleSubmit}
     >
       <TaskFormFields initial={initial} errors={errors} thisOnly={thisOnly} />
-    </FormDialog>
+    </RecordSheet>
   );
 }

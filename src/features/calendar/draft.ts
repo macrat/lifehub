@@ -52,6 +52,16 @@ export function timeDraft(anchor: TimePoint, current: TimePoint, moved: boolean)
   return { allDay: false, date: anchor.date, startMin, endMin };
 }
 
+/**
+ * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
+ * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
+ */
+export function defaultDraft(date: DateString, now: Date = new Date()): EventDraft {
+  const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
+  const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
+  return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
+}
+
 /** 日の 2 点 → 終日の下書き（両端を含む。どちら向きに選んでも同じ） */
 export function dayDraft(anchor: DateString, current: DateString): EventDraft {
   const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];

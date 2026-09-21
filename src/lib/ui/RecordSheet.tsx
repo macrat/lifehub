@@ -50,6 +50,11 @@ type Props = {
   /** 出しているか。送信中は閉じた見た目にする（入力は残したまま） */
   open?: boolean;
   onClose: () => void;
+  /**
+   * 項目が多いフォーム（予定・タスク・ユーザー）。中身の高さでは結局画面を覆うので、
+   * スマホでは最初から画面いっぱいで出し、PC では少し広いダイアログにする。
+   */
+  full?: boolean;
   /** 三点リーダーのメニュー。何も無ければ出さない */
   actions?: RecordAction[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -62,14 +67,12 @@ type Props = {
 /**
  * 記録 1 件を出すシート。追加のフォームも、既にある記録の詳細と編集も、同じ入れ物で扱う。
  * スマホでは画面の下から出るシート（`BottomSheet`。予定のクイック入力と同じもの）、
- * PC では中央のダイアログ。どちらも中身の高さのぶんだけ出るので、項目が少ないほど小さく収まり、
- * 読むだけの詳細から鉛筆で入力欄に変われば、その高さまで広がる。
+ * PC では中央のダイアログ。中身の高さのぶんだけ出るので、項目が少ないほど小さく収まり、
+ * 読むだけの詳細から鉛筆で入力欄に変われば、その高さまで広がる（`full` なら最初から画面いっぱい）。
  *
  * 操作は見出しの帯に集める: 左に閉じる（バツ）、右に鉛筆（編集中・追加中は保存）と三点リーダー。
  * スマホでは上へのスワイプが鉛筆と同じで、下へ下げきると閉じる。
- * 予定・立替・レモンで同じ入れ物を使い、違うのは中身と三点リーダーに並ぶ操作だけ。
- *
- * 全画面にするほど項目が多いフォーム（予定・タスク・ユーザー）は `FormDialog` を使う。
+ * 予定・タスク・立替・レモン・ユーザーで同じ入れ物を使い、違うのは中身と三点リーダーの操作だけ。
  */
 export function RecordSheet(props: Props) {
   const isMobile = useIsMobile();
@@ -79,13 +82,14 @@ export function RecordSheet(props: Props) {
 
 /** スマホ: 画面の下から出るシート。下へスワイプすると閉じる */
 function Sheet(props: Props) {
-  // 全画面のフォームと同じく、戻る操作では前の画面へ行かずシートだけを閉じる
+  // 戻る操作では前の画面へ行かずシートだけを閉じる
   useDialogHistory(props.onClose);
   return (
     <BottomSheet
       open={props.open}
       onClose={props.onClose}
       label={props.title}
+      full={props.full}
       // 上へのスワイプは鉛筆と同じ（読むだけで開いたシートを、指だけで編集まで広げられる）
       onExpand={props.editing === false ? props.onEdit : undefined}
     >
@@ -97,7 +101,13 @@ function Sheet(props: Props) {
 /** PC: 中央のダイアログ。中身と操作の並びはシートと同じ */
 function Centered(props: Props) {
   return (
-    <Dialog open={props.open ?? true} keepMounted onClose={props.onClose} fullWidth maxWidth="xs">
+    <Dialog
+      open={props.open ?? true}
+      keepMounted
+      onClose={props.onClose}
+      fullWidth
+      maxWidth={props.full ? 'sm' : 'xs'}
+    >
       <Body {...props} />
     </Dialog>
   );

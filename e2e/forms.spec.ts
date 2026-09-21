@@ -72,15 +72,19 @@ test('カレンダーに追加した予定は通信を待たずに出る', async
   const title = `楽観的な予定 ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2030-02-04');
 
+  // 予定の追加は日表示の下書きから始まる。スマホは全項目の段（画面いっぱい）で開く
   await page.getByRole('button', { name: '追加' }).click();
   await page.getByRole('menuitem', { name: '予定' }).click();
-  await page.getByLabel('タイトル').fill(title);
+  const sheet = page.locator('[data-sheet]');
+  await expect(sheet).toBeVisible();
+  await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(0);
+  await page.getByLabel('タイトルを追加').fill(title);
   await page.getByLabel('開始').fill('2030-02-04T09:00');
   await page.getByLabel('終了').fill('2030-02-04T10:00');
   await stall(page, '**/api/events**', 1500);
   await page.getByRole('button', { name: '保存' }).click();
 
-  await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 3000 });
+  await expect(sheet).toHaveCount(0, { timeout: 3000 });
   await expect(page.getByRole('button', { name: title })).toBeVisible({ timeout: 3000 });
 
   // 保存と再取得が終わっても、投機的に出した分と二重にならない

@@ -84,10 +84,11 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   const title = page.getByRole('button', { name: '2030年03月（年月を選ぶ）' });
 
   // 追加フォームは戻るで閉じ、カレンダーはそのまま
+  // （予定は日表示へ移ってから開くので、その場で開くタスクで確かめる）
   // SpeedDial はホバーで開く（クリックだと開閉が反転する）
   await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: '予定' }).click();
-  await expect(page.getByRole('heading', { name: '予定を追加' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'タスク' }).click();
+  await expect(page.getByRole('heading', { name: 'タスクを追加' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(title).toBeVisible();

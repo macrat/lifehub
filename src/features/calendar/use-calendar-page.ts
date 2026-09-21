@@ -21,6 +21,11 @@ import type { ListFilters } from './components/ListView.tsx';
 export const calendarSearchSchema = z.object({
   view: z.enum(['month', 'week', 'day', 'list']).default('month'),
   date: dateStringSchema.optional(),
+  /**
+   * 追加ボタンから来たしるし。日表示に既定の時間帯の下書きを置いて入力を開く。
+   * 置いたらすぐ消す（開いている物は画面の状態で、URL に残すものではない）。
+   */
+  add: z.enum(['event']).optional(),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),

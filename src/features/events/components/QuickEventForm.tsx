@@ -41,22 +41,33 @@ type Props = {
   /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
   onExpand: (values: ItemFormValues) => void;
   onClose: () => void;
+  /** 開く段。グリッドをなぞったときは下の段、追加ボタンからは上の段（全項目） */
+  initialDetent: SheetDetent;
 };
 
 /**
- * グリッドで選んだ範囲にすぐ予定を入れるための入力（Google カレンダーのクイック入力）。
+ * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。
  * - スマホ: 画面下のシート（`BottomSheet`）。下の段はタイトルと参加者だけ、上の段まで広げると全項目。
- *   ダイアログには移らず、同じシートの見える量が変わるだけ。
+ *   ダイアログには移らず、同じシートの見える量が変わるだけ。下げきると下書きごと取り消す。
  * - PC: 選んだ範囲に寄せた吹き出し。タイトルと参加者だけを扱い、残りは「その他のオプション」で
  *   全項目のフォーム（`EventForm`）へ渡す。
  */
-export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand, onClose }: Props) {
+export function QuickEventForm({
+  draft,
+  open,
+  onSubmit,
+  onChangeDraft,
+  onExpand,
+  onClose,
+  initialDetent,
+}: Props) {
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
   useDialogHistory(onClose);
   const formRef = useRef<HTMLFormElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
-  const [detent, setDetent] = useState<SheetDetent>('peek');
+  // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
+  const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
   const initial = draftValues(draft);
   const [allDay, setAllDay] = useState(initial.allDay);
 
