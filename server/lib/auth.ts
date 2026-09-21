@@ -24,7 +24,15 @@ import * as schema from './schema.ts';
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
 export const auth = betterAuth({
-  baseURL: baseUrl,
+  /**
+   * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。
+   * APP_URL が無いのは Vercel の Preview だけで、そこは URL がデプロイごとに変わるうえ、
+   * Standard Protection 下の VERCEL_URL は実際にアクセスする URL と一致しない。固定値を置くと
+   * origin チェックに落ちて「Invalid origin」でログインできないので、`*.vercel.app` に限って
+   * リクエストのホストから決める（信頼するオリジンも better-auth が同じ条件で広げる）。
+   * 本番のオリジンを広げたくないので、allowedHosts を常時有効にはしない。
+   */
+  baseURL: env.APP_URL ?? { allowedHosts: ['*.vercel.app'], protocol: 'https', fallback: baseUrl },
   basePath: '/api/auth',
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
@@ -66,6 +74,9 @@ export const auth = betterAuth({
     database: {
       generateId: () => uuidv7(),
     },
+    // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
+    // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
+    disableOriginCheck: false,
   },
   session: {
     // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ

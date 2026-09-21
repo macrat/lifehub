@@ -30,8 +30,10 @@ const emptyToUndefined = Object.fromEntries(
 export const env = envSchema.parse(emptyToUndefined);
 
 /**
- * 公開 URL。Preview でもログインと OAuth が動くよう、Vercel 上では VERCEL_URL を優先する。
- * 本番は Terraform が APP_URL に独自ドメインを設定する。
+ * 絶対 URL を組み立てるための公開 URL（QStash のコールバック先と MCP のリソース識別子）。
+ * 本番は Terraform が APP_URL に独自ドメインを設定する。APP_URL の無い Preview は VERCEL_URL を使う。
+ * リクエストごとに変わる Preview の URL には追従できないので、ログインの origin 判定はこれを使わず、
+ * better-auth の baseURL（server/lib/auth.ts）がリクエストのホストから決める。
  */
 export function resolveBaseUrl(): string {
   if (env.APP_URL) return env.APP_URL;
