@@ -43,7 +43,7 @@
   - 例: 毎週月曜のタスクで 9/7 を未完了のまま 9/14 を迎えると 9/7 と 9/14 が今日の位置に並び、9/21 を迎えると 9/7 は消えて 9/14 と 9/21 が並ぶ。
   - 系列の最後の回は 2 つ先が無いので放棄されず、完了するまで今日に残る（単発タスクと同じ振る舞い）。
 - 完了は単発なら行の `completed_at`、繰り返しならその回を実体化した行の `completed_at`。完了した回は完了日に表示し、走査の外で完了した回（放棄後に MCP から完了した等）も完了日に表示する。
-- 実装は `server/features/events/occurrences.ts` の `listItems`。
+- 実装は `server/features/events/occurrences.ts` の `listItems`（暦日への割り当てと並びは `shared/calendar.ts`）。
 
 ## API（`server/features/events/routes.ts`）
 

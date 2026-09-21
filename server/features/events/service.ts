@@ -1,5 +1,4 @@
-import { addDays as addDaysFn } from 'date-fns';
-import { startOfDay } from '../../../shared/date.ts';
+import { normalizeInstants } from '../../../shared/calendar.ts';
 import type {
   CompleteEventInput,
   CreateEventInput,
@@ -205,15 +204,11 @@ async function materialize(
 
 /**
  * 入力を保存形式に整える。
- * - 終日: startsAt はその日の JST 0:00、endsAt は「終了日（含む）」の翌日 JST 0:00（排他的）
+ * - 終日の日時は shared/calendar.ts の規則（クライアントの楽観的更新も同じ規則を使う）
  * - rrule: 正規形にする
  */
 function normalizeInput(input: CreateEventInput) {
-  let { startsAt, endsAt } = input;
-  if (input.allDay) {
-    startsAt = startsAt && startOfDay(startsAt);
-    endsAt = endsAt && addDaysFn(startOfDay(endsAt), 1);
-  }
+  const { startsAt, endsAt } = normalizeInstants(input.allDay, input.startsAt, input.endsAt);
   return {
     kind: input.kind,
     title: input.title,

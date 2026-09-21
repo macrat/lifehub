@@ -28,7 +28,7 @@ export function ExpenseForm({ initial, onSubmit, onClose }: Props) {
   const people = options.filter((o) => o.value !== null);
   // 金額欄の中身は電卓の式そのもの（"1200+800" など）。計算結果の置き場は別に持たない
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: expenseSchema,
     values: (fd) => ({
       fromUserId: formText(fd, 'fromUserId'),
@@ -38,18 +38,18 @@ export function ExpenseForm({ initial, onSubmit, onClose }: Props) {
       spentOn: formText(fd, 'spentOn'),
     }),
     onSubmit,
-    onSuccess: onClose,
+    onSaved: onClose,
   });
 
   return (
     <FormDialog
+      open={!submitted}
+      error={submitError}
       onClose={onClose}
       maxWidth="xs"
       fill
       title={initial ? '立替を編集' : '立替を追加'}
       onSubmit={handleSubmit}
-      submitting={submitting}
-      error={submitError}
     >
       <TextField
         name="spentOn"
