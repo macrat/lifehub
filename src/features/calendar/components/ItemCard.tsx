@@ -56,7 +56,7 @@ export function ItemCard({ item, onClick }: Props) {
           <Checkbox
             size="small"
             checked={completed}
-            disabled={toggle.isPending || !online}
+            disabled={!online}
             onChange={(_, checked) =>
               toggle.mutate({
                 id: item.id,

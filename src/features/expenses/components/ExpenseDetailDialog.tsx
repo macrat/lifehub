@@ -50,10 +50,9 @@ export function ExpenseDetailDialog({ expense, onClose }: Props) {
           <Button
             color="error"
             startIcon={<DeleteIcon />}
-            disabled={deleteExpense.isPending}
-            onClick={async () => {
+            onClick={() => {
               if (!window.confirm('この立替を削除しますか？')) return;
-              await deleteExpense.mutateAsync(expense.id);
+              deleteExpense.mutate(expense.id);
               onClose();
             }}
           >
