@@ -4,10 +4,10 @@ import TodayIcon from '@mui/icons-material/Today';
 import Badge from '@mui/material/Badge';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import InputBase from '@mui/material/InputBase';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
+import { SearchField } from '../../../lib/ui/SearchField.tsx';
 
 type CalendarView = 'month' | 'week' | 'day' | 'list';
 
@@ -52,21 +52,7 @@ export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeVi
     <>
       {view === 'list' ? (
         <>
-          <InputBase
-            type="search"
-            placeholder="検索"
-            value={list.query}
-            onChange={(e) => list.onChangeQuery(e.target.value)}
-            inputProps={{ 'aria-label': '検索' }}
-            sx={{
-              flexGrow: 1,
-              minWidth: 0,
-              bgcolor: 'action.hover',
-              borderRadius: 5,
-              px: 1.5,
-              py: 0.25,
-            }}
-          />
+          <SearchField label="検索" value={list.query} onChange={list.onChangeQuery} />
           <IconButton
             aria-label="絞り込み"
             aria-expanded={list.filtersOpen}

@@ -9,16 +9,18 @@ import type { CareLog } from '../queries.ts';
 
 type Props = {
   logs: CareLog[];
+  /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
+  emptyMessage: string;
   onDelete: (id: string) => void;
 };
 
 /** 世話の記録（新しい順） */
-export function CareLogList({ logs, onDelete }: Props) {
+export function CareLogList({ logs, emptyMessage, onDelete }: Props) {
   return (
     <List disablePadding>
       {logs.length === 0 && (
         <ListItem>
-          <ListItemText secondary="まだ記録はありません" />
+          <ListItemText secondary={emptyMessage} />
         </ListItem>
       )}
       {logs.map((log) => (

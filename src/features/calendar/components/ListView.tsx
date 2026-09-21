@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
+import { matchesKeyword } from '../../../lib/search.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import { DayList } from './DayList.tsx';
@@ -132,10 +133,5 @@ function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
   if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;
   if (f.completed === 'done' && (item.kind !== 'task' || item.completedAt === null)) return false;
-  if (f.q) {
-    const q = f.q.toLowerCase();
-    const text = `${item.title} ${item.location ?? ''} ${item.note ?? ''}`.toLowerCase();
-    if (!text.includes(q)) return false;
-  }
-  return true;
+  return matchesKeyword(f.q, item.title, item.location, item.note);
 }
