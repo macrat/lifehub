@@ -127,7 +127,12 @@ export function ItemDetailSheet({ item, onClose }: Props) {
         {editing && values ? (
           <>
             {item.isRecurring && editScope && (
-              <Chip size="small" variant="outlined" label={SCOPE_LABELS[editScope]} />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={SCOPE_LABELS[editScope]}
+                sx={{ alignSelf: 'flex-start' }}
+              />
             )}
             {isTask ? (
               <TaskFormFields initial={values} errors={form.errors} thisOnly={form.thisOnly} />

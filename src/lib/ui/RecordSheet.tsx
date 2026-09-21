@@ -60,6 +60,7 @@ type Props = {
  * 読むだけの詳細から鉛筆で入力欄に変われば、その高さまで広がる。
  *
  * 操作は見出しの帯に集める: 左に閉じる（バツ）、右に鉛筆（編集中・追加中は保存）と三点リーダー。
+ * スマホでは上へのスワイプが鉛筆と同じで、下へ下げきると閉じる。
  * 予定・立替・レモンで同じ入れ物を使い、違うのは中身と三点リーダーに並ぶ操作だけ。
  *
  * 全画面にするほど項目が多いフォーム（予定・タスク・ユーザー）は `FormDialog` を使う。
@@ -75,7 +76,13 @@ function Sheet(props: Props) {
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かずシートだけを閉じる
   useDialogHistory(props.onClose);
   return (
-    <BottomSheet open={props.open} onClose={props.onClose} label={props.title}>
+    <BottomSheet
+      open={props.open}
+      onClose={props.onClose}
+      label={props.title}
+      // 上へのスワイプは鉛筆と同じ（読むだけで開いたシートを、指だけで編集まで広げられる）
+      onExpand={props.editing === false ? props.onEdit : undefined}
+    >
       <Body {...props} />
     </BottomSheet>
   );

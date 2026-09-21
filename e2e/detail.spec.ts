@@ -1,6 +1,7 @@
 import { devices, expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
+import { touchDrag } from './touch.ts';
 
 /** 記録をタップして開く詳細は予定・立替・レモンで同じ形なので、代表してレモンで一通りなぞる */
 test.use({ ...devices['Pixel 7'] });
@@ -42,6 +43,16 @@ test('記録をタップすると読むだけのシートが出て、鉛筆で�
   const editing = await settled();
   expect(editing.height).toBeGreaterThan(viewing.height);
   expect(Math.round(editing.y + editing.height)).toBe(Math.round(viewing.y + viewing.height));
+
+  // 上へのスワイプでも同じところへ行ける（読むだけで開いたシートを指だけで広げられる）
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await row.click();
+  const again = await settled();
+  const x = (page.viewportSize()?.width ?? 0) / 2;
+  await touchDrag(page, { x, y: again.y + 8 }, { x, y: again.y - 80 });
+  await expect(page.getByLabel('メモ', { exact: true })).toHaveValue(note);
+  expect((await settled()).height).toBe(editing.height);
 
   // 直して保存すると一覧に反映される
   await page.getByLabel('メモ', { exact: true }).fill(`${note}（直した）`);

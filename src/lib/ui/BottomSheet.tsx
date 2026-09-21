@@ -20,6 +20,7 @@ type Stepped = {
   detent: SheetDetent;
   onChangeDetent: (detent: SheetDetent) => void;
   label?: never;
+  onExpand?: never;
 };
 
 /**
@@ -32,6 +33,12 @@ type Plain = {
   onChangeDetent?: never;
   /** ダイアログとしての名前（読み上げ用）。見出しと同じ文言を渡す */
   label: string;
+  /**
+   * 上へスワイプしたとき。段を持たないシートに「次の段」を決められるのは中身だけなので、
+   * 広げるかどうかは呼び出し側に任せる（詳細なら編集に移る = 鉛筆と同じ）。
+   * 渡さなければ上へは何も起きない。
+   */
+  onExpand?: () => void;
 };
 
 type Props = {
@@ -56,6 +63,7 @@ const CONTROLS = 'input, textarea, select, button, a, label, [role="button"], [d
  * 画面の下から出るシート。下へ下げきると閉じる（Google カレンダー方式）。
  * 指に追従して動き、離すと動かした向きへ 1 段ぶん進んで止まる。
  * `peekRef` を渡すと上・下の 2 段で止まり、下の段からさらに下げたときだけ閉じる。
+ * 段を持たないシートでは、上へのスワイプは `onExpand` に渡す（中身を広げるのは呼び出し側の仕事）。
  *
  * 高さは `translateY` で見える量を変える。段の位置は中身の実測から決めるので、
  * 見出しの高さやキーボードの表示で画面が縮んでも自分で合わせ直す。
@@ -67,6 +75,7 @@ export function BottomSheet({
   detent,
   onChangeDetent,
   label,
+  onExpand,
   children,
 }: Props) {
   const [sheet, setSheet] = useState<HTMLElement | null>(null);
@@ -141,8 +150,10 @@ export function BottomSheet({
     setReleased(drag.y);
     setDrag(null);
     if (Math.abs(moved) < STEP_DISTANCE) return;
-    if (moved < 0) onChangeDetent?.('full');
-    else if (detent === 'full') onChangeDetent?.('peek');
+    if (moved < 0) {
+      onChangeDetent?.('full');
+      onExpand?.();
+    } else if (detent === 'full') onChangeDetent?.('peek');
     else dismiss();
   };
 
@@ -157,7 +168,11 @@ export function BottomSheet({
       aria-label={label}
       onPointerDown={(event) => {
         if (event.button !== 0 || !measured) return;
-        if (event.target instanceof Element && event.target.closest(CONTROLS)) return;
+        if (!(event.target instanceof Element)) return;
+        // メニューや入れ子のダイアログは body に出るが、React のツリーの上ではシートの中にある。
+        // それらの上の操作をドラッグにすると指を離す先を奪ってしまうので、DOM で中身かを確かめる
+        if (!event.currentTarget.contains(event.target)) return;
+        if (event.target.closest(CONTROLS)) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         setDrag({ pointerId: event.pointerId, startY: event.clientY, origin: resting, y: resting });
       }}
@@ -188,7 +203,11 @@ export function BottomSheet({
         transform: measured
           ? `translateY(${drag?.y ?? released ?? resting}px)`
           : 'translateY(100%)',
-        transition: drag ? 'none' : `transform ${SLIDE_MS}ms ease`,
+        // 画面の外に下げた間は読み上げにも残さない。下がりきるまでは見せたいので切り替えだけ遅らせる
+        visibility: open ? 'visible' : 'hidden',
+        transition: drag
+          ? 'none'
+          : `transform ${SLIDE_MS}ms ease, visibility 0s ${open ? 0 : SLIDE_MS}ms`,
       }}
     >
       {/* つまんで動かせることを示す横棒。帯のどこからでもドラッグできる */}
