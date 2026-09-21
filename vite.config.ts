@@ -2,12 +2,10 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { buildInfoDefine } from './build-info.ts';
 
 export default defineConfig({
-  define: {
-    // 永続化キャッシュの buster。デプロイごとに変わる値にする（CI はコミット SHA、ローカルはビルド時刻）。
-    __APP_VERSION__: JSON.stringify(process.env.GITHUB_SHA ?? String(Date.now())),
-  },
+  define: buildInfoDefine,
   plugins: [
     // TanStack Router のプラグインは React プラグインより前に置く（公式の要件）
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),

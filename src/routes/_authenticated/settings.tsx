@@ -11,6 +11,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
+import { formatDateWithYear, formatTime } from '../../lib/date.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -18,7 +19,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び。
- * 自分の色（アクセントカラー）、この端末のプッシュ通知、ユーザー管理、ログアウト。
+ * 自分の色（アクセントカラー）、この端末のプッシュ通知、ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
   const { data: me } = useQuery(meQueryOptions);
@@ -54,6 +55,30 @@ function SettingsPage() {
           </ListItemButton>
         </ListItem>
       </List>
+      <VersionSection />
     </>
+  );
+}
+
+/**
+ * バージョン。バグに出くわしたとき、どのビルドを見ているかを言えるようにする。
+ * コミットは先頭 7 桁だけ出す（このリポジトリで一意に定まり、読み上げも写しもできる長さ）。
+ */
+function VersionSection() {
+  return (
+    <List
+      subheader={
+        <ListSubheader component="h3" disableSticky>
+          バージョン
+        </ListSubheader>
+      }
+    >
+      <ListItem>
+        <ListItemText
+          primary={__BUILD_COMMIT__.slice(0, 7)}
+          secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)} ビルド`}
+        />
+      </ListItem>
+    </List>
   );
 }
