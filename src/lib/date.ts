@@ -114,12 +114,24 @@ export function toMonthString(date: DateString): string {
   return date.slice(0, 7);
 }
 
-/** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
 /** 年月（YYYY-MM）の 1 日 */
 export function firstDayOfMonth(month: string): DateString {
   return toDateString(startOfDate(`${month}-01` as DateString));
 }
 
+/** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
+export function monthRange(month: string): { from: DateString; to: DateString } {
+  return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
+}
+
+/** [from, to]（両端含む）に掛かる年月（YYYY-MM）を昇順で */
+export function monthsInRange(from: DateString, to: DateString): string[] {
+  const months: string[] = [];
+  for (let m = toMonthString(from); m <= toMonthString(to); m = addMonths(m, 1)) months.push(m);
+  return months;
+}
+
+/** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
 export function monthGridDays(month: string): DateString[] {
   const first = firstDayOfMonth(month);
   const start = addDays(first, -weekdayIndex(first));

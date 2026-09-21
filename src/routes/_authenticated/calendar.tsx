@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
@@ -10,8 +9,8 @@ import { MonthPickerDialog } from '../../features/calendar/components/MonthPicke
 import { TimelineView } from '../../features/calendar/components/TimelineView.tsx';
 import {
   type CalendarItem,
-  calendarItemsQueryOptions,
   groupByDate,
+  useCalendarItems,
 } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
@@ -49,7 +48,7 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
  */
 function CalendarPage() {
   const page = useCalendarPage(Route.useSearch());
-  const { data: items = [] } = useQuery(calendarItemsQueryOptions(page.range));
+  const { items } = useCalendarItems(page.range);
   const itemsByDate = groupByDate(items);
 
   const createEvent = useCreateEvent();
