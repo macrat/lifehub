@@ -38,7 +38,7 @@ export async function sendToUsers(
   const subscriptions = await repository.findByUserIds(userIds);
   let sent = 0;
   for (const sub of subscriptions) {
-    // 修正前に保存された購読も送信直前に検証する。web-push はリダイレクトを追わない。
+    // 保存済みの購読も送信直前に検証する。web-push はリダイレクトを追わない。
     if (!pushEndpointSchema.safeParse(sub.endpoint).success) continue;
     try {
       await webpush.sendNotification(

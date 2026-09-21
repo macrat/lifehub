@@ -55,6 +55,9 @@ resource "vercel_project_environment_variable" "base_url" {
 
 # Preview の DATABASE_URL は CI が PR ごとの接続先をデプロイ時に渡す。
 resource "vercel_project_environment_variable" "preview_auth_secret" {
+  # 同じキーの Preview 設定が重複しないよう、共有設定からの切り離しを先に行う。
+  depends_on = [vercel_project_environment_variable.shared["BETTER_AUTH_SECRET"]]
+
   project_id = vercel_project.lifehub.id
   key        = "BETTER_AUTH_SECRET"
   value      = random_password.preview_auth_secret.result
