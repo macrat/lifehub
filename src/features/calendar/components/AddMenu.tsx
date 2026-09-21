@@ -44,10 +44,12 @@ export function AddMenu({ kinds, date }: Props) {
 
   return (
     <>
+      {/* transition.appear を切って、マウント時のズームを止める。タブを移動するたびに
+          FAB が出現し直して見えるため。hidden を切り替えたときだけアニメーションする */}
       <SpeedDial
         ariaLabel="追加"
         icon={<SpeedDialIcon icon={<AddIcon />} />}
-        FabProps={{ size: 'medium' }}
+        slotProps={{ transition: { appear: false } }}
         sx={FAB_SX}
       >
         {kinds.map((kind) => {

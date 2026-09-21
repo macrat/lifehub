@@ -6,7 +6,7 @@
  * sRGB の色域から外れる場合は彩度を落として収める。
  */
 
-/** アプリ既定の色相（ブランドカラー #A0148C の色相）。共有の項目とログイン前の画面に使う。 */
+/** アプリ既定の色相（ブランドカラー #A0148C の色相）。ログイン前の画面と、ユーザー登録時の既定値に使う。 */
 export const DEFAULT_HUE = 335;
 
 export const HUE_MAX = 359;
@@ -24,10 +24,14 @@ const TONES = {
 export type ColorMode = 'light' | 'dark';
 export type Tone = keyof typeof TONES;
 
-/** 色相と用途から hex を返す */
-export function hueColor(hue: number, tone: Tone, mode: ColorMode): string {
+/**
+ * 色相と用途から hex を返す。色相が null なら彩度 0 の無彩色（共有の項目の色）。
+ * 共有の項目は特定のユーザーのものではないので、どのユーザーの色とも競合しない無彩色にする。
+ * 明度は用途ごとの値をそのまま使うため、ダークモードでは白に近く、ライトモードではグレーになる。
+ */
+export function hueColor(hue: number | null, tone: Tone, mode: ColorMode): string {
   const { l, c } = TONES[tone][mode];
-  return oklchToHex(l, c, normalizeHue(hue));
+  return hue === null ? oklchToHex(l, 0, 0) : oklchToHex(l, c, normalizeHue(hue));
 }
 
 /** fill の上に載せる文字色。ダークモードの帯は明るいので黒にする */

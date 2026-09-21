@@ -18,7 +18,11 @@ import {
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
 import { useSwipe } from '../../features/calendar/use-swipe.ts';
+import type { TimeSelection } from '../../features/calendar/use-time-drag.ts';
+import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
+import { eventValuesForRange } from '../../features/events/form-values.ts';
+import { useCreateEvent } from '../../features/events/queries.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
@@ -41,13 +45,16 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。スマホでは左右のスワイプで前後の月・週・日へ
  * - 年月の見出しをタップすると年月の選択ダイアログ
+ * - 週・日表示では時間軸をドラッグすると、その時間帯の予定を追加できる
  */
 function CalendarPage() {
   const page = useCalendarPage(Route.useSearch());
   const { data: items = [] } = useQuery(calendarItemsQueryOptions(page.range));
   const itemsByDate = groupByDate(items);
 
+  const createEvent = useCreateEvent();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
+  const [range, setRange] = useState<TimeSelection | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -112,6 +119,7 @@ function CalendarPage() {
               itemsByDate={itemsByDate}
               onSelectItem={setSelected}
               onSelectDate={page.view === 'week' ? page.openDay : undefined}
+              onSelectRange={setRange}
               height="100%"
             />
           )}
@@ -131,6 +139,14 @@ function CalendarPage() {
 
       <AddMenu kinds={['task', 'event']} date={page.date} />
       {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
+      {range && (
+        <EventForm
+          title="予定を追加"
+          initial={eventValuesForRange(range.date, range.startMin, range.endMin)}
+          onSubmit={(input) => createEvent.mutateAsync(input)}
+          onClose={() => setRange(null)}
+        />
+      )}
     </>
   );
 }
