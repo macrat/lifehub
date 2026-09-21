@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
+import { CareLogDetailDialog } from '../../features/lemon/components/CareLogDetailDialog.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
 import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
+  type CareLog,
   lemonLogsQueryOptions,
   lemonStatusQueryOptions,
-  useDeleteCareLog,
   useLogCare,
 } from '../../features/lemon/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/_authenticated/lemon')({
 
 /**
  * レモンの木の世話。項目ごとの状況と記録の履歴。
+ * 履歴の行をタップすると詳細（削除）が開く。
  * AppBar の検索窓はメモで履歴を絞り込む（状況のタイルは絞り込みに関わらず最新の実施日を示す）。
  */
 function LemonPage() {
@@ -41,8 +43,8 @@ function LemonPage() {
   const { data: statuses = [] } = useQuery(lemonStatusQueryOptions);
   const { data: logs = [] } = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
-  const deleteLog = useDeleteCareLog();
   const [adding, setAdding] = useState<CareType | null>(null);
+  const [selected, setSelected] = useState<CareLog | null>(null);
 
   const keyword = q ?? '';
   const found = logs.filter((log) => matchesKeyword(keyword, log.note));
@@ -75,7 +77,7 @@ function LemonPage() {
       <CareLogList
         logs={found}
         emptyMessage={keyword ? '一致する記録はありません' : 'まだ記録はありません'}
-        onDelete={(id) => deleteLog.mutate(id)}
+        onSelect={setSelected}
       />
 
       <Fab
@@ -93,6 +95,7 @@ function LemonPage() {
           onClose={() => setAdding(null)}
         />
       )}
+      {selected && <CareLogDetailDialog log={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }
