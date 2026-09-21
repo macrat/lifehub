@@ -12,6 +12,7 @@ import {
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { type CalendarItem, colorUserOf, taskTime } from '../queries.ts';
+import type { TimeSelection } from '../use-time-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
@@ -25,6 +26,8 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
   onSelectDate?: (date: DateString) => void;
+  /** 時間軸の空いている時間帯をドラッグして選んだとき（予定の追加へ） */
+  onSelectRange: (selection: TimeSelection) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
 };
@@ -37,7 +40,14 @@ const LANE_HEIGHT = 20;
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  */
-export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, height }: Props) {
+export function TimelineView({
+  days,
+  itemsByDate,
+  onSelectItem,
+  onSelectDate,
+  onSelectRange,
+  height,
+}: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
   const hourHeight = compact ? 48 : 56;
@@ -157,6 +167,7 @@ export function TimelineView({ days, itemsByDate, onSelectItem, onSelectDate, he
         hourHeight={hourHeight}
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
+        onSelectRange={onSelectRange}
       />
     </Box>
   );

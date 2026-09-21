@@ -1,12 +1,14 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
+import { formatMinutesOfDay, formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { type TimeSelection, useTimeDrag } from '../use-time-drag.ts';
 import type { TimedPlaced } from './timeline-layout.ts';
 
 type Props = {
@@ -16,14 +18,25 @@ type Props = {
   hourHeight: number;
   gutterWidth: number;
   onSelectItem: (item: CalendarItem) => void;
+  /** 空いている時間帯をドラッグして選んだとき（予定の追加へ） */
+  onSelectRange: (selection: TimeSelection) => void;
 };
 
 /**
  * 0〜24 時の時間軸。縦にスクロールし、時間指定の項目を開始〜終了の高さで置く。今日の列には現在時刻の線。
  * 初期スクロールは、今日を含むなら現在時刻の少し上、それ以外は 7 時。
+ * 空いている所を縦にドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  */
-export function TimeGrid({ days, timedByDate, hourHeight, gutterWidth, onSelectItem }: Props) {
+export function TimeGrid({
+  days,
+  timedByDate,
+  hourHeight,
+  gutterWidth,
+  onSelectItem,
+  onSelectRange,
+}: Props) {
   const colorFor = useUserColor();
+  const drag = useTimeDrag({ hourHeight, onSelect: onSelectRange });
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -70,6 +83,8 @@ export function TimeGrid({ days, timedByDate, hourHeight, gutterWidth, onSelectI
         {days.map((day) => (
           <Box
             key={day}
+            data-date={day}
+            {...drag.props(day)}
             sx={{
               position: 'relative',
               borderLeft: 1,
@@ -87,10 +102,41 @@ export function TimeGrid({ days, timedByDate, hourHeight, gutterWidth, onSelectI
                 onClick={() => onSelectItem(p.item)}
               />
             ))}
+            {drag.selection?.date === day && (
+              <DragBlock selection={drag.selection} hourHeight={hourHeight} />
+            )}
             {day === todayStr && <NowLine top={(nowMin / 60) * hourHeight} />}
           </Box>
         ))}
       </Box>
+    </Box>
+  );
+}
+
+/** ドラッグ中の時間帯。選んでいる範囲と時刻をその場に出す */
+function DragBlock({ selection, hourHeight }: { selection: TimeSelection; hourHeight: number }) {
+  const { startMin, endMin } = selection;
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: (startMin / 60) * hourHeight + 1,
+        height: ((endMin - startMin) / 60) * hourHeight - 2,
+        left: 1,
+        right: 2,
+        boxSizing: 'border-box',
+        borderRadius: '4px',
+        border: 1,
+        borderColor: 'primary.main',
+        bgcolor: (t) => alpha(t.palette.primary.main, 0.3),
+        px: 0.5,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}
+    >
+      <Typography component="div" sx={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1.25 }}>
+        {formatMinutesOfDay(startMin)}〜{formatMinutesOfDay(endMin)}
+      </Typography>
     </Box>
   );
 }
