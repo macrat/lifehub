@@ -124,7 +124,8 @@ export function useCalendarPage(search: CalendarSearch) {
     openDay: (d: DateString) => setSearch({ view: 'day', date: d }),
     /**
      * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
-     * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える
+     * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える。
+     * ダイアログが持つ履歴の項目を選んだ結果で置き換える（積むと、戻ったときに中身のない項目を踏む）
      */
     selectDate: (d: DateString) => {
       const includesToday =
@@ -133,7 +134,7 @@ export function useCalendarPage(search: CalendarSearch) {
           : view === 'week'
             ? weekDays(d).includes(today())
             : d === today();
-      setSearch({ date: includesToday ? today() : d });
+      setSearch({ date: includesToday ? today() : d }, { replace: true });
     },
   };
 }

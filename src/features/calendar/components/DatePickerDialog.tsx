@@ -3,7 +3,6 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
-import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
@@ -23,6 +22,7 @@ import {
   weekDays,
   weekdayColor,
 } from '../../../lib/date.ts';
+import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import { DayNumber } from './DayNumber.tsx';
 
 /** 選ぶ単位。表示（月・週・日）と揃える */

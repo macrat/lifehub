@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../errors.ts';
-import {
-  expandOccurrences,
-  iterateOccurrences,
-  normalizeRRule,
-  withUntilBefore,
-} from '../index.ts';
+import { expandOccurrences, normalizeRRule, withUntilBefore } from '../index.ts';
 
 const jst = (s: string) => new Date(`${s}+09:00`);
 
@@ -108,16 +103,59 @@ describe('withUntilBefore', () => {
   });
 });
 
-describe('iterateOccurrences', () => {
-  it('dtstart から順に発生を返す', () => {
-    const it = iterateOccurrences({
-      rrule: 'FREQ=DAILY;COUNT=3',
-      dtstart: jst('2026-09-01T08:00:00'),
+describe('expandOccurrences の前後の先読み', () => {
+  const daily = { rrule: 'FREQ=DAILY', dtstart: jst('2026-09-01T08:00:00') };
+
+  it('窓の手前の発生を lookbehind の個数だけ足す', () => {
+    const result = expandOccurrences({
+      ...daily,
+      from: jst('2026-09-05T00:00:00'),
+      to: jst('2026-09-06T00:00:00'),
+      lookbehind: 2,
     });
-    expect([...it].map((d) => d.toISOString())).toEqual([
+    expect(result.map((d) => d.toISOString())).toEqual([
+      '2026-09-02T23:00:00.000Z',
+      '2026-09-03T23:00:00.000Z',
+      '2026-09-04T23:00:00.000Z',
+    ]);
+  });
+
+  it('窓の後ろの発生を lookahead の個数だけ足す', () => {
+    const result = expandOccurrences({
+      ...daily,
+      from: jst('2026-09-01T00:00:00'),
+      to: jst('2026-09-03T00:00:00'),
+      lookahead: 2,
+    });
+    expect(result.map((d) => d.toISOString())).toEqual([
       '2026-08-31T23:00:00.000Z',
       '2026-09-01T23:00:00.000Z',
       '2026-09-02T23:00:00.000Z',
+      '2026-09-03T23:00:00.000Z',
     ]);
+  });
+
+  it('終わりの無いルールでも先読みの分で走査を打ち切る', () => {
+    expect(
+      expandOccurrences({
+        ...daily,
+        from: jst('2026-09-01T00:00:00'),
+        to: jst('2026-09-01T00:00:01'),
+        lookahead: 3,
+      }),
+    ).toHaveLength(3);
+  });
+
+  it('足りない分は黙って少なく返す（COUNT で尽きる場合）', () => {
+    expect(
+      expandOccurrences({
+        rrule: 'FREQ=DAILY;COUNT=3',
+        dtstart: daily.dtstart,
+        from: jst('2026-09-02T00:00:00'),
+        to: jst('2026-09-03T00:00:00'),
+        lookbehind: 5,
+        lookahead: 5,
+      }),
+    ).toHaveLength(3);
   });
 });

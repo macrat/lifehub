@@ -30,9 +30,9 @@ export async function updateProfile(
 /** パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く */
 export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
   // パスワードを変更したユーザーの全端末を失効させる。セッション行は OAuth の参照のため残す。
-  await runBatch([
-    db.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, userId)),
-    db
+  await runBatch((tx) => [
+    tx.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, userId)),
+    tx
       .update(accounts)
       .set({ password: passwordHash })
       .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential'))),

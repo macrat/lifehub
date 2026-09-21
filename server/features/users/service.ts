@@ -9,7 +9,12 @@ export async function listUsers() {
   return repository.findAll();
 }
 
-export async function getUser(id: string) {
+/** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
+export function toPublicUser(user: repository.UserRow): repository.UserRow {
+  return { id: user.id, name: user.name, email: user.email, hue: user.hue };
+}
+
+async function getUser(id: string) {
   const user = await repository.findById(id);
   if (!user) throw new NotFoundError('ユーザーが見つかりません');
   return user;

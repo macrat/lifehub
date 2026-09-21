@@ -39,7 +39,7 @@
 | メソッド | パス | 内容 |
 |---|---|---|
 | ANY | `/api/auth/*` | better-auth のハンドラ |
-| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue）。`hue` は better-auth のセッションに載らないので users から読み直す |
+| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue）。`hue` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す（users を読み直さない） |
 | GET | `/api/users` | ユーザー一覧（id, name, email, hue） |
 | POST | `/api/users` | ユーザー作成（`hue` は任意） |
 | PATCH | `/api/users/:id` | 名前・色相・パスワードの変更 |

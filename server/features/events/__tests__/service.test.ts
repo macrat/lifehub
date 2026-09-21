@@ -364,6 +364,49 @@ describe('events service', () => {
       ]);
     });
 
+    it('何年も前から続く繰り返しでも、表示は今の前後の回だけで決まる', async () => {
+      // dtstart が遠い過去でも、放棄されずに残るのは「今以前の最後の回の 1 つ前」以降だけ
+      await createEvent(
+        createEventSchema.parse({
+          kind: 'task',
+          title: 'ゴミ出し',
+          startsAt: iso('2021-09-06T09:00:00'),
+          participantIds: [userId],
+          rrule: 'FREQ=WEEKLY',
+        }),
+        userId,
+      );
+      const list = await listItems(september, now);
+      expect(list.map((t) => [t.occurrenceStart, t.placementDate])).toEqual([
+        [iso('2026-09-07T09:00:00'), '2026-09-14'],
+        [iso('2026-09-14T09:00:00'), '2026-09-14'],
+      ]);
+    });
+
+    it('遠い過去に完了した回も、その完了日に出る', async () => {
+      const created = await createEvent(
+        createEventSchema.parse({
+          kind: 'task',
+          title: 'ゴミ出し',
+          startsAt: iso('2026-01-05T09:00:00'),
+          participantIds: [userId],
+          rrule: 'FREQ=WEEKLY',
+        }),
+        userId,
+      );
+      await completeEvent(
+        created.id,
+        { occurrenceStart: jst('2026-01-12T09:00:00') },
+        userId,
+        jst('2026-01-12T20:00:00'),
+      );
+      const january = dateRangeQuerySchema.parse({ from: '2026-01-01', to: '2026-01-31' });
+      const list = await listItems(january, now);
+      expect(list.map((t) => [t.occurrenceStart, t.placementDate, t.completedAt !== null])).toEqual(
+        [[iso('2026-01-12T09:00:00'), '2026-01-12', true]],
+      );
+    });
+
     it('完了した回は完了日に置き、次の未完了が繰り上がる。完了だけの回は変更ありにならない', async () => {
       const created = await createEvent(weeklyTask(), userId);
       await completeEvent(

@@ -10,6 +10,7 @@ import { type ReactNode, useRef, useState } from 'react';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { useFormSubmit } from '../../../lib/form.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
+import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import {
@@ -50,6 +51,8 @@ type Props = {
  */
 export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand, onClose }: Props) {
   const isMobile = useIsMobile();
+  // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
+  useDialogHistory(onClose);
   const formRef = useRef<HTMLFormElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
   const [detent, setDetent] = useState<SheetDetent>('peek');
