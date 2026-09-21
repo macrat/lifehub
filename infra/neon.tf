@@ -3,6 +3,7 @@
 
 resource "neon_project" "lifehub" {
   name       = "lifehub"
+  org_id     = var.neon_org_id
   region_id  = "aws-ap-southeast-1"
   pg_version = 17
 

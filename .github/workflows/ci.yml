@@ -14,6 +14,8 @@ permissions:
 env:
   TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
   TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+  TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
+  TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
   TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
   TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
   TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
