@@ -2,5 +2,5 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["api/[[...route]].ts", "scripts/*.ts", "e2e/**/*.ts"],
   "project": ["api/**", "server/**", "shared/**", "src/**", "scripts/**", "e2e/**"],
-  "ignoreBinaries": ["vercel", "terraform"]
+  "ignoreBinaries": ["terraform"]
 }
