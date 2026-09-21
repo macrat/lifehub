@@ -2,7 +2,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { E2E_USER } from './global-setup.ts';
 
 /** 起きた遷移 1 つ分。ready は名前が重複していると失敗する（＝遷移が飛ばされる） */
-type Transition = { ready: string; finished: boolean };
+type Transition = {
+  ready: string;
+  finished: boolean;
+  /** 遷移後として撮られる時点（更新コールバックの直後）に在った view-transition-name */
+  captured: string[];
+};
 
 declare global {
   interface Window {
@@ -17,15 +22,31 @@ declare global {
  * - 同じ `view-transition-name` が 2 つあると、遷移そのものが行われない（`ready` が失敗する）
  * - 前後の画面で同じものに同じ名前が付いていなければ、動かずに消えて出るだけになる
  * 併せて、同じ画面の中の更新（日付の移動）では遷移しないことも確かめる。
+ *
+ * 名前は遷移が終わったあとの DOM ではなく、ブラウザが遷移後として撮る時点
+ * （更新コールバックが解決した直後）で数える。あとから足される物は動かないので、
+ * 終わったあとの DOM を見ると「動いていない」ことに気づけない。
  */
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.viewTransitions = [];
     const start = document.startViewTransition.bind(document);
+    const collect = () =>
+      [...document.querySelectorAll('*')]
+        .map((el) => getComputedStyle(el).viewTransitionName)
+        .filter((name) => name !== 'none');
     document.startViewTransition = (update) => {
-      const record: Transition = { ready: 'pending', finished: false };
+      const record: Transition = { ready: 'pending', finished: false, captured: [] };
       window.viewTransitions.push(record);
-      const transition = start(update);
+      // 遷移後のスナップショットは更新コールバックが解決したあとに撮られるので、その直後を控える
+      const callback = typeof update === 'function' ? update : update?.update;
+      const wrapped = async () => {
+        await callback?.();
+        record.captured = collect();
+      };
+      const transition = start(
+        typeof update === 'object' && update !== null ? { ...update, update: wrapped } : wrapped,
+      );
       transition.ready.then(
         () => {
           record.ready = 'ok';
@@ -57,6 +78,10 @@ const names = (page: Page) =>
 
 const transitions = (page: Page): Promise<Transition[]> =>
   page.evaluate(() => window.viewTransitions);
+
+/** 直前の遷移で「遷移後」として撮られた view-transition-name */
+const captured = async (page: Page): Promise<string[]> =>
+  (await transitions(page)).at(-1)?.captured ?? [];
 
 /** 遷移が終わる（＝新しい画面が DOM に出そろう）まで待つ */
 const settle = (page: Page) =>
@@ -110,7 +135,7 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
   expect(new Set(month).size).toBe(month.length);
 
   await changeView(page, '日');
-  const day = await names(page);
+  const day = await captured(page);
   expect(new Set(day).size).toBe(day.length);
   // その日の分だけが出て、いずれも月表示と同じ名前（＝その場から動く）
   expect(day.length).toBeLessThan(month.length);
@@ -119,14 +144,21 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
   expect(day.some((name) => name.startsWith('item-task-'))).toBe(true);
 
   await changeView(page, 'リスト');
-  const list = await names(page);
+  const list = await captured(page);
   expect(new Set(list).size).toBe(list.length);
   expect(day.filter((name) => !list.includes(name))).toEqual([]);
 
-  expect(await transitions(page)).toEqual(
-    expect.arrayContaining([{ ready: 'ok', finished: true }]),
-  );
-  expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
+  // 月・週・日へ向かう切り替えでも、撮られる時点に項目が載っている（載っていないと動かずに出るだけ。
+  // 月グリッドは入りきらない項目を「+n」にまとめるので、リストとの一致ではなく在ることを確かめる）
+  await changeView(page, '月');
+  const backToMonth = await captured(page);
+  expect(new Set(backToMonth).size).toBe(backToMonth.length);
+  expect(backToMonth.some((name) => name.startsWith('item-event-'))).toBe(true);
+  expect(backToMonth.some((name) => name.startsWith('item-task-'))).toBe(true);
+
+  const done = await transitions(page);
+  expect(done.length).toBeGreaterThan(0);
+  expect(done.every((t) => t.ready === 'ok' && t.finished)).toBe(true);
 
   // 日付だけが変わる移動（今日へ）は同じ画面の中の更新なので遷移しない
   await changeView(page, '週');
