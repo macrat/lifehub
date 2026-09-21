@@ -77,6 +77,39 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
+test('日表示で枠をつまんで動かし、端の丸は反対の端を越えない', async ({ page }) => {
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  const column = page.locator('[data-date="2031-06-05"]').last();
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const x = box.x + box.width / 2;
+  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  /** 端の丸の中心。丸は枠の左右の内側にあるので、位置は毎回測り直す */
+  const handle = async (end: 'start' | 'end') => {
+    const dot = await page.locator(`[data-handle="${end}"]`).boundingBox();
+    if (!dot) throw new Error('つまむ丸が見つからない');
+    return { x: dot.x + dot.width / 2, y: dot.y + dot.height / 2 };
+  };
+
+  await page.touchscreen.tap(x, y(10 * 60 + 10));
+  await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
+
+  // 丸ではない所から長押しでなぞると、長さ 1 時間を保ったまま 3 時間ぶん下がる
+  await touchDrag(page, { x, y: y(10 * 60 + 30) }, { x, y: y(13 * 60 + 30) }, { hold: 400 });
+  await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
+
+  // 終了の丸は開始より上へ行けず、開始の 15 分後で止まる
+  await touchDrag(page, await handle('end'), { x, y: y(11 * 60) });
+  await expect(page.getByText('6/5(木) 13:00〜13:15')).toBeVisible();
+
+  // 終了の丸を戻して 1 時間にし、開始の丸は終了の 15 分前で止まることを確かめる
+  await touchDrag(page, await handle('end'), { x, y: y(14 * 60) });
+  await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
+  await touchDrag(page, await handle('start'), { x, y: y(16 * 60) });
+  await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
+});
+
 test('月表示はタップで日表示、長押しで終日の予定を作れる', async ({ page }) => {
   const title = `E2E 長押し ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-15');
