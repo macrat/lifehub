@@ -6,8 +6,10 @@ import { formatMinutesOfDay } from '../../../lib/date.ts';
 import type { draftColumns, EventDraft, TimePoint } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
-/** つまむ丸の大きさ（px）。枠の上下にはみ出して置く（左右は列から切れないよう内側） */
+/** つまむ丸の大きさ（px）。枠の上下の線には重ねて置き、左右は枠の内側に入れる */
 const DOT_SIZE = 8;
+/** 丸を枠の左右の端から離す距離（px） */
+const DOT_INSET = 10;
 /** 指の当たりの大きさ（px）。丸は小さく見せ、押せる範囲だけ広げる */
 const TARGET_SIZE = 32;
 
@@ -51,12 +53,12 @@ export function DraftBlock({
         <>
           <Handle
             end="start"
-            position={{ top: -DOT_SIZE / 2, left: 2 }}
+            position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
             handlers={handleProps({ date, min: endMin - 1 })}
           />
           <Handle
             end="end"
-            position={{ bottom: -DOT_SIZE / 2, right: 2 }}
+            position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
             handlers={handleProps({ date, min: startMin })}
           />
         </>
@@ -101,10 +103,18 @@ export function DraftBar({
       }}
     >
       {handleProps && roundStart && (
-        <Handle end="start" position={{ ...center, left: 2 }} handlers={handleProps(draft.to)} />
+        <Handle
+          end="start"
+          position={{ ...center, left: DOT_INSET }}
+          handlers={handleProps(draft.to)}
+        />
       )}
       {handleProps && roundEnd && (
-        <Handle end="end" position={{ ...center, right: 2 }} handlers={handleProps(draft.from)} />
+        <Handle
+          end="end"
+          position={{ ...center, right: DOT_INSET }}
+          handlers={handleProps(draft.from)}
+        />
       )}
     </Box>
   );
@@ -120,7 +130,6 @@ function Handle({
   position: Record<string, number | string>;
   handlers: DragHandlers;
 }) {
-  const grow = TARGET_SIZE - DOT_SIZE;
   return (
     <Box
       data-handle={end}
@@ -134,14 +143,12 @@ function Handle({
         bgcolor: 'primary.main',
         pointerEvents: 'auto',
         touchAction: 'none',
-        // 指の当たりは丸より広く取る。横は枠の内側へ広げる（時間軸が横にスクロールしてしまわないように）
+        // 指の当たりは丸より広く取る。丸を枠の端から離してあるので、横に広げても枠からはみ出さない
+        // （時間軸は overflow-y: auto の中にあり、右にはみ出すと横にスクロールできてしまう）
         '&::before': {
           content: '""',
           position: 'absolute',
-          top: -grow / 2,
-          bottom: -grow / 2,
-          left: end === 'start' ? -2 : -(grow - 2),
-          right: end === 'start' ? -(grow - 2) : -2,
+          inset: -(TARGET_SIZE - DOT_SIZE) / 2,
         },
       }}
     />
