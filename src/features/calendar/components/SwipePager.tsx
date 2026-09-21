@@ -58,8 +58,11 @@ export function SwipePager({ page, onMove, children }: Props) {
       {OFFSETS.map((offset) => (
         <Box
           key={offset}
-          // 中央以外はスワイプ中に見えるだけ。フォーカスが入ると勝手にスクロールしてページが移ってしまう
+          // 中央以外はスワイプ中に見えるだけの控え。操作もフォーカスも受けない
+          // （フォーカスが入るとブラウザがそこまでスクロールしてページが移ってしまう）、
+          // 読み上げや自動操作にも同じ項目が重複して見えないよう隠す
           inert={offset !== 0}
+          aria-hidden={offset !== 0}
           sx={{
             flex: '0 0 100%',
             minWidth: 0,
