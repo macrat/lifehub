@@ -1,51 +1,105 @@
-import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
+import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { db, runBatch } from '../../lib/db.ts';
 import { newId } from '../../lib/id.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
-export type ParticipantRow = { eventId: string; userId: string };
+/** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
+export type EventWithParticipants = EventRow & { participantIds: string[] };
 
-export async function findById(id: string): Promise<EventRow | undefined> {
-  const rows = await db.select().from(events).where(eq(events.id, id)).limit(1);
+/**
+ * 参加者を配列にまとめた行を読む。left join + array_agg なので、参加者が 0 人でも行は消えない。
+ * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
+ */
+function selectRows() {
+  return db
+    .select({
+      ...getTableColumns(events),
+      participantIds: sql<
+        string[]
+      >`coalesce(array_agg(${eventParticipants.userId}::text) filter (where ${eventParticipants.userId} is not null), '{}')`,
+    })
+    .from(events)
+    .leftJoin(eventParticipants, eq(eventParticipants.eventId, events.id));
+}
+
+/**
+ * [from, to) に発生を持ちうる繰り返し元・単発の行を選ぶ条件。
+ * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
+ */
+type CandidateColumns = Record<
+  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt',
+  PgColumn
+>;
+
+function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undefined {
+  const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
+  return and(
+    // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
+    isNull(table.seriesId),
+    or(
+      // 繰り返し元: 基準日時が範囲の終わりより前なら、回が範囲に入りうる
+      and(isNotNull(table.rrule), lt(base, to)),
+      // 単発の未完了タスク: 完了するまで「今日」に繰り越されるので、日時では絞れない
+      and(isNull(table.rrule), eq(table.kind, 'task'), isNull(table.completedAt)),
+      // 単発の完了したタスク: 完了した日にだけ置かれる
+      and(
+        isNull(table.rrule),
+        eq(table.kind, 'task'),
+        gte(table.completedAt, from),
+        lt(table.completedAt, to),
+      ),
+      // 単発の予定: 期間と重なるもの
+      and(
+        isNull(table.rrule),
+        eq(table.kind, 'event'),
+        lt(table.startsAt, to),
+        gt(table.endsAt, from),
+      ),
+    ),
+  );
+}
+
+export async function findById(id: string): Promise<EventWithParticipants | undefined> {
+  const rows = await selectRows().where(eq(events.id, id)).groupBy(events.id).limit(1);
   return rows[0];
 }
 
 /**
- * [from, to) に発生を持ちうる繰り返し元・単発の行。
- * 未完了のタスクは表示位置が「今日」に依存し DB で絞れないため全件、予定は期間と重なるもの（繰り返しは開始が to より前なら候補）。
+ * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
+ * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
+ * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
  */
-export async function findCandidates(from: Date, to: Date): Promise<EventRow[]> {
-  return db
-    .select()
-    .from(events)
+export async function findCalendarRows(from: Date, to: Date): Promise<EventWithParticipants[]> {
+  const master = alias(events, 'master');
+  return selectRows()
     .where(
-      and(
-        isNull(events.seriesId),
-        or(
-          // 完了したタスクは完了日にしか置かれないので、範囲より前に完了したものは読まない
-          and(
-            eq(events.kind, 'task'),
-            or(isNull(events.completedAt), gte(events.completedAt, from)),
-          ),
-          and(lt(events.startsAt, to), or(isNotNull(events.rrule), gt(events.endsAt, from))),
+      or(
+        isCandidate(events, from, to),
+        inArray(
+          events.seriesId,
+          db
+            .select({ id: master.id })
+            .from(master)
+            .where(isCandidate(master, from, to)),
         ),
       ),
     )
+    .groupBy(events.id)
     .orderBy(events.startsAt, events.createdAt);
-}
-
-/** 繰り返し元に属する実体化された回 */
-export async function findBySeriesIds(seriesIds: string[]): Promise<EventRow[]> {
-  if (seriesIds.length === 0) return [];
-  return db.select().from(events).where(inArray(events.seriesId, seriesIds));
-}
-
-export async function findParticipants(eventIds: string[]): Promise<ParticipantRow[]> {
-  if (eventIds.length === 0) return [];
-  return db
-    .select({ eventId: eventParticipants.eventId, userId: eventParticipants.userId })
-    .from(eventParticipants)
-    .where(inArray(eventParticipants.eventId, eventIds));
 }
 
 function participantRows(eventId: string, userIds: string[]) {
@@ -58,27 +112,40 @@ export async function insert(
   participantIds: string[],
 ): Promise<string> {
   const id = newId();
-  await runBatch([
-    db.insert(events).values({ ...row, id }),
-    db.insert(eventParticipants).values(participantRows(id, participantIds)),
+  await runBatch((tx) => [
+    tx.insert(events).values({ ...row, id }),
+    tx.insert(eventParticipants).values(participantRows(id, participantIds)),
   ]);
   return id;
 }
 
-/** 行を更新する。participantIds を渡すと参加者を置き換える */
+/**
+ * 行を更新する。participantIds を渡すと参加者を置き換える。
+ * dropOccurrences を立てると、実体化された未完了の回も同じ原子的な操作の中で消す。
+ */
 export async function update(
   id: string,
   values: Partial<NewEventRow>,
-  participantIds?: string[],
+  options: { participantIds?: string[]; dropUncompletedOccurrences?: boolean } = {},
 ): Promise<void> {
-  if (participantIds === undefined) {
+  const { participantIds, dropUncompletedOccurrences } = options;
+  if (participantIds === undefined && !dropUncompletedOccurrences) {
     await db.update(events).set(values).where(eq(events.id, id));
     return;
   }
-  await runBatch([
-    db.update(events).set(values).where(eq(events.id, id)),
-    db.delete(eventParticipants).where(eq(eventParticipants.eventId, id)),
-    db.insert(eventParticipants).values(participantRows(id, participantIds)),
+  await runBatch((tx) => [
+    tx.update(events).set(values).where(eq(events.id, id)),
+    ...(participantIds === undefined
+      ? []
+      : [
+          tx.delete(eventParticipants).where(eq(eventParticipants.eventId, id)),
+          tx.insert(eventParticipants).values(participantRows(id, participantIds)),
+        ]),
+    // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
+    // 完了した回は履歴として残す
+    ...(dropUncompletedOccurrences
+      ? [tx.delete(events).where(and(eq(events.seriesId, id), isNull(events.completedAt)))]
+      : []),
   ]);
 }
 
@@ -104,19 +171,14 @@ export async function upsertOccurrence(
 }
 
 export async function setParticipants(eventId: string, userIds: string[]): Promise<void> {
-  await runBatch([
-    db.delete(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
-    db.insert(eventParticipants).values(participantRows(eventId, userIds)),
+  await runBatch((tx) => [
+    tx.delete(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
+    tx.insert(eventParticipants).values(participantRows(eventId, userIds)),
   ]);
 }
 
 export async function remove(id: string): Promise<void> {
   await db.delete(events).where(eq(events.id, id));
-}
-
-/** 繰り返し元に属する回のうち、完了していないものを消す（完了した回は履歴として残す） */
-export async function deleteUncompletedOccurrences(seriesId: string): Promise<void> {
-  await db.delete(events).where(and(eq(events.seriesId, seriesId), isNull(events.completedAt)));
 }
 
 /**
@@ -131,13 +193,13 @@ export async function splitFollowing(input: {
   participantIds: string[];
 }): Promise<string> {
   const id = newId();
-  await runBatch([
-    db.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
-    db
+  await runBatch((tx) => [
+    tx.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
+    tx
       .delete(events)
       .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
-    db.insert(events).values({ ...input.newRow, id }),
-    db.insert(eventParticipants).values(participantRows(id, input.participantIds)),
+    tx.insert(events).values({ ...input.newRow, id }),
+    tx.insert(eventParticipants).values(participantRows(id, input.participantIds)),
   ]);
   return id;
 }
@@ -148,9 +210,9 @@ export async function truncateFollowing(input: {
   masterRRule: string;
   splitAt: Date;
 }): Promise<void> {
-  await runBatch([
-    db.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
-    db
+  await runBatch((tx) => [
+    tx.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
+    tx
       .delete(events)
       .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
   ]);

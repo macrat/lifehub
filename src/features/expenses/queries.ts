@@ -1,11 +1,6 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
-import {
-  type Balance,
-  computeBalance,
-  type Expense,
-  sortExpenses,
-} from '../../../shared/expenses.ts';
+import { type Balance, balanceOf, type Expense, sortExpenses } from '../../../shared/expenses.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
@@ -83,5 +78,5 @@ function updateList(client: QueryClient, update: (expenses: Expense[]) => Expens
   const users = client.getQueryData(usersQueryOptions.queryKey);
   const [a, b] = users ?? [];
   if (!a || !b || users?.length !== 2) return;
-  client.setQueryData(balanceQueryOptions.queryKey, computeBalance(next, [a.id, b.id]));
+  client.setQueryData(balanceQueryOptions.queryKey, balanceOf(next, [a.id, b.id]));
 }

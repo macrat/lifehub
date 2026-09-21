@@ -23,7 +23,7 @@
 | POST | `/api/lemon/logs` | 記録を追加 |
 | DELETE | `/api/lemon/logs/:id` | 記録を削除 |
 
-入力スキーマは `shared/validation/lemon.ts`。状態（最終実施日時と経過日数）の導き方は `shared/lemon.ts` の `careStatuses` 1 箇所に置き、サーバー（`getStatus`）とクライアントの楽観的更新が同じものを使う。
+入力スキーマは `shared/validation/lemon.ts`。状態（最終実施日時と経過日数）の導き方は `shared/lemon.ts` の `careStatusesOf` 1 箇所に置き、サーバー（`getStatus`）とクライアントの楽観的更新が同じものを使う。サーバーは種別ごとの最新の記録だけを SQL で読んでから渡すので、記録が増えても状態の応答は変わらない。
 
 ## MCP ツール
 
@@ -31,4 +31,4 @@
 
 ## ホームのカード
 
-「レモン」: 水やり・葉水それぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む（`src/features/dashboard/cards/LemonCard.tsx`）。タイルをタップするとレモンページと同じくその種別を選んだ状態で記録フォームが開く。
+「レモン」: 水やり・葉水それぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む（`src/features/dashboard/cards/LemonCard.tsx`）。タイルをタップするとレモンページと同じくその種別を選んだ状態で記録フォームが開く。どちらの画面も同じ `CareStatusGrid` を出すので、行き来するときは同じ種別のタイルがその場から動き、片方にしかない種別はフェードする（View Transition。名前は `care-<種別>`）。

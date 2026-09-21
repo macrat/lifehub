@@ -1,7 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -10,6 +9,7 @@ import IconButton from '@mui/material/IconButton';
 import Slide from '@mui/material/Slide';
 import Stack from '@mui/material/Stack';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
+import { Dialog } from './Dialog.tsx';
 import { SubmitButton } from './SubmitButton.tsx';
 import { useIsMobile } from './use-breakpoint.ts';
 

@@ -1,0 +1,29 @@
+import { eq } from 'drizzle-orm';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { users } from '../../features/users/schema.ts';
+import { createUser } from '../../features/users/service.ts';
+import { db, runBatch } from '../db.ts';
+import { truncateAll } from '../test-db.ts';
+
+/**
+ * runBatch は全文が通るか何も残らないかのどちらかになること。
+ * 本番（neon-http）は db.batch() が、ローカル・CI（node-postgres）はトランザクションがこれを守る。
+ */
+describe('runBatch', () => {
+  beforeEach(truncateAll);
+
+  it('途中で失敗したら前の文も残さない', async () => {
+    const userId = (
+      await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' })
+    ).id;
+    await expect(
+      runBatch((tx) => [
+        tx.update(users).set({ name: '変更後' }).where(eq(users.id, userId)),
+        // email は unique なので、既にある値で 2 件目を作ろうとすると必ず失敗する
+        tx.insert(users).values({ id: crypto.randomUUID(), name: 'B', email: 'a@example.com' }),
+      ]),
+    ).rejects.toThrow();
+    const [row] = await db.select().from(users).where(eq(users.id, userId));
+    expect(row?.name).toBe('A');
+  });
+});

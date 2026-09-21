@@ -7,9 +7,9 @@ import {
   sortItems,
 } from '../../../shared/calendar.ts';
 import { addDays, startOfDate } from '../../../shared/date.ts';
-import { expandOccurrences, iterateOccurrences } from '../../lib/recurrence/index.ts';
+import { expandOccurrences } from '../../lib/recurrence/index.ts';
+import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
-import type { EventRow } from './schema.ts';
 
 export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 
@@ -22,26 +22,24 @@ const MAX_VISIBLE_UNCOMPLETED = 2;
  */
 export async function listItems(range: DateRange, now: Date = new Date()): Promise<CalendarItem[]> {
   const instants = { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
-  const masters = await repository.findCandidates(instants.from, instants.to);
-  const occurrenceRows = await repository.findBySeriesIds(masters.map((m) => m.id));
-  const participants = groupParticipants(
-    await repository.findParticipants([...masters, ...occurrenceRows].map((r) => r.id)),
-  );
-  const bySeries = new Map<string, Map<number, EventRow>>();
-  for (const row of occurrenceRows) {
-    if (!row.seriesId || !row.occurrenceStart) continue;
-    const inner = bySeries.get(row.seriesId) ?? new Map<number, EventRow>();
+  const rows = await repository.findCalendarRows(instants.from, instants.to);
+
+  // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
+  const masters: EventWithParticipants[] = [];
+  const bySeries = new Map<string, Map<number, EventWithParticipants>>();
+  for (const row of rows) {
+    if (!row.seriesId || !row.occurrenceStart) {
+      masters.push(row);
+      continue;
+    }
+    const inner = bySeries.get(row.seriesId) ?? new Map<number, EventWithParticipants>();
     inner.set(row.occurrenceStart.getTime(), row);
     bySeries.set(row.seriesId, inner);
   }
 
   const items: CalendarItem[] = [];
   for (const master of masters) {
-    const ctx: ExpandContext = {
-      master,
-      occurrences: bySeries.get(master.id) ?? new Map(),
-      participantsOf: (id) => participants.get(id) ?? [],
-    };
+    const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
     const occurrences =
       master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range);
     for (const occurrence of occurrences) items.push(...placeOccurrence(occurrence, range, now));
@@ -49,7 +47,7 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
   return sortItems(items);
 }
 
-export function toMaster(row: EventRow, participantIds: string[]): EventMaster {
+export function toMaster(row: EventWithParticipants): EventMaster {
   return {
     id: row.id,
     kind: row.kind,
@@ -60,7 +58,7 @@ export function toMaster(row: EventRow, participantIds: string[]): EventMaster {
     completedAt: row.completedAt?.toISOString() ?? null,
     location: row.location,
     note: row.note,
-    participantIds,
+    participantIds: row.participantIds,
     rrule: row.rrule,
     remindStartMinutes: row.remindStartMinutes,
     remindEndMinutes: row.remindEndMinutes,
@@ -74,7 +72,7 @@ export function baseOf(row: { startsAt: Date | null; endsAt: Date | null }): Dat
 
 /** 繰り返し元の日時を、基準日時が occurrenceStart になるようずらしたもの。開始と終了の間隔は保つ */
 export function shiftTo(
-  master: EventRow,
+  master: { startsAt: Date | null; endsAt: Date | null },
   occurrenceStart: Date,
 ): { startsAt: Date | null; endsAt: Date | null } {
   const base = baseOf(master);
@@ -86,7 +84,10 @@ export function shiftTo(
 }
 
 /** 繰り返しの回が実在するか（ルール上の発生の基準日時か） */
-export function occurrenceExists(master: EventRow, at: Date): boolean {
+export function occurrenceExists(
+  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
+  at: Date,
+): boolean {
   const base = baseOf(master);
   if (!master.rrule || !base) return false;
   const hits = expandOccurrences({
@@ -101,33 +102,22 @@ export function occurrenceExists(master: EventRow, at: Date): boolean {
 // ---- 内部 ----
 
 type ExpandContext = {
-  master: EventRow;
+  master: EventWithParticipants;
   /** 実体化された回（基準日時のミリ秒 → 行） */
-  occurrences: Map<number, EventRow>;
-  participantsOf: (id: string) => string[];
+  occurrences: Map<number, EventWithParticipants>;
 };
-
-function groupParticipants(rows: repository.ParticipantRow[]): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const row of rows) {
-    const list = map.get(row.eventId) ?? [];
-    list.push(row.userId);
-    map.set(row.eventId, list);
-  }
-  return map;
-}
 
 /** ルール上の回の値（実体化されていない回）、または実体化された行の値から発生を組み立てる */
 function buildOccurrence(
   ctx: ExpandContext,
   occurrenceStart: Date | null,
-  row: EventRow | undefined,
+  row: EventWithParticipants | undefined,
 ): Occurrence {
   const { master } = ctx;
   if (!row) {
     const shifted = occurrenceStart ? shiftTo(master, occurrenceStart) : master;
     return {
-      ...toMaster(master, ctx.participantsOf(master.id)),
+      ...toMaster(master),
       startsAt: shifted.startsAt?.toISOString() ?? null,
       endsAt: shifted.endsAt?.toISOString() ?? null,
       occurrenceStart: occurrenceStart?.toISOString() ?? null,
@@ -135,9 +125,8 @@ function buildOccurrence(
       isModified: false,
     };
   }
-  const participantIds = ctx.participantsOf(row.id);
   return {
-    ...toMaster(row, participantIds),
+    ...toMaster(row),
     id: master.id,
     rrule: master.rrule,
     occurrenceStart: row.occurrenceStart?.toISOString() ?? null,
@@ -147,7 +136,7 @@ function buildOccurrence(
 }
 
 /** 実体化された行が、ルールから導かれる値（日時をずらした繰り返し元）と違うか */
-function differsFromRule(ctx: ExpandContext, row: EventRow): boolean {
+function differsFromRule(ctx: ExpandContext, row: EventWithParticipants): boolean {
   const { master } = ctx;
   if (!row.occurrenceStart) return true;
   const shifted = shiftTo(master, row.occurrenceStart);
@@ -164,7 +153,7 @@ function differsFromRule(ctx: ExpandContext, row: EventRow): boolean {
     row.note === master.note &&
     row.remindStartMinutes === master.remindStartMinutes &&
     row.remindEndMinutes === master.remindEndMinutes &&
-    sameSet(ctx.participantsOf(row.id), ctx.participantsOf(master.id))
+    sameSet(row.participantIds, master.participantIds)
   );
 }
 
@@ -191,7 +180,7 @@ function expandEvent(ctx: ExpandContext, range: { from: Date; to: Date }): Occur
 
   const result: Occurrence[] = [];
   const seen = new Set<number>();
-  const push = (occurrenceStart: Date | null, row: EventRow | undefined) => {
+  const push = (occurrenceStart: Date | null, row: EventWithParticipants | undefined) => {
     if (row?.cancelled) return;
     const occurrence = buildOccurrence(ctx, occurrenceStart, row);
     if (!occurrence.startsAt || !occurrence.endsAt) return;
@@ -220,28 +209,26 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   const base = baseOf(master);
   if (!base) return [];
 
-  // 発生を先読みしながら走査する。放棄の判定に N+2 の基準日時が要るため 2 つ先まで取り出す。
-  const iterator = iterateOccurrences({ rrule: master.rrule, dtstart: base });
-  const bases: Date[] = [];
-  let exhausted = false;
-  const ensure = (index: number): Date | undefined => {
-    while (bases.length <= index && !exhausted) {
-      const next = iterator.next();
-      if (next.done) exhausted = true;
-      else bases.push(next.value);
-    }
-    return bases[index];
-  };
-
+  // 取り出すのは「今より後、範囲の終わりまで」の発生と、その前後 2 つ（1 回の走査で済ませる）。
+  // 2 つ前まで遡るのは、放棄の判定が N+2 の基準日時で決まるため（N+2 が到来していない最初の回は、
+  // 今以前の最後の発生の 1 つ前）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
+  // 2 つ先まで先読みするのは、範囲の終わり際の回の放棄を判定するため。
   const rangeEnd = startOfDate(addDays(range.to, 1));
+  const bases = expandOccurrences({
+    rrule: master.rrule,
+    dtstart: base,
+    from: now,
+    to: rangeEnd,
+    lookbehind: MAX_VISIBLE_UNCOMPLETED,
+    lookahead: MAX_VISIBLE_UNCOMPLETED,
+  });
+
   const result: Occurrence[] = [];
   const emitted = new Set<number>();
   let visibleUncompleted = 0;
   for (let n = 0; visibleUncompleted < MAX_VISIBLE_UNCOMPLETED; n++) {
-    const at = ensure(n);
-    if (!at) break;
-    // 範囲の終わりより先の発生は範囲内に表示されない（未完了の先頭 2 つはこれより前に決まっている）
-    if (at.getTime() >= rangeEnd.getTime()) break;
+    const at = bases[n];
+    if (!at || at.getTime() >= rangeEnd.getTime()) break;
     const row = ctx.occurrences.get(at.getTime());
     if (row?.cancelled) continue;
     if (row?.completedAt) {
@@ -249,7 +236,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
       result.push(buildOccurrence(ctx, at, row));
       continue;
     }
-    const twoAhead = ensure(n + 2);
+    const twoAhead = bases[n + MAX_VISIBLE_UNCOMPLETED];
     const abandoned = twoAhead !== undefined && twoAhead.getTime() <= now.getTime();
     if (abandoned) continue;
     visibleUncompleted++;

@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
@@ -11,6 +11,7 @@ import type { EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
+import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './SwipePager.tsx';
 import type { TimedPlaced } from './timeline-layout.ts';
 
@@ -52,8 +53,10 @@ export function TimeGrid({
   const todayStr = today(now);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 合わせるのは描画前（0 時からスクロールする様子を見せない。表示を切り替えたときは、
+  // View Transition が新しい位置を測るより先にここで合わせておく）
   // biome-ignore lint/correctness/useExhaustiveDependencies: 最初に出したときだけ合わせる
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
@@ -180,6 +183,8 @@ function TimedBlock({
       aria-label={item.title}
       sx={{
         position: 'absolute',
+        // 表示を切り替えたとき、同じ項目がこのブロックから動く
+        viewTransitionName: itemTransitionName(item),
         top: top + 1,
         height: heightPx,
         left: `calc(${col * width}% + 1px)`,

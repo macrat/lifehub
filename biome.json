@@ -63,6 +63,10 @@
                   {
                     "group": ["**/lib/api.ts"],
                     "message": "API はコンポーネントから直接呼ばず、features/*/queries.ts のフック経由にする"
+                  },
+                  {
+                    "group": ["@mui/material/Dialog"],
+                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
                   }
                 ]
               }

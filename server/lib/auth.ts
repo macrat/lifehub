@@ -5,6 +5,7 @@ import { mcp } from '@better-auth/mcp';
 import { betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { v7 as uuidv7 } from 'uuid';
+import { DEFAULT_HUE } from '../../shared/color.ts';
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
 import { db } from './db.ts';
 import { env, resolveBaseUrl } from './env.ts';
@@ -49,6 +50,14 @@ export const auth = betterAuth({
       oauthClientAssertion: schema.oauthClientAssertions,
     },
   }),
+  user: {
+    // hue も better-auth にセットで読ませることで、セッションの検証ついでに手に入る
+    // （/me のためだけに users をもう一度読まずに済む）。入力としては受け取らない
+    // （色の変更は users service を通す）。
+    additionalFields: {
+      hue: { type: 'number', input: false, required: true, defaultValue: DEFAULT_HUE },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: PASSWORD_MIN_LENGTH,

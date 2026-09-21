@@ -36,6 +36,14 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
     },
     shape: { borderRadius: 12 },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          // 控えとして描いてあるだけの部分（カレンダーのスワイプの前後の面。inert）は
+          // View Transition の対象にしない。view-transition-name は文書の中で一意でなければならず、
+          // 表示中の面と同じ名前が控えにもあると、遷移そのものが行われない。
+          '[inert] *': { viewTransitionName: 'none !important' },
+        },
+      },
       MuiAppBar: {
         defaultProps: { color: 'default', elevation: 0, enableColorOnDark: false },
         styleOverrides: {
