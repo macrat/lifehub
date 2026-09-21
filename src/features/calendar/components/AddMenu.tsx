@@ -32,12 +32,21 @@ const ACTIONS: Record<AddKind, { label: string; icon: typeof EventIcon }> = {
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
 
+/** 背景はほぼ見えなくなるまで落とす（MUI 既定の 0.5 では暗い配色のときに展開が伝わらない） */
+const SCRIM_SX: SxProps<Theme> = { zIndex: SCRIM_Z, bgcolor: 'rgba(0, 0, 0, 0.8)' };
+
 const MENU_SX: SxProps<Theme> = {
   ...FAB_SX,
   zIndex: (t) => SCRIM_Z(t) + 1,
   // ラベルの長さが違っても右端は FAB に揃える（既定の中央揃え・幅揃えにしない）
   alignItems: 'flex-end',
-  [`& .${speedDialClasses.actions}`]: { alignItems: 'flex-end' },
+  [`& .${speedDialClasses.actions}`]: {
+    alignItems: 'flex-end',
+    // 項目どうしは 4px、FAB との間は 8px（既定は 8px / 16px）。
+    // 既定の負のマージン（dialRadius = 32px）が下に食い込むぶんを padding に足す
+    gap: '4px',
+    pb: '40px',
+  },
   // 展開すると角丸 16px の四角から円へ変わり、アイコンも + から × になる
   [`& .${speedDialClasses.fab}`]: {
     transition: 'border-radius .2s',
@@ -45,11 +54,17 @@ const MENU_SX: SxProps<Theme> = {
   },
 };
 
-/** ラベル付きの pill。SpeedDialAction 既定の背景（paper）はスクリムに沈むので、浮くグレーにする */
+/**
+ * ラベル付きの pill。高さ 56px・完全な角丸・左右 24px の余白で、FAB と同じ右端に揃える
+ * （extended Fab の既定は高さ 48px・左右 16px）。間隔は MENU_SX 側で決めるのでマージンは持たない。
+ * SpeedDialAction 既定の背景（paper）はスクリムに沈むので、浮くグレーにする。
+ */
 const PILL_SX: SxProps<Theme> = {
+  height: 56,
+  borderRadius: '28px',
+  px: 3,
   gap: 1,
-  // 既定の余白（8px）のうち右だけ削り、右端を FAB に揃える（上下は項目どうしの間隔として残す）
-  mr: 0,
+  m: 0,
   bgcolor: 'grey.300',
   color: 'grey.900',
   '&:hover': { bgcolor: 'grey.A100' },
@@ -79,7 +94,7 @@ export function AddMenu({ kinds, date }: Props) {
 
   return (
     <>
-      <Backdrop open={expanded} onClick={collapse} sx={{ zIndex: SCRIM_Z }} />
+      <Backdrop open={expanded} onClick={collapse} sx={SCRIM_SX} />
       {/* transition.appear を切って、マウント時のズームを止める。タブを移動するたびに
           FAB が出現し直して見えるため。hidden を切り替えたときだけアニメーションする */}
       <SpeedDial
@@ -102,7 +117,7 @@ export function AddMenu({ kinds, date }: Props) {
                   {label}
                 </>
               }
-              slotProps={{ fab: { variant: 'extended', size: 'medium', sx: PILL_SX } }}
+              slotProps={{ fab: { variant: 'extended', sx: PILL_SX } }}
               onClick={() => {
                 collapse();
                 setForm(kind);
