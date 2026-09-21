@@ -4,21 +4,21 @@ import { z } from 'zod';
  * サーバーが参照する環境変数。起動時に一度だけ検証し、以後は型付きで参照する。
  * 値の出所は `.env.example`（ローカル）と `infra/vercel.tf`（Vercel）。
  */
-const envSchema = z.object({
+const envObject = z.object({
   DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
   /** アプリの公開 URL。Vercel では VERCEL_URL から導出する（下記 resolveBaseUrl）。 */
   APP_URL: z.url().optional(),
   CRON_SECRET: z.string().min(1).optional(),
-  QSTASH_TOKEN: z.string().optional(),
-  QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
-  QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
-  VAPID_PUBLIC_KEY: z.string().optional(),
-  VAPID_PRIVATE_KEY: z.string().optional(),
-  VAPID_SUBJECT: z.string().optional(),
+  QSTASH_TOKEN: z.string().min(1).optional(),
+  QSTASH_CURRENT_SIGNING_KEY: z.string().min(1).optional(),
+  QSTASH_NEXT_SIGNING_KEY: z.string().min(1).optional(),
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).optional(),
   // ここから下は Vercel のシステム環境変数。Vercel プロジェクトの「システム環境変数の公開」
   // （infra/vercel.tf の automatically_expose_system_environment_variables）が有効なときだけ存在する。
-  /** `production` のときだけ通知の予約を行う。 */
+  /** `production` のときだけ通知の予約を行う。下記 PRODUCTION_REQUIRED の判定もこれで行う。 */
   VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
   /** このデプロイ固有の URL（`<project>-<hash>-<scope>.vercel.app`）。 */
   VERCEL_URL: z.string().optional(),
@@ -28,11 +28,47 @@ const envSchema = z.object({
   VERCEL: z.string().optional(),
 });
 
-const emptyToUndefined = Object.fromEntries(
-  Object.entries(process.env).map(([k, v]) => [k, v === '' ? undefined : v]),
-);
+export type Env = z.infer<typeof envObject>;
 
-export const env = envSchema.parse(emptyToUndefined);
+/**
+ * 本番で必ず要る変数。1 つでも欠けていれば起動しない。
+ * 欠けたままでも通知の予約（`server/lib/qstash.ts`）と送信（`server/lib/push/send.ts`）は
+ * 何もせずに正常終了してしまい、画面にもログにも異常が出ないので、起動時に落とすしかない。
+ * Preview には本番の秘密情報を渡さない（`infra/vercel.tf`）ので対象は production だけ。
+ */
+const PRODUCTION_REQUIRED = [
+  'APP_URL',
+  'CRON_SECRET',
+  'QSTASH_TOKEN',
+  'QSTASH_CURRENT_SIGNING_KEY',
+  'QSTASH_NEXT_SIGNING_KEY',
+  'VAPID_PUBLIC_KEY',
+  'VAPID_PRIVATE_KEY',
+  'VAPID_SUBJECT',
+] as const satisfies readonly (keyof Env)[];
+
+const envSchema = envObject.superRefine((value, ctx) => {
+  if (value.VERCEL_ENV !== 'production') return;
+  for (const key of PRODUCTION_REQUIRED) {
+    if (value[key] !== undefined) continue;
+    ctx.addIssue({ code: 'custom', path: [key], message: '本番では必須です' });
+  }
+});
+
+/**
+ * 環境変数を読み、足りなければ理由を並べて投げる（起動を止める）。
+ * Vercel は値を消した変数を空文字で渡してくるので、空文字は未設定として扱う。
+ */
+export function parseEnv(source: Record<string, string | undefined>): Env {
+  const parsed = envSchema.safeParse(
+    Object.fromEntries(Object.entries(source).map(([k, v]) => [k, v === '' ? undefined : v])),
+  );
+  if (parsed.success) return parsed.data;
+  const lines = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
+  throw new Error(`環境変数が正しくありません:\n${lines.join('\n')}`);
+}
+
+export const env = parseEnv(process.env);
 
 /**
  * 絶対 URL を組み立てるための公開 URL（QStash のコールバック先と MCP のリソース識別子）。
