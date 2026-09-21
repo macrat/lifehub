@@ -29,10 +29,12 @@ export const Route = createFileRoute('/_authenticated/calendar')({
 /**
  * 月・週・日・リストの表示が画面の残り全部を占めるための高さ。
  * AppShell の main が下に確保している余白（追加ボタンの分）は負のマージンで打ち消す。
+ * 基準は AppShell と同じ svh（ブラウザの URL バーなどが最大に出ている状態の高さ）。
+ * dvh はそれらの出入りで値が変わるので、再読み込みの直後に画面より高くなってスクロールが要る表示になる。
  */
 const FILL_HEIGHT = {
-  xs: `calc(100dvh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEIGHT}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`,
-  md: `calc(100dvh - ${APP_BAR_HEIGHT}px - 8px)`,
+  xs: `calc(100svh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEIGHT}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`,
+  md: `calc(100svh - ${APP_BAR_HEIGHT}px - 8px)`,
 };
 const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 
