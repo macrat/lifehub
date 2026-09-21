@@ -73,7 +73,7 @@ const PILL_SX: SxProps<Theme> = {
 type Props = {
   /** 出す順（SpeedDial は下から上に開くので、先頭が一番下） */
   kinds: AddKind[];
-  /** 予定・タスクの初期日付。無ければ今 */
+  /** 予定の初期日付（時刻は今の次の正時）。無ければ今日。タスクは日時なしで開く */
   date?: DateString;
 };
 
@@ -137,7 +137,7 @@ export function AddMenu({ kinds, date }: Props) {
       {form === 'task' && (
         <TaskForm
           title="タスクを追加"
-          initial={defaultTaskValues(date)}
+          initial={defaultTaskValues()}
           onSubmit={createEvent.mutateAsync}
           onClose={close}
         />
