@@ -89,7 +89,7 @@ function LemonPage() {
       {adding && (
         <CareLogForm
           initialCareType={adding}
-          onSubmit={(input) => logCare.mutateAsync(input)}
+          onSubmit={logCare.mutateAsync}
           onClose={() => setAdding(null)}
         />
       )}

@@ -43,7 +43,7 @@ function AdminUsersPage() {
         <UserForm
           mode="create"
           onClose={() => setCreating(false)}
-          onSubmit={(input) => createUser.mutateAsync(input)}
+          onSubmit={createUser.mutateAsync}
         />
       )}
       {editing && (

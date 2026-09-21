@@ -1,4 +1,3 @@
-import Alert from '@mui/material/Alert';
 import Avatar from '@mui/material/Avatar';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -14,7 +13,10 @@ import { useColorMode } from '../../../lib/theme.ts';
 import { useUpdateUser } from '../queries.ts';
 import { HueSlider } from './HueSlider.tsx';
 
-/** 色。スライダーを離した時点で保存し、アクセントカラーが即座に変わる。ドラッグ中の値だけをローカルに持ち、保存後はサーバーの値に戻す */
+/**
+ * 色。スライダーを離した時点で保存し、アクセントカラーが即座に変わる（保存の完了は待たない）。
+ * ドラッグ中の値だけをローカルに持ち、保存後はサーバーの値に戻す。失敗すれば元の色に戻り、通知が出る。
+ */
 export function MyColorSection() {
   const { data: me } = useQuery(meQueryOptions);
   const update = useUpdateUser();
@@ -47,7 +49,6 @@ export function MyColorSection() {
             me && update.mutate({ id: me.id, hue: v }, { onSettled: () => setDraft(null) })
           }
         />
-        {update.error && <Alert severity="error">{update.error.message}</Alert>}
       </Stack>
     </List>
   );
