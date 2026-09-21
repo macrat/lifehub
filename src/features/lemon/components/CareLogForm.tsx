@@ -23,7 +23,7 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
       open={!submitted}
       error={submitError}
       onClose={onClose}
-      title="レモンの記録"
+      title="レモンの記録を追加"
       onSubmit={handleSubmit}
     >
       <CareLogFields careType={careType} onChangeCareType={setCareType} errors={errors} />

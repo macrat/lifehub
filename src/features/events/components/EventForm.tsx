@@ -6,7 +6,6 @@ import { useItemForm } from '../use-item-form.ts';
 import { EventFormFields } from './EventFields.tsx';
 
 type Props = {
-  title: string;
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
@@ -18,7 +17,7 @@ type Props = {
  * 予定を追加する。開始・終了は必須で、通知は開始前だけを扱う。
  * 既存の予定の編集は詳細（`ItemDetailSheet`）から行う。
  */
-export function EventForm({ title, initial, scope, onSubmit, onClose }: Props) {
+export function EventForm({ initial, scope, onSubmit, onClose }: Props) {
   const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
     { kind: 'event', initial, scope, onSubmit, onSaved: onClose },
   );
@@ -29,7 +28,7 @@ export function EventForm({ title, initial, scope, onSubmit, onClose }: Props) {
       error={submitError}
       onClose={onClose}
       full
-      title={title}
+      title="予定を追加"
       onSubmit={handleSubmit}
     >
       <EventFormFields

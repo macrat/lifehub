@@ -88,7 +88,8 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   // SpeedDial はホバーで開く（クリックだと開閉が反転する）
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();
-  await expect(page.getByRole('heading', { name: 'タスクを追加' })).toBeVisible();
+  // 入力しているときは見出しを出さないので、入力欄が出たことで開いたと見る
+  await expect(page.getByLabel('タイトル')).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(title).toBeVisible();

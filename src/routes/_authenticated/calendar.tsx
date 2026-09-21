@@ -156,7 +156,6 @@ function CalendarPage() {
       )}
       {draftValues && (
         <EventForm
-          title="予定を追加"
           initial={draftValues}
           onSubmit={(input) => createEvent.mutateAsync(input)}
           onClose={() => setDraftValues(null)}

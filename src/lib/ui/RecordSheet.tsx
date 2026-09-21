@@ -43,7 +43,11 @@ type AlwaysEditing = {
 };
 
 type Props = {
-  /** 見出し。記録そのものの名前（予定のタイトル、立替の内容、世話の種別） */
+  /**
+   * この入れ物の名前。読み上げにはいつも使い、見出しとして出すのは閲覧のときだけ。
+   * 閲覧では記録そのものの名前（予定のタイトル、立替の内容、世話の種別）になる。
+   * 入力しているときは、何を書いているかは入力欄そのものが示すので見出しは出さない。
+   */
   title: string;
   /** 見出しに取り消し線を引く（完了したタスク） */
   struck?: boolean;
@@ -70,7 +74,8 @@ type Props = {
  * PC では中央のダイアログ。中身の高さのぶんだけ出るので、項目が少ないほど小さく収まり、
  * 読むだけの詳細から鉛筆で入力欄に変われば、その高さまで広がる（`full` なら最初から画面いっぱい）。
  *
- * 操作は見出しの帯に集める: 左に閉じる（バツ）、右に鉛筆（編集中・追加中は保存）と三点リーダー。
+ * 操作は上端の帯に集める: 左に閉じる（バツ）、右に鉛筆（編集中・追加中は保存）と三点リーダー。
+ * 帯に名前が出るのは閲覧のときだけで、入力しているときは入力欄に場所を譲る。
  * スマホでは上へのスワイプが鉛筆と同じで、下へ下げきると閉じる。
  * 予定・タスク・立替・レモン・ユーザーで同じ入れ物を使い、違うのは中身と三点リーダーの操作だけ。
  */
@@ -127,7 +132,7 @@ function Body({
   return (
     <Stack component="form" onSubmit={onSubmit} noValidate sx={{ minHeight: 0 }}>
       <Stack spacing={1} sx={{ pb: 1 }}>
-        <SheetHeader title={title} struck={struck} onClose={onClose}>
+        <SheetHeader title={editing ? undefined : title} struck={struck} onClose={onClose}>
           {editing ? (
             <SubmitButton />
           ) : (

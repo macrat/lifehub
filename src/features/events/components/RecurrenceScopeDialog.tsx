@@ -14,11 +14,8 @@ type Props = {
   onClose: () => void;
 };
 
-/** 説明文は操作に合わせる（削除の選択肢に「変更する」と書かない） */
-const ACTION_LABELS: Record<RecurrenceAction, { title: string; verb: string }> = {
-  edit: { title: '編集', verb: '変更' },
-  delete: { title: '削除', verb: '削除' },
-};
+/** 見出しと説明文は操作に合わせる（削除の選択肢に「変更する」と書かない） */
+const VERBS: Record<RecurrenceAction, string> = { edit: '変更', delete: '削除' };
 
 const OPTIONS: { scope: RecurrenceScope; label: string; target: string }[] = [
   { scope: 'this', label: 'この回だけ', target: 'この日の分だけ' },
@@ -26,12 +23,15 @@ const OPTIONS: { scope: RecurrenceScope; label: string; target: string }[] = [
   { scope: 'all', label: 'すべて', target: '過去の分も含めて' },
 ];
 
-/** 繰り返し予定・タスクの編集・削除で対象範囲を選ぶ。範囲を選ぶ間だけ呼び出し側がマウントする。 */
+/**
+ * 繰り返し予定・タスクの編集・削除で対象範囲を選ぶ。範囲を選ぶ間だけ呼び出し側がマウントする。
+ * 選ぶだけのダイアログなので、見出しには何を選ぶのかを出す。
+ */
 export function RecurrenceScopeDialog({ action, onSelect, onClose }: Props) {
-  const { title, verb } = ACTION_LABELS[action];
+  const verb = VERBS[action];
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>繰り返しの{title}</DialogTitle>
+      <DialogTitle>{verb}する範囲を選ぶ</DialogTitle>
       <List>
         {OPTIONS.map((option) => (
           <ListItemButton key={option.scope} onClick={() => onSelect(option.scope)}>

@@ -137,7 +137,6 @@ export function AddMenu({ kinds, date }: Props) {
       </SpeedDial>
       {form === 'task' && (
         <TaskForm
-          title="タスクを追加"
           initial={defaultTaskValues()}
           onSubmit={createEvent.mutateAsync}
           onClose={close}

@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -26,7 +27,14 @@ import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import { DayNumber } from './DayNumber.tsx';
 
 /** 選ぶ単位。表示（月・週・日）と揃える */
-type PickerUnit = 'month' | 'week' | 'day';
+export type PickerUnit = 'month' | 'week' | 'day';
+
+/** 何を選ぶのか。ダイアログの見出しと、それを開く AppBar のボタンで同じ文言を使う */
+export const PICKER_LABELS: Record<PickerUnit, string> = {
+  month: '年月を選ぶ',
+  week: '週を選ぶ',
+  day: '日付を選ぶ',
+};
 
 type Props = {
   unit: PickerUnit;
@@ -41,6 +49,7 @@ const COLUMNS = 'repeat(7, minmax(0, 1fr))';
 
 /**
  * 年月・週・日を選ぶダイアログ。AppBar の見出しをタップして開く。
+ * 選ぶだけのダイアログなので、見出しには何を選ぶのかを出す。
  * 見出しが指すものと選べるものを揃える: 月表示は年を ‹ › で送って 12 か月から、
  * 週・日表示は月を ‹ › で送って月グリッドの週・日から選ぶ。
  */
@@ -49,7 +58,8 @@ export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
   // 選ぶ範囲が広い月表示は年ごと、週・日表示は月ごとに送る
   const step = unit === 'month' ? 12 : 1;
   return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="date-picker-heading">
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>{PICKER_LABELS[unit]}</DialogTitle>
       <DialogContent sx={{ p: 2 }}>
         <Stack
           direction="row"
@@ -61,7 +71,7 @@ export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
           >
             <ChevronLeftIcon />
           </IconButton>
-          <Typography id="date-picker-heading" variant="h6" component="div">
+          <Typography variant="h6" component="div">
             {unit === 'month' ? `${month.slice(0, 4)}年` : formatMonth(firstDayOfMonth(month))}
           </Typography>
           <IconButton
