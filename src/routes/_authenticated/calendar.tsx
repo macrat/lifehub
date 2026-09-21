@@ -4,9 +4,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
+import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { MonthGrid } from '../../features/calendar/components/MonthGrid.tsx';
-import { MonthPickerDialog } from '../../features/calendar/components/MonthPickerDialog.tsx';
 import { TimelineView } from '../../features/calendar/components/TimelineView.tsx';
 import {
   type CalendarItem,
@@ -44,7 +44,7 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。スマホでは左右のスワイプで前後の月・週・日へ
- * - 年月の見出しをタップすると年月の選択ダイアログ
+ * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - 週・日表示では時間軸をドラッグすると、その時間帯の予定を追加できる
  */
 function CalendarPage() {
@@ -126,13 +126,14 @@ function CalendarPage() {
         </Box>
       )}
 
-      {pickerOpen && (
-        <MonthPickerDialog
-          month={page.month}
+      {pickerOpen && page.view !== 'list' && (
+        <DatePickerDialog
+          unit={page.view}
+          date={page.date}
           onClose={() => setPickerOpen(false)}
-          onSelect={(m) => {
+          onSelect={(date) => {
             setPickerOpen(false);
-            page.selectMonth(m);
+            page.selectDate(date);
           }}
         />
       )}
