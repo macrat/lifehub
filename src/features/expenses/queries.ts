@@ -3,7 +3,8 @@ import type { InferRequestType, InferResponseType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useInvalidate } from '../../lib/query-client.ts';
 
-export type CreateExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
+/** 追加と編集で同じ形（編集は全項目を置き換える） */
+export type ExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
 export type Expense = InferResponseType<typeof api.expenses.$get, 200>[number];
 export type Balance = InferResponseType<typeof api.expenses.balance.$get, 200>;
 
@@ -25,8 +26,17 @@ const useInvalidateAfterWrite = () => useInvalidate(EXPENSES_QUERY_KEY);
 export function useAddExpense() {
   const invalidate = useInvalidateAfterWrite();
   return useMutation({
-    mutationFn: async (input: CreateExpenseBody) =>
+    mutationFn: async (input: ExpenseBody) =>
       (await ensureOk(await api.expenses.$post({ json: input }))).json(),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateExpense() {
+  const invalidate = useInvalidateAfterWrite();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ExpenseBody & { id: string }) =>
+      (await ensureOk(await api.expenses[':id'].$put({ param: { id }, json: input }))).json(),
     onSuccess: invalidate,
   });
 }
