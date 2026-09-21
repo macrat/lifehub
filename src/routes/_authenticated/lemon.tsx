@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -16,19 +17,14 @@ import {
   lemonStatusQueryOptions,
   useLogCare,
 } from '../../features/lemon/queries.ts';
-import { ensureData } from '../../lib/query-client.ts';
 import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   validateSearch: keywordSearchSchema,
-  loader: ({ context }) =>
-    Promise.all([
-      ensureData(context.queryClient, lemonStatusQueryOptions),
-      ensureData(context.queryClient, lemonLogsQueryOptions),
-    ]),
   component: LemonPage,
 });
 
@@ -39,13 +35,11 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const [keyword, setKeyword] = useKeywordSearch(Route.useSearch().q ?? '');
-  const { data: statuses = [] } = useQuery(lemonStatusQueryOptions);
-  const { data: logs = [] } = useQuery(lemonLogsQueryOptions);
+  const statusQuery = useQuery(lemonStatusQueryOptions);
+  const logsQuery = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
   const [adding, setAdding] = useState<CareType | null>(null);
   const [selected, setSelected] = useState<CareLog | null>(null);
-
-  const found = logs.filter((log) => matchesKeyword(keyword, log.note));
 
   return (
     <>
@@ -54,7 +48,11 @@ function LemonPage() {
       </AppBarContent>
 
       <Box sx={{ px: 2, pt: 1.5 }}>
-        <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+        <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
+          {(statuses) => (
+            <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+          )}
+        </QueryView>
       </Box>
 
       <Typography
@@ -65,11 +63,15 @@ function LemonPage() {
       >
         記録
       </Typography>
-      <CareLogList
-        logs={found}
-        emptyMessage={keyword ? '一致する記録はありません' : 'まだ記録はありません'}
-        onSelect={setSelected}
-      />
+      <QueryView query={logsQuery} skeleton={<ListSkeleton />}>
+        {(logs) => (
+          <CareLogList
+            logs={logs.filter((log) => matchesKeyword(keyword, log.note))}
+            emptyMessage={keyword ? '一致する記録はありません' : 'まだ記録はありません'}
+            onSelect={setSelected}
+          />
+        )}
+      </QueryView>
 
       <Fab
         color="primary"

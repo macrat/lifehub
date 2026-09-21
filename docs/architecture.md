@@ -71,8 +71,8 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定・useOptimisticMutation・ensureData）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
-    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, FormDialog, notice.ts（保存の失敗などの通知）, CenteredPage, 共通部品）
+    api.ts（Hono RPC client）  query-client.ts（永続化設定・useOptimisticMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
+    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, FormDialog, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -131,7 +131,8 @@ e2e/                          # Playwright
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
 - オフライン時は閲覧のみ。書き込み操作はオフライン中は無効化し、その旨を表示する。オフライン書き込み（キューして再送）は将来の拡張とし、初期スコープに含めない。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
-- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。loader / beforeLoad は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
+- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
+- ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に自分のクエリを読み、`QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（下記）。
 - ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。
 - オフライン時は `useOnline`（`navigator.onLine` + online/offline イベント）で判定し、`SubmitButton` と完了チェックを無効化し、`OfflineBanner` で案内する。
 
@@ -155,6 +156,8 @@ e2e/                          # Playwright
 - 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
 - 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
 - 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
+- 移動は何も待たせない。タップした瞬間に画面を切り替え、まだ無いものは骨組み（MUI の Skeleton。`src/lib/ui/QueryView.tsx`）で示す。ページのコードを読み込む間も前の画面には留めない（`defaultPendingMs: 0` と `defaultPendingComponent`）。待つのは操作の結果ではなく内容の到着なので、待ち時間は移動の後に置く。
+- クエリの状態は `QueryView`（`src/lib/ui/QueryView.tsx`）が 1 か所で描き分ける: 手元にデータがあれば取り直し中でも失敗してもそれを出し、まだ無ければ骨組み、無くて失敗しているなら理由を出す。一覧の骨組みは `ListSkeleton`。
 - 画面が変わる移動は View Transition（`src/main.tsx` の `defaultViewTransition`）で繋ぐ。前後の画面に共通して在るもの（同じ予定、立替残高、レモンのカード）には同じ `view-transition-name` を付けてあり、その場から新しい位置へ動く。名前の無いものはブラウザ既定のフェード。アニメーションの記述は持たず、名前を付けるだけにする。画面が変わるのはパスが変わるときと、カレンダーの表示（月・週・日・リスト）が変わるときで、同じ画面の中の更新（スワイプでの前後移動、絞り込み、検索キーワード）では使わない（指やキーに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える）。判定は戻る・進むを含めどの経路でも同じになるよう router に 1 か所だけ置く。
 - `view-transition-name` は文書の中で一意でなければならず、重複すると遷移そのものが行われない。同じ項目が複数描かれる所（複数日の予定、スワイプの控えの面）の扱いは [features/calendar.md](features/calendar.md) と `src/lib/theme.ts` を参照。
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。

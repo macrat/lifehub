@@ -26,7 +26,8 @@ export function usePaneItems(range: {
   from: DateString;
   to: DateString;
 }): Map<DateString, CalendarItem[]> {
-  const { items } = useCalendarItems(range);
+  // まだ 1 か月も手元に無ければ undefined。枠だけを出して待つ（枠そのものが骨組みになる）
+  const { data: items } = useCalendarItems(range);
   const key = `${range.from}/${range.to}`;
   const [shown, setShown] = useState<{
     key: string;
@@ -34,7 +35,7 @@ export function usePaneItems(range: {
   } | null>(null);
 
   useEffect(() => {
-    startTransition(() => setShown({ key, itemsByDate: groupByDate(items) }));
+    startTransition(() => setShown({ key, itemsByDate: groupByDate(items ?? []) }));
   }, [key, items]);
 
   // 期間が変わった直後は前の期間の予定しか手元に無いので、新しい枠には出さない（次の描画で入れ替わる）

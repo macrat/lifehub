@@ -1,6 +1,8 @@
+import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CareType } from '../../../../shared/validation/lemon.ts';
+import { QueryView } from '../../../lib/ui/QueryView.tsx';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import { CareStatusGrid } from '../../lemon/components/CareStatusGrid.tsx';
 import { lemonStatusQueryOptions, useLogCare } from '../../lemon/queries.ts';
@@ -11,13 +13,19 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
  * タイルをタップするとその種別の記録フォームが開く（レモンページと同じ操作）。
  */
 export function LemonCard() {
-  const { data = [], error } = useQuery(lemonStatusQueryOptions);
+  const query = useQuery(lemonStatusQueryOptions);
   const logCare = useLogCare();
   const [adding, setAdding] = useState<CareType | null>(null);
-  const statuses = data.filter((s) => s.careType === 'water' || s.careType === 'mist');
   return (
-    <DashboardCardFrame title="レモン" link={{ to: '/lemon' }} error={error}>
-      <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+    <DashboardCardFrame title="レモン" link={{ to: '/lemon' }}>
+      <QueryView query={query} skeleton={<Skeleton variant="rounded" height={86} />}>
+        {(statuses) => (
+          <CareStatusGrid
+            statuses={statuses.filter((s) => s.careType === 'water' || s.careType === 'mist')}
+            onSelect={(s) => setAdding(s.careType)}
+          />
+        )}
+      </QueryView>
       {adding && (
         <CareLogForm
           initialCareType={adding}

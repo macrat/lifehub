@@ -3,6 +3,7 @@ import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
+import type { QueryState } from '../../lib/query-client.ts';
 
 /** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
 export type { CalendarItem } from '../../../shared/calendar.ts';
@@ -18,7 +19,7 @@ export const CALENDAR_QUERY_KEY = ['calendar'] as const;
  * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
  * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
  */
-export function calendarMonthQueryOptions(month: string) {
+function calendarMonthQueryOptions(month: string) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, month],
     // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
@@ -32,19 +33,22 @@ export function calendarMonthQueryOptions(month: string) {
 /**
  * [from, to]（両端含む JST 暦日）の項目。範囲に掛かる月のキャッシュを繋いで返す。
  * 揃っていない月だけが後から埋まるので、既に持っている月は待たずに表示できる。
+ * どの月もまだ手元に無いときだけ data が undefined になる（画面はそれを見て骨組みを出す）。
  */
-export function useCalendarItems(range: { from: DateString; to: DateString }): {
-  items: CalendarItem[];
-  error: Error | null;
-} {
+export function useCalendarItems(range: {
+  from: DateString;
+  to: DateString;
+}): QueryState<CalendarItem[]> {
   return useQueries({
     queries: monthsInRange(range.from, range.to).map(calendarMonthQueryOptions),
     combine: (results) => ({
       // 月は互いに重ならず昇順なので、範囲で絞って繋ぐだけで重複せず placementDate 順も保たれる
       // （月をまたぐ予定はサーバーが日ごとの項目にして返すため、月ごとに別の日として分かれる）
-      items: results
-        .flatMap((result) => result.data ?? [])
-        .filter((item) => item.placementDate >= range.from && item.placementDate <= range.to),
+      data: results.some((result) => result.data !== undefined)
+        ? results
+            .flatMap((result) => result.data ?? [])
+            .filter((item) => item.placementDate >= range.from && item.placementDate <= range.to)
+        : undefined,
       error: results.find((result) => result.error)?.error ?? null,
     }),
   });

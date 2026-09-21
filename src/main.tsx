@@ -11,6 +11,7 @@ import { meQueryOptions } from './lib/auth.ts';
 import { persistOptions, queryClient } from './lib/query-client.ts';
 import { createAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
+import { ListSkeleton } from './lib/ui/QueryView.tsx';
 import { routeTree } from './routeTree.gen.ts';
 
 /**
@@ -50,6 +51,14 @@ const router = createRouter({
   defaultPreload: 'intent',
   scrollRestoration: true,
   defaultErrorComponent: ErrorPage,
+  /**
+   * 移動は何も待たせない。ページのコードを読み込む間（初回だけ。以降は Service Worker の precache）も
+   * 前の画面に留めず、すぐ切り替えて骨組みを出す（`defaultPendingMs: 0`）。
+   * データの到着は待たない（ルートに loader を置かず、各画面が自分のクエリを読んで骨組みを出す）ので、
+   * ここで待つのはコードの読み込みだけ。
+   */
+  defaultPendingMs: 0,
+  defaultPendingComponent: ListSkeleton,
   /**
    * 画面が変わる移動は View Transition で繋ぐ。前後の画面に共通して在るもの（同じ予定、立替残高、
    * レモンのカード）は名前を合わせてあり、その場から動く。名前の無いものはフェードする。
