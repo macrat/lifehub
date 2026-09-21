@@ -56,12 +56,12 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
   await expect(page.getByText('6/5(木) 15:00〜16:00')).toBeVisible();
 
   // 下端の丸をつまんで 17:00 まで広げる。指の当たりは丸（8px）より広いので、
-  // 丸から外れた所（左に 14px、下に 10px）から掴めることも併せて確かめる
+  // 丸から外れた所（左に 14px、上に 10px）から掴めることも併せて確かめる
   const handleBox = await page.locator('[data-handle="end"]').boundingBox();
   if (!handleBox) throw new Error('つまむ丸が見つからない');
   await touchDrag(
     page,
-    { x: handleBox.x + handleBox.width / 2 - 14, y: handleBox.y + handleBox.height / 2 + 10 },
+    { x: handleBox.x + handleBox.width / 2 - 14, y: handleBox.y + handleBox.height / 2 - 10 },
     { x, y: y(17 * 60 - 5) },
   );
   await expect(page.getByText('6/5(木) 15:00〜17:00')).toBeVisible();
@@ -101,6 +101,46 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   const tap = await center('2031-06-18');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-18/);
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await page.getByRole('button', { name: '削除' }).click();
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('クイック入力のシートは上へスワイプで詳細入力、下へスワイプで取り消し', async ({ page }) => {
+  const title = `E2E スワイプ ${Date.now()}`;
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  const column = page.locator('[data-date="2031-06-05"]').last();
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const tapColumn = async (minutes: number) => {
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + (minutes / 60) * (box.height / 24));
+  };
+  /** シートの真ん中から縦になぞる */
+  const swipeSheet = async (dy: number) => {
+    const sheet = await page.locator('.MuiDrawer-root .MuiPaper-root').boundingBox();
+    if (!sheet) throw new Error('シートが見つからない');
+    const from = { x: sheet.x + sheet.width / 2, y: sheet.y + 24 };
+    await touchDrag(page, from, { x: from.x, y: from.y + dy });
+  };
+
+  // 下へスワイプすると下書きごと消える
+  await tapColumn(9 * 60 + 10);
+  await expect(page.getByText('6/5(木) 09:00〜10:00')).toBeVisible();
+  await swipeSheet(120);
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+  await expect(page.locator('[data-draft]')).toHaveCount(0);
+
+  // 上へスワイプすると入力済みの内容ごと全項目のフォームへ
+  await tapColumn(9 * 60 + 10);
+  await page.getByLabel('タイトルを追加').fill(title);
+  await swipeSheet(-120);
+  await expect(page.getByLabel('タイトル')).toHaveValue(title);
+  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
+  await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());

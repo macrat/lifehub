@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -7,12 +8,13 @@ import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import type { MouseEvent, ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { formList, formText, useFormSubmit } from '../../../lib/form.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { draftInstants, draftText, draftValues, type EventDraft } from '../../calendar/draft.ts';
+import { useSwipe } from '../../calendar/use-swipe.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
@@ -31,10 +33,11 @@ type Props = {
 /**
  * グリッドで選んだ範囲にすぐ予定を入れるための最小のフォーム（Google カレンダーのクイック入力）。
  * スマホは画面下のシート、PC は選んだ範囲に寄せた吹き出しで出す。日時は選んだ範囲そのままで、
- * 足りない項目は「その他のオプション」で全項目のフォームに引き継ぐ。
+ * 足りない項目は「その他のオプション」（スマホは上へのスワイプでも）で全項目のフォームに引き継ぐ。
  */
 export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Props) {
   const isMobile = useIsMobile();
+  const formRef = useRef<HTMLFormElement>(null);
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => ({
@@ -57,9 +60,9 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
     onSuccess: onClose,
   });
 
-  const expand = (event: MouseEvent<HTMLButtonElement>) => {
-    const form = event.currentTarget.form;
-    const fd = form ? new FormData(form) : new FormData();
+  /** 入力済みの内容を引き継いで全項目のフォームへ */
+  const expand = () => {
+    const fd = formRef.current ? new FormData(formRef.current) : new FormData();
     onExpand({
       ...draftValues(draft),
       title: formText(fd, 'title') ?? '',
@@ -71,6 +74,7 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
   const content = (
     <Stack
       component="form"
+      ref={formRef}
       onSubmit={handleSubmit}
       noValidate
       spacing={1.5}
@@ -107,7 +111,9 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
   );
 
   return isMobile ? (
-    <Sheet>{content}</Sheet>
+    <Sheet onExpand={expand} onClose={onClose}>
+      {content}
+    </Sheet>
   ) : (
     <Bubble open={open} onClose={onClose}>
       {content}
@@ -115,8 +121,21 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
   );
 }
 
-/** スマホ: グリッドを隠さず、下に重ねて出す（画面の上半分で範囲を調整しながら入力できる） */
-function Sheet({ children }: { children: ReactNode }) {
+/**
+ * スマホ: グリッドを隠さず、下に重ねて出す（画面の上半分で範囲を調整しながら入力できる）。
+ * 上へスワイプすると全項目のフォームへ広がり、下へスワイプすると下書きごと取り消す。
+ */
+function Sheet({
+  onExpand,
+  onClose,
+  children,
+}: {
+  onExpand: () => void;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useSwipe(ref, { onSwipeUp: onExpand, onSwipeDown: onClose });
   return (
     <Drawer
       anchor="bottom"
@@ -126,7 +145,14 @@ function Sheet({ children }: { children: ReactNode }) {
         paper: { sx: { borderRadius: '16px 16px 0 0', pb: 'env(safe-area-inset-bottom)' } },
       }}
     >
-      {children}
+      <Box ref={ref}>
+        {/* つまんで動かせることを示す横棒。操作はシートのどこからでもできる */}
+        <Box
+          aria-hidden
+          sx={{ mx: 'auto', mt: 1, width: 32, height: 4, borderRadius: 2, bgcolor: 'divider' }}
+        />
+        {children}
+      </Box>
     </Drawer>
   );
 }
