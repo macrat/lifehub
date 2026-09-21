@@ -7,7 +7,7 @@ import type { draftColumns, EventDraft, TimePoint } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
 /** つまむ丸の大きさ（px）。指で掴める大きさにし、枠の上下にはみ出して置く（左右は列から切れないよう内側） */
-const HANDLE_SIZE = 16;
+const HANDLE_SIZE = 12;
 
 const OUTLINE = {
   boxSizing: 'border-box',
