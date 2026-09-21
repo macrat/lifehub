@@ -104,7 +104,7 @@ e2e/                          # Playwright
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
 - Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api/well-known/*` へ転送する（詳細は [features/mcp.md](features/mcp.md)）。
-- サーバーとクライアントで tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
+- サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
 
 ## 横断機能との接続
@@ -153,6 +153,8 @@ e2e/                          # Playwright
 - 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
 - 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
 - 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
+- 画面が変わる移動は View Transition（`src/main.tsx` の `defaultViewTransition`）で繋ぐ。前後の画面に共通して在るもの（同じ予定、立替残高、レモンのカード）には同じ `view-transition-name` を付けてあり、その場から新しい位置へ動く。名前の無いものはブラウザ既定のフェード。アニメーションの記述は持たず、名前を付けるだけにする。画面が変わるのはパスが変わるときと、カレンダーの表示（月・週・日・リスト）が変わるときで、同じ画面の中の更新（スワイプでの前後移動、絞り込み、検索キーワード）では使わない（指やキーに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える）。判定は戻る・進むを含めどの経路でも同じになるよう router に 1 か所だけ置く。
+- `view-transition-name` は文書の中で一意でなければならず、重複すると遷移そのものが行われない。同じ項目が複数描かれる所（複数日の予定、スワイプの控えの面）の扱いは [features/calendar.md](features/calendar.md) と `src/lib/theme.ts` を参照。
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。
 
 ## PWA

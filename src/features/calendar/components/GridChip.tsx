@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { formatTime } from '../../../lib/date.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
+import { itemTransitionName } from './item-transition.ts';
 import type { Placed } from './lane-layout.ts';
 
 type Props = {
@@ -45,6 +46,8 @@ export function GridChip({ placed, compact, colors, onClick, showTime = !compact
       sx={{
         all: 'unset',
         boxSizing: 'border-box',
+        // 表示を切り替えたとき、同じ項目がこの位置から動く
+        viewTransitionName: itemTransitionName(item),
         pointerEvents: onClick ? 'auto' : 'none',
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
