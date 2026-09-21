@@ -1,10 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import { buildInfoDefine } from './build-info.ts';
 
 /**
  * クライアント（jsdom）とサーバー（Node + compose.yaml の Postgres）を別プロジェクトとして実行する。
  * サーバーのテストは実 DB に対して行い、モックは使わない。
  */
 export default defineConfig({
+  define: buildInfoDefine,
   test: {
     projects: [
       {

@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { dayDraft, draftColumns, draftText, type TimePoint, timeDraft } from '../draft.ts';
+import {
+  dayDraft,
+  draftColumns,
+  draftText,
+  type TimedDraft,
+  type TimeGrab,
+  type TimePoint,
+  timeDraft,
+} from '../draft.ts';
 
 const DAY = '2031-06-05' as DateString;
 const at = (minutes: number): TimePoint => ({ date: DAY, min: minutes });
+/** 空いている所を from → to へなぞる（moved を省くとその場で離したタップ・クリック） */
+const select = (from: TimePoint, to: TimePoint, moved = false) =>
+  timeDraft({ grab: null, from, to, moved });
+/** 下書きを kind の所でつまんで from → to へ動かす */
+const grabbed = (draft: TimedDraft, kind: TimeGrab['kind'], from: TimePoint, to: TimePoint) =>
+  timeDraft({ grab: { kind, draft }, from, to, moved: true });
 
 describe('timeDraft', () => {
   it('動かさずに離したときは押した枠から 1 時間', () => {
-    expect(timeDraft(at(9 * 60 + 5), at(9 * 60 + 5), false)).toEqual({
+    expect(select(at(9 * 60 + 5), at(9 * 60 + 5))).toEqual({
       allDay: false,
       date: DAY,
       startMin: 540,
@@ -16,28 +30,28 @@ describe('timeDraft', () => {
   });
 
   it('下向きのドラッグは触れた枠をすべて含む', () => {
-    expect(timeDraft(at(9 * 60), at(10 * 60 + 1), true)).toMatchObject({
+    expect(select(at(9 * 60), at(10 * 60 + 1), true)).toMatchObject({
       startMin: 540,
       endMin: 615,
     });
   });
 
   it('上向きのドラッグも同じ時間帯になる', () => {
-    expect(timeDraft(at(10 * 60 + 1), at(9 * 60), true)).toMatchObject({
+    expect(select(at(10 * 60 + 1), at(9 * 60), true)).toMatchObject({
       startMin: 540,
       endMin: 615,
     });
   });
 
   it('15 分の枠に吸着する', () => {
-    expect(timeDraft(at(9 * 60 + 14), at(9 * 60 + 31), true)).toMatchObject({
+    expect(select(at(9 * 60 + 14), at(9 * 60 + 31), true)).toMatchObject({
       startMin: 540,
       endMin: 585,
     });
   });
 
   it('ドラッグが同じ枠に収まるときは最短の時間帯', () => {
-    expect(timeDraft(at(9 * 60), at(9 * 60 + 5), true)).toMatchObject({
+    expect(select(at(9 * 60), at(9 * 60 + 5), true)).toMatchObject({
       startMin: 540,
       endMin: 570,
     });
@@ -45,22 +59,96 @@ describe('timeDraft', () => {
 
   it('日は始点のもの（列をまたいでも変わらない）', () => {
     expect(
-      timeDraft(at(9 * 60), { date: '2031-06-06' as DateString, min: 10 * 60 }, true),
+      select(at(9 * 60), { date: '2031-06-06' as DateString, min: 10 * 60 }, true),
     ).toMatchObject({
       date: DAY,
     });
   });
 
   it('時間軸の外に出ても 0:00〜24:00 に収まる', () => {
-    expect(timeDraft(at(-100), at(0), true)).toMatchObject({ startMin: 0, endMin: 30 });
-    expect(timeDraft(at(25 * 60), at(23 * 60), true)).toMatchObject({
+    expect(select(at(-100), at(0), true)).toMatchObject({ startMin: 0, endMin: 30 });
+    expect(select(at(25 * 60), at(23 * 60), true)).toMatchObject({
       startMin: 1380,
       endMin: 1440,
     });
-    expect(timeDraft(at(25 * 60), at(25 * 60), false)).toMatchObject({
+    expect(select(at(25 * 60), at(25 * 60))).toMatchObject({
       startMin: 1410,
       endMin: 1440,
     });
+  });
+});
+
+describe('timeDraft（下書きをつまむ）', () => {
+  const draft: TimedDraft = { allDay: false, date: DAY, startMin: 9 * 60, endMin: 10 * 60 };
+
+  it('つまんだだけで動かしていなければそのまま', () => {
+    expect(
+      timeDraft({ grab: { kind: 'move', draft }, from: at(9 * 60), to: at(12 * 60), moved: false }),
+    ).toEqual(draft);
+  });
+
+  it('開始をつまむと終了は動かず、近い 15 分に吸着する', () => {
+    expect(grabbed(draft, 'start', at(9 * 60), at(8 * 60 + 22))).toMatchObject({
+      startMin: 8 * 60 + 15,
+      endMin: 10 * 60,
+    });
+  });
+
+  it('開始は終了の 15 分前より後ろへ行けない', () => {
+    expect(grabbed(draft, 'start', at(9 * 60), at(10 * 60))).toMatchObject({
+      startMin: 9 * 60 + 45,
+      endMin: 10 * 60,
+    });
+    expect(grabbed(draft, 'start', at(9 * 60), at(23 * 60))).toMatchObject({
+      startMin: 9 * 60 + 45,
+      endMin: 10 * 60,
+    });
+  });
+
+  it('終了をつまむと開始は動かず、近い 15 分に吸着する', () => {
+    expect(grabbed(draft, 'end', at(10 * 60), at(11 * 60 + 38))).toMatchObject({
+      startMin: 9 * 60,
+      endMin: 11 * 60 + 45,
+    });
+  });
+
+  it('終了は開始の 15 分後より前へ行けない', () => {
+    expect(grabbed(draft, 'end', at(10 * 60), at(9 * 60))).toMatchObject({
+      startMin: 9 * 60,
+      endMin: 9 * 60 + 15,
+    });
+    expect(grabbed(draft, 'end', at(10 * 60), at(0))).toMatchObject({
+      startMin: 9 * 60,
+      endMin: 9 * 60 + 15,
+    });
+  });
+
+  it('枠をつまむと長さを保ったまま動く（動かした分だけ）', () => {
+    expect(grabbed(draft, 'move', at(9 * 60 + 30), at(11 * 60 + 33))).toMatchObject({
+      startMin: 11 * 60,
+      endMin: 12 * 60,
+    });
+    expect(grabbed(draft, 'move', at(9 * 60 + 30), at(8 * 60 + 20))).toMatchObject({
+      startMin: 7 * 60 + 45,
+      endMin: 8 * 60 + 45,
+    });
+  });
+
+  it('枠は長さを保ったまま 0:00〜24:00 に収まる', () => {
+    expect(grabbed(draft, 'move', at(9 * 60 + 30), at(-3 * 60))).toMatchObject({
+      startMin: 0,
+      endMin: 60,
+    });
+    expect(grabbed(draft, 'move', at(9 * 60 + 30), at(30 * 60))).toMatchObject({
+      startMin: 23 * 60,
+      endMin: 24 * 60,
+    });
+  });
+
+  it('日は変わらない（列をまたいでも）', () => {
+    expect(
+      grabbed(draft, 'move', at(9 * 60 + 30), { date: '2031-06-06' as DateString, min: 10 * 60 }),
+    ).toMatchObject({ date: DAY });
   });
 });
 
@@ -110,13 +198,13 @@ describe('draftColumns', () => {
     expect(
       draftColumns(dayDraft('2031-07-01' as DateString, '2031-07-01' as DateString), week),
     ).toBeNull();
-    expect(draftColumns(timeDraft(at(540), at(540), false), week)).toBeNull();
+    expect(draftColumns(select(at(540), at(540)), week)).toBeNull();
   });
 });
 
 describe('draftText', () => {
   it('時間指定は日付と時間帯', () => {
-    expect(draftText(timeDraft(at(15 * 60), at(16 * 60), true))).toBe('6/5(木) 15:00〜16:15');
+    expect(draftText(select(at(15 * 60), at(16 * 60), true))).toBe('6/5(木) 15:00〜16:15');
   });
 
   it('終日は日付（複数日なら両端）と「終日」', () => {

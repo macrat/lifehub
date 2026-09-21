@@ -151,6 +151,32 @@ describe('notifications', () => {
     expect(sent).toEqual(['タスク: 提出']);
   });
 
+  it('送信に失敗したキーは送信済みにせず再試行できる', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '提出',
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const [planned] = await listNotifications(tomorrow);
+    const { key, ref } = planned as PlannedNotification;
+    await expect(
+      deliver(key, ref, async () => {
+        throw new Error('temporary failure');
+      }),
+    ).rejects.toThrow('temporary failure');
+
+    const sent: string[] = [];
+    expect(
+      await deliver(key, ref, async (_userIds, message) => void sent.push(message.title)),
+    ).toBe('sent');
+    expect(sent).toEqual(['タスク: 提出']);
+  });
+
   it('タスクの通知は配信予定時刻の日を指す', async () => {
     await createEvent(
       createEventSchema.parse({

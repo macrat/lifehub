@@ -40,8 +40,8 @@ const persister = createAsyncStoragePersister({
 export const persistOptions = {
   persister,
   maxAge: ONE_DAY * 7,
-  // アプリのバージョンが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
-  buster: __APP_VERSION__,
+  // ビルドが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
+  buster: __BUILD_TIME__,
 };
 
 /**

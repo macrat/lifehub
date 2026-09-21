@@ -12,27 +12,40 @@ export type DragHandlers = {
   onPointerCancel: () => void;
 };
 
-type Options<P, R> = {
-  /** ポインタの位置 → 範囲の端。掴めない所なら null */
+/** ドラッグの今の姿。from は押した所、to は今の所（同じなら動いていない） */
+export type Drag<P, G> = {
+  /** つまんだ物（空いている所を押しただけなら null） */
+  grab: G | null;
+  from: P;
+  to: P;
+  /** ドラッグしたか（タップ・クリックと、つまんだだけで動かしていないときは false） */
+  moved: boolean;
+};
+
+type Options<P, G, R> = {
+  /** ポインタの位置 → グリッドの 1 点。掴めない所なら null */
   locate: (event: PointerEvent<HTMLElement>) => P | null;
-  /** 2 つの端 → 範囲。moved はドラッグしたか（タップ・クリックは false） */
-  rangeOf: (anchor: P, current: P, moved: boolean) => R;
+  /** ドラッグの姿 → 範囲 */
+  rangeOf: (drag: Drag<P, G>) => R;
   /** 範囲が決まるたび。done はポインタを離した（入力に移ってよい）か */
   onChange: (range: R, done: boolean) => void;
   /** タッチの軽いタップ。省略するとタップでも範囲を選ぶ */
-  onTouchTap?: (anchor: P) => void;
+  onTouchTap?: (point: P) => void;
 };
 
 /**
  * グリッドをなぞって範囲を選ぶ（Google カレンダーの予定の追加）。
  * マウス・ペンは押した時点から、タッチは長押しから始める（タップや縦スクロール・横スワイプと分ける）。
+ * 既にある範囲をつまんで直すときは `grabProps` に「何をつまんだか」を渡し、意味づけは `rangeOf` に委ねる。
  * 範囲は state に持たず onChange で呼び出し側（ページ）に渡す。状態を持つのはそちら 1 か所だけにする。
  */
-export function useRangeDrag<P, R>({ locate, rangeOf, onChange, onTouchTap }: Options<P, R>) {
+export function useRangeDrag<P, G, R>({ locate, rangeOf, onChange, onTouchTap }: Options<P, G, R>) {
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{
     pointerId: number;
-    anchor: P;
+    grab: G | null;
+    from: P;
+    to: P;
     origin: { x: number; y: number };
     moved: boolean;
     active: boolean;
@@ -63,15 +76,17 @@ export function useRangeDrag<P, R>({ locate, rangeOf, onChange, onTouchTap }: Op
     return () => document.removeEventListener('touchmove', block, { capture: true });
   }, [dragging]);
 
-  /** 端をつまんだとき（handle）は長押しを待たず、最初から動かしたものとして扱う */
-  const start = (event: PointerEvent<HTMLElement>, anchor: P, handle: boolean) => {
+  /** instant は長押しを待たずに始めるか（端の丸のような、そこを押す以外の意味がない所） */
+  const start = (event: PointerEvent<HTMLElement>, grab: G | null, from: P, instant: boolean) => {
     const element = event.currentTarget;
     const { pointerId } = event;
     drag.current = {
       pointerId,
-      anchor,
+      grab,
+      from,
+      to: from,
       origin: { x: event.clientX, y: event.clientY },
-      moved: handle,
+      moved: false,
       active: false,
     };
     const begin = () => {
@@ -81,9 +96,9 @@ export function useRangeDrag<P, R>({ locate, rangeOf, onChange, onTouchTap }: Op
       // グリッドの外に出ても離すまで追いかける（隣の列や画面の外で見失わない）
       element.setPointerCapture(pointerId);
       setDragging(true);
-      onChange(rangeOf(d.anchor, d.anchor, d.moved), false);
+      onChange(rangeOf(d), false);
     };
-    if (event.pointerType === 'touch' && !handle) timer.current = setTimeout(begin, LONG_PRESS_MS);
+    if (event.pointerType === 'touch' && !instant) timer.current = setTimeout(begin, LONG_PRESS_MS);
     else begin();
   };
 
@@ -98,16 +113,20 @@ export function useRangeDrag<P, R>({ locate, rangeOf, onChange, onTouchTap }: Op
       return;
     }
     if (far) d.moved = true;
-    const current = locate(event);
-    if (current !== null) onChange(rangeOf(d.anchor, current, d.moved), false);
+    const to = locate(event);
+    if (to === null) return;
+    d.to = to;
+    onChange(rangeOf(d), false);
   };
 
   const up = (event: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.pointerId !== event.pointerId) return;
-    if (d.active) onChange(rangeOf(d.anchor, locate(event) ?? d.anchor, d.moved), true);
-    else if (onTouchTap) onTouchTap(d.anchor);
-    else onChange(rangeOf(d.anchor, d.anchor, false), true);
+    if (d.active) {
+      d.to = locate(event) ?? d.to;
+      onChange(rangeOf(d), true);
+    } else if (onTouchTap) onTouchTap(d.from);
+    else onChange(rangeOf(d), true);
     stop();
   };
 
@@ -116,19 +135,20 @@ export function useRangeDrag<P, R>({ locate, rangeOf, onChange, onTouchTap }: Op
     props: {
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
-        const anchor = locate(event);
-        if (anchor !== null) start(event, anchor, false);
+        const from = locate(event);
+        if (from !== null) start(event, null, from, false);
       },
       onPointerMove: move,
       onPointerUp: up,
       onPointerCancel: stop,
     } satisfies DragHandlers,
-    /** 下書きの端（つまんで広げる丸）に渡す。anchor は動かさない方の端 */
-    handleProps: (anchor: P): DragHandlers => ({
+    /** 下書きの上（端の丸、枠そのもの）に渡す。grab は `rangeOf` に渡る「何をつまんだか」 */
+    grabProps: (grab: G, { instant = false } = {}): DragHandlers => ({
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0) return;
         event.stopPropagation();
-        start(event, anchor, true);
+        const from = locate(event);
+        if (from !== null) start(event, grab, from, instant);
       },
       onPointerMove: move,
       onPointerUp: up,
