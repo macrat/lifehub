@@ -156,7 +156,7 @@ e2e/                          # Playwright
 
 ## PWA
 
-- Web App Manifest（`name: LifeHub`, `display: standalone`, `theme_color` = `#A0148C`, アイコン 192/512/maskable）。
+- Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` と `theme-color` メタは指定しない。ブラウザが OS の配色（`color-scheme: light dark`）に合わせた既定色を使い、ライト／ダークの切り替えに自動で追従するため。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
 - アイコンは `public/icons/favicon.svg` を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
