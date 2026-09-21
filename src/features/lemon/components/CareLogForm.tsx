@@ -21,7 +21,7 @@ type Props = {
 /** レモンの世話の記録。日時の既定は今。 */
 export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Props) {
   const [careType, setCareType] = useState<CareType>(initialCareType);
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createCareLogSchema,
     values: (fd) => {
       const doneAt = formText(fd, 'doneAt');
@@ -32,17 +32,17 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
       };
     },
     onSubmit: (data) => onSubmit({ ...data, doneAt: data.doneAt.toISOString() }),
-    onSuccess: onClose,
+    onSaved: onClose,
   });
 
   return (
     <FormDialog
+      open={!submitted}
+      error={submitError}
       onClose={onClose}
       maxWidth="xs"
       title="レモンの記録"
       onSubmit={handleSubmit}
-      submitting={submitting}
-      error={submitError}
     >
       <TextField
         label="種別"

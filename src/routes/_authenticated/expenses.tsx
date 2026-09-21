@@ -52,12 +52,7 @@ function ExpensesPage() {
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && (
-        <ExpenseForm
-          onSubmit={(input) => addExpense.mutateAsync(input)}
-          onClose={() => setAdding(false)}
-        />
-      )}
+      {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
       {selected && <ExpenseDetailDialog expense={selected} onClose={() => setSelected(null)} />}
     </>
   );

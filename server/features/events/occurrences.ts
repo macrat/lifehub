@@ -1,54 +1,17 @@
-import { addDays, diffDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
-import type { EventKind } from '../../../shared/validation/events.ts';
+import {
+  type CalendarItem,
+  type DateRange,
+  type EventMaster,
+  type Occurrence,
+  placeOccurrence,
+  sortItems,
+} from '../../../shared/calendar.ts';
+import { addDays, startOfDate } from '../../../shared/date.ts';
 import { expandOccurrences, iterateOccurrences } from '../../lib/recurrence/index.ts';
 import * as repository from './repository.ts';
 import type { EventRow } from './schema.ts';
 
-/** 保存されている行そのもの（単発、繰り返し元、または実体化された回） */
-export type EventMaster = {
-  id: string;
-  kind: EventKind;
-  title: string;
-  allDay: boolean;
-  startsAt: string | null;
-  /** 予定では排他的な終端（終日は翌日 JST 0:00）。タスクでは期限 */
-  endsAt: string | null;
-  completedAt: string | null;
-  location: string | null;
-  note: string | null;
-  participantIds: string[];
-  rrule: string | null;
-  remindStartMinutes: number | null;
-  remindEndMinutes: number | null;
-};
-
-/** 1 回の発生（繰り返しを展開し、実体化された回を反映したもの）。id は繰り返し元（単発ならその行）の id */
-type Occurrence = EventMaster & {
-  /** 繰り返しの回を指す元の発生の基準日時。単発では null */
-  occurrenceStart: string | null;
-  isRecurring: boolean;
-  /** この回だけ、ルールから導かれる値と違う項目があるか */
-  isModified: boolean;
-};
-
-/**
- * カレンダーが読む項目。placementDate は JST の暦日。
- * 予定は日ごとに 1 件（複数日は dayIndex / dayCount）、タスクは表示規則で 1 件。
- */
-export type CalendarItem =
-  | (Occurrence & {
-      kind: 'event';
-      startsAt: string;
-      endsAt: string;
-      placementDate: DateString;
-      /** 複数日の予定での何日目か（1 始まり）と総日数 */
-      dayIndex: number;
-      dayCount: number;
-    })
-  | (Occurrence & { kind: 'task'; placementDate: DateString; isOverdue: boolean });
-
-type DateRange = { from: DateString; to: DateString };
+export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
@@ -79,18 +42,11 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
       occurrences: bySeries.get(master.id) ?? new Map(),
       participantsOf: (id) => participants.get(id) ?? [],
     };
-    if (master.kind === 'event') {
-      for (const occurrence of expandEvent(ctx, instants))
-        items.push(...placeEvent(occurrence, range));
-    } else {
-      items.push(
-        ...expandTask(ctx, now, range).filter(
-          (o) => o.placementDate >= range.from && o.placementDate <= range.to,
-        ),
-      );
-    }
+    const occurrences =
+      master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range);
+    for (const occurrence of occurrences) items.push(...placeOccurrence(occurrence, range, now));
   }
-  return items.sort(compareItems);
+  return sortItems(items);
 }
 
 export function toMaster(row: EventRow, participantIds: string[]): EventMaster {
@@ -254,37 +210,13 @@ function expandEvent(ctx: ExpandContext, range: { from: Date; to: Date }): Occur
   return result;
 }
 
-type TaskItem = Extract<CalendarItem, { kind: 'task' }>;
-
-/**
- * タスクの表示位置（docs/features/events.md）:
- * - 未完了で開始日時が未来 → 開始日時の日。未完了で開始が過去／今日／未設定 → 今日（完了まで繰り越し）
- * - 完了 → 完了した日
- */
-function placeTask(occurrence: Occurrence, now: Date): TaskItem {
-  const todayDate = today(now);
-  const startsAt = occurrence.startsAt ? new Date(occurrence.startsAt) : null;
-  const endsAt = occurrence.endsAt ? new Date(occurrence.endsAt) : null;
-  const completedAt = occurrence.completedAt ? new Date(occurrence.completedAt) : null;
-  let placementDate: DateString;
-  if (completedAt) placementDate = toDateString(completedAt);
-  else if (startsAt && toDateString(startsAt) > todayDate) placementDate = toDateString(startsAt);
-  else placementDate = todayDate;
-  return {
-    ...occurrence,
-    kind: 'task',
-    placementDate,
-    isOverdue: !completedAt && endsAt !== null && endsAt.getTime() < now.getTime(),
-  };
-}
-
 /**
  * タスク: 繰り返しは、取り消されていない未完了の発生のうち基準日時が最も早い 2 つだけを表示する。
  * 未完了の発生 N は発生 N+2 の基準日時が到来した時点で放棄される（保存せず計算で導く）。
  */
-function expandTask(ctx: ExpandContext, now: Date, range: DateRange): TaskItem[] {
+function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence[] {
   const { master } = ctx;
-  if (!master.rrule) return [placeTask(buildOccurrence(ctx, null, undefined), now)];
+  if (!master.rrule) return [buildOccurrence(ctx, null, undefined)];
   const base = baseOf(master);
   if (!base) return [];
 
@@ -302,7 +234,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): TaskItem[]
   };
 
   const rangeEnd = startOfDate(addDays(range.to, 1));
-  const result: TaskItem[] = [];
+  const result: Occurrence[] = [];
   const emitted = new Set<number>();
   let visibleUncompleted = 0;
   for (let n = 0; visibleUncompleted < MAX_VISIBLE_UNCOMPLETED; n++) {
@@ -314,7 +246,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): TaskItem[]
     if (row?.cancelled) continue;
     if (row?.completedAt) {
       emitted.add(at.getTime());
-      result.push(placeTask(buildOccurrence(ctx, at, row), now));
+      result.push(buildOccurrence(ctx, at, row));
       continue;
     }
     const twoAhead = ensure(n + 2);
@@ -322,53 +254,13 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): TaskItem[]
     if (abandoned) continue;
     visibleUncompleted++;
     emitted.add(at.getTime());
-    result.push(placeTask(buildOccurrence(ctx, at, row), now));
+    result.push(buildOccurrence(ctx, at, row));
   }
 
   // 走査の外で完了した回（走査の打ち切り後や、既に放棄された回の完了）も完了日に表示する
   for (const [key, row] of ctx.occurrences) {
     if (emitted.has(key) || row.cancelled || !row.completedAt) continue;
-    result.push(placeTask(buildOccurrence(ctx, row.occurrenceStart, row), now));
+    result.push(buildOccurrence(ctx, row.occurrenceStart, row));
   }
   return result;
-}
-
-type EventItem = Extract<CalendarItem, { kind: 'event' }>;
-
-/** 予定の発生を日ごとの項目にする（範囲外の日は除く） */
-function placeEvent(occurrence: Occurrence, range: DateRange): EventItem[] {
-  if (!occurrence.startsAt || !occurrence.endsAt) return [];
-  const startsAt = new Date(occurrence.startsAt);
-  const endsAt = new Date(occurrence.endsAt);
-  const firstDay = toDateString(startsAt);
-  // 終端は排他的なので 1ms 手前の日。長さ 0 なら開始日
-  const lastDay =
-    endsAt.getTime() > startsAt.getTime() ? toDateString(new Date(endsAt.getTime() - 1)) : firstDay;
-  const dayCount = diffDays(firstDay, lastDay) + 1;
-  const result: EventItem[] = [];
-  for (let i = 0; i < dayCount; i++) {
-    const day = addDays(firstDay, i);
-    if (day < range.from || day > range.to) continue;
-    result.push({
-      ...occurrence,
-      kind: 'event',
-      startsAt: occurrence.startsAt,
-      endsAt: occurrence.endsAt,
-      placementDate: day,
-      dayIndex: i + 1,
-      dayCount,
-    });
-  }
-  return result;
-}
-
-/** 同日内の並び順のキー: 終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク */
-function sortKey(item: CalendarItem): string {
-  if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
-  return item.startsAt ?? item.endsAt ?? '~';
-}
-
-function compareItems(a: CalendarItem, b: CalendarItem): number {
-  if (a.placementDate !== b.placementDate) return a.placementDate < b.placementDate ? -1 : 1;
-  return sortKey(a).localeCompare(sortKey(b));
 }

@@ -1,8 +1,9 @@
-import { queryOptions, useMutation } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
-import { useInvalidate } from '../../lib/query-client.ts';
+import { useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
+import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 
 const EVENTS_QUERY_KEY = ['events'] as const;
 
@@ -22,45 +23,44 @@ export function eventQueryOptions(id: string) {
   });
 }
 
-/** 書き込み後に無効化するクエリ */
-const useInvalidateAfterWrite = () => useInvalidate(CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY);
+/** 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行） */
+const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
 
 export function useCreateEvent() {
-  const invalidate = useInvalidateAfterWrite();
-  return useMutation({
+  return useOptimisticMutation({
     mutationFn: async (input: CreateEventBody) => {
       const res = await ensureOk(await api.events.$post({ json: input }));
       return res.json();
     },
-    onSuccess: invalidate,
+    keys: WRITE_KEYS,
+    apply: (client, input) => insertItem(client, input, crypto.randomUUID()),
   });
 }
 
 export function useUpdateEvent() {
-  const invalidate = useInvalidateAfterWrite();
-  return useMutation({
+  return useOptimisticMutation({
     mutationFn: async ({ id, ...input }: UpdateEventBody & { id: string }) => {
       const res = await ensureOk(await api.events[':id'].$put({ param: { id }, json: input }));
       return res.json();
     },
-    onSuccess: invalidate,
+    keys: WRITE_KEYS,
+    apply: updateItem,
   });
 }
 
 export function useDeleteEvent() {
-  const invalidate = useInvalidateAfterWrite();
-  return useMutation({
+  return useOptimisticMutation({
     mutationFn: async ({ id, ...input }: DeleteEventBody & { id: string }) => {
       await ensureOk(await api.events[':id'].$delete({ param: { id }, json: input }));
     },
-    onSuccess: invalidate,
+    keys: WRITE_KEYS,
+    apply: removeItem,
   });
 }
 
 /** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
-  const invalidate = useInvalidateAfterWrite();
-  return useMutation({
+  return useOptimisticMutation({
     mutationFn: async ({
       id,
       occurrenceStart,
@@ -77,6 +77,12 @@ export function useToggleCompletion() {
         await ensureOk(await api.events[':id'].complete.$delete(args));
       }
     },
-    onSuccess: invalidate,
+    keys: WRITE_KEYS,
+    apply: (client, { id, occurrenceStart, completed }) =>
+      setCompleted(
+        client,
+        { id, scope: 'this', occurrenceStart: occurrenceStart ?? undefined },
+        completed,
+      ),
   });
 }

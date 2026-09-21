@@ -44,8 +44,8 @@ export function ItemDetailDialog({ item, onClose }: Props) {
   const toggle = useToggleCompletion();
   const editing = useRecurrenceEditing({
     isRecurring: item.isRecurring,
-    onDelete: async (scope) => {
-      await deleteEvent.mutateAsync({
+    onDelete: (scope) => {
+      deleteEvent.mutate({
         id: item.id,
         scope,
         occurrenceStart: item.occurrenceStart ?? undefined,
@@ -126,9 +126,8 @@ export function ItemDetailDialog({ item, onClose }: Props) {
           {isTask ? (
             <Button
               variant="contained"
-              disabled={toggle.isPending}
-              onClick={async () => {
-                await toggle.mutateAsync({
+              onClick={() => {
+                toggle.mutate({
                   id: item.id,
                   occurrenceStart: item.occurrenceStart,
                   completed: !completed,
