@@ -94,6 +94,16 @@ export function fromDateValue(value: DateString): string {
   return startOfDate(value).toISOString();
 }
 
+/** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
+export function fromMinutesOfDay(date: DateString, minutes: number): string {
+  return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
+}
+
+/** 0:00 からの分 → "09:00"（24:00 はそのまま出す。時間帯の終わりの表示に使う） */
+export function formatMinutesOfDay(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
 /** 排他的な終了日時 → 含む終了日（終日の予定のフォーム用） */
 export function inclusiveEndDate(endsAt: string): DateString {
   return toDateString(new Date(new Date(endsAt).getTime() - 1));
@@ -104,12 +114,24 @@ export function toMonthString(date: DateString): string {
   return date.slice(0, 7);
 }
 
-/** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
 /** 年月（YYYY-MM）の 1 日 */
 export function firstDayOfMonth(month: string): DateString {
   return toDateString(startOfDate(`${month}-01` as DateString));
 }
 
+/** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
+export function monthRange(month: string): { from: DateString; to: DateString } {
+  return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
+}
+
+/** [from, to]（両端含む）に掛かる年月（YYYY-MM）を昇順で */
+export function monthsInRange(from: DateString, to: DateString): string[] {
+  const months: string[] = [];
+  for (let m = toMonthString(from); m <= toMonthString(to); m = addMonths(m, 1)) months.push(m);
+  return months;
+}
+
+/** 月表示のグリッド（月曜始まり、6 週 = 42 日）。先頭はその月の 1 日を含む週の月曜。 */
 export function monthGridDays(month: string): DateString[] {
   const first = firstDayOfMonth(month);
   const start = addDays(first, -weekdayIndex(first));
