@@ -6,11 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 
 /** env.ts と auth.ts は読み込み時に環境変数を固めるので、設定を変えるにはモジュールごと作り直す。 */
-async function importApp(appUrl: string) {
+async function importApp(appUrl: string, { vercelHosts = true } = {}) {
   vi.resetModules();
   vi.stubEnv('APP_URL', appUrl);
-  vi.stubEnv('VERCEL_URL', 'lifehub-abc123-macrat.vercel.app');
-  vi.stubEnv('VERCEL_BRANCH_URL', 'lifehub-git-security-macrat.vercel.app');
+  vi.stubEnv('VERCEL_URL', vercelHosts ? 'lifehub-abc123-macrat.vercel.app' : '');
+  vi.stubEnv('VERCEL_BRANCH_URL', vercelHosts ? 'lifehub-git-security-macrat.vercel.app' : '');
   return (await import('../app.ts')).app;
 }
 
@@ -54,6 +54,16 @@ describe('ログインの origin チェック', () => {
     const app = await importApp('');
     const res = await app.request(signIn('https://evil.example.com'));
     expect(res.status).toBe(403);
+  });
+
+  it('Vercel のホストが分からなくても起動でき、既定の URL だけを受け入れる', async () => {
+    // Vercel のシステム環境変数が公開されていない場合。allowedHosts を空にすると
+    // better-auth が読み込み時に例外を投げ、API が丸ごと落ちる。
+    const app = await importApp('', { vercelHosts: false });
+    expect((await app.request(signIn('http://localhost:5173'))).status).toBe(401);
+    expect((await app.request(signIn('https://lifehub-abc123-macrat.vercel.app'))).status).toBe(
+      403,
+    );
   });
 
   it('APP_URL があるとき（本番）は APP_URL のオリジンだけを受け入れる', async () => {
