@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { layoutLanes } from '../components/lane-layout.ts';
+import { freeLane, layoutLanes } from '../components/lane-layout.ts';
 import type { CalendarItem } from '../queries.ts';
 
 const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSchema.parse(d));
@@ -56,5 +56,23 @@ describe('layoutLanes', () => {
     const [d1] = days as [DateString, DateString, DateString];
     const placed = layoutLanes(days, byDate([event('trip', d1, 3, 5)]));
     expect(placed.map((p) => [p.roundStart, p.roundEnd])).toEqual([[false, false]]);
+  });
+});
+
+describe('freeLane', () => {
+  const [d1, , d3] = days as [DateString, DateString, DateString];
+  const placed = layoutLanes(
+    days,
+    byDate([event('trip', d1, 1, 2), event('a', d1), event('b', d3)]),
+  );
+
+  it('掛かる列が空いている一番上のレーンに置く', () => {
+    // trip がレーン 0、a がレーン 1 を使う 1〜2 日目と、何も無い 3 日目
+    expect(freeLane(placed, 0, 2, 4)).toBe(2);
+    expect(freeLane(placed, 2, 1, 4)).toBe(1);
+  });
+
+  it('空きが無ければ一番下のレーンに重ねる', () => {
+    expect(freeLane(placed, 0, 1, 2)).toBe(1);
   });
 });

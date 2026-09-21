@@ -82,3 +82,15 @@ export function layoutLanes(
     return { ...entry, lane };
   });
 }
+
+/**
+ * 下書きの帯を置くレーン。掛かる列がすべて空いている一番上のレーンを選び、
+ * 空きが無ければ一番下のレーンに重ねる（行の高さは決まっているので、はみ出させない）。
+ */
+export function freeLane(placed: Placed[], col: number, span: number, maxLanes: number): number {
+  for (let lane = 0; lane < maxLanes; lane++) {
+    const used = placed.some((p) => p.lane === lane && p.col < col + span && col < p.col + p.span);
+    if (!used) return lane;
+  }
+  return maxLanes - 1;
+}
