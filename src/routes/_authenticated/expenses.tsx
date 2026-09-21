@@ -52,12 +52,13 @@ function ExpensesPage() {
   return (
     <>
       <AppBarContent>
-        <SearchField label="立替を検索" value={filters.q} onChange={setKeyword} />
-        <FilterButton
-          open={filtersOpen}
-          count={activeFilters}
-          onToggle={() => setFiltersOpen((v) => !v)}
-        />
+        <SearchField label="立替を検索" value={filters.q} onChange={setKeyword}>
+          <FilterButton
+            open={filtersOpen}
+            count={activeFilters}
+            onToggle={() => setFiltersOpen((v) => !v)}
+          />
+        </SearchField>
       </AppBarContent>
 
       <ExpenseFilterForm open={filtersOpen} filters={filters} onChange={setFilters} />

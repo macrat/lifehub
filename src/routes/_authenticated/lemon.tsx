@@ -49,12 +49,13 @@ function LemonPage() {
   return (
     <>
       <AppBarContent>
-        <SearchField label="メモを検索" value={filters.q} onChange={setKeyword} />
-        <FilterButton
-          open={filtersOpen}
-          count={activeFilters}
-          onToggle={() => setFiltersOpen((v) => !v)}
-        />
+        <SearchField label="メモを検索" value={filters.q} onChange={setKeyword}>
+          <FilterButton
+            open={filtersOpen}
+            count={activeFilters}
+            onToggle={() => setFiltersOpen((v) => !v)}
+          />
+        </SearchField>
       </AppBarContent>
 
       <CareLogFilterForm open={filtersOpen} filters={filters} onChange={setFilters} />

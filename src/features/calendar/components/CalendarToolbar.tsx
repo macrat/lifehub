@@ -50,14 +50,13 @@ export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeVi
   return (
     <>
       {view === 'list' ? (
-        <>
-          <SearchField label="検索" value={list.query} onChange={list.onChangeQuery} />
+        <SearchField label="検索" value={list.query} onChange={list.onChangeQuery}>
           <FilterButton
             open={list.filtersOpen}
             count={list.activeFilters}
             onToggle={list.onToggleFilters}
           />
-        </>
+        </SearchField>
       ) : (
         <>
           <Button
