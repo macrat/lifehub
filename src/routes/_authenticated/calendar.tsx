@@ -118,6 +118,7 @@ function CalendarPage() {
           draft={draft.range}
           open={draft.editing}
           onSubmit={(input) => createEvent.mutateAsync(input)}
+          onChangeDraft={(range) => setDraft({ range, editing: true })}
           onExpand={(values) => {
             setDraftValues(values);
             setDraft(null);

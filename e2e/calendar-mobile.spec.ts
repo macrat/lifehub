@@ -109,8 +109,8 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
-test('クイック入力のシートは上へスワイプで詳細入力、下へスワイプで取り消し', async ({ page }) => {
-  const title = `E2E スワイプ ${Date.now()}`;
+test('クイック入力のシートは上下のドラッグで 3 段に止まる', async ({ page }) => {
+  const title = `E2E シート ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2031-06-05');
 
   const column = page.locator('[data-date="2031-06-05"]').last();
@@ -119,32 +119,64 @@ test('クイック入力のシートは上へスワイプで詳細入力、下�
   const tapColumn = async (minutes: number) => {
     await page.touchscreen.tap(box.x + box.width / 2, box.y + (minutes / 60) * (box.height / 24));
   };
-  /** シートの真ん中から縦になぞる */
-  const swipeSheet = async (dy: number) => {
-    const sheet = await page.locator('.MuiDrawer-root .MuiPaper-root').boundingBox();
-    if (!sheet) throw new Error('シートが見つからない');
-    const from = { x: sheet.x + sheet.width / 2, y: sheet.y + 24 };
+  const sheet = page.locator('[data-sheet]');
+  /** シートの画面内での上端。シートは position: fixed なので、ページのスクロールとは別に見る */
+  const sheetTop = () => sheet.evaluate((el) => el.getBoundingClientRect().top);
+  /** シートの上端（つまむ帯）から縦になぞる */
+  const dragSheet = async (dy: number) => {
+    const paper = await sheet.boundingBox();
+    if (!paper) throw new Error('シートが見つからない');
+    const from = { x: paper.x + paper.width / 2, y: (await sheetTop()) + 8 };
     await touchDrag(page, from, { x: from.x, y: from.y + dy });
   };
+  /** 段の移動はアニメーションするので、動き終えてから測る */
+  const settledAt = async (expected: 'peek' | 'full') => {
+    await expect.poll(() => sheet.evaluate((el) => el.getAnimations().length)).toBe(0);
+    const top = await sheetTop();
+    if (expected === 'peek') expect(top).toBeGreaterThan(300);
+    else expect(top).toBeLessThan(10);
+  };
 
-  // 下へスワイプすると下書きごと消える
+  // タップで下の段に出る。見えるのはタイトルと参加者だけで、残りの項目は画面の外
   await tapColumn(9 * 60 + 10);
   await expect(page.getByText('6/5(木) 09:00〜10:00')).toBeVisible();
-  await swipeSheet(120);
-  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+  await page.getByLabel('タイトルを追加').fill(title);
+  await settledAt('peek');
+  await expect(page.getByLabel('メモ')).not.toBeInViewport();
+
+  // 少し上へドラッグすると一番上まで行き、そこで全項目を入力できる（ダイアログは出さない）
+  await dragSheet(-60);
+  await settledAt('full');
+  await expect(page.getByLabel('メモ')).toBeInViewport();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
+  await page.getByLabel('終了').fill('2031-06-05T11:00');
+  await page.getByLabel('メモ').fill('シートから入力');
+
+  // 少し下へドラッグすると下の段へ戻り、直した日時が見出しとグリッドの枠に映る
+  await dragSheet(60);
+  await settledAt('peek');
+  await expect(page.getByText('6/5(木) 09:00〜11:00')).toBeVisible();
+  await expect(page.getByLabel('メモ')).not.toBeInViewport();
+
+  // 下の段からさらに下げると、下書きごと消える
+  await dragSheet(120);
+  await expect(sheet).toHaveCount(0);
   await expect(page.locator('[data-draft]')).toHaveCount(0);
 
-  // 上へスワイプすると入力済みの内容ごと全項目のフォームへ
+  // 入力した内容はシートのまま保存できる
   await tapColumn(9 * 60 + 10);
+  await settledAt('peek');
   await page.getByLabel('タイトルを追加').fill(title);
-  await swipeSheet(-120);
-  await expect(page.getByLabel('タイトル')).toHaveValue(title);
-  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
+  await dragSheet(-60);
+  await settledAt('full');
+  await page.getByLabel('メモ').fill('シートから入力');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
+  await expect(page.getByText('シートから入力')).toBeVisible();
   await page.getByRole('button', { name: '削除' }).click();
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
