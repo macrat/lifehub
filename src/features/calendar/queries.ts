@@ -55,13 +55,6 @@ export function colorUserOf(item: CalendarItem): string | null {
   return item.participantIds.length === 1 ? (item.participantIds[0] ?? null) : null;
 }
 
-/** タスクを時刻で示すときの基準: 期限 → 開始の優先。どちらも無ければ null */
-export function taskTime(item: CalendarTaskItem): { kind: 'due' | 'start'; at: string } | null {
-  if (item.endsAt) return { kind: 'due', at: item.endsAt };
-  if (item.startsAt) return { kind: 'start', at: item.startsAt };
-  return null;
-}
-
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
 export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
   const map = new Map<DateString, CalendarItem[]>();

@@ -64,9 +64,10 @@ describe('notifications', () => {
       userId,
     );
     const planned = await listNotifications(tomorrow);
+    // 並びは一覧と同じ（同日内はその項目が示す時刻の順。タスクは期限の 17:00）
     expect(planned.map((p) => [p.key, p.at.toISOString()])).toEqual([
-      [`event:${task.id}:single:end:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
       [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
+      [`event:${task.id}:single:end:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
     ]);
   });
 

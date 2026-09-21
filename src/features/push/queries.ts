@@ -12,9 +12,13 @@ export const pushSupported =
   'PushManager' in window &&
   'Notification' in window;
 
-/** iOS Safari はホーム画面に追加（standalone）していないとプッシュを購読できない */
+/**
+ * iOS Safari はホーム画面に追加（standalone）していないとプッシュを購読できない。
+ * 判定は display-mode のメディアクエリだけで行う。`navigator.standalone` は iOS Safari では
+ * ブラウザで開いていても false という値で存在するため、`'standalone' in navigator` だと常に真になる。
+ */
 export function isStandalone(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches || 'standalone' in navigator;
+  return window.matchMedia('(display-mode: standalone)').matches;
 }
 
 const vapidKeyQueryOptions = queryOptions({
@@ -40,7 +44,6 @@ const pushStatusQueryOptions = queryOptions({
     );
     return { ...(await res.json()), permission: Notification.permission };
   },
-  staleTime: 0,
 });
 
 export function usePushStatus() {
