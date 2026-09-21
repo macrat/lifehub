@@ -4,15 +4,11 @@ import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { taskTime } from '../../../../shared/calendar.ts';
 import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
-import {
-  type CalendarItem,
-  colorUserOf,
-  taskTime,
-  useCalendarItems,
-} from '../../calendar/queries.ts';
+import { type CalendarItem, colorUserOf, useCalendarItems } from '../../calendar/queries.ts';
 import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';

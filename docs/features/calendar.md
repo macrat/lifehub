@@ -53,7 +53,7 @@ type CalendarItem =
 
 ## API
 
-`GET /api/events?from&to`（[events.md](events.md)）が `from`〜`to`（JST 日付、両端含む）の `CalendarItem[]` を `placementDate` 昇順で返す。`server/features/events/occurrences.ts` が繰り返しを展開し、`shared/calendar.ts` の規則で予定に `placementDate`（複数日は日ごと）を付与し、タスクに表示規則を適用する。クライアントは楽観的更新（`src/features/events/optimistic.ts`）で同じ `shared/calendar.ts` を使い、規則を別実装しない。同日内の順序は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+`GET /api/events?from&to`（[events.md](events.md)）が `from`〜`to`（JST 日付、両端含む）の `CalendarItem[]` を `placementDate` 昇順で返す。`server/features/events/occurrences.ts` が繰り返しを展開し、`shared/calendar.ts` の規則で予定に `placementDate`（複数日は日ごと）を付与し、タスクに表示規則を適用する。クライアントは楽観的更新（`src/features/events/optimistic.ts`）で同じ `shared/calendar.ts` を使い、規則を別実装しない。同日内の順序は「終日の予定 → 時刻のある項目 → 時刻の無いタスク」。項目の時刻は、予定は開始、タスクは `shared/calendar.ts` の `taskTime`（期限 → 開始の優先）で、一覧の行やタイムラインのブロックが示す時刻と同じものを使う。
 
 - 右下の追加ボタン（`AddMenu`。ホームと同じ部品で、出す種類を `kinds` で選ぶ）から予定・タスクのどちらも追加できる。初期日付は表示中の日。グリッドから追加するときだけはページが直接フォームを開く（初期値が選んだ範囲で決まるため）。下書きの間は追加ボタンを引っ込める（クイック入力と場所が重なるため）。
 - 項目の詳細ダイアログは `ItemDetailDialog`（`src/features/events/components/`）。予定とタスクの違いは本文の日時の出し方と「完了にする」の有無だけ。リストとホームでは行のチェックボックスからも完了できる。

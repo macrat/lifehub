@@ -4,6 +4,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { taskTime } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { useToggleCompletion } from '../../events/queries.ts';
@@ -14,7 +15,6 @@ import {
   type CalendarItem,
   type CalendarTaskItem,
   colorUserOf,
-  taskTime,
 } from '../queries.ts';
 
 type Props = {

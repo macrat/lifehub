@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { taskTime } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   minutesOfDay,
@@ -12,7 +13,7 @@ import {
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { draftColumns, type EventDraft } from '../draft.ts';
-import { type CalendarItem, colorUserOf, taskTime } from '../queries.ts';
+import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
