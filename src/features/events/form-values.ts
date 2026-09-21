@@ -1,6 +1,7 @@
-import { addDays } from '../../../shared/date.ts';
+import { addDays, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
+import { fromDateTimeLocalValue, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
+import { formList, formSelect, formText } from '../../lib/form.ts';
 
 /** 予定・タスクのフォームが扱う値（日時は ISO 文字列）。カレンダーの項目や保存されている行をそのまま渡せる */
 export type ItemFormValues = {
@@ -70,4 +71,47 @@ export function defaultEventValues(date?: DateString): ItemFormValues {
 /** タスクの既定値: 指定日があればその 9 時に開始、無ければ日時なし（今日の位置に出る） */
 export function defaultTaskValues(date?: DateString): ItemFormValues {
   return { ...EMPTY, startsAt: date ? fromMinutesOfDay(date, 9 * 60) : null };
+}
+
+/**
+ * 予定のフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
+ * 全項目のフォームと、スマホのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
+ * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は fallback の日時をそのまま使う。
+ */
+export function eventInputFromForm(
+  formData: FormData,
+  {
+    initial,
+    allDay,
+    thisOnly = false,
+    fallback,
+  }: {
+    initial: ItemFormValues;
+    allDay: boolean;
+    thisOnly?: boolean;
+    fallback?: { allDay: boolean; startsAt: string; endsAt: string };
+  },
+) {
+  const startsRaw = formText(formData, 'startsAt');
+  const endsRaw = formText(formData, 'endsAt');
+  const toInstant = (raw: string) =>
+    allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+  const when =
+    startsRaw && endsRaw
+      ? { allDay, startsAt: toInstant(startsRaw), endsAt: toInstant(endsRaw) }
+      : (fallback ?? { allDay, startsAt: initial.startsAt, endsAt: initial.endsAt });
+  return {
+    kind: 'event' as const,
+    ...when,
+    title: formText(formData, 'title') ?? '',
+    participantIds: formList(formData, 'participantIds'),
+    location: formText(formData, 'location'),
+    note: formText(formData, 'note'),
+    rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
+    remindStartMinutes:
+      formSelect(formData, 'remindStartMinutes') === null
+        ? null
+        : Number(formText(formData, 'remindStartMinutes')),
+    remindEndMinutes: initial.remindEndMinutes,
+  };
 }
