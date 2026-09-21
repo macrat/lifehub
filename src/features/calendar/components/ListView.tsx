@@ -4,10 +4,11 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { useQuery } from '@tanstack/react-query';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { type CalendarItem, groupByDate } from '../queries.ts';
+import { type CalendarItem, calendarItemsQueryOptions, groupByDate } from '../queries.ts';
 import { DayList } from './DayList.tsx';
 
 export type ListFilters = {
@@ -22,7 +23,6 @@ export type ListFilters = {
 };
 
 type Props = {
-  items: CalendarItem[];
   filters: ListFilters;
   filtersOpen: boolean;
   /** 更新する項目だけ。undefined は既定に戻す */
@@ -31,8 +31,12 @@ type Props = {
 };
 
 /** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・参加者・完了状態・キーワードで絞り込める時系列の一覧。 */
-export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
+export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { users } = useUserLabels();
+  // 期間はサーバーに投げ、それ以外の絞り込みは手元で掛ける（打つたびに取り直さない）
+  const { data: items = [] } = useQuery(
+    calendarItemsQueryOptions({ from: filters.from, to: filters.to }),
+  );
   const grouped = groupByDate(items.filter((item) => matches(item, filters)));
   return (
     <>
