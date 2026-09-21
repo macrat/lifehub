@@ -8,6 +8,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { del, get, set } from 'idb-keyval';
+import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { notify } from './ui/notice.ts';
 
@@ -178,6 +179,22 @@ export function useOptimisticMutation<TInput>({
       }
       await mutation.mutateAsync(write(input));
     },
+  };
+}
+
+/**
+ * 記録を追加する mutation。行の id をここで決めて入力に足す（1 回の操作につき 1 つ）。
+ * WHY: id を先に決めておくと、オフラインで作った記録もその場で編集・削除でき（仮の id を
+ * 後から本物へ差し替えずに済む）、通信が切れて送り直しても二重に作られない
+ * （サーバーは同じ id の作成を upsert として扱う）。
+ * 追加は必ずフォームからの保存なので、mutateAsync（保存が受け付けられるまで待つ）だけを返す。
+ */
+export function useCreateMutation<TInput>(
+  options: OptimisticMutationOptions<TInput & { id: string }>,
+) {
+  const create = useOptimisticMutation(options);
+  return {
+    mutateAsync: (input: TInput): Promise<void> => create.mutateAsync({ ...input, id: newId() }),
   };
 }
 

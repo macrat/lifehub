@@ -1,9 +1,8 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { type Balance, balanceOf, type Expense, sortExpenses } from '../../../shared/expenses.ts';
-import { newId } from '../../../shared/id.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
@@ -23,13 +22,9 @@ export const balanceQueryOptions = queryOptions({
   queryFn: async (): Promise<Balance> => (await ensureOk(await api.expenses.balance.$get())).json(),
 });
 
-/**
- * 立替の追加。行の id はここで決めて送る。
- * WHY: オフラインで記録したものもその場で編集・削除でき、送り直しても二重に作られない。
- */
 export function useAddExpense() {
-  const add = useOptimisticMutation({
-    request: (input: ExpenseBody & { id: string }) => ({
+  return useCreateMutation<ExpenseBody>({
+    request: (input) => ({
       method: 'POST' as const,
       path: api.expenses.$url().pathname,
       body: input,
@@ -40,7 +35,6 @@ export function useAddExpense() {
       updateList(client, (expenses) => sortExpenses([expense, ...expenses]));
     },
   });
-  return { mutateAsync: (input: ExpenseBody) => add.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateExpense() {

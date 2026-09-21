@@ -1,8 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
-import { newId } from '../../../shared/id.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 
@@ -27,14 +26,9 @@ export function eventQueryOptions(id: string) {
 /** 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行） */
 const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
 
-/**
- * 予定・タスクの追加。行の id はここで決めて送る。
- * WHY: オフラインで作った項目もその場で編集・削除でき（仮の id を後から差し替えずに済む）、
- * 通信が切れて送り直しても二重に作られない。
- */
 export function useCreateEvent() {
-  const create = useOptimisticMutation({
-    request: (input: CreateEventBody & { id: string }) => ({
+  return useCreateMutation<CreateEventBody>({
+    request: (input) => ({
       method: 'POST' as const,
       path: api.events.$url().pathname,
       body: input,
@@ -42,7 +36,6 @@ export function useCreateEvent() {
     keys: WRITE_KEYS,
     apply: insertItem,
   });
-  return { mutateAsync: (input: CreateEventBody) => create.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateEvent() {

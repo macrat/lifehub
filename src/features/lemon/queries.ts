@@ -1,6 +1,5 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
-import { newId } from '../../../shared/id.ts';
 import {
   type CareLog,
   type CareStatus,
@@ -9,7 +8,7 @@ import {
 } from '../../../shared/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
 export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
@@ -29,13 +28,9 @@ export const lemonLogsQueryOptions = queryOptions({
   queryFn: async (): Promise<CareLog[]> => (await ensureOk(await api.lemon.logs.$get())).json(),
 });
 
-/**
- * 世話の記録の追加。行の id はここで決めて送る。
- * WHY: オフラインで記録したものもその場で編集・削除でき、送り直しても二重に作られない。
- */
 export function useLogCare() {
-  const log = useOptimisticMutation({
-    request: (input: CareLogBody & { id: string }) => ({
+  return useCreateMutation<CareLogBody>({
+    request: (input) => ({
       method: 'POST' as const,
       path: api.lemon.logs.$url().pathname,
       body: input,
@@ -59,7 +54,6 @@ export function useLogCare() {
       );
     },
   });
-  return { mutateAsync: (input: CareLogBody) => log.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateCareLog() {
