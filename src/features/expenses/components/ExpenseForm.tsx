@@ -2,32 +2,34 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
-import { createExpenseSchema } from '../../../../shared/validation/expenses.ts';
+import { expenseSchema } from '../../../../shared/validation/expenses.ts';
 import { today } from '../../../lib/date.ts';
 import { formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { evaluate, normalizeExpression, pressKey } from '../calculator.ts';
-import type { CreateExpenseBody } from '../queries.ts';
+import type { Expense, ExpenseBody } from '../queries.ts';
 import { Calculator } from './Calculator.tsx';
 
 type Props = {
-  onSubmit: (input: CreateExpenseBody) => Promise<unknown>;
+  /** 編集する立替。省略すると追加 */
+  initial?: Expense;
+  onSubmit: (input: ExpenseBody) => Promise<unknown>;
   onClose: () => void;
 };
 
 /**
- * 立替の追加（借方・貸方）。To は誰のために払ったか（既定は共有 = 折半）、From は払った人
+ * 立替の追加・編集（借方・貸方）。To は誰のために払ったか（既定は共有 = 折半）、From は払った人
  * （既定はログイン中のユーザー）。精算は To に受け取った人、From に払った人を選んで記録する。
  * 上から日付・To/From・内容・金額と並べ、いちばん下の電卓で金額欄をそのまま計算する。
  */
-export function ExpenseForm({ onSubmit, onClose }: Props) {
+export function ExpenseForm({ initial, onSubmit, onClose }: Props) {
   const { options, meId } = useUserLabels();
   const people = options.filter((o) => o.value !== null);
   // 金額欄の中身は電卓の式そのもの（"1200+800" など）。計算結果の置き場は別に持たない
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
   const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
-    schema: createExpenseSchema,
+    schema: expenseSchema,
     values: (fd) => ({
       fromUserId: formText(fd, 'fromUserId'),
       toUserId: formSelect(fd, 'toUserId'),
@@ -44,7 +46,7 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
       onClose={onClose}
       maxWidth="xs"
       fill
-      title="立替を追加"
+      title={initial ? '立替を編集' : '立替を追加'}
       onSubmit={handleSubmit}
       submitting={submitting}
       error={submitError}
@@ -53,7 +55,7 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
         name="spentOn"
         label="日付"
         type="date"
-        defaultValue={today()}
+        defaultValue={initial?.spentOn ?? today()}
         slotProps={{ inputLabel: { shrink: true } }}
         error={Boolean(errors.spentOn)}
         helperText={errors.spentOn}
@@ -65,7 +67,7 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
           name="toUserId"
           label="To"
           select
-          defaultValue={SELECT_NONE}
+          defaultValue={initial?.toUserId ?? SELECT_NONE}
           error={Boolean(errors.toUserId)}
           helperText={errors.toUserId}
           fullWidth
@@ -81,7 +83,7 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
           name="fromUserId"
           label="From"
           select
-          defaultValue={meId ?? people[0]?.value ?? ''}
+          defaultValue={initial?.fromUserId ?? meId ?? people[0]?.value ?? ''}
           error={Boolean(errors.fromUserId)}
           helperText={errors.fromUserId}
           fullWidth
@@ -96,6 +98,7 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
       <TextField
         name="description"
         label="内容"
+        defaultValue={initial?.description ?? ''}
         error={Boolean(errors.description)}
         helperText={errors.description}
         fullWidth

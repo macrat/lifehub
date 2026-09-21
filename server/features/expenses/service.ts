@@ -1,4 +1,4 @@
-import type { CreateExpenseInput } from '../../../shared/validation/expenses.ts';
+import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -43,8 +43,15 @@ export async function getBalance(): Promise<Balance> {
     : { amount: -claimOfA, fromUserId: a, toUserId: b };
 }
 
-export async function addExpense(input: CreateExpenseInput, userId: string): Promise<Expense> {
+export async function addExpense(input: ExpenseInput, userId: string): Promise<Expense> {
   return toExpense(await repository.insert({ ...input, createdBy: userId }));
+}
+
+/** 全項目を置き換える。記録した人（createdBy）は変えない */
+export async function updateExpense(id: string, input: ExpenseInput): Promise<Expense> {
+  const row = await repository.update(id, input);
+  if (!row) throw new NotFoundError('立替が見つかりません');
+  return toExpense(row);
 }
 
 export async function deleteExpense(id: string): Promise<void> {
