@@ -9,18 +9,20 @@ import { formatYen } from './BalanceSummary.tsx';
 
 type Props = {
   expenses: Expense[];
+  /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
+  emptyMessage: string;
   /** 行をタップしたとき（詳細を開く） */
   onSelect: (expense: Expense) => void;
 };
 
 /** 立替の履歴（新しい順）。共有なら From だけ、相手が決まっていれば「From → To」。行をタップで詳細 */
-export function ExpenseList({ expenses, onSelect }: Props) {
+export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
   const { label } = useUserLabels();
   return (
     <List disablePadding>
       {expenses.length === 0 && (
         <ListItem>
-          <ListItemText secondary="まだ立替はありません" />
+          <ListItemText secondary={emptyMessage} />
         </ListItem>
       )}
       {expenses.map((e) => (

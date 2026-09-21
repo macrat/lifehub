@@ -16,9 +16,13 @@ import {
   useLogCare,
 } from '../../features/lemon/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
+import { keywordSearchSchema, matchesKeyword } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
+import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { SearchField } from '../../lib/ui/SearchField.tsx';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
+  validateSearch: keywordSearchSchema,
   loader: ({ context }) =>
     Promise.all([
       ensureData(context.queryClient, lemonStatusQueryOptions),
@@ -27,15 +31,35 @@ export const Route = createFileRoute('/_authenticated/lemon')({
   component: LemonPage,
 });
 
+/**
+ * レモンの木の世話。項目ごとの状況と記録の履歴。
+ * AppBar の検索窓はメモで履歴を絞り込む（状況のタイルは絞り込みに関わらず最新の実施日を示す）。
+ */
 function LemonPage() {
+  const { q } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const { data: statuses = [] } = useQuery(lemonStatusQueryOptions);
   const { data: logs = [] } = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
   const deleteLog = useDeleteCareLog();
   const [adding, setAdding] = useState<CareType | null>(null);
 
+  const keyword = q ?? '';
+  const found = logs.filter((log) => matchesKeyword(keyword, log.note));
+
   return (
     <>
+      <AppBarContent>
+        <SearchField
+          label="メモを検索"
+          value={keyword}
+          onChange={(value) =>
+            // 打つたびに履歴が積み上がらないよう置き換える。スクロール位置も動かさない
+            navigate({ search: { q: value || undefined }, replace: true, resetScroll: false })
+          }
+        />
+      </AppBarContent>
+
       <Box sx={{ px: 2, pt: 1.5 }}>
         <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
       </Box>
@@ -48,7 +72,11 @@ function LemonPage() {
       >
         記録
       </Typography>
-      <CareLogList logs={logs} onDelete={(id) => deleteLog.mutate(id)} />
+      <CareLogList
+        logs={found}
+        emptyMessage={keyword ? '一致する記録はありません' : 'まだ記録はありません'}
+        onDelete={(id) => deleteLog.mutate(id)}
+      />
 
       <Fab
         color="primary"
