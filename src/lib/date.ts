@@ -160,17 +160,24 @@ export function minutesOfDay(value: Date | string): number {
 }
 
 /**
- * 週（月曜始まり）の見出し。"2026年09月14日〜20日"、月をまたぐなら "2026年08月31日〜09月06日"。
- * 週は必ず月曜から日曜なので曜日は書かず、終わりは始まりと重なる年月を省く。
+ * 週（月曜始まり）の見出し。"09月14日〜20日"、月をまたぐなら "08月31日〜09月06日"、
+ * 始まりが今年でなければ年から書いて "2030年01月14日〜20日"。
+ *
+ * 週は必ず月曜から日曜なので曜日は書かず、終わりからは始まりと重なる年月を省く。
+ * 始まりの年も、ほとんどの場合は今年を見ているので言わずに済む。
  * 両端を "2026年09月14日（月）〜2026年09月20日（日）" と書くと AppBar に収まらないため。
  */
 export function formatWeekRange(monday: DateString): string {
   const sunday = addDays(monday, 6);
+  const start =
+    monday.slice(0, 4) === today().slice(0, 4)
+      ? `${monday.slice(5, 7)}月${monday.slice(8, 10)}日`
+      : `${formatMonth(monday)}${monday.slice(8, 10)}日`;
   const end =
     toMonthString(monday) === toMonthString(sunday)
       ? `${sunday.slice(8, 10)}日`
       : `${sunday.slice(5, 7)}月${sunday.slice(8, 10)}日`;
-  return `${formatMonth(monday)}${monday.slice(8, 10)}日〜${end}`;
+  return `${start}〜${end}`;
 }
 
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;
