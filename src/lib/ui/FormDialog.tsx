@@ -1,5 +1,4 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -17,10 +16,6 @@ type Props = {
   title: string;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  /** 送信中は保存ボタンを無効にする */
-  submitting: boolean;
-  /** 送信の失敗など、項目に紐づかないエラー */
-  error?: string | null;
   maxWidth?: 'xs' | 'sm';
   children: ReactNode;
 };
@@ -36,15 +31,7 @@ function SlideFromRight(props: ComponentProps<typeof Slide>) {
  * スマホでは画面いっぱいに右から出し、見出しを AppBar と同じ帯（戻る矢印つき）にして、ページが切り替わったように見せる。
  * 操作ボタンは下端に固定する（キーボード表示時も届くように）。
  */
-export function FormDialog({
-  title,
-  onClose,
-  onSubmit,
-  submitting,
-  error,
-  maxWidth = 'sm',
-  children,
-}: Props) {
+export function FormDialog({ title, onClose, onSubmit, maxWidth = 'sm', children }: Props) {
   const isMobile = useIsMobile();
   return (
     <Dialog
@@ -81,7 +68,6 @@ export function FormDialog({
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
             {children}
           </Stack>
         </DialogContent>
@@ -96,7 +82,7 @@ export function FormDialog({
           }}
         >
           <Button onClick={onClose}>キャンセル</Button>
-          <SubmitButton disabled={submitting} />
+          <SubmitButton />
         </DialogActions>
       </form>
     </Dialog>

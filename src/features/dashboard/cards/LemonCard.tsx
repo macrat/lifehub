@@ -21,7 +21,7 @@ export function LemonCard() {
       {adding && (
         <CareLogForm
           initialCareType={adding}
-          onSubmit={(input) => logCare.mutateAsync(input)}
+          onSubmit={logCare.mutate}
           onClose={() => setAdding(null)}
         />
       )}

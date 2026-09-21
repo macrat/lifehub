@@ -51,12 +51,7 @@ function ExpensesPage() {
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && (
-        <ExpenseForm
-          onSubmit={(input) => addExpense.mutateAsync(input)}
-          onClose={() => setAdding(false)}
-        />
-      )}
+      {adding && <ExpenseForm onSubmit={addExpense.mutate} onClose={() => setAdding(false)} />}
     </>
   );
 }

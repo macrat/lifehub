@@ -50,28 +50,25 @@ type UseFormSubmitOptions<S extends z.ZodType> = {
   schema: S;
   /** FormData（と必要ならコンポーネントの状態）から検証前の値を組み立てる */
   values: (formData: FormData) => unknown;
-  onSubmit: (data: z.output<S>) => Promise<unknown>;
-  /** 送信が成功したとき（ダイアログを閉じるなど） */
-  onSuccess?: () => void;
-  errorMessage?: string;
+  /** 検証を通った値の保存。保存は投機的に画面へ反映されるので、送信の完了は待たない */
+  onSubmit: (data: z.output<S>) => void;
+  /** 送信したとき（ダイアログを閉じる）。送信の失敗は通知（notice）で伝わる */
+  onSent?: () => void;
 };
 
 /**
- * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 成功なら onSuccess、失敗ならメッセージ。
+ * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 閉じる。
  * フォームライブラリを入れない代わりの最小限の共通処理で、各フォームはフィールドの描画に専念する。
  */
 export function useFormSubmit<S extends z.ZodType>({
   schema,
   values,
   onSubmit,
-  onSuccess,
-  errorMessage = '保存に失敗しました',
+  onSent,
 }: UseFormSubmitOptions<S>) {
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const parsed = parseValues(schema, values(new FormData(event.currentTarget)));
     if (parsed.errors) {
@@ -79,17 +76,9 @@ export function useFormSubmit<S extends z.ZodType>({
       return;
     }
     setErrors({});
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      await onSubmit(parsed.data);
-      onSuccess?.();
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : errorMessage);
-    } finally {
-      setSubmitting(false);
-    }
+    onSubmit(parsed.data);
+    onSent?.();
   };
 
-  return { errors, submitError, submitting, handleSubmit };
+  return { errors, handleSubmit };
 }

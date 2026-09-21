@@ -1,3 +1,4 @@
+import Alert from '@mui/material/Alert';
 import AppBar from '@mui/material/AppBar';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
@@ -10,12 +11,14 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
 import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
+import { notify, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
@@ -117,6 +120,8 @@ export function AppShell({ children }: Props) {
           {children}
         </Box>
 
+        <NoticeSnackbar />
+
         {!isDesktop && (
           <Paper
             component="nav"
@@ -144,5 +149,29 @@ export function AppShell({ children }: Props) {
         )}
       </Box>
     </AppBarSlotProvider>
+  );
+}
+
+/** 保存の失敗などの知らせ。フォームは送信と同時に閉じるので、伝える場所は画面の下部に 1 つだけ置く */
+function NoticeSnackbar() {
+  const notice = useNotice();
+  return (
+    <Snackbar
+      open={notice !== null}
+      autoHideDuration={8000}
+      onClose={() => notify(null)}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      // スマホでは下部ナビの上に出す
+      sx={{
+        bottom: {
+          xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 8px)`,
+          md: 24,
+        },
+      }}
+    >
+      <Alert severity="error" variant="filled" onClose={() => notify(null)}>
+        {notice}
+      </Alert>
+    </Snackbar>
   );
 }

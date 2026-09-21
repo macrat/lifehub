@@ -17,14 +17,14 @@ import { HueSlider } from './HueSlider.tsx';
 type CreateProps = {
   mode: 'create';
   onClose: () => void;
-  onSubmit: (input: CreateUserInput) => Promise<unknown>;
+  onSubmit: (input: CreateUserInput) => void;
 };
 
 type EditProps = {
   mode: 'edit';
   user: User;
   onClose: () => void;
-  onSubmit: (input: UpdateUserInput) => Promise<unknown>;
+  onSubmit: (input: UpdateUserInput) => void;
 };
 
 /** ユーザーの登録（create）と、名前・パスワードの変更（edit）を 1 つのダイアログで扱う。 */
@@ -32,14 +32,14 @@ export function UserForm(props: CreateProps | EditProps) {
   // 色は登録時は省略可（サーバーが既存ユーザーと離れた色相を選ぶ）。編集時は今の色から始める
   const [hue, setHue] = useState<number | null>(props.mode === 'edit' ? props.user.hue : null);
 
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, handleSubmit } = useFormSubmit({
     schema: props.mode === 'create' ? createUserSchema : updateUserSchema,
     values: (fd) => ({ ...formValues(fd), hue: hue ?? undefined }),
     onSubmit: (data) =>
       props.mode === 'create'
         ? props.onSubmit(data as CreateUserInput)
         : props.onSubmit(data as UpdateUserInput),
-    onSuccess: props.onClose,
+    onSent: props.onClose,
   });
 
   return (
@@ -48,8 +48,6 @@ export function UserForm(props: CreateProps | EditProps) {
       maxWidth="xs"
       title={props.mode === 'create' ? 'ユーザーを登録' : 'ユーザーを編集'}
       onSubmit={handleSubmit}
-      submitting={submitting}
-      error={submitError}
     >
       {errors._ && <Alert severity="error">{errors._}</Alert>}
       <TextField

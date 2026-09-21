@@ -1,9 +1,10 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { InferResponseType } from 'hono/client';
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 
-export type CalendarItem = InferResponseType<typeof api.events.$get, 200>[number];
+/** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
+export type { CalendarItem } from '../../../shared/calendar.ts';
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
@@ -13,7 +14,8 @@ export const CALENDAR_QUERY_KEY = ['calendar'] as const;
 export function calendarItemsQueryOptions(range: { from: DateString; to: DateString }) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, range.from, range.to],
-    queryFn: async () => {
+    // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
+    queryFn: async (): Promise<CalendarItem[]> => {
       const res = await ensureOk(await api.events.$get({ query: range }));
       return res.json();
     },

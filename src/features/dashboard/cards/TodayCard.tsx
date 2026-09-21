@@ -69,7 +69,7 @@ function TodayRow({
           <Checkbox
             size="small"
             checked={false}
-            disabled={toggle.isPending || !online}
+            disabled={!online}
             onChange={() =>
               toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: true })
             }

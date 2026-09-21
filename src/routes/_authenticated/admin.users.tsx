@@ -40,18 +40,14 @@ function AdminUsersPage() {
       </AppBarContent>
       <UserList users={users} onEdit={setEditing} />
       {creating && (
-        <UserForm
-          mode="create"
-          onClose={() => setCreating(false)}
-          onSubmit={(input) => createUser.mutateAsync(input)}
-        />
+        <UserForm mode="create" onClose={() => setCreating(false)} onSubmit={createUser.mutate} />
       )}
       {editing && (
         <UserForm
           mode="edit"
           user={editing}
           onClose={() => setEditing(null)}
-          onSubmit={(input) => updateUser.mutateAsync({ id: editing.id, ...input })}
+          onSubmit={(input) => updateUser.mutate({ id: editing.id, ...input })}
         />
       )}
     </>
