@@ -11,12 +11,11 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import {
-  addDays,
   addMonths,
   firstDayOfMonth,
-  formatDateRange,
   formatDateWithYear,
   formatMonth,
+  formatWeekRange,
   monthGridWeeks,
   today,
   toMonthString,
@@ -150,7 +149,7 @@ function DayOptions({
         unit === 'week' ? (
           <ButtonBase
             key={week}
-            aria-label={formatDateRange(week, addDays(week, 6))}
+            aria-label={formatWeekRange(week)}
             onClick={() => onSelect(week)}
             sx={{
               ...optionSx,
