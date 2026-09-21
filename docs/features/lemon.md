@@ -21,7 +21,7 @@
 |---|---|---|
 | GET | `/api/lemon/status` | 種別ごとの最終実施日時と経過日数（`note` を除く 5 種別。`shared/validation/lemon.ts` の `TRACKED_CARE_TYPES`） |
 | GET | `/api/lemon/logs` | 履歴（新しい順） |
-| POST | `/api/lemon/logs` | 記録を追加 |
+| POST | `/api/lemon/logs` | 記録を追加。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/lemon/logs/:id` | 編集。全項目を置き換える（入力は追加と同じ形） |
 | DELETE | `/api/lemon/logs/:id` | 記録を削除 |
 

@@ -8,7 +8,7 @@ import {
 } from '../../../shared/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
 export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
@@ -29,13 +29,16 @@ export const lemonLogsQueryOptions = queryOptions({
 });
 
 export function useLogCare() {
-  return useOptimisticMutation({
-    mutationFn: async (input: CareLogBody) =>
-      (await ensureOk(await api.lemon.logs.$post({ json: input }))).json(),
+  return useCreateMutation<CareLogBody>({
+    request: (input) => ({
+      method: 'POST' as const,
+      path: api.lemon.logs.$url().pathname,
+      body: input,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, input) => {
       const log: CareLog = {
-        id: crypto.randomUUID(),
+        id: input.id,
         careType: input.careType,
         doneAt: input.doneAt,
         note: input.note ?? null,
@@ -55,8 +58,11 @@ export function useLogCare() {
 
 export function useUpdateCareLog() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: CareLogBody & { id: string }) =>
-      (await ensureOk(await api.lemon.logs[':id'].$put({ param: { id }, json: input }))).json(),
+    request: ({ id, ...input }: CareLogBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, { id, ...input }) => {
       client.setQueryData(
@@ -77,9 +83,10 @@ export function useUpdateCareLog() {
 
 export function useDeleteCareLog() {
   return useOptimisticMutation({
-    mutationFn: async (id: string) => {
-      await ensureOk(await api.lemon.logs[':id'].$delete({ param: { id } }));
-    },
+    request: (id: string) => ({
+      method: 'DELETE' as const,
+      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, id) => {
       client.setQueryData(lemonLogsQueryOptions.queryKey, (logs) =>

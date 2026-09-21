@@ -31,7 +31,7 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 |---|---|---|
 | GET | `/api/expenses` | 履歴（新しい順） |
 | GET | `/api/expenses/balance` | 残高（`{ fromUserId, toUserId, amount }`。0 なら `amount: 0`） |
-| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない |
+| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/expenses/:id` | 編集。全項目を置き換える（入力は追加と同じ形） |
 | DELETE | `/api/expenses/:id` | 削除 |
 

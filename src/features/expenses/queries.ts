@@ -2,7 +2,7 @@ import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { type Balance, balanceOf, type Expense, sortExpenses } from '../../../shared/expenses.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
@@ -23,16 +23,15 @@ export const balanceQueryOptions = queryOptions({
 });
 
 export function useAddExpense() {
-  return useOptimisticMutation({
-    mutationFn: async (input: ExpenseBody) =>
-      (await ensureOk(await api.expenses.$post({ json: input }))).json(),
+  return useCreateMutation<ExpenseBody>({
+    request: (input) => ({
+      method: 'POST' as const,
+      path: api.expenses.$url().pathname,
+      body: input,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, input) => {
-      const expense: Expense = {
-        ...input,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      };
+      const expense: Expense = { ...input, createdAt: new Date().toISOString() };
       updateList(client, (expenses) => sortExpenses([expense, ...expenses]));
     },
   });
@@ -40,8 +39,11 @@ export function useAddExpense() {
 
 export function useUpdateExpense() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: ExpenseBody & { id: string }) =>
-      (await ensureOk(await api.expenses[':id'].$put({ param: { id }, json: input }))).json(),
+    request: ({ id, ...input }: ExpenseBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.expenses[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, { id, ...input }) => {
       updateList(client, (expenses) =>
@@ -55,9 +57,10 @@ export function useUpdateExpense() {
 
 export function useDeleteExpense() {
   return useOptimisticMutation({
-    mutationFn: async (id: string) => {
-      await ensureOk(await api.expenses[':id'].$delete({ param: { id } }));
-    },
+    request: (id: string) => ({
+      method: 'DELETE' as const,
+      path: api.expenses[':id'].$url({ param: { id } }).pathname,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, id) => {
       updateList(client, (expenses) => expenses.filter((expense) => expense.id !== id));

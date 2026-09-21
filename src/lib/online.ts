@@ -1,22 +1,15 @@
+import { onlineManager } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 
-function subscribe(callback: () => void): () => void {
-  window.addEventListener('online', callback);
-  window.addEventListener('offline', callback);
-  return () => {
-    window.removeEventListener('online', callback);
-    window.removeEventListener('offline', callback);
-  };
-}
-
 /**
- * ブラウザのオンライン状態。オフライン時は閲覧のみとし、書き込み操作を無効化する（オフライン書き込みは将来の拡張）。
+ * ブラウザのオンライン状態。TanStack Query の onlineManager をそのまま読むので、
+ * 表示（オフラインの案内）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。
  * navigator.onLine は「確実にオフライン」しか示さないが、この用途には十分。
  */
 export function useOnline(): boolean {
   return useSyncExternalStore(
-    subscribe,
-    () => navigator.onLine,
+    (callback) => onlineManager.subscribe(callback),
+    () => onlineManager.isOnline(),
     () => true,
   );
 }

@@ -71,7 +71,7 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
-    api.ts（Hono RPC client）  query-client.ts（永続化設定・useOptimisticMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
@@ -86,11 +86,12 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
-    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  id.ts（UUID v7）  test-db.ts（テスト・seed 用の truncate）
+    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
     mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
     recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
+  id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
   calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と残高の式）  lemon.ts（世話の記録と状態）
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
@@ -129,12 +130,24 @@ e2e/                          # Playwright
 - API の GET には ETag と `Cache-Control: private, no-cache` を付ける（`server/app.ts`）。`staleTime: 0` で画面を開くたびに取り直すため、変わっていない一覧をそのたびに丸ごと転送しないようにする。ブラウザが `If-None-Match` を添えて聞き直し、内容が同じなら 304 で本文が流れない（常に最新を出す性質は変わらない）。
 - 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`、VAPID 鍵、カレンダーの項目）だけが個別に staleTime を持つ。カレンダーの項目は表示（月・週・日・リスト）の切り替えで取り直さないよう `staleTime` を無期限にし、画面に入ったときに取り直す（[features/calendar.md](features/calendar.md)）。
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
-- オフライン時は閲覧のみ。書き込み操作はオフライン中は無効化し、その旨を表示する。オフライン書き込み（キューして再送）は将来の拡張とし、初期スコープに含めない。
+- **オフラインでも書き込める**。送れない書き込みは端末（IndexedDB）に溜め、オンラインに戻ったときに溜めた順で送る（下記「オフラインの書き込み」）。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
 - ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
 - ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に自分のクエリを読み、`QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（下記）。
 - ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。
-- オフライン時は `useOnline`（`navigator.onLine` + online/offline イベント）で判定し、`SubmitButton` と完了チェックを無効化し、`OfflineBanner` で案内する。
+- オンラインかどうかの判定は TanStack Query の `onlineManager` に一本化する（`useOnline`）。表示（`OfflineBanner`）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。`onlineManager` は「オンラインとみなす」から始まり online/offline イベントでしか変わらないので、起動時に `navigator.onLine` を 1 度だけ反映する（`src/lib/query-client.ts`）。オフラインのまま起動しても正しく判定できる。
+
+## オフラインの書き込み
+
+オフラインでも記録でき、オンラインに戻ったときにまとめて送る。仕組みは TanStack Query の mutation にそのまま乗せ、キューを自作しない。
+
+- **送る内容だけを値として持つ**。書き込み 1 回分は `{ method, path, body }`（`WriteRequest`）というプレーンな値で、mutation の引数になる。関数は保存できないので、送り方は `mutationKey` に紐づけた 1 つの既定（`setMutationDefaults`）に置く。復元した書き込みも同じ既定で送られるので、feature ごとの送信コードを起動時に読み込む必要がない。パスは Hono RPC の `$url()` で組み立て、型で守る。
+- **溜める**: `networkMode: 'online'`（既定）なのでオフラインでは送らずに保留し、保留中の mutation は永続化キャッシュに含まれる（TanStack Query の既定の dehydrate 条件）。アプリを閉じても消えず、次の起動で復元して送る（`main.tsx` の `resumeWrites`）。
+- **順序**: すべての書き込みが同じ `scope` を持つので 1 つずつ順に走り、「追加してから直す」が操作した順でサーバーに届く。
+- **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す。
+- **送り直し**: 通信断（`NetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
+- **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成を upsert として扱う。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
+- **溜めないもの**: ユーザーの登録・変更（`queue: false`）はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
 
 ## UI / UX 方針
 
@@ -159,7 +172,7 @@ e2e/                          # Playwright
 - 下から出るシート（`src/lib/ui/BottomSheet.tsx`）は `translateY` だけで見える量を変え、止まる位置は中身の実測から決める。下へなぞって下げきると閉じる。なぞり始める場所は選ばない（入力欄やボタンの上も含む。つまむ帯だけでは狭すぎる）。縦に少し（8px）動かすまではシートを動かさないので、タップや文字の選択は今までどおり中身に届き、そこで指を捕まえるので押したことにはならない。中身のスクロールもシートが面倒を見て、指の下がまだスクロールできるならそちらを先に動かす（ブラウザ任せ（`touch-action: pan-y`）にすると、スクロールできない所でもなぞりを取り上げられてシートを動かせない）。`peekRef` を渡すと上・下の 2 段で止まり（カレンダーのクイック入力）、常に画面いっぱいの高さで、後ろを触れるようモーダルにしない。渡さなければ段は 1 つで、中身の高さのまま画面の下に出し（画面いっぱいが上限）、後ろは暗くして触れなくする。項目が少ないフォームほど入力欄も操作も指の届く下半分に集まり、後ろの一覧も見えたままになる。
 - ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog を直接使うことは biome が禁じる。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
-- 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
+- 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。オフラインでは送信が始まらないので、端末に溜めた時点で保存できたものとして扱う（フォームはそこで閉じる。待つとオンラインに戻るまで閉じられない）。
 - 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
 - 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
 - 移動は何も待たせない。タップした瞬間に画面を切り替え、まだ無いものは骨組み（MUI の Skeleton。`src/lib/ui/QueryView.tsx`）で示す。ページのコードを読み込む間も前の画面には留めない（`defaultPendingMs: 0` と `defaultPendingComponent`）。待つのは操作の結果ではなく内容の到着なので、待ち時間は移動の後に置く。

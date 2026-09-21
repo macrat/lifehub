@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { newId } from '../id.ts';
 import { instantSchema, uuidSchema } from './common.ts';
 
 const EVENT_KINDS = ['event', 'task'] as const;
@@ -69,6 +70,17 @@ export const createEventSchema = z
   .refine(endAfterStart, endMessage)
   .refine(recurrenceHasBase, recurrenceMessage);
 export type CreateEventInput = z.infer<typeof createEventSchema>;
+
+/**
+ * API（POST /api/events）が受け取る作成の入力。行の ID をクライアントが決めて送れる。
+ * WHY: オフラインで作った項目をオンラインに戻る前に編集・削除でき（ID が仮のものにならない）、
+ * 通信が切れて送り直しても同じ行になる（二重に作られない）。
+ * WHY NOT createEventSchema そのものに持たせない: MCP は ID を考える必要がなく、持たせると
+ * ツールの入力欄が増えて誤った ID を渡す余地ができる。省略時はサーバーが採番する。
+ */
+export const createEventRequestSchema = createEventSchema.safeExtend({
+  id: uuidSchema.default(newId),
+});
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
 const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);

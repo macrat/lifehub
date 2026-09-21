@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { api, ensureOk } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 
@@ -27,22 +27,24 @@ export function eventQueryOptions(id: string) {
 const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
 
 export function useCreateEvent() {
-  return useOptimisticMutation({
-    mutationFn: async (input: CreateEventBody) => {
-      const res = await ensureOk(await api.events.$post({ json: input }));
-      return res.json();
-    },
+  return useCreateMutation<CreateEventBody>({
+    request: (input) => ({
+      method: 'POST' as const,
+      path: api.events.$url().pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
-    apply: (client, input) => insertItem(client, input, crypto.randomUUID()),
+    apply: insertItem,
   });
 }
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: UpdateEventBody & { id: string }) => {
-      const res = await ensureOk(await api.events[':id'].$put({ param: { id }, json: input }));
-      return res.json();
-    },
+    request: ({ id, ...input }: UpdateEventBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.events[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
     apply: updateItem,
   });
@@ -50,9 +52,11 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: DeleteEventBody & { id: string }) => {
-      await ensureOk(await api.events[':id'].$delete({ param: { id }, json: input }));
-    },
+    request: ({ id, ...input }: DeleteEventBody & { id: string }) => ({
+      method: 'DELETE' as const,
+      path: api.events[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
     apply: removeItem,
   });
@@ -61,7 +65,7 @@ export function useDeleteEvent() {
 /** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
   return useOptimisticMutation({
-    mutationFn: async ({
+    request: ({
       id,
       occurrenceStart,
       completed,
@@ -69,14 +73,11 @@ export function useToggleCompletion() {
       id: string;
       occurrenceStart: string | null;
       completed: boolean;
-    }) => {
-      const args = { param: { id }, json: { occurrenceStart: occurrenceStart ?? undefined } };
-      if (completed) {
-        await ensureOk(await api.events[':id'].complete.$post(args));
-      } else {
-        await ensureOk(await api.events[':id'].complete.$delete(args));
-      }
-    },
+    }) => ({
+      method: completed ? ('POST' as const) : ('DELETE' as const),
+      path: api.events[':id'].complete.$url({ param: { id } }).pathname,
+      body: { occurrenceStart: occurrenceStart ?? undefined },
+    }),
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completed }) =>
       setCompleted(

@@ -16,12 +16,18 @@ export const usersQueryOptions = queryOptions({
   },
 });
 
+/**
+ * ユーザーの登録。オフラインでは溜めずにその場で失敗させる（queue: false）。
+ * パスワードを含むので端末に残したくなく、2 人しか居ないアプリで急ぐ操作でもない。
+ */
 export function useCreateUser() {
   return useOptimisticMutation({
-    mutationFn: async (input: CreateUserInput) => {
-      const res = await ensureOk(await api.users.$post({ json: input }));
-      return res.json();
-    },
+    request: (input: CreateUserInput) => ({
+      method: 'POST' as const,
+      path: api.users.$url().pathname,
+      body: input,
+    }),
+    queue: false,
     keys: [usersQueryOptions.queryKey],
     apply: (client, input) => {
       client.setQueryData(usersQueryOptions.queryKey, (users) => {
@@ -34,12 +40,15 @@ export function useCreateUser() {
   });
 }
 
+/** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
 export function useUpdateUser() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: UpdateUserInput & { id: string }) => {
-      const res = await ensureOk(await api.users[':id'].$patch({ param: { id }, json: input }));
-      return res.json();
-    },
+    request: ({ id, ...input }: UpdateUserInput & { id: string }) => ({
+      method: 'PATCH' as const,
+      path: api.users[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
+    queue: false,
     keys: [usersQueryOptions.queryKey, meQueryOptions.queryKey],
     apply: (client, { id, name, hue }) => {
       // パスワードは表示に関わらないので、名前と色だけを当てる

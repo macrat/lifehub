@@ -52,7 +52,7 @@
 |---|---|---|
 | GET | `/api/events?from&to` | `from`〜`to`（JST 暦日、両端含む）の `CalendarItem[]`（[calendar.md](calendar.md)）。繰り返しは展開済み、実体化された回を反映済み |
 | GET | `/api/events/:id` | 行そのものを返す（繰り返しの「すべて」を編集する起点） |
-| POST | `/api/events` | 作成（`kind` を含む全項目） |
+| POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`）と `occurrenceStart`（元の発生の基準日時）を指定。単発では常に `all` |
 | DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` を指定 |
 | POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定 |
