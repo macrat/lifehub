@@ -30,7 +30,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
-      # プロバイダの更新は Renovate の PR で行うため -upgrade は付けない（Neon のリソース再作成事故を防ぐ）
+      # プロバイダの更新はバージョン制約を編集する PR で行うため -upgrade は付けない（Neon のリソース再作成事故を防ぐ）
       - run: terraform -chdir=infra init -input=false
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
