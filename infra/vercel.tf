@@ -20,8 +20,7 @@ resource "vercel_project_domain" "lifehub" {
 }
 
 locals {
-  # production / preview の両方に設定する環境変数。
-  # DATABASE_URL は preview ではデプロイ時に PR ブランチの値で上書きされる。
+  # 本番の秘密情報は Preview のビルドや実行環境に渡さない。
   env_vars = {
     DATABASE_URL               = local.database_url
     BETTER_AUTH_SECRET         = random_password.better_auth_secret.result
@@ -41,7 +40,7 @@ resource "vercel_project_environment_variable" "shared" {
   project_id = vercel_project.lifehub.id
   key        = each.key
   value      = each.value
-  target     = ["production", "preview"]
+  target     = ["production"]
   sensitive  = true
 }
 
@@ -52,4 +51,16 @@ resource "vercel_project_environment_variable" "base_url" {
   value      = "https://${var.domain}"
   target     = ["production"]
   sensitive  = false
+}
+
+# Preview の DATABASE_URL は CI が PR ごとの接続先をデプロイ時に渡す。
+resource "vercel_project_environment_variable" "preview_auth_secret" {
+  # 同じキーの Preview 設定が重複しないよう、共有設定からの切り離しを先に行う。
+  depends_on = [vercel_project_environment_variable.shared["BETTER_AUTH_SECRET"]]
+
+  project_id = vercel_project.lifehub.id
+  key        = "BETTER_AUTH_SECRET"
+  value      = random_password.preview_auth_secret.result
+  target     = ["preview"]
+  sensitive  = true
 }

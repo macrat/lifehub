@@ -1,2 +1,15 @@
 allowBuilds:
   esbuild: true
+
+# デプロイツールが固定する脆弱な間接依存を修正版に揃える。
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+  '@tootallnate/once@<2.0.1': 2.0.1
+  'ajv@>=8 <8.20.0': 8.20.0
+  'js-yaml@>=4 <4.3.2': 4.3.2
+  'minimatch@>=10 <10.2.6': 10.2.6
+  'path-to-regexp@>=6 <6.3.0': 6.3.0
+  'path-to-regexp@>=8 <8.4.2': 8.4.2
+  'smol-toml@<1.8.0': 1.8.0
+  'tar@>=7 <7.5.22': 7.5.22
+  'undici@>=5 <6.28.1': 6.28.1

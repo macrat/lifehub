@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../db.ts';
 import { newId } from '../id.ts';
 import { type PushSubscriptionRow, pushSubscriptions } from './schema.ts';
@@ -25,8 +25,10 @@ export async function upsert(row: {
     });
 }
 
-export async function removeByEndpoint(endpoint: string): Promise<void> {
-  await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+export async function removeByEndpoint(endpoint: string, userId: string): Promise<void> {
+  await db
+    .delete(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId)));
 }
 
 export async function findByEndpoint(endpoint: string): Promise<PushSubscriptionRow | undefined> {

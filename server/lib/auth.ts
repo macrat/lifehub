@@ -24,15 +24,12 @@ import * as schema from './schema.ts';
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
 export const auth = betterAuth({
-  /**
-   * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。
-   * APP_URL が無いのは Vercel の Preview だけで、そこは URL がデプロイごとに変わるうえ、
-   * Standard Protection 下の VERCEL_URL は実際にアクセスする URL と一致しない。固定値を置くと
-   * origin チェックに落ちて「Invalid origin」でログインできないので、`*.vercel.app` に限って
-   * リクエストのホストから決める（信頼するオリジンも better-auth が同じ条件で広げる）。
-   * 本番のオリジンを広げたくないので、allowedHosts を常時有効にはしない。
-   */
-  baseURL: env.APP_URL ?? { allowedHosts: ['*.vercel.app'], protocol: 'https', fallback: baseUrl },
+  // Vercel の他の利用者のホストは信頼せず、このデプロイとブランチの URL だけを許可する。
+  baseURL: env.APP_URL ?? {
+    allowedHosts: [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter((host): host is string => !!host),
+    protocol: 'https',
+    fallback: baseUrl,
+  },
   basePath: '/api/auth',
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
@@ -82,7 +79,8 @@ export const auth = betterAuth({
     // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ
     expiresIn: 60 * 60 * 24 * 90,
     updateAge: 60 * 60 * 24,
-    cookieCache: { enabled: true, maxAge: 60 * 5 },
+    // 失効したセッションを Cookie キャッシュから復活させない。
+    cookieCache: { enabled: false },
   },
 });
 

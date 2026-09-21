@@ -19,6 +19,7 @@ const envSchema = z.object({
   /** Vercel が自動で設定する。`production` のときだけ通知の予約を行う。 */
   VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
   VERCEL_URL: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
   /** Vercel 上で実行中かどうか。DB ドライバの切替に使う。 */
   VERCEL: z.string().optional(),
 });

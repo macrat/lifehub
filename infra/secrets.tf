@@ -9,3 +9,8 @@ resource "random_password" "cron_secret" {
   length  = 48
   special = false
 }
+
+resource "random_password" "preview_auth_secret" {
+  length  = 48
+  special = false
+}

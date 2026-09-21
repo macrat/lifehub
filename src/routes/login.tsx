@@ -1,19 +1,14 @@
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { z } from 'zod';
 import { LoginForm } from '../features/users/components/LoginForm.tsx';
 import { authClient, meQueryOptions } from '../lib/auth.ts';
+import { loginSearchSchema } from '../lib/login-search.ts';
 import { ensureData } from '../lib/query-client.ts';
 import { CenteredPage } from '../lib/ui/CenteredPage.tsx';
 
-// 署名付きの OAuth クエリ（未知のキー）をそのまま残すため loose にする
-const searchSchema = z.looseObject({
-  redirect: z.string().optional(),
-});
-
 export const Route = createFileRoute('/login')({
-  validateSearch: searchSchema,
+  validateSearch: loginSearchSchema,
   beforeLoad: async ({ context, search }) => {
     // ログイン済みならログイン画面を見せない
     const me = navigator.onLine

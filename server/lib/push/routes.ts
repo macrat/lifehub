@@ -29,6 +29,6 @@ export const pushRoutes = new Hono<AppEnv>()
     return c.body(null, 204);
   })
   .delete('/subscriptions', zValidator('json', unsubscribeSchema, validationHook), async (c) => {
-    await repository.removeByEndpoint(c.req.valid('json').endpoint);
+    await repository.removeByEndpoint(c.req.valid('json').endpoint, c.get('user').id);
     return c.body(null, 204);
   });

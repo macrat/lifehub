@@ -10,6 +10,24 @@ import {
 const jst = (s: string) => new Date(`${s}+09:00`);
 
 describe('normalizeRRule', () => {
+  it.each([
+    'FREQ=DAILY;INTERVAL=0',
+    'FREQ=WEEKLY;INTERVAL=-1',
+    'FREQ=MONTHLY;COUNT=-1',
+    'FREQ=DAILY;COUNT=0',
+  ])('展開が進まない入力を拒否する: %s', (rule) => {
+    expect(() => normalizeRRule(rule)).toThrow(ValidationError);
+  });
+  it('既存データの不正な間隔も展開前に拒否する', () => {
+    expect(() =>
+      expandOccurrences({
+        rrule: 'FREQ=DAILY;INTERVAL=0',
+        dtstart: jst('2026-09-01T00:00:00'),
+        from: jst('2026-09-01T00:00:00'),
+        to: jst('2026-09-02T00:00:00'),
+      }),
+    ).toThrow(ValidationError);
+  });
   it('正規形に整える', () => {
     expect(normalizeRRule('rrule:freq=weekly;byday=mo')).toBe('FREQ=WEEKLY;BYDAY=MO');
   });

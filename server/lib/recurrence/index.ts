@@ -68,6 +68,15 @@ export function normalizeRRule(rrule: string): string {
   if (options.freq === undefined) {
     throw new ValidationError('繰り返しルールには FREQ が必要です');
   }
+  if (
+    options.interval !== undefined &&
+    (!Number.isSafeInteger(options.interval) || options.interval < 1)
+  ) {
+    throw new ValidationError('繰り返しの間隔は正の整数で指定してください');
+  }
+  if (options.count != null && (!Number.isSafeInteger(options.count) || options.count < 1)) {
+    throw new ValidationError('繰り返しの回数は正の整数で指定してください');
+  }
   if (options.freq > RRule.DAILY) {
     throw new ValidationError('繰り返しの最小単位は日です');
   }
@@ -112,5 +121,5 @@ export function withUntilBefore(rrule: string, instant: Date): string {
 }
 
 function buildRule(rrule: string, dtstart: Date): RRule {
-  return new RRule({ ...RRule.parseString(rrule), dtstart: toFloating(dtstart) });
+  return new RRule({ ...RRule.parseString(normalizeRRule(rrule)), dtstart: toFloating(dtstart) });
 }
