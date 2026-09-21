@@ -9,34 +9,18 @@ type Props = {
   title: string;
   /** 見出しをタップしたときの遷移先 */
   link: NavigateOptions;
-  /** 取得に失敗したとき、内容の代わりにメッセージを出す */
-  error?: Error | null;
   /** 行の一覧など、内容が自分で左右の余白を持つとき */
   disableGutters?: boolean;
   children: ReactNode;
 };
 
 /** ホームの 1 区画。見出しをタップすると該当機能の画面へ遷移する。枠線や影は持たない。 */
-export function DashboardCardFrame({
-  title,
-  link,
-  error,
-  disableGutters = false,
-  children,
-}: Props) {
+export function DashboardCardFrame({ title, link, disableGutters = false, children }: Props) {
   const navigate = useNavigate();
   return (
     <Box component="section" sx={{ py: 1 }}>
       <SectionHeading title={title} onClick={() => navigate(link)} />
-      <Box sx={{ px: disableGutters ? 0 : 2 }}>
-        {error ? (
-          <Typography variant="body2" color="error">
-            {error.message}
-          </Typography>
-        ) : (
-          children
-        )}
-      </Box>
+      <Box sx={{ px: disableGutters ? 0 : 2 }}>{children}</Box>
     </Box>
   );
 }

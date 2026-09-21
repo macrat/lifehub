@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { matchesKeyword } from '../../../lib/search.ts';
+import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import { DayList } from './DayList.tsx';
@@ -38,8 +39,7 @@ type Props = {
 export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { users } = useUserLabels();
   // 期間はサーバーに投げ、それ以外の絞り込みは手元で掛ける（打つたびに取り直さない）
-  const { items } = useCalendarItems({ from: filters.from, to: filters.to });
-  const grouped = groupByDate(items.filter((item) => matches(item, filters)));
+  const itemsQuery = useCalendarItems({ from: filters.from, to: filters.to });
   return (
     <>
       <Collapse in={filtersOpen}>
@@ -112,17 +112,22 @@ export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }
           </TextField>
         </Box>
       </Collapse>
-      {grouped.size === 0 ? (
-        <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
-          この期間の項目はありません
-        </Typography>
-      ) : (
-        <Stack spacing={1}>
-          {[...grouped.entries()].map(([date, dayItems]) => (
-            <DayList key={date} date={date} items={dayItems} onSelectItem={onSelectItem} />
-          ))}
-        </Stack>
-      )}
+      <QueryView query={itemsQuery} skeleton={<ListSkeleton rows={4} />}>
+        {(items) => {
+          const grouped = groupByDate(items.filter((item) => matches(item, filters)));
+          return grouped.size === 0 ? (
+            <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
+              この期間の項目はありません
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {[...grouped.entries()].map(([date, dayItems]) => (
+                <DayList key={date} date={date} items={dayItems} onSelectItem={onSelectItem} />
+              ))}
+            </Stack>
+          );
+        }}
+      </QueryView>
     </>
   );
 }

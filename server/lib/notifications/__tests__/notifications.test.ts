@@ -150,4 +150,70 @@ describe('notifications', () => {
     expect(await deliver('event:unknown', { ...ref, id: userId }, send)).toBe('stale');
     expect(sent).toEqual(['タスク: 提出']);
   });
+
+  it('送信に失敗したキーは送信済みにせず再試行できる', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '提出',
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const [planned] = await listNotifications(tomorrow);
+    const { key, ref } = planned as PlannedNotification;
+    await expect(
+      deliver(key, ref, async () => {
+        throw new Error('temporary failure');
+      }),
+    ).rejects.toThrow('temporary failure');
+
+    const sent: string[] = [];
+    expect(
+      await deliver(key, ref, async (_userIds, message) => void sent.push(message.title)),
+    ).toBe('sent');
+    expect(sent).toEqual(['タスク: 提出']);
+  });
+
+  it('タスクの通知は配信予定時刻の日を指す', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '提出',
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const [planned] = await listNotifications(tomorrow);
+    // 繰り越されるタスクの位置は「今日」で決まるので、再検証が 1 日前の状態を見ていると前日になる
+    expect(await resolveNotification((planned as PlannedNotification).ref)).toMatchObject({
+      url: '/calendar?date=2026-09-15',
+    });
+  });
+
+  it('繰り返しタスクをためても、その日の回の通知は予約される', async () => {
+    // 毎日 17:00 期限。9/13 から未完了のまま 9/15 を迎えても 9/15 の回の通知が要る
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '薬',
+        endsAt: iso('2026-09-13T17:00:00'),
+        rrule: 'FREQ=DAILY',
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const planned = await listNotifications(tomorrow);
+    expect(planned.map((p) => p.at.toISOString())).toEqual([iso('2026-09-15T17:00:00')]);
+    expect(await resolveNotification((planned[0] as PlannedNotification).ref)).toMatchObject({
+      title: 'タスク: 薬',
+      body: '期限 9/15 17:00',
+      url: '/calendar?date=2026-09-15',
+    });
+  });
 });

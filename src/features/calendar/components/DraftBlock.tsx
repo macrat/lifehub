@@ -3,7 +3,7 @@ import { alpha, type Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
-import type { draftColumns, EventDraft, TimePoint } from '../draft.ts';
+import type { draftColumns, EventDraft, TimedDraft } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
 /** つまむ丸の大きさ（px）。枠の上下の線には重ねて置き、左右は枠の内側に入れる */
@@ -19,25 +19,28 @@ const OUTLINE = {
   border: 2,
   borderColor: 'primary.main',
   bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.3),
-  // 枠は見せるだけ。押した先は下のセル・列に届かせ、そこから選び直せるようにする
-  pointerEvents: 'none',
 } as const;
 
-/** 選んでいる時間帯（週・日の時間軸）。端の丸をつまむと開始・終了を変えられる */
+/**
+ * 選んでいる時間帯（週・日の時間軸）。つまんで直せるときは、枠そのもので長さを保ったまま動かし、
+ * 端の丸で開始・終了を変える。枠がポインタを受けるので、枠の中から選び直すことはできない
+ * （選び直しは空いている所から）。
+ */
 export function DraftBlock({
   draft,
   hourHeight,
-  handleProps,
+  grab,
 }: {
-  draft: EventDraft & { allDay: false };
+  draft: TimedDraft;
   hourHeight: number;
-  /** 端をつまんで調整できるとき（タッチ）。anchor は動かさない方の端 */
-  handleProps: ((anchor: TimePoint) => DragHandlers) | null;
+  /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
+  grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
 }) {
-  const { date, startMin, endMin } = draft;
+  const { startMin, endMin } = draft;
   return (
     <Box
       data-draft
+      {...grab?.move}
       sx={{
         ...OUTLINE,
         position: 'absolute',
@@ -46,20 +49,23 @@ export function DraftBlock({
         left: 1,
         right: 2,
         px: 0.5,
+        // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
+        pointerEvents: grab ? 'auto' : 'none',
+        cursor: 'move',
       }}
     >
       {/* 時刻は丸と重なるので、つまむ丸を出さない PC でだけ（ドラッグ中の目印として）添える */}
-      {handleProps ? (
+      {grab ? (
         <>
           <Handle
             end="start"
             position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-            handlers={handleProps({ date, min: endMin - 1 })}
+            handlers={grab.start}
           />
           <Handle
             end="end"
             position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-            handlers={handleProps({ date, min: startMin })}
+            handlers={grab.end}
           />
         </>
       ) : (
@@ -91,6 +97,8 @@ export function DraftBar({
       data-draft
       sx={{
         ...OUTLINE,
+        // 帯は見せるだけ。押した先は下のセルに届かせ、そこから選び直せるようにする
+        pointerEvents: 'none',
         position: 'relative',
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,

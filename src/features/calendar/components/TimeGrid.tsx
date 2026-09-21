@@ -34,6 +34,7 @@ type Props = {
  * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
  * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
+ * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き、端の丸をつまむと開始・終了だけが動く。
  */
 export function TimeGrid({
   days,
@@ -45,7 +46,7 @@ export function TimeGrid({
   onChangeDraft,
 }: Props) {
   const colorFor = useUserColor();
-  // 端をつまんで調整できるのはタッチのとき。PC は下書きに寄せた吹き出しが前に出るので丸は出さない
+  // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
   const drag = useTimeDrag({ hourHeight, onChange: onChangeDraft });
   const timedDraft = draft?.allDay === false ? draft : null;
@@ -134,7 +135,15 @@ export function TimeGrid({
               <DraftBlock
                 draft={timedDraft}
                 hourHeight={hourHeight}
-                handleProps={compact ? drag.handleProps : null}
+                grab={
+                  compact
+                    ? {
+                        move: drag.moveProps(timedDraft),
+                        start: drag.resizeProps('start', timedDraft),
+                        end: drag.resizeProps('end', timedDraft),
+                      }
+                    : null
+                }
               />
             )}
             {day === todayStr && <NowLine top={(nowMin / 60) * hourHeight} />}

@@ -11,16 +11,15 @@ import {
   usersQueryOptions,
   useUpdateUser,
 } from '../../features/users/queries.ts';
-import { ensureData } from '../../lib/query-client.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
-  loader: ({ context }) => ensureData(context.queryClient, usersQueryOptions),
   component: AdminUsersPage,
 });
 
 function AdminUsersPage() {
-  const { data: users = [] } = useQuery(usersQueryOptions);
+  const usersQuery = useQuery(usersQueryOptions);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const [creating, setCreating] = useState(false);
@@ -38,7 +37,9 @@ function AdminUsersPage() {
           ユーザーを登録
         </Button>
       </AppBarContent>
-      <UserList users={users} onEdit={setEditing} />
+      <QueryView query={usersQuery} skeleton={<ListSkeleton rows={3} />}>
+        {(users) => <UserList users={users} onEdit={setEditing} />}
+      </QueryView>
       {creating && (
         <UserForm
           mode="create"

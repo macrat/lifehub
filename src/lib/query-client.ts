@@ -40,9 +40,15 @@ const persister = createAsyncStoragePersister({
 export const persistOptions = {
   persister,
   maxAge: ONE_DAY * 7,
-  // アプリのバージョンが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
-  buster: __APP_VERSION__,
+  // ビルドが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
+  buster: __BUILD_TIME__,
 };
+
+/**
+ * 画面が読むクエリの状態（`useQuery` / `useQueries` の結果をそのまま渡せる形）。
+ * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
+ */
+export type QueryState<T> = { data: T | undefined; error: Error | null };
 
 type OptimisticMutationOptions<TInput> = {
   mutationFn: (input: TInput) => Promise<unknown>;
@@ -85,7 +91,7 @@ export function useOptimisticMutation<TInput>({
 }
 
 /**
- * ルートの loader / beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
+ * ルートの beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
  * （TanStack Query はオフライン中の取得を一時停止するため、ensureQueryData が完了しなくなる）。
  * キャッシュが無ければ undefined。
  */

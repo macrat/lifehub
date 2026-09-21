@@ -13,6 +13,7 @@ import {
   type ItemFormValues,
 } from '../events/form-values.ts';
 import { MIN_BLOCK_MINUTES } from './components/timeline-layout.ts';
+import type { Drag } from './use-range-drag.ts';
 
 /**
  * グリッドで選んだ、まだ保存していない予定の範囲（Google カレンダーの下書き）。
@@ -23,33 +24,68 @@ export type EventDraft =
   /** from・to はどちらも含む日 */
   | { allDay: true; from: DateString; to: DateString };
 
+/** 時間指定の下書き（週・日の時間軸に出す枠） */
+export type TimedDraft = EventDraft & { allDay: false };
+
 /** 時間軸の 1 点（日と、その日の 0:00 からの分） */
 export type TimePoint = { date: DateString; min: number };
+
+/**
+ * 時間軸で下書きをつまんだ所。start・end はその端だけを動かし、move は長さを保ったまま動かす。
+ * つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、押した所から選び直す。
+ */
+export type TimeGrab = { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
 const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
+const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
 
 /**
- * 時間軸の 2 点 → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
- * ドラッグ（moved）は触れた枠をすべて含め（上向きも同じ）、読めない高さにならないよう最短 MIN_BLOCK_MINUTES を保つ。
- * 動かしていなければ押した枠から 1 時間。
+ * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
+ * 空いている所からのドラッグ（grab が null）は触れた枠をすべて含め（上向きも同じ）、
+ * 読めない高さにならないよう最短 MIN_BLOCK_MINUTES を保つ。動かしていなければ押した枠から 1 時間。
+ * 下書きをつまんだときは、動かした分だけをその枠に反映する（つまんだだけで動かしていなければそのまま）。
+ * 端をつまんだときは反対の端を越えられない（最短 STEP_MINUTES を残す）。
+ * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。
  */
-export function timeDraft(anchor: TimePoint, current: TimePoint, moved: boolean): EventDraft {
-  const slotAt = (min: number) =>
-    Math.min(Math.max(Math.floor(min / STEP_MINUTES), 0), SLOTS_PER_DAY - 1);
-  const anchorSlot = slotAt(anchor.min);
-  const currentSlot = moved ? slotAt(current.min) : anchorSlot;
+export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): EventDraft {
+  if (grab === null) return selectDraft(from, to, moved);
+  // つまんだだけ（動かしていない）なら触らない。押した所に枠が飛ばないようにする
+  if (!moved) return grab.draft;
+  const { startMin, endMin } = grab.draft;
+  switch (grab.kind) {
+    case 'start':
+      return { ...grab.draft, startMin: Math.min(snap(to.min), endMin - STEP_MINUTES) };
+    case 'end':
+      return { ...grab.draft, endMin: Math.max(snap(to.min), startMin + STEP_MINUTES) };
+    case 'move': {
+      const length = endMin - startMin;
+      const start = clamp(snap(startMin + (to.min - from.min)), 0, DAY_MINUTES - length);
+      return { ...grab.draft, startMin: start, endMin: start + length };
+    }
+  }
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+/** 一番近い 15 分の枠に寄せる（つまんだ所からずれないよう、切り捨てではなく四捨五入） */
+const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
+
+/** 空いている所をなぞって選ぶ範囲。触れた 15 分の枠をすべて含める */
+function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft {
+  const slotAt = (min: number) => clamp(Math.floor(min / STEP_MINUTES), 0, SLOTS_PER_DAY - 1);
+  const fromSlot = slotAt(from.min);
+  const toSlot = moved ? slotAt(to.min) : fromSlot;
   const startMin = Math.min(
-    Math.min(anchorSlot, currentSlot) * STEP_MINUTES,
-    24 * 60 - MIN_BLOCK_MINUTES,
+    Math.min(fromSlot, toSlot) * STEP_MINUTES,
+    DAY_MINUTES - MIN_BLOCK_MINUTES,
   );
   const endMin = moved
-    ? Math.max((Math.max(anchorSlot, currentSlot) + 1) * STEP_MINUTES, startMin + MIN_BLOCK_MINUTES)
-    : Math.min(startMin + TAP_MINUTES, 24 * 60);
-  return { allDay: false, date: anchor.date, startMin, endMin };
+    ? Math.max((Math.max(fromSlot, toSlot) + 1) * STEP_MINUTES, startMin + MIN_BLOCK_MINUTES)
+    : Math.min(startMin + TAP_MINUTES, DAY_MINUTES);
+  return { allDay: false, date: from.date, startMin, endMin };
 }
 
 /**

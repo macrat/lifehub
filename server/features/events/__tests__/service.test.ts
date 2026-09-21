@@ -364,6 +364,34 @@ describe('events service', () => {
       ]);
     });
 
+    it('放棄は暦日で決まるので、その日の回の時刻より前でも今日の回が出る', async () => {
+      // 9/21 の回は 9:00。同じ 9/21 なら 0:00 でも 12:00 でも 9/14 と 9/21 が並ぶ
+      await createEvent(weeklyTask(), userId);
+      const list = await listItems(september, jst('2026-09-21T00:00:00'));
+      expect(list.map((t) => [t.occurrenceStart, t.placementDate])).toEqual([
+        [iso('2026-09-14T09:00:00'), '2026-09-21'],
+        [iso('2026-09-21T09:00:00'), '2026-09-21'],
+      ]);
+    });
+
+    it('毎日の回をためても、出るのは前日と今日の 2 つ', async () => {
+      await createEvent(
+        createEventSchema.parse({
+          kind: 'task',
+          title: '薬',
+          startsAt: iso('2026-09-15T17:00:00'),
+          participantIds: [userId],
+          rrule: 'FREQ=DAILY',
+        }),
+        userId,
+      );
+      const list = await listItems(september, jst('2026-09-18T10:00:00'));
+      expect(list.map((t) => [t.occurrenceStart, t.placementDate])).toEqual([
+        [iso('2026-09-17T17:00:00'), '2026-09-18'],
+        [iso('2026-09-18T17:00:00'), '2026-09-18'],
+      ]);
+    });
+
     it('何年も前から続く繰り返しでも、表示は今の前後の回だけで決まる', async () => {
       // dtstart が遠い過去でも、放棄されずに残るのは「今以前の最後の回の 1 つ前」以降だけ
       await createEvent(

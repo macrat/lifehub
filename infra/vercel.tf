@@ -6,7 +6,8 @@ resource "vercel_project" "lifehub" {
 
   # VERCEL / VERCEL_ENV / VERCEL_URL などのシステム環境変数は、この設定を有効にしないと
   # ビルドにも関数にも渡らない。DB ドライバの切替（server/lib/db.ts）、通知予約を本番だけに
-  # 絞る判定（server/lib/qstash.ts）、Preview で信頼するホスト（server/lib/auth.ts）が依存する。
+  # 絞る判定（server/lib/qstash.ts）、Preview で信頼するホスト（server/lib/auth.ts）、
+  # 本番で必須の環境変数の検査（server/lib/env.ts）が依存する。
   automatically_expose_system_environment_variables = true
 
   build_command    = "pnpm build"
