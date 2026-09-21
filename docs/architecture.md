@@ -18,7 +18,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | フロントエンド | React + TypeScript（strict）、Vite ビルドの SPA | オフライン対応と積極的キャッシュを単純に実現するため、SSR ではなく静的なアプリシェルにする。 |
 | ルーティング | TanStack Router（ファイルベース） | 型安全なルート・検索パラメータ。TanStack Query と統合できる。 |
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
-| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/[[...route]].ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
+| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
 | DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `server/lib/db.ts` の `runBatch()` で書く（neon-http では `db.batch()`、node-postgres では順次実行になる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
@@ -64,7 +64,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 
 ```
 api/
-  [[...route]].ts             # Vercel Function のエントリ。server/app.ts の Hono アプリをそのまま export するだけ
+  index.ts                    # Vercel Function のエントリ。server/app.ts の Hono アプリをそのまま export するだけ
 src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
@@ -100,7 +100,7 @@ e2e/                          # Playwright
 ```
 
 - ローカル開発は `vite dev`（`/api` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
-- 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は Vercel のファイルシステムルーティングで `api/[[...route]].ts` に到達するので、rewrite の対象から除外する。
+- 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
 - Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api/well-known/*` へ転送する（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントで tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
