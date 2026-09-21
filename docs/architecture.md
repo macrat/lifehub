@@ -201,7 +201,7 @@ e2e/                          # Playwright
 
 **PR（`ci.yml`）**:
 1. `typecheck` → `lint` → `test` → `e2e`
-2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたときと、ラベルの付いた PR に push したときの 2 つだけで、他のラベルの付け外しや PR の開き直しでは作り直さない（Vercel の 1 日あたりのデプロイ数上限に当たったため、Preview が要る PR だけをラベルで選ぶ）
+2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたとき・ラベルの付いた PR に push したとき・ラベルの付いた PR を開き直したときで、関係ないラベルの付け外しでは作り直さない（Vercel の 1 日あたりのデプロイ数上限に当たったため、Preview が要る PR だけをラベルで選ぶ）
 3. Neon ブランチ `preview/pr-<番号>` を `main` から作成（既にあれば再利用。`neondatabase/create-branch-action`）
 4. そのブランチに `drizzle-kit migrate` を適用（本番相当のデータに対してマイグレーションを検証する）
 5. `vercel pull --environment=preview` → `vercel build` → `vercel deploy --prebuilt` に `--env DATABASE_URL=<PR ブランチの接続文字列>` を付けて Preview デプロイ
