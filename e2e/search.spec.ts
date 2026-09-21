@@ -120,3 +120,62 @@ async function addExpense(
   await form.getByRole('button', { name: '保存' }).click();
   await expect(form).toHaveCount(0);
 }
+
+/** レモンの詳細検索。種別と実施日の範囲で記録を絞り込む（立替と同じ絞り込みボタン・フォーム） */
+test('レモンの詳細検索で種別と日付の範囲で絞り込める', async ({ page }) => {
+  const tag = `E2E 絞込 ${Date.now()}`;
+  const watered = `${tag} 水やり`;
+  const fertilized = `${tag} 施肥`;
+  await page.goto('/lemon');
+
+  await addCareLog(page, { careType: '水やり', note: watered, doneAt: '2031-04-02T09:00' });
+  await addCareLog(page, { careType: '施肥', note: fertilized, doneAt: '2031-04-20T09:00' });
+  const wateredRow = page.getByRole('button', { name: new RegExp(watered) });
+  const fertilizedRow = page.getByRole('button', { name: new RegExp(fertilized) });
+
+  await page.getByRole('button', { name: '絞り込み' }).click();
+  const filters = page.getByRole('group', { name: '絞り込み' });
+
+  // 種別
+  await filters.getByLabel('種別').click();
+  await page.getByRole('option', { name: '施肥' }).click();
+  await expect(wateredRow).toHaveCount(0);
+  await expect(fertilizedRow).toBeVisible();
+
+  // 実施日の範囲（種別と重ねて効く。両方を満たす記録だけが残る）
+  await filters.getByLabel('終了日').fill('2031-04-10');
+  await expect(fertilizedRow).toHaveCount(0);
+  await expect(page.getByText('一致する記録はありません')).toBeVisible();
+  await expect(page.getByRole('button', { name: '絞り込み' })).toContainText('2');
+
+  // 種別をすべてに戻すと、期間に入る水やりだけが残る
+  await filters.getByLabel('種別').click();
+  await page.getByRole('option', { name: 'すべて' }).click();
+  await expect(wateredRow).toBeVisible();
+  await expect(fertilizedRow).toHaveCount(0);
+  await expect(page).toHaveURL(/until=2031-04-10/);
+
+  // 状況のタイルは絞り込みに関わらず最新の実施日を示す
+  await expect(page.getByRole('button', { name: /施肥/ }).first()).toBeVisible();
+
+  // 記録は他のテストと共有するので片付ける
+  await page.goto('/lemon');
+  for (const row of [wateredRow, fertilizedRow]) {
+    page.once('dialog', (dialog) => dialog.accept());
+    await row.click();
+    await page.getByRole('button', { name: '削除' }).click();
+    await expect(row).toHaveCount(0);
+  }
+});
+
+/** レモンの記録を 1 件追加する */
+async function addCareLog(page: Page, input: { careType: string; note: string; doneAt: string }) {
+  await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
+  const form = page.getByRole('dialog');
+  await form.getByLabel('種別').click();
+  await page.getByRole('option', { name: input.careType }).click();
+  await form.getByLabel('日時').fill(input.doneAt);
+  await form.getByLabel('メモ', { exact: true }).fill(input.note);
+  await form.getByRole('button', { name: '保存' }).click();
+  await expect(form).toHaveCount(0);
+}
