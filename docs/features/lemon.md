@@ -23,7 +23,7 @@
 | POST | `/api/lemon/logs` | 記録を追加 |
 | DELETE | `/api/lemon/logs/:id` | 記録を削除 |
 
-入力スキーマは `shared/validation/lemon.ts`。状態（最終実施日時と経過日数）の導き方は `shared/lemon.ts` の `careStatuses` 1 箇所に置き、サーバー（`getStatus`）とクライアントの楽観的更新が同じものを使う。
+入力スキーマは `shared/validation/lemon.ts`。状態（最終実施日時と経過日数）の導き方は `shared/lemon.ts` の `careStatusesOf` 1 箇所に置き、サーバー（`getStatus`）とクライアントの楽観的更新が同じものを使う。サーバーは種別ごとの最新の記録だけを SQL で読んでから渡すので、記録が増えても状態の応答は変わらない。
 
 ## MCP ツール
 

@@ -3,7 +3,6 @@ import {
   type AnyPgColumn,
   boolean,
   check,
-  index,
   integer,
   pgTable,
   primaryKey,
@@ -61,8 +60,8 @@ export const events = pgTable(
       .references(() => users.id),
   },
   (table) => [
+    // series_id だけの検索（回の取得・削除）も、この複合一意索引の先頭列で足りる
     uniqueIndex('events_series_occurrence_uq').on(table.seriesId, table.occurrenceStart),
-    index('events_series_id_idx').on(table.seriesId),
     check('events_kind_check', sql`${table.kind} in ('event', 'task')`),
     check(
       'events_event_has_range_check',

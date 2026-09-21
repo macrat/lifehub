@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { type ReactNode, useRef } from 'react';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { formList, formText, useFormSubmit } from '../../../lib/form.ts';
+import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useSwipe } from '../../../lib/use-swipe.ts';
@@ -42,6 +43,8 @@ type Props = {
  */
 export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Props) {
   const isMobile = useIsMobile();
+  // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
+  useDialogHistory(onClose);
   const formRef = useRef<HTMLFormElement>(null);
   const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,

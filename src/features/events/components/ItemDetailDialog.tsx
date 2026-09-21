@@ -2,7 +2,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -10,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime, formatEventRange } from '../../../lib/date.ts';
+import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ItemFormValues } from '../form-values.ts';
@@ -145,12 +145,13 @@ export function ItemDetailDialog({ item, onClose }: Props) {
         </DialogActions>
       </Dialog>
 
-      <RecurrenceScopeDialog
-        open={editing.pending !== null}
-        action={editing.pending ?? 'edit'}
-        onSelect={editing.selectScope}
-        onClose={editing.cancel}
-      />
+      {editing.pending && (
+        <RecurrenceScopeDialog
+          action={editing.pending}
+          onSelect={editing.selectScope}
+          onClose={editing.cancel}
+        />
+      )}
 
       {editScope !== null && initialValues && (
         <Form

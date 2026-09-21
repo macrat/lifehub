@@ -1,4 +1,4 @@
-import { type Balance, computeBalance, type Expense } from '../../../shared/expenses.ts';
+import { type Balance, balanceOf, type Expense } from '../../../shared/expenses.ts';
 import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import * as users from '../users/service.ts';
@@ -13,7 +13,7 @@ export async function listExpenses(): Promise<Expense[]> {
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
 export async function getBalance(): Promise<Balance> {
-  return computeBalance(await listExpenses(), await twoUsers());
+  return balanceOf(await repository.sumByDirection(), await twoUsers());
 }
 
 export async function addExpense(input: ExpenseInput, userId: string): Promise<Expense> {

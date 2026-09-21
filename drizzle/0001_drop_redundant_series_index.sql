@@ -1,0 +1,1 @@
+DROP INDEX "events_series_id_idx";

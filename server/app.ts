@@ -1,11 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
-import { getUser } from './features/users/service.ts';
+import { toPublicUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { db } from './lib/db.ts';
@@ -51,9 +52,22 @@ app.route('/notifications', notificationsRoutes);
 // これ以降はすべてログイン必須
 app.use('*', requireSession);
 
+/**
+ * 内容が変わっていなければ 304 を返す（HTTP の条件付き要求）。
+ * 既定の staleTime は 0 で、画面を開くたびに取り直すため、変わっていない一覧（立替の履歴、世話の記録、
+ * カレンダーの 1 か月）をそのたびに丸ごと転送することになる。ETag を付ければブラウザが
+ * If-None-Match を添えて聞き直し、同じなら本文が流れない。`private, no-cache` は「共有キャッシュには
+ * 置かない・使う前に必ず確かめる」の意味で、常に最新を出す性質は変わらない。
+ */
+app.use('*', etag());
+app.use('*', async (c, next) => {
+  await next();
+  if (c.req.method === 'GET') c.header('Cache-Control', 'private, no-cache');
+});
+
 const routes = app
-  // 色（hue）は better-auth のセッションに載らないので、users から読み直す
-  .get('/me', async (c) => c.json(await getUser(c.get('user').id)))
+  // セッションの検証で読んだユーザーをそのまま返す（hue も載っている。server/lib/auth.ts）
+  .get('/me', (c) => c.json(toPublicUser(c.get('user'))))
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
   .route('/expenses', expensesRoutes)

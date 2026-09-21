@@ -20,7 +20,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
 | バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは対話的トランザクションを持たないため、複数文の原子性が必要な箇所は `server/lib/db.ts` の `runBatch()` で書く（neon-http では `db.batch()`、node-postgres では順次実行になる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォーム・API の入力・MCP ツールの引数を同じスキーマで検証する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
@@ -72,7 +72,7 @@ src/                          # クライアント（Vite + React）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
     api.ts（Hono RPC client）  query-client.ts（永続化設定・useOptimisticMutation・ensureData）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
-    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, FormDialog, notice.ts（保存の失敗などの通知）, CenteredPage, 共通部品）
+    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, FormDialog, notice.ts（保存の失敗などの通知）, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -126,6 +126,7 @@ e2e/                          # Playwright
 
 - アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。
 - TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
+- API の GET には ETag と `Cache-Control: private, no-cache` を付ける（`server/app.ts`）。`staleTime: 0` で画面を開くたびに取り直すため、変わっていない一覧をそのたびに丸ごと転送しないようにする。ブラウザが `If-None-Match` を添えて聞き直し、内容が同じなら 304 で本文が流れない（常に最新を出す性質は変わらない）。
 - 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`、VAPID 鍵）だけが個別に staleTime を持つ。
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
 - オフライン時は閲覧のみ。書き込み操作はオフライン中は無効化し、その旨を表示する。オフライン書き込み（キューして再送）は将来の拡張とし、初期スコープに含めない。
@@ -149,6 +150,7 @@ e2e/                          # Playwright
 - 一覧はカードを重ねずフラットな行（左に時刻列、右にタイトルと補足）で並べる。カレンダーのリスト表示は `DayList` / `ItemCard`、ホームの「今日」は同じ体裁のより簡素な行（印・時刻・タイトルだけ）。
 - 一覧の行には削除などの操作ボタンを置かず、行をタップして開く詳細ダイアログ（`ItemDetailDialog` / `ExpenseDetailDialog` / `CareLogDetailDialog`）に操作を集める。行の主役は内容で、破壊的な操作を目立たせないため。行に残す操作はタスクの完了チェックだけ（1 タップで済ませたい主操作で、取り消しもできる）。
 - 入力フォームのダイアログ（`FormDialog`）はスマホではページが切り替わったように右から差し込む全画面表示にする（角丸なし、見出しは AppBar と同じ帯で戻る矢印つき）。PC では中央のダイアログ。どちらも保存ボタンは下端に固定する。保存を押したら送信の完了を待たずに閉じる（結果は楽観的更新で即座に画面に出る）。失敗したときだけ、入力したまま開き直して理由をフォームの先頭に出す（入力をやり直さずに直せる）。
+- ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog を直接使うことは biome が禁じる。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
 - 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
 - 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。

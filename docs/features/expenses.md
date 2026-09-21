@@ -22,7 +22,7 @@
 
 ## 計算ルール
 
-A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。端数は切り捨て）。精算「B が A に払った」も B→A の行として同じ式に入るので、払えば債権が減る。計算式は `shared/expenses.ts` の `computeBalance` 1 箇所に置き、サーバー（`getBalance`）とクライアントの楽観的更新が同じものを使う。
+A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。端数は切り捨て）。精算「B が A に払った」も B→A の行として同じ式に入るので、払えば債権が減る。計算式は `shared/expenses.ts` の `balanceOf` 1 箇所に置き、サーバー（`getBalance`）とクライアントの楽観的更新が同じものを使う。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても残高の応答は変わらない。
 
 ## API（`server/features/expenses/routes.ts`）
 

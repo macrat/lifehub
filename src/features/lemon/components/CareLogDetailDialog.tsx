@@ -1,6 +1,5 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -8,6 +7,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
+import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import { type CareLog, useDeleteCareLog } from '../queries.ts';
 
 type Props = {

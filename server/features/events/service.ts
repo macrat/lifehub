@@ -10,24 +10,22 @@ import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
+import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
-import type { EventRow, NewEventRow } from './schema.ts';
+import type { NewEventRow } from './schema.ts';
 
 export { listItems } from './occurrences.ts';
 
 export async function getEvent(id: string): Promise<EventMaster> {
-  const row = await repository.findById(id);
-  if (!row) throw new NotFoundError('見つかりません');
-  return toMaster(row, await participantsOf(id));
+  return toMaster(await findMaster(id));
 }
 
 export async function createEvent(input: CreateEventInput, userId: string): Promise<EventMaster> {
-  const id = await repository.insert(
-    { ...normalizeInput(input), createdBy: userId },
-    input.participantIds,
-  );
+  const values = normalizeInput(input);
+  const id = await repository.insert({ ...values, createdBy: userId }, input.participantIds);
   await enqueueUpcoming();
-  return getEvent(id);
+  // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
+  return savedMaster(id, values, input.participantIds);
 }
 
 export async function updateEvent(
@@ -61,7 +59,8 @@ async function applyUpdate(
       input.participantIds,
       userId,
     );
-    return getEvent(id);
+    // 変わったのは回の行で、繰り返し元は読んだままなので、それをそのまま返す
+    return toMaster(master);
   }
 
   if (scope === 'following') {
@@ -73,15 +72,15 @@ async function applyUpdate(
       newRow: { ...values, createdBy: userId },
       participantIds: input.participantIds,
     });
-    return getEvent(newId);
+    return savedMaster(newId, values, input.participantIds);
   }
 
-  await repository.update(id, values, input.participantIds);
-  // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。完了した回は履歴として残す
-  if (baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule) {
-    await repository.deleteUncompletedOccurrences(id);
-  }
-  return getEvent(id);
+  await repository.update(id, values, {
+    participantIds: input.participantIds,
+    dropUncompletedOccurrences:
+      baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule,
+  });
+  return savedMaster(id, values, input.participantIds, master.completedAt);
 }
 
 export async function deleteEvent(
@@ -129,14 +128,30 @@ export async function uncompleteEvent(
 
 // ---- 内部 ----
 
-async function findMaster(id: string): Promise<EventRow> {
+async function findMaster(id: string): Promise<EventWithParticipants> {
   const row = await repository.findById(id);
   if (!row) throw new NotFoundError('見つかりません');
   return row;
 }
 
-async function participantsOf(id: string): Promise<string[]> {
-  return (await repository.findParticipants([id])).map((p) => p.userId);
+/**
+ * 今しがた保存した値から応答を組み立てる（読み直さずに往復を 1 回減らす）。
+ * 完了状態は入力に無く保存でも変わらないので、呼び出し元が保存前の値をそのまま渡す。
+ */
+function savedMaster(
+  id: string,
+  values: ReturnType<typeof normalizeInput>,
+  participantIds: string[],
+  completedAt: Date | null = null,
+): EventMaster {
+  return {
+    ...values,
+    id,
+    startsAt: values.startsAt?.toISOString() ?? null,
+    endsAt: values.endsAt?.toISOString() ?? null,
+    completedAt: completedAt?.toISOString() ?? null,
+    participantIds,
+  };
 }
 
 async function setCompletedAt(
@@ -157,7 +172,7 @@ async function setCompletedAt(
 
 /** 単発は常に all。繰り返しでも先頭の発生に対する following は all と同じ。 */
 function effectiveScope(
-  master: EventRow,
+  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
   scope: RecurrenceScope,
   occurrenceStart: Date | undefined,
 ): RecurrenceScope {
@@ -168,7 +183,10 @@ function effectiveScope(
 }
 
 /** 繰り返しの回の指定を検証する（ルール上に実在する発生の基準日時であること） */
-function requireOccurrence(master: EventRow, value: Date | undefined): Date {
+function requireOccurrence(
+  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
+  value: Date | undefined,
+): Date {
   if (!value) throw new ValidationError('occurrenceStart が必要です');
   if (!occurrenceExists(master, value)) throw new ValidationError('その回は存在しません');
   return value;
@@ -179,13 +197,13 @@ function requireOccurrence(master: EventRow, value: Date | undefined): Date {
  * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する。
  */
 async function materialize(
-  master: EventRow,
+  master: EventWithParticipants,
   occurrenceStart: Date,
   values: Partial<NewEventRow>,
   participantIds: string[] | undefined,
   userId: string,
 ): Promise<void> {
-  const { id: _id, createdAt: _c, updatedAt: _u, ...copy } = master;
+  const { id: _id, createdAt: _c, updatedAt: _u, participantIds: _p, ...copy } = master;
   const { id, inserted } = await repository.upsertOccurrence(
     {
       ...copy,
@@ -198,7 +216,7 @@ async function materialize(
     },
     values,
   );
-  const ids = participantIds ?? (inserted ? await participantsOf(master.id) : undefined);
+  const ids = participantIds ?? (inserted ? master.participantIds : undefined);
   if (ids) await repository.setParticipants(id, ids);
 }
 
