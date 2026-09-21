@@ -34,7 +34,7 @@ test('スマホでは追加フォームが全画面で開き、保存すると�
     .toMatchObject({ x: 0, y: 0, width: viewport?.width, height: viewport?.height });
   await expect(page.getByRole('button', { name: '戻る' })).toBeVisible();
 
-  await page.getByLabel('メモ').fill('楽観的更新のテスト');
+  await page.getByLabel('メモ', { exact: true }).fill('楽観的更新のテスト');
   await stall(page, '**/api/lemon/**');
   await page.getByRole('button', { name: '保存' }).click();
 
@@ -79,19 +79,19 @@ test('保存に失敗したら投機的な表示を取り消し、入力した�
 
   await page.getByRole('button', { name: '立替を追加' }).click();
   await page.getByLabel('金額（円）').fill('4321');
-  await page.getByLabel('内容').fill('失敗する立替');
+  await page.getByLabel('内容', { exact: true }).fill('失敗する立替');
   await page.getByRole('button', { name: '保存' }).click();
 
   // 投機的に出した行は消え、入力したままのフォームが理由つきで戻る
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByText('保存できませんでした（テスト）')).toBeVisible();
   await expect(page.getByLabel('金額（円）')).toHaveValue('4321');
-  await expect(page.getByLabel('内容')).toHaveValue('失敗する立替');
+  await expect(page.getByLabel('内容', { exact: true })).toHaveValue('失敗する立替');
   await expect(page.getByRole('listitem').filter({ hasText: '失敗する立替' })).toHaveCount(0);
 
   // 直して保存し直せる
   await page.unroute('**/api/expenses');
-  await page.getByLabel('内容').fill('直した立替');
+  await page.getByLabel('内容', { exact: true }).fill('直した立替');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText('直した立替')).toBeVisible();
