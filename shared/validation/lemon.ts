@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { instantSchema } from './common.ts';
+import { newId } from '../id.ts';
+import { instantSchema, uuidSchema } from './common.ts';
 
 export const CARE_TYPES = ['water', 'mist', 'fertilize', 'bloom', 'harvest', 'note'] as const;
 export type CareType = (typeof CARE_TYPES)[number];
@@ -28,3 +29,8 @@ export const careLogSchema = z
     path: ['note'],
   });
 export type CareLogInput = z.infer<typeof careLogSchema>;
+
+/** API（POST /api/lemon/logs）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
+export const createCareLogRequestSchema = careLogSchema.safeExtend({
+  id: uuidSchema.default(newId),
+});

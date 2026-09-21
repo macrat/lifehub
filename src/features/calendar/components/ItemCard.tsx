@@ -6,7 +6,6 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { taskTime } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
-import { useOnline } from '../../../lib/online.ts';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
@@ -32,7 +31,6 @@ export function ItemCard({ item, onClick }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const toggle = useToggleCompletion();
-  const online = useOnline();
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
@@ -65,7 +63,6 @@ export function ItemCard({ item, onClick }: Props) {
           <Checkbox
             size="small"
             checked={completed}
-            disabled={!online}
             onChange={(_, checked) =>
               toggle.mutate({
                 id: item.id,

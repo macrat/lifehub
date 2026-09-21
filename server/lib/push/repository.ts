@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
+import { newId } from '../../../shared/id.ts';
 import { db } from '../db.ts';
-import { newId } from '../id.ts';
 import { type PushSubscriptionRow, pushSubscriptions } from './schema.ts';
 
 export async function upsert(row: {

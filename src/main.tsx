@@ -8,7 +8,7 @@ import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { meQueryOptions } from './lib/auth.ts';
-import { persistOptions, queryClient } from './lib/query-client.ts';
+import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
 import { createAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
@@ -119,7 +119,11 @@ function ThemedApp() {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+      onSuccess={resumeWrites}
+    >
       <ThemedApp />
     </PersistQueryClientProvider>
   </StrictMode>,

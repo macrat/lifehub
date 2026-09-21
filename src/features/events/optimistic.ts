@@ -21,11 +21,14 @@ import type { CreateEventBody, UpdateEventBody } from './queries.ts';
 /** 回を指す指定（繰り返しの範囲と基準日時）。単発では scope = all、occurrenceStart = undefined */
 type Target = { id: string; scope?: RecurrenceScope; occurrenceStart?: string };
 
-/** 追加した予定・タスクを置く。id は保存が終わるまでの仮のもの */
-export function insertItem(client: QueryClient, input: CreateEventBody, id: string): void {
+/** 追加する予定・タスク。id はクライアントが決めて送るので、保存の前後で変わらない */
+type NewEvent = CreateEventBody & { id: string };
+
+/** 追加した予定・タスクを置く */
+export function insertItem(client: QueryClient, input: NewEvent): void {
   updateCalendars(client, (items, range, now) => [
     ...items,
-    ...placeOccurrence(toOccurrence(input, id), range, now),
+    ...placeOccurrence(toOccurrence(input), range, now),
   ]);
 }
 
@@ -42,7 +45,7 @@ export function updateItem(client: QueryClient, input: UpdateEventBody & Target)
     if (single) {
       return [
         ...items.filter((item) => item.id !== input.id),
-        ...placeOccurrence({ ...toOccurrence(input, input.id), completedAt }, range, now),
+        ...placeOccurrence({ ...toOccurrence(input), completedAt }, range, now),
       ];
     }
     return items.map((item) =>
@@ -119,14 +122,14 @@ function matches(item: CalendarItem, target: Target): boolean {
 }
 
 /** 保存を送った内容から、サーバーが返すはずの発生を組み立てる */
-function toOccurrence(input: CreateEventBody, id: string): Occurrence {
+function toOccurrence(input: NewEvent): Occurrence {
   const instants = normalizeInstants(
     input.allDay ?? false,
     input.startsAt ? new Date(input.startsAt) : null,
     input.endsAt ? new Date(input.endsAt) : null,
   );
   return {
-    id,
+    id: input.id,
     kind: input.kind,
     title: input.title,
     allDay: input.allDay ?? false,

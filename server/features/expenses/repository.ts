@@ -1,7 +1,6 @@
 import { desc, eq, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { db } from '../../lib/db.ts';
-import { newId } from '../../lib/id.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -32,10 +31,17 @@ export async function sumByDirection(): Promise<ExpenseTotal[]> {
     .groupBy(expenses.fromUserId, expenses.toUserId);
 }
 
-export async function insert(row: ExpenseValues & { createdBy: string }): Promise<ExpenseRow> {
+/**
+ * 立替を作る。id は呼び出し元（多くはクライアント）が決めたもの。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ */
+export async function insert(
+  row: ExpenseValues & { id: string; createdBy: string },
+): Promise<ExpenseRow> {
   const inserted = await db
     .insert(expenses)
-    .values({ ...row, id: newId() })
+    .values(row)
+    .onConflictDoUpdate({ target: expenses.id, set: row })
     .returning();
   const expense = inserted[0];
   if (!expense) throw new Error('insert returned no row');

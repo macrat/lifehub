@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
+import { newId } from '../../../shared/id.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
@@ -26,23 +27,31 @@ export function eventQueryOptions(id: string) {
 /** 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行） */
 const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
 
+/**
+ * 予定・タスクの追加。行の id はここで決めて送る。
+ * WHY: オフラインで作った項目もその場で編集・削除でき（仮の id を後から差し替えずに済む）、
+ * 通信が切れて送り直しても二重に作られない。
+ */
 export function useCreateEvent() {
-  return useOptimisticMutation({
-    mutationFn: async (input: CreateEventBody) => {
-      const res = await ensureOk(await api.events.$post({ json: input }));
-      return res.json();
-    },
+  const create = useOptimisticMutation({
+    request: (input: CreateEventBody & { id: string }) => ({
+      method: 'POST' as const,
+      path: api.events.$url().pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
-    apply: (client, input) => insertItem(client, input, crypto.randomUUID()),
+    apply: insertItem,
   });
+  return { mutateAsync: (input: CreateEventBody) => create.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: UpdateEventBody & { id: string }) => {
-      const res = await ensureOk(await api.events[':id'].$put({ param: { id }, json: input }));
-      return res.json();
-    },
+    request: ({ id, ...input }: UpdateEventBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.events[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
     apply: updateItem,
   });
@@ -50,9 +59,11 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: DeleteEventBody & { id: string }) => {
-      await ensureOk(await api.events[':id'].$delete({ param: { id }, json: input }));
-    },
+    request: ({ id, ...input }: DeleteEventBody & { id: string }) => ({
+      method: 'DELETE' as const,
+      path: api.events[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: WRITE_KEYS,
     apply: removeItem,
   });
@@ -61,7 +72,7 @@ export function useDeleteEvent() {
 /** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
   return useOptimisticMutation({
-    mutationFn: async ({
+    request: ({
       id,
       occurrenceStart,
       completed,
@@ -69,14 +80,11 @@ export function useToggleCompletion() {
       id: string;
       occurrenceStart: string | null;
       completed: boolean;
-    }) => {
-      const args = { param: { id }, json: { occurrenceStart: occurrenceStart ?? undefined } };
-      if (completed) {
-        await ensureOk(await api.events[':id'].complete.$post(args));
-      } else {
-        await ensureOk(await api.events[':id'].complete.$delete(args));
-      }
-    },
+    }) => ({
+      method: completed ? ('POST' as const) : ('DELETE' as const),
+      path: api.events[':id'].complete.$url({ param: { id } }).pathname,
+      body: { occurrenceStart: occurrenceStart ?? undefined },
+    }),
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completed }) =>
       setCompleted(

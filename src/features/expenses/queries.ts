@@ -1,6 +1,7 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { type Balance, balanceOf, type Expense, sortExpenses } from '../../../shared/expenses.ts';
+import { newId } from '../../../shared/id.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
@@ -22,26 +23,33 @@ export const balanceQueryOptions = queryOptions({
   queryFn: async (): Promise<Balance> => (await ensureOk(await api.expenses.balance.$get())).json(),
 });
 
+/**
+ * 立替の追加。行の id はここで決めて送る。
+ * WHY: オフラインで記録したものもその場で編集・削除でき、送り直しても二重に作られない。
+ */
 export function useAddExpense() {
-  return useOptimisticMutation({
-    mutationFn: async (input: ExpenseBody) =>
-      (await ensureOk(await api.expenses.$post({ json: input }))).json(),
+  const add = useOptimisticMutation({
+    request: (input: ExpenseBody & { id: string }) => ({
+      method: 'POST' as const,
+      path: api.expenses.$url().pathname,
+      body: input,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, input) => {
-      const expense: Expense = {
-        ...input,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      };
+      const expense: Expense = { ...input, createdAt: new Date().toISOString() };
       updateList(client, (expenses) => sortExpenses([expense, ...expenses]));
     },
   });
+  return { mutateAsync: (input: ExpenseBody) => add.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateExpense() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: ExpenseBody & { id: string }) =>
-      (await ensureOk(await api.expenses[':id'].$put({ param: { id }, json: input }))).json(),
+    request: ({ id, ...input }: ExpenseBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.expenses[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, { id, ...input }) => {
       updateList(client, (expenses) =>
@@ -55,9 +63,10 @@ export function useUpdateExpense() {
 
 export function useDeleteExpense() {
   return useOptimisticMutation({
-    mutationFn: async (id: string) => {
-      await ensureOk(await api.expenses[':id'].$delete({ param: { id } }));
-    },
+    request: (id: string) => ({
+      method: 'DELETE' as const,
+      path: api.expenses[':id'].$url({ param: { id } }).pathname,
+    }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, id) => {
       updateList(client, (expenses) => expenses.filter((expense) => expense.id !== id));

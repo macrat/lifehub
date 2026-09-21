@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { newId } from '../../../../shared/id.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { ValidationError } from '../../../lib/errors.ts';
@@ -81,6 +82,23 @@ describe('events service', () => {
         occurrenceStart: null,
         placementDate: '2026-09-10',
       });
+    });
+
+    it('同じ id で送り直しても二重に作られない（オフラインで溜めた書き込みの再送）', async () => {
+      const id = newId();
+      const input = createEventSchema.parse({
+        kind: 'event',
+        title: '歯医者',
+        startsAt: iso('2026-09-10T14:00:00'),
+        endsAt: iso('2026-09-10T15:00:00'),
+        participantIds: [userId],
+      });
+      await createEvent(input, userId, id);
+      await createEvent(input, userId, id);
+
+      const list = await listItems(september, now);
+      expect(list).toHaveLength(1);
+      expect(list[0]).toMatchObject({ id, title: '歯医者', participantIds: [userId] });
     });
 
     it('終日の予定は JST の日境界に正規化され、終了日は含む', async () => {

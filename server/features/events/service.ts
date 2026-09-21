@@ -1,4 +1,5 @@
 import { normalizeInstants } from '../../../shared/calendar.ts';
+import { newId } from '../../../shared/id.ts';
 import type {
   CompleteEventInput,
   CreateEventInput,
@@ -20,9 +21,14 @@ export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));
 }
 
-export async function createEvent(input: CreateEventInput, userId: string): Promise<EventMaster> {
+/** id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+export async function createEvent(
+  input: CreateEventInput,
+  userId: string,
+  id: string = newId(),
+): Promise<EventMaster> {
   const values = normalizeInput(input);
-  const id = await repository.insert({ ...values, createdBy: userId }, input.participantIds);
+  await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
   await enqueueUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
   return savedMaster(id, values, input.participantIds);
@@ -65,14 +71,14 @@ async function applyUpdate(
 
   if (scope === 'following') {
     const splitAt = requireOccurrence(master, input.occurrenceStart);
-    const newId = await repository.splitFollowing({
+    const splitId = await repository.splitFollowing({
       masterId: id,
       masterRRule: withUntilBefore(master.rrule ?? '', splitAt),
       splitAt,
       newRow: { ...values, createdBy: userId },
       participantIds: input.participantIds,
     });
-    return savedMaster(newId, values, input.participantIds);
+    return savedMaster(splitId, values, input.participantIds);
   }
 
   await repository.update(id, values, {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { newId } from '../id.ts';
 import { dateStringSchema, uuidSchema } from './common.ts';
 
 /** 立替の入力。追加と編集で同じ（編集は全項目を置き換える） */
@@ -19,3 +20,8 @@ export const expenseSchema = z
     path: ['toUserId'],
   });
 export type ExpenseInput = z.infer<typeof expenseSchema>;
+
+/** API（POST /api/expenses）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
+export const createExpenseRequestSchema = expenseSchema.safeExtend({
+  id: uuidSchema.default(newId),
+});

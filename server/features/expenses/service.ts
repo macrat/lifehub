@@ -1,4 +1,5 @@
 import { type Balance, balanceOf, type Expense } from '../../../shared/expenses.ts';
+import { newId } from '../../../shared/id.ts';
 import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import * as users from '../users/service.ts';
@@ -16,8 +17,13 @@ export async function getBalance(): Promise<Balance> {
   return balanceOf(await repository.sumByDirection(), await twoUsers());
 }
 
-export async function addExpense(input: ExpenseInput, userId: string): Promise<Expense> {
-  return toExpense(await repository.insert({ ...input, createdBy: userId }));
+/** id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+export async function addExpense(
+  input: ExpenseInput,
+  userId: string,
+  id: string = newId(),
+): Promise<Expense> {
+  return toExpense(await repository.insert({ ...input, id, createdBy: userId }));
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */

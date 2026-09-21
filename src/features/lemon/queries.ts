@@ -1,5 +1,6 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
+import { newId } from '../../../shared/id.ts';
 import {
   type CareLog,
   type CareStatus,
@@ -28,14 +29,21 @@ export const lemonLogsQueryOptions = queryOptions({
   queryFn: async (): Promise<CareLog[]> => (await ensureOk(await api.lemon.logs.$get())).json(),
 });
 
+/**
+ * 世話の記録の追加。行の id はここで決めて送る。
+ * WHY: オフラインで記録したものもその場で編集・削除でき、送り直しても二重に作られない。
+ */
 export function useLogCare() {
-  return useOptimisticMutation({
-    mutationFn: async (input: CareLogBody) =>
-      (await ensureOk(await api.lemon.logs.$post({ json: input }))).json(),
+  const log = useOptimisticMutation({
+    request: (input: CareLogBody & { id: string }) => ({
+      method: 'POST' as const,
+      path: api.lemon.logs.$url().pathname,
+      body: input,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, input) => {
       const log: CareLog = {
-        id: crypto.randomUUID(),
+        id: input.id,
         careType: input.careType,
         doneAt: input.doneAt,
         note: input.note ?? null,
@@ -51,12 +59,16 @@ export function useLogCare() {
       );
     },
   });
+  return { mutateAsync: (input: CareLogBody) => log.mutateAsync({ ...input, id: newId() }) };
 }
 
 export function useUpdateCareLog() {
   return useOptimisticMutation({
-    mutationFn: async ({ id, ...input }: CareLogBody & { id: string }) =>
-      (await ensureOk(await api.lemon.logs[':id'].$put({ param: { id }, json: input }))).json(),
+    request: ({ id, ...input }: CareLogBody & { id: string }) => ({
+      method: 'PUT' as const,
+      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, { id, ...input }) => {
       client.setQueryData(
@@ -77,9 +89,10 @@ export function useUpdateCareLog() {
 
 export function useDeleteCareLog() {
   return useOptimisticMutation({
-    mutationFn: async (id: string) => {
-      await ensureOk(await api.lemon.logs[':id'].$delete({ param: { id } }));
-    },
+    request: (id: string) => ({
+      method: 'DELETE' as const,
+      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
+    }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, id) => {
       client.setQueryData(lemonLogsQueryOptions.queryKey, (logs) =>

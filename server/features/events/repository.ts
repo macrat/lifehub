@@ -13,8 +13,8 @@ import {
   sql,
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
+import { newId } from '../../../shared/id.ts';
 import { db, runBatch } from '../../lib/db.ts';
-import { newId } from '../../lib/id.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -106,17 +106,18 @@ function participantRows(eventId: string, userIds: string[]) {
   return userIds.map((userId) => ({ eventId, userId }));
 }
 
-/** 行と参加者を原子的に作る。id を返す */
-export async function insert(
-  row: Omit<NewEventRow, 'id'>,
-  participantIds: string[],
-): Promise<string> {
-  const id = newId();
+/**
+ * 行と参加者を原子的に作る。id は呼び出し元（多くはクライアント）が決めたもの。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ */
+export async function insert(row: NewEventRow, participantIds: string[]): Promise<void> {
   await runBatch((tx) => [
-    tx.insert(events).values({ ...row, id }),
-    tx.insert(eventParticipants).values(participantRows(id, participantIds)),
+    tx.insert(events).values(row).onConflictDoUpdate({ target: events.id, set: row }),
+    tx
+      .insert(eventParticipants)
+      .values(participantRows(row.id, participantIds))
+      .onConflictDoNothing(),
   ]);
-  return id;
 }
 
 /**

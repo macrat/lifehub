@@ -17,7 +17,8 @@ function clientWith(month: string, items: CalendarItem[] = []) {
 const itemsOf = (client: QueryClient): CalendarItem[] =>
   client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })[0]?.[1] ?? [];
 
-const EVENT: CreateEventBody = {
+const EVENT: CreateEventBody & { id: string } = {
+  id: 'tmp',
   kind: 'event',
   title: '旅行',
   allDay: true,
@@ -33,7 +34,7 @@ const EVENT: CreateEventBody = {
 
 test('終日の予定は終了日まで、掛かる日ごとに置かれる', () => {
   const client = clientWith('2030-05');
-  insertItem(client, EVENT, 'tmp');
+  insertItem(client, EVENT);
   // 5/2〜5/4 の 3 日間（終了日は含む）にそれぞれ 1 件ずつ
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([
     '2030-05-02',
@@ -47,18 +48,14 @@ test('終日の予定は終了日まで、掛かる日ごとに置かれる', ()
 
 test('その月に掛からない予定は置かれない', () => {
   const client = clientWith('2030-06');
-  insertItem(client, EVENT, 'tmp');
+  insertItem(client, EVENT);
   expect(itemsOf(client)).toEqual([]);
 });
 
 test('日時の無いタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
   const todayDate = today();
   const client = clientWith(toMonthString(todayDate));
-  insertItem(
-    client,
-    { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false },
-    'tmp',
-  );
+  insertItem(client, { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false });
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 
   setCompleted(client, { id: 'tmp', scope: 'this' }, true);

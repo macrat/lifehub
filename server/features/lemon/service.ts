@@ -1,3 +1,4 @@
+import { newId } from '../../../shared/id.ts';
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
 import type { CareLogInput } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
@@ -19,8 +20,13 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
   );
 }
 
-export async function logCare(input: CareLogInput, userId: string): Promise<CareLog> {
-  return toLog(await repository.insert({ ...input, createdBy: userId }));
+/** id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+export async function logCare(
+  input: CareLogInput,
+  userId: string,
+  id: string = newId(),
+): Promise<CareLog> {
+  return toLog(await repository.insert({ ...input, id, createdBy: userId }));
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */

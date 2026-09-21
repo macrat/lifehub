@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { newId } from '../../../../shared/id.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
 import { getStatus, listLogs, logCare, updateLog } from '../service.ts';
@@ -28,6 +29,16 @@ describe('lemon service', () => {
       { careType: 'bloom', lastDoneAt: null, daysSince: null },
       { careType: 'harvest', lastDoneAt: null, daysSince: null },
     ]);
+  });
+
+  it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
+    const id = newId();
+    const input = { careType: 'water' as const, doneAt: jst('2026-09-10T08:00:00'), note: null };
+    await logCare(input, userId, id);
+    await logCare(input, userId, id);
+
+    expect(await listLogs()).toHaveLength(1);
+    expect((await listLogs())[0]).toMatchObject({ id, careType: 'water' });
   });
 
   it('記録を編集すると全項目が置き換わり、状態にも反映される', async () => {

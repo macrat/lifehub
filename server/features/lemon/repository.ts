@@ -1,7 +1,6 @@
 import { and, desc, eq, inArray, lte } from 'drizzle-orm';
 import { type CareType, TRACKED_CARE_TYPES } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
-import { newId } from '../../lib/id.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
 export async function findAll(): Promise<LemonCareLogRow[]> {
@@ -30,7 +29,12 @@ export async function findLatestByCareType(
     .orderBy(lemonCareLogs.careType, desc(lemonCareLogs.doneAt), desc(lemonCareLogs.createdAt));
 }
 
+/**
+ * 世話の記録を作る。id は呼び出し元（多くはクライアント）が決めたもの。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ */
 export async function insert(row: {
+  id: string;
   careType: CareType;
   doneAt: Date;
   note: string | null;
@@ -38,7 +42,8 @@ export async function insert(row: {
 }): Promise<LemonCareLogRow> {
   const inserted = await db
     .insert(lemonCareLogs)
-    .values({ ...row, id: newId() })
+    .values(row)
+    .onConflictDoUpdate({ target: lemonCareLogs.id, set: row })
     .returning();
   const log = inserted[0];
   if (!log) throw new Error('insert returned no row');

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { dateRangeQuerySchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
   completeEventSchema,
-  createEventSchema,
+  createEventRequestSchema,
   deleteEventSchema,
   updateEventSchema,
 } from '../../../shared/validation/events.ts';
@@ -21,8 +21,9 @@ export const eventsRoutes = new Hono<AppEnv>()
   .get('/:id', zValidator('param', idParam, validationHook), async (c) =>
     c.json(await service.getEvent(c.req.valid('param').id)),
   )
-  .post('/', zValidator('json', createEventSchema, validationHook), async (c) => {
-    const event = await service.createEvent(c.req.valid('json'), c.get('user').id);
+  .post('/', zValidator('json', createEventRequestSchema, validationHook), async (c) => {
+    const { id, ...input } = c.req.valid('json');
+    const event = await service.createEvent(input, c.get('user').id, id);
     return c.json(event, 201);
   })
   .put(

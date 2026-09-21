@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { taskTime } from '../../../../shared/calendar.ts';
 import { formatTime, toDateString, today } from '../../../lib/date.ts';
-import { useOnline } from '../../../lib/online.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
@@ -63,7 +62,6 @@ function TodayRow({
 }) {
   const colorFor = useUserColor();
   const toggle = useToggleCompletion();
-  const online = useOnline();
   const isTask = item.kind === 'task';
   const colors = colorFor(colorUserOf(item));
   return (
@@ -73,7 +71,6 @@ function TodayRow({
           <Checkbox
             size="small"
             checked={false}
-            disabled={!online}
             onChange={() =>
               toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: true })
             }

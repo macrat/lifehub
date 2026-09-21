@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
@@ -81,6 +82,16 @@ describe('expenses service', () => {
       spentOn: '2026-09-02',
     });
     expect(await getBalance()).toEqual({ amount: 500, fromUserId: a, toUserId: b });
+  });
+
+  it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
+    const id = newId();
+    const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
+    await addExpense(input, a, id);
+    await addExpense(input, a, id);
+
+    expect(await listExpenses()).toHaveLength(1);
+    expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
   });
 
   it('立替を削除できる', async () => {
