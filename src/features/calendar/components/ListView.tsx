@@ -6,8 +6,9 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
+import { matchesKeyword } from '../../../lib/search.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { type CalendarItem, groupByDate } from '../queries.ts';
+import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import { DayList } from './DayList.tsx';
 
 export type ListFilters = {
@@ -22,7 +23,6 @@ export type ListFilters = {
 };
 
 type Props = {
-  items: CalendarItem[];
   filters: ListFilters;
   filtersOpen: boolean;
   /** 更新する項目だけ。undefined は既定に戻す */
@@ -31,8 +31,10 @@ type Props = {
 };
 
 /** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・参加者・完了状態・キーワードで絞り込める時系列の一覧。 */
-export function ListView({ items, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
+export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { users } = useUserLabels();
+  // 期間はサーバーに投げ、それ以外の絞り込みは手元で掛ける（打つたびに取り直さない）
+  const { items } = useCalendarItems({ from: filters.from, to: filters.to });
   const grouped = groupByDate(items.filter((item) => matches(item, filters)));
   return (
     <>
@@ -131,10 +133,5 @@ function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
   if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;
   if (f.completed === 'done' && (item.kind !== 'task' || item.completedAt === null)) return false;
-  if (f.q) {
-    const q = f.q.toLowerCase();
-    const text = `${item.title} ${item.location ?? ''} ${item.note ?? ''}`.toLowerCase();
-    if (!text.includes(q)) return false;
-  }
-  return true;
+  return matchesKeyword(f.q, item.title, item.location, item.note);
 }

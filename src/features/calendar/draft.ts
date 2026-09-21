@@ -1,11 +1,5 @@
 import type { DateString } from '../../../shared/types.ts';
-import {
-  formatDate,
-  formatDateRange,
-  formatMinutesOfDay,
-  fromDateValue,
-  fromMinutesOfDay,
-} from '../../lib/date.ts';
+import { formatDate, formatMinutesOfDay, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
@@ -81,7 +75,9 @@ export function draftColumns(
 export function draftText(draft: EventDraft): string {
   if (draft.allDay) {
     const days =
-      draft.from === draft.to ? formatDate(draft.from) : formatDateRange(draft.from, draft.to);
+      draft.from === draft.to
+        ? formatDate(draft.from)
+        : `${formatDate(draft.from)}〜${formatDate(draft.to)}`;
     return `${days} 終日`;
   }
   return `${formatDate(draft.date)} ${formatMinutesOfDay(draft.startMin)}〜${formatMinutesOfDay(draft.endMin)}`;

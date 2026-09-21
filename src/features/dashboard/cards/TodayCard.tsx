@@ -3,33 +3,28 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
   type CalendarItem,
-  calendarItemsQueryOptions,
   colorUserOf,
   taskTime,
+  useCalendarItems,
 } from '../../calendar/queries.ts';
 import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
-/** 今日の項目のクエリ（カレンダーの 1 日分と同じ）。ホームの loader もこれを先読みする */
-export const todayItemsQueryOptions = () =>
-  calendarItemsQueryOptions({ from: today(), to: today() });
-
 /**
  * 今日の予定と未完了のタスクを 1 つの一覧に。1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
  * タスクはチェックで完了、行をタップすると詳細。
  */
 export function TodayCard() {
-  const { data = [], error } = useQuery(todayItemsQueryOptions());
-  const items = data.filter((item) => item.completedAt === null);
+  const { items: all, error } = useCalendarItems({ from: today(), to: today() });
+  const items = all.filter((item) => item.completedAt === null);
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   return (
     <DashboardCardFrame
@@ -69,7 +64,7 @@ function TodayRow({
           <Checkbox
             size="small"
             checked={false}
-            disabled={toggle.isPending || !online}
+            disabled={!online}
             onChange={() =>
               toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: true })
             }

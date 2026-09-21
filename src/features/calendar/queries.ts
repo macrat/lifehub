@@ -1,25 +1,52 @@
-import { queryOptions } from '@tanstack/react-query';
-import type { InferResponseType } from 'hono/client';
+import { queryOptions, useQueries } from '@tanstack/react-query';
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { api, ensureOk } from '../../lib/api.ts';
+import { monthRange, monthsInRange } from '../../lib/date.ts';
 
-export type CalendarItem = InferResponseType<typeof api.events.$get, 200>[number];
+/** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
+export type { CalendarItem } from '../../../shared/calendar.ts';
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 export const CALENDAR_QUERY_KEY = ['calendar'] as const;
 
-/** [from, to]（両端含む JST 暦日）の項目。予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。 */
-export function calendarItemsQueryOptions(range: { from: DateString; to: DateString }) {
+/**
+ * 1 か月（JST 暦月）分の項目。キャッシュの単位を表示範囲ではなく暦月に固定する。
+ * 月・週・日・リストのどの表示も、同じ日を見ているなら同じ月のキャッシュに当たるので、
+ * 表示や日付を切り替えても手元の内容をそのまま出したまま裏で取り直せる
+ * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
+ * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
+ */
+export function calendarMonthQueryOptions(month: string) {
   return queryOptions({
-    queryKey: [...CALENDAR_QUERY_KEY, range.from, range.to],
-    queryFn: async () => {
-      const res = await ensureOk(await api.events.$get({ query: range }));
+    queryKey: [...CALENDAR_QUERY_KEY, month],
+    // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
+    queryFn: async (): Promise<CalendarItem[]> => {
+      const res = await ensureOk(await api.events.$get({ query: monthRange(month) }));
       return res.json();
     },
-    // 表示のたびに取り直す（キャッシュはまず出す）。永続化キャッシュは書き込みが 1 秒遅れるため、
-    // 変更直後に再読み込みすると古い一覧が復元されることがあり、既定の staleTime だとそれが残る
-    staleTime: 0,
+  });
+}
+
+/**
+ * [from, to]（両端含む JST 暦日）の項目。範囲に掛かる月のキャッシュを繋いで返す。
+ * 揃っていない月だけが後から埋まるので、既に持っている月は待たずに表示できる。
+ */
+export function useCalendarItems(range: { from: DateString; to: DateString }): {
+  items: CalendarItem[];
+  error: Error | null;
+} {
+  return useQueries({
+    queries: monthsInRange(range.from, range.to).map(calendarMonthQueryOptions),
+    combine: (results) => ({
+      // 月は互いに重ならず昇順なので、範囲で絞って繋ぐだけで重複せず placementDate 順も保たれる
+      // （月をまたぐ予定はサーバーが日ごとの項目にして返すため、月ごとに別の日として分かれる）
+      items: results
+        .flatMap((result) => result.data ?? [])
+        .filter((item) => item.placementDate >= range.from && item.placementDate <= range.to),
+      error: results.find((result) => result.error)?.error ?? null,
+    }),
   });
 }
 

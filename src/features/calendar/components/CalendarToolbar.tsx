@@ -4,10 +4,10 @@ import TodayIcon from '@mui/icons-material/Today';
 import Badge from '@mui/material/Badge';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import InputBase from '@mui/material/InputBase';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
+import { SearchField } from '../../../lib/ui/SearchField.tsx';
 
 type CalendarView = 'month' | 'week' | 'day' | 'list';
 
@@ -18,9 +18,16 @@ const VIEW_LABELS: Record<CalendarView, string> = {
   list: 'リスト',
 };
 
+/** 見出しのタップで何が選べるか。表示している単位と選ぶ単位は揃える（リスト表示に見出しは無い） */
+const PICKER_LABELS: Record<Exclude<CalendarView, 'list'>, string> = {
+  month: '年月を選ぶ',
+  week: '週を選ぶ',
+  day: '日付を選ぶ',
+};
+
 type Props = {
   view: CalendarView;
-  /** 月・週・日表示の見出し（タップで年月の選択） */
+  /** 月・週・日表示の見出し（タップで年月・週・日の選択） */
   title: string;
   onOpenPicker: () => void;
   onToday: () => void;
@@ -37,7 +44,7 @@ type Props = {
 
 /**
  * AppBar に収めるカレンダーの操作。前後への移動はスワイプ（スマホ）や表示切替に任せ、ボタンは置かない。
- * 左: 年月（タップで選択ダイアログ）／リスト表示では検索。右: 今日、表示の切替。
+ * 左: 見出し（タップで選択ダイアログ）／リスト表示では検索。右: 今日、表示の切替。
  */
 export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeView, list }: Props) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -45,21 +52,7 @@ export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeVi
     <>
       {view === 'list' ? (
         <>
-          <InputBase
-            type="search"
-            placeholder="検索"
-            value={list.query}
-            onChange={(e) => list.onChangeQuery(e.target.value)}
-            inputProps={{ 'aria-label': '検索' }}
-            sx={{
-              flexGrow: 1,
-              minWidth: 0,
-              bgcolor: 'action.hover',
-              borderRadius: 5,
-              px: 1.5,
-              py: 0.25,
-            }}
-          />
+          <SearchField label="検索" value={list.query} onChange={list.onChangeQuery} />
           <IconButton
             aria-label="絞り込み"
             aria-expanded={list.filtersOpen}
@@ -77,7 +70,7 @@ export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeVi
             color="inherit"
             onClick={onOpenPicker}
             endIcon={<ArrowDropDownIcon />}
-            aria-label={`${title}（年月を選ぶ）`}
+            aria-label={`${title}（${PICKER_LABELS[view]}）`}
             sx={{
               minWidth: 0,
               px: 1,

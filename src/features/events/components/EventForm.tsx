@@ -51,7 +51,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
   const initialStart = initial.startsAt ?? new Date().toISOString();
   const initialEnd = initial.endsAt ?? initialStart;
 
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => {
       const startsRaw = formText(fd, 'startsAt');
@@ -81,17 +81,17 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
         startsAt: data.startsAt?.toISOString() ?? null,
         endsAt: data.endsAt?.toISOString() ?? null,
       }),
-    onSuccess: onClose,
+    onSaved: onClose,
   });
 
   return (
     <FormDialog
+      open={!submitted}
+      error={submitError}
       onClose={onClose}
       maxWidth="sm"
       title={title}
       onSubmit={handleSubmit}
-      submitting={submitting}
-      error={submitError}
     >
       <TextField
         name="title"

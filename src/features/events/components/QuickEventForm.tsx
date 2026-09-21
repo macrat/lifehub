@@ -13,8 +13,9 @@ import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { formList, formText, useFormSubmit } from '../../../lib/form.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { useSwipe } from '../../../lib/use-swipe.ts';
 import { draftInstants, draftText, draftValues, type EventDraft } from '../../calendar/draft.ts';
-import { useSwipe } from '../../calendar/use-swipe.ts';
+
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
@@ -24,8 +25,9 @@ type Props = {
   draft: EventDraft;
   /** 入力できる状態か。ドラッグの最中は出さない */
   open: boolean;
+  /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
-  /** 「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
+  /** 「その他のオプション」・上へのスワイプ: 入力済みの内容を引き継いで全項目のフォームへ */
   onExpand: (values: ItemFormValues) => void;
   onClose: () => void;
 };
@@ -38,7 +40,7 @@ type Props = {
 export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Props) {
   const isMobile = useIsMobile();
   const formRef = useRef<HTMLFormElement>(null);
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => ({
       kind: 'event',
@@ -57,7 +59,7 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
         startsAt: data.startsAt?.toISOString() ?? null,
         endsAt: data.endsAt?.toISOString() ?? null,
       }),
-    onSuccess: onClose,
+    onSaved: onClose,
   });
 
   /** 入力済みの内容を引き継いで全項目のフォームへ */
@@ -70,7 +72,7 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
     });
   };
 
-  const save = <SubmitButton disabled={submitting} />;
+  const save = <SubmitButton />;
   const content = (
     <Stack
       component="form"
@@ -110,12 +112,13 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
     </Stack>
   );
 
+  // 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる
   return isMobile ? (
-    <Sheet onExpand={expand} onClose={onClose}>
+    <Sheet open={!submitted} onExpand={expand} onClose={onClose}>
       {content}
     </Sheet>
   ) : (
-    <Bubble open={open} onClose={onClose}>
+    <Bubble open={open && !submitted} onClose={onClose}>
       {content}
     </Bubble>
   );
@@ -126,10 +129,12 @@ export function QuickEventForm({ draft, open, onSubmit, onExpand, onClose }: Pro
  * 上へスワイプすると全項目のフォームへ広がり、下へスワイプすると下書きごと取り消す。
  */
 function Sheet({
+  open,
   onExpand,
   onClose,
   children,
 }: {
+  open: boolean;
   onExpand: () => void;
   onClose: () => void;
   children: ReactNode;
@@ -139,7 +144,7 @@ function Sheet({
   return (
     <Drawer
       anchor="bottom"
-      open
+      open={open}
       variant="persistent"
       slotProps={{
         paper: { sx: { borderRadius: '16px 16px 0 0', pb: 'env(safe-area-inset-bottom)' } },

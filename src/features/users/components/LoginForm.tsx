@@ -9,12 +9,12 @@ type Props = {
   onSubmit: (input: LoginInput) => Promise<void>;
 };
 
+/** ログイン。成功すれば画面が移るので、閉じる・開き直すはなく、失敗をその場に出すだけ。 */
 export function LoginForm({ onSubmit }: Props) {
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: loginSchema,
     values: formValues,
     onSubmit,
-    errorMessage: 'ログインに失敗しました',
   });
 
   return (
@@ -40,7 +40,7 @@ export function LoginForm({ onSubmit }: Props) {
           helperText={errors.password}
           fullWidth
         />
-        <SubmitButton size="large" disabled={submitting}>
+        <SubmitButton size="large" disabled={submitted}>
           ログイン
         </SubmitButton>
       </Stack>

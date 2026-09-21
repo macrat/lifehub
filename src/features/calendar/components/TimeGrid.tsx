@@ -11,6 +11,7 @@ import type { EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
+import { syncScrollProps } from './SwipePager.tsx';
 import type { TimedPlaced } from './timeline-layout.ts';
 
 type Props = {
@@ -28,7 +29,8 @@ type Props = {
 
 /**
  * 0〜24 時の時間軸。縦にスクロールし、時間指定の項目を開始〜終了の高さで置く。今日の列には現在時刻の線。
- * 初期スクロールは、今日を含むなら現在時刻の少し上、それ以外は 7 時。
+ * 縦の位置を合わせるのは最初に出したときだけ（今日を含むなら現在時刻の少し上、それ以外は 7 時）。
+ * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  */
 export function TimeGrid({
@@ -50,17 +52,16 @@ export function TimeGrid({
   const todayStr = today(now);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const daysKey = days.join(',');
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 表示する日が変わったときに合わせ直す
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 最初に出したときだけ合わせる
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
     el.scrollTop = Math.max(0, target);
-  }, [daysKey, hourHeight]);
+  }, [hourHeight]);
 
   return (
-    <Box ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
+    <Box {...syncScrollProps} ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
       <Box
         sx={{
           display: 'grid',
@@ -97,8 +98,12 @@ export function TimeGrid({
               position: 'relative',
               borderLeft: 1,
               borderColor: 'divider',
-              backgroundImage: (t) =>
-                `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight - 1}px, ${t.palette.divider} ${hourHeight}px)`,
+              // 1 時間ごとの横罫線。CSS 変数テーマなので divider は t.vars 側から取る
+              // （t.palette はライト固定の値で、ダークでは黒い線になって背景に沈む）
+              backgroundImage: (t) => {
+                const line = (t.vars ?? t).palette.divider;
+                return `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${line} ${hourHeight - 1}px, ${line} ${hourHeight}px)`;
+              },
             }}
           >
             {(timedByDate.get(day) ?? []).map((p) => (
