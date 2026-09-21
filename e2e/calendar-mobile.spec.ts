@@ -91,6 +91,8 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   // 長押しからそのまま隣の日までなぞって、複数日の終日の予定にする
   await touchDrag(page, await center('2031-06-18'), await center('2031-06-19'), { hold: 400 });
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
+  // 月の帯は端をつままない（行が低く、丸が日付や項目に重なるため）
+  await expect(page.locator('[data-handle]')).toHaveCount(0);
   await page.getByLabel('タイトルを追加').fill(title);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);

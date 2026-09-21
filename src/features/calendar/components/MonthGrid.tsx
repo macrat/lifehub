@@ -221,11 +221,13 @@ function WeekRow({
         />
       ))}
       {draft?.allDay && draftCols && (
+        // 月の帯は 1 行が低く、丸を置くと日付や項目に重なって窮屈なので端はつままない。
+        // 期間を変えるときは選び直す（週の終日欄や時間軸では丸を出す）
         <DraftBar
           draft={draft}
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          handleProps={compact ? drag.handleProps : null}
+          handleProps={null}
         />
       )}
       {hiddenPerCol.map((n, col) =>
