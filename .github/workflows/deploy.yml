@@ -11,20 +11,10 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  TF_CLOUD_ORGANIZATION: macrat
-  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-  TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
-  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
-  TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
-  TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
-  TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
-  TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
-  TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
-  TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
-  TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
+# クレデンシャルは、それを使うステップの env にだけ置く。ワークフローやジョブの env に
+# 置くと、依存パッケージのコードが動く pnpm install や vercel build を含む全ステップに
+# 渡ってしまう。Terraform の出力も GITHUB_ENV ではなくステップの出力にして、使う
+# ステップにだけ渡す。
 jobs:
   deploy:
     name: terraform apply → migrate → deploy
@@ -42,14 +32,46 @@ jobs:
           terraform_wrapper: false
       # プロバイダの更新は Renovate の PR で行うため -upgrade は付けない（Neon のリソース再作成事故を防ぐ）
       - run: terraform -chdir=infra init -input=false
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       - run: terraform -chdir=infra apply -auto-approve -input=false
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
+          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
+          TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
+          TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
+          TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
+          TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
+          TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
+          TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
       - name: Read terraform outputs
+        id: tf
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
         run: |
-          echo "VERCEL_ORG_ID=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_ENV"
-          echo "VERCEL_PROJECT_ID=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_ENV"
-          echo "::add-mask::$(terraform -chdir=infra output -raw database_url)"
-          echo "DATABASE_URL=$(terraform -chdir=infra output -raw database_url)" >> "$GITHUB_ENV"
+          echo "vercel_org_id=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_OUTPUT"
+          echo "vercel_project_id=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_OUTPUT"
+          database_url=$(terraform -chdir=infra output -raw database_url)
+          echo "::add-mask::$database_url"
+          echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
       - run: pnpm db:migrate
-      - run: pnpm exec vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - run: pnpm exec vercel build --prod --token="$VERCEL_TOKEN"
-      - run: pnpm exec vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        env:
+          DATABASE_URL: ${{ steps.tf.outputs.database_url }}
+      - run: pnpm exec vercel pull --yes --environment=production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      # build はアプリのビルド（依存パッケージのコード）を動かすので、トークンを渡さない。
+      # pull 済みのプロジェクト設定だけで動く。
+      - run: pnpm exec vercel build --prod
+        env:
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      - run: pnpm exec vercel deploy --prebuilt --prod
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}

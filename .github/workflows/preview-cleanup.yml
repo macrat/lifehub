@@ -7,21 +7,24 @@ on:
 permissions:
   contents: read
 
+# クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
 jobs:
   delete-neon-branch:
     runs-on: ubuntu-latest
-    env:
-      TF_CLOUD_ORGANIZATION: macrat
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
       - run: terraform -chdir=infra init -input=false
-      - run: echo "NEON_PROJECT_ID=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_ENV"
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      - id: tf
+        run: echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_OUTPUT"
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       - uses: neondatabase/delete-branch-action@v3
         with:
-          project_id: ${{ env.NEON_PROJECT_ID }}
+          project_id: ${{ steps.tf.outputs.neon_project_id }}
           branch: preview/pr-${{ github.event.pull_request.number }}
           api_key: ${{ secrets.NEON_API_KEY }}

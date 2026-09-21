@@ -11,16 +11,6 @@ permissions:
   contents: read
   pull-requests: write
 
-env:
-  TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
-  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
-  TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
-  TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
-  TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
-  TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
-  TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
-  TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
-  TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
 
 jobs:
   check:
@@ -65,9 +55,6 @@ jobs:
   terraform:
     name: terraform plan
     runs-on: ubuntu-latest
-    env:
-      TF_CLOUD_ORGANIZATION: macrat
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
     outputs:
       # main への最初のデプロイ（terraform apply）が済んでいるか。済むまで preview は作れない
       applied: ${{ steps.state.outputs.applied }}
@@ -76,8 +63,12 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - run: terraform -chdir=infra fmt -check
       - run: terraform -chdir=infra init -input=false
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       - run: terraform -chdir=infra validate
       - id: state
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
         run: |
           if terraform -chdir=infra output -raw vercel_project_id >/dev/null 2>&1; then
             echo "applied=true" >> "$GITHUB_OUTPUT"
@@ -88,6 +79,17 @@ jobs:
         # 明示的な bash は pipefail 付きなので、tee を挟んでも terraform の失敗がジョブの失敗になる
         shell: bash
         run: terraform -chdir=infra plan -no-color -input=false -out=tfplan | tee plan.txt
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
+          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
+          TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
+          TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
+          TF_VAR_qstash_current_signing_key: ${{ secrets.TF_VAR_qstash_current_signing_key }}
+          TF_VAR_qstash_next_signing_key: ${{ secrets.TF_VAR_qstash_next_signing_key }}
+          TF_VAR_vapid_public_key: ${{ secrets.TF_VAR_vapid_public_key }}
+          TF_VAR_vapid_private_key: ${{ secrets.TF_VAR_vapid_private_key }}
       - name: Comment plan on PR
         if: always()
         uses: marocchino/sticky-pull-request-comment@v2
@@ -101,10 +103,6 @@ jobs:
     # 初回の apply 前（Vercel / Neon のプロジェクトが無い）は preview を作らない
     if: needs.terraform.outputs.applied == 'true'
     runs-on: ubuntu-latest
-    env:
-      TF_CLOUD_ORGANIZATION: macrat
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -117,16 +115,21 @@ jobs:
         with:
           terraform_wrapper: false
       - run: terraform -chdir=infra init -input=false
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       - name: Read terraform outputs
+        id: tf
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
         run: |
-          echo "VERCEL_ORG_ID=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_ENV"
-          echo "VERCEL_PROJECT_ID=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_ENV"
-          echo "NEON_PROJECT_ID=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_ENV"
+          echo "vercel_org_id=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_OUTPUT"
+          echo "vercel_project_id=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_OUTPUT"
+          echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_OUTPUT"
       - name: Create Neon preview branch
         id: neon
         uses: neondatabase/create-branch-action@v6
         with:
-          project_id: ${{ env.NEON_PROJECT_ID }}
+          project_id: ${{ steps.tf.outputs.neon_project_id }}
           branch_name: preview/pr-${{ github.event.pull_request.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
           database: lifehub
@@ -135,11 +138,24 @@ jobs:
         run: pnpm db:migrate
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
-      - run: pnpm exec vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
-      - run: pnpm exec vercel build --token="$VERCEL_TOKEN"
+      - run: pnpm exec vercel pull --yes --environment=preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      # build はアプリのビルド（依存パッケージのコード）を動かすので、トークンを渡さない
+      - run: pnpm exec vercel build
+        env:
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
       - id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
+          VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
         run: |
-          url=$(pnpm exec vercel deploy --prebuilt --token="$VERCEL_TOKEN" --env DATABASE_URL="${{ steps.neon.outputs.db_url_pooled }}")
+          url=$(pnpm exec vercel deploy --prebuilt --env DATABASE_URL="$DATABASE_URL")
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
