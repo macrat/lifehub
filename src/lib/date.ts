@@ -94,6 +94,16 @@ export function fromDateValue(value: DateString): string {
   return startOfDate(value).toISOString();
 }
 
+/** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
+export function fromMinutesOfDay(date: DateString, minutes: number): string {
+  return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
+}
+
+/** 0:00 からの分 → "09:00"（24:00 はそのまま出す。時間帯の終わりの表示に使う） */
+export function formatMinutesOfDay(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
 /** 排他的な終了日時 → 含む終了日（終日の予定のフォーム用） */
 export function inclusiveEndDate(endsAt: string): DateString {
   return toDateString(new Date(new Date(endsAt).getTime() - 1));

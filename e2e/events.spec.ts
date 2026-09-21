@@ -49,3 +49,31 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   await page.getByRole('button', { name: /^すべて / }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(0);
 });
+
+test('週表示で時間をドラッグして予定を作れる', async ({ page }) => {
+  const title = `E2E ドラッグ ${Date.now()}`;
+  await page.goto('/calendar?view=week&date=2031-06-04');
+
+  // 時間軸の列（1 列 = 24 時間）の上端を基準に、9:00 の枠から 10:15〜10:30 の枠までドラッグする
+  const column = page.locator('[data-date="2031-06-05"]');
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const x = box.x + box.width / 2;
+  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  await page.mouse.move(x, y(9 * 60 + 5));
+  await page.mouse.down();
+  await page.mouse.move(x, y(10 * 60 + 20), { steps: 5 });
+  await page.mouse.up();
+
+  // 選んだ時間帯が入った状態で予定のフォームが開く
+  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
+  await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T10:30');
+  await page.getByLabel('タイトル').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await page.getByRole('button', { name: '削除' }).click();
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
