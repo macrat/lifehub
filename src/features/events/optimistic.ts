@@ -35,11 +35,14 @@ export function insertItem(client: QueryClient, input: CreateEventBody, id: stri
  */
 export function updateItem(client: QueryClient, input: UpdateEventBody & Target): void {
   const single = input.rrule == null && input.scope !== 'this' && input.scope !== 'following';
+  // 完了はこの更新で変わらない（サーバーも completed_at を触らない）ので、今の値を引き継ぐ。
+  // 取得済みのカレンダー全体から先に探す（完了したタスクは完了日の月にしか無い）
+  const completedAt = single ? completedAtOf(client, input) : null;
   updateCalendars(client, (items, range, now) => {
     if (single) {
       return [
         ...items.filter((item) => item.id !== input.id),
-        ...placeOccurrence(toOccurrence(input, input.id), range, now),
+        ...placeOccurrence({ ...toOccurrence(input, input.id), completedAt }, range, now),
       ];
     }
     return items.map((item) =>
@@ -69,6 +72,15 @@ export function setCompleted(client: QueryClient, target: Target, completed: boo
       matches(item, target) ? placeOccurrence({ ...item, completedAt }, range, now) : [item],
     ),
   );
+}
+
+/** 取得済みのカレンダーから対象の今の完了日時を探す（どの月のキャッシュに居るかは完了日で決まる） */
+function completedAtOf(client: QueryClient, target: Target): string | null {
+  for (const [, items] of client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })) {
+    const found = items?.find((item) => matches(item, target));
+    if (found) return found.completedAt;
+  }
+  return null;
 }
 
 /** 取得済みのカレンダー（暦月ごとのクエリ）をまとめて書き換える。未取得のクエリには触らない */
