@@ -65,7 +65,7 @@ function CalendarPage() {
           onChangeView={(view) => page.setSearch({ view })}
           list={{
             query: page.filters.q,
-            onChangeQuery: (q) => page.setSearch({ q: q || undefined }, { replace: true }),
+            onChangeQuery: page.setQuery,
             filtersOpen,
             onToggleFilters: () => setFiltersOpen((v) => !v),
             activeFilters: page.activeFilters,
@@ -77,12 +77,7 @@ function CalendarPage() {
         <ListView
           filters={page.filters}
           filtersOpen={filtersOpen}
-          onChangeFilters={(next) =>
-            page.setSearch(
-              { ...next, q: next.q === undefined ? undefined : next.q || undefined },
-              { replace: true },
-            )
-          }
+          onChangeFilters={(next) => page.setSearch(next, { replace: true })}
           onSelectItem={setSelected}
         />
       ) : (

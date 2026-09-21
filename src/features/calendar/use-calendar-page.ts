@@ -14,6 +14,7 @@ import {
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
+import { useKeywordSearch } from '../../lib/search.ts';
 import type { ListFilters } from './components/ListView.tsx';
 
 export const calendarSearchSchema = z.object({
@@ -47,11 +48,14 @@ export type CalendarPeriod = {
 };
 
 /**
- * カレンダー画面の状態は検索パラメータだけで決まる（表示・日付・絞り込み）。
+ * カレンダー画面の状態は検索パラメータで決まる（表示・日付・絞り込み）。
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
+ * キーワードだけは例外で手元に持つ（下記）。
  */
 export function useCalendarPage(search: CalendarSearch) {
   const navigate = useNavigate({ from: '/calendar' });
+  // キーワードは打つたびに反映するので、URL を往復させず手元に持つ（URL は置き換えるだけ）
+  const [query, setQuery] = useKeywordSearch(search.q ?? '');
   const { view } = search;
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
@@ -62,7 +66,7 @@ export function useCalendarPage(search: CalendarSearch) {
     kind: search.kind,
     participant: search.participant,
     completed: search.completed,
-    q: search.q ?? '',
+    q: query,
   };
   const activeFilters = [
     search.kind !== 'all',
@@ -113,6 +117,7 @@ export function useCalendarPage(search: CalendarSearch) {
     title,
     filters,
     activeFilters,
+    setQuery,
     setSearch,
     move,
     goToday: () => setSearch({ date: today() }),
