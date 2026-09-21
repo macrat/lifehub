@@ -42,15 +42,20 @@ function remindAt(item: CalendarItem, edge: Edge): Date | null {
   return new Date(new Date(anchor).getTime() - minutes * 60 * 1000);
 }
 
-/** 配信予定時刻が [from, to) に入りうる発生を、日ごとの重複（複数日の予定）を除いて列挙する */
-async function itemsAround(range: { from: Date; to: Date }): Promise<CalendarItem[]> {
+/**
+ * 配信予定時刻が [from, to) に入りうる発生を、日ごとの重複（複数日の予定）を除いて列挙する。
+ * `now` は範囲とは別に受け取る。タスクの表示位置と繰り返しの放棄はここを基準に決まるので、
+ * 範囲の先頭を流用すると、配信時の再検証（範囲を配信予定時刻の前後 1 日に取る）で 1 日前の
+ * 状態を見てしまい、リンク先の日付がずれる。
+ */
+async function itemsAround(range: { from: Date; to: Date }, now: Date): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
     {
       from: addDays(toDateString(range.from), -1),
       to: addDays(toDateString(new Date(range.to.getTime() + MAX_REMIND_MS)), 1),
     },
-    range.from,
+    now,
   );
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -76,7 +81,8 @@ export async function listNotifications(range: {
   to: Date;
 }): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
-  for (const item of await itemsAround(range)) {
+  // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
+  for (const item of await itemsAround(range, range.from)) {
     for (const edge of EDGES) {
       const at = remindAt(item, edge);
       if (!at || at < range.from || at >= range.to) continue;
@@ -91,10 +97,14 @@ export async function listNotifications(range: {
 export async function resolveNotification(
   ref: NotificationRef,
 ): Promise<NotificationPayload | null> {
-  const items = await itemsAround({
-    from: new Date(ref.at.getTime() - MAX_REMIND_MS),
-    to: new Date(ref.at.getTime() + MAX_REMIND_MS),
-  });
+  // 配信予定時刻の時点の状態で見る（QStash の再送で実時刻がずれても、通知が指す瞬間は変わらない）
+  const items = await itemsAround(
+    {
+      from: new Date(ref.at.getTime() - MAX_REMIND_MS),
+      to: new Date(ref.at.getTime() + MAX_REMIND_MS),
+    },
+    ref.at,
+  );
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;
   const at = remindAt(item, ref.edge);

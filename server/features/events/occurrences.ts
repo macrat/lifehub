@@ -6,7 +6,7 @@ import {
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
-import { addDays, startOfDate } from '../../../shared/date.ts';
+import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -201,7 +201,9 @@ function expandEvent(ctx: ExpandContext, range: { from: Date; to: Date }): Occur
 
 /**
  * タスク: 繰り返しは、取り消されていない未完了の発生のうち基準日時が最も早い 2 つだけを表示する。
- * 未完了の発生 N は発生 N+2 の基準日時が到来した時点で放棄される（保存せず計算で導く）。
+ * 未完了の発生 N は発生 N+2 の暦日が到来した時点で放棄される（保存せず計算で導く）。
+ * 放棄を時刻ではなく暦日で判定するのは、未完了のタスクが今日の位置に繰り越される規則と揃えるため。
+ * 時刻で判定すると、今日の回が来るまでの間だけ 2 日前と 1 日前の回が並び、今日の回が出ない。
  */
 function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence[] {
   const { master } = ctx;
@@ -210,8 +212,9 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   if (!base) return [];
 
   // 取り出すのは「今より後、範囲の終わりまで」の発生と、その前後 2 つ（1 回の走査で済ませる）。
-  // 2 つ前まで遡るのは、放棄の判定が N+2 の基準日時で決まるため（N+2 が到来していない最初の回は、
-  // 今以前の最後の発生の 1 つ前）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
+  // 2 つ前まで遡れば足りるのは、放棄されずに残る最初の回が「今日以前の最後の発生の 1 つ前」で、
+  // 今以後の最初の発生はそこから高々 2 つ先にあるため（今日の回がまだ来ていなければ 2 つ先、
+  // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
   // 2 つ先まで先読みするのは、範囲の終わり際の回の放棄を判定するため。
   const rangeEnd = startOfDate(addDays(range.to, 1));
   const bases = expandOccurrences({
@@ -225,6 +228,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
 
   const result: Occurrence[] = [];
   const emitted = new Set<number>();
+  const todayDate = today(now);
   let visibleUncompleted = 0;
   for (let n = 0; visibleUncompleted < MAX_VISIBLE_UNCOMPLETED; n++) {
     const at = bases[n];
@@ -237,7 +241,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
       continue;
     }
     const twoAhead = bases[n + MAX_VISIBLE_UNCOMPLETED];
-    const abandoned = twoAhead !== undefined && twoAhead.getTime() <= now.getTime();
+    const abandoned = twoAhead !== undefined && toDateString(twoAhead) <= todayDate;
     if (abandoned) continue;
     visibleUncompleted++;
     emitted.add(at.getTime());
