@@ -1,5 +1,5 @@
 import { addDays } from 'date-fns';
-import { lt } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { startOfDay } from '../../../shared/date.ts';
 import {
   listNotifications,
@@ -70,11 +70,17 @@ export async function deliver(
   if (inserted.length === 0) return 'duplicate';
   const payload = await resolveNotification(ref);
   if (!payload) return 'stale';
-  await send(payload.userIds, {
-    title: payload.title,
-    body: payload.body,
-    url: payload.url,
-    tag: key,
-  });
+  try {
+    await send(payload.userIds, {
+      title: payload.title,
+      body: payload.body,
+      url: payload.url,
+      tag: key,
+    });
+  } catch (error) {
+    // QStash が再試行できるよう、送信に失敗した試行を「送信済み」にしない。
+    await db.delete(sentNotifications).where(eq(sentNotifications.key, key));
+    throw error;
+  }
   return 'sent';
 }

@@ -37,6 +37,7 @@ export async function sendToUsers(
   }
   const subscriptions = await repository.findByUserIds(userIds);
   let sent = 0;
+  const failures: unknown[] = [];
   for (const sub of subscriptions) {
     // 保存済みの購読も送信直前に検証する。web-push はリダイレクトを追わない。
     if (!pushEndpointSchema.safeParse(sub.endpoint).success) continue;
@@ -53,7 +54,10 @@ export async function sendToUsers(
         continue;
       }
       console.error('push: failed to send', error);
+      failures.push(error);
     }
   }
+  // 呼び出し元が送信済み台帳を確定せず、キューに再試行させられるようにする。
+  if (failures.length > 0) throw new AggregateError(failures, 'push delivery failed');
   return { sent };
 }
