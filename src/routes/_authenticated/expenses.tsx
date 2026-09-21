@@ -16,7 +16,7 @@ import {
   useAddExpense,
 } from '../../features/expenses/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
-import { keywordSearchSchema, matchesKeyword } from '../../lib/search.ts';
+import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
@@ -37,28 +37,19 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  * AppBar の検索窓は内容で履歴を絞り込む（残高は絞り込みに関わらず全体の貸借を示す）。
  */
 function ExpensesPage() {
-  const { q } = Route.useSearch();
-  const navigate = Route.useNavigate();
+  const [keyword, setKeyword] = useKeywordSearch(Route.useSearch().q ?? '');
   const { data: balance } = useQuery(balanceQueryOptions);
   const { data: expenses = [] } = useQuery(expensesQueryOptions);
   const addExpense = useAddExpense();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
 
-  const keyword = q ?? '';
   const found = expenses.filter((e) => matchesKeyword(keyword, e.description));
 
   return (
     <>
       <AppBarContent>
-        <SearchField
-          label="内容を検索"
-          value={keyword}
-          onChange={(value) =>
-            // 打つたびに履歴が積み上がらないよう置き換える。スクロール位置も動かさない
-            navigate({ search: { q: value || undefined }, replace: true, resetScroll: false })
-          }
-        />
+        <SearchField label="内容を検索" value={keyword} onChange={setKeyword} />
       </AppBarContent>
 
       <Box sx={{ px: 2, py: 1.5 }}>

@@ -16,7 +16,7 @@ import {
   useLogCare,
 } from '../../features/lemon/queries.ts';
 import { ensureData } from '../../lib/query-client.ts';
-import { keywordSearchSchema, matchesKeyword } from '../../lib/search.ts';
+import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
@@ -36,28 +36,19 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  * AppBar の検索窓はメモで履歴を絞り込む（状況のタイルは絞り込みに関わらず最新の実施日を示す）。
  */
 function LemonPage() {
-  const { q } = Route.useSearch();
-  const navigate = Route.useNavigate();
+  const [keyword, setKeyword] = useKeywordSearch(Route.useSearch().q ?? '');
   const { data: statuses = [] } = useQuery(lemonStatusQueryOptions);
   const { data: logs = [] } = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
   const deleteLog = useDeleteCareLog();
   const [adding, setAdding] = useState<CareType | null>(null);
 
-  const keyword = q ?? '';
   const found = logs.filter((log) => matchesKeyword(keyword, log.note));
 
   return (
     <>
       <AppBarContent>
-        <SearchField
-          label="メモを検索"
-          value={keyword}
-          onChange={(value) =>
-            // 打つたびに履歴が積み上がらないよう置き換える。スクロール位置も動かさない
-            navigate({ search: { q: value || undefined }, replace: true, resetScroll: false })
-          }
-        />
+        <SearchField label="メモを検索" value={keyword} onChange={setKeyword} />
       </AppBarContent>
 
       <Box sx={{ px: 2, pt: 1.5 }}>

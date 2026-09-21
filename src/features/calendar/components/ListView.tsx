@@ -22,11 +22,15 @@ export type ListFilters = {
   q: string;
 };
 
+/** 更新する項目だけ。undefined は既定に戻す。キーワードは AppBar の検索窓が持つのでここには無い */
+type ListFiltersPatch = {
+  [K in Exclude<keyof ListFilters, 'q'>]?: ListFilters[K] | undefined;
+};
+
 type Props = {
   filters: ListFilters;
   filtersOpen: boolean;
-  /** 更新する項目だけ。undefined は既定に戻す */
-  onChangeFilters: (next: { [K in keyof ListFilters]?: ListFilters[K] | undefined }) => void;
+  onChangeFilters: (next: ListFiltersPatch) => void;
   onSelectItem: (item: CalendarItem) => void;
 };
 
