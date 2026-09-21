@@ -1,4 +1,5 @@
 import webpush, { WebPushError } from 'web-push';
+import { pushEndpointSchema } from '../../../shared/validation/push.ts';
 import { env } from '../env.ts';
 import * as repository from './repository.ts';
 
@@ -37,16 +38,18 @@ export async function sendToUsers(
   const subscriptions = await repository.findByUserIds(userIds);
   let sent = 0;
   for (const sub of subscriptions) {
+    // 修正前に保存された購読も送信直前に検証する。web-push はリダイレクトを追わない。
+    if (!pushEndpointSchema.safeParse(sub.endpoint).success) continue;
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(message),
-        { TTL: 60 * 60 },
+        { TTL: 60 * 60, timeout: 10_000 },
       );
       sent++;
     } catch (error) {
       if (error instanceof WebPushError && (error.statusCode === 404 || error.statusCode === 410)) {
-        await repository.removeByEndpoint(sub.endpoint);
+        await repository.removeByEndpoint(sub.endpoint, sub.userId);
         continue;
       }
       console.error('push: failed to send', error);

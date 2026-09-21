@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { db } from '../../lib/db.ts';
-import { accounts, users } from './schema.ts';
+import { db, runBatch } from '../../lib/db.ts';
+import { accounts, sessions, users } from './schema.ts';
 
 export type UserRow = { id: string; name: string; email: string; hue: number };
 
@@ -29,8 +29,12 @@ export async function updateProfile(
 
 /** パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く */
 export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
-  await db
-    .update(accounts)
-    .set({ password: passwordHash })
-    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential')));
+  // パスワードを変更したユーザーの全端末を失効させる。セッション行は OAuth の参照のため残す。
+  await runBatch([
+    db.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, userId)),
+    db
+      .update(accounts)
+      .set({ password: passwordHash })
+      .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential'))),
+  ]);
 }

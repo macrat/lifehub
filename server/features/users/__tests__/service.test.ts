@@ -63,3 +63,24 @@ describe('users service', () => {
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
   });
 });
+
+describe('パスワード変更による失効', () => {
+  beforeEach(truncateAll);
+  it('旧セッションをすべて拒否し、新パスワードでログインできる', async () => {
+    const user = await createUser(alice);
+    const first = await login(alice.email, alice.password);
+    const second = await login(alice.email, alice.password);
+    const cookies = [first, second].map((res) =>
+      res.headers
+        .getSetCookie()
+        .map((cookie) => cookie.split(';')[0])
+        .join('; '),
+    );
+    for (const cookie of cookies)
+      expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(200);
+    await updateUser(user.id, { password: 'replacement-password-123' });
+    for (const cookie of cookies)
+      expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(401);
+    expect((await login(alice.email, 'replacement-password-123')).status).toBe(200);
+  });
+});

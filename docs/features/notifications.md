@@ -21,7 +21,7 @@
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
 
-`VERCEL_ENV !== 'production'` のとき、1 と 2 の QStash への publish を行わない（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。3 の署名検証は Preview でも行う。`QSTASH_TOKEN` 未設定（ローカル）でも publish を行わない。
+`VERCEL_ENV !== 'production'` のとき、1 と 2 の QStash への publish を行わない（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。Preview には本番の通知用秘密情報を渡さず、3 の配信も拒否する。`QSTASH_TOKEN` 未設定（ローカル）でも publish を行わない。
 
 ## 構成
 
@@ -38,6 +38,7 @@ export function resolveNotification(ref): Promise<NotificationPayload | null>; /
 
 - `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存（`src/features/push/queries.ts`、画面は `PushSection`）。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。購読状態は `GET /api/push/subscriptions/status?endpoint=`。
 - iOS はホーム画面に追加した PWA でのみ有効であることを UI で案内する。
+- 購読の削除はログイン中の所有者に限る。送信先は HTTPS の Google / Mozilla / Apple / Windows の Push サービスに限定し、保存時と送信時に検証する。
 - VAPID 公開鍵は `GET /api/push/vapid-public-key` で配る。
 
 ## データ
