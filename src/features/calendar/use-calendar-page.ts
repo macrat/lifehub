@@ -103,8 +103,18 @@ export function useCalendarPage(search: CalendarSearch) {
     move,
     goToday: () => setSearch({ date: today() }),
     openDay: (d: DateString) => setSearch({ view: 'day', date: d }),
-    /** 年月の選択: 今の月なら今日、それ以外は 1 日へ */
-    selectMonth: (m: string) =>
-      setSearch({ date: m === toMonthString(today()) ? today() : firstDayOfMonth(m) }),
+    /**
+     * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
+     * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える
+     */
+    selectDate: (d: DateString) => {
+      const includesToday =
+        view === 'month'
+          ? toMonthString(d) === toMonthString(today())
+          : view === 'week'
+            ? weekDays(d).includes(today())
+            : d === today();
+      setSearch({ date: includesToday ? today() : d });
+    },
   };
 }
