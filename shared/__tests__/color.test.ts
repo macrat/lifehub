@@ -18,6 +18,24 @@ describe('oklchToHex', () => {
   });
 });
 
+describe('hueColor', () => {
+  it('色相が null なら無彩色（R=G=B）になる', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      for (const tone of ['accent', 'fill', 'tint'] as const) {
+        const [r, g, b] = channels(hueColor(null, tone, mode));
+        expect(r).toBe(g);
+        expect(g).toBe(b);
+      }
+    }
+  });
+
+  it('無彩色の帯はダークモードで白寄り、ライトモードでグレーになる', () => {
+    const [dark] = channels(hueColor(null, 'fill', 'dark'));
+    const [light] = channels(hueColor(null, 'fill', 'light'));
+    expect(dark).toBeGreaterThan(light);
+  });
+});
+
 describe('pickDistinctHue', () => {
   it('誰もいなければ既定の色相', () => {
     expect(pickDistinctHue([])).toBe(DEFAULT_HUE);
@@ -31,3 +49,8 @@ describe('pickDistinctHue', () => {
     expect(second).not.toBe(DEFAULT_HUE);
   });
 });
+
+/** hex を R・G・B の 3 値に分解する */
+function channels(hex: string): [number, number, number] {
+  return [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+}

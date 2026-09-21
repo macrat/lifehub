@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_HUE, fillContrastText, hueColor } from '../../../shared/color.ts';
+import { fillContrastText, hueColor } from '../../../shared/color.ts';
 import { useColorMode } from '../../lib/theme.ts';
 import { usersQueryOptions } from './queries.ts';
 
@@ -13,13 +13,14 @@ export type ItemColors = {
 };
 
 /**
- * ユーザーから表示色を返す。null（参加者が複数の項目）はアプリ既定の色相。表示モード（ライト／ダーク）ごとに明度・彩度を変える。
+ * ユーザーから表示色を返す。ユーザーが決まらない共有の項目（参加者が 1 人でない）は色相を持たない無彩色。
+ * 表示モード（ライト／ダーク）ごとに明度・彩度を変える。
  */
 export function useUserColor(): (userId: string | null) => ItemColors {
   const { data: users = [] } = useQuery(usersQueryOptions);
   const mode = useColorMode();
   return (userId: string | null) => {
-    const hue = users.find((u) => u.id === userId)?.hue ?? DEFAULT_HUE;
+    const hue = users.find((u) => u.id === userId)?.hue ?? null;
     return {
       fill: hueColor(hue, 'fill', mode),
       text: fillContrastText(mode),
