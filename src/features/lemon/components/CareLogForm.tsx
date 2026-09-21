@@ -9,7 +9,7 @@ import {
 } from '../../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { formText, useFormSubmit } from '../../../lib/form.ts';
-import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
+import { FormSheet } from '../../../lib/ui/FormSheet.tsx';
 import type { CreateCareLogBody } from '../queries.ts';
 
 type Props = {
@@ -36,7 +36,7 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
   });
 
   return (
-    <FormDialog
+    <FormSheet
       open={!submitted}
       error={submitError}
       onClose={onClose}
@@ -76,6 +76,6 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
         helperText={errors.note}
         fullWidth
       />
-    </FormDialog>
+    </FormSheet>
   );
 }

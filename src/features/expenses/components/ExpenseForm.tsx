@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { expenseSchema } from '../../../../shared/validation/expenses.ts';
 import { today } from '../../../lib/date.ts';
 import { formSelect, formText, SELECT_NONE, useFormSubmit } from '../../../lib/form.ts';
-import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
+import { FormSheet } from '../../../lib/ui/FormSheet.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { evaluate, normalizeExpression, pressKey } from '../calculator.ts';
 import type { Expense, ExpenseBody } from '../queries.ts';
@@ -42,7 +42,7 @@ export function ExpenseForm({ initial, onSubmit, onClose }: Props) {
   });
 
   return (
-    <FormDialog
+    <FormSheet
       open={!submitted}
       error={submitError}
       onClose={onClose}
@@ -117,6 +117,6 @@ export function ExpenseForm({ initial, onSubmit, onClose }: Props) {
         fullWidth
       />
       <Calculator onPress={(key) => setAmount((current) => pressKey(current, key))} />
-    </FormDialog>
+    </FormSheet>
   );
 }

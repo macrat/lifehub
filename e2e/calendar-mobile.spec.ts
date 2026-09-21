@@ -1,5 +1,6 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 import { E2E_USER } from './global-setup.ts';
+import { touchDrag } from './touch.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
 test.use({ ...devices['Pixel 7'] });
@@ -11,35 +12,6 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL('/');
 });
-
-/**
- * 指でのなぞり（タッチ）。Playwright の touchscreen はタップだけなので、CDP で touchstart〜touchend を送る。
- * hold はなぞり始めるまで押さえている時間（ミリ秒。月表示の長押しに使う）。
- */
-async function touchDrag(
-  page: Page,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  { hold = 0 } = {},
-) {
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
-  if (hold > 0) await page.waitForTimeout(hold);
-  const steps = 5;
-  for (let i = 1; i <= steps; i++) {
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [
-        {
-          x: from.x + ((to.x - from.x) * i) / steps,
-          y: from.y + ((to.y - from.y) * i) / steps,
-        },
-      ],
-    });
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
-}
 
 test('日表示でタップして選び、端をつまんで広げて予定を作れる', async ({ page }) => {
   const title = `E2E タップ ${Date.now()}`;
