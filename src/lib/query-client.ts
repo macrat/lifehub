@@ -36,12 +36,15 @@ export const persistOptions = {
 
 /**
  * mutation の成功後に関連クエリを無効化する関数を返す。キーは各 feature の queryOptions / *_QUERY_KEY から渡す。
- * 再取得の完了を待つので、mutateAsync / isPending が新しいデータの到着まで伸びる（連打の抑止にもなる）
+ * 再取得の完了は待たない。待つと mutateAsync が新しいデータの到着まで伸び、回線が遅い・切れたときに
+ * 保存が終わってもフォームのダイアログが閉じないため（再取得中であることは AppShell のインジケータが示す）。
  */
-export function useInvalidate(...keys: readonly (readonly unknown[])[]): () => Promise<void> {
+export function useInvalidate(...keys: readonly (readonly unknown[])[]): () => void {
   const queryClient = useQueryClient();
-  return async () => {
-    await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  return () => {
+    for (const queryKey of keys) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
   };
 }
 
