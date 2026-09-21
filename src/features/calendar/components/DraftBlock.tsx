@@ -6,8 +6,10 @@ import { formatMinutesOfDay } from '../../../lib/date.ts';
 import type { draftColumns, EventDraft, TimePoint } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
-/** つまむ丸の大きさ（px）。指で掴める大きさにし、枠の上下にはみ出して置く（左右は列から切れないよう内側） */
-const HANDLE_SIZE = 12;
+/** つまむ丸の大きさ（px）。枠の上下にはみ出して置く（左右は列から切れないよう内側） */
+const DOT_SIZE = 8;
+/** 指の当たりの大きさ（px）。丸は小さく見せ、押せる範囲だけ広げる */
+const TARGET_SIZE = 32;
 
 const OUTLINE = {
   boxSizing: 'border-box',
@@ -49,12 +51,12 @@ export function DraftBlock({
         <>
           <Handle
             end="start"
-            position={{ top: -HANDLE_SIZE / 2, left: 2 }}
+            position={{ top: -DOT_SIZE / 2, left: 2 }}
             handlers={handleProps({ date, min: endMin - 1 })}
           />
           <Handle
             end="end"
-            position={{ bottom: -HANDLE_SIZE / 2, right: 2 }}
+            position={{ bottom: -DOT_SIZE / 2, right: 2 }}
             handlers={handleProps({ date, min: startMin })}
           />
         </>
@@ -81,7 +83,7 @@ export function DraftBar({
   handleProps: ((anchor: DateString) => DragHandlers) | null;
 }) {
   const { col, span, roundStart, roundEnd } = columns;
-  const center = { top: '50%', mt: `${-HANDLE_SIZE / 2}px` };
+  const center = { top: '50%', mt: `${-DOT_SIZE / 2}px` };
   return (
     <Box
       data-draft
@@ -118,6 +120,7 @@ function Handle({
   position: Record<string, number | string>;
   handlers: DragHandlers;
 }) {
+  const grow = TARGET_SIZE - DOT_SIZE;
   return (
     <Box
       data-handle={end}
@@ -125,12 +128,21 @@ function Handle({
       sx={{
         ...position,
         position: 'absolute',
-        width: HANDLE_SIZE,
-        height: HANDLE_SIZE,
+        width: DOT_SIZE,
+        height: DOT_SIZE,
         borderRadius: '50%',
         bgcolor: 'primary.main',
         pointerEvents: 'auto',
         touchAction: 'none',
+        // 指の当たりは丸より広く取る。横は枠の内側へ広げる（時間軸が横にスクロールしてしまわないように）
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: -grow / 2,
+          bottom: -grow / 2,
+          left: end === 'start' ? -2 : -(grow - 2),
+          right: end === 'start' ? -(grow - 2) : -2,
+        },
       }}
     />
   );

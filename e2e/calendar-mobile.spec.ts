@@ -55,13 +55,13 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
   await page.touchscreen.tap(x, y(15 * 60 + 10));
   await expect(page.getByText('6/5(木) 15:00〜16:00')).toBeVisible();
 
-  // 下端の丸をつまんで 17:00 まで広げる
-  const handle = page.locator('[data-handle="end"]');
-  const handleBox = await handle.boundingBox();
+  // 下端の丸をつまんで 17:00 まで広げる。指の当たりは丸（8px）より広いので、
+  // 丸から外れた所（左に 16px、下に 10px）から掴めることも併せて確かめる
+  const handleBox = await page.locator('[data-handle="end"]').boundingBox();
   if (!handleBox) throw new Error('つまむ丸が見つからない');
   await touchDrag(
     page,
-    { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 },
+    { x: handleBox.x + handleBox.width / 2 - 16, y: handleBox.y + handleBox.height / 2 + 10 },
     { x, y: y(17 * 60 - 5) },
   );
   await expect(page.getByText('6/5(木) 15:00〜17:00')).toBeVisible();
