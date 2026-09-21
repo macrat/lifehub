@@ -1,81 +1,32 @@
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import { useState } from 'react';
-import {
-  CARE_TYPE_LABELS,
-  CARE_TYPES,
-  type CareType,
-  createCareLogSchema,
-} from '../../../../shared/validation/lemon.ts';
-import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../../../lib/date.ts';
-import { formText, useFormSubmit } from '../../../lib/form.ts';
-import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
-import type { CreateCareLogBody } from '../queries.ts';
+import type { CareType } from '../../../../shared/validation/lemon.ts';
+import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
+import type { CareLogBody } from '../queries.ts';
+import { useCareLogForm } from '../use-care-log-form.ts';
+import { CareLogFields } from './CareLogFields.tsx';
 
 type Props = {
   initialCareType?: CareType;
-  onSubmit: (input: CreateCareLogBody) => Promise<unknown>;
+  onSubmit: (input: CareLogBody) => Promise<unknown>;
   onClose: () => void;
 };
 
-/** レモンの世話の記録。日時の既定は今。 */
+/** レモンの世話の記録を追加する。日時の既定は今。編集は詳細（`CareLogDetailSheet`）から行う。 */
 export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Props) {
-  const [careType, setCareType] = useState<CareType>(initialCareType);
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
-    schema: createCareLogSchema,
-    values: (fd) => {
-      const doneAt = formText(fd, 'doneAt');
-      return {
-        careType,
-        doneAt: doneAt === null ? undefined : fromDateTimeLocalValue(doneAt),
-        note: formText(fd, 'note'),
-      };
-    },
-    onSubmit: (data) => onSubmit({ ...data, doneAt: data.doneAt.toISOString() }),
+  const { careType, setCareType, errors, submitError, submitted, handleSubmit } = useCareLogForm({
+    initialCareType,
+    onSubmit,
     onSaved: onClose,
   });
 
   return (
-    <FormDialog
+    <RecordSheet
       open={!submitted}
       error={submitError}
       onClose={onClose}
-      maxWidth="xs"
-      title="レモンの記録"
+      title="レモンの記録を追加"
       onSubmit={handleSubmit}
     >
-      <TextField
-        label="種別"
-        select
-        value={careType}
-        onChange={(e) => setCareType(e.target.value as CareType)}
-        fullWidth
-      >
-        {CARE_TYPES.map((t) => (
-          <MenuItem key={t} value={t}>
-            {CARE_TYPE_LABELS[t]}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        name="doneAt"
-        label="日時"
-        type="datetime-local"
-        defaultValue={toDateTimeLocalValue(new Date())}
-        slotProps={{ inputLabel: { shrink: true } }}
-        error={Boolean(errors.doneAt)}
-        helperText={errors.doneAt}
-        fullWidth
-      />
-      <TextField
-        name="note"
-        label={careType === 'note' ? 'メモ（必須）' : 'メモ'}
-        multiline
-        minRows={2}
-        error={Boolean(errors.note)}
-        helperText={errors.note}
-        fullWidth
-      />
-    </FormDialog>
+      <CareLogFields careType={careType} onChangeCareType={setCareType} errors={errors} />
+    </RecordSheet>
   );
 }

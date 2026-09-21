@@ -1,5 +1,7 @@
 import { devices, expect, type Page, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
+import { touchDrag } from './touch.ts';
 
 test.use({ ...devices['Pixel 7'] });
 
@@ -19,7 +21,7 @@ async function stall(page: Page, path: string, ms = 10_000) {
   });
 }
 
-test('スマホでは追加フォームが全画面で開き、保存すると通信を待たずに閉じて記録が出る', async ({
+test('スマホでは項目の少ないフォームが画面の下のシートで開き、保存すると通信を待たずに閉じて記録が出る', async ({
   page,
 }) => {
   await page.goto('/lemon');
@@ -27,13 +29,35 @@ test('スマホでは追加フォームが全画面で開き、保存すると�
 
   await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
 
-  // ページが切り替わったように、画面いっぱい・戻る矢印つきで開く
+  // 画面の下端から、中身の高さのぶんだけ出る。項目が少ないので画面の下半分に収まり、後ろの履歴は見えたまま
   const viewport = page.viewportSize();
-  await expect
-    .poll(() => page.locator('.MuiDialog-paper').boundingBox())
-    .toMatchObject({ x: 0, y: 0, width: viewport?.width, height: viewport?.height });
-  await expect(page.getByRole('button', { name: '戻る' })).toBeVisible();
+  if (!viewport) throw new Error('画面の大きさが分からない');
+  const sheet = page.locator('[data-sheet]');
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheet.evaluate((el) => el.getAnimations().length)).toBe(0);
+  const box = await sheet.boundingBox();
+  if (!box) throw new Error('シートが見つからない');
+  expect(box.x).toBe(0);
+  expect(box.width).toBe(viewport.width);
+  expect(Math.round(box.y + box.height)).toBe(viewport.height);
+  expect(box.height).toBeLessThan(viewport.height / 2);
 
+  // 閉じるは左上のバツ、保存は右上（どこまで下げていても押せる位置）
+  const close = await page.getByRole('button', { name: '閉じる' }).boundingBox();
+  const save = await page.getByRole('button', { name: '保存' }).boundingBox();
+  if (!close || !save) throw new Error('シートの操作ボタンが見つからない');
+  expect(close.x).toBeLessThan(viewport.width / 2);
+  expect(save.x).toBeGreaterThan(viewport.width / 2);
+  expect(close.y).toBeLessThan(box.y + 80);
+  expect(save.y).toBeLessThan(box.y + 80);
+
+  // つまむ帯から下へなぞると閉じる
+  const x = viewport.width / 2;
+  await touchDrag(page, { x, y: box.y + 8 }, { x, y: box.y + 128 });
+  await expect(sheet).toHaveCount(0);
+
+  // 開き直して保存する
+  await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
   await page.getByLabel('メモ', { exact: true }).fill('楽観的更新のテスト');
   await stall(page, '**/api/lemon/**');
   await page.getByRole('button', { name: '保存' }).click();
@@ -48,15 +72,19 @@ test('カレンダーに追加した予定は通信を待たずに出る', async
   const title = `楽観的な予定 ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2030-02-04');
 
+  // 予定の追加は日表示の下書きから始まる。スマホは全項目の段（画面いっぱい）で開く
   await page.getByRole('button', { name: '追加' }).click();
   await page.getByRole('menuitem', { name: '予定' }).click();
-  await page.getByLabel('タイトル').fill(title);
+  const sheet = page.locator('[data-sheet]');
+  await expect(sheet).toBeVisible();
+  await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(0);
+  await page.getByLabel('タイトルを追加').fill(title);
   await page.getByLabel('開始').fill('2030-02-04T09:00');
   await page.getByLabel('終了').fill('2030-02-04T10:00');
   await stall(page, '**/api/events**', 1500);
   await page.getByRole('button', { name: '保存' }).click();
 
-  await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 3000 });
+  await expect(sheet).toHaveCount(0, { timeout: 3000 });
   await expect(page.getByRole('button', { name: title })).toBeVisible({ timeout: 3000 });
 
   // 保存と再取得が終わっても、投機的に出した分と二重にならない
@@ -99,6 +127,6 @@ test('保存に失敗したら投機的な表示を取り消し、入力した�
   // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: /直した立替/ }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByText('直した立替')).toHaveCount(0);
 });

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 
 test.beforeEach(async ({ page }) => {
@@ -29,6 +30,6 @@ test('タスクを追加し、カレンダーのリスト表示から完了に�
   // 詳細から削除
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByText(title).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByText(title)).toHaveCount(0);
 });

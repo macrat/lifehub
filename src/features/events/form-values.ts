@@ -1,12 +1,6 @@
 import { addDays, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import {
-  fromDateTimeLocalValue,
-  fromDateValue,
-  fromMinutesOfDay,
-  minutesOfDay,
-  toDateString,
-} from '../../lib/date.ts';
+import { fromDateTimeLocalValue, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
 /** 予定・タスクのフォームが扱う値（日時は ISO 文字列）。カレンダーの項目や保存されている行をそのまま渡せる */
@@ -65,27 +59,11 @@ export function allDayEventValues(from: DateString, to: DateString): ItemFormVal
 }
 
 /**
- * 予定の既定値: 現在時刻の分を切り上げた正時から 1 時間。日の指定があればその日の同じ時刻。
- * 予定はこれから始まるものを入れることがほとんどなので、直近の正時をそのまま出して分の入力を省く。
- */
-export function defaultEventValues(date?: DateString): ItemFormValues {
-  const start = ceilToHour(new Date());
-  const startMin = minutesOfDay(start);
-  return eventValuesForRange(date ?? toDateString(start), startMin, startMin + 60);
-}
-
-/**
  * タスクの既定値: 日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
  * 「いつかやる」を入れるときは日時に触らずに済む（予定と違って時間の枠を持たない）。
  */
 export function defaultTaskValues(): ItemFormValues {
   return EMPTY;
-}
-
-/** 分を切り上げた正時（ちょうど正時ならそのまま）。JST は UTC+9 固定なのでエポックで丸めればよい */
-function ceilToHour(value: Date): Date {
-  const hour = 60 * 60 * 1000;
-  return new Date(Math.ceil(value.getTime() / hour) * hour);
 }
 
 /**
@@ -128,5 +106,30 @@ export function eventInputFromForm(
         ? null
         : Number(formText(formData, 'remindStartMinutes')),
     remindEndMinutes: initial.remindEndMinutes,
+  };
+}
+
+/**
+ * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
+ * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
+ */
+export function taskInputFromForm(
+  formData: FormData,
+  { initial, thisOnly = false }: { initial: ItemFormValues; thisOnly?: boolean },
+) {
+  const startsRaw = formText(formData, 'startsAt');
+  const endsRaw = formText(formData, 'endsAt');
+  return {
+    kind: 'task' as const,
+    title: formText(formData, 'title') ?? '',
+    allDay: initial.allDay,
+    startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
+    endsAt: endsRaw ? fromDateTimeLocalValue(endsRaw) : null,
+    participantIds: formList(formData, 'participantIds'),
+    location: formText(formData, 'location'),
+    note: formText(formData, 'note'),
+    rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
+    remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
+    remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
   };
 }

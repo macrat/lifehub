@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   dayDraft,
+  defaultDraft,
   draftColumns,
   draftText,
   type TimedDraft,
@@ -210,5 +211,29 @@ describe('draftText', () => {
   it('終日は日付（複数日なら両端）と「終日」', () => {
     expect(draftText(dayDraft(DAY, DAY))).toBe('6/5(木) 終日');
     expect(draftText(dayDraft(DAY, '2031-06-07' as DateString))).toBe('6/5(木)〜6/7(土) 終日');
+  });
+});
+
+describe('defaultDraft', () => {
+  const jst = (s: string) => new Date(`${s}+09:00`);
+
+  it('現在時刻の分を切り上げた正時から 1 時間', () => {
+    expect(defaultDraft(DAY, jst('2026-09-21T17:11:00'))).toEqual({
+      allDay: false,
+      date: DAY,
+      startMin: 18 * 60,
+      endMin: 19 * 60,
+    });
+  });
+
+  it('ちょうど正時なら切り上げない', () => {
+    expect(defaultDraft(DAY, jst('2026-09-21T17:00:00'))).toMatchObject({ startMin: 17 * 60 });
+  });
+
+  it('切り上げが日をまたぐときは、枠に出せる最後の 1 時間にする', () => {
+    expect(defaultDraft(DAY, jst('2026-09-21T23:30:00'))).toMatchObject({
+      startMin: 23 * 60,
+      endMin: 24 * 60,
+    });
   });
 });

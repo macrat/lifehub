@@ -45,6 +45,19 @@ export async function insert(row: {
   return log;
 }
 
+/** 全項目を置き換える。記録した人（createdBy）は変えない */
+export async function update(
+  id: string,
+  row: { careType: CareType; doneAt: Date; note: string | null },
+): Promise<LemonCareLogRow | undefined> {
+  const updated = await db
+    .update(lemonCareLogs)
+    .set(row)
+    .where(eq(lemonCareLogs.id, id))
+    .returning();
+  return updated[0];
+}
+
 export async function remove(id: string): Promise<boolean> {
   const deleted = await db
     .delete(lemonCareLogs)

@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
-import { ExpenseDetailDialog } from '../../features/expenses/components/ExpenseDetailDialog.tsx';
+import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
@@ -72,7 +72,7 @@ function ExpensesPage() {
         <AddIcon />
       </Fab>
       {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
-      {selected && <ExpenseDetailDialog expense={selected} onClose={() => setSelected(null)} />}
+      {selected && <ExpenseDetailSheet expense={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

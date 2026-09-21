@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
@@ -32,6 +32,7 @@ type Props = {
  * 0〜24 時の時間軸。縦にスクロールし、時間指定の項目を開始〜終了の高さで置く。今日の列には現在時刻の線。
  * 縦の位置を合わせるのは最初に出したときだけ（今日を含むなら現在時刻の少し上、それ以外は 7 時）。
  * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
+ * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き、端の丸をつまむと開始・終了だけが動く。
  */
@@ -63,6 +64,17 @@ export function TimeGrid({
     const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
     el.scrollTop = Math.max(0, target);
   }, [hourHeight]);
+
+  // 画面の外に枠が置かれたら（追加ボタンから来たとき）見える所まで送る。
+  // 始まりが見えているなら動かさない（なぞって選んでいる最中にグリッドが動くと狙いがずれる）
+  const draftStart = timedDraft?.startMin ?? null;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || draftStart === null) return;
+    const top = (draftStart / 60) * hourHeight;
+    if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - hourHeight) return;
+    el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
+  }, [draftStart, hourHeight]);
 
   return (
     <Box {...syncScrollProps} ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>

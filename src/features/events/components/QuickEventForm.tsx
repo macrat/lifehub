@@ -11,6 +11,7 @@ import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { useFormSubmit } from '../../../lib/form.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
+import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import {
@@ -40,22 +41,33 @@ type Props = {
   /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
   onExpand: (values: ItemFormValues) => void;
   onClose: () => void;
+  /** 開く段。グリッドをなぞったときは下の段、追加ボタンからは上の段（全項目） */
+  initialDetent: SheetDetent;
 };
 
 /**
- * グリッドで選んだ範囲にすぐ予定を入れるための入力（Google カレンダーのクイック入力）。
+ * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。
  * - スマホ: 画面下のシート（`BottomSheet`）。下の段はタイトルと参加者だけ、上の段まで広げると全項目。
- *   ダイアログには移らず、同じシートの見える量が変わるだけ。
+ *   ダイアログには移らず、同じシートの見える量が変わるだけ。下げきると下書きごと取り消す。
  * - PC: 選んだ範囲に寄せた吹き出し。タイトルと参加者だけを扱い、残りは「その他のオプション」で
  *   全項目のフォーム（`EventForm`）へ渡す。
  */
-export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand, onClose }: Props) {
+export function QuickEventForm({
+  draft,
+  open,
+  onSubmit,
+  onChangeDraft,
+  onExpand,
+  onClose,
+  initialDetent,
+}: Props) {
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
   useDialogHistory(onClose);
   const formRef = useRef<HTMLFormElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
-  const [detent, setDetent] = useState<SheetDetent>('peek');
+  // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
+  const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
   const initial = draftValues(draft);
   const [allDay, setAllDay] = useState(initial.allDay);
 
@@ -90,39 +102,45 @@ export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand,
   };
 
   const peek = (
-    <Stack data-sheet-peek ref={peekRef} spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+    <Stack data-sheet-peek ref={peekRef}>
       {/* 保存はスマホでは上端（上の段まで広げても押せるように）、PC は Google カレンダーと同じ右下 */}
-      <Stack
-        direction={isMobile ? 'row' : 'row-reverse'}
-        sx={{ justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <IconButton aria-label="閉じる" onClick={onClose}>
-          <CloseIcon />
-        </IconButton>
-        {isMobile && <SubmitButton />}
-      </Stack>
-      {submitError && <Alert severity="error">{submitError}</Alert>}
-      <TextField
-        name="title"
-        label="タイトルを追加"
-        error={Boolean(errors.title)}
-        helperText={errors.title}
-        autoFocus={!isMobile}
-        fullWidth
-      />
-      {/* 日時は下の段では見出しだけ。上の段には入力欄そのものが出る */}
-      {detent === 'peek' && (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {draftText(draft)}
-        </Typography>
-      )}
-      <ParticipantsField name="participantIds" defaultValue={[]} error={errors.participantIds} />
-      {detent === 'peek' && (
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button onClick={isMobile ? () => setDetent('full') : expand}>その他のオプション</Button>
-          {!isMobile && <SubmitButton />}
+      {isMobile ? (
+        <SheetHeader onClose={onClose}>
+          <SubmitButton />
+        </SheetHeader>
+      ) : (
+        <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+          <IconButton aria-label="閉じる" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
         </Stack>
       )}
+      <Stack spacing={1.5} sx={{ px: 2, pt: 1, pb: 1.5 }}>
+        {submitError && <Alert severity="error">{submitError}</Alert>}
+        <TextField
+          name="title"
+          label="タイトルを追加"
+          error={Boolean(errors.title)}
+          helperText={errors.title}
+          autoFocus={!isMobile}
+          fullWidth
+        />
+        {/* 日時は下の段では見出しだけ。上の段には入力欄そのものが出る */}
+        {detent === 'peek' && (
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {draftText(draft)}
+          </Typography>
+        )}
+        <ParticipantsField name="participantIds" defaultValue={[]} error={errors.participantIds} />
+        {detent === 'peek' && (
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button onClick={isMobile ? () => setDetent('full') : expand}>
+              その他のオプション
+            </Button>
+            {!isMobile && <SubmitButton />}
+          </Stack>
+        )}
+      </Stack>
     </Stack>
   );
 
@@ -153,15 +171,13 @@ export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand,
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
         {peek}
-        {/* 上の段でだけ見える残りの項目。ここは自分でスクロールする（シートのドラッグには使わない） */}
+        {/* 上の段でだけ見える残りの項目。ここは自分でスクロールする（はみ出していればそちらが優先される） */}
         <Stack
-          data-sheet-scroll
           spacing={2}
           sx={{
             flexGrow: 1,
             minHeight: 0,
             overflowY: 'auto',
-            touchAction: 'pan-y',
             px: 2,
             pt: 1,
             pb: 'calc(16px + env(safe-area-inset-bottom))',

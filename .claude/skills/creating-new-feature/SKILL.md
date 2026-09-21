@@ -21,7 +21,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 5. **MCP に登録する**: `mcp.ts` → `server/lib/mcp/server.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/lib/notifications/service.ts` から呼ぶ。
 6. **クライアント feature** `src/features/<name>/` を作る:
    - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。書き込みは `useOptimisticMutation`（`src/lib/query-client.ts`）で行い、`apply` に「サーバーが返すはずの値」だけを書く。取得の中断・失敗時の巻き戻し・通知・invalidate は共通）
-   - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。入力フォームは `FormDialog`（キャンセル・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類を 1 つ足す）か `FAB_SX`）
+   - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。記録 1 件の追加・閲覧・編集は `RecordSheet`（スマホはボトムシート、PC はダイアログ。閉じる・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類を 1 つ足す）か `FAB_SX`）
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/lib/ui/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
    - ホームのカードは `src/features/dashboard/cards/` に追加し（`DashboardCardFrame` の中で自分の機能のクエリを読む）、`src/routes/_authenticated/index.tsx` に置く
    - ルートに loader は置かない（移動をデータで待たせない）。ページもカードも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
