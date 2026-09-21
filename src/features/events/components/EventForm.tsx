@@ -1,12 +1,9 @@
-import TextField from '@mui/material/TextField';
-import { useState } from 'react';
-import { createEventSchema, type RecurrenceScope } from '../../../../shared/validation/events.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
+import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { FormDialog } from '../../../lib/ui/FormDialog.tsx';
-import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { eventInputFromForm, type ItemFormValues } from '../form-values.ts';
+import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { EventExtraFields, EventWhenFields } from './EventFields.tsx';
+import { useItemForm } from '../use-item-form.ts';
+import { EventFormFields } from './EventFields.tsx';
 
 type Props = {
   title: string;
@@ -17,22 +14,14 @@ type Props = {
   onClose: () => void;
 };
 
-/** 予定のフォーム。開始・終了は必須で、通知は開始前だけを扱う。 */
-export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
-  const [allDay, setAllDay] = useState(initial.allDay);
-  const thisOnly = scope === 'this';
-
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
-    schema: createEventSchema,
-    values: (fd) => eventInputFromForm(fd, { initial, allDay, thisOnly }),
-    onSubmit: (data) =>
-      onSubmit({
-        ...data,
-        startsAt: data.startsAt?.toISOString() ?? null,
-        endsAt: data.endsAt?.toISOString() ?? null,
-      }),
-    onSaved: onClose,
-  });
+/**
+ * 予定を追加する。開始・終了は必須で、通知は開始前だけを扱う。
+ * 既存の予定の編集は詳細（`ItemDetailSheet`）から行う。
+ */
+export function EventForm({ title, initial, scope, onSubmit, onClose }: Props) {
+  const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
+    { kind: 'event', initial, scope, onSubmit, onSaved: onClose },
+  );
 
   return (
     <FormDialog
@@ -43,27 +32,13 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
       title={title}
       onSubmit={handleSubmit}
     >
-      <TextField
-        name="title"
-        label="タイトル"
-        defaultValue={initial.title}
-        error={Boolean(errors.title)}
-        helperText={errors.title}
-        autoFocus
-        fullWidth
-      />
-      <EventWhenFields
+      <EventFormFields
         initial={initial}
         errors={errors}
         allDay={allDay}
         onChangeAllDay={setAllDay}
+        thisOnly={thisOnly}
       />
-      <ParticipantsField
-        name="participantIds"
-        defaultValue={initial.participantIds}
-        error={errors.participantIds}
-      />
-      <EventExtraFields initial={initial} errors={errors} thisOnly={thisOnly} />
     </FormDialog>
   );
 }

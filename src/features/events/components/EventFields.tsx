@@ -1,3 +1,4 @@
+import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
@@ -6,6 +7,7 @@ import TextField from '@mui/material/TextField';
 import { REMIND_BEFORE_OPTIONS } from '../../../../shared/validation/events.ts';
 import { inclusiveEndDate, toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
+import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
@@ -13,6 +15,9 @@ type Props = {
   initial: ItemFormValues;
   errors: FormErrors;
 };
+
+/** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
+type ScopedProps = Props & { thisOnly: boolean };
 
 const REMIND_LABELS: Record<number, string> = {
   0: '開始時刻',
@@ -102,11 +107,7 @@ export function EventWhenFields({
 }
 
 /** 予定の残りの項目（場所・メモ・繰り返し・通知）。日時と同じく 2 つのフォームで共通 */
-export function EventExtraFields({
-  initial,
-  errors,
-  thisOnly,
-}: Props & { /** この回だけの編集では繰り返しを変えられない */ thisOnly: boolean }) {
+export function EventExtraFields({ initial, errors, thisOnly }: ScopedProps) {
   return (
     <>
       <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
@@ -133,6 +134,115 @@ export function EventExtraFields({
           </MenuItem>
         ))}
       </TextField>
+    </>
+  );
+}
+
+/**
+ * 予定の全項目（タイトル・日時・参加者・場所・メモ・繰り返し・通知）。
+ * 追加のフォーム（`EventForm`）と詳細からの編集（`ItemDetailSheet`）で同じものを使う。
+ */
+export function EventFormFields({
+  initial,
+  errors,
+  allDay,
+  onChangeAllDay,
+  thisOnly,
+}: ScopedProps & { allDay: boolean; onChangeAllDay: (allDay: boolean) => void }) {
+  return (
+    <>
+      <TextField
+        name="title"
+        label="タイトル"
+        defaultValue={initial.title}
+        error={Boolean(errors.title)}
+        helperText={errors.title}
+        autoFocus
+        fullWidth
+      />
+      <EventWhenFields
+        initial={initial}
+        errors={errors}
+        allDay={allDay}
+        onChangeAllDay={onChangeAllDay}
+      />
+      <ParticipantsField
+        name="participantIds"
+        defaultValue={initial.participantIds}
+        error={errors.participantIds}
+      />
+      <EventExtraFields initial={initial} errors={errors} thisOnly={thisOnly} />
+    </>
+  );
+}
+
+/**
+ * タスクの全項目。予定と違って開始・期限はどちらも任意で、通知は「開始日時に」「期限日時に」の 2 択。
+ * 追加のフォーム（`TaskForm`）と詳細からの編集（`ItemDetailSheet`）で同じものを使う。
+ */
+export function TaskFormFields({ initial, errors, thisOnly }: ScopedProps) {
+  return (
+    <>
+      <TextField
+        name="title"
+        label="タイトル"
+        defaultValue={initial.title}
+        error={Boolean(errors.title)}
+        helperText={errors.title}
+        autoFocus
+        fullWidth
+      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <TextField
+          name="startsAt"
+          label="開始日時"
+          type="datetime-local"
+          defaultValue={initial.startsAt ? toDateTimeLocalValue(initial.startsAt) : ''}
+          error={Boolean(errors.startsAt)}
+          helperText={errors.startsAt}
+          slotProps={{ inputLabel: { shrink: true } }}
+          fullWidth
+        />
+        <TextField
+          name="endsAt"
+          label="期限日時"
+          type="datetime-local"
+          defaultValue={initial.endsAt ? toDateTimeLocalValue(initial.endsAt) : ''}
+          error={Boolean(errors.endsAt)}
+          helperText={errors.endsAt}
+          slotProps={{ inputLabel: { shrink: true } }}
+          fullWidth
+        />
+      </Stack>
+      <ParticipantsField
+        name="participantIds"
+        defaultValue={initial.participantIds}
+        error={errors.participantIds}
+      />
+      <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
+      <TextField
+        name="note"
+        label="メモ"
+        defaultValue={initial.note ?? ''}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+      {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
+      <Stack direction="row" spacing={2}>
+        <FormControlLabel
+          control={
+            <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
+          }
+          label="開始日時に通知"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />
+          }
+          label="期限日時に通知"
+        />
+      </Stack>
     </>
   );
 }

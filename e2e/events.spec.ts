@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 
 test.beforeEach(async ({ page }) => {
@@ -45,7 +46,7 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   // すべて削除
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await page.getByRole('button', { name: /^すべて / }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(0);
 });
@@ -80,7 +81,7 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
@@ -102,6 +103,6 @@ test('月表示でクリックして終日の予定をその場で作れる', as
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });

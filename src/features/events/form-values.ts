@@ -130,3 +130,28 @@ export function eventInputFromForm(
     remindEndMinutes: initial.remindEndMinutes,
   };
 }
+
+/**
+ * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
+ * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
+ */
+export function taskInputFromForm(
+  formData: FormData,
+  { initial, thisOnly = false }: { initial: ItemFormValues; thisOnly?: boolean },
+) {
+  const startsRaw = formText(formData, 'startsAt');
+  const endsRaw = formText(formData, 'endsAt');
+  return {
+    kind: 'task' as const,
+    title: formText(formData, 'title') ?? '',
+    allDay: initial.allDay,
+    startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
+    endsAt: endsRaw ? fromDateTimeLocalValue(endsRaw) : null,
+    participantIds: formList(formData, 'participantIds'),
+    location: formText(formData, 'location'),
+    note: formText(formData, 'note'),
+    rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
+    remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
+    remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
+  };
+}

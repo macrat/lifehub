@@ -14,7 +14,7 @@ import {
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
-import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
+import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
 import type { ItemFormValues } from '../../features/events/form-values.ts';
 import { useCreateEvent } from '../../features/events/queries.ts';
@@ -117,7 +117,7 @@ function CalendarPage() {
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
       {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
-      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
+      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
       {draft && (
         <QuickEventForm
           draft={draft.range}

@@ -11,6 +11,7 @@ import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { useFormSubmit } from '../../../lib/form.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
+import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import {
@@ -90,39 +91,45 @@ export function QuickEventForm({ draft, open, onSubmit, onChangeDraft, onExpand,
   };
 
   const peek = (
-    <Stack data-sheet-peek ref={peekRef} spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+    <Stack data-sheet-peek ref={peekRef}>
       {/* 保存はスマホでは上端（上の段まで広げても押せるように）、PC は Google カレンダーと同じ右下 */}
-      <Stack
-        direction={isMobile ? 'row' : 'row-reverse'}
-        sx={{ justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <IconButton aria-label="閉じる" onClick={onClose}>
-          <CloseIcon />
-        </IconButton>
-        {isMobile && <SubmitButton />}
-      </Stack>
-      {submitError && <Alert severity="error">{submitError}</Alert>}
-      <TextField
-        name="title"
-        label="タイトルを追加"
-        error={Boolean(errors.title)}
-        helperText={errors.title}
-        autoFocus={!isMobile}
-        fullWidth
-      />
-      {/* 日時は下の段では見出しだけ。上の段には入力欄そのものが出る */}
-      {detent === 'peek' && (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {draftText(draft)}
-        </Typography>
-      )}
-      <ParticipantsField name="participantIds" defaultValue={[]} error={errors.participantIds} />
-      {detent === 'peek' && (
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button onClick={isMobile ? () => setDetent('full') : expand}>その他のオプション</Button>
-          {!isMobile && <SubmitButton />}
+      {isMobile ? (
+        <SheetHeader onClose={onClose}>
+          <SubmitButton />
+        </SheetHeader>
+      ) : (
+        <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+          <IconButton aria-label="閉じる" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
         </Stack>
       )}
+      <Stack spacing={1.5} sx={{ px: 2, pt: 1, pb: 1.5 }}>
+        {submitError && <Alert severity="error">{submitError}</Alert>}
+        <TextField
+          name="title"
+          label="タイトルを追加"
+          error={Boolean(errors.title)}
+          helperText={errors.title}
+          autoFocus={!isMobile}
+          fullWidth
+        />
+        {/* 日時は下の段では見出しだけ。上の段には入力欄そのものが出る */}
+        {detent === 'peek' && (
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {draftText(draft)}
+          </Typography>
+        )}
+        <ParticipantsField name="participantIds" defaultValue={[]} error={errors.participantIds} />
+        {detent === 'peek' && (
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button onClick={isMobile ? () => setDetent('full') : expand}>
+              その他のオプション
+            </Button>
+            {!isMobile && <SubmitButton />}
+          </Stack>
+        )}
+      </Stack>
     </Stack>
   );
 

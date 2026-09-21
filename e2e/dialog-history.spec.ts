@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 
 test.beforeEach(async ({ page }) => {
@@ -40,10 +41,10 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL('/expenses');
 
-  // 詳細の上に編集を重ねて戻る（キャンセルと同じく、編集をやめると詳細も閉じる）
+  // 編集は同じ詳細の中で入力欄に変わるだけなので、戻ると詳細ごと閉じる（履歴は 1 つのまま）
   await row.click();
   await page.getByRole('button', { name: '編集' }).click();
-  await expect(page.getByRole('heading', { name: '立替を編集' })).toBeVisible();
+  await expect(page.getByLabel('金額（円）')).toHaveValue('1200');
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL('/expenses');
@@ -58,7 +59,7 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   await page.goto('/expenses');
   page.once('dialog', (dialog) => dialog.accept());
   await row.click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(row).toHaveCount(0);
 });
 
@@ -69,7 +70,7 @@ test('画面の操作で閉じたダイアログは履歴に残らない', async
   for (const amount of ['100', '200']) {
     await page.getByRole('button', { name: '立替を追加' }).click();
     await page.getByLabel('金額（円）').fill(amount);
-    await page.getByRole('button', { name: 'キャンセル' }).click();
+    await page.getByRole('button', { name: '閉じる' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await settled(page);
   }

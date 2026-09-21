@@ -93,11 +93,30 @@ export function BottomSheet({
   useEffect(() => {
     const peek = peekRef?.current ?? null;
     if (!sheet) return;
-    const measure = () =>
-      setSize({
+    /** 直前に測った高さと、今それを滑らせている最中か（滑っている間は測り直さない） */
+    let height = 0;
+    let growing = false;
+    const measure = () => {
+      if (growing) return;
+      const next = {
         sheet: sheet.clientHeight,
         peek: peek ? peek.getBoundingClientRect().bottom - sheet.getBoundingClientRect().top : 0,
-      });
+      };
+      // 中身が入れ替わって高さが変わったら、前の高さからその高さへ滑らせる（詳細 → 編集）。
+      // height: auto のままでは変化と見なされず transition が効かないので、実測した値で動かす。
+      if (height > 0 && next.sheet !== height) {
+        growing = true;
+        const grow = sheet.animate([{ height: `${height}px` }, { height: `${next.sheet}px` }], {
+          duration: SLIDE_MS,
+          easing: 'ease',
+        });
+        grow.finished.finally(() => {
+          growing = false;
+        });
+      }
+      height = next.sheet;
+      setSize(next);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(sheet);

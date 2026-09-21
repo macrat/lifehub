@@ -1,4 +1,5 @@
 import { devices, expect, type Page, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 import { touchDrag } from './touch.ts';
 
@@ -122,6 +123,6 @@ test('保存に失敗したら投機的な表示を取り消し、入力した�
   // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: /直した立替/ }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByText('直した立替')).toHaveCount(0);
 });

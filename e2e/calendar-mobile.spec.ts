@@ -1,4 +1,5 @@
 import { devices, expect, test } from '@playwright/test';
+import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 import { touchDrag } from './touch.ts';
 
@@ -45,7 +46,7 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
@@ -77,7 +78,7 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
@@ -149,6 +150,6 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
   await expect(page.getByText('シートから入力')).toBeVisible();
-  await page.getByRole('button', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });

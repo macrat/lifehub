@@ -9,7 +9,7 @@ import { formatTime, toDateString, today } from '../../../lib/date.ts';
 import { useOnline } from '../../../lib/online.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import { type CalendarItem, colorUserOf, useCalendarItems } from '../../calendar/queries.ts';
-import { ItemDetailDialog } from '../../events/components/ItemDetailDialog.tsx';
+import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
 import { useToggleCompletion } from '../../events/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
@@ -36,7 +36,7 @@ export function TodayCard() {
       ) : (
         items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
       )}
-      {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
+      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
     </DashboardCardFrame>
   );
 }
