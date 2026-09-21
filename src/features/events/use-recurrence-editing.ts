@@ -9,12 +9,12 @@ export type RecurrenceAction = 'edit' | 'delete';
  */
 export function useRecurrenceEditing(options: {
   isRecurring: boolean;
-  onDelete: (scope: RecurrenceScope) => Promise<unknown>;
+  onDelete: (scope: RecurrenceScope) => void;
 }) {
   const [pending, setPending] = useState<RecurrenceAction | null>(null);
   const [editScope, setEditScope] = useState<RecurrenceScope | null>(null);
 
-  const proceed = async (action: RecurrenceAction, scope: RecurrenceScope) => {
+  const proceed = (action: RecurrenceAction, scope: RecurrenceScope) => {
     setPending(null);
     if (action === 'edit') {
       setEditScope(scope);
@@ -23,7 +23,7 @@ export function useRecurrenceEditing(options: {
     const message =
       scope === 'all' && options.isRecurring ? 'すべての回を削除しますか？' : '削除しますか？';
     if (!window.confirm(message)) return;
-    await options.onDelete(scope);
+    options.onDelete(scope);
   };
 
   return {

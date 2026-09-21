@@ -24,7 +24,7 @@ type Props = {
 export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: Props) {
   const thisOnly = scope === 'this';
 
-  const { errors, submitError, submitting, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => {
       const startsRaw = formText(fd, 'startsAt');
@@ -49,17 +49,17 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
         startsAt: data.startsAt?.toISOString() ?? null,
         endsAt: data.endsAt?.toISOString() ?? null,
       }),
-    onSuccess: onClose,
+    onSaved: onClose,
   });
 
   return (
     <FormDialog
+      open={!submitted}
+      error={submitError}
       onClose={onClose}
       maxWidth="sm"
       title={title}
       onSubmit={handleSubmit}
-      submitting={submitting}
-      error={submitError}
     >
       <TextField
         name="title"
