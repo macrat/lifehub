@@ -101,7 +101,7 @@ export function AddMenu({ kinds, date }: Props) {
         ariaLabel="追加"
         icon={<SpeedDialIcon icon={<AddIcon />} />}
         open={expanded}
-        onOpen={() => setExpanded(true)}
+        onOpen={(_, reason) => reason !== 'focus' && setExpanded(true)}
         onClose={collapse}
         slotProps={{ transition: { appear: false } }}
         sx={MENU_SX}
