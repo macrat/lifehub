@@ -9,7 +9,7 @@ import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { CreateExpenseBody } from '../queries.ts';
 
 type Props = {
-  onSubmit: (input: CreateExpenseBody) => void;
+  onSubmit: (input: CreateExpenseBody) => Promise<unknown>;
   onClose: () => void;
 };
 
@@ -20,7 +20,7 @@ type Props = {
 export function ExpenseForm({ onSubmit, onClose }: Props) {
   const { options, meId } = useUserLabels();
   const people = options.filter((o) => o.value !== null);
-  const { errors, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createExpenseSchema,
     values: (fd) => ({
       fromUserId: formText(fd, 'fromUserId'),
@@ -30,11 +30,18 @@ export function ExpenseForm({ onSubmit, onClose }: Props) {
       spentOn: formText(fd, 'spentOn'),
     }),
     onSubmit,
-    onSent: onClose,
+    onSaved: onClose,
   });
 
   return (
-    <FormDialog onClose={onClose} maxWidth="xs" title="立替を追加" onSubmit={handleSubmit}>
+    <FormDialog
+      open={!submitted}
+      error={submitError}
+      onClose={onClose}
+      maxWidth="xs"
+      title="立替を追加"
+      onSubmit={handleSubmit}
+    >
       <TextField
         name="amount"
         label="金額（円）"

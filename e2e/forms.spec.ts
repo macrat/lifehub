@@ -64,7 +64,7 @@ test('カレンダーに追加した予定は通信を待たずに出る', async
   await expect(page.getByRole('button', { name: title })).toHaveCount(1);
 });
 
-test('保存に失敗したら投機的な表示を取り消して知らせる', async ({ page }) => {
+test('保存に失敗したら投機的な表示を取り消し、入力したままフォームを開き直す', async ({ page }) => {
   await page.goto('/expenses');
   await expect(page.getByText('残高')).toBeVisible();
 
@@ -82,7 +82,17 @@ test('保存に失敗したら投機的な表示を取り消して知らせる',
   await page.getByLabel('内容').fill('失敗する立替');
   await page.getByRole('button', { name: '保存' }).click();
 
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // 投機的に出した行は消え、入力したままのフォームが理由つきで戻る
+  await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByText('保存できませんでした（テスト）')).toBeVisible();
-  await expect(page.getByText('失敗する立替')).toHaveCount(0);
+  await expect(page.getByLabel('金額（円）')).toHaveValue('4321');
+  await expect(page.getByLabel('内容')).toHaveValue('失敗する立替');
+  await expect(page.getByRole('listitem').filter({ hasText: '失敗する立替' })).toHaveCount(0);
+
+  // 直して保存し直せる
+  await page.unroute('**/api/expenses');
+  await page.getByLabel('内容').fill('直した立替');
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByText('直した立替')).toBeVisible();
 });

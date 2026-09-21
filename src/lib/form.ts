@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import type { z } from 'zod';
+import { notify } from './ui/notice.ts';
 
 export type FormErrors = Record<string, string>;
 
@@ -50,25 +51,29 @@ type UseFormSubmitOptions<S extends z.ZodType> = {
   schema: S;
   /** FormData（と必要ならコンポーネントの状態）から検証前の値を組み立てる */
   values: (formData: FormData) => unknown;
-  /** 検証を通った値の保存。保存は投機的に画面へ反映されるので、送信の完了は待たない */
-  onSubmit: (data: z.output<S>) => void;
-  /** 送信したとき（ダイアログを閉じる）。送信の失敗は通知（notice）で伝わる */
-  onSent?: () => void;
+  /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
+  onSubmit: (data: z.output<S>) => Promise<unknown>;
+  /** 保存できたとき（ダイアログのマウントをやめる） */
+  onSaved?: () => void;
 };
 
 /**
- * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 閉じる。
+ * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 保存できたら知らせる。
+ * 送信すると同時に submitted を立ててダイアログを閉じた見た目にし（入力はそのまま残す）、
+ * 保存できたら onSaved、失敗したら submitted を戻して開き直し、理由をフォームの中に出す。
  * フォームライブラリを入れない代わりの最小限の共通処理で、各フォームはフィールドの描画に専念する。
  */
 export function useFormSubmit<S extends z.ZodType>({
   schema,
   values,
   onSubmit,
-  onSent,
+  onSaved,
 }: UseFormSubmitOptions<S>) {
   const [errors, setErrors] = useState<FormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const parsed = parseValues(schema, values(new FormData(event.currentTarget)));
     if (parsed.errors) {
@@ -76,9 +81,18 @@ export function useFormSubmit<S extends z.ZodType>({
       return;
     }
     setErrors({});
-    onSubmit(parsed.data);
-    onSent?.();
+    setSubmitError(null);
+    setSubmitted(true);
+    try {
+      await onSubmit(parsed.data);
+      onSaved?.();
+    } catch (error) {
+      // 開き直してこの中に理由を出すので、共通の通知は消す（失敗を伝える場所は 1 つにする）
+      notify(null);
+      setSubmitted(false);
+      setSubmitError(error instanceof Error ? error.message : '保存に失敗しました');
+    }
   };
 
-  return { errors, handleSubmit };
+  return { errors, submitError, submitted, handleSubmit };
 }

@@ -158,7 +158,7 @@ export function ItemDetailDialog({ item, onClose }: Props) {
           initial={initialValues}
           scope={editScope}
           onSubmit={(input) =>
-            updateEvent.mutate({
+            updateEvent.mutateAsync({
               id: item.id,
               ...input,
               scope: editScope,

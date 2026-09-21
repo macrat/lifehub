@@ -29,7 +29,7 @@ type Props = {
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
-  onSubmit: (input: CreateEventBody) => void;
+  onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onClose: () => void;
 };
 
@@ -51,7 +51,7 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
   const initialStart = initial.startsAt ?? new Date().toISOString();
   const initialEnd = initial.endsAt ?? initialStart;
 
-  const { errors, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: (fd) => {
       const startsRaw = formText(fd, 'startsAt');
@@ -81,11 +81,18 @@ export function EventForm({ title, initial, scope = 'all', onSubmit, onClose }: 
         startsAt: data.startsAt?.toISOString() ?? null,
         endsAt: data.endsAt?.toISOString() ?? null,
       }),
-    onSent: onClose,
+    onSaved: onClose,
   });
 
   return (
-    <FormDialog onClose={onClose} maxWidth="sm" title={title} onSubmit={handleSubmit}>
+    <FormDialog
+      open={!submitted}
+      error={submitError}
+      onClose={onClose}
+      maxWidth="sm"
+      title={title}
+      onSubmit={handleSubmit}
+    >
       <TextField
         name="title"
         label="タイトル"

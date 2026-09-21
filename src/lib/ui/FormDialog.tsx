@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -14,8 +15,12 @@ import { useIsMobile } from './use-breakpoint.ts';
 
 type Props = {
   title: string;
+  /** 送信中は閉じた見た目にする（入力は残したまま）。保存できたら呼び出し側がマウントをやめる */
+  open: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  /** 保存の失敗など、項目に紐づかないエラー */
+  error?: string | null;
   maxWidth?: 'xs' | 'sm';
   children: ReactNode;
 };
@@ -26,16 +31,26 @@ function SlideFromRight(props: ComponentProps<typeof Slide>) {
 }
 
 /**
- * 入力フォーム用のダイアログ。<form> を含み、Enter で送信できる。常に開いた状態で描画し、呼び出し側が条件付きでマウントする（閉じたら状態も消える）。
+ * 入力フォーム用のダイアログ。<form> を含み、Enter で送信できる。呼び出し側が条件付きでマウントする（マウントをやめれば入力も消える）。
+ * 送信中は閉じた見た目になるだけで中身は保つ（keepMounted）ので、保存に失敗したら入力したまま開き直せる。
  * 項目は縦に並べ、エラーを先頭に出し、右下にキャンセルと保存を置く。
  * スマホでは画面いっぱいに右から出し、見出しを AppBar と同じ帯（戻る矢印つき）にして、ページが切り替わったように見せる。
  * 操作ボタンは下端に固定する（キーボード表示時も届くように）。
  */
-export function FormDialog({ title, onClose, onSubmit, maxWidth = 'sm', children }: Props) {
+export function FormDialog({
+  title,
+  open,
+  onClose,
+  onSubmit,
+  error,
+  maxWidth = 'sm',
+  children,
+}: Props) {
   const isMobile = useIsMobile();
   return (
     <Dialog
-      open
+      open={open}
+      keepMounted
       onClose={onClose}
       fullScreen={isMobile}
       fullWidth
@@ -68,6 +83,7 @@ export function FormDialog({ title, onClose, onSubmit, maxWidth = 'sm', children
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {error && <Alert severity="error">{error}</Alert>}
             {children}
           </Stack>
         </DialogContent>

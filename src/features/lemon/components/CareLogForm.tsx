@@ -14,14 +14,14 @@ import type { CreateCareLogBody } from '../queries.ts';
 
 type Props = {
   initialCareType?: CareType;
-  onSubmit: (input: CreateCareLogBody) => void;
+  onSubmit: (input: CreateCareLogBody) => Promise<unknown>;
   onClose: () => void;
 };
 
 /** レモンの世話の記録。日時の既定は今。 */
 export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Props) {
   const [careType, setCareType] = useState<CareType>(initialCareType);
-  const { errors, handleSubmit } = useFormSubmit({
+  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createCareLogSchema,
     values: (fd) => {
       const doneAt = formText(fd, 'doneAt');
@@ -32,11 +32,18 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
       };
     },
     onSubmit: (data) => onSubmit({ ...data, doneAt: data.doneAt.toISOString() }),
-    onSent: onClose,
+    onSaved: onClose,
   });
 
   return (
-    <FormDialog onClose={onClose} maxWidth="xs" title="レモンの記録" onSubmit={handleSubmit}>
+    <FormDialog
+      open={!submitted}
+      error={submitError}
+      onClose={onClose}
+      maxWidth="xs"
+      title="レモンの記録"
+      onSubmit={handleSubmit}
+    >
       <TextField
         label="種別"
         select
