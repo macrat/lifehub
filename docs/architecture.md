@@ -217,3 +217,4 @@ Preview 環境の挙動:
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。
 - 依存関係の自動更新ツールは導入していない。更新は手動の PR で行う。
+- npm パッケージは公開から 3 日以上経ったものだけを取り込む（`pnpm-workspace.yaml` の `minimumReleaseAge: 4320`（分））。乗っ取られたアカウントからの publish が発覚・取り下げされるまでの猶予を取り、サプライチェーン攻撃を避けるため。強制されるのはロックファイルを解決し直す操作（`pnpm add` / `pnpm update` / ロックファイル再生成）で、CI の `pnpm install --frozen-lockfile` は解決済みのロックファイルをそのまま入れるので再検査しない。

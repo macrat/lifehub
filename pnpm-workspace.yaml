@@ -1,6 +1,12 @@
 allowBuilds:
   esbuild: true
 
+# サプライチェーン攻撃への防御。公開直後のパッケージは、乗っ取られたアカウントからの publish が
+# 発覚・取り下げされる前かもしれないので、公開から 3 日（4320 分）経ったものだけを取り込む。
+# minimumReleaseAgeExclude は置かない。恒久的な穴を開けるより、急ぎの脆弱性修正が要るときだけ
+# この値を一時的に下げるか overrides で当該バージョンを固定する方が安全なため。
+minimumReleaseAge: 4320
+
 # デプロイツールが固定する脆弱な間接依存を修正版に揃える。
 overrides:
   '@esbuild-kit/core-utils>esbuild': 0.25.12
