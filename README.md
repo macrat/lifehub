@@ -49,7 +49,7 @@ pnpm dev                          # http://localhost:5173
 1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、GitHub リポジトリ。いずれもカード登録不要。
 2. ID の確認: Neon の組織 ID（コンソールの Organization settings。`org-...`）と Vercel のチーム slug または ID（Team Settings → General。Hobby でもアカウントはチームとして扱われる）。
 3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。
-4. Upstash コンソールで QStash を有効化し、トークンと Current/Next Signing Key を控える。
+4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/lib/qstash.ts`）。
 5. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
 6. 上記を GitHub Secrets に登録する:
    `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
