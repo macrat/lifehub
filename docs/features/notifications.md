@@ -32,7 +32,7 @@ export function listNotifications(range): Promise<{ key; at; ref }[]>;   // 予�
 export function resolveNotification(ref): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```
 
-通知源は予定・タスク（events）だけなので registry は置かず、`server/lib/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/lib/push/send.ts`。
+通知源は予定・タスク（events）だけなので registry は置かず、`server/lib/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/lib/push/send.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
 
 ## 購読
 
@@ -47,6 +47,6 @@ export function resolveNotification(ref): Promise<NotificationPayload | null>; /
 
 ## 環境変数
 
-`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `CRON_SECRET`。Vercel の環境変数（Sensitive）として Terraform が設定する。
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `CRON_SECRET`。Vercel の環境変数（Sensitive）として Terraform が設定する。`QSTASH_*` は US リージョンの値を使う。
 
 いずれも本番では必須で、1 つでも欠けていればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。欠けたままでも予約（`createPublisher()` が `null` を返す）と送信（`ensureConfigured()` が `false` を返す）は何もせずに正常終了してしまい、画面にもログにも異常が出ないため、起動時に落とす以外に気づく手段が無い。この判定は `VERCEL_ENV` を読むので、Vercel のシステム環境変数を実行時に公開しておく必要がある（`infra/vercel.tf`）。ローカルと Preview は通知用の秘密情報を持たないので対象外。
