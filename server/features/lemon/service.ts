@@ -1,4 +1,4 @@
-import { type CareLog, type CareStatus, careStatuses } from '../../../shared/lemon.ts';
+import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
 import type { CreateCareLogInput } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import * as repository from './repository.ts';
@@ -10,9 +10,13 @@ export async function listLogs(): Promise<CareLog[]> {
   return (await repository.findAll()).map(toLog);
 }
 
-/** 種別ごとの状態（shared/lemon.ts の規則）。記録の一覧から導く */
+/** 種別ごとの状態（shared/lemon.ts の規則）。種別ごとの最新の記録だけを読んで導く */
 export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
-  return careStatuses(await listLogs(), now);
+  const latest = await repository.findLatestByCareType(now);
+  return careStatusesOf(
+    Object.fromEntries(latest.map((row) => [row.careType, row.doneAt.toISOString()])),
+    now,
+  );
 }
 
 export async function logCare(input: CreateCareLogInput, userId: string): Promise<CareLog> {

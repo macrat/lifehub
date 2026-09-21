@@ -1,4 +1,5 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
+import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { db } from '../../lib/db.ts';
 import { newId } from '../../lib/id.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
@@ -14,6 +15,21 @@ type ExpenseValues = {
 
 export async function findAll(): Promise<ExpenseRow[]> {
   return db.select().from(expenses).orderBy(desc(expenses.spentOn), desc(expenses.createdAt));
+}
+
+/**
+ * 「誰が誰のために払ったか」ごとの合計。残高はこれだけで決まるので、行を全部読まずに DB で畳む
+ * （利用者は 2 人なので、返る行は最大 6 つ）。
+ */
+export async function sumByDirection(): Promise<ExpenseTotal[]> {
+  return db
+    .select({
+      fromUserId: expenses.fromUserId,
+      toUserId: expenses.toUserId,
+      amount: sql<number>`sum(${expenses.amount})::int`,
+    })
+    .from(expenses)
+    .groupBy(expenses.fromUserId, expenses.toUserId);
 }
 
 export async function insert(row: ExpenseValues & { createdBy: string }): Promise<ExpenseRow> {
