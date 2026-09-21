@@ -1,5 +1,6 @@
+import { addDays } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { fromMinutesOfDay } from '../../lib/date.ts';
+import { fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
 
 /** 予定・タスクのフォームが扱う値（日時は ISO 文字列）。カレンダーの項目や保存されている行をそのまま渡せる */
 export type ItemFormValues = {
@@ -40,6 +41,19 @@ export function eventValuesForRange(
     ...EMPTY,
     startsAt: fromMinutesOfDay(date, startMin),
     endsAt: fromMinutesOfDay(date, endMin),
+  };
+}
+
+/**
+ * 指定した日（両端を含む）の終日の予定の既定値。月表示・終日欄で選んだ期間をそのまま渡す。
+ * 終了は保存されている予定と同じ「排他的な終わり」（翌日 0:00）で持つ。
+ */
+export function allDayEventValues(from: DateString, to: DateString): ItemFormValues {
+  return {
+    ...EMPTY,
+    allDay: true,
+    startsAt: fromDateValue(from),
+    endsAt: fromDateValue(addDays(to, 1)),
   };
 }
 

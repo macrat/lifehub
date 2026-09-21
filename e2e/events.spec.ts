@@ -54,8 +54,9 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
   const title = `E2E ドラッグ ${Date.now()}`;
   await page.goto('/calendar?view=week&date=2031-06-04');
 
-  // 時間軸の列（1 列 = 24 時間）の上端を基準に、9:00 の枠から 10:15〜10:30 の枠までドラッグする
-  const column = page.locator('[data-date="2031-06-05"]');
+  // 時間軸の列（1 列 = 24 時間）の上端を基準に、9:00 の枠から 10:15〜10:30 の枠までドラッグする。
+  // 同じ日付は終日欄の枠にもあるので、後ろにある時間軸の列を使う
+  const column = page.locator('[data-date="2031-06-05"]').last();
   const box = await column.boundingBox();
   if (!box) throw new Error('時間軸の列が見つからない');
   const x = box.x + box.width / 2;
@@ -65,10 +66,37 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
   await page.mouse.move(x, y(10 * 60 + 20), { steps: 5 });
   await page.mouse.up();
 
-  // 選んだ時間帯が入った状態で予定のフォームが開く
+  // 選んだ時間帯でクイック入力が開く
+  await expect(page.getByText('6/5(木) 09:00〜10:30')).toBeVisible();
+  await page.getByLabel('タイトルを追加').fill(title);
+
+  // 「その他のオプション」には入力済みの内容と選んだ時間帯を引き継ぐ
+  await page.getByRole('button', { name: 'その他のオプション' }).click();
+  await expect(page.getByLabel('タイトル')).toHaveValue(title);
   await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
   await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T10:30');
-  await page.getByLabel('タイトル').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await page.getByRole('button', { name: '削除' }).click();
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('月表示でクリックして終日の予定をその場で作れる', async ({ page }) => {
+  const title = `E2E 月 ${Date.now()}`;
+  await page.goto('/calendar?view=month&date=2031-06-15');
+
+  // 日付の数字や項目を避けて、セルの下の方を押す
+  const cell = page.locator('[data-date="2031-06-18"]');
+  const box = await cell.boundingBox();
+  if (!box) throw new Error('日のセルが見つからない');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 6);
+
+  // クイック入力から保存すると、その場で月グリッドに出る
+  await expect(page.getByText('6/18(水) 終日')).toBeVisible();
+  await page.getByLabel('タイトルを追加').fill(title);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 

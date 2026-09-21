@@ -7,15 +7,16 @@ import { CalendarToolbar } from '../../features/calendar/components/CalendarTool
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
+import type { EventDraft } from '../../features/calendar/draft.ts';
 import type { CalendarItem } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
-import type { TimeSelection } from '../../features/calendar/use-time-drag.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailDialog } from '../../features/events/components/ItemDetailDialog.tsx';
-import { eventValuesForRange } from '../../features/events/form-values.ts';
+import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
+import type { ItemFormValues } from '../../features/events/form-values.ts';
 import { useCreateEvent } from '../../features/events/queries.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -39,7 +40,7 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
  * - 見出しをタップすると年月・週・日の選択ダイアログ
- * - 週・日表示では時間軸をドラッグすると、その時間帯の予定を追加できる
+ * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
  */
 function CalendarPage() {
   const page = useCalendarPage(Route.useSearch());
@@ -47,7 +48,9 @@ function CalendarPage() {
 
   const createEvent = useCreateEvent();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [range, setRange] = useState<TimeSelection | null>(null);
+  // 追加しようとしている予定。editing はポインタを離した後（なぞっている間は入力を出さない）
+  const [draft, setDraft] = useState<{ range: EventDraft; editing: boolean } | null>(null);
+  const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -91,7 +94,9 @@ function CalendarPage() {
                 period={page.periodAt(offset)}
                 onSelectDate={page.openDay}
                 onSelectItem={setSelected}
-                onSelectRange={setRange}
+                // 下書きは表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
+                draft={offset === 0 ? (draft?.range ?? null) : null}
+                onChangeDraft={(range, editing) => setDraft({ range, editing })}
               />
             )}
           </SwipePager>
@@ -110,14 +115,27 @@ function CalendarPage() {
         />
       )}
 
-      <AddMenu kinds={['task', 'event']} date={page.date} />
+      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
+      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
       {selected && <ItemDetailDialog item={selected} onClose={() => setSelected(null)} />}
-      {range && (
+      {draft && (
+        <QuickEventForm
+          draft={draft.range}
+          open={draft.editing}
+          onSubmit={(input) => createEvent.mutateAsync(input)}
+          onExpand={(values) => {
+            setDraftValues(values);
+            setDraft(null);
+          }}
+          onClose={() => setDraft(null)}
+        />
+      )}
+      {draftValues && (
         <EventForm
           title="予定を追加"
-          initial={eventValuesForRange(range.date, range.startMin, range.endMin)}
+          initial={draftValues}
           onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setRange(null)}
+          onClose={() => setDraftValues(null)}
         />
       )}
     </>
