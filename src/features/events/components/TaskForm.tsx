@@ -77,7 +77,7 @@ export function TaskForm({ title, initial, scope = 'all', onSubmit, onClose }: P
           type="datetime-local"
           defaultValue={initial.startsAt ? toDateTimeLocalValue(initial.startsAt) : ''}
           error={Boolean(errors.startsAt)}
-          helperText={errors.startsAt ?? '空欄なら今日から表示'}
+          helperText={errors.startsAt}
           slotProps={{ inputLabel: { shrink: true } }}
           fullWidth
         />

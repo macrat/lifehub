@@ -16,6 +16,7 @@ import {
   type CalendarTaskItem,
   colorUserOf,
 } from '../queries.ts';
+import { itemTransitionName } from './item-transition.ts';
 
 type Props = {
   item: CalendarItem;
@@ -42,7 +43,15 @@ export function ItemCard({ item, onClick }: Props) {
     .join(' · ');
 
   return (
-    <Stack direction="row" sx={{ alignItems: 'stretch', opacity: completed ? 0.55 : 1 }}>
+    <Stack
+      direction="row"
+      sx={{
+        alignItems: 'stretch',
+        opacity: completed ? 0.55 : 1,
+        // 表示を切り替えたとき、同じ項目がこの行から動く
+        viewTransitionName: itemTransitionName(item),
+      }}
+    >
       <Box
         sx={{
           width: 44,

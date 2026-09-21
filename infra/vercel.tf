@@ -4,14 +4,15 @@ resource "vercel_project" "lifehub" {
   name      = "lifehub"
   framework = "vite"
 
+  # VERCEL / VERCEL_ENV / VERCEL_URL などのシステム環境変数は、この設定を有効にしないと
+  # ビルドにも関数にも渡らない。DB ドライバの切替（server/lib/db.ts）、通知予約を本番だけに
+  # 絞る判定（server/lib/qstash.ts）、Preview で信頼するホスト（server/lib/auth.ts）、
+  # 本番で必須の環境変数の検査（server/lib/env.ts）が依存する。
+  automatically_expose_system_environment_variables = true
+
   build_command    = "pnpm build"
   install_command  = "pnpm install --frozen-lockfile"
   output_directory = "dist"
-
-  # VERCEL_ENV / VERCEL を実行時に渡す。本番かどうかの判定（server/lib/env.ts）と DB ドライバの
-  # 選択（server/lib/db.ts）がこれを読む。露出していないと本番判定が false に倒れ、必須の環境変数の
-  # 検査も通知の予約も黙って行われなくなるので、既定に任せず明示する。
-  automatically_expose_system_environment_variables = true
 
   # Preview URL を Vercel 認証で保護する
   vercel_authentication = {
