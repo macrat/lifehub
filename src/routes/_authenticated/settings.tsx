@@ -76,7 +76,7 @@ function VersionSection() {
       <ListItem>
         <ListItemText
           primary={__BUILD_COMMIT__.slice(0, 7)}
-          secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)} ビルド`}
+          secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)}`}
         />
       </ListItem>
     </List>
