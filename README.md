@@ -63,7 +63,7 @@ pnpm dev                          # http://localhost:5173
 | 環境 | ブランチ | DB | 用途 |
 |---|---|---|---|
 | `production` | main | Neon `main` ブランチ | 本番 https://lifehub.crat.jp |
-| `preview` | PR | PR ごとに作る Neon ブランチ（`preview/pr-<番号>`） | PR ごとの Vercel Preview URL |
+| `preview` | PR | PR ごとに作る Neon ブランチ（`preview/pr-<番号>`） | `preview` ラベルを付けた PR の Vercel Preview URL |
 | `local` | — | Neon `dev` ブランチ または Docker の Postgres | `pnpm dev` |
 
 環境変数の一覧は [.env.example](.env.example)。
