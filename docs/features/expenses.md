@@ -6,8 +6,9 @@
 
 ## 画面
 
-- 立替 `/expenses`: 残高（「A が B に n 円払うと精算」、0 なら「精算済み」）と履歴（新しい順、削除可）。履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。
-- 立替フォーム（`src/features/expenses/components/ExpenseForm.tsx`）: 上から日付（既定は今日）、**To**（誰のために払ったか。既定は「共有」= 折半。ユーザーを選ぶと全額そのユーザーの負担）と **From**（払った人。既定はログイン中のユーザー）を簿記に倣って To を左・From を右に横並び、内容、金額、電卓。ホームのクイック追加でも使う。
+- 立替 `/expenses`: 残高（「A が B に n 円払うと精算」、0 なら「精算済み」）と履歴（新しい順）。履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細が開く。
+- 立替の詳細（`src/features/expenses/components/ExpenseDetailDialog.tsx`）: 金額・日付・To／From を表示し、そこから編集（同じフォーム）と削除を行う。一覧に削除ボタンは置かない（行が主役で、操作は詳細に集める）。
+- 立替フォーム（`src/features/expenses/components/ExpenseForm.tsx`）: 追加と編集で共通。上から日付（既定は今日）、**To**（誰のために払ったか。既定は「共有」= 折半。ユーザーを選ぶと全額そのユーザーの負担）と **From**（払った人。既定はログイン中のユーザー）を簿記に倣って To を左・From を右に横並び、内容、金額、電卓。ホームのクイック追加でも使う。
 - 電卓（`src/features/expenses/components/Calculator.tsx`、式の組み立てと計算は `src/features/expenses/calculator.ts`）: 金額欄がそのまま電卓の入力欄で、式（`1200+800`）を直接書く。計算結果の表示欄は別に持たず、`=` で金額欄の式を結果に置き換える。× ÷ を + − より先に計算し、円にするため結果は四捨五入する。キーパッドは金額欄の下の余白をすべて使い、金額欄はソフトキーボードを出さない（`inputMode: none`）。
 - 精算ボタンは無い。精算は From に払った人、To に受け取った人を選んで立替として追加する。
 
@@ -30,6 +31,7 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 | GET | `/api/expenses` | 履歴（新しい順） |
 | GET | `/api/expenses/balance` | 残高（`{ fromUserId, toUserId, amount }`。0 なら `amount: 0`） |
 | POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない |
+| PUT | `/api/expenses/:id` | 編集。全項目を置き換える（入力は追加と同じ形） |
 | DELETE | `/api/expenses/:id` | 削除 |
 
 入力スキーマは `shared/validation/expenses.ts`。

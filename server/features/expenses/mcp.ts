@@ -1,4 +1,4 @@
-import { createExpenseSchema } from '../../../shared/validation/expenses.ts';
+import { expenseSchema } from '../../../shared/validation/expenses.ts';
 import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -31,7 +31,7 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
       title: '立替の追加',
       description:
         '立替を記録する。fromUserId は払ったユーザーの ID、toUserId は誰のために払ったか（null なら共有 = 折半、ユーザー ID なら全額そのユーザーの負担）、amount は円（正の整数）、spentOn は JST の日付（YYYY-MM-DD）。精算は「払った人を fromUserId、受け取った人を toUserId」にして記録する。',
-      inputSchema: createExpenseSchema,
+      inputSchema: expenseSchema,
     },
     async (input) => jsonResult(await service.addExpense(input, ctx.userId)),
   );
