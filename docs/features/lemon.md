@@ -30,4 +30,4 @@
 
 ## ホームのカード
 
-「レモン」: 水やり・葉水それぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む（`src/features/dashboard/cards/LemonCard.tsx`）。
+「レモン」: 水やり・葉水それぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む（`src/features/dashboard/cards/LemonCard.tsx`）。タイルをタップするとレモンページと同じくその種別を選んだ状態で記録フォームが開く。
