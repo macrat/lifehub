@@ -8,12 +8,13 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
+import { calendarMonthQueryOptions } from '../../features/calendar/queries.ts';
 import { BalanceCard } from '../../features/dashboard/cards/BalanceCard.tsx';
 import { LemonCard } from '../../features/dashboard/cards/LemonCard.tsx';
-import { TodayCard, todayItemsQueryOptions } from '../../features/dashboard/cards/TodayCard.tsx';
+import { TodayCard } from '../../features/dashboard/cards/TodayCard.tsx';
 import { balanceQueryOptions } from '../../features/expenses/queries.ts';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
-import { formatDateWithYear, today } from '../../lib/date.ts';
+import { formatDateWithYear, today, toMonthString } from '../../lib/date.ts';
 import { ensureData } from '../../lib/query-client.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { settingsNavItem } from '../../lib/ui/navigation.ts';
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/_authenticated/')({
   // 各カードのクエリを先読みする（オフラインならキャッシュから）
   loader: ({ context }) =>
     Promise.all([
-      ensureData(context.queryClient, todayItemsQueryOptions()),
+      ensureData(context.queryClient, calendarMonthQueryOptions(toMonthString(today()))),
       ensureData(context.queryClient, balanceQueryOptions),
       ensureData(context.queryClient, lemonStatusQueryOptions),
     ]),
