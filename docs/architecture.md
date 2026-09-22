@@ -70,7 +70,7 @@ src/                          # クライアント（Vite + React）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
-    add/（右下の追加ボタンと、種類ごとの追加フォーム。ホームとカレンダーが使う。機能をまたぐのでどれにも属さない）
+    add/（右下の追加ボタン、種類ごとの追加フォーム、URL のしるし（`add`）。機能をまたぐのでどれにも属さない）
   lib/                        # 横断
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
@@ -192,12 +192,12 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## PWA
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
-- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/lib/add-shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
+- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/features/add/shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
 - 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。インストールした PWA は precache から起動するため再読み込みでは版が変わらないので、`registration.update()` で Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で上記 `autoUpdate` の経路が読み込み直す。新版が無いときと、取りに行けなかったとき（オフライン等）だけ自分で読み込み直す（押しても何も起きない状態を作らない）。
-- アイコンは `public/icons/favicon.svg`（アプリのアイコン）、`public/icons/badge.svg`（通知の小さな印）、アプリが使っている MUI のアイコン（ショートカット）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。ショートカットの絵は、アプリが使っている MUI のアイコン（下部ナビの `calendarNavItem` と追加ボタンの `ADD_KINDS`）を React からそのまま描き出し、アプリのアイコンと同じ角丸の板に白で置く。絵の選択も path も書き写さないので、アプリの表示とショートカットが必ず同じ絵になる。
+- アイコンは `public/icons/favicon.svg`（アプリのアイコン）、`public/icons/badge.svg`（通知の小さな印）、アプリが使っている MUI のアイコン（ショートカット）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。ショートカットの絵は、アプリが使っている MUI のアイコン（下部ナビと追加ボタンのもの）を React からそのまま描き出し、アプリのアイコンと同じ角丸の板に白で置く。絵の選択も path も書き写さないので、アプリの表示とショートカットが必ず同じ絵になる。
 
 ## 運用
 

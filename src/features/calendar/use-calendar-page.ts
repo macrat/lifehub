@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { addSearchSchema } from '../../lib/add-shortcut.ts';
 import {
   addDays,
   addMonths,
@@ -17,6 +16,7 @@ import {
   weekDays,
 } from '../../lib/date.ts';
 import { useKeywordSearch } from '../../lib/search.ts';
+import { addSearchSchema } from '../add/shortcut.ts';
 import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
 import { useHourZoom } from './use-hour-zoom.ts';

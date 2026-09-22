@@ -3,15 +3,14 @@ import { chromium } from '@playwright/test';
 import { type ComponentType, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ADD_KINDS } from '../src/features/add/kinds.ts';
-import { SHORTCUTS, type ShortcutKind, shortcutIconSrc } from '../src/lib/shortcuts.ts';
+import { SHORTCUTS, shortcutIconSrc } from '../src/lib/shortcuts.ts';
 import { calendarNavItem } from '../src/lib/ui/navigation.ts';
 
 /**
- * PWA 用の PNG を生成する。元になるのは 2 つの SVG と、アプリが使っている MUI のアイコン:
- * - `public/icons/favicon.svg` → アプリのアイコン（192 / 512 / maskable 512 / apple-touch 180）
- * - `public/icons/badge.svg` → 通知の小さな印（96）。Android はこれを alpha だけの単色として
- *   ステータスバーに出すので、背景の板を持たない字だけの形にしてある。
- * - アプリが使っている MUI のアイコン（下部ナビと追加ボタン）→ ショートカットのアイコン（192）
+ * PWA 用の PNG を生成する。元は `public/icons/` の SVG（アプリのアイコンと通知の印）と、
+ * アプリが使っている MUI のアイコン（ショートカット）。
+ * 通知の印だけは背景の板を持たない字だけの形にしてある。Android はこれを alpha だけの単色として
+ * ステータスバーに出すので、色付きの板があると塗り潰れた四角になるため。
  *
  * 画像ライブラリを増やさず、開発依存に既にある Playwright の Chromium でラスタライズする。
  * アイコンを変えたときだけ実行し、生成物はコミットする。
@@ -21,14 +20,6 @@ const badge = readFileSync('public/icons/badge.svg', 'utf8');
 
 /** アプリのアイコンの板と同じブランドカラー（`public/icons/favicon.svg`） */
 const BRAND = '#A0148C';
-
-const SHORTCUT_ICONS: Record<ShortcutKind, ComponentType> = {
-  calendar: calendarNavItem.icon,
-  event: ADD_KINDS.event.icon,
-  task: ADD_KINDS.task.icon,
-  expense: ADD_KINDS.expense.icon,
-  lemon: ADD_KINDS.lemon.icon,
-};
 
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
@@ -73,7 +64,9 @@ await render(icon, 180, 0, 'public/icons/apple-touch-icon.png');
 await render(icon, 512, 64, 'public/icons/icon-maskable-512.png');
 await render(badge, 96, 0, 'public/icons/badge-96.png');
 for (const { kind } of SHORTCUTS) {
-  await render(shortcutSvg(SHORTCUT_ICONS[kind]), 192, 0, `public${shortcutIconSrc(kind)}`);
+  // 絵はアプリの中で同じ場所へ行く物（下部ナビ）・同じ物を追加する操作（追加ボタン）から取る
+  const Icon = kind === 'calendar' ? calendarNavItem.icon : ADD_KINDS[kind].icon;
+  await render(shortcutSvg(Icon), 192, 0, `public${shortcutIconSrc(kind)}`);
 }
 await browser.close();
 console.log('icons generated');

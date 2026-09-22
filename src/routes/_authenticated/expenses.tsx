@@ -6,23 +6,22 @@ import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { AddExpenseForm } from '../../features/add/components/AddForm.tsx';
+import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
-import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
   balanceQueryOptions,
   type Expense,
   expensesQueryOptions,
-  useAddExpense,
 } from '../../features/expenses/queries.ts';
 import {
   expenseSearchSchema,
   matchesExpense,
   useExpenseSearch,
 } from '../../features/expenses/search.ts';
-import { useAddShortcut } from '../../lib/add-shortcut.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -45,7 +44,6 @@ function ExpensesPage() {
   const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
   const balanceQuery = useQuery(balanceQueryOptions);
   const expensesQuery = useQuery(expensesQueryOptions);
-  const addExpense = useAddExpense();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
@@ -92,7 +90,7 @@ function ExpensesPage() {
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
+      {adding && <AddExpenseForm onClose={() => setAdding(false)} />}
       {selected && <ExpenseDetailSheet expense={selected} onClose={() => setSelected(null)} />}
     </>
   );

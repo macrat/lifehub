@@ -1,14 +1,6 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { calendarSearchSchema } from '../../features/calendar/use-calendar-page.ts';
 import { SHORTCUTS, shortcutIconSrc } from '../shortcuts.ts';
-
-/** ショートカット 1 つ分の URL の検索パラメータ */
-function searchOf(kind: (typeof SHORTCUTS)[number]['kind']): Record<string, string> {
-  const shortcut = SHORTCUTS.find((s) => s.kind === kind);
-  if (!shortcut) throw new Error(`${kind} のショートカットが無い`);
-  return Object.fromEntries(new URL(shortcut.url, 'https://lifehub.invalid').searchParams);
-}
 
 describe('ショートカット', () => {
   /**
@@ -23,10 +15,13 @@ describe('ショートカット', () => {
 
   /**
    * 「カレンダー」が約束しているのは月表示。既定に頼って `view` を落とすと、既定を変えた日に
-   * 黙って別の表示になるので、URL 自体が月表示を指していることを画面の検索パラメータで確かめる。
+   * 黙って別の表示になるので、URL 自体が月表示を指していることを確かめる。
    * 入力を開くショートカット（`add`）は、実際に入力が開くところまで E2E で見る。
    */
-  it('カレンダーは月表示を指している', () => {
-    expect(calendarSearchSchema.parse(searchOf('calendar')).view).toBe('month');
+  it('カレンダーは既定に頼らず月表示を指している', () => {
+    const calendar = SHORTCUTS.find((s) => s.kind === 'calendar');
+    if (!calendar) throw new Error('カレンダーのショートカットが無い');
+    const { searchParams } = new URL(calendar.url, 'https://lifehub.invalid');
+    expect(searchParams.get('view')).toBe('month');
   });
 });

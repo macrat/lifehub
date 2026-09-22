@@ -11,10 +11,9 @@ export const SHORTCUTS = [
   { kind: 'lemon', name: 'レモンの記録', shortName: 'レモン', url: '/lemon?add=lemon' },
 ] as const;
 
-/** ショートカットの種類。アイコンはこの名前で生成し、この名前で参照する */
 export type ShortcutKind = (typeof SHORTCUTS)[number]['kind'];
 
-/** アイコンの置き場所。生成するときの書き出し先は `public` の下の同じ道 */
+/** アイコンの置き場所（`pnpm icons:generate` が `public` の下の同じ道へ書き出す） */
 export function shortcutIconSrc(kind: ShortcutKind): string {
   return `/icons/shortcut-${kind}-192.png`;
 }

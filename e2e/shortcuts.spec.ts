@@ -1,9 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { login } from './login.ts';
 
-/** manifest（`vite.config.ts`）に並べたショートカット */
-type Shortcut = { name: string; url: string };
-
 /**
  * 入力を開く PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。
  * ランチャーが開くのは manifest に書いた URL そのものなので、manifest から読んだ URL を
@@ -13,7 +10,7 @@ type Shortcut = { name: string; url: string };
 test('ショートカットの URL がそれぞれの入力を開く', async ({ page }) => {
   await login(page);
   const manifest = await (await page.request.get('/manifest.webmanifest')).json();
-  const shortcuts: Shortcut[] = manifest.shortcuts;
+  const shortcuts: { name: string; url: string }[] = manifest.shortcuts;
   const urlOf = (name: string): string => {
     const shortcut = shortcuts.find((s) => s.name === name);
     if (!shortcut) throw new Error(`${name} のショートカットが manifest に無い`);

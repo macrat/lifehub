@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import type { AddFormKind } from '../../features/add/kinds.ts';
+import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
@@ -31,7 +32,6 @@ import {
 } from '../../features/events/queries.ts';
 import { grabbedScope } from '../../features/events/recurrence-options.ts';
 import { useUserLabels } from '../../features/users/use-user-labels.ts';
-import { useAddShortcut } from '../../lib/add-shortcut.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';

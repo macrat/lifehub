@@ -1,13 +1,14 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
+import type { AddKind } from './kinds.ts';
 
 /**
- * 入力を開いて始めるしるし（`add`）。PWA のショートカット（manifest の `shortcuts`。`vite.config.ts`）が
- * URL に付ける。値は開く物の種類で、画面ごとに受け取れる種類を渡す。
+ * 入力を開いて始めるしるし（`add`）。PWA のショートカット（`src/lib/shortcuts.ts`）が URL に付ける。
+ * 値は開く物の種類で、画面ごとに受け取れる種類を渡す。
  * 絞り込みのような画面の状態ではないので、受け取った画面が開くと同時に消す（`useAddShortcut`）。
  */
-export const addSearchSchema = <K extends string>(...kinds: [K, ...K[]]) =>
+export const addSearchSchema = <K extends AddKind>(...kinds: [K, ...K[]]) =>
   z.enum(kinds).optional();
 
 /**
@@ -17,7 +18,7 @@ export const addSearchSchema = <K extends string>(...kinds: [K, ...K[]]) =>
  *
  * `open` は毎描画で作り直してよい（最新の物を ref から呼ぶので、しるしが変わるまで再実行しない）。
  */
-export function useAddShortcut<K extends string>(
+export function useAddShortcut<K extends AddKind>(
   kind: K | undefined,
   open: (kind: K) => void,
 ): void {
