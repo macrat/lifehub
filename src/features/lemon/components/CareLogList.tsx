@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import {
@@ -10,6 +9,7 @@ import {
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
 import { formatDatePadded } from '../../../lib/date.ts';
+import { RecordListRow } from '../../../lib/ui/RecordListRow.tsx';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareLog } from '../queries.ts';
 
@@ -49,13 +49,13 @@ type Props = {
   logs: CareLog[];
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
   emptyMessage: string;
-  /** 行をタップしたとき（詳細を開く） */
-  onSelect: (log: CareLog) => void;
+  /** 行を押したとき。editing は長押し（編集で開く）か */
+  onSelect: (log: CareLog, editing: boolean) => void;
 };
 
 /**
  * 世話の記録（新しい順）。1 行が 1 回の記録で、その日付・そのときやったこと・メモを 3 列に並べる。
- * 行をタップで詳細（時刻を含む全文、編集・削除はそこに集める）。
+ * 行は単押しで閲覧（時刻を含む全文）、長押しで編集（`RecordListRow`）。削除は詳細の三点リーダーに集める。
  */
 export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
   return (
@@ -66,17 +66,15 @@ export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
         </ListItem>
       )}
       {logs.map((log) => (
-        <ListItem key={log.id} divider disablePadding>
-          <ListItemButton onClick={() => onSelect(log)} sx={ROW_SX}>
-            {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
-                中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
-            <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
-            <CareTypeIcons careTypes={log.careTypes} />
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {log.note}
-            </Typography>
-          </ListItemButton>
-        </ListItem>
+        <RecordListRow key={log.id} sx={ROW_SX} onSelect={(editing) => onSelect(log, editing)}>
+          {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
+              中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
+          <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
+          <CareTypeIcons careTypes={log.careTypes} />
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {log.note}
+          </Typography>
+        </RecordListRow>
       ))}
     </List>
   );

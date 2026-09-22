@@ -1,7 +1,7 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
-import { touchDrag, touchPinch } from './touch.ts';
+import { centerOf, LONG_PRESS_HOLD_MS, touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
@@ -39,16 +39,9 @@ async function dragDays(
   await touchDrag(page, await dayPoint(page, from, at), await dayPoint(page, to), { hold });
 }
 
-/** その要素の中心（予定のブロック・帯、つまむ丸など、つまむ所を指すのに使う） */
-async function centerOf(locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('つまむ所が見つからない');
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-
 /** 空いている所から長押しでなぞって下書きを作る */
 async function selectDays(page: Page, from: string, to: string) {
-  await dragDays(page, from, to, 'middle', 400);
+  await dragDays(page, from, to, 'middle', LONG_PRESS_HOLD_MS);
 }
 
 test('日表示でタップして選び、端をつまんで広げて予定を作れる', async ({ page }) => {
@@ -140,7 +133,7 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
 
   // 長押しからそのまま指を離さずになぞると、長さを保ったまま 2 時間ぶん下がる。
   // 入力はその予定の内容から始まる（タイトルはそのまま）
-  await touchDrag(page, tap, { x, y: y(12 * 60 + 30) }, { hold: 400 });
+  await touchDrag(page, tap, { x, y: y(12 * 60 + 30) }, { hold: LONG_PRESS_HOLD_MS });
   await expect(page.getByText('6/12(木) 12:00〜13:00')).toBeVisible();
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
 
@@ -282,11 +275,42 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
 
-  // 軽いタップは今までどおり日表示へ
+  // 項目に掛かっていない所の軽いタップは日表示へ
   const tap = await dayPoint(page, '2031-06-18');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-18/);
   await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await detailAction(page, '削除');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('月表示は項目のタップで詳細、項目の無い所のタップで日表示', async ({ page }) => {
+  const title = `E2E 月のタップ ${Date.now()}`;
+  await page.goto('/calendar?view=month&date=2031-06-15');
+
+  // 6/11〜6/12 の終日の予定を作る（下の行はクイック入力のシートに隠れるので上の行で確かめる）
+  await selectDays(page, '2031-06-11', '2031-06-12');
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  const bar = page.getByRole('button', { name: title });
+  await expect(bar).toHaveCount(1);
+
+  // 帯を軽くタップすると読むだけの詳細が出る（日表示へは移らない）
+  const sheet = page.locator('[data-sheet]');
+  const at = await centerOf(bar);
+  await page.touchscreen.tap(at.x, at.y);
+  await expect(sheet.getByText('6/11(水)〜6/12(木)')).toBeVisible();
+  await expect(page).toHaveURL(/view=month/);
+
+  // 項目に掛かっていない所のタップは今までどおり日表示へ
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(sheet).toHaveCount(0);
+  const cell = await dayPoint(page, '2031-06-11');
+  await page.touchscreen.tap(cell.x, cell.y);
+  await expect(page).toHaveURL(/view=day&date=2031-06-11/);
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
@@ -313,9 +337,7 @@ test('月表示でも予定を長押しでつまんで別の日へ動かせる',
     page,
     { x: box.x + 8, y: box.y + box.height / 2 },
     await dayPoint(page, '2031-06-18'),
-    {
-      hold: 400,
-    },
+    { hold: LONG_PRESS_HOLD_MS },
   );
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
@@ -329,7 +351,7 @@ test('月表示でも予定を長押しでつまんで別の日へ動かせる',
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(page.getByLabel(title)).toHaveCount(1);
 
-  // 軽いタップは今までどおり日表示へ。移した先の日に出ている
+  // 項目に掛かっていない所の軽いタップは日表示へ。移した先の日に出ている
   const tap = await dayPoint(page, '2031-06-17');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-17/);

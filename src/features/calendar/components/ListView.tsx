@@ -32,7 +32,8 @@ type Props = {
   filters: ListFilters;
   filtersOpen: boolean;
   onChangeFilters: (next: ListFiltersPatch) => void;
-  onSelectItem: (item: CalendarItem) => void;
+  /** 行を押したとき。editing は長押し（編集で開く）か */
+  onSelectItem: (item: CalendarItem, editing: boolean) => void;
 };
 
 /** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・参加者・完了状態・キーワードで絞り込める時系列の一覧。 */
