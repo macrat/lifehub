@@ -24,6 +24,8 @@ import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 
 type Props = {
   item: CalendarItem;
+  /** 開いた時点から入力欄にするか（一覧の行を長押しで開いたとき。繰り返しならまず範囲を選ばせる） */
+  initialEditing?: boolean;
   onClose: () => void;
 };
 
@@ -33,13 +35,14 @@ type Props = {
  * 状態の変更は mutation（queries.ts）に集約し、ここは表示と操作の受け渡しに徹する。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
-export function ItemDetailSheet({ item, onClose }: Props) {
+export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props) {
   const { label } = useUserLabels();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
   const recurrence = useRecurrenceEditing({
     isRecurring: item.isRecurring,
+    editing: initialEditing,
     onDelete: (scope) => {
       deleteEvent.mutate({
         id: item.id,

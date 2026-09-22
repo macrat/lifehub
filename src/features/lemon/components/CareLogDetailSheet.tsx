@@ -10,6 +10,8 @@ import { CareLogFields } from './CareLogFields.tsx';
 
 type Props = {
   log: CareLog;
+  /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
+  initialEditing?: boolean;
   onClose: () => void;
 };
 
@@ -17,10 +19,10 @@ type Props = {
  * 世話の記録の詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから削除する。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
-export function CareLogDetailSheet({ log, onClose }: Props) {
+export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Props) {
   const updateLog = useUpdateCareLog();
   const deleteLog = useDeleteCareLog();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
     useCareLogForm({
       initialCareTypes: log.careTypes,
