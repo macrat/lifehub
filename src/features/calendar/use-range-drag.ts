@@ -1,4 +1,5 @@
-import { type PointerEvent, useEffect, useRef, useState } from 'react';
+import { type PointerEvent, useEffect, useRef } from 'react';
+import { blockTouchMove } from '../../lib/ui/touch-block.ts';
 
 /** タッチで範囲を選び始めるまでの長押し（ms）。タップや縦スクロールを選択と取り違えないための区切り */
 const LONG_PRESS_MS = 300;
@@ -55,6 +56,9 @@ type Options<P, G, R> = {
  * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
  * 状態を持つのはそちら 1 か所だけにする。
  * 範囲が変わるたび `vibration` の長さで震わせ、指が今どこを選んでいるかを手に返す。
+ * 1 つのドラッグは 1 本の指だけのもので、別の指が触れたらそのドラッグは終わる
+ * （時間軸ではそれがピンチの始まり。`use-pinch.ts`）。別の指がどこに降りるかは選べないので、
+ * 掴んだ要素ではなく文書全体で見る。
  */
 export function useRangeDrag<P, G, R>({
   locate,
@@ -64,9 +68,10 @@ export function useRangeDrag<P, G, R>({
   vibration,
   onTouchTap,
 }: Options<P, G, R>) {
-  const [dragging, setDragging] = useState(false);
   const drag = useRef<DragState<P, G, R> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** なぞっている間タッチを取り上げている後始末（`blockTouchMove`）。掴んでいないときは null */
+  const block = useRef<AbortController | null>(null);
 
   /**
    * 範囲を呼び出し側に渡す。1 つ前の範囲から変わっていれば、その長さだけ震わせる。
@@ -84,29 +89,34 @@ export function useRangeDrag<P, G, R>({
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    block.current?.abort();
+    block.current = null;
     drag.current = null;
-    setDragging(false);
   };
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
 
+  // 別の指が触れたら今のドラッグは終わり。出しっぱなしの 1 つで見るので、ドラッグごとの
+  // 付け外しが要らず、「自分を足した pointerdown に自分が呼ばれる」ような際どさもない
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stop が見るのは ref だけで、どの描画でも同じ
   useEffect(() => {
-    if (!dragging) return;
-    // ドラッグ中のタッチは選択にだけ使う。capture で先に受けて、縦スクロールと横スワイプ（`SwipePager`）に渡さない
-    const block = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    document.addEventListener('touchmove', block, { capture: true, passive: false });
-    return () => document.removeEventListener('touchmove', block, { capture: true });
-  }, [dragging]);
+    const controller = new AbortController();
+    document.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (drag.current && event.pointerId !== drag.current.pointerId) stop();
+      },
+      { signal: controller.signal },
+    );
+    return () => controller.abort();
+  }, []);
+
+  // 途中で消えても、長押しの待ちとタッチの取り上げを残さない
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 同上
+  useEffect(() => () => stop(), []);
 
   /** instant は長押しを待たずに始めるか（端の丸のような、そこを押す以外の意味がない所） */
   const start = (event: PointerEvent<HTMLElement>, grab: G | null, from: P, instant: boolean) => {
+    // 2 本目の指なら、今のドラッグごとやめて新しくは始めない（ピンチに譲る）
+    if (drag.current) return stop();
     const element = event.currentTarget;
     const { pointerId } = event;
     drag.current = {
@@ -125,7 +135,10 @@ export function useRangeDrag<P, G, R>({
       d.active = true;
       // グリッドの外に出ても離すまで追いかける（隣の列や画面の外で見失わない）
       element.setPointerCapture(pointerId);
-      setDragging(true);
+      // ここからのタッチは選択にだけ使う（縦スクロールと横スワイプに渡さない）。
+      // 掴んだその場で取り上げる。描画を挟むと、その 1 枚ぶんだけ画面が流れてしまう
+      block.current = new AbortController();
+      blockTouchMove(block.current.signal);
       emit(d, false);
     };
     if (event.pointerType === 'touch' && !instant) timer.current = setTimeout(begin, LONG_PRESS_MS);

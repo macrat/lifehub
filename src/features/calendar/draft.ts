@@ -8,6 +8,7 @@ import {
   fromMinutesOfDay,
   minutesOfDay,
 } from '../../lib/date.ts';
+import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
@@ -48,7 +49,7 @@ export type DayGrab =
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
 const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
-const DAY_MINUTES = 24 * 60;
+export const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
 /**
@@ -85,7 +86,6 @@ export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>):
   }
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 /** 一番近い 15 分の枠に寄せる（つまんだ所からずれないよう、切り捨てではなく四捨五入） */
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 
@@ -123,7 +123,7 @@ const vibrationFor = (min: number) => (min % 60 === 0 ? LONG_VIBRATION_MS : SHOR
  */
 export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
-  const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
+  const startMin = Math.min(nextHour, DAY_MINUTES - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
 }
 

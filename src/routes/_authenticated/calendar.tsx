@@ -141,6 +141,8 @@ function CalendarPage() {
                 draft={offset === 0 ? (draft?.range ?? null) : null}
                 draftUserId={draft ? colorUserOf(draft.participantIds) : null}
                 onChangeDraft={changeDraft}
+                hourHeight={page.hourHeight}
+                onZoom={page.zoom}
               />
             )}
           </SwipePager>

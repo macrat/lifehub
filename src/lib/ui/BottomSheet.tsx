@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import Paper from '@mui/material/Paper';
 import { type PointerEvent, type ReactNode, type RefObject, useEffect, useState } from 'react';
+import { clamp } from '../math.ts';
 
 /** 止まる段。閉じる段（画面の外）は状態には持たず、下げきったら onClose で消える */
 export type SheetDetent = 'full' | 'peek';
@@ -244,7 +245,7 @@ export function BottomSheet({
           setPress({ ...press, follow: { ...follow, last: event.clientY } });
           return;
         }
-        const at = Math.min(Math.max(follow.at + dy, offsets.full), offsets.closed);
+        const at = clamp(follow.at + dy, offsets.full, offsets.closed);
         setPress({
           ...press,
           follow: { last: event.clientY, at, moved: follow.moved + dy },

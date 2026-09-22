@@ -1,7 +1,7 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
-import { touchDrag } from './touch.ts';
+import { touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
@@ -101,6 +101,78 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
   await touchDrag(page, await handle('start'), { x, y: y(16 * 60) });
   await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
+});
+
+test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  // 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る
+  const pane = page
+    .locator('[data-sync-scroll]')
+    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const view = await pane.boundingBox();
+  if (!view) throw new Error('時間軸が見つからない');
+  const center = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
+  const height = async () => (await pane.locator('[data-time-grid]').boundingBox())?.height ?? 0;
+
+  const before = await height();
+  expect(before).toBeGreaterThan(0);
+
+  // 指の間隔を 2.5 倍に拡げると、1 時間あたりの高さ（＝時間軸の高さ）も 2.5 倍になる
+  await touchPinch(page, center, 120, 300);
+  await expect.poll(height).toBeCloseTo(before * 2.5, -1);
+  // つまんでいる間に下書きは出ない（2 本目の指が触れたら範囲選びはピンチに譲る）
+  await expect(page.locator('[data-handle]')).toHaveCount(0);
+
+  // 縮めれば元の高さに戻る
+  await touchPinch(page, center, 300, 120);
+  await expect.poll(height).toBeCloseTo(before, -1);
+});
+
+test('予定のブロックは高さが足りるときだけ時刻を添える', async ({ page }) => {
+  const title = `E2E 時刻の行 ${Date.now()}`;
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  const pane = page
+    .locator('[data-sync-scroll]')
+    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  // 最初の縦位置は 7 時（今日を含まない日）。高さは CSS が決めるので、描かれた物で確かめる
+  expect(await pane.evaluate((el) => el.scrollTop)).toBeCloseTo(
+    (await pane.evaluate((el) => el.scrollHeight)) * (7 / 24),
+    1,
+  );
+
+  const column = page.locator('[data-date="2031-06-05"]').last();
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 24 / 2 + box.height / 2.4);
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+
+  const block = page.getByRole('button', { name: title });
+  const time = block.getByText(/\d{1,2}:\d{2}〜\d{1,2}:\d{2}/);
+  const blockHeight = async () => (await block.boundingBox())?.height ?? 0;
+  await expect(time).toBeVisible();
+
+  // つまんで縮めるとブロックが低くなり、時刻の行は引っ込む（判定は描かれた高さそのもの。
+  // `@container`。JS は高さの数を持たない）
+  const view = await pane.boundingBox();
+  if (!view) throw new Error('面が見つからない');
+  const center = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
+  await touchPinch(page, center, 300, 100);
+  await expect.poll(blockHeight).toBeLessThan(34);
+  await expect(time).toBeHidden();
+
+  // 拡げ直せば戻る
+  await touchPinch(page, center, 100, 300);
+  await expect.poll(blockHeight).toBeGreaterThan(34);
+  await expect(time).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await block.click();
+  await detailAction(page, '削除');
+  await expect(block).toHaveCount(0);
 });
 
 test('週表示では枠を長押しして左右に動かすと別の日へ移る', async ({ page }) => {

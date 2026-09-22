@@ -1,12 +1,13 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { useMemo } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { DAY_MINUTES, draftColumns, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -31,6 +32,9 @@ type Props = {
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
+  /** 時間軸（`TimeGrid`）へそのまま渡す */
+  hourHeight: number;
+  onZoom: (ratio: number) => void;
 };
 
 const GUTTER_WIDTH = 44;
@@ -52,29 +56,34 @@ export function TimelineView({
   draftUserId,
   onChangeDraft,
   height,
+  hourHeight,
+  onZoom,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
   // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
   const barDraft = draft?.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
-  const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
-  const allDayByDate = new Map<DateString, CalendarItem[]>();
-  const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
-  for (const day of days) {
-    const allDay: CalendarItem[] = [];
-    const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
-    for (const item of itemsByDate.get(day) ?? []) {
-      const slot = timeSlot(item);
-      if (slot) timed.push({ key: itemKey(item), item, ...slot });
-      else allDay.push(item);
+  // 終日欄と時間軸への振り分けと配置は、日付と項目だけで決まる。つまんで高さが変わるたびに
+  // 数え直さない（指を動かしている間は毎フレーム描き直される所なので）
+  const { timedByDate, lanes } = useMemo(() => {
+    const allDayByDate = new Map<DateString, CalendarItem[]>();
+    const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
+    for (const day of days) {
+      const allDay: CalendarItem[] = [];
+      const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
+      for (const item of itemsByDate.get(day) ?? []) {
+        const slot = timeSlot(item);
+        if (slot) timed.push({ key: itemKey(item), item, ...slot });
+        else allDay.push(item);
+      }
+      allDayByDate.set(day, allDay);
+      timedByDate.set(day, layoutTimed(timed));
     }
-    allDayByDate.set(day, allDay);
-    timedByDate.set(day, layoutTimed(timed));
-  }
-  const lanes = layoutLanes(days, allDayByDate);
+    return { timedByDate, lanes: layoutLanes(days, allDayByDate) };
+  }, [days, itemsByDate]);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
   const draftCols = barDraft && draftColumns(barDraft, days);
@@ -184,6 +193,7 @@ export function TimelineView({
         days={days}
         timedByDate={timedByDate}
         hourHeight={hourHeight}
+        onZoom={onZoom}
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
         draft={draft}
@@ -198,7 +208,10 @@ export function TimelineView({
 function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind === 'event') {
     if (item.allDay || item.dayCount > 1) return null;
-    return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
+    return {
+      startMin: minutesOfDay(item.startsAt),
+      endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
+    };
   }
   const time = taskTimeOnPlacementDate(item);
   if (!time) return null;
