@@ -6,10 +6,9 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { type Draft, draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
-import type { DragHandlers } from '../use-range-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
@@ -44,10 +43,10 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
- *   出ている下書き（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
- *   その下書きをつまむ。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
- * - 編集中（長押しでつまんだ保存済みの予定）の枠は出さない。月では時間帯を直せず、同じ予定が
- *   帯と項目で二重に出てしまうため。時間を直すのは週・日の時間軸で行う
+ *   出ている枠（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
+ *   その枠をつまむ（長押しは待たない）。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
+ * - 保存済みの予定は長押しでつまむと編集モードに入り、同じ指のまま日を動かせる。編集中は枠を帯で出し、
+ *   元の項目は隠す（同じ予定が二重に出ないように）
  */
 export function MonthGrid({
   month,
@@ -62,10 +61,8 @@ export function MonthGrid({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  // 帯で出すのは追加の下書きだけ（編集中の予定はそのまま項目として出す）
-  const barDraft = draft && !draft.item ? draft.range : null;
   const drag = useDayDrag({
-    draft: barDraft,
+    draft,
     onChange: onChangeDraft,
     onTapDate: compact ? onSelectDate : undefined,
   });
@@ -125,7 +122,7 @@ export function MonthGrid({
           itemsByDate={itemsByDate}
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
-          draft={barDraft}
+          draft={draft}
           draftUserId={draftUserId}
           drag={drag}
           colorFor={colorFor}
@@ -145,9 +142,9 @@ type WeekRowProps = {
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  draft: EventDraft | null;
+  draft: Draft | null;
   draftUserId: string | null;
-  drag: DragHandlers;
+  drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   maxLanes: number;
   laneHeight: number;
@@ -170,7 +167,7 @@ function WeekRow({
   compact,
 }: WeekRowProps) {
   const placed = layoutLanes(days, itemsByDate);
-  const draftCols = draft && draftColumns(draft, days);
+  const draftCols = draft && draftColumns(draft.range, days);
   const overflow = placed.some((q) => q.lane >= maxLanes);
   const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
   const visible = placed.filter((p) => p.lane < hiddenLaneStart);
@@ -202,7 +199,7 @@ function WeekRow({
           <Box
             key={date}
             data-date={date}
-            {...drag}
+            {...drag.props}
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
@@ -232,6 +229,8 @@ function WeekRow({
           compact={compact}
           colors={colorFor(colorUserOf(p.item.participantIds))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
+          grab={drag.grabItemProps(p.item)}
+          hidden={sameOccurrence(draft?.item ?? null, p.item)}
         />
       ))}
       {draftCols && (

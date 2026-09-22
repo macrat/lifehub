@@ -63,6 +63,7 @@ type Options<P, G, R> = {
 /**
  * グリッドをなぞって範囲を選ぶ（Google カレンダーの予定の追加・編集）。
  * マウス・ペンは押した時点から、タッチは長押しから始める（タップや縦スクロール・横スワイプと分ける）。
+ * 既に出ている枠をつまんだときは、タッチでも長押しを待たずに始める。
  * 既にある範囲をつまんで直すときは「何をつまんだか」を渡し、意味づけは `rangeOf` に委ねる。
  * 渡し方は 2 通りで、範囲そのものがポインタを受けるなら `grabProps`、受けないなら（下の面で受けて
  * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
@@ -192,7 +193,12 @@ export function useRangeDrag<P, G, R>({
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
         const from = locate(event);
-        if (from !== null) start(event, grabOf?.(event) ?? null, from, {});
+        if (from === null) return;
+        const grab = grabOf?.(event) ?? null;
+        // 既に出ている枠をつまんだのなら長押しを待たない（枠は「今直している物」なので、そこに
+        // 触れるのは直すときだけ）。空いている所からの選択だけは、タップや縦スクロール・
+        // 横スワイプと分けるために待つ
+        start(event, grab, from, { instant: grab !== null });
       },
       onPointerMove: move,
       onPointerUp: up,

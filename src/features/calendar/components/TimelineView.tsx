@@ -12,7 +12,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { type Draft, draftColumns } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -47,7 +47,8 @@ const LANE_HEIGHT = 20;
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  * 終日欄をなぞると終日の予定、時間軸をなぞるとその時間帯の予定を追加できる。
- * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルの長押しから（`draft.ts` の `dayGrab`）。
+ * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルから（`draft.ts` の `dayGrab`）。
+ * 終日の予定も長押しでつまむと編集モードに入り、そのまま日を動かせる（編集中は元の項目を隠して帯で出す）。
  */
 export function TimelineView({
   days,
@@ -61,9 +62,8 @@ export function TimelineView({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）。
-  // 編集中の予定も出さない: 直せるのは日だけになってしまい、予定そのものも時間軸に出ているため
-  const barDraft = draft && !draft.item && draft.range.allDay ? draft.range : null;
+  // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
+  const barDraft = draft?.range.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
@@ -84,7 +84,7 @@ export function TimelineView({
   const lanes = layoutLanes(days, allDayByDate);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
-  const draftCols = barDraft && draftColumns(barDraft, days);
+  const draftCols = barDraft && draftColumns(barDraft.range, days);
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
@@ -164,7 +164,7 @@ export function TimelineView({
           <Box
             key={day}
             data-date={day}
-            {...dayDrag}
+            {...dayDrag.props}
             sx={{ gridColumn: i + 2, gridRow: '1 / -1', borderLeft: 1, borderColor: 'divider' }}
           />
         ))}
@@ -176,6 +176,8 @@ export function TimelineView({
             showTime={false}
             colors={colorFor(colorUserOf(p.item.participantIds))}
             onClick={() => onSelectItem(p.item)}
+            grab={dayDrag.grabItemProps(p.item)}
+            hidden={sameOccurrence(draft?.item ?? null, p.item)}
           />
         ))}
         {draftCols && (

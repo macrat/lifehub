@@ -6,9 +6,8 @@ import { CalendarPane } from '../../features/calendar/components/CalendarPane.ts
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
-import { itemKey } from '../../features/calendar/components/lane-layout.ts';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
-import { type Draft, defaultDraft } from '../../features/calendar/draft.ts';
+import { type Draft, defaultDraft, sameOccurrence } from '../../features/calendar/draft.ts';
 import { type CalendarItem, colorUserOf } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
@@ -55,10 +54,6 @@ type DraftState = Draft & {
   detent: SheetDetent;
 };
 
-/** 直している対象が同じか（取り直しで項目の値が入れ替わっても、同じ回なら直し続けている） */
-const sameTarget = (a: CalendarItem | null, b: CalendarItem | null) =>
-  a === null || b === null ? a === b : itemKey(a) === itemKey(b);
-
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
@@ -88,7 +83,7 @@ function CalendarPage() {
       setDraft((prev) => ({
         ...next,
         participantIds:
-          prev && sameTarget(prev.item, next.item)
+          prev && sameOccurrence(prev.item, next.item)
             ? prev.participantIds
             : (next.item?.participantIds ?? defaultParticipants(meId)),
         editing,

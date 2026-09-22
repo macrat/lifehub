@@ -7,13 +7,12 @@ import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import type { Draft } from '../draft.ts';
+import { type Draft, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
-import { itemKey } from './lane-layout.ts';
 import { syncScrollProps } from './SwipePager.tsx';
 import type { TimedPlaced } from './timeline-layout.ts';
 
@@ -61,7 +60,7 @@ export function TimeGrid({
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
   // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
   // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）
-  const editingKey = draft?.item && timedDraft && draftCol >= 0 ? itemKey(draft.item) : null;
+  const editing = timedDraft && draftCol >= 0 ? (draft?.item ?? null) : null;
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -145,18 +144,10 @@ export function TimeGrid({
                 placed={p}
                 hourHeight={hourHeight}
                 colors={colorFor(colorUserOf(p.item.participantIds))}
-                hidden={p.key === editingKey}
+                hidden={sameOccurrence(editing, p.item)}
                 onClick={() => onSelectItem(p.item)}
-                // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC は吹き出しが前に出るので詳細から直す）。
-                // タスクは長さを持たないので、時間軸ではつまめない
-                grab={
-                  compact && p.item.kind === 'event'
-                    ? drag.grabItemProps(
-                        { allDay: false, date: day, startMin: p.startMin, endMin: p.endMin },
-                        p.item,
-                      )
-                    : undefined
-                }
+                // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC は吹き出しが前に出るので詳細から直す）
+                grab={compact ? drag.grabItemProps(p.item) : undefined}
               />
             ))}
             {day === todayStr && <NowLine top={(nowMin / 60) * hourHeight} />}

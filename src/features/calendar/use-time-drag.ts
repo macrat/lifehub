@@ -3,13 +3,14 @@ import type { CalendarItem } from '../../../shared/calendar.ts';
 import { isDateString } from '../../../shared/date.ts';
 import {
   type Draft,
+  itemDraft,
   type TimedDraft,
   type TimeGrab,
   type TimePoint,
   timeDraft,
   timeVibration,
 } from './draft.ts';
-import { useRangeDrag } from './use-range-drag.ts';
+import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 
 /** 時間軸（`data-time-grid`）の中で、その x にある列（`data-date`）。外にはみ出したら端の列に寄せる */
 function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
@@ -66,8 +67,13 @@ export function useTimeDrag({
     /**
      * 保存済みの予定を長押しでつまんで編集モードに入り、そのまま動かす。
      * 軽いタップは詳細（`ItemDetailSheet`）に譲るので、動かさずに離したときは何も選ばない。
+     * 時間軸に枠で出せない項目（タスク、日をまたぐ時間指定の予定）はつまめないので undefined。
      */
-    grabItemProps: (draft: TimedDraft, target: CalendarItem) =>
-      drag.grabProps({ kind: 'move', draft, item: target }, { tap: false }),
+    grabItemProps: (target: CalendarItem): DragHandlers | undefined => {
+      const range = itemDraft(target);
+      return range?.allDay === false
+        ? drag.grabProps({ kind: 'move', draft: range, item: target }, { tap: false })
+        : undefined;
+    },
   };
 }

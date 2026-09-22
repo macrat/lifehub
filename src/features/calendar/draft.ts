@@ -53,9 +53,46 @@ export type TimeGrab = {
   item: CalendarItem | null;
 };
 /** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
-export type DayGrab =
+export type DayGrab = (
   | { kind: 'start' | 'end'; draft: AllDayDraft }
-  | { kind: 'move'; draft: EventDraft };
+  | {
+      kind: 'move';
+      draft: EventDraft;
+    }
+) & {
+  /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
+  item: CalendarItem | null;
+};
+
+/**
+ * 保存済みの予定 → グリッドの枠。つまんで直せない項目は null。
+ * 終日・複数日は帯の期間（日ごとに 1 件で返るので、何日目か（`dayIndex`）から初日を戻して数える）、
+ * 単日の時間指定はその日の時間帯（24:00 終わりは翌日 0:00 で届くので 24 時に読み替える）。
+ * つまめないのは、長さを持たないタスクと、枠に出せない「日をまたぐ時間指定の予定」。
+ */
+export function itemDraft(item: CalendarItem): EventDraft | null {
+  if (item.kind !== 'event') return null;
+  if (item.allDay) {
+    const from = addDays(item.placementDate, -(item.dayIndex - 1));
+    return { allDay: true, from, to: addDays(from, item.dayCount - 1) };
+  }
+  if (item.dayCount > 1) return null;
+  return {
+    allDay: false,
+    date: item.placementDate,
+    startMin: minutesOfDay(item.startsAt),
+    endMin: minutesOfDay(item.endsAt) || 24 * 60,
+  };
+}
+
+/**
+ * 直している対象が同じか。複数日の予定は日ごとに 1 件で返り、月グリッドでは週の行ごとに帯が分かれるので、
+ * 暦日ではなく「どの発生か」（種別・id・繰り返しの回）で見る。どちらも無い（追加の下書き）なら同じ。
+ */
+export function sameOccurrence(a: CalendarItem | null, b: CalendarItem | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.kind === b.kind && a.id === b.id && a.occurrenceStart === b.occurrenceStart;
+}
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
@@ -140,7 +177,7 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
 }
 
 /**
- * 日の並びで押した所が、今出ている下書きのどこか。掛かっていなければ null（押した所から選び直す）。
+ * 日の並びで押した所が、今出ている枠（下書き・編集中の予定）のどこか。掛かっていなければ null（押した所から選び直す）。
  * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
  * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
  * 時間指定は 1 日ぶんの帯で、日の並びでは時間帯を変えられないので帯そのものだけ。
@@ -148,18 +185,19 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
 export function dayGrab(
-  draft: EventDraft | null,
+  draft: Draft | null,
   date: DateString,
   half: 'left' | 'right',
 ): DayGrab | null {
   if (draft === null) return null;
-  const { from, to } = draftDays(draft);
+  const { range, item } = draft;
+  const { from, to } = draftDays(range);
   if (date < from || date > to) return null;
   // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。動かせるのは日だけ
-  if (!draft.allDay) return { kind: 'move', draft };
-  if (date === from && half === 'left') return { kind: 'start', draft };
-  if (date === to && half === 'right') return { kind: 'end', draft };
-  return { kind: 'move', draft };
+  if (!range.allDay) return { kind: 'move', draft: range, item };
+  if (date === from && half === 'left') return { kind: 'start', draft: range, item };
+  if (date === to && half === 'right') return { kind: 'end', draft: range, item };
+  return { kind: 'move', draft: range, item };
 }
 
 /**
