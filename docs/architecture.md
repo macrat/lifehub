@@ -69,7 +69,7 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
+    calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
@@ -117,7 +117,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
@@ -128,7 +128,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。次の起動を待たずに更新したいときは設定画面の更新ボタン（下記「PWA」）。
 - TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
 - API の GET には ETag と `Cache-Control: private, no-cache` を付ける（`server/app.ts`）。`staleTime: 0` で画面を開くたびに取り直すため、変わっていない一覧をそのたびに丸ごと転送しないようにする。ブラウザが `If-None-Match` を添えて聞き直し、内容が同じなら 304 で本文が流れない（常に最新を出す性質は変わらない）。
-- 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`、VAPID 鍵、カレンダーの項目）だけが個別に staleTime を持つ。カレンダーの項目は表示（月・週・日・リスト）の切り替えで取り直さないよう `staleTime` を無期限にし、画面に入ったときに取り直す（[features/calendar.md](features/calendar.md)）。
+- 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`、VAPID 鍵、ユーザー、カレンダーの項目）だけが個別に staleTime を持つ。カレンダーの項目は表示（月・週・日・リスト）の切り替えで取り直さないよう `staleTime` を無期限にし、画面に入ったときに取り直す（[features/calendar.md](features/calendar.md)）。ユーザーは 1 時間（[features/users.md](features/users.md)）。
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
 - **オフラインでも書き込める**。送れない書き込みは端末（IndexedDB）に溜め、オンラインに戻ったときに溜めた順で送る（下記「オフラインの書き込み」）。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
@@ -147,7 +147,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す。
 - **送り直し**: 通信断（`NetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成を upsert として扱う。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
-- **溜めないもの**: ユーザーの登録・変更（`queue: false`）はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
+- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、失効は効いたことをその場で確かめたい。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
 
 ## UI / UX 方針
 
@@ -179,6 +179,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
 - 移動は何も待たせない。タップした瞬間に画面を切り替え、まだ無いものは骨組み（MUI の Skeleton。`src/lib/ui/QueryView.tsx`）で示す。ページのコードを読み込む間も前の画面には留めない（`defaultPendingMs: 0` と `defaultPendingComponent`）。待つのは操作の結果ではなく内容の到着なので、待ち時間は移動の後に置く。
 - クエリの状態は `QueryView`（`src/lib/ui/QueryView.tsx`）が 1 か所で描き分ける: 手元にデータがあれば取り直し中でも失敗してもそれを出し、まだ無ければ骨組み、無くて失敗しているなら理由を出す。一覧の骨組みは `ListSkeleton`。
+- 待っていることを伝えるのは、手元に何も出せないときだけにする。画面上部の細いインジケータ（`AppShell` の `TopProgress`）が数えるのはデータを持たないクエリの取得だけで、キャッシュを出しながらの取り直しと書き込みは数えない（`useIsLoadingWithoutCache`。理由は `src/lib/query-client.ts`）。どの画面もマウントのたびに裏で取り直すので、それを数えると移動のたびに毎回インジケータが出て、内容は最初から出ているのに遅く見える。
 - 画面が変わる移動は View Transition（`src/main.tsx` の `defaultViewTransition`）で繋ぐ。前後の画面に共通して在るもの（同じ予定、立替残高、レモンのカード）には同じ `view-transition-name` を付けてあり、その場から新しい位置へ動く。名前の無いものはブラウザ既定のフェード。アニメーションの記述は持たず、名前を付けるだけにする。画面が変わるのはパスが変わるときと、カレンダーの表示（月・週・日・リスト）が変わるときで、同じ画面の中の更新（スワイプでの前後移動、絞り込み、検索キーワード）では使わない（指やキーに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える）。判定は戻る・進むを含めどの経路でも同じになるよう router に 1 か所だけ置く。
 - `view-transition-name` は文書の中で一意でなければならず、重複すると遷移そのものが行われない。同じ項目が複数描かれる所（複数日の予定、スワイプの控えの面）の扱いは [features/calendar.md](features/calendar.md) と `src/lib/theme.ts` を参照。
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。OS の UI と同じ字面になり、待ち時間も文字の入れ替わりも起きない。

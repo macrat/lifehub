@@ -7,6 +7,7 @@ import {
   sortItems,
 } from '../../../shared/calendar.ts';
 import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -21,6 +22,25 @@ const MAX_VISIBLE_UNCOMPLETED = 2;
  * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
  */
 export async function listItems(range: DateRange, now: Date = new Date()): Promise<CalendarItem[]> {
+  const occurrences = await listOccurrences(range, now);
+  return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
+}
+
+/**
+ * [from, to]（両端含む JST 暦日）に掛かる発生。繰り返しを展開し、実体化された回を反映する。
+ * 暦日への割り当て（`placeOccurrence`）はしないので、複数日の予定も 1 件のまま出る。
+ * カレンダーは暦日に置いた `listItems` を読み、ics の配信（calendar-feeds）は日ごとに割らない
+ * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
+ *
+ * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
+ * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
+ * 捨てるものを展開してから捨てずに済む。
+ */
+export async function listOccurrences(
+  range: DateRange,
+  now: Date = new Date(),
+  kind?: EventKind,
+): Promise<Occurrence[]> {
   const instants = { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
   const rows = await repository.findCalendarRows(instants.from, instants.to);
 
@@ -37,14 +57,15 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
     bySeries.set(row.seriesId, inner);
   }
 
-  const items: CalendarItem[] = [];
+  const result: Occurrence[] = [];
   for (const master of masters) {
+    if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
-    const occurrences =
-      master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range);
-    for (const occurrence of occurrences) items.push(...placeOccurrence(occurrence, range, now));
+    result.push(
+      ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
+    );
   }
-  return sortItems(items);
+  return result;
 }
 
 export function toMaster(row: EventWithParticipants): EventMaster {

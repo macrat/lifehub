@@ -29,6 +29,13 @@
       "when": 1790056606800,
       "tag": "0003_lemon_care_types_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790067920832,
+      "tag": "0004_calendar_feeds",
+      "breakpoints": true
     }
   ]
 }
