@@ -39,10 +39,7 @@ export function CalendarFeedSection() {
   return (
     <SettingsSection title="カレンダーの配信">
       <ListItem>
-        <ListItemText
-          primary="ics の配信 URL"
-          secondary="予定を他のカレンダーアプリで購読するための URL。URL を知っていれば誰でも読めるので、渡す先ごとに発行して、要らなくなったら失効させます。選んだ参加者が入っている予定だけを配ります。タスクは配信しません。"
-        />
+        <ListItemText primary="ics の配信 URL" />
       </ListItem>
       <QueryView query={feedsQuery} skeleton={<FeedSkeleton />}>
         {(feeds) =>

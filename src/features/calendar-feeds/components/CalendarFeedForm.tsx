@@ -50,7 +50,7 @@ export function CalendarFeedForm({ feed, onClose, onSubmit }: Props) {
         placeholder="スマホのカレンダー"
         defaultValue={feed?.name ?? ''}
         error={Boolean(errors.name)}
-        helperText={errors.name ?? '後から失効させるときに見分けるための名前'}
+        helperText={errors.name}
         autoFocus
         fullWidth
       />
