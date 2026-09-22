@@ -1,6 +1,6 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 import { touchDrag } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
@@ -10,11 +10,7 @@ test.use({ ...devices['Pixel 7'] });
 test.beforeEach(async ({ page }) => {
   // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
   await recordViewTransitions(page);
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 });
 
 /**

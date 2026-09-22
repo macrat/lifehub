@@ -1,55 +1,41 @@
-import Avatar from '@mui/material/Avatar';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
-import ListSubheader from '@mui/material/ListSubheader';
 import Stack from '@mui/material/Stack';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { hueColor } from '../../../../shared/color.ts';
-import { meQueryOptions } from '../../../lib/auth.ts';
-import { useColorMode } from '../../../lib/theme.ts';
-import { useUpdateUser } from '../queries.ts';
+import { SettingsSection } from '../../../lib/ui/SettingsSection.tsx';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
+import { useMyColor } from '../use-my-color.ts';
 import { HueSlider } from './HueSlider.tsx';
+import { UserAvatar } from './UserAvatar.tsx';
 
-/**
- * 色。スライダーを離した時点で保存し、アクセントカラーが即座に変わる（保存の完了は待たない）。
- * ドラッグ中の値だけをローカルに持ち、保存後はサーバーの値に戻す。失敗すれば元の色に戻り、通知が出る。
- */
+/** 設定画面の「色」。選ぶとその場でアクセントカラーになり、保存ボタンで保存する（`use-my-color.ts`） */
 export function MyColorSection() {
-  const { data: me } = useQuery(meQueryOptions);
-  const update = useUpdateUser();
-  const [draft, setDraft] = useState<number | null>(null);
-  const mode = useColorMode();
-  const value = draft ?? me?.hue ?? 0;
-  const name = me?.name ?? '';
+  const { name, hue, changed, pick, save } = useMyColor();
   return (
-    <List
-      subheader={
-        <ListSubheader component="h3" disableSticky>
-          色
-        </ListSubheader>
-      }
-    >
+    <SettingsSection title="色">
       <ListItem>
         <ListItemAvatar>
-          <Avatar sx={{ bgcolor: hueColor(value, 'fill', mode) }}>{name.slice(0, 1)}</Avatar>
+          <UserAvatar name={name} hue={hue} />
         </ListItemAvatar>
         <ListItemText
           primary={name}
           secondary="ボタンや選択の色と、カレンダーでこのユーザーの予定・タスクに付く色"
         />
       </ListItem>
-      <Stack sx={{ px: 2, pb: 1 }}>
-        <HueSlider
-          value={value}
-          onChange={setDraft}
-          onCommit={(v) =>
-            me && update.mutate({ id: me.id, hue: v }, { onSettled: () => setDraft(null) })
-          }
-        />
-      </Stack>
-    </List>
+      <ListItem>
+        <Stack
+          component="form"
+          spacing={1}
+          sx={{ width: '100%' }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
+        >
+          <HueSlider value={hue} onChange={pick} />
+          <SubmitButton disabled={!changed} sx={{ alignSelf: 'flex-end' }} />
+        </Stack>
+      </ListItem>
+    </SettingsSection>
   );
 }

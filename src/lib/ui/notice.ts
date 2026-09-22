@@ -1,26 +1,7 @@
-import { useSyncExternalStore } from 'react';
+import { createStore } from '../store.ts';
 
 /**
  * 画面の下部に出す短い知らせ（保存の失敗など）。フォームは送信と同時に閉じるので、
  * 送信の失敗はここで伝える。同時に 1 つだけ持ち、新しいものが前のものを置き換える。
  */
-let notice: string | null = null;
-const listeners = new Set<() => void>();
-
-export function notify(message: string | null): void {
-  notice = message;
-  for (const listener of listeners) listener();
-}
-
-export function useNotice(): string | null {
-  return useSyncExternalStore(
-    (onChange) => {
-      listeners.add(onChange);
-      return () => {
-        listeners.delete(onChange);
-      };
-    },
-    () => notice,
-    () => null,
-  );
-}
+export const [useNotice, notify] = createStore<string | null>(null);

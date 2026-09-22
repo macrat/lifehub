@@ -2,12 +2,10 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import ListSubheader from '@mui/material/ListSubheader';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
@@ -15,6 +13,7 @@ import { MyColorSection } from '../../features/users/components/MyColorSection.t
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
 import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
+import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 import { useUpdateApp } from '../../lib/update.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
@@ -22,7 +21,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 });
 
 /**
- * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び。
+ * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
  * 自分の色（アクセントカラー）、この端末のプッシュ通知、ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
@@ -33,13 +32,7 @@ function SettingsPage() {
       <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
-      <List
-        subheader={
-          <ListSubheader component="h3" disableSticky>
-            アカウント
-          </ListSubheader>
-        }
-      >
+      <SettingsSection title="アカウント">
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/admin/users">
             <ListItemIcon>
@@ -59,7 +52,7 @@ function SettingsPage() {
             <ListItemText primary="ログアウト" secondary={me?.email} />
           </ListItemButton>
         </ListItem>
-      </List>
+      </SettingsSection>
       <VersionSection />
     </>
   );
@@ -73,13 +66,7 @@ function SettingsPage() {
 function VersionSection() {
   const { updating, update } = useUpdateApp();
   return (
-    <List
-      subheader={
-        <ListSubheader component="h3" disableSticky>
-          バージョン
-        </ListSubheader>
-      }
-    >
+    <SettingsSection title="バージョン">
       <ListItem
         secondaryAction={
           <IconButton edge="end" aria-label="最新版に更新" loading={updating} onClick={update}>
@@ -92,6 +79,6 @@ function VersionSection() {
           secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)}`}
         />
       </ListItem>
-    </List>
+    </SettingsSection>
   );
 }

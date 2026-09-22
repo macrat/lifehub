@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 
 /**
  * 画面の移動はデータの到着を待たない（ルートに loader を置かない。src/main.tsx と各ページ）。
@@ -7,11 +7,7 @@ import { E2E_USER } from './global-setup.ts';
  * 取得を遅らせたうえで、移った先の画面がすぐ出て、内容の場所には骨組みが出ることを確かめる。
  */
 test('タブの切り替えはデータを待たず、届くまで骨組みを出す', async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
 
   // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を 5 秒遅らせる
