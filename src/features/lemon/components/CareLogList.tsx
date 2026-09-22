@@ -10,7 +10,7 @@ import {
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
 import { formatDate } from '../../../lib/date.ts';
-import { CARE_TYPE_ICONS } from '../care-type-icons.ts';
+import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareLog } from '../queries.ts';
 
 type Props = {
