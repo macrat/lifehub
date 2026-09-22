@@ -13,9 +13,9 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
-import { useIsFetching, useIsMutating } from '@tanstack/react-query';
 import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
 import { notify, useNotice } from './notice.ts';
@@ -48,7 +48,7 @@ type Props = {
 export function AppShell({ children }: Props) {
   const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
-  const busy = useIsFetching() + useIsMutating() > 0;
+  const busy = useIsLoadingWithoutCache();
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
@@ -63,7 +63,8 @@ export function AppShell({ children }: Props) {
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
           </Toolbar>
-          {/* 取得・保存中の細いインジケータ。位置を取らないよう AppBar の下端に重ねる */}
+          {/* 手元に何も無いまま待っている間だけ出す細いインジケータ（`useIsLoadingWithoutCache`）。
+              位置を取らないよう AppBar の下端に重ねる */}
           <LinearProgress
             color="primary"
             sx={{

@@ -4,6 +4,7 @@ import {
   onlineManager,
   QueryClient,
   type UseQueryOptions,
+  useIsFetching,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -62,6 +63,18 @@ export const persistOptions = {
  * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
  */
 export type QueryState<T> = { data: T | undefined; error: Error | null };
+
+/**
+ * 手元に何も出せないまま取得を待っているか（画面上部のインジケータが見るもの）。
+ * 数に入れるのはデータを持たないクエリの取得だけで、キャッシュを出しながらの取り直しは入れない。
+ * WHY: 画面には既に中身が出ていて裏で差し替わるだけなので、待っていることを伝える相手がいない。
+ * 画面を移るたびに取り直す作りなので、入れてしまうと移動のたびに毎回インジケータが出る。
+ * WHY NOT 書き込みも数える: 結果は楽観的更新で先に画面へ出ており（`useOptimisticMutation`）、
+ * オフラインで溜めた書き込みは送られるまで終わらないので、出したままになってしまう。
+ */
+export function useIsLoadingWithoutCache(): boolean {
+  return useIsFetching({ predicate: (query) => query.state.data === undefined }) > 0;
+}
 
 /** 書き込みが変えるクエリのキー（各 feature の queryOptions / *_QUERY_KEY から渡す） */
 type WriteKeys = readonly (readonly unknown[])[];
