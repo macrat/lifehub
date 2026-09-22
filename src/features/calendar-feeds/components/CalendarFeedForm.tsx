@@ -56,7 +56,7 @@ export function CalendarFeedForm({ feed, onClose, onSubmit }: Props) {
       />
       <ParticipantsField
         name="participantIds"
-        label="配信する参加者"
+        label="表示する対象者"
         defaultValue={feed?.participantIds ?? users.map((user) => user.id)}
         error={errors.participantIds}
       />
