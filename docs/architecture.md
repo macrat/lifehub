@@ -101,10 +101,10 @@ scripts/                      # create-user.ts / seed-dev.ts / generate-vapid-ke
 e2e/                          # Playwright
 ```
 
-- ローカル開発は `vite dev`（`/api` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
+- ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
 - Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
-- OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api/well-known/*` へ転送する（詳細は [features/mcp.md](features/mcp.md)）。
+- OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
 
@@ -117,7 +117,7 @@ e2e/                          # Playwright
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・`/api/well-known/*`・通知コールバック・MCP を除く）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。

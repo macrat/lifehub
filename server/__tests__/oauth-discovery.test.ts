@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 
 describe('OAuth 2.1 / MCP の探索と保護', () => {
-  it('認可サーバーのメタデータを /.well-known から返す（/api/well-known に転送される前提）', async () => {
-    const res = await app.request('/api/well-known/oauth-authorization-server/api/auth');
+  it('認可サーバーのメタデータをオリジン直下の /.well-known から返す', async () => {
+    const res = await app.request('/.well-known/oauth-authorization-server/api/auth');
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.issuer).toBe('http://localhost:5173/api/auth');
@@ -13,12 +13,19 @@ describe('OAuth 2.1 / MCP の探索と保護', () => {
     expect(body.registration_endpoint).toBe('http://localhost:5173/api/auth/oauth2/register');
   });
 
-  it('保護リソースのメタデータを返す', async () => {
-    const res = await app.request('/api/well-known/oauth-protected-resource/api/mcp');
+  it('保護リソースのメタデータをオリジン直下の /.well-known から返す', async () => {
+    const res = await app.request('/.well-known/oauth-protected-resource/api/mcp');
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.resource).toBe('http://localhost:5173/api/mcp');
     expect(body.authorization_servers).toEqual(['http://localhost:5173/api/auth']);
+  });
+
+  it('Vercel の rewrite が付けるクエリが混ざっても探索メタデータを返す', async () => {
+    const res = await app.request(
+      '/.well-known/oauth-protected-resource/api/mcp?path=well-known/oauth-protected-resource/api/mcp',
+    );
+    expect(res.status).toBe(200);
   });
 
   it('トークンの無い MCP リクエストは 401 と WWW-Authenticate を返す', async () => {

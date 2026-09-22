@@ -48,10 +48,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:3000',
-      '/.well-known': {
-        target: 'http://localhost:3000',
-        rewrite: (path) => path.replace(/^\/\.well-known\//, '/api/well-known/'),
-      },
+      // OAuth の探索メタデータ（本番は vercel.json の rewrite が同じ役目を果たす）
+      '/.well-known': 'http://localhost:3000',
     },
   },
 });
