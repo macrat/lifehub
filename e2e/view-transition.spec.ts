@@ -1,20 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { E2E_USER } from './global-setup.ts';
-
-/** 起きた遷移 1 つ分。ready は名前が重複していると失敗する（＝遷移が飛ばされる） */
-type Transition = {
-  ready: string;
-  finished: boolean;
-  /** 遷移後として撮られる時点（更新コールバックの直後）に在った view-transition-name */
-  captured: string[];
-};
-
-declare global {
-  interface Window {
-    /** このテストのための控え（document.startViewTransition を包んで記録する） */
-    viewTransitions: Transition[];
-  }
-}
+import { changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
  * 画面を移るときの View Transition（`src/main.tsx` の defaultViewTransition）。
@@ -26,41 +12,10 @@ declare global {
  * 名前は遷移が終わったあとの DOM ではなく、ブラウザが遷移後として撮る時点
  * （更新コールバックが解決した直後）で数える。あとから足される物は動かないので、
  * 終わったあとの DOM を見ると「動いていない」ことに気づけない。
+ * 遷移の記録と待ちは `view.ts`（他のテストも同じ仕掛けで表示の切り替えを待つ）。
  */
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    window.viewTransitions = [];
-    const start = document.startViewTransition.bind(document);
-    const collect = () =>
-      [...document.querySelectorAll('*')]
-        .map((el) => getComputedStyle(el).viewTransitionName)
-        .filter((name) => name !== 'none');
-    document.startViewTransition = (update) => {
-      const record: Transition = { ready: 'pending', finished: false, captured: [] };
-      window.viewTransitions.push(record);
-      // 遷移後のスナップショットは更新コールバックが解決したあとに撮られるので、その直後を控える
-      const callback = typeof update === 'function' ? update : update?.update;
-      const wrapped = async () => {
-        await callback?.();
-        record.captured = collect();
-      };
-      const transition = start(
-        typeof update === 'object' && update !== null ? { ...update, update: wrapped } : wrapped,
-      );
-      transition.ready.then(
-        () => {
-          record.ready = 'ok';
-        },
-        (error: DOMException) => {
-          record.ready = `${error.name}: ${error.message}`;
-        },
-      );
-      transition.finished.then(() => {
-        record.finished = true;
-      });
-      return transition;
-    };
-  });
+  await recordViewTransitions(page);
   await page.goto('/login');
   await page.getByLabel('メールアドレス').fill(E2E_USER.email);
   await page.getByLabel('パスワード').fill(E2E_USER.password);
@@ -76,22 +31,9 @@ const names = (page: Page) =>
       .filter((name) => name !== 'none'),
   );
 
-const transitions = (page: Page): Promise<Transition[]> =>
-  page.evaluate(() => window.viewTransitions);
-
 /** 直前の遷移で「遷移後」として撮られた view-transition-name */
 const captured = async (page: Page): Promise<string[]> =>
   (await transitions(page)).at(-1)?.captured ?? [];
-
-/** 遷移が終わる（＝新しい画面が DOM に出そろう）まで待つ */
-const settle = (page: Page) =>
-  page.waitForFunction(() => window.viewTransitions.at(-1)?.finished === true);
-
-const changeView = async (page: Page, label: string) => {
-  await page.getByRole('button', { name: '表示の切替' }).click();
-  await page.getByRole('menuitem', { name: label, exact: true }).click();
-  await settle(page);
-};
 
 test('カレンダーの表示を切り替えると、同じ予定が同じ名前で前後の画面に在る', async ({ page }) => {
   // 画面からの追加は他のテストで確かめているので、ここは API で用意する

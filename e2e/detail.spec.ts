@@ -50,7 +50,8 @@ test('記録をタップすると読むだけのシートが出て、鉛筆で�
   await row.click();
   await settled();
   const x = (page.viewportSize()?.width ?? 0) / 2;
-  const body = await page.getByText(note, { exact: true }).boundingBox();
+  // 一覧の行にも同じ本文が出ているので、シートの中の本文に絞る
+  const body = await sheet.getByText(note, { exact: true }).boundingBox();
   if (!body) throw new Error('本文が見つからない');
   await touchDrag(page, { x, y: body.y + 4 }, { x, y: body.y - 96 });
   await expect(page.getByLabel('メモ', { exact: true })).toHaveValue(note);

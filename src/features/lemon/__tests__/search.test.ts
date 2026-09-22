@@ -8,7 +8,7 @@ const NO_FILTERS: LemonFilters = { q: '' };
 
 const log = (values: Partial<CareLog> = {}): CareLog => ({
   id: 'l1',
-  careType: 'water',
+  careTypes: ['water'],
   // JST の 2026-09-20 09:00
   doneAt: '2026-09-20T00:00:00.000Z',
   note: '鉢の下から水が出るまで',
@@ -21,11 +21,18 @@ describe('matchesCareLog', () => {
     expect(matchesCareLog(log(), NO_FILTERS)).toBe(true);
   });
 
-  it('種別で絞り込む', () => {
-    expect(matchesCareLog(log({ careType: 'water' }), { ...NO_FILTERS, kind: 'water' })).toBe(true);
-    expect(matchesCareLog(log({ careType: 'fertilize' }), { ...NO_FILTERS, kind: 'water' })).toBe(
-      false,
+  it('項目で絞り込む（選んだ項目を含む記録が残る）', () => {
+    expect(matchesCareLog(log({ careTypes: ['water'] }), { ...NO_FILTERS, kind: 'water' })).toBe(
+      true,
     );
+    expect(
+      matchesCareLog(log({ careTypes: ['mist', 'water'] }), { ...NO_FILTERS, kind: 'mist' }),
+    ).toBe(true);
+    expect(
+      matchesCareLog(log({ careTypes: ['fertilize'] }), { ...NO_FILTERS, kind: 'water' }),
+    ).toBe(false);
+    // 項目を持たない記録（メモ）はどの項目にも一致しない
+    expect(matchesCareLog(log({ careTypes: [] }), { ...NO_FILTERS, kind: 'water' })).toBe(false);
   });
 
   it('実施日の範囲は両端を含む', () => {
@@ -49,11 +56,13 @@ describe('matchesCareLog', () => {
 
   it('キーワードと他の絞り込みは同時に効く（すべてを満たすものだけ）', () => {
     const filters = { ...NO_FILTERS, q: '肥料', kind: 'fertilize' as const };
-    expect(matchesCareLog(log({ careType: 'fertilize', note: '肥料をやった' }), filters)).toBe(
+    expect(matchesCareLog(log({ careTypes: ['fertilize'], note: '肥料をやった' }), filters)).toBe(
       true,
     );
-    expect(matchesCareLog(log({ careType: 'water', note: '肥料をやった' }), filters)).toBe(false);
-    expect(matchesCareLog(log({ careType: 'fertilize', note: '水やり' }), filters)).toBe(false);
+    expect(matchesCareLog(log({ careTypes: ['water'], note: '肥料をやった' }), filters)).toBe(
+      false,
+    );
+    expect(matchesCareLog(log({ careTypes: ['fertilize'], note: '水やり' }), filters)).toBe(false);
   });
 
   it('メモの無い記録はキーワードに一致しない', () => {

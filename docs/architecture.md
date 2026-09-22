@@ -71,7 +71,7 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  use-now.ts  date.ts  auth.ts
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（createAppTheme・useColorMode）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
@@ -125,7 +125,7 @@ e2e/                          # Playwright
 
 ## オフラインと起動速度
 
-- アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。
+- アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。次の起動を待たずに更新したいときは設定画面の更新ボタン（下記「PWA」）。
 - TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
 - API の GET には ETag と `Cache-Control: private, no-cache` を付ける（`server/app.ts`）。`staleTime: 0` で画面を開くたびに取り直すため、変わっていない一覧をそのたびに丸ごと転送しないようにする。ブラウザが `If-None-Match` を添えて聞き直し、内容が同じなら 304 で本文が流れない（常に最新を出す性質は変わらない）。
 - 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`、VAPID 鍵、カレンダーの項目）だけが個別に staleTime を持つ。カレンダーの項目は表示（月・週・日・リスト）の切り替えで取り直さないよう `staleTime` を無期限にし、画面に入ったときに取り直す（[features/calendar.md](features/calendar.md)）。
@@ -171,7 +171,7 @@ e2e/                          # Playwright
 - 記録のシート（追加・詳細・編集）は、開いた瞬間に入力欄へ焦点を当てない。スマホではソフトキーボードが立ち上がってシートの中身を覆い、何を書く入れ物なのかが読めなくなるため。例外はタスクの追加（`TaskForm`）で、タイトルを打つだけで終わることが多いので開いた所からそのまま打てるようにする。PC のクイック入力の吹き出し（`QuickEventForm`）も、タイトルだけの小さな入れ物なのでタイトルに焦点を当てる（スマホのシートでは当てない）。
 - 保存を押したら送信の完了を待たずに閉じる（結果は楽観的更新で即座に画面に出る）。失敗したときだけ、入力したまま開き直して理由をフォームの先頭に出す（入力をやり直さずに直せる）。
 - 下から出るシート（`src/lib/ui/BottomSheet.tsx`）は `translateY` だけで見える量を変え、止まる位置は中身の実測から決める。下へなぞって下げきると閉じる。なぞり始める場所は選ばない（入力欄やボタンの上も含む。つまむ帯だけでは狭すぎる）。縦に少し（8px）動かすまではシートを動かさないので、タップや文字の選択は今までどおり中身に届き、そこで指を捕まえるので押したことにはならない。中身のスクロールもシートが面倒を見て、指の下がまだスクロールできるならそちらを先に動かす（ブラウザ任せ（`touch-action: pan-y`）にすると、スクロールできない所でもなぞりを取り上げられてシートを動かせない）。`peekRef` を渡すと上・下の 2 段で止まり（カレンダーのクイック入力）、常に画面いっぱいの高さで、後ろを触れるようモーダルにしない。渡さなければ段は 1 つで、中身の高さのまま画面の下に出し（画面いっぱいが上限）、後ろは暗くして触れなくする。項目が少ないフォームほど入力欄も操作も指の届く下半分に集まり、後ろの一覧も見えたままになる。
-- ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog を直接使うことは biome が禁じる。
+- ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。閉じるのは戻る操作のときだけで、新しく積む移動では閉じない（カレンダーは予定を入力しながら月・週・日を切り替えられる。別の画面へ移るときはダイアログごとマウントが終わる）。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog を直接使うことは biome が禁じる。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
 - 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。オフラインでは送信が始まらないので、端末に溜めた時点で保存できたものとして扱う（フォームはそこで閉じる。待つとオンラインに戻るまで閉じられない）。
 - 失敗を伝える場所は 1 つにする。フォームからの保存は開き直したフォームの中に、それ以外（削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
@@ -193,6 +193,7 @@ e2e/                          # Playwright
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
+- 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。インストールした PWA は precache から起動するため再読み込みでは版が変わらないので、`registration.update()` で Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で上記 `autoUpdate` の経路が読み込み直す。新版が無いときと、取りに行けなかったとき（オフライン等）だけ自分で読み込み直す（押しても何も起きない状態を作らない）。
 - アイコンは `public/icons/favicon.svg`（アプリのアイコン）と `public/icons/badge.svg`（通知の小さな印）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
 
 ## 運用
@@ -227,7 +228,7 @@ e2e/                          # Playwright
 5. `vercel pull --environment=preview` → `vercel build` → `vercel deploy --prebuilt` に `--env DATABASE_URL=<PR ブランチの接続文字列>` を付けて Preview デプロイ
 6. Preview URL と Neon ブランチ名を PR コメントに投稿（更新時は同じコメントを書き換える）
 
-**PR クローズ／マージ（`preview-cleanup.yml`）**: Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブランチ数上限（10）を超えないよう必ず行う。
+**PR クローズ／マージ（`preview-cleanup.yml`）**: Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブランチ数上限（10）を超えないよう必ず行う。Preview を作っていない PR（`preview` ラベル無し、初回 apply 前）には消すものが無いので、Neon にブランチがあるかどうかを確かめてから削除し、無ければ何もしない。ラベルの有無では判断しない（デプロイ後にラベルを外した PR のブランチが残ってしまうため）。
 
 **main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
 

@@ -7,7 +7,16 @@ on:
 permissions:
   contents: read
 
+env:
+  NEON_BRANCH: preview/pr-${{ github.event.pull_request.number }}
+
 # クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
+#
+# Preview は `preview` ラベルの付いた PR にしか作らないので、閉じた PR に消すものが無い
+# ことがある（ラベルを付けなかった PR、初回 apply 前に閉じた PR）。そのときも失敗させず、
+# 何もしないで終わる。判断はラベルではなく Neon ブランチの有無で行う。デプロイした後で
+# ラベルを外して閉じた PR のブランチが残り、Free プランのブランチ数上限（10）に当たる
+# ため。ブランチがあるのに消せないときは、直すべき異常なのでジョブを失敗させる。
 jobs:
   delete-neon-branch:
     runs-on: ubuntu-latest
@@ -19,12 +28,29 @@ jobs:
       - run: terraform -chdir=infra init -input=false
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      - id: tf
-        run: echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_OUTPUT"
+      - name: Read terraform outputs
+        id: tf
+        # 初回 apply 前は Neon プロジェクトがまだ無く、出力も無い（空になる）
+        run: echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id 2>/dev/null)" >> "$GITHUB_OUTPUT"
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      - uses: neondatabase/delete-branch-action@v3
+      - name: Find Neon preview branch
+        id: branch
+        if: steps.tf.outputs.neon_project_id != ''
+        # 明示的な bash は pipefail 付きなので、curl の失敗がジョブの失敗になる
+        shell: bash
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          PROJECT_ID: ${{ steps.tf.outputs.neon_project_id }}
+        run: |
+          exists=$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
+            | jq --arg name "$NEON_BRANCH" 'any(.branches[]; .name == $name)')
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+      - name: Delete Neon preview branch
+        if: steps.branch.outputs.exists == 'true'
+        uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ steps.tf.outputs.neon_project_id }}
-          branch: preview/pr-${{ github.event.pull_request.number }}
+          branch: ${{ env.NEON_BRANCH }}
           api_key: ${{ secrets.NEON_API_KEY }}

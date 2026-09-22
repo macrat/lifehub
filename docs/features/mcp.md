@@ -29,8 +29,8 @@
 | `expenses_get_balance` | 立替残高を返す |
 | `expenses_list` | 立替の履歴（精算を含む） |
 | `expenses_add` | 立替（精算を含む）を追加する |
-| `lemon_get_status` | レモンの世話状況（種別ごとの最終実施日と経過日数） |
-| `lemon_log_care` | レモンの世話を記録する |
+| `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
+| `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる） |
 
 各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマには `shared/validation` の Zod オブジェクトをそのまま渡す（refine も効く）。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 

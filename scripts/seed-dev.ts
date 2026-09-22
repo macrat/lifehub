@@ -155,11 +155,26 @@ await expenses.addExpense(
   partner.id,
 );
 
-await lemon.logCare({ careType: 'water', doneAt: dayAt(-2, 8), note: null }, me.id);
-await lemon.logCare({ careType: 'mist', doneAt: dayAt(-1, 8), note: null }, partner.id);
-await lemon.logCare({ careType: 'fertilize', doneAt: dayAt(-20, 9), note: '緩効性肥料' }, me.id);
 await lemon.logCare(
-  { careType: 'note', doneAt: dayAt(-5, 12), note: '新芽が出てきた。葉の裏にアブラムシなし。' },
+  { careTypes: ['harvest'], doneAt: dayAt(-60, 10), note: '黄色くなった実を3個' },
+  me.id,
+);
+await lemon.logCare(
+  { careTypes: ['mist', 'water', 'fertilize'], doneAt: dayAt(-20, 9), note: '緩効性肥料' },
+  me.id,
+);
+await lemon.logCare(
+  // やったことを 1 つも選ばない記録はメモそのもの
+  { careTypes: [], doneAt: dayAt(-5, 12), note: '新芽が出てきた。葉の裏にアブラムシなし。' },
+  partner.id,
+);
+await lemon.logCare({ careTypes: ['mist', 'water'], doneAt: dayAt(-2, 8), note: null }, me.id);
+await lemon.logCare(
+  {
+    careTypes: ['mist', 'bloom', 'drop'],
+    doneAt: dayAt(-1, 8),
+    note: '花が咲いた。小さい実が2つ落ちていた',
+  },
   partner.id,
 );
 console.log('seeded: taro@example.com / hanako@example.com (password-123456)');

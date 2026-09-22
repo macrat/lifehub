@@ -1,5 +1,5 @@
-import { and, desc, eq, inArray, lte } from 'drizzle-orm';
-import { type CareType, TRACKED_CARE_TYPES } from '../../../shared/validation/lemon.ts';
+import { desc, eq, lte, sql } from 'drizzle-orm';
+import type { CareType } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
@@ -11,22 +11,29 @@ export async function findAll(): Promise<LemonCareLogRow[]> {
 }
 
 /**
- * 経過日数を出す種別ごとの、いちばん新しい実施記録（未来の記録は「まだ実施していない」ので除く）。
- * 状態はこれだけで決まるので、行を全部読まずに DB で 1 種別 1 行に絞る。
+ * 項目ごとの、いちばん新しい実施記録（未来の記録は「まだ実施していない」ので除く）。
+ * 状態はこれだけで決まるので、行を全部読まずに DB で 1 項目 1 行に絞る。
+ * 1 件の記録が複数の項目を持つので、まず unnest で 1 項目 1 行にほどいてから DISTINCT ON で絞る。
  */
 export async function findLatestByCareType(
   now: Date,
 ): Promise<{ careType: CareType; doneAt: Date }[]> {
-  return db
-    .selectDistinctOn([lemonCareLogs.careType], {
-      careType: lemonCareLogs.careType,
+  const unnested = db
+    .select({
+      careType: sql<CareType>`unnest(${lemonCareLogs.careTypes})`.as('care_type'),
       doneAt: lemonCareLogs.doneAt,
     })
     .from(lemonCareLogs)
-    .where(
-      and(inArray(lemonCareLogs.careType, [...TRACKED_CARE_TYPES]), lte(lemonCareLogs.doneAt, now)),
-    )
-    .orderBy(lemonCareLogs.careType, desc(lemonCareLogs.doneAt), desc(lemonCareLogs.createdAt));
+    .where(lte(lemonCareLogs.doneAt, now))
+    .as('care');
+
+  return db
+    .selectDistinctOn([unnested.careType], {
+      careType: unnested.careType,
+      doneAt: unnested.doneAt,
+    })
+    .from(unnested)
+    .orderBy(unnested.careType, desc(unnested.doneAt));
 }
 
 /**
@@ -35,7 +42,7 @@ export async function findLatestByCareType(
  */
 export async function insert(row: {
   id: string;
-  careType: CareType;
+  careTypes: CareType[];
   doneAt: Date;
   note: string | null;
   createdBy: string;
@@ -53,7 +60,7 @@ export async function insert(row: {
 /** 全項目を置き換える。記録した人（createdBy）は変えない */
 export async function update(
   id: string,
-  row: { careType: CareType; doneAt: Date; note: string | null },
+  row: { careTypes: CareType[]; doneAt: Date; note: string | null },
 ): Promise<LemonCareLogRow | undefined> {
   const updated = await db
     .update(lemonCareLogs)

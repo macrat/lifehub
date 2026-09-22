@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
-import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
+import { CareLogForm, DEFAULT_CARE_TYPES } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
 import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
@@ -33,7 +33,7 @@ export const Route = createFileRoute('/_authenticated/lemon')({
 /**
  * レモンの木の世話。項目ごとの状況と記録の履歴。
  * 履歴の行をタップすると詳細（削除）が開く。
- * AppBar の検索窓はメモで、その右の絞り込みボタンで開くフォームは種別と実施日の範囲で履歴を絞り込む
+ * AppBar の検索窓はメモで、その右の絞り込みボタンで開くフォームは項目と実施日の範囲で履歴を絞り込む
  * （状況のタイルは絞り込みに関わらず最新の実施日を示す）。
  */
 function LemonPage() {
@@ -42,7 +42,7 @@ function LemonPage() {
   const logsQuery = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [adding, setAdding] = useState<CareType | null>(null);
+  const [adding, setAdding] = useState<CareType[] | null>(null);
   const [selected, setSelected] = useState<CareLog | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
@@ -63,7 +63,7 @@ function LemonPage() {
       <Box sx={{ px: 2, pt: 1.5 }}>
         <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
           {(statuses) => (
-            <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding(s.careType)} />
+            <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding([s.careType])} />
           )}
         </QueryView>
       </Box>
@@ -89,14 +89,14 @@ function LemonPage() {
       <Fab
         color="primary"
         aria-label="レモンの記録を追加"
-        onClick={() => setAdding('water')}
+        onClick={() => setAdding(DEFAULT_CARE_TYPES)}
         sx={FAB_SX}
       >
         <AddIcon />
       </Fab>
       {adding && (
         <CareLogForm
-          initialCareType={adding}
+          initialCareTypes={adding}
           onSubmit={logCare.mutateAsync}
           onClose={() => setAdding(null)}
         />

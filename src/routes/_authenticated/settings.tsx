@@ -1,5 +1,7 @@
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -13,6 +15,7 @@ import { MyColorSection } from '../../features/users/components/MyColorSection.t
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
 import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
+import { useUpdateApp } from '../../lib/update.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -65,8 +68,10 @@ function SettingsPage() {
 /**
  * バージョン。バグに出くわしたとき、どのビルドを見ているかを言えるようにする。
  * コミットは先頭 7 桁だけ出す（このリポジトリで一意に定まり、読み上げも写しもできる長さ）。
+ * 右の更新ボタンは、表示中の版が古いと分かったときの逃げ道（`src/lib/update.ts`）。
  */
 function VersionSection() {
+  const { updating, update } = useUpdateApp();
   return (
     <List
       subheader={
@@ -75,7 +80,13 @@ function VersionSection() {
         </ListSubheader>
       }
     >
-      <ListItem>
+      <ListItem
+        secondaryAction={
+          <IconButton edge="end" aria-label="最新版に更新" loading={updating} onClick={update}>
+            <RefreshIcon />
+          </IconButton>
+        }
+      >
         <ListItemText
           primary={__BUILD_COMMIT__.slice(0, 7)}
           secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)}`}

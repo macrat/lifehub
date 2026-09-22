@@ -15,6 +15,20 @@
       "when": 1789976765186,
       "tag": "0001_drop_redundant_series_index",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790048800255,
+      "tag": "0002_lemon_multi_care_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790056606800,
+      "tag": "0003_lemon_care_types_checks",
+      "breakpoints": true
     }
   ]
 }

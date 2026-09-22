@@ -39,7 +39,7 @@ export function useLogCare() {
     apply: (client, input) => {
       const log: CareLog = {
         id: input.id,
-        careType: input.careType,
+        careTypes: input.careTypes,
         doneAt: input.doneAt,
         note: input.note ?? null,
         createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? '',
@@ -75,7 +75,7 @@ export function useUpdateCareLog() {
             ),
           ),
       );
-      // 日時も種別も変えられるので、タイル 1 つを進めるのではなく記録から導き直す
+      // 日時も項目も変えられるので、タイルを 1 つずつ進めるのではなく記録から導き直す
       recomputeStatus(client);
     },
   });
@@ -98,16 +98,16 @@ export function useDeleteCareLog() {
 }
 
 /**
- * 記録 1 件をタイルに映す。記録の一覧が無い画面（ホーム）でもタイルが進むよう、その種別だけを見る。
- * 状態の導き方そのものは shared/lemon.ts に任せる（未来の記録やメモはタイルを動かさない）。
+ * 記録 1 件をタイルに映す。記録の一覧が無い画面（ホーム）でもタイルが進むよう、その 1 件だけを見る。
+ * 1 件が複数の項目を持つので、進むタイルも複数になる。
+ * 状態の導き方そのものは shared/lemon.ts に任せる（未来の記録や項目の無い記録はタイルを動かさない）。
  */
 function advanceStatus(statuses: CareStatus[], log: CareLog): CareStatus[] {
-  const next = careStatuses([log], new Date()).find((s) => s.careType === log.careType);
-  const lastDoneAt = next?.lastDoneAt;
-  if (!next || !lastDoneAt) return statuses;
-  return statuses.map((status) =>
-    status.careType === next.careType && (status.lastDoneAt ?? '') < lastDoneAt ? next : status,
-  );
+  const advanced = careStatuses([log], new Date());
+  return statuses.map((status) => {
+    const next = advanced.find((s) => s.careType === status.careType);
+    return next?.lastDoneAt && (status.lastDoneAt ?? '') < next.lastDoneAt ? next : status;
+  });
 }
 
 /** 記録の一覧が取得済みなら、そこから状態を導き直す（無ければ再取得に任せる） */

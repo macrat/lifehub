@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
+import { careLogSchema } from '../../../../shared/validation/lemon.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
 import { getStatus, listLogs, logCare, updateLog } from '../service.ts';
@@ -14,47 +15,78 @@ describe('lemon service', () => {
       .id;
   });
 
-  it('種別ごとに最終実施日と経過日数（JST の暦日差）を返す', async () => {
-    await logCare({ careType: 'water', doneAt: jst('2026-09-10T23:30:00'), note: null }, userId);
-    await logCare({ careType: 'water', doneAt: jst('2026-09-12T08:00:00'), note: null }, userId);
+  it('1 件の記録が複数の項目を進め、項目ごとに最終実施日と経過日数（JST の暦日差）を返す', async () => {
+    await logCare({ careTypes: ['water'], doneAt: jst('2026-09-10T23:30:00'), note: null }, userId);
     await logCare(
-      { careType: 'mist', doneAt: jst('2026-09-13T08:00:00'), note: 'たっぷり' },
+      // 葉水と水やりはまとめてやり、その過程で開花に気づく
+      { careTypes: ['mist', 'water', 'bloom'], doneAt: jst('2026-09-12T08:00:00'), note: null },
+      userId,
+    );
+    await logCare(
+      { careTypes: ['mist'], doneAt: jst('2026-09-13T08:00:00'), note: 'たっぷり' },
       userId,
     );
     const status = await getStatus(jst('2026-09-14T00:10:00'));
     expect(status).toEqual([
-      { careType: 'water', lastDoneAt: jst('2026-09-12T08:00:00').toISOString(), daysSince: 2 },
       { careType: 'mist', lastDoneAt: jst('2026-09-13T08:00:00').toISOString(), daysSince: 1 },
+      { careType: 'water', lastDoneAt: jst('2026-09-12T08:00:00').toISOString(), daysSince: 2 },
       { careType: 'fertilize', lastDoneAt: null, daysSince: null },
-      { careType: 'bloom', lastDoneAt: null, daysSince: null },
+      { careType: 'bloom', lastDoneAt: jst('2026-09-12T08:00:00').toISOString(), daysSince: 2 },
+      { careType: 'drop', lastDoneAt: null, daysSince: null },
       { careType: 'harvest', lastDoneAt: null, daysSince: null },
     ]);
   });
 
+  it('項目を 1 つも持たない記録（メモ）はどのタイルも動かさない', async () => {
+    await logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: '新芽' }, userId);
+    const status = await getStatus(jst('2026-09-14T00:10:00'));
+    expect(status.every((s) => s.lastDoneAt === null)).toBe(true);
+    expect(await listLogs()).toMatchObject([{ careTypes: [], note: '新芽' }]);
+  });
+
+  it('項目の並びは入力の順ではなく CARE_TYPES の順に揃う（重複も落ちる）', async () => {
+    const input = careLogSchema.parse({
+      careTypes: ['harvest', 'mist', 'bloom', 'mist'],
+      doneAt: jst('2026-09-13T08:00:00').toISOString(),
+      note: null,
+    });
+    expect((await logCare(input, userId)).careTypes).toEqual(['mist', 'bloom', 'harvest']);
+  });
+
+  it('項目もメモも無い記録は DB が弾く（何も残らない記録は作れない）', async () => {
+    await expect(
+      logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: null }, userId),
+    ).rejects.toThrow();
+  });
+
   it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
     const id = newId();
-    const input = { careType: 'water' as const, doneAt: jst('2026-09-10T08:00:00'), note: null };
+    const input = {
+      careTypes: ['water' as const],
+      doneAt: jst('2026-09-10T08:00:00'),
+      note: null,
+    };
     await logCare(input, userId, id);
     await logCare(input, userId, id);
 
     expect(await listLogs()).toHaveLength(1);
-    expect((await listLogs())[0]).toMatchObject({ id, careType: 'water' });
+    expect((await listLogs())[0]).toMatchObject({ id, careTypes: ['water'] });
   });
 
   it('記録を編集すると全項目が置き換わり、状態にも反映される', async () => {
     const log = await logCare(
-      { careType: 'water', doneAt: jst('2026-09-10T08:00:00'), note: null },
+      { careTypes: ['water'], doneAt: jst('2026-09-10T08:00:00'), note: null },
       userId,
     );
     const updated = await updateLog(log.id, {
-      careType: 'fertilize',
+      careTypes: ['fertilize'],
       doneAt: jst('2026-09-12T08:00:00'),
       note: 'まちがえて水やりで記録していた',
     });
 
     expect(updated).toMatchObject({
       id: log.id,
-      careType: 'fertilize',
+      careTypes: ['fertilize'],
       doneAt: jst('2026-09-12T08:00:00').toISOString(),
       note: 'まちがえて水やりで記録していた',
       // 記録した人は編集しても変わらない
@@ -62,7 +94,7 @@ describe('lemon service', () => {
     });
     expect(await listLogs()).toEqual([updated]);
 
-    // 直した種別の方にだけ日付が付く（元の種別は未実施に戻る）
+    // 直した項目の方にだけ日付が付く（元の項目は未実施に戻る）
     const status = await getStatus(jst('2026-09-14T00:10:00'));
     expect(status).toContainEqual({
       careType: 'water',

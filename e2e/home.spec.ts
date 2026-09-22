@@ -21,7 +21,7 @@ test('ホームからタスクとレモンの記録を追加し、カードに�
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'レモン' }).click();
   await page.getByRole('button', { name: '保存' }).click();
-  // 水やりの経過日数が「今日」になる（レモンのカード内）
+  // 葉水の経過日数が「今日」になる（レモンのカード内）
   await expect(page.getByText('今日', { exact: true }).first()).toBeVisible();
 
   // タスクをホームから完了にすると「今日」の一覧から消える
