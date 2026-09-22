@@ -4,6 +4,8 @@
 
 予定とタスク（[events.md](events.md)）を 1 つの時系列に見せる画面の feature。サーバー側の feature は持たず、データの読み書きはすべて `events` の API に送る。
 
+予定を他のカレンダーアプリで購読するための ics 配信は [calendar-feeds.md](calendar-feeds.md)。
+
 ## 画面
 
 | 画面 | パス | 内容 |

@@ -15,7 +15,7 @@ import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 import type { NewEventRow } from './schema.ts';
 
-export { listItems } from './occurrences.ts';
+export { listItems, listOccurrences } from './occurrences.ts';
 
 export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));

@@ -69,7 +69,7 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    calendar/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
+    calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
   lib/                        # 横断
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
@@ -117,7 +117,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
@@ -147,7 +147,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す。
 - **送り直し**: 通信断（`NetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成を upsert として扱う。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
-- **溜めないもの**: ユーザーの登録・変更（`queue: false`）はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
+- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、失効は効いたことをその場で確かめたい。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
 
 ## UI / UX 方針
 
