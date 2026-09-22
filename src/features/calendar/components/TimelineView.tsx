@@ -77,8 +77,9 @@ export function TimelineView({
   }
   const lanes = layoutLanes(days, allDayByDate);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
-  // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
-  const draftCols = draft && draftColumns(draft, days);
+  // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く。
+  // 時間指定の下書きは終日欄ではなく時間軸に枠で出るので、ここでは持たない
+  const draftCols = draft?.allDay ? draftColumns(draft, days) : null;
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (

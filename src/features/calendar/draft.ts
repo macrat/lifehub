@@ -42,7 +42,10 @@ export type DayPoint = { date: DateString; half: 'left' | 'right' };
  * 押した所から選び直す。
  */
 export type TimeGrab = { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
-export type DayGrab = { kind: 'start' | 'end' | 'move'; draft: AllDayDraft };
+/** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
+export type DayGrab =
+  | { kind: 'start' | 'end'; draft: AllDayDraft }
+  | { kind: 'move'; draft: EventDraft };
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
@@ -108,24 +111,27 @@ export function defaultDraft(date: DateString, now: Date = new Date()): EventDra
 }
 
 /**
- * 日の並びで押した所が、今出ている終日の下書きのどこか。掛かっていなければ null（押した所から選び直す）。
- * 最初の日の左半分・最後の日の右半分はその端、それ以外の中ほどは帯そのものをつまんだとみなす
+ * 日の並びで押した所が、今出ている下書きのどこか。掛かっていなければ null（押した所から選び直す）。
+ * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
  * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
+ * 時間指定は 1 日ぶんの帯で、日の並びでは時間帯を変えられないので帯そのものだけ。
  * 見るのは帯そのものではなく日のセルの左右。帯は指より薄く（月グリッドで 17px）狙って押せないうえ、
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
 export function dayGrab(draft: EventDraft | null, point: DayPoint): DayGrab | null {
-  if (!draft?.allDay || point.date < draft.from || point.date > draft.to) return null;
+  if (draft === null) return null;
+  if (!draft.allDay) return point.date === draft.date ? { kind: 'move', draft } : null;
+  if (point.date < draft.from || point.date > draft.to) return null;
   if (point.date === draft.from && point.half === 'left') return { kind: 'start', draft };
   if (point.date === draft.to && point.half === 'right') return { kind: 'end', draft };
   return { kind: 'move', draft };
 }
 
 /**
- * 日の並び（月グリッド・終日欄）のドラッグ → 終日の下書き。
- * 空いている所からは押した日と今の日を両端にする（両端を含み、どちら向きに選んでも同じ）。
+ * 日の並び（月グリッド・終日欄）のドラッグ → 下書き。
+ * 空いている所からは押した日と今の日を両端にする終日の下書き（両端を含み、どちら向きに選んでも同じ）。
  * つまんだだけで動かしていなければそのまま。端をつまんだときは反対の端を越えられない（最短 1 日）。
- * 帯そのものをつまんだときは日数を保ったまま、動かした日数だけずらす。
+ * 帯そのものをつまんだときは動かした日数だけずらす。終日は日数を、時間指定は時間帯を保つ。
  */
 export function dayDraft({ grab, from, to, moved }: Drag<DayPoint, DayGrab>): EventDraft {
   if (grab === null) {
@@ -140,11 +146,10 @@ export function dayDraft({ grab, from, to, moved }: Drag<DayPoint, DayGrab>): Ev
       return { ...grab.draft, to: later(to.date, grab.draft.from) };
     case 'move': {
       const shift = diffDays(from.date, to.date);
-      return {
-        allDay: true,
-        from: addDays(grab.draft.from, shift),
-        to: addDays(grab.draft.to, shift),
-      };
+      const draft = grab.draft;
+      return draft.allDay
+        ? { allDay: true, from: addDays(draft.from, shift), to: addDays(draft.to, shift) }
+        : { ...draft, date: addDays(draft.date, shift) };
     }
   }
 }
@@ -155,20 +160,22 @@ const later = (a: DateString, b: DateString) => (a >= b ? a : b);
 /**
  * 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列。掛からなければ null。
  * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
+ * 時間指定の下書きはその日 1 日ぶんの列。日の並びに帯として出すのは月グリッドだけで、
+ * 週・日の終日欄は終日の下書きしか渡さない（時間指定はそちらの時間軸に枠で出る）。
  */
 export function draftColumns(
   draft: EventDraft,
   days: DateString[],
 ): { col: number; span: number; roundStart: boolean; roundEnd: boolean } | null {
-  if (!draft.allDay) return null;
-  const first = days.findIndex((d) => d >= draft.from);
-  const last = days.findLastIndex((d) => d <= draft.to);
+  const [start, end] = draft.allDay ? [draft.from, draft.to] : [draft.date, draft.date];
+  const first = days.findIndex((d) => d >= start);
+  const last = days.findLastIndex((d) => d <= end);
   if (first === -1 || last === -1 || first > last) return null;
   return {
     col: first,
     span: last - first + 1,
-    roundStart: days[first] === draft.from,
-    roundEnd: days[last] === draft.to,
+    roundStart: days[first] === start,
+    roundEnd: days[last] === end,
   };
 }
 

@@ -223,10 +223,16 @@ describe('dayGrab', () => {
     expect(dayGrab(single, on(DAY, 'right'))).toEqual({ kind: 'end', draft: single });
   });
 
-  it('掛からない日・時間指定・下書き無しは掴まない', () => {
+  it('時間指定の下書きは、その日のどこを押しても帯そのもの（時間帯は日の並びでは直せない）', () => {
+    const timed = select(at(9 * 60), at(9 * 60));
+    expect(dayGrab(timed, on(DAY, 'left'))).toEqual({ kind: 'move', draft: timed });
+    expect(dayGrab(timed, on(DAY, 'right'))).toEqual({ kind: 'move', draft: timed });
+    expect(dayGrab(timed, on('2031-06-06'))).toBeNull();
+  });
+
+  it('掛からない日・下書き無しは掴まない', () => {
     expect(dayGrab(draft, on('2031-06-04', 'right'))).toBeNull();
     expect(dayGrab(draft, on('2031-06-08', 'left'))).toBeNull();
-    expect(dayGrab(select(at(540), at(540)), on(DAY))).toBeNull();
     expect(dayGrab(null, on(DAY))).toBeNull();
   });
 });
@@ -283,6 +289,18 @@ describe('dayDraft（下書きをつまむ）', () => {
       allDay('2031-06-12', '2031-06-14'),
     );
   });
+
+  it('時間指定の下書きは時間帯を保ったまま日だけが動く', () => {
+    const timed = select(at(9 * 60), at(10 * 60), true);
+    expect(
+      dayDraft({
+        grab: { kind: 'move', draft: timed },
+        from: on(DAY),
+        to: on('2031-06-12'),
+        moved: true,
+      }),
+    ).toEqual({ ...timed, date: '2031-06-12' });
+  });
 });
 
 describe('draftColumns', () => {
@@ -309,9 +327,20 @@ describe('draftColumns', () => {
     });
   });
 
-  it('掛からない週と時間指定の下書きは null', () => {
+  it('時間指定の下書きはその日 1 日ぶんの列', () => {
+    expect(draftColumns(select(at(540), at(540)), week)).toEqual({
+      col: 3,
+      span: 1,
+      roundStart: true,
+      roundEnd: true,
+    });
+  });
+
+  it('掛からない週は null', () => {
     expect(draftColumns(allDay('2031-07-01', '2031-07-01'), week)).toBeNull();
-    expect(draftColumns(select(at(540), at(540)), week)).toBeNull();
+    expect(
+      draftColumns(select({ date: '2031-07-01' as DateString, min: 540 }, at(540)), week),
+    ).toBeNull();
   });
 });
 
