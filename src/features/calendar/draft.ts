@@ -192,6 +192,11 @@ function draftDays(draft: EventDraft): DateRange {
   return draft.allDay ? draft : { from: draft.date, to: draft.date };
 }
 
+/** 下書きが始まる日（複数日にわたる終日の下書きなら最初の日） */
+export function draftFirstDay(draft: EventDraft): DateString {
+  return draftDays(draft).from;
+}
+
 /**
  * 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列。掛からなければ null。
  * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
