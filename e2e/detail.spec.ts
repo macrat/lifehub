@@ -1,17 +1,13 @@
 import { devices, expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 import { touchDrag } from './touch.ts';
 
 /** 記録をタップして開く詳細は予定・立替・レモンで同じ形なので、代表してレモンで一通りなぞる */
 test.use({ ...devices['Pixel 7'] });
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 });
 
 test('記録をタップすると読むだけのシートが出て、鉛筆で広がって編集できる', async ({ page }) => {

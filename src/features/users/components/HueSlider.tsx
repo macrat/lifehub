@@ -6,15 +6,13 @@ import { useColorMode } from '../../../lib/theme.ts';
 type Props = {
   value: number;
   onChange: (hue: number) => void;
-  /** 指を離した／確定したとき（保存のタイミング） */
-  onCommit?: (hue: number) => void;
 };
 
 /**
  * ユーザーの色を選ぶスライダー。選べるのは OKLCH の色相だけで、彩度と明度はアプリが決める。
  * 帯には実際に使われる「fill」の色を並べ、つまみは選んだ色で塗る。
  */
-export function HueSlider({ value, onChange, onCommit }: Props) {
+export function HueSlider({ value, onChange }: Props) {
   const mode = useColorMode();
   const ramp = [...hueRamp('fill', mode), hueColor(0, 'fill', mode)];
   const color = hueColor(value, 'fill', mode);
@@ -26,7 +24,6 @@ export function HueSlider({ value, onChange, onCommit }: Props) {
         max={HUE_MAX}
         value={value}
         onChange={(_, v) => onChange(v)}
-        onChangeCommitted={(_, v) => onCommit?.(v)}
         sx={{
           height: 12,
           '& .MuiSlider-rail': {
