@@ -39,7 +39,6 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細（編集・削除）が開く。
  * AppBar の検索窓は内容で履歴を絞り込み、その右の絞り込みボタンで金額・日付の範囲と To・From の
  * 詳細な検索を AppBar の下に開く（残高は絞り込みに関わらず全体の貸借を示す）。
- * PWA のショートカットからは入力を開いた状態で始まる（`add=expense`）。
  */
 function ExpensesPage() {
   const search = Route.useSearch();

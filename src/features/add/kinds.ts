@@ -11,9 +11,8 @@ export type AddKind = 'event' | 'task' | 'expense' | 'lemon';
 export type AddFormKind = Exclude<AddKind, 'event'>;
 
 /**
- * 種類ごとの名前とアイコン。追加ボタンの pill と、PWA のショートカットのアイコン
- * （`scripts/generate-icons.ts`）が同じ物を読むので、変えれば両方が揃って変わる。
- * データだけを置く（React を描かない）ので、ビルド時のスクリプトからも読める。
+ * 種類ごとの名前とアイコン。ビルド時のスクリプト（Node、DOM 型なし）も読むので、
+ * この file に JSX は書かない（アイコンは描かずに持つだけ）。
  */
 export const ADD_KINDS: Record<AddKind, { label: string; icon: ComponentType }> = {
   event: { label: '予定', icon: EventIcon },

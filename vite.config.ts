@@ -51,7 +51,6 @@ export default defineConfig({
         // meta（themeColorMeta）で配色ごとに渡す。
         theme_color: undefined,
         background_color: undefined,
-        // 一覧は `src/lib/shortcuts.ts`（アイコンの生成も同じ物を読む）
         shortcuts: SHORTCUTS.map(({ kind, name, shortName, url }) => ({
           name,
           short_name: shortName,

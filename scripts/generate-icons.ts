@@ -11,9 +11,7 @@ import { calendarNavItem } from '../src/lib/ui/navigation.ts';
  * - `public/icons/favicon.svg` → アプリのアイコン（192 / 512 / maskable 512 / apple-touch 180）
  * - `public/icons/badge.svg` → 通知の小さな印（96）。Android はこれを alpha だけの単色として
  *   ステータスバーに出すので、背景の板を持たない字だけの形にしてある。
- * - `SHORTCUT_ICONS` → ショートカット（`src/lib/shortcuts.ts`）のアイコン（192）。絵はアプリの中で
- *   同じ場所へ行く物（下部ナビ）・同じ物を追加する操作（追加ボタン）のアイコンをそのまま読むので、
- *   押す前と押した後で同じ絵になり、アプリ側を変えれば生成し直すだけで揃う。
+ * - アプリが使っている MUI のアイコン（下部ナビと追加ボタン）→ ショートカットのアイコン（192）
  *
  * 画像ライブラリを増やさず、開発依存に既にある Playwright の Chromium でラスタライズする。
  * アイコンを変えたときだけ実行し、生成物はコミットする。
@@ -57,9 +55,10 @@ async function render(svg: string, size: number, padding: number, file: string):
  * 絵は React コンポーネントをそのまま描き出して使うので、path をここへ書き写して二重に持たない。
  */
 function shortcutSvg(Icon: ComponentType): string {
-  const markup = renderToStaticMarkup(createElement(Icon));
-  // MUI は emotion の <style> を伴う <svg viewBox="0 0 24 24"> を返すので、中身（path）だけを取り出す
-  const glyph = markup.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  // MUI が返すのは emotion の <style> と <svg viewBox="0 0 24 24">。どちらも剥がして中身（path）にする
+  const glyph = renderToStaticMarkup(createElement(Icon))
+    .replace(/^<style[\s\S]*?<\/style>/, '')
+    .replace(/^<svg[^>]*>|<\/svg>$/g, '');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="${BRAND}"/>
   <svg x="16" y="16" width="32" height="32" viewBox="0 0 24 24" fill="#fff">${glyph}</svg>

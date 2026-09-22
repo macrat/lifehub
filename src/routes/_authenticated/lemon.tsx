@@ -36,7 +36,6 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  * 履歴の行をタップすると詳細（削除）が開く。
  * AppBar の検索窓はメモで、その右の絞り込みボタンで開くフォームは項目と実施日の範囲で履歴を絞り込む
  * （状況のタイルは絞り込みに関わらず最新の実施日を示す）。
- * PWA のショートカットからは入力を開いた状態で始まる（`add=lemon`）。
  */
 function LemonPage() {
   const search = Route.useSearch();
@@ -49,7 +48,8 @@ function LemonPage() {
   const [selected, setSelected] = useState<CareLog | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
-  useAddShortcut(search.add, () => setAdding(DEFAULT_CARE_TYPES));
+  const openAdd = () => setAdding(DEFAULT_CARE_TYPES);
+  useAddShortcut(search.add, openAdd);
 
   return (
     <>
@@ -91,12 +91,7 @@ function LemonPage() {
         )}
       </QueryView>
 
-      <Fab
-        color="primary"
-        aria-label="レモンの記録を追加"
-        onClick={() => setAdding(DEFAULT_CARE_TYPES)}
-        sx={FAB_SX}
-      >
+      <Fab color="primary" aria-label="レモンの記録を追加" onClick={openAdd} sx={FAB_SX}>
         <AddIcon />
       </Fab>
       {adding && (

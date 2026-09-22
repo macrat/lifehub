@@ -1,11 +1,7 @@
 /**
- * PWA のショートカット（manifest の `shortcuts`）。ホーム画面のアイコンの長押し（Android）や
- * タスクバーの右クリック（PC）から、よく開く画面と入力へ直に入る。
+ * PWA のショートカット（manifest の `shortcuts`。[architecture.md](../../docs/architecture.md#pwa)）。
  * ランチャーが出せる数には上限（多くは 4 件）があるので、よく使う順に並べる。
- *
- * manifest を書く `vite.config.ts` と、アイコンを生成する `scripts/generate-icons.ts` が
- * この一覧を読むので、足すのはここ 1 か所で済む。どちらもアプリの外（ビルド時）で動くため、
- * この module は React にも zod にも依存させない。
+ * 読むのはビルド時（manifest とアイコンの生成）だけなので、React にも zod にも依存させない。
  */
 export const SHORTCUTS = [
   { kind: 'calendar', name: 'カレンダー', shortName: 'カレンダー', url: '/calendar?view=month' },
