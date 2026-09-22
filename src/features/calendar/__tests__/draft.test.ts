@@ -419,24 +419,24 @@ describe('dayVibration', () => {
   it('日をまたいで端が動いたら震わせる', () => {
     expect(
       dayVibration(allDay('2031-06-05', '2031-06-05'), allDay('2031-06-05', '2031-06-06')),
-    ).toBe(50);
+    ).toBe(10);
     expect(
       dayVibration(allDay('2031-06-05', '2031-06-06'), allDay('2031-06-05', '2031-06-05')),
-    ).toBe(50);
+    ).toBe(10);
   });
 
   it('向きが変わって起点の側が動いたときも震わせる', () => {
     expect(
       dayVibration(allDay('2031-06-05', '2031-06-05'), allDay('2031-06-04', '2031-06-05')),
-    ).toBe(50);
+    ).toBe(10);
   });
 
   it('帯ごと動かしたときも、時間指定の下書きの日が変わったときも震わせる', () => {
     expect(
       dayVibration(allDay('2031-06-05', '2031-06-06'), allDay('2031-06-12', '2031-06-13')),
-    ).toBe(50);
+    ).toBe(10);
     const timed = select(at(9 * 60), at(10 * 60), true);
-    expect(dayVibration(timed, { ...timed, date: '2031-06-06' as DateString })).toBe(50);
+    expect(dayVibration(timed, { ...timed, date: '2031-06-06' as DateString })).toBe(10);
     expect(dayVibration(timed, { ...timed, startMin: 8 * 60 })).toBeNull();
   });
 });
