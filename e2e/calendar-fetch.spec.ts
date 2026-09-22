@@ -1,5 +1,6 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { login } from './login.ts';
+import { countFetches, quiet } from './network.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /**
@@ -8,25 +9,8 @@ import { changeView, recordViewTransitions } from './view.ts';
  * `staleTime` が戻ると表示を切り替えるたびに静かに通信が増える。回数で押さえる。
  */
 
-/** 始めてからの `GET /api/events` の回数を返す */
-function countFetches(page: Page): () => number {
-  let count = 0;
-  page.on('request', (request) => {
-    if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/events') count++;
-  });
-  return () => count;
-}
-
-/** 取得が落ち着く（1 秒の間 1 件も増えない）まで待つ */
-async function quiet(page: Page, fetches: () => number) {
-  for (let before = -1; before !== fetches(); ) {
-    before = fetches();
-    await page.waitForTimeout(1000);
-  }
-}
-
 test('表示を切り替えても取り直さず、画面に入ったときだけ取り直す', async ({ page }) => {
-  const fetches = countFetches(page);
+  const fetches = countFetches(page, '/api/events');
   // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
   await recordViewTransitions(page);
   await login(page);

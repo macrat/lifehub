@@ -1,6 +1,7 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
+import { stall } from './network.ts';
 import { touchDrag } from './touch.ts';
 
 test.use({ ...devices['Pixel 7'] });
@@ -8,14 +9,6 @@ test.use({ ...devices['Pixel 7'] });
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
-
-/** 指定したパスの通信を遅らせる（保存も再取得も返ってこない状況を作る） */
-async function stall(page: Page, path: string, ms = 10_000) {
-  await page.route(path, async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-    await route.continue();
-  });
-}
 
 test('スマホでは項目の少ないフォームが画面の下のシートで開き、保存すると通信を待たずに閉じて記録が出る', async ({
   page,

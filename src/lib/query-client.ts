@@ -4,6 +4,7 @@ import {
   onlineManager,
   QueryClient,
   type UseQueryOptions,
+  useIsFetching,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -29,7 +30,7 @@ onlineManager.setOnline(navigator.onLine);
  * - staleTime は 0。画面を開くたびに取り直し、届いたら差し替える。キャッシュは表示され続けるので
  *   遷移で一度空になることはない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると
  *   古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう
- * - 取り直しを抑えたいクエリ（`me` や VAPID 鍵、カレンダーの項目）は、それぞれで staleTime を指定する
+ * - 取り直しを抑えたいクエリは、それぞれの queryOptions で staleTime と、そうする理由を持つ
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,19 @@ export const persistOptions = {
  * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
  */
 export type QueryState<T> = { data: T | undefined; error: Error | null };
+
+/**
+ * 手元に何も出せないまま取得を待っているか（画面上部のインジケータが見るもの）。
+ * 数に入れるのはデータを持たないクエリの取得だけで、キャッシュを出しながらの取り直しは入れない。
+ * WHY: 画面には既に中身が出ていて裏で差し替わるだけなので、待っていることを伝える相手がいない。
+ * 画面を移るたびに取り直す作りなので、入れてしまうと移動のたびに毎回インジケータが出る。
+ * WHY NOT 書き込みも数える: 結果は楽観的更新で先に画面へ出ており（`useOptimisticMutation`）、
+ * 送り直しの最中も画面は変わらない。諦めたときだけ通知が伝える。オフラインで溜めた書き込みに
+ * 至っては送られるまで終わらないので、数えると出したままになってしまう。
+ */
+export function useIsLoadingWithoutCache(): boolean {
+  return useIsFetching({ predicate: (query) => query.state.data === undefined }) > 0;
+}
 
 /** 書き込みが変えるクエリのキー（各 feature の queryOptions / *_QUERY_KEY から渡す） */
 type WriteKeys = readonly (readonly unknown[])[];
@@ -129,8 +143,9 @@ type OptimisticMutationOptions<TInput> = {
   /** 送信と同時にキャッシュへ書き込む、サーバーが返すはずの値。取得済みのクエリだけを書き換える */
   apply?: (client: QueryClient, input: TInput) => void;
   /**
-   * オフラインで溜めずにその場で失敗させる。
-   * パスワードを含む書き込み（ユーザーの登録・変更）は端末に残したくないので false にする。
+   * オフラインで溜めずにその場で失敗させる。溜めても意味が無い書き込みを false にする:
+   * 端末に残したくないもの（パスワードを含むユーザーの登録・変更）と、
+   * 送れるまで結果を出せないもの（カレンダーの配信 URL は、発行されるまで渡す URL が無い）。
    */
   queue?: boolean;
 };

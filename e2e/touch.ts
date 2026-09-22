@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 /** CDP に送る指 1 本。複数本なら id で見分ける */
 type TouchPoint = { id: number; x: number; y: number };
@@ -25,6 +25,9 @@ async function touchGesture(
   await cdp.detach();
 }
 
+/** 長押しと認められるまで押さえる長さ（ms）。アプリの区切り（`use-record-press.ts` の 300ms）を確かに超える */
+export const LONG_PRESS_HOLD_MS = 400;
+
 /** 指 1 本でのなぞり。from から to へ動かす */
 export function touchDrag(
   page: Page,
@@ -37,6 +40,22 @@ export function touchDrag(
     (t) => [{ id: 0, x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }],
     options,
   );
+}
+
+/** その要素の中心（行・予定のブロック・帯、つまむ丸など、押す所・つまむ所を指すのに使う） */
+export async function centerOf(locator: Locator) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('押す所が見つからない');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/**
+ * その要素を長押しする（動かさずに押さえたまま待って離す）。
+ * アプリの区切りは 300ms なので、それを確かに超える長さで押さえる。
+ */
+export async function longPress(page: Page, target: Locator) {
+  const at = await centerOf(target);
+  await touchDrag(page, at, at, { hold: LONG_PRESS_HOLD_MS });
 }
 
 /**

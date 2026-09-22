@@ -20,9 +20,9 @@ type Props = {
   /** グリッドの 42 日（月曜始まり 6 週）。取得範囲と同じものを渡す */
   days: DateString[];
   itemsByDate: Map<DateString, CalendarItem[]>;
-  /** 日を選んだとき（日表示へ移る）。スマホはセルのタップ、PC は日付の数字 */
+  /** 日を選んだとき（日表示へ移る）。スマホは項目の無い所のタップ、PC は日付の数字 */
   onSelectDate: (date: DateString) => void;
-  /** 項目をクリックしたとき（広い画面のみ。スマホでは項目はタップできず、日をタップする） */
+  /** 項目をタップ・クリックしたとき（詳細を開く） */
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている予定の枠 */
   draft: Draft | null;
@@ -43,6 +43,7 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
  * - 完了したタスクは日ごとに一番下へ回す（`completedLast`）
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
+ * - 項目はタップで詳細、長押しでつまんで編集（アプリ全体の「単押しは閲覧、長押しは編集」）
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
  *   出ている枠（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
  *   その枠をつまむ（長押しは待たない）。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
@@ -194,7 +195,7 @@ function WeekRow({
         borderColor: 'divider',
       }}
     >
-      {/* 背景の日セル: 罫線・予定の追加（なぞって選ぶ）。日表示へはスマホならセルのタップ、PC は日付の数字から */}
+      {/* 背景の日セル: 罫線・予定の追加（なぞって選ぶ）。日表示へはスマホなら項目の無い所のタップ、PC は日付の数字から */}
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
         return (
@@ -230,7 +231,7 @@ function WeekRow({
           placed={p}
           compact={compact}
           colors={colorFor(colorUserOf(p.item.participantIds))}
-          onClick={compact ? undefined : () => onSelectItem(p.item)}
+          onClick={() => onSelectItem(p.item)}
           grab={drag.grabItemProps(p.item)}
           hidden={sameOccurrence(draft?.item, p.item)}
         />

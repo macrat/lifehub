@@ -1,10 +1,7 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
 import { blockTouchMove } from '../../lib/ui/touch-block.ts';
-
-/** タッチで範囲を選び始めるまでの長押し（ms）。タップや縦スクロールを選択と取り違えないための区切り */
-const LONG_PRESS_MS = 300;
-/** 長押しを待つ間に許す指のぶれと、タップとドラッグの境目（px） */
-const SLOP = 8;
+// 長押しの区切りはアプリで 1 つ（一覧の行も同じ長さで編集に入る。`use-record-press.ts`）
+import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../lib/ui/use-record-press.ts';
 
 export type DragHandlers = {
   onPointerDown: (event: PointerEvent<HTMLElement>) => void;
@@ -28,7 +25,7 @@ type GrabOptions = {
   /** 長押しを待たずに始めるか（端の丸・枠のような、そこを押す以外の使い道が無い所） */
   instant?: boolean;
   /**
-   * 動かさずに離したときも範囲を選ぶか。false は「タップ・クリックは別の操作に譲る」
+   * 動かさずに離したときも範囲を選ぶか。false は「タップ・クリックは押した要素に譲る」
    * （保存済みの予定をつまむときの、詳細を開くタップ）。
    */
   tap?: boolean;
@@ -171,7 +168,8 @@ export function useRangeDrag<P, G, R>({
     const d = drag.current;
     if (!d || d.pointerId !== event.pointerId) return;
     const far =
-      Math.abs(event.clientX - d.origin.x) > SLOP || Math.abs(event.clientY - d.origin.y) > SLOP;
+      Math.abs(event.clientX - d.origin.x) > LONG_PRESS_SLOP ||
+      Math.abs(event.clientY - d.origin.y) > LONG_PRESS_SLOP;
     if (!d.active) {
       // 長押しを待つ間に動いたらスクロールのつもりとみなしてやめる
       if (far) stop();
@@ -195,8 +193,12 @@ export function useRangeDrag<P, G, R>({
         d.to = locate(event) ?? d.to;
         emit(d, true);
       }
-    } else if (onTouchTap) onTouchTap(d.from);
-    else if (d.tap) emit(d, true);
+    } else if (d.tap) {
+      // 軽いタップ。日を選ぶ所（月表示のセル）ならそちらへ、それ以外は押した所を範囲にする。
+      // タップを譲る約束（tap: false）で掴んだ物は何もしない（項目の click が詳細を開く）
+      if (onTouchTap) onTouchTap(d.from);
+      else emit(d, true);
+    }
     stop();
   };
 
