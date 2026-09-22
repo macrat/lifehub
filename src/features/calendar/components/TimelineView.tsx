@@ -35,6 +35,8 @@ type Props = {
   /** 時間軸（`TimeGrid`）へそのまま渡す */
   hourHeight: number;
   onZoom: (ratio: number) => void;
+  bottomInset: number;
+  draftSettled: boolean;
 };
 
 const GUTTER_WIDTH = 44;
@@ -59,6 +61,8 @@ export function TimelineView({
   height,
   hourHeight,
   onZoom,
+  bottomInset,
+  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
@@ -202,6 +206,8 @@ export function TimelineView({
         draft={draft}
         draftUserId={draftUserId}
         onChangeDraft={onChangeDraft}
+        bottomInset={bottomInset}
+        draftSettled={draftSettled}
       />
     </Box>
   );

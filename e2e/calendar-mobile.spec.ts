@@ -1,7 +1,7 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
-import { centerOf, LONG_PRESS_HOLD_MS, touchDrag, touchPinch } from './touch.ts';
+import { centerOf, LONG_PRESS_HOLD_MS, settledBox, touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
@@ -13,15 +13,31 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
+/** 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る */
+function scroller(page: Page, date: string) {
+  return page.locator('[data-sync-scroll]').filter({ has: page.locator(`[data-date="${date}"]`) });
+}
+
+/** その面の中身の高さ（下に足した余白を含む） */
+const scrollHeightOf = (pane: Locator) => () => pane.evaluate((el) => el.scrollHeight);
+
 /**
  * 日のセルの中の 1 点。left は最初の日の左半分（開始をつまむ）、right は最後の日の右半分（終了）、
  * middle はそれ以外（帯ごと動かす・空いている所から選ぶ）。
  */
 async function dayPoint(page: Page, date: string, at: 'left' | 'middle' | 'right' = 'middle') {
-  const box = await page.locator(`[data-date="${date}"]`).first().boundingBox();
-  if (!box) throw new Error('日のセルが見つからない');
+  const box = await settledBox(page.locator(`[data-date="${date}"]`).first());
   const ratio = at === 'left' ? 0.25 : at === 'right' ? 0.75 : 0.5;
   return { x: box.x + box.width * ratio, y: box.y + box.height / 2 };
+}
+
+/**
+ * 時間軸の列の中の、その日の `minutes` 分の所（終日欄にも同じ `data-date` があるので列は最後のもの）。
+ * 位置は指すたびに測り直す。グリッドはシートの開閉で動くので、最初に測った縦位置は当てにならない。
+ */
+async function timePoint(page: Page, date: string, minutes: number) {
+  const box = await settledBox(page.locator(`[data-date="${date}"]`).last());
+  return { x: box.x + box.width / 2, y: box.y + (minutes / 60) * (box.height / 24) };
 }
 
 /**
@@ -48,25 +64,17 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
   const title = `E2E タップ ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  const column = page.locator('[data-date="2031-06-05"]').last();
-  const box = await column.boundingBox();
-  if (!box) throw new Error('時間軸の列が見つからない');
-  const x = box.x + box.width / 2;
-  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  const at = (minutes: number) => timePoint(page, '2031-06-05', minutes);
 
-  // タップした枠から 1 時間を選び、画面下のシートに出す
-  await page.touchscreen.tap(x, y(15 * 60 + 10));
+  // 夕方をタップして 1 時間を選ぶ。枠はシートに隠れるので、グリッドは見える所まで送られる
+  const tap = await at(15 * 60 + 10);
+  await page.touchscreen.tap(tap.x, tap.y);
   await expect(page.getByText('6/5(木) 15:00〜16:00')).toBeVisible();
 
   // 下端の丸をつまんで 17:00 まで広げる。指の当たりは丸（8px）より広いので、
   // 丸から外れた所（左に 14px、上に 10px）から掴めることも併せて確かめる
-  const handleBox = await page.locator('[data-handle="end"]').boundingBox();
-  if (!handleBox) throw new Error('つまむ丸が見つからない');
-  await touchDrag(
-    page,
-    { x: handleBox.x + handleBox.width / 2 - 14, y: handleBox.y + handleBox.height / 2 - 10 },
-    { x, y: y(17 * 60 - 5) },
-  );
+  const handle = await centerOf(page.locator('[data-handle="end"]'));
+  await touchDrag(page, { x: handle.x - 14, y: handle.y - 10 }, await at(17 * 60 - 5));
   await expect(page.getByText('6/5(木) 15:00〜17:00')).toBeVisible();
 
   await page.getByLabel('タイトルを追加').fill(title);
@@ -83,29 +91,26 @@ test('日表示でタップして選び、端をつまんで広げて予定を�
 test('日表示で枠をつまんで動かし、端の丸は反対の端を越えない', async ({ page }) => {
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  const column = page.locator('[data-date="2031-06-05"]').last();
-  const box = await column.boundingBox();
-  if (!box) throw new Error('時間軸の列が見つからない');
-  const x = box.x + box.width / 2;
-  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  const at = (minutes: number) => timePoint(page, '2031-06-05', minutes);
   /** 端の丸の中心。丸は枠の左右の内側にあるので、位置は毎回測り直す */
   const handle = (end: 'start' | 'end') => centerOf(page.locator(`[data-handle="${end}"]`));
 
-  await page.touchscreen.tap(x, y(10 * 60 + 10));
+  const tap = await at(10 * 60 + 10);
+  await page.touchscreen.tap(tap.x, tap.y);
   await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
 
   // 丸ではない所からなぞると、長押しを待たずに長さ 1 時間を保ったまま 3 時間ぶん下がる
-  await touchDrag(page, { x, y: y(10 * 60 + 30) }, { x, y: y(13 * 60 + 30) });
+  await touchDrag(page, await at(10 * 60 + 30), await at(13 * 60 + 30));
   await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
 
   // 終了の丸は開始より上へ行けず、開始の 15 分後で止まる
-  await touchDrag(page, await handle('end'), { x, y: y(11 * 60) });
+  await touchDrag(page, await handle('end'), await at(11 * 60));
   await expect(page.getByText('6/5(木) 13:00〜13:15')).toBeVisible();
 
   // 終了の丸を戻して 1 時間にし、開始の丸は終了の 15 分前で止まることを確かめる
-  await touchDrag(page, await handle('end'), { x, y: y(14 * 60) });
+  await touchDrag(page, await handle('end'), await at(14 * 60));
   await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
-  await touchDrag(page, await handle('start'), { x, y: y(16 * 60) });
+  await touchDrag(page, await handle('start'), await at(16 * 60));
   await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
 });
 
@@ -113,12 +118,10 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
   const title = `E2E 長押し編集 ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2031-06-12');
 
-  const box = await page.locator('[data-date="2031-06-12"]').last().boundingBox();
-  if (!box) throw new Error('時間軸の列が見つからない');
-  const x = box.x + box.width / 2;
-  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  const at = (minutes: number) => timePoint(page, '2031-06-12', minutes);
   // 10:00〜11:00 の予定を 1 件作る
-  await page.touchscreen.tap(x, y(10 * 60 + 10));
+  const first = await at(10 * 60 + 10);
+  await page.touchscreen.tap(first.x, first.y);
   await page.getByLabel('タイトルを追加').fill(title);
   await page.getByRole('button', { name: '保存' }).click();
   const block = page.getByRole('button', { name: title });
@@ -133,12 +136,12 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
 
   // 長押しからそのまま指を離さずになぞると、長さを保ったまま 2 時間ぶん下がる。
   // 入力はその予定の内容から始まる（タイトルはそのまま）
-  await touchDrag(page, tap, { x, y: y(12 * 60 + 30) }, { hold: LONG_PRESS_HOLD_MS });
+  await touchDrag(page, tap, await at(12 * 60 + 30), { hold: LONG_PRESS_HOLD_MS });
   await expect(page.getByText('6/12(木) 12:00〜13:00')).toBeVisible();
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
 
   // 編集中の枠は長押しを待たずに動く
-  await touchDrag(page, await centerOf(page.locator('[data-draft]')), { x, y: y(14 * 60 + 30) });
+  await touchDrag(page, await centerOf(page.locator('[data-draft]')), await at(14 * 60 + 30));
   await expect(page.getByText('6/12(木) 14:00〜15:00')).toBeVisible();
 
   // 保存すると元の予定が動く（別の予定が増えたりしない）
@@ -156,10 +159,7 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
 test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  // 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る
-  const pane = page
-    .locator('[data-sync-scroll]')
-    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const pane = scroller(page, '2031-06-05');
   const view = await pane.boundingBox();
   if (!view) throw new Error('時間軸が見つからない');
   const center = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
@@ -183,12 +183,10 @@ test('予定のブロックは高さが足りるときだけ時刻を添える',
   const title = `E2E 時刻の行 ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  const pane = page
-    .locator('[data-sync-scroll]')
-    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const pane = scroller(page, '2031-06-05');
   // 最初の縦位置は 7 時（今日を含まない日）。高さは CSS が決めるので、描かれた物で確かめる
   expect(await pane.evaluate((el) => el.scrollTop)).toBeCloseTo(
-    (await pane.evaluate((el) => el.scrollHeight)) * (7 / 24),
+    (await scrollHeightOf(pane)()) * (7 / 24),
     1,
   );
 
@@ -229,26 +227,15 @@ test('週表示では枠を左右に動かすと別の日へ移る', async ({ pa
   const title = `E2E 日をまたぐ ${Date.now()}`;
   await page.goto('/calendar?view=week&date=2031-06-05');
 
-  /** 時間軸の列（終日欄にも同じ data-date があるので最後のものを取る） */
-  const column = async (date: string) => {
-    const box = await page.locator(`[data-date="${date}"]`).last().boundingBox();
-    if (!box) throw new Error('時間軸の列が見つからない');
-    return box;
-  };
-  const thu = await column('2031-06-05');
-  const y = (minutes: number) => thu.y + (minutes / 60) * (thu.height / 24);
-  const center = (box: { x: number; width: number }) => box.x + box.width / 2;
+  const thu = (minutes: number) => timePoint(page, '2031-06-05', minutes);
+  const fri = (minutes: number) => timePoint(page, '2031-06-06', minutes);
 
-  await page.touchscreen.tap(center(thu), y(10 * 60 + 10));
+  const tap = await thu(10 * 60 + 10);
+  await page.touchscreen.tap(tap.x, tap.y);
   await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
 
   // 隣の列までなぞると、時間帯はそのままで日だけが翌日に移る
-  const fri = await column('2031-06-06');
-  await touchDrag(
-    page,
-    { x: center(thu), y: y(10 * 60 + 30) },
-    { x: center(fri), y: y(10 * 60 + 30) },
-  );
+  await touchDrag(page, await thu(10 * 60 + 30), await fri(10 * 60 + 30));
   await expect(page.getByText('6/6(金) 10:00〜11:00')).toBeVisible();
 
   await page.getByLabel('タイトルを追加').fill(title);
@@ -440,6 +427,61 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await expect(page.getByText('シートから入力')).toBeVisible();
   await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+/** シートが画面の下から覆っている高さと、その上端の画面内での位置（段へ滑り終えてから測る） */
+async function sheetCover(page: Page) {
+  const box = await settledBox(page.locator('[data-sheet]'));
+  return { top: box.y, height: (page.viewportSize()?.height ?? 0) - box.y };
+}
+
+test('シートに隠れる時間帯も、下に余白ができてスクロールで見られる', async ({ page }) => {
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  const pane = scroller(page, '2031-06-05');
+  const scrollHeight = scrollHeightOf(pane);
+  const before = await scrollHeight();
+
+  // 夕方をタップすると枠はシートに隠れるので、見える所まで送られる
+  const tap = await timePoint(page, '2031-06-05', 15 * 60 + 10);
+  await page.touchscreen.tap(tap.x, tap.y);
+  await expect(page.getByText('6/5(木) 15:00〜16:00')).toBeVisible();
+  const sheet = await sheetCover(page);
+  const draft = await settledBox(page.locator('[data-draft]'));
+  expect(draft.y + draft.height).toBeLessThan(sheet.top);
+
+  // 時間軸はシートが覆う分だけ下に伸びる（1 時間の高さは変わらない）
+  await expect.poll(scrollHeight).toBeCloseTo(before + sheet.height, -1);
+
+  // 下まで下りれば、シートに覆われていた 23 時台も上に出てくる
+  await pane.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  const last = await settledBox(pane.getByText('23:00', { exact: true }));
+  expect(last.y).toBeLessThan(sheet.top);
+
+  // 下書きを捨てれば余白も消える
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect.poll(scrollHeight).toBe(before);
+});
+
+test('月表示も下に余白ができ、1 日の高さは変えずに隠れた週まで下りられる', async ({ page }) => {
+  await page.goto('/calendar?view=month&date=2031-06-15');
+
+  const pane = scroller(page, '2031-06-15');
+  const scrollHeight = scrollHeightOf(pane);
+  const cellHeight = async () =>
+    (await page.locator('[data-date="2031-06-15"]').boundingBox())?.height;
+  const before = { scroll: await scrollHeight(), cell: await cellHeight() };
+
+  // 一番下の週を長押しで選ぶと、帯はシートに隠れるので見える所まで送られる
+  await selectDays(page, '2031-06-25', '2031-06-26');
+  await expect(page.getByText('6/25(水)〜6/26(木) 終日')).toBeVisible();
+  const sheet = await sheetCover(page);
+  const bar = await settledBox(page.locator('[data-draft]'));
+  expect(bar.y + bar.height).toBeLessThan(sheet.top);
+
+  // 伸びるのは下の余白だけで、1 日のセルの高さは変わらない
+  await expect.poll(scrollHeight).toBeCloseTo(before.scroll + sheet.height, -1);
+  expect(await cellHeight()).toBe(before.cell);
 });
 
 test('週表示の終日の帯は端を伸ばし、真ん中で日数ごと動かせる', async ({ page }) => {

@@ -88,6 +88,9 @@ function CalendarPage() {
     values: ItemFormValues;
     item: CalendarItem | null;
   } | null>(null);
+  // クイック入力のシートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ
+  // 下に余白を作り、シートに隠れる夜の時間帯までスクロールして見られるようにする
+  const [sheetInset, setSheetInset] = useState(0);
   // 追加ボタンとショートカットのどちらから来ても、開いている入力はこの 1 つ
   const [adding, setAdding] = useState<AddFormKind | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -180,6 +183,15 @@ function CalendarPage() {
                 onChangeDraft={changeDraft}
                 hourHeight={page.hourHeight}
                 onZoom={page.zoom}
+                // 枠と同じく、控えの面には渡さない（props が変わらなければ面は描き直さない。
+                // シートの開け閉めのたびに 3 面とも組み直さないように）。
+                // 覆う高さは下部ナビの分だけ多めに取る: 基準が svh と dvh で食い違っても
+                // 足りなくならない側へ倒す（余った分は下の余白が少し増えるだけ）
+                bottomInset={offset === 0 ? sheetInset : 0}
+                // なぞっている間は枠を追いかけない（指の下でグリッドが動くと狙いがずれる）。
+                // 余白そのものは出したままにする: 途中で消すとスクロール位置が詰められて、
+                // やはり指の下でグリッドが動く
+                draftSettled={offset === 0 && (draft?.editing ?? false)}
               />
             )}
           </SwipePager>
@@ -225,6 +237,7 @@ function CalendarPage() {
             setDraft(null);
           }}
           onClose={() => setDraft(null)}
+          onChangeInset={setSheetInset}
         />
       )}
       {expanded && (

@@ -14,6 +14,7 @@ import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { DRAFT_SELECTOR } from '../../calendar/components/DraftBlock.tsx';
 import {
   draftFromInstants,
   draftInstants,
@@ -53,6 +54,11 @@ type Props = {
   onClose: () => void;
   /** 開く段。グリッドをなぞったときは下の段、追加ボタンからは上の段（全項目） */
   initialDetent: SheetDetent;
+  /**
+   * シートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ下に余白を作る。
+   * PC の吹き出しはグリッドの上に浮くだけなので、常に 0 のまま。
+   */
+  onChangeInset: (inset: number) => void;
 };
 
 /**
@@ -74,6 +80,7 @@ export function QuickEventForm({
   onExpand,
   onClose,
   initialDetent,
+  onChangeInset,
 }: Props) {
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
@@ -185,6 +192,7 @@ export function QuickEventForm({
       onChangeDetent={changeDetent}
       onClose={onClose}
       peekRef={peekRef}
+      onChangeInset={onChangeInset}
     >
       <Stack
         component="form"
@@ -235,7 +243,7 @@ function Bubble({
     <Popover
       open={open}
       onClose={onClose}
-      anchorEl={() => document.querySelector('[data-draft]') ?? document.body}
+      anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
       anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
       transformOrigin={{ vertical: 'center', horizontal: 'left' }}
       slotProps={{ paper: { sx: { width: 340 } } }}

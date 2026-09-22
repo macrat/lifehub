@@ -7,6 +7,13 @@ import type { draftColumns, TimedDraft } from '../draft.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
+/**
+ * 枠に付ける印と、それを探すセレクタ。時間軸のブロックにも月・終日欄の帯にも同じものを付ける。
+ * 枠の位置を DOM から引く側（見える所まで送る・吹き出しを寄せる）はこれで探す。
+ */
+const draftProps = { 'data-draft': '' };
+export const DRAFT_SELECTOR = '[data-draft]';
+
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
 const DOT_SIZE = 8;
 /** 丸を枠の左右の端から離す距離（px） */
@@ -51,7 +58,7 @@ export function DraftBlock({
   const { startMin, endMin } = draft;
   return (
     <Box
-      data-draft
+      {...draftProps}
       {...grab?.move}
       sx={{
         ...outline(colors),
@@ -116,7 +123,7 @@ export function DraftBar({
   const { col, span, roundStart, roundEnd } = columns;
   return (
     <Box
-      data-draft
+      {...draftProps}
       sx={{
         ...outline(colors),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする

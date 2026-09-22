@@ -20,6 +20,11 @@ type Stepped = {
   /** 今の段 */
   detent: SheetDetent;
   onChangeDetent: (detent: SheetDetent) => void;
+  /**
+   * 後ろの画面を下から覆っている高さ（px）が変わったとき。消えるときは 0 を渡す。
+   * 下の段では後ろをそのまま触れるので、覆われた分だけ後ろが自分で余白を作れるようにする。
+   */
+  onChangeInset?: (inset: number) => void;
   label?: never;
   full?: never;
   onExpand?: never;
@@ -33,6 +38,7 @@ type Plain = {
   peekRef?: never;
   detent?: never;
   onChangeDetent?: never;
+  onChangeInset?: never;
   /** ダイアログとしての名前（読み上げ用）。見出しと同じ文言を渡す */
   label: string;
   /** 中身の高さではなく画面いっぱいで出す（項目が多くて結局画面を覆うフォーム） */
@@ -99,6 +105,7 @@ export function BottomSheet({
   peekRef,
   detent,
   onChangeDetent,
+  onChangeInset,
   label,
   full = false,
   onExpand,
@@ -172,6 +179,16 @@ export function BottomSheet({
   const offsets = { full: 0, peek: Math.max(size.sheet - size.peek, 0), closed: size.sheet };
   const measured = size.sheet > 0 && (!peekRef || size.peek > 0);
   const resting = closing || !open || !measured ? offsets.closed : offsets[detent ?? 'full'];
+
+  // 後ろに余白を作らせる高さ。止まる段（`resting`）から決めるので、下げているとき・測る前は
+  // ひとりでに 0 になる。上の段では後ろを覆いきるので、余白を作らせても見えないぶん 0 にする。
+  // 指で動かしている間は変えない（後ろを毎フレーム組み直さない。離せばどちらかの段に収まる）
+  const inset = detent === 'peek' ? size.sheet - resting : 0;
+  useEffect(() => {
+    onChangeInset?.(inset);
+  }, [onChangeInset, inset]);
+  // 消えたら覆っていない。知らせるのはここだけにする（値が変わるたびに 0 を挟まない）
+  useEffect(() => () => onChangeInset?.(0), [onChangeInset]);
 
   /** 下がりきるのを見せてから消す（transitionend は中身の要素の分も来るので時間で待つ） */
   const dismiss = () => {
