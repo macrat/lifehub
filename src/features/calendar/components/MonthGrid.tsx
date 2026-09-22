@@ -6,11 +6,11 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
+import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
-import { DraftBar } from './DraftBlock.tsx';
+import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { completedLast, freeLane, layoutLanes } from './lane-layout.ts';
 import { syncScrollProps } from './SwipePager.tsx';
@@ -97,22 +97,26 @@ export function MonthGrid({
   }, [laneHeight]);
 
   // シートに隠れる所に枠を置いたら（下の週を長押ししたときなど）、その帯が見える所まで送る。
-  // なぞっている最中は動かさない（指の下でグリッドが動くと、掴んでいる日がずれる）
+  // どこまでが見える所かはスクロールする所の scroll-padding が決めるので、送るのはブラウザに任せる
+  // （既に見えているなら `nearest` は動かさない）。
+  // なぞっている最中は送らない（合図が null）: 指の下でグリッドが動くと、掴んでいる日がずれる
   const scrollRef = useRef<HTMLDivElement>(null);
-  const draftRange = draftSettled ? draft?.range : null;
+  const span = draftSettled && draft ? draftDays(draft.range) : null;
+  const reveal = span && `${span.from}/${span.to}/${bottomInset}`;
   useEffect(() => {
-    const el = scrollRef.current;
+    if (!reveal) return;
     // 帯は週の行ごとに分かれるので、始まりの 1 本が見えれば足りる
-    const bar = draftRange && el?.querySelector<HTMLElement>('[data-draft]');
-    if (!el || !bar) return;
-    // 帯の下端から、シートに覆われた分だけ上がった下端までの距離。はみ出していればその分だけ送る
-    const below =
-      bar.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom + bottomInset;
-    if (below > 0) el.scrollTo({ top: el.scrollTop + below, behavior: 'smooth' });
-  }, [draftRange, bottomInset]);
+    scrollRef.current
+      ?.querySelector(DRAFT_SELECTOR)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [reveal]);
 
   return (
-    <Box {...syncScrollProps} ref={scrollRef} sx={{ height, overflowY: 'auto' }}>
+    <Box
+      {...syncScrollProps}
+      ref={scrollRef}
+      sx={{ height, overflowY: 'auto', scrollPaddingBottom: `${bottomInset}px` }}
+    >
       <Box
         sx={{
           display: 'grid',

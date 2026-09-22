@@ -22,6 +22,13 @@ export const HOUR_HEIGHT_VAR = '--hour-height';
 export const atMinute = (min: number) => `calc(var(${HOUR_HEIGHT_VAR}) * ${min / 60})`;
 
 /**
+ * `atMinute` と同じ長さを数（px）で。スクロール位置を測る所だけがこちらを使う
+ * （寸法は CSS に任せるが、scrollTop は数でしか指せない）。片方だけ直すと、
+ * 描かれた時間軸と合わせる縦位置がずれるので、2 つは必ず並べて置く。
+ */
+export const pxAtMinute = (min: number, hourHeight: number) => (min / 60) * hourHeight;
+
+/**
  * 週・日表示の時間軸の、1 時間あたりの高さ。つまむと（`use-pinch.ts`）縦に伸び縮みする。
  * 状態はカレンダー画面に 1 つだけ置き、スワイプの 3 面すべてに同じ値を渡す
  * （面ごとに持つと、拡げたあとスワイプした先だけ元の高さに戻ってしまう）。

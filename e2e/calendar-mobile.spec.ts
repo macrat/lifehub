@@ -13,23 +13,38 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
+/** 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る */
+function scroller(page: Page, date: string) {
+  return page.locator('[data-sync-scroll]').filter({ has: page.locator(`[data-date="${date}"]`) });
+}
+
+/** その面の中身の高さ（下に足した余白を含む） */
+const scrollHeightOf = (pane: Locator) => () => pane.evaluate((el) => el.scrollHeight);
+
+/** 要素の画面内での場所と大きさ */
+type Box = NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>;
+
 /**
  * 動きが止まってから測る。シートが開くとその分だけグリッドが下に伸び、隠れた枠は見える所まで
  * 滑らかに送られるので（`TimeGrid`・`MonthGrid`）、動いている途中の位置を指さないようにする。
+ * 滑らかなスクロールは `getAnimations` に出ない（段の移動を待つ `settledAt` はそちらを見る）ので、
+ * 同じ所に 2 回続けて見えたら止まったとみなす。刻みは既定より細かくして、待ちを詰める。
  */
 async function settledBox(locator: Locator) {
-  let previous: number | undefined;
+  /** 最後に測った所。止まったと分かった時点の値をそのまま返す（測り直すとまた動いた後になる） */
+  const last: { box: Box | null; previous: Box | null } = { box: null, previous: null };
   await expect
-    .poll(async () => {
-      const top = (await locator.boundingBox())?.y;
-      const stopped = top !== undefined && top === previous;
-      previous = top;
-      return stopped;
-    })
+    .poll(
+      async () => {
+        last.previous = last.box;
+        last.box = await locator.boundingBox();
+        return Boolean(last.box && last.previous && last.box.y === last.previous.y);
+      },
+      { intervals: [16, 32, 64, 128, 250] },
+    )
     .toBe(true);
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('測る所が見つからない');
-  return box;
+  if (!last.box) throw new Error('測る所が見つからない');
+  return last.box;
 }
 
 /**
@@ -176,10 +191,7 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
 test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  // 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る
-  const pane = page
-    .locator('[data-sync-scroll]')
-    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const pane = scroller(page, '2031-06-05');
   const view = await pane.boundingBox();
   if (!view) throw new Error('時間軸が見つからない');
   const center = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
@@ -203,12 +215,10 @@ test('予定のブロックは高さが足りるときだけ時刻を添える',
   const title = `E2E 時刻の行 ${Date.now()}`;
   await page.goto('/calendar?view=day&date=2031-06-05');
 
-  const pane = page
-    .locator('[data-sync-scroll]')
-    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const pane = scroller(page, '2031-06-05');
   // 最初の縦位置は 7 時（今日を含まない日）。高さは CSS が決めるので、描かれた物で確かめる
   expect(await pane.evaluate((el) => el.scrollTop)).toBeCloseTo(
-    (await pane.evaluate((el) => el.scrollHeight)) * (7 / 24),
+    (await scrollHeightOf(pane)()) * (7 / 24),
     1,
   );
 
@@ -422,11 +432,6 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
-/** 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る */
-function scroller(page: Page, date: string) {
-  return page.locator('[data-sync-scroll]').filter({ has: page.locator(`[data-date="${date}"]`) });
-}
-
 /** シートが画面の下から覆っている高さと、その上端の画面内での位置（段へ滑り終えてから測る） */
 async function sheetCover(page: Page) {
   const box = await settledBox(page.locator('[data-sheet]'));
@@ -437,7 +442,7 @@ test('シートに隠れる時間帯も、下に余白ができてスクロー�
   await page.goto('/calendar?view=day&date=2031-06-05');
 
   const pane = scroller(page, '2031-06-05');
-  const scrollHeight = () => pane.evaluate((el) => el.scrollHeight);
+  const scrollHeight = scrollHeightOf(pane);
   const before = await scrollHeight();
 
   // 夕方をタップすると枠はシートに隠れるので、見える所まで送られる
@@ -465,7 +470,7 @@ test('月表示も下に余白ができ、1 日の高さは変えずに隠れた
   await page.goto('/calendar?view=month&date=2031-06-15');
 
   const pane = scroller(page, '2031-06-15');
-  const scrollHeight = () => pane.evaluate((el) => el.scrollHeight);
+  const scrollHeight = scrollHeightOf(pane);
   const cellHeight = async () =>
     (await page.locator('[data-date="2031-06-15"]').boundingBox())?.height;
   const before = { scroll: await scrollHeight(), cell: await cellHeight() };

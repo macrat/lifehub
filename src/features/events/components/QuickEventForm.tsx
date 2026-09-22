@@ -14,6 +14,7 @@ import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { DRAFT_SELECTOR } from '../../calendar/components/DraftBlock.tsx';
 import {
   draftFromInstants,
   draftInstants,
@@ -242,7 +243,7 @@ function Bubble({
     <Popover
       open={open}
       onClose={onClose}
-      anchorEl={() => document.querySelector('[data-draft]') ?? document.body}
+      anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
       anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
       transformOrigin={{ vertical: 'center', horizontal: 'left' }}
       slotProps={{ paper: { sx: { width: 340 } } }}

@@ -180,13 +180,15 @@ export function BottomSheet({
   const measured = size.sheet > 0 && (!peekRef || size.peek > 0);
   const resting = closing || !open || !measured ? offsets.closed : offsets[detent ?? 'full'];
 
-  // 後ろに余白を作らせる高さ。後ろをそのまま使えるのは下の段のときだけで、上の段では覆いきるので 0。
-  // 知らせるのは止まる段の高さで、指で動かしている間は変えない（後ろを毎フレーム組み直さない）
-  const inset = open && !closing && measured && detent === 'peek' ? size.peek : 0;
+  // 後ろに余白を作らせる高さ。止まる段（`resting`）から決めるので、下げているとき・測る前は
+  // ひとりでに 0 になる。上の段では後ろを覆いきるので、余白を作らせても見えないぶん 0 にする。
+  // 指で動かしている間は変えない（後ろを毎フレーム組み直さない。離せばどちらかの段に収まる）
+  const inset = detent === 'peek' ? size.sheet - resting : 0;
   useEffect(() => {
     onChangeInset?.(inset);
-    return () => onChangeInset?.(0);
   }, [onChangeInset, inset]);
+  // 消えたら覆っていない。知らせるのはここだけにする（値が変わるたびに 0 を挟まない）
+  useEffect(() => () => onChangeInset?.(0), [onChangeInset]);
 
   /** 下がりきるのを見せてから消す（transitionend は中身の要素の分も来るので時間で待つ） */
   const dismiss = () => {

@@ -10,7 +10,7 @@ import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { DAY_MINUTES, type Draft, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
-import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
+import { atMinute, HOUR_HEIGHT_VAR, pxAtMinute } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
@@ -21,6 +21,8 @@ import type { TimedPlaced } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
 const TIME_LINE = 'time-line';
+/** 縦位置を合わせるとき、狙った時刻の上に残す余白（px）。その前後の予定も一緒に見えるように */
+const LEAD_IN = 120;
 
 type Props = {
   days: DateString[];
@@ -88,11 +90,8 @@ export function TimeGrid({
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
-  /**
-   * 0 時から `min` 分の所までの縦の位置（px）。下に足した余白（`bottomInset`）を含む実測ではなく、
-   * 1 時間の高さから引く。スクロール位置を測るのはここだけ（寸法はすべて CSS 変数から決まる）。
-   */
-  const topOf = (min: number) => (min / 60) * hourHeight;
+  /** 0 時から `min` 分の所までの縦の位置（px）。下に足した余白を含む実測（scrollHeight）は使えない */
+  const topOf = (min: number) => pxAtMinute(min, hourHeight);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   // 合わせるのは描画前（0 時からスクロールする様子を見せない。表示を切り替えたときは、
@@ -101,7 +100,7 @@ export function TimeGrid({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = Math.max(0, days.includes(todayStr) ? topOf(nowMin) - 120 : topOf(7 * 60));
+    el.scrollTop = Math.max(0, days.includes(todayStr) ? topOf(nowMin) - LEAD_IN : topOf(7 * 60));
   }, []);
 
   // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
@@ -129,7 +128,7 @@ export function TimeGrid({
     const top = topOf(draftStart);
     if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - bottomInset - hourHeight)
       return;
-    el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
+    el.scrollTo({ top: Math.max(0, top - LEAD_IN), behavior: 'smooth' });
   }, [draftStart, draftSettled, bottomInset]);
 
   return (

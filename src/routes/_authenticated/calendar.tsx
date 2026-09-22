@@ -179,11 +179,15 @@ function CalendarPage() {
                 onChangeDraft={changeDraft}
                 hourHeight={page.hourHeight}
                 onZoom={page.zoom}
-                bottomInset={sheetInset}
+                // 枠と同じく、控えの面には渡さない（props が変わらなければ面は描き直さない。
+                // シートの開け閉めのたびに 3 面とも組み直さないように）。
+                // 覆う高さは下部ナビの分だけ多めに取る: 基準が svh と dvh で食い違っても
+                // 足りなくならない側へ倒す（余った分は下の余白が少し増えるだけ）
+                bottomInset={offset === 0 ? sheetInset : 0}
                 // なぞっている間は枠を追いかけない（指の下でグリッドが動くと狙いがずれる）。
                 // 余白そのものは出したままにする: 途中で消すとスクロール位置が詰められて、
                 // やはり指の下でグリッドが動く
-                draftSettled={draft?.editing ?? false}
+                draftSettled={offset === 0 && (draft?.editing ?? false)}
               />
             )}
           </SwipePager>
