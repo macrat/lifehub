@@ -39,6 +39,8 @@ type Props = {
   draftUserId: string | null;
   /** なぞって時間帯を決めたとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
+  /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
+  bottomInset: number;
 };
 
 /**
@@ -49,7 +51,9 @@ type Props = {
  * 高さはグリッドに CSS 変数（`--hour-height`）で置くだけで、目盛り・罫線・ブロック・枠の寸法は
  * すべてそこからの calc で決まる。伸び縮みで動く値は 1 つなので、指に合わせて何十もの
  * 寸法を組み直したり、その数だけ使い捨ての CSS を作ったりしない。
- * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
+ * ただし見えない所に下書きが置かれたとき（追加ボタンから来たとき、シートに隠れる時間帯をなぞったとき）は、
+ * その枠が見える所まで送る。シートが下から覆う分（`bottomInset`）は下に余白として足すので、
+ * 覆われた夜の時間帯もスクロールすれば見られる（1 時間の高さは変えない）。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  * 枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
  * 端の丸をつまむと開始・終了だけが動く。
@@ -65,6 +69,7 @@ export function TimeGrid({
   draft,
   draftUserId,
   onChangeDraft,
+  bottomInset,
 }: Props) {
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
@@ -80,6 +85,11 @@ export function TimeGrid({
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
+  /**
+   * 0 時から `min` 分の所までの縦の位置（px）。下に足した余白（`bottomInset`）を含む実測ではなく、
+   * 1 時間の高さから引く。スクロール位置を測るのはここだけ（寸法はすべて CSS 変数から決まる）。
+   */
+  const topOf = (min: number) => (min / 60) * hourHeight;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   // 合わせるのは描画前（0 時からスクロールする様子を見せない。表示を切り替えたときは、
@@ -88,8 +98,7 @@ export function TimeGrid({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const at = (min: number) => (min / DAY_MINUTES) * el.scrollHeight;
-    el.scrollTop = Math.max(0, days.includes(todayStr) ? at(nowMin) - 120 : at(7 * 60));
+    el.scrollTop = Math.max(0, days.includes(todayStr) ? topOf(nowMin) - 120 : topOf(7 * 60));
   }, []);
 
   // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
@@ -105,17 +114,19 @@ export function TimeGrid({
     el.scrollTop = (middle * hourHeight) / previous - el.clientHeight / 2;
   }, [hourHeight]);
 
-  // 画面の外に枠が置かれたら（追加ボタンから来たとき）見える所まで送る。
+  // 見えない所に枠が置かれたら（追加ボタンから来たとき、シートが開いてその時間帯を覆ったとき）
+  // 見える所まで送る。見えている下端はシートに覆われた分だけ上がる。
   // 始まりが見えているなら動かさない（なぞって選んでいる最中にグリッドが動くと狙いがずれる）
   const draftStart = timedDraft?.startMin ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 送るのは枠かシートが動いたときだけ（伸び縮みは真ん中を保つ上の合わせ方に任せる）
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || draftStart === null) return;
-    const hour = el.scrollHeight / 24;
-    const top = (draftStart / DAY_MINUTES) * el.scrollHeight;
-    if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - hour) return;
+    const top = topOf(draftStart);
+    if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - bottomInset - hourHeight)
+      return;
     el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
-  }, [draftStart]);
+  }, [draftStart, bottomInset]);
 
   return (
     <Box
@@ -203,6 +214,8 @@ export function TimeGrid({
           />
         )}
       </Box>
+      {/* シートが覆う分の余白。1 時間の高さは変えずに、隠れた時間帯まで下りられるようにする */}
+      <Box sx={{ height: bottomInset }} />
     </Box>
   );
 }

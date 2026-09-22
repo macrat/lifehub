@@ -83,6 +83,9 @@ function CalendarPage() {
     values: ItemFormValues;
     item: CalendarItem | null;
   } | null>(null);
+  // クイック入力のシートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ
+  // 下に余白を作り、シートに隠れる夜の時間帯までスクロールして見られるようにする
+  const [sheetInset, setSheetInset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
@@ -176,6 +179,7 @@ function CalendarPage() {
                 onChangeDraft={changeDraft}
                 hourHeight={page.hourHeight}
                 onZoom={page.zoom}
+                bottomInset={sheetInset}
               />
             )}
           </SwipePager>
@@ -214,6 +218,7 @@ function CalendarPage() {
             setDraft(null);
           }}
           onClose={() => setDraft(null)}
+          onChangeInset={setSheetInset}
         />
       )}
       {expanded && (
