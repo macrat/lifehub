@@ -39,8 +39,10 @@ export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
 /** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
 export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
+/** 月・週・日・リストの 4 通りの表示。増減は検索パラメータのスキーマだけで決まる */
+export type CalendarView = CalendarSearch['view'];
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
-export type PeriodView = Exclude<CalendarSearch['view'], 'list'>;
+export type PeriodView = Exclude<CalendarView, 'list'>;
 
 /** 期間で見る表示の 1 ページ分（1 か月・1 週・1 日）。スワイプでは前後のページも同時に描く */
 export type CalendarPeriod = {
@@ -135,7 +137,7 @@ export function useCalendarPage(search: CalendarSearch) {
      * 表示の切り替え。keepVisible には、切り替えた先でも見えていてほしい日を渡す
      * （入力中の下書きの初日。表示する期間は表示ごとに広さが違うので、渡された日を代表日にして期間に入れる）
      */
-    changeView: (next: CalendarSearch['view'], keepVisible?: DateString) =>
+    changeView: (next: CalendarView, keepVisible?: DateString) =>
       setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next }),
     /**
      * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。

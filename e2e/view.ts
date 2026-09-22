@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /** 起きた遷移 1 つ分。ready は名前が重複していると失敗する（＝遷移が飛ばされる） */
 export type Transition = {
@@ -64,15 +64,19 @@ export const transitions = (page: Page): Promise<Transition[]> =>
 export const settle = (page: Page) =>
   page.waitForFunction(() => window.viewTransitions.at(-1)?.finished === true);
 
+/** メニューの文言と、それが入る検索パラメータ */
+const VIEW_PARAMS = { 月: 'month', 週: 'week', 日: 'day', リスト: 'list' };
+
 /**
- * AppBar のメニューで表示（月・週・日・リスト）を切り替え、遷移が終わるまで待つ。
+ * AppBar のメニューで表示（月・週・日・リスト）を切り替え、URL が変わって遷移が終わるまで待つ。
  * 終わるまで待つのは、遷移の最中は本物の DOM ではなく撮った絵が前に出ていて、指で触れないため
  * （押しても root に届き、そのまま横スワイプに化ける）。
  */
-export async function changeView(page: Page, label: string) {
+export async function changeView(page: Page, label: keyof typeof VIEW_PARAMS) {
   const before = (await transitions(page)).length;
   await page.getByRole('button', { name: '表示の切替' }).click();
   await page.getByRole('menuitem', { name: label, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`view=${VIEW_PARAMS[label]}`));
   await page.waitForFunction(
     (n) => window.viewTransitions.length > n && window.viewTransitions.at(-1)?.finished === true,
     before,

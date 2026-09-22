@@ -299,7 +299,6 @@ test('時間指定の下書きは月表示でも帯で出て、長押しで時�
 
   // 月表示へ切り替えると、その日 1 日ぶんの帯として出る
   await changeView(page, '月');
-  await expect(page).toHaveURL(/view=month/);
   const cell = await page.locator('[data-date="2031-06-18"]').boundingBox();
   const bar = await page.locator('[data-draft]').boundingBox();
   if (!cell || !bar) throw new Error('帯か日のセルが見つからない');
@@ -321,7 +320,7 @@ test('表示を切り替えても入力中の予定はそのまま残り、そ�
   await page.getByLabel('タイトルを追加').fill(title);
 
   await changeView(page, '週');
-  await expect(page).toHaveURL(/view=week&date=2031-06-18/);
+  await expect(page).toHaveURL(/date=2031-06-18/);
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 選んだ範囲は週の終日欄にもそのまま出る

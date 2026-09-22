@@ -23,20 +23,19 @@ import {
   weekdayColor,
 } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
+import type { PeriodView } from '../use-calendar-page.ts';
 import { DayNumber } from './DayNumber.tsx';
 
-/** 選ぶ単位。表示（月・週・日）と揃える */
-type PickerUnit = 'month' | 'week' | 'day';
-
 /** 何を選ぶダイアログか（読み上げ用の名前）。開くボタンの文言（「年月を選ぶ」）とは言い回しが違う */
-const PICKER_NAMES: Record<PickerUnit, string> = {
+const PICKER_NAMES: Record<PeriodView, string> = {
   month: '年月の選択',
   week: '週の選択',
   day: '日付の選択',
 };
 
 type Props = {
-  unit: PickerUnit;
+  /** 選ぶ単位。表示している期間（月・週・日）と揃える */
+  unit: PeriodView;
   /** 今表示している日 */
   date: DateString;
   onClose: () => void;
