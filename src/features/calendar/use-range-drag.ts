@@ -92,6 +92,8 @@ export function useRangeDrag<P, G, R>({
     // Vibration API の無いブラウザ（iOS）では何も起こらない
     if (ms) navigator.vibrate?.(ms);
     d.emitted = { range };
+    // 範囲を知らせ始めた時点からドラッグとして扱う（押しただけ・クリックしただけでは何も起こさない）
+    setDragging(true);
     onChange(range, done);
   };
 
@@ -138,20 +140,19 @@ export function useRangeDrag<P, G, R>({
       tap,
       emitted: null,
     };
-    const begin = (longPress: boolean) => {
+    const longPress = event.pointerType === 'touch' && !instant;
+    const begin = () => {
       const d = drag.current;
       if (!d) return;
       d.active = true;
       // グリッドの外に出ても離すまで追いかける（隣の列や画面の外で見失わない）
       element.setPointerCapture(pointerId);
-      setDragging(true);
       // 押しただけで知らせるのは、タップにも意味があるときか、長押しが決まったとき。
       // どちらでもない（マウスで予定をつまんだ）ときはまだクリックかもしれないので、動くまで待つ
       if (tap || longPress) emit(d, false);
     };
-    if (event.pointerType === 'touch' && !instant)
-      timer.current = setTimeout(() => begin(true), LONG_PRESS_MS);
-    else begin(false);
+    if (longPress) timer.current = setTimeout(begin, LONG_PRESS_MS);
+    else begin();
   };
 
   const move = (event: PointerEvent<HTMLElement>) => {

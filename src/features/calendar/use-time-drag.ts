@@ -28,14 +28,15 @@ function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
  */
 export function useTimeDrag({
   hourHeight,
-  item,
+  draft,
   onChange,
 }: {
   hourHeight: number;
-  /** 今出ている枠が直している予定（追加の下書きなら null）。枠をつまんでも対象は変わらない */
-  item: CalendarItem | null;
+  /** この面が時間軸に出している枠。つまんでも直す対象は変わらない（`useDayDrag` と同じ渡し方） */
+  draft: Draft | null;
   onChange: (draft: Draft, done: boolean) => void;
 }) {
+  const item = draft?.item ?? null;
   const locate = (event: PointerEvent<HTMLElement>): TimePoint | null => {
     const grid = event.currentTarget.closest<HTMLElement>('[data-time-grid]');
     const column = grid ? columnAt(grid, event.clientX) : undefined;
@@ -56,14 +57,15 @@ export function useTimeDrag({
   return {
     props: drag.props,
     /**
-     * 枠をつまんで長さを保ったまま動かす。既につまんでいる予定を直すところなので長押しは待たない
-     * （縦スクロール・横スワイプは枠の外から始める）。
+     * 出ている枠（`DraftBlock`）に渡すハンドラ。枠そのもので長さを保ったまま動かし、端の丸で
+     * 開始・終了を変える。どれも既に直している枠なので長押しは待たない（縦スクロール・横スワイプは
+     * 枠の外から始める）。
      */
-    moveProps: (draft: TimedDraft) =>
-      drag.grabProps({ kind: 'move', draft, item }, { instant: true }),
-    /** 端の丸をつまんでその端だけを動かす。丸は押す以外に使い道が無いので長押しを待たない */
-    resizeProps: (kind: 'start' | 'end', draft: TimedDraft) =>
-      drag.grabProps({ kind, draft, item }, { instant: true }),
+    frameProps: (range: TimedDraft) => ({
+      move: drag.grabProps({ kind: 'move', draft: range, item }, { instant: true }),
+      start: drag.grabProps({ kind: 'start', draft: range, item }, { instant: true }),
+      end: drag.grabProps({ kind: 'end', draft: range, item }, { instant: true }),
+    }),
     /**
      * 保存済みの予定を長押しでつまんで編集モードに入り、そのまま動かす。
      * 軽いタップは詳細（`ItemDetailSheet`）に譲るので、動かさずに離したときは何も選ばない。

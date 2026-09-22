@@ -54,13 +54,13 @@ export function TimeGrid({
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
-  const drag = useTimeDrag({ hourHeight, item: draft?.item ?? null, onChange: onChangeDraft });
+  const drag = useTimeDrag({ hourHeight, draft, onChange: onChangeDraft });
   const timedDraft = draft?.range.allDay === false ? draft.range : null;
   // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
   // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
   // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）
-  const editing = timedDraft && draftCol >= 0 ? (draft?.item ?? null) : null;
+  const editing = draftCol >= 0 ? draft?.item : null;
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -164,15 +164,7 @@ export function TimeGrid({
             column={draftCol + 1}
             hourHeight={hourHeight}
             colors={colorFor(draftUserId)}
-            grab={
-              compact
-                ? {
-                    move: drag.moveProps(timedDraft),
-                    start: drag.resizeProps('start', timedDraft),
-                    end: drag.resizeProps('end', timedDraft),
-                  }
-                : null
-            }
+            grab={compact ? drag.frameProps(timedDraft) : null}
           />
         )}
       </Box>

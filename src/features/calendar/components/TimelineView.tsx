@@ -12,7 +12,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -177,7 +177,7 @@ export function TimelineView({
             colors={colorFor(colorUserOf(p.item.participantIds))}
             onClick={() => onSelectItem(p.item)}
             grab={dayDrag.grabItemProps(p.item)}
-            hidden={sameOccurrence(draft?.item ?? null, p.item)}
+            hidden={sameOccurrence(barDraft?.item, p.item)}
           />
         ))}
         {draftCols && (
@@ -203,12 +203,12 @@ export function TimelineView({
   );
 }
 
-/** 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（または別の日の時刻の）タスクは null（終日欄へ） */
+/**
+ * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（または別の日の時刻の）タスクは
+ * null（終日欄へ）。予定の時間帯は枠と同じ規則（`timedSlot`）で決め、置いた所をそのままつまめるようにする。
+ */
 function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
-  if (item.kind === 'event') {
-    if (item.allDay || item.dayCount > 1) return null;
-    return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
-  }
+  if (item.kind === 'event') return timedSlot(item);
   const time = taskTime(item);
   if (!time || toDateString(new Date(time.at)) !== item.placementDate) return null;
   const startMin = minutesOfDay(time.at);

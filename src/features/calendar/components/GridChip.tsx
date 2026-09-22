@@ -17,7 +17,7 @@ type Props = {
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
   grab?: DragHandlers;
   /** 編集中（枠を帯で出している）か。場所は残して隠す */
-  hidden?: boolean;
+  hidden: boolean;
   /** 時刻をタイトルの前に添えるか */
   showTime?: boolean;
 };
@@ -35,7 +35,7 @@ export function GridChip({
   colors,
   onClick,
   grab,
-  hidden = false,
+  hidden,
   showTime = !compact,
 }: Props) {
   const { item, col, span, lane, roundStart, roundEnd } = placed;

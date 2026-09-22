@@ -1,7 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
@@ -26,8 +25,8 @@ import type { CalendarItem } from '../../calendar/queries.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import { eventInputFromForm, type ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { SCOPE_LABELS } from '../recurrence-options.ts';
-import { EventExtraFields, EventWhenFields } from './EventFields.tsx';
+import { grabbedScope } from '../recurrence-options.ts';
+import { EventExtraFields, EventWhenFields, ScopeChip } from './EventFields.tsx';
 
 type Props = {
   /** グリッドで選んだ範囲。日時の既定値になり、上の段で直すとここへ戻す */
@@ -85,8 +84,8 @@ export function QuickEventForm({
   const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
   const initial = draftValues(draft, participantIds, item);
   const [allDay, setAllDay] = useState(initial.allDay);
-  // 繰り返しの回はその回だけを直すので、繰り返しの設定そのものは触らせない（元の回に戻せなくなるため）
-  const thisOnly = item?.isRecurring ?? false;
+  // その回だけを直すときは、繰り返しの設定そのものは触らせない（回の行は繰り返さない）
+  const thisOnly = grabbedScope(item) === 'this';
 
   const inputFromForm = (fd: FormData) =>
     eventInputFromForm(fd, { initial, allDay, thisOnly, fallback: draftInstants(draft) });
@@ -134,14 +133,7 @@ export function QuickEventForm({
       )}
       <Stack spacing={1.5} sx={{ px: 2, pt: 1, pb: 1.5 }}>
         {submitError && <Alert severity="error">{submitError}</Alert>}
-        {thisOnly && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={SCOPE_LABELS.this}
-            sx={{ alignSelf: 'flex-start' }}
-          />
-        )}
+        {thisOnly && <ScopeChip scope="this" />}
         <TextField
           name="title"
           label="タイトルを追加"

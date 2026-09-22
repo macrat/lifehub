@@ -16,10 +16,10 @@ import {
   useToggleCompletion,
   useUpdateEvent,
 } from '../queries.ts';
-import { describeRRule, SCOPE_LABELS } from '../recurrence-options.ts';
+import { describeRRule } from '../recurrence-options.ts';
 import { useItemForm } from '../use-item-form.ts';
 import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
-import { EventFormFields, TaskFormFields } from './EventFields.tsx';
+import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 
 type Props = {
@@ -118,14 +118,7 @@ export function ItemDetailSheet({ item, onClose }: Props) {
       >
         {editing && values ? (
           <>
-            {item.isRecurring && editScope && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={SCOPE_LABELS[editScope]}
-                sx={{ alignSelf: 'flex-start' }}
-              />
-            )}
+            {item.isRecurring && editScope && <ScopeChip scope={editScope} />}
             {isTask ? (
               <TaskFormFields
                 initial={values}

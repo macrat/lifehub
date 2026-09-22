@@ -22,6 +22,7 @@ import {
   useCreateEvent,
   useUpdateEvent,
 } from '../../features/events/queries.ts';
+import { grabbedScope } from '../../features/events/recurrence-options.ts';
 import { useUserLabels } from '../../features/users/use-user-labels.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -72,7 +73,11 @@ function CalendarPage() {
   const { meId } = useUserLabels();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   const [draft, setDraft] = useState<DraftState | null>(null);
-  const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
+  // 「その他のオプション」で全項目のフォームへ移した入力（直している予定も一緒に持ち越す）
+  const [expanded, setExpanded] = useState<{
+    values: ItemFormValues;
+    item: CalendarItem | null;
+  } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
@@ -93,16 +98,15 @@ function CalendarPage() {
   );
 
   /**
-   * クイック入力の保存。つまんだ予定を直しているときは上書き、そうでなければ追加する。
-   * 繰り返しの回は「この回だけ」を直す（つまんだのはその回で、ほかの回の日時まで動かさない）。
+   * 下書きの保存。つまんだ予定を直しているときはその予定を上書きし、そうでなければ追加する
+   * （クイック入力からでも「その他のオプション」の全項目のフォームからでも同じ）。
    */
-  const saveDraft = (input: CreateEventBody) => {
-    const item = draft?.item;
+  const save = (input: CreateEventBody, item: CalendarItem | null) => {
     if (!item) return createEvent.mutateAsync(input);
     return updateEvent.mutateAsync({
       ...input,
       id: item.id,
-      scope: item.isRecurring ? 'this' : 'all',
+      scope: grabbedScope(item),
       occurrenceStart: item.occurrenceStart ?? undefined,
     });
   };
@@ -193,20 +197,22 @@ function CalendarPage() {
           }
           open={draft.editing}
           initialDetent={draft.detent}
-          onSubmit={saveDraft}
+          onSubmit={(input) => save(input, draft.item)}
           onChangeDraft={(range) => setDraft((prev) => prev && { ...prev, range, editing: true })}
           onExpand={(values) => {
-            setDraftValues(values);
+            setExpanded({ values, item: draft.item });
             setDraft(null);
           }}
           onClose={() => setDraft(null)}
         />
       )}
-      {draftValues && (
+      {expanded && (
         <EventForm
-          initial={draftValues}
-          onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setDraftValues(null)}
+          initial={expanded.values}
+          scope={grabbedScope(expanded.item)}
+          title={expanded.item ? '予定を編集' : '予定を追加'}
+          onSubmit={(input) => save(input, expanded.item)}
+          onClose={() => setExpanded(null)}
         />
       )}
     </>

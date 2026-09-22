@@ -6,6 +6,7 @@ import {
   formatMinutesOfDay,
   fromDateValue,
   fromMinutesOfDay,
+  inclusiveEndDate,
   minutesOfDay,
 } from '../../lib/date.ts';
 import {
@@ -46,51 +47,49 @@ export type TimePoint = { date: DateString; min: number };
  * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
  * 押した所から選び直す。
  */
-export type TimeGrab = {
-  kind: 'start' | 'end' | 'move';
-  draft: TimedDraft;
-  /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
-  item: CalendarItem | null;
-};
+export type TimeGrab = Grabbed & { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
 /** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
-export type DayGrab = (
-  | { kind: 'start' | 'end'; draft: AllDayDraft }
-  | {
-      kind: 'move';
-      draft: EventDraft;
-    }
-) & {
-  /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
-  item: CalendarItem | null;
-};
+export type DayGrab = Grabbed &
+  ({ kind: 'start' | 'end'; draft: AllDayDraft } | { kind: 'move'; draft: EventDraft });
+
+/** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
+type Grabbed = { item: CalendarItem | null };
 
 /**
  * 保存済みの予定 → グリッドの枠。つまんで直せない項目は null。
- * 終日・複数日は帯の期間（日ごとに 1 件で返るので、何日目か（`dayIndex`）から初日を戻して数える）、
- * 単日の時間指定はその日の時間帯（24:00 終わりは翌日 0:00 で届くので 24 時に読み替える）。
+ * 日ごとに 1 件で返る項目からでも、持っている日時（`startsAt` / `endsAt`）だけで期間が決まる。
  * つまめないのは、長さを持たないタスクと、枠に出せない「日をまたぐ時間指定の予定」。
  */
 export function itemDraft(item: CalendarItem): EventDraft | null {
   if (item.kind !== 'event') return null;
-  if (item.allDay) {
-    const from = addDays(item.placementDate, -(item.dayIndex - 1));
-    return { allDay: true, from, to: addDays(from, item.dayCount - 1) };
-  }
-  if (item.dayCount > 1) return null;
-  return {
-    allDay: false,
-    date: item.placementDate,
-    startMin: minutesOfDay(item.startsAt),
-    endMin: minutesOfDay(item.endsAt) || 24 * 60,
-  };
+  if (item.allDay)
+    return {
+      allDay: true,
+      from: toDateString(new Date(item.startsAt)),
+      to: inclusiveEndDate(item.endsAt),
+    };
+  const slot = timedSlot(item);
+  return slot && { allDay: false, date: item.placementDate, ...slot };
+}
+
+/**
+ * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
+ * 24:00 に終わる予定は翌日 0:00 で届くので 24 時に読み替える（`TimelineView` の置き場所もこれで決まる）。
+ */
+export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
+  if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
+  return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
 }
 
 /**
  * 直している対象が同じか。複数日の予定は日ごとに 1 件で返り、月グリッドでは週の行ごとに帯が分かれるので、
  * 暦日ではなく「どの発生か」（種別・id・繰り返しの回）で見る。どちらも無い（追加の下書き）なら同じ。
  */
-export function sameOccurrence(a: CalendarItem | null, b: CalendarItem | null): boolean {
-  if (a === null || b === null) return a === b;
+export function sameOccurrence(
+  a: CalendarItem | null | undefined,
+  b: CalendarItem | null | undefined,
+): boolean {
+  if (!a || !b) return !a && !b;
   return a.kind === b.kind && a.id === b.id && a.occurrenceStart === b.occurrenceStart;
 }
 

@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
 import { touchDrag } from './touch.ts';
@@ -37,6 +37,13 @@ async function dragDays(
   hold = 0,
 ) {
   await touchDrag(page, await dayPoint(page, from, at), await dayPoint(page, to), { hold });
+}
+
+/** その要素の中心（予定のブロック・帯、つまむ丸など、つまむ所を指すのに使う） */
+async function centerOf(locator: Locator) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('つまむ所が見つからない');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
 /** 空いている所から長押しでなぞって下書きを作る */
@@ -89,11 +96,7 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   const x = box.x + box.width / 2;
   const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
   /** 端の丸の中心。丸は枠の左右の内側にあるので、位置は毎回測り直す */
-  const handle = async (end: 'start' | 'end') => {
-    const dot = await page.locator(`[data-handle="${end}"]`).boundingBox();
-    if (!dot) throw new Error('つまむ丸が見つからない');
-    return { x: dot.x + dot.width / 2, y: dot.y + dot.height / 2 };
-  };
+  const handle = (end: 'start' | 'end') => centerOf(page.locator(`[data-handle="${end}"]`));
 
   await page.touchscreen.tap(x, y(10 * 60 + 10));
   await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
@@ -121,13 +124,6 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
   if (!box) throw new Error('時間軸の列が見つからない');
   const x = box.x + box.width / 2;
   const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
-  /** 今つまめる物（予定のブロック・編集中の枠）の中心 */
-  const centerOf = async (locator: ReturnType<Page['locator']>) => {
-    const target = await locator.boundingBox();
-    if (!target) throw new Error('つまむ所が見つからない');
-    return { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-  };
-
   // 10:00〜11:00 の予定を 1 件作る
   await page.touchscreen.tap(x, y(10 * 60 + 10));
   await page.getByLabel('タイトルを追加').fill(title);
@@ -237,14 +233,17 @@ test('月表示でも予定を長押しでつまんで別の日へ動かせる',
   const bar = page.getByLabel(title);
   await expect(bar).toHaveCount(1);
 
-  // 帯（項目）を長押しして、指を離さずに 1 週間先まで動かす。入力はその予定の内容から始まる
+  // 帯（項目）の最初の日の側を長押しして、指を離さずに 1 週間先まで動かす。
+  // 入力はその予定の内容から始まる
   const box = await bar.boundingBox();
   if (!box) throw new Error('予定の帯が見つからない');
   await touchDrag(
     page,
     { x: box.x + 8, y: box.y + box.height / 2 },
     await dayPoint(page, '2031-06-18'),
-    { hold: 400 },
+    {
+      hold: 400,
+    },
   );
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);

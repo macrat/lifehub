@@ -230,7 +230,7 @@ function WeekRow({
           colors={colorFor(colorUserOf(p.item.participantIds))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
           grab={drag.grabItemProps(p.item)}
-          hidden={sameOccurrence(draft?.item ?? null, p.item)}
+          hidden={sameOccurrence(draft?.item, p.item)}
         />
       ))}
       {draftCols && (

@@ -544,11 +544,14 @@ describe('itemDraft', () => {
     ).toMatchObject({ startMin: 22 * 60, endMin: 24 * 60 });
   });
 
-  it('複数日の終日の予定は、何日目かから初日を戻して期間にする', () => {
+  it('複数日の終日の予定は、日ごとに分かれた項目からでも全体の期間になる', () => {
+    // 6/5 0:00〜6/9 0:00（排他的）の 4 日間を、その 3 日目の項目からつまむ
     expect(
       itemDraft({
         ...event,
         allDay: true,
+        startsAt: '2031-06-04T15:00:00.000Z',
+        endsAt: '2031-06-08T15:00:00.000Z',
         placementDate: day('2031-06-07'),
         dayIndex: 3,
         dayCount: 4,

@@ -1,10 +1,14 @@
 import Checkbox from '@mui/material/Checkbox';
+import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import { REMIND_BEFORE_OPTIONS } from '../../../../shared/validation/events.ts';
+import {
+  REMIND_BEFORE_OPTIONS,
+  type RecurrenceScope,
+} from '../../../../shared/validation/events.ts';
 import { inclusiveEndDate, toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
@@ -18,6 +22,25 @@ type Props = {
 
 /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
 type ScopedProps = Props & { thisOnly: boolean };
+
+/** 繰り返しのどこを直しているかの表示。見出しには出ないので、入力欄の先頭で示す */
+const SCOPE_LABELS: Record<RecurrenceScope, string> = {
+  this: 'この回だけ編集',
+  following: 'これ以降を編集',
+  all: 'すべての回を編集',
+};
+
+/** 繰り返しのどの回を直しているかの印（詳細の編集とクイック入力で同じもの） */
+export function ScopeChip({ scope }: { scope: RecurrenceScope }) {
+  return (
+    <Chip
+      size="small"
+      variant="outlined"
+      label={SCOPE_LABELS[scope]}
+      sx={{ alignSelf: 'flex-start' }}
+    />
+  );
+}
 
 const REMIND_LABELS: Record<number, string> = {
   0: '開始時刻',
