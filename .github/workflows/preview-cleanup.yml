@@ -8,6 +8,12 @@ permissions:
   contents: read
 
 # クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
+#
+# Preview は `preview` ラベルの付いた PR にしか作られないので、閉じた PR に消すものが
+# 無いことがある（ラベルを付けなかった PR、初回 apply 前に閉じた PR）。その場合でも
+# ワークフローは失敗させない。ラベルの有無では判断しない。デプロイした後でラベルを
+# 外した PR のブランチが消えずに残り、Free プランのブランチ数上限（10）に当たるため。
+# 実際に Neon にブランチがあるかどうかだけを見て決める。
 jobs:
   delete-neon-branch:
     runs-on: ubuntu-latest
@@ -20,10 +26,25 @@ jobs:
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       - id: tf
-        run: echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id)" >> "$GITHUB_OUTPUT"
+        # 初回 apply 前は Neon プロジェクトがまだ無く、出力も無い。その場合は空になる。
+        run: echo "neon_project_id=$(terraform -chdir=infra output -raw neon_project_id 2>/dev/null)" >> "$GITHUB_OUTPUT"
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      - id: branch
+        if: steps.tf.outputs.neon_project_id != ''
+        # 明示的な bash は pipefail 付きなので、curl の失敗がジョブの失敗になる
+        shell: bash
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          PROJECT_ID: ${{ steps.tf.outputs.neon_project_id }}
+          BRANCH: preview/pr-${{ github.event.pull_request.number }}
+        run: |
+          exists=$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
+            | jq --arg name "$BRANCH" 'any(.branches[]; .name == $name)')
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
       - uses: neondatabase/delete-branch-action@v3
+        if: steps.branch.outputs.exists == 'true'
         with:
           project_id: ${{ steps.tf.outputs.neon_project_id }}
           branch: preview/pr-${{ github.event.pull_request.number }}
