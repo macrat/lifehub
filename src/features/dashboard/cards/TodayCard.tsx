@@ -1,11 +1,10 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { taskTime } from '../../../../shared/calendar.ts';
-import { formatTime, toDateString, today } from '../../../lib/date.ts';
+import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { formatTime, today } from '../../../lib/date.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
@@ -15,7 +14,11 @@ import {
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import { useToggleCompletion } from '../../events/queries.ts';
+import {
+  COMPLETED_ROW_SX,
+  COMPLETED_TITLE_SX,
+  TaskCheckbox,
+} from '../../events/components/TaskCheckbox.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
@@ -61,34 +64,16 @@ function TodayRow({
   onClick: (item: CalendarItem) => void;
 }) {
   const colorFor = useUserColor();
-  const toggle = useToggleCompletion();
-  const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
+  const completed = item.kind === 'task' && item.completedAt !== null;
   const colors = colorFor(colorUserOf(item.participantIds));
   return (
     <Stack
       direction="row"
-      sx={{ alignItems: 'center', minHeight: 36, opacity: completed ? 0.55 : 1 }}
+      sx={{ alignItems: 'center', minHeight: 36, ...(completed && COMPLETED_ROW_SX) }}
     >
       <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-        {isTask ? (
-          <Checkbox
-            size="small"
-            checked={completed}
-            onChange={(_, checked) =>
-              toggle.mutate({
-                id: item.id,
-                occurrenceStart: item.occurrenceStart,
-                completed: checked,
-              })
-            }
-            slotProps={{
-              input: {
-                'aria-label': `${item.title} を${completed ? '未完了に戻す' : '完了にする'}`,
-              },
-            }}
-            sx={{ p: 0.5, color: colors.fill, '&.Mui-checked': { color: colors.fill } }}
-          />
+        {item.kind === 'task' ? (
+          <TaskCheckbox item={item} color={colors.fill} />
         ) : (
           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.fill }} />
         )}
@@ -109,15 +94,12 @@ function TodayRow({
         <Typography
           variant="body2"
           component="span"
-          color={isTask && item.isOverdue ? 'error' : 'text.secondary'}
+          color={item.kind === 'task' && item.isOverdue ? 'error' : 'text.secondary'}
           sx={{ width: 44, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
         >
           {timeLabel(item)}
         </Typography>
-        <Typography
-          noWrap
-          sx={{ minWidth: 0, textDecoration: completed ? 'line-through' : 'none' }}
-        >
+        <Typography noWrap sx={{ minWidth: 0, ...(completed && COMPLETED_TITLE_SX) }}>
           {item.title}
         </Typography>
       </ButtonBase>
@@ -126,14 +108,12 @@ function TodayRow({
 }
 
 /**
- * 予定は開始時刻（終日・複数日は「終日」）、タスクは「完了 → 期限 → 開始」の優先（リスト表示と同じ）。
- * その時刻が今日でなければ（繰り越し・期限が別日）空にする。行に日付を出す余白は無く、
- * 「今日」の一覧では今日の時刻だけが意味を持つ。
+ * 予定は開始時刻（終日・複数日は「終日」）、タスクは置かれた日にある時刻（`taskTimeOnPlacementDate`）。
+ * 別の日を指す時刻は空にする: 1 行に日付を出す余白が無い。
  */
 function timeLabel(item: CalendarItem): string {
   if (item.kind === 'event')
     return item.allDay || item.dayCount > 1 ? '終日' : formatTime(item.startsAt);
-  const time = item.completedAt ? { at: item.completedAt } : taskTime(item);
-  if (!time || toDateString(new Date(time.at)) !== item.placementDate) return '';
-  return formatTime(time.at);
+  const time = taskTimeOnPlacementDate(item);
+  return time ? formatTime(time.at) : '';
 }
