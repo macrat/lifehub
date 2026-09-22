@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 
 /**
  * カレンダーの項目を取り直すのは画面に入ったときだけ（`src/features/calendar/queries.ts` の
@@ -34,11 +34,7 @@ async function changeView(page: Page, label: keyof typeof VIEW_PARAMS) {
 
 test('表示を切り替えても取り直さず、画面に入ったときだけ取り直す', async ({ page }) => {
   const fetches = countFetches(page);
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 
   // 月表示で入る（前後の月の面も読むので、どの表示に切り替えても必要な月は揃っている）
   await page.goto('/calendar?view=month&date=2030-05-15');

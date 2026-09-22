@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 
 const BASE = 'http://localhost:3000';
 
@@ -25,11 +26,7 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   expect(registered.ok(), await registered.text()).toBe(true);
   const { client_id: clientId } = (await registered.json()) as { client_id: string };
 
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());

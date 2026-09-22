@@ -1,13 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { E2E_USER } from './global-setup.ts';
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
-}
+import { login } from './login.ts';
 
 /** サーバーに保存されているログイン中のユーザーの色相 */
 async function hue(page: Page): Promise<number> {

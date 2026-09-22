@@ -1,9 +1,10 @@
 import { createTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo } from 'react';
 import { type ColorMode, DEFAULT_HUE, hueColor } from '../../shared/color.ts';
 import { meQueryOptions } from './auth.ts';
+import { createStore } from './store.ts';
 
 /** 表示モード。テーマは prefers-color-scheme に追従するので、色を自前で計算する部品もこれに合わせる */
 export function useColorMode(): ColorMode {
@@ -11,32 +12,12 @@ export function useColorMode(): ColorMode {
 }
 
 /**
- * まだ保存していないアクセントカラー（設定画面で選んでいる最中の色相）。
+ * まだ保存していないアクセントカラー（設定画面で選んでいる最中の色相。null なら保存済みの色を使う）。
  * 選んだ色の見え方は、実際に使われる部品（スイッチ、取得中のインジケータ、ボタン）に当ててみないと
  * 分からないので、保存前の色相をここに持ってテーマ全体に反映する。設定画面が持つと、その画面の中しか
  * 変えられない。同時に 1 つだけあればよく（色を選べる画面は 1 つ）、保存するか設定画面を離れれば消える。
  */
-let pendingHue: number | null = null;
-const listeners = new Set<() => void>();
-
-/** 保存前の色相を選び直す。null で捨てて、保存済みの色（ログイン中のユーザーの色）に戻す */
-export function previewHue(hue: number | null): void {
-  pendingHue = hue;
-  for (const listener of listeners) listener();
-}
-
-export function usePreviewHue(): number | null {
-  return useSyncExternalStore(
-    (onChange) => {
-      listeners.add(onChange);
-      return () => {
-        listeners.delete(onChange);
-      };
-    },
-    () => pendingHue,
-    () => null,
-  );
-}
+export const [usePreviewHue, previewHue] = createStore<number | null>(null);
 
 /**
  * アプリのテーマ。アクセントは選んでいる最中の色があればそれ、無ければログイン中のユーザーの色。
