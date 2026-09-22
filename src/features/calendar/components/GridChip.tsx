@@ -2,6 +2,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import { itemTransitionName } from './item-transition.ts';
@@ -26,7 +27,7 @@ export function GridChip({ placed, compact, colors, onClick, showTime = !compact
   const { item, col, span, lane, roundStart, roundEnd } = placed;
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;

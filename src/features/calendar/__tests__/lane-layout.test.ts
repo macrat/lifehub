@@ -6,25 +6,33 @@ import type { CalendarItem } from '../queries.ts';
 
 const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSchema.parse(d));
 
+/** 予定とタスクに共通の項目（`Occurrence`） */
+const BASE = {
+  occurrenceStart: null,
+  allDay: false,
+  startsAt: null,
+  endsAt: null,
+  completedAt: null,
+  location: null,
+  note: null,
+  participantIds: [],
+  rrule: null,
+  remindStartMinutes: null,
+  remindEndMinutes: null,
+  isRecurring: false,
+  isModified: false,
+};
+
 /** 予定の項目。複数日は日ごとに 1 件（dayIndex / dayCount）で渡す */
 function event(id: string, day: DateString, dayIndex = 1, dayCount = 1): CalendarItem {
   return {
+    ...BASE,
     id,
     kind: 'event',
-    occurrenceStart: null,
     title: id,
     allDay: dayCount > 1,
     startsAt: `${day}T00:00:00.000Z`,
     endsAt: `${day}T01:00:00.000Z`,
-    completedAt: null,
-    location: null,
-    note: null,
-    participantIds: [],
-    rrule: null,
-    remindStartMinutes: null,
-    remindEndMinutes: null,
-    isRecurring: false,
-    isModified: false,
     placementDate: day,
     dayIndex,
     dayCount,
@@ -33,11 +41,15 @@ function event(id: string, day: DateString, dayIndex = 1, dayCount = 1): Calenda
 
 /** タスクの項目。completedAt があれば完了している */
 function task(id: string, day: DateString, completedAt: string | null): CalendarItem {
-  const { dayIndex, dayCount, ...rest } = event(id, day) as Extract<
-    CalendarItem,
-    { kind: 'event' }
-  >;
-  return { ...rest, kind: 'task', completedAt, isOverdue: false };
+  return {
+    ...BASE,
+    id,
+    title: id,
+    placementDate: day,
+    kind: 'task',
+    completedAt,
+    isOverdue: false,
+  };
 }
 
 const byDate = (items: CalendarItem[]) => {
@@ -87,21 +99,27 @@ describe('freeLane', () => {
 });
 
 describe('completedLast', () => {
-  it('完了したタスクは日ごとに一番後ろへ回る', () => {
-    const [d1] = days as [DateString, DateString, DateString];
-    const ordered = completedLast(
-      byDate([
-        task('完了', d1, '2026-09-21T00:00:00.000Z'),
-        event('予定', d1),
-        task('未完了', d1, null),
-      ]),
-    );
-    expect(ordered.get(d1)?.map((i) => i.title)).toEqual(['予定', '未完了', '完了']);
+  const [d1] = days as [DateString, DateString, DateString];
+  const items = byDate([
+    task('完了', d1, '2026-09-21T00:00:00.000Z'),
+    event('予定', d1),
+    task('未完了', d1, null),
+  ]);
+
+  it('完了したタスクは日ごとに一番後ろへ回り、他の順は変わらない', () => {
+    expect(
+      completedLast(items)
+        .get(d1)
+        ?.map((i) => i.title),
+    ).toEqual(['予定', '未完了', '完了']);
   });
 
-  it('完了したタスクが無い日はそのままの順', () => {
-    const [d1] = days as [DateString, DateString, DateString];
-    const ordered = completedLast(byDate([event('a', d1), task('未完了', d1, null)]));
-    expect(ordered.get(d1)?.map((i) => i.title)).toEqual(['a', '未完了']);
+  it('レーンも一番下になる（入りきらないときに先に畳まれる）', () => {
+    const placed = layoutLanes(days, completedLast(items));
+    expect(placed.map((p) => [p.item.title, p.lane])).toEqual([
+      ['予定', 0],
+      ['未完了', 1],
+      ['完了', 2],
+    ]);
   });
 });
