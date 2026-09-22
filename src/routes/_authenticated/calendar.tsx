@@ -70,7 +70,7 @@ type DraftState = Draft & {
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
  * - 追加ボタンの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
- * - PWA のショートカットからは、予定は同じ `add=event`、タスクは `add=task` でフォームが開く
+ * - PWA のショートカットも同じ入り口（予定は `add=event`、タスクは `add=task` で追加ボタンと同じ入力）
  */
 function CalendarPage() {
   const search = Route.useSearch();
@@ -122,8 +122,6 @@ function CalendarPage() {
     });
   };
 
-  // 追加ボタンや PWA のショートカットから来たときの入り口。予定はその日の既定の時間帯を枠にして
-  // 全項目の段から始め、タスクは追加ボタンと同じ日時なしのフォームを開く
   useAddShortcut(search.add, (kind) =>
     kind === 'task'
       ? setAdding('task')

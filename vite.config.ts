@@ -4,7 +4,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { buildInfoDefine } from './build-info.ts';
 import { SURFACE } from './shared/color.ts';
-import { type ShortcutKind, shortcutIconSrc } from './src/lib/shortcuts.ts';
+import { SHORTCUTS, shortcutIconSrc } from './src/lib/shortcuts.ts';
 
 /**
  * ステータスバー（スマホ）やタイトルバー（PC）に使う色を index.html に注入する。
@@ -22,16 +22,6 @@ function themeColorMeta(): Plugin {
         attrs: { name: 'theme-color', media: `(prefers-color-scheme: ${scheme})`, content },
         injectTo: 'head',
       })),
-  };
-}
-
-/** ショートカット 1 つ分（manifest の `shortcuts`）。アイコンは種類から決まる（`src/lib/shortcuts.ts`） */
-function shortcut(kind: ShortcutKind, name: string, shortName: string, url: string) {
-  return {
-    name,
-    short_name: shortName,
-    url,
-    icons: [{ src: shortcutIconSrc(kind), sizes: '192x192', type: 'image/png' }],
   };
 }
 
@@ -61,17 +51,13 @@ export default defineConfig({
         // meta（themeColorMeta）で配色ごとに渡す。
         theme_color: undefined,
         background_color: undefined,
-        // ホーム画面のアイコンの長押し（Android）やタスクバーの右クリック（PC）から、
-        // よく開く画面と入力へ直に入る。入力は URL のしるしで開く（`add`。src/lib/add-shortcut.ts）。
-        // ランチャーが出す数には上限（多くは 4 件）があるので、よく使う順に並べる。
-        // アイコンはアプリの中で同じ場所・同じ操作に使っている絵（下部ナビと追加ボタンのアイコン）。
-        shortcuts: [
-          shortcut('calendar', 'カレンダー', 'カレンダー', '/calendar?view=month'),
-          shortcut('event', '予定登録', '予定', '/calendar?view=day&add=event'),
-          shortcut('task', 'タスク登録', 'タスク', '/calendar?add=task'),
-          shortcut('expense', '立替登録', '立替', '/expenses?add=expense'),
-          shortcut('lemon', 'レモンの記録', 'レモン', '/lemon?add=lemon'),
-        ],
+        // 一覧は `src/lib/shortcuts.ts`（アイコンの生成も同じ物を読む）
+        shortcuts: SHORTCUTS.map(({ kind, name, shortName, url }) => ({
+          name,
+          short_name: shortName,
+          url,
+          icons: [{ src: shortcutIconSrc(kind), sizes: '192x192', type: 'image/png' }],
+        })),
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

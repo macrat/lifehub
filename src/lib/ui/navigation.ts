@@ -22,10 +22,13 @@ export const settingsNavItem: NavItem = {
   desktopOnly: true,
 };
 
+/** カレンダー。PWA のショートカット「カレンダー」も同じアイコンを使う（`scripts/generate-icons.ts`） */
+export const calendarNavItem: NavItem = { label: '予定', to: '/calendar', icon: CalendarMonthIcon };
+
 /** 主要画面。スマホでは下部ナビ、PC ではサイドナビに並ぶ。新しい機能の画面はここに 1 行足す。 */
 export const primaryNavItems: NavItem[] = [
   { label: 'ホーム', to: '/', icon: HomeIcon },
-  { label: '予定', to: '/calendar', icon: CalendarMonthIcon },
+  calendarNavItem,
   { label: '立替', to: '/expenses', icon: PaymentsIcon },
   { label: 'レモン', to: '/lemon', icon: SpaIcon },
   settingsNavItem,
