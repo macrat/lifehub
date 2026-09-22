@@ -14,6 +14,16 @@ export const usersQueryOptions = queryOptions({
     const res = await ensureOk(await api.users.$get());
     return res.json();
   },
+  /**
+   * 1 時間は取り直さない。
+   * WHY: 名前と色（`shared/color.ts` の色相）だけの 2 人分で、変わるのは色を変えたときと名前を
+   * 直したときだけ。それを読む部品（`use-user-labels.ts` / `use-user-color.ts`）は予定の枠から
+   * 立替の一覧まで画面中に散らばっているので、既定（staleTime: 0）だと画面を移るたび、
+   * カレンダーの表示を切り替えるたびに、同じ内容を取り直すことになる。
+   * WHY NOT 無期限: 相手が自分の色や名前を変えたら、こちらにもいつかは映ってほしい。
+   * 自分で変えたときは書き込みが invalidate するので、この時間を待たずに入れ替わる。
+   */
+  staleTime: 1000 * 60 * 60,
 });
 
 /**
