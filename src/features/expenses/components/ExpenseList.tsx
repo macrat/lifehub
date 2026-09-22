@@ -28,7 +28,7 @@ type Props = {
 
 /**
  * 立替の履歴（新しい順）。共有なら From だけ、相手が決まっていれば簿記の並びで「To ← From」。
- * 左端の帯は誰から誰へ渡ったかを色で示す（`expenseBarBackground`）。
+ * 左端の帯は誰から誰へ渡ったかを色で示す（上が From・下が To。`expenseBarBackground`）。
  * 行は単押しで閲覧、長押しで編集（`RecordListRow`）。
  */
 export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
@@ -60,12 +60,14 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
 
 /**
  * 行の帯の塗り。共有のために払ったものは払った人 1 色、人から人へのものは
- * 名前の並び（To ← From）と同じく左が To・右が From の 2 色に割る。
+ * 上が From・下が To の 2 色に割る（お金が上から下へ流れる向き）。
+ * 幅 6px を縦に割ると 1 色が 3px しか残らず読めないので、分けるのは上下にする。
  * 2 色はにじませず半分で切り替えて、どちらの色かが一目で分かるようにする。
+ * 境目を 200deg（真下から少し傾けた向き）にすると、水平の線と見分けられる。
  */
 function expenseBarBackground(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string {
   const from = colorFor(expense.fromUserId).fill;
   if (expense.toUserId === null) return from;
   const to = colorFor(expense.toUserId).fill;
-  return `linear-gradient(to right, ${to} 50%, ${from} 50%)`;
+  return `linear-gradient(200deg, ${from} 50%, ${to} 50%)`;
 }
