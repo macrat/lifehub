@@ -22,7 +22,6 @@ export async function findLatestByCareType(
     .select({
       careType: sql<CareType>`unnest(${lemonCareLogs.careTypes})`.as('care_type'),
       doneAt: lemonCareLogs.doneAt,
-      createdAt: lemonCareLogs.createdAt,
     })
     .from(lemonCareLogs)
     .where(lte(lemonCareLogs.doneAt, now))
@@ -34,7 +33,7 @@ export async function findLatestByCareType(
       doneAt: unnested.doneAt,
     })
     .from(unnested)
-    .orderBy(unnested.careType, desc(unnested.doneAt), desc(unnested.createdAt));
+    .orderBy(unnested.careType, desc(unnested.doneAt));
 }
 
 /**

@@ -16,7 +16,7 @@
 
 ## データ
 
-`lemon_care_logs`（[data-model.md](../data-model.md)）。項目は `mist` / `water` / `fertilize` / `bloom` / `drop` / `harvest` の配列（`care_types`）で、空なら項目に結び付かない記録（メモ）。並びは保存時に `CARE_TYPES` の順へ正規化し、重複は落とす（入力の順でぶれると一覧の見た目が揃わない）。対象はレモンの木 1 本に固定し、複数植物への拡張は必要になった時点で `plants` テーブルと `plant_id` を追加して行う。
+`lemon_care_logs`（[data-model.md](../data-model.md)）。項目は `mist` / `water` / `fertilize` / `bloom` / `drop` / `harvest` の配列（`care_types`）で、空なら項目に結び付かない記録（メモ）。並びは保存時に `CARE_TYPES` の順へ正規化し、重複は落とす（`normalizeCareTypes`。入力の順でぶれると一覧の見た目が揃わない）。綴りと「空なら本文必須」は Zod だけでなく CHECK 制約でも守る（予定と同じく、DB に入れられない形は DB にも書けないようにする）。対象はレモンの木 1 本に固定し、複数植物への拡張は必要になった時点で `plants` テーブルと `plant_id` を追加して行う。
 
 ## API（`server/features/lemon/routes.ts`）
 

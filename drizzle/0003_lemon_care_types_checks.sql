@@ -1,0 +1,2 @@
+ALTER TABLE "lemon_care_logs" ADD CONSTRAINT "lemon_care_logs_care_types_check" CHECK ("lemon_care_logs"."care_types" <@ array['mist', 'water', 'fertilize', 'bloom', 'drop', 'harvest']::text[]);--> statement-breakpoint
+ALTER TABLE "lemon_care_logs" ADD CONSTRAINT "lemon_care_logs_memo_has_note_check" CHECK (cardinality("lemon_care_logs"."care_types") > 0 or ("lemon_care_logs"."note" is not null and "lemon_care_logs"."note" <> ''));

@@ -18,9 +18,12 @@ export const CARE_TYPE_LABELS: Record<CareType, string> = {
   harvest: '収穫',
 };
 
-/** 記録に結び付いた項目の名前。1 つも無ければ空文字（その記録はメモそのもの） */
-export function careTypesLabel(careTypes: CareType[]): string {
-  return careTypes.map((t) => CARE_TYPE_LABELS[t]).join('・');
+/**
+ * 並びを CARE_TYPES の順に揃え、重複を落とす。
+ * 入力の順でぶれると、同じ組み合わせでも見た目が揃わない（一覧の枠・詳細の見出し）。
+ */
+export function normalizeCareTypes(careTypes: readonly CareType[]): CareType[] {
+  return CARE_TYPES.filter((t) => careTypes.includes(t));
 }
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
@@ -29,11 +32,8 @@ export const careLogSchema = z
     /**
      * 1 回の記録に結び付ける項目。葉水と水やりは大抵まとめてやり、その途中で開花や落果に気づくので、
      * 1 回の世話を種別ごとの記録に割らずに 1 件へまとめる。
-     * 並びは CARE_TYPES に正規化して重複を落とす（入力の順でぶれると一覧の見た目が揃わない）。
      */
-    careTypes: z
-      .array(z.enum(CARE_TYPES))
-      .transform((types) => CARE_TYPES.filter((t) => types.includes(t))),
+    careTypes: z.array(z.enum(CARE_TYPES)).transform(normalizeCareTypes),
     doneAt: instantSchema,
     note: z.string().trim().max(2000).nullable().default(null),
   })

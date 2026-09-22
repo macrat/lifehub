@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { type CareType, careLogSchema } from '../../../shared/validation/lemon.ts';
+import {
+  type CareType,
+  careLogSchema,
+  normalizeCareTypes,
+} from '../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue } from '../../lib/date.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import type { CareLogBody } from './queries.ts';
@@ -35,8 +39,10 @@ export function useCareLogForm({
   return {
     ...form,
     careTypes,
-    /** 並びは保存時にスキーマが CARE_TYPES の順へ正規化するので、ここでは持ち方を気にしない */
+    /** 保存を待たずに正規化する（詳細シートの見出しはこの並びをそのまま出すため） */
     toggleCareType: (careType: CareType, checked: boolean) =>
-      setCareTypes((prev) => (checked ? [...prev, careType] : prev.filter((t) => t !== careType))),
+      setCareTypes((prev) =>
+        normalizeCareTypes(checked ? [...prev, careType] : prev.filter((t) => t !== careType)),
+      ),
   };
 }

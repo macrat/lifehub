@@ -1,5 +1,5 @@
 import { diffDays, toDateString } from './date.ts';
-import { CARE_TYPES, type CareType } from './validation/lemon.ts';
+import { CARE_TYPE_LABELS, CARE_TYPES, type CareType } from './validation/lemon.ts';
 
 /**
  * レモンの世話の記録と、そこから導かれる項目ごとの状態。
@@ -14,6 +14,11 @@ export type CareLog = {
   note: string | null;
   createdBy: string;
 };
+
+/** 記録の名前。やったことが 1 つも無い記録はメモそのものなので、そう名乗る */
+export function careLogTitle(careTypes: CareType[]): string {
+  return careTypes.length === 0 ? 'メモ' : careTypes.map((t) => CARE_TYPE_LABELS[t]).join('・');
+}
 
 /** 項目ごとの最終実施日時と経過日数（JST の暦日差）。未実施なら null */
 export type CareStatus = {

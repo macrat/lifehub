@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Typography from '@mui/material/Typography';
-import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
+import { CARE_TYPE_LABELS, CARE_TYPES } from '../../../../shared/validation/lemon.ts';
 import { formatDate } from '../../../lib/date.ts';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareStatus } from '../queries.ts';
@@ -26,7 +26,10 @@ export function CareStatusGrid({ statuses, onSelect }: Props) {
         display: 'grid',
         // スマホは 3 列（6 項目が 2 行に収まり、記録フォームのチェックボックスと同じ並びになる）。
         // 広い画面では自然に 1 行に並ぶ。
-        gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(6, minmax(0, 1fr))' },
+        gridTemplateColumns: {
+          xs: 'repeat(3, minmax(0, 1fr))',
+          sm: `repeat(${CARE_TYPES.length}, minmax(0, 1fr))`,
+        },
         gap: 1,
       }}
     >

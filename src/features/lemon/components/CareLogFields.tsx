@@ -1,6 +1,7 @@
-import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
+import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
 import FormLabel from '@mui/material/FormLabel';
 import TextField from '@mui/material/TextField';
 import {
@@ -24,12 +25,13 @@ type Props = {
 export function CareLogFields({ careTypes, onToggleCareType, doneAt, note, errors }: Props) {
   return (
     <>
-      <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
+      {/* 参加者の選択（ParticipantsField）と同じ、MUI のグループの組み立て */}
+      <FormControl component="fieldset" variant="standard">
         <FormLabel component="legend" sx={{ fontSize: '0.75rem' }}>
           やったこと
         </FormLabel>
         {/* 3 列に並べると CARE_TYPES の順のまま、世話（葉水・水やり・施肥）と木の様子（開花・落果・収穫）で段が分かれる */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <FormGroup sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
           {CARE_TYPES.map((t) => (
             <FormControlLabel
               key={t}
@@ -42,8 +44,8 @@ export function CareLogFields({ careTypes, onToggleCareType, doneAt, note, error
               label={CARE_TYPE_LABELS[t]}
             />
           ))}
-        </Box>
-      </Box>
+        </FormGroup>
+      </FormControl>
       <TextField
         name="doneAt"
         label="日時"

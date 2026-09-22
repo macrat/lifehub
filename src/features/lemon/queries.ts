@@ -103,9 +103,9 @@ export function useDeleteCareLog() {
  * 状態の導き方そのものは shared/lemon.ts に任せる（未来の記録や項目の無い記録はタイルを動かさない）。
  */
 function advanceStatus(statuses: CareStatus[], log: CareLog): CareStatus[] {
-  const advanced = new Map(careStatuses([log], new Date()).map((s) => [s.careType, s]));
+  const advanced = careStatuses([log], new Date());
   return statuses.map((status) => {
-    const next = advanced.get(status.careType);
+    const next = advanced.find((s) => s.careType === status.careType);
     return next?.lastDoneAt && (status.lastDoneAt ?? '') < next.lastDoneAt ? next : status;
   });
 }

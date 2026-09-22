@@ -53,6 +53,12 @@ describe('lemon service', () => {
     expect((await logCare(input, userId)).careTypes).toEqual(['mist', 'bloom', 'harvest']);
   });
 
+  it('項目もメモも無い記録は DB が弾く（何も残らない記録は作れない）', async () => {
+    await expect(
+      logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: null }, userId),
+    ).rejects.toThrow();
+  });
+
   it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
     const id = newId();
     const input = {

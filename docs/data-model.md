@@ -1,6 +1,6 @@
 # データモデル
 
-Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts` で集約）が単一情報源。本書はその意図と計算ルールを説明する。マイグレーション SQL は `drizzle/` に生成物としてコミットする。
+Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts` で集約）が単一情報源。本書はその意図と計算ルールを説明する。マイグレーション SQL は `drizzle/` にコミットする。`drizzle-kit generate` の生成物が基本だが、列の作り替えで既存の行を移すときは生成された SQL に移送の文を書き足す（`0002_lemon_multi_care_types.sql`。生成物任せだと列を落として中身ごと捨てるため）。
 
 ## 共通規約（Postgres）
 
@@ -23,7 +23,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 | `events` | `kind` (`event` / `task`), `title`, `all_day`, `starts_at`, `ends_at`, `completed_at`, `location`, `note`, `remind_start_minutes`, `remind_end_minutes`, `rrule` (null=単発), `series_id`, `occurrence_start`, `cancelled` | 予定とタスクを 1 つにしたイベント（[features/events.md](features/events.md)）。予定は `starts_at`/`ends_at` 必須、タスクは任意で `ends_at` が期限、`completed_at` はタスクのみ（いずれも CHECK）。終日は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。通知の分は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし。`rrule` を持つ行が繰り返し元（DTSTART は `starts_at`、無ければ `ends_at`）。`series_id`（繰り返し元を参照、ON DELETE CASCADE）と `occurrence_start`（元の発生の基準日時）を持つ行は繰り返しの回を実体化したもの（全項目の複製）で、`rrule` は持たない。`cancelled` はその回の取り消し。unique(`series_id`, `occurrence_start`)（`series_id` だけの検索も先頭列で足りるので単独のインデックスは置かない）。これらの整合は CHECK 制約で守る（`(series_id IS NULL) = (occurrence_start IS NULL)` 等） |
 | `event_participants` | `event_id`, `user_id` | 参加者。PK(`event_id`, `user_id`)。1 人以上は Zod で守る（結合テーブルでは DB 制約にできない） |
 | `expenses` | `from_user_id`(user), `to_user_id`(user, null=共有), `amount`, `description`, `spent_on` | 立替（借方・貸方）。from が to のために払った。to が null なら折半。精算も同じ行（from = 払った人、to = 受け取った人） |
-| `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
+| `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
 
 ## 計算ルール
