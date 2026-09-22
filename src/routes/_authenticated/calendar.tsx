@@ -13,6 +13,7 @@ import {
   calendarSearchSchema,
   useCalendarPage,
 } from '../../features/calendar/use-calendar-page.ts';
+import { useHourZoom } from '../../features/calendar/use-hour-zoom.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
@@ -63,6 +64,8 @@ function CalendarPage() {
   const search = Route.useSearch();
   const page = useCalendarPage(search);
   const { view } = page;
+  // 時間軸の高さは 3 面で 1 つ（面ごとに持つと、拡げたあとスワイプした先だけ元に戻る）
+  const { hourHeight, zoom } = useHourZoom();
 
   const createEvent = useCreateEvent();
   const { meId } = useUserLabels();
@@ -138,6 +141,8 @@ function CalendarPage() {
                 draft={offset === 0 ? (draft?.range ?? null) : null}
                 draftUserId={draft ? colorUserOf(draft.participantIds) : null}
                 onChangeDraft={changeDraft}
+                hourHeight={hourHeight}
+                onZoom={zoom}
               />
             )}
           </SwipePager>

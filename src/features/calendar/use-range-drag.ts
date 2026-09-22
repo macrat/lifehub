@@ -30,6 +30,8 @@ type DragState<P, G, R> = Drag<P, G> & {
   active: boolean;
   /** 直前に渡した範囲。手応えのために 1 つ前と比べる（ドラッグごとに作り直すので持ち越さない） */
   emitted: { range: R } | null;
+  /** 2 本目の指を見張る後始末。ドラッグが終わるときに外す */
+  watch: AbortController;
 };
 
 type Options<P, G, R> = {
@@ -55,6 +57,8 @@ type Options<P, G, R> = {
  * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
  * 状態を持つのはそちら 1 か所だけにする。
  * 範囲が変わるたび `vibration` の長さで震わせ、指が今どこを選んでいるかを手に返す。
+ * 2 本目の指が触れたら範囲選びはやめてピンチ（時間軸の拡大縮小。`use-pinch.ts`）に譲る。
+ * 2 本目がどこに降りるかは選べないので、掴んだ要素ではなく文書全体で見張る。
  */
 export function useRangeDrag<P, G, R>({
   locate,
@@ -84,12 +88,14 @@ export function useRangeDrag<P, G, R>({
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    drag.current?.watch.abort();
     drag.current = null;
     setDragging(false);
   };
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      drag.current?.watch.abort();
     },
     [],
   );
@@ -109,6 +115,7 @@ export function useRangeDrag<P, G, R>({
   const start = (event: PointerEvent<HTMLElement>, grab: G | null, from: P, instant: boolean) => {
     const element = event.currentTarget;
     const { pointerId } = event;
+    const watch = new AbortController();
     drag.current = {
       pointerId,
       grab,
@@ -118,7 +125,15 @@ export function useRangeDrag<P, G, R>({
       moved: false,
       active: false,
       emitted: null,
+      watch,
     };
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerId !== pointerId) stop();
+      },
+      { signal: watch.signal },
+    );
     const begin = () => {
       const d = drag.current;
       if (!d) return;
@@ -165,6 +180,8 @@ export function useRangeDrag<P, G, R>({
     props: {
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
+        // 2 本目の指ならピンチなので、選び直さずに今のドラッグごとやめる
+        if (drag.current) return stop();
         const from = locate(event);
         if (from !== null) start(event, grabOf?.(event) ?? null, from, false);
       },
@@ -177,6 +194,7 @@ export function useRangeDrag<P, G, R>({
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0) return;
         event.stopPropagation();
+        if (drag.current) return stop();
         const from = locate(event);
         if (from !== null) start(event, grab, from, instant);
       },

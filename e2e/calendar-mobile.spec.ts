@@ -1,7 +1,7 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
-import { touchDrag } from './touch.ts';
+import { touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
@@ -105,6 +105,32 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
   await touchDrag(page, await handle('start'), { x, y: y(16 * 60) });
   await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
+});
+
+test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
+  await page.goto('/calendar?view=day&date=2031-06-05');
+
+  // 表示中の面（縦にスクロールする部分）。前後の面にも同じ印があるので、受け持つ日で絞る
+  const pane = page
+    .locator('[data-sync-scroll]')
+    .filter({ has: page.locator('[data-date="2031-06-05"]') });
+  const view = await pane.boundingBox();
+  if (!view) throw new Error('時間軸が見つからない');
+  const center = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
+  const height = async () => (await pane.locator('[data-time-grid]').boundingBox())?.height ?? 0;
+
+  const before = await height();
+  expect(before).toBeGreaterThan(0);
+
+  // 指の間隔を 2.5 倍に拡げると、1 時間あたりの高さ（＝時間軸の高さ）も 2.5 倍になる
+  await touchPinch(page, center, 120, 300);
+  await expect.poll(height).toBeCloseTo(before * 2.5, -1);
+  // つまんでいる間に下書きは出ない（2 本目の指が触れたら範囲選びはピンチに譲る）
+  await expect(page.locator('[data-handle]')).toHaveCount(0);
+
+  // 縮めれば元の高さに戻る
+  await touchPinch(page, center, 300, 120);
+  await expect.poll(height).toBeCloseTo(before, -1);
 });
 
 test('週表示では枠を長押しして左右に動かすと別の日へ移る', async ({ page }) => {

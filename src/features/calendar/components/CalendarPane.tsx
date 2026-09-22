@@ -18,6 +18,10 @@ type Props = {
   draftUserId: string | null;
   /** グリッドをなぞって範囲を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  /** 週・日の時間軸の 1 時間あたりの高さ（px）。3 面で同じ値を使う（`use-hour-zoom.ts`） */
+  hourHeight: number;
+  /** 時間軸をつまんで拡げ縮めしたとき。直前からの倍率 */
+  onZoom: (ratio: number) => void;
 };
 
 /**
@@ -38,6 +42,8 @@ export const CalendarPane = memo(function CalendarPane({
   draft,
   draftUserId,
   onChangeDraft,
+  hourHeight,
+  onZoom,
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
   const { data: items } = useCalendarItems(period.range);
@@ -65,6 +71,8 @@ export const CalendarPane = memo(function CalendarPane({
       draftUserId={draftUserId}
       onChangeDraft={onChangeDraft}
       height="100%"
+      hourHeight={hourHeight}
+      onZoom={onZoom}
     />
   );
 });

@@ -9,6 +9,7 @@ import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import type { EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { usePinch } from '../use-pinch.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
@@ -19,7 +20,10 @@ type Props = {
   days: DateString[];
   /** 日ごとの時間指定の項目（列の割り当て済み） */
   timedByDate: Map<DateString, TimedPlaced<CalendarItem>[]>;
+  /** 1 時間あたりの高さ（px）。つまむと変わる（`use-hour-zoom.ts`） */
   hourHeight: number;
+  /** つまんで拡げ縮めしたとき。直前からの倍率 */
+  onZoom: (ratio: number) => void;
   gutterWidth: number;
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている予定の範囲（時間指定のものだけここに出す） */
@@ -34,6 +38,7 @@ type Props = {
  * 0〜24 時の時間軸。縦にスクロールし、時間指定の項目を開始〜終了の高さで置く。今日の列には現在時刻の線。
  * 縦の位置を合わせるのは最初に出したときだけ（今日を含むなら現在時刻の少し上、それ以外は 7 時）。
  * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
+ * 2 本の指でつまむと 1 時間あたりの高さが変わり、時間軸が縦に伸び縮みする。
  * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
@@ -43,6 +48,7 @@ export function TimeGrid({
   days,
   timedByDate,
   hourHeight,
+  onZoom,
   gutterWidth,
   onSelectItem,
   draft,
@@ -53,6 +59,7 @@ export function TimeGrid({
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
   const drag = useTimeDrag({ hourHeight, onChange: onChangeDraft });
+  const pinch = usePinch(onZoom);
   const timedDraft = draft?.allDay === false ? draft : null;
   // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の下書きは出さない
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
@@ -69,6 +76,18 @@ export function TimeGrid({
     if (!el) return;
     const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
     el.scrollTop = Math.max(0, target);
+  }, []);
+
+  // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
+  // 伸びた時間軸が一瞬ずれて見えないようにする）。上端を固定すると、拡げるたびに
+  // 見ていた時間帯が下へ流れていく。3 面とも同じ高さで同じだけ動くので、縦位置は揃ったままになる
+  const drawn = useRef(hourHeight);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || drawn.current === hourHeight) return;
+    const middle = el.scrollTop + el.clientHeight / 2;
+    el.scrollTop = (middle * hourHeight) / drawn.current - el.clientHeight / 2;
+    drawn.current = hourHeight;
   }, [hourHeight]);
 
   // 画面の外に枠が置かれたら（追加ボタンから来たとき）見える所まで送る。
@@ -83,7 +102,12 @@ export function TimeGrid({
   }, [draftStart, hourHeight]);
 
   return (
-    <Box {...syncScrollProps} ref={scrollRef} sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
+    <Box
+      {...syncScrollProps}
+      {...pinch}
+      ref={scrollRef}
+      sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto' }}
+    >
       <Box
         data-time-grid
         sx={{

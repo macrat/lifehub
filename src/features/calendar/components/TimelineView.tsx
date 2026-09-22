@@ -37,6 +37,10 @@ type Props = {
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
+  /** 時間軸の 1 時間あたりの高さ（px）。つまむと変わる（`use-hour-zoom.ts`） */
+  hourHeight: number;
+  /** 時間軸をつまんで拡げ縮めしたとき。直前からの倍率 */
+  onZoom: (ratio: number) => void;
 };
 
 const GUTTER_WIDTH = 44;
@@ -58,13 +62,14 @@ export function TimelineView({
   draftUserId,
   onChangeDraft,
   height,
+  hourHeight,
+  onZoom,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
   // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
   const barDraft = draft?.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
-  const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
   const allDayByDate = new Map<DateString, CalendarItem[]>();
@@ -190,6 +195,7 @@ export function TimelineView({
         days={days}
         timedByDate={timedByDate}
         hourHeight={hourHeight}
+        onZoom={onZoom}
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
         draft={draft}
