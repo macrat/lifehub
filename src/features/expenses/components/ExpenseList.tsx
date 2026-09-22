@@ -53,10 +53,14 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
 
 /**
  * 行の帯の塗り。共有のために払ったものは払った人 1 色、人から人へのものは
- * 上が From・下が To の 2 色に割る（お金が上から下へ流れる向き）。
- * 幅 6px を縦に割ると 1 色が 3px しか残らず読めないので、分けるのは上下にする。
- * 2 色はにじませず半分で切り替えて、どちらの色かが一目で分かるようにする。
- * 境目を 220deg（真下から傾けた向き）にすると、水平の線と見分けられる。
+ * 上が From・下が To の 2 色に割る。2 色はにじませず半分で切り替えて、
+ * どちらの色かが一目で分かるようにする。
+ *
+ * WHY 境目を斜め（220deg）にする: 縦の境目で左右に割ると、幅 6px のうち 1 色が
+ * 3px しか残らず色を判別できない。かといって横の境目で上下に割るだけでは、
+ * 貸方・借方の左右の並び（名前と同じ「To ← From」）を暗示できない。
+ * 斜めなら 1 色ずつの面積を保ったまま、左寄りが To・右寄りが From になり、
+ * 上下（お金の流れ）と左右（簿記の並び）の両方を 1 本で示せる。
  */
 function expenseBarBackground(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string {
   const from = colorFor(expense.fromUserId).fill;
