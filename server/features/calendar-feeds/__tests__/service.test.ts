@@ -1,0 +1,150 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createEventSchema, deleteEventSchema } from '../../../../shared/validation/events.ts';
+import { NotFoundError } from '../../../lib/errors.ts';
+import { truncateAll } from '../../../lib/test-db.ts';
+import { createEvent, deleteEvent } from '../../events/service.ts';
+import { createUser } from '../../users/service.ts';
+import { createFeed, listFeeds, renderIcs, revokeFeed } from '../service.ts';
+
+const jst = (s: string) => new Date(`${s}+09:00`);
+const iso = (s: string) => jst(s).toISOString();
+
+// 「今日」を 2026-09-14（月）の正午に固定する
+const now = jst('2026-09-14T12:00:00');
+
+/** 配信 URL からトークンだけを取り出す（配信の入口はトークンで引くため） */
+const tokenOf = (url: string) => url.slice(url.lastIndexOf('/') + 1, -'.ics'.length);
+
+/** ics の 1 行を取り出す。折り返し（行頭 1 文字の空白）は畳んでから探す */
+const lines = (ics: string) => ics.replace(/\r\n /g, '').split('\r\n');
+const valuesOf = (ics: string, name: string) =>
+  lines(ics)
+    .filter((line) => line.startsWith(`${name}:`) || line.startsWith(`${name};`))
+    .map((line) => line.slice(line.indexOf(':') + 1));
+
+let userId: string;
+
+describe('calendar-feeds service', () => {
+  beforeEach(async () => {
+    await truncateAll();
+    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
+      .id;
+  });
+
+  it('発行した URL で予定を配信し、最後に読まれた日時を記録する', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '打ち合わせ, 大事',
+        startsAt: iso('2026-09-15T09:00:00'),
+        endsAt: iso('2026-09-15T10:00:00'),
+        location: '会議室',
+        note: 'メモ',
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    expect(feed.url).toMatch(/\/api\/calendar\/[\w-]+\.ics$/);
+    expect(feed.lastAccessedAt).toBeNull();
+
+    const ics = await renderIcs(tokenOf(feed.url), now);
+    expect(lines(ics)[0]).toBe('BEGIN:VCALENDAR');
+    expect(valuesOf(ics, 'DTSTART')).toEqual(['20260915T000000Z']);
+    expect(valuesOf(ics, 'DTEND')).toEqual(['20260915T010000Z']);
+    // 区切り記号は iCalendar のエスケープで出る（自前の組み立てに頼らない）
+    expect(valuesOf(ics, 'SUMMARY')).toEqual(['打ち合わせ\\, 大事']);
+    expect(valuesOf(ics, 'LOCATION')).toEqual(['会議室']);
+    expect(valuesOf(ics, 'DESCRIPTION')).toEqual(['メモ']);
+
+    const [after] = await listFeeds(userId);
+    expect(after?.lastAccessedAt).toBe(now.toISOString());
+  });
+
+  it('終日の予定は JST の暦日の DATE 値になる（終端は排他的なまま）', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '旅行',
+        allDay: true,
+        startsAt: iso('2026-09-20T00:00:00'),
+        endsAt: iso('2026-09-21T00:00:00'),
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const ics = await renderIcs(tokenOf(feed.url), now);
+    expect(lines(ics)).toContain('DTSTART;VALUE=DATE:20260920');
+    expect(lines(ics)).toContain('DTEND;VALUE=DATE:20260922');
+  });
+
+  it('繰り返しは回ごとの VEVENT になり、取り消した回は出ない', async () => {
+    const weekly = await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '週次ミーティング',
+        startsAt: iso('2026-09-07T09:00:00'),
+        endsAt: iso('2026-09-07T10:00:00'),
+        participantIds: [userId],
+        rrule: 'FREQ=WEEKLY;COUNT=3',
+      }),
+      userId,
+    );
+    await deleteEvent(
+      weekly.id,
+      deleteEventSchema.parse({ scope: 'this', occurrenceStart: iso('2026-09-14T09:00:00') }),
+      userId,
+    );
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const ics = await renderIcs(tokenOf(feed.url), now);
+    expect(valuesOf(ics, 'DTSTART')).toEqual(['20260907T000000Z', '20260921T000000Z']);
+    // UID は回ごとに違い、取り直しても同じ回は同じものを指す
+    expect(valuesOf(ics, 'UID')).toEqual([
+      `${weekly.id}-${iso('2026-09-07T09:00:00')}@lifehub`,
+      `${weekly.id}-${iso('2026-09-21T09:00:00')}@lifehub`,
+    ]);
+  });
+
+  it('タスクは配信しない（置かれる日が毎日動くため）', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: 'ゴミ出し',
+        endsAt: iso('2026-09-15T09:00:00'),
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    expect(valuesOf(await renderIcs(tokenOf(feed.url), now), 'SUMMARY')).toEqual([]);
+  });
+
+  it('知らないトークンと、失効させた URL では配信しない', async () => {
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const token = tokenOf(feed.url);
+    await expect(renderIcs('unknown-token', now)).rejects.toThrow(NotFoundError);
+    await revokeFeed(feed.id, userId);
+    await expect(renderIcs(token, now)).rejects.toThrow(NotFoundError);
+    expect(await listFeeds(userId)).toEqual([]);
+  });
+
+  it('1 ユーザーが何本でも持てて、失効は 1 本だけに効く', async () => {
+    const phone = await createFeed({ name: 'スマホ' }, userId);
+    const partner = await createFeed({ name: '妻のカレンダー' }, userId);
+    expect(phone.url).not.toBe(partner.url);
+    await revokeFeed(phone.id, userId);
+    expect((await listFeeds(userId)).map((feed) => feed.name)).toEqual(['妻のカレンダー']);
+    await expect(renderIcs(tokenOf(partner.url), now)).resolves.toContain('BEGIN:VCALENDAR');
+  });
+
+  it('他のユーザーの URL は見えず、失効もさせられない', async () => {
+    const otherId = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    const feed = await createFeed({ name: 'スマホ' }, userId);
+    expect(await listFeeds(otherId)).toEqual([]);
+    await expect(revokeFeed(feed.id, otherId)).rejects.toThrow(NotFoundError);
+    await expect(renderIcs(tokenOf(feed.url), now)).resolves.toContain('BEGIN:VCALENDAR');
+  });
+});

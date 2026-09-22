@@ -1,0 +1,58 @@
+# カレンダーの配信（calendar-feeds）
+
+## 目的
+
+LifeHub の予定を、他のカレンダーアプリ（Google カレンダー、iOS の「カレンダー」など）で購読できるようにする。設定画面でトークン付きの URL を発行し、その URL から iCalendar（ics）を配る。
+
+1 ユーザーが何本でも URL を持てて、渡した先ごとに個別に失効させられる。パスワードを変えずに「あの端末にだけ渡した URL」を止められるようにするため。
+
+## 画面
+
+設定（`/settings`）の「カレンダーの配信」（`src/features/calendar-feeds/components/CalendarFeedSection.tsx`）。
+
+- 発行した URL が一覧に並ぶ。行は名前と「最後に読まれた日時」（まだなら「一度も読まれていません」）で、右にコピーと失効のボタン。
+- 「配信 URL を発行」で名前を入れると 1 本増える。名前は渡した先を見分けるためだけのもの（「スマホのカレンダー」など）。
+- URL の字面は出さず、コピーだけを置く。長くて画面で読む意味が無く、写すのではなく貼るものなので。
+- 失効は確認してから消す（この URL で購読しているカレンダーは読めなくなる）。
+- 一覧に出るのはログイン中のユーザーが発行した URL だけ。
+
+## 配信する内容
+
+- **予定だけを出す。タスクは出さない**。未完了のタスクが置かれる日は「今日」なので毎日動き（[events.md](events.md) の表示位置）、購読側のカレンダーでは日付が毎日書き換わり続ける。
+- **参加者は出さない**。`ATTENDEE` にすると、購読しただけのカレンダーで出欠の返事を求められることがある。誰の予定かは LifeHub の画面で色から分かる（[users.md](users.md)）。
+- **通知（`VALARM`）は出さない**。通知は LifeHub 自身がプッシュで出す（[notifications.md](notifications.md)）ので、購読側にも鳴らされると二重になる。
+- 出すのはタイトル・日時・場所・メモ。
+
+## 期間と繰り返し
+
+- 配信するのは **今日を軸に前 180 日〜後 400 日**（`server/features/calendar-feeds/service.ts`）。購読したカレンダーは定期的に取り直すので、窓は毎日ずれる。全期間を出さないのは、繰り返しの展開ぶんだけ応答が際限なく膨らむため。未来を 1 年より広く取るのは、来年の同じ月の予定（誕生日・記念日）を必ず含めるため。
+- 繰り返しは **サーバーで展開して回ごとの `VEVENT` にする**。`RRULE` をそのまま渡さないのは、それには `DTSTART;TZID=Asia/Tokyo` と `VTIMEZONE` が要り（UTC で書くと月単位の繰り返しが日付をまたいでずれる）、「この回だけ」の変更・取り消しを `RECURRENCE-ID` と `EXDATE` に組み直すことになるため。展開なら、画面が読むのと同じ `listOccurrences`（`server/features/events/occurrences.ts`）の結果をそのまま書き出せる。
+- 回ごとの `UID` は `<繰り返し元の id>-<その回の基準日時>@lifehub`。基準日時は「この回だけ」の変更で日時が動いても変わらないので、購読側は同じ回を追い続けられる。
+- 終日は `VALUE=DATE`（JST の暦日そのもの）、時刻付きは UTC の `DATE-TIME` で書く。どちらもタイムゾーンの定義を持ち込まずに済む形なので、`VTIMEZONE` を出さない。
+- ics の組み立ては [`ical-generator`](https://github.com/sebbo2002/ical-generator) に任せる（`server/features/calendar-feeds/ics.ts`）。エスケープ・75 オクテットでの折り返し・`DATE` と `DATE-TIME` の書き分けは仕様の細部が多く、自前で持つ価値が無い。
+
+## API
+
+| メソッド | パス | 認証 | 内容 |
+|---|---|---|---|
+| GET | `/api/calendar/feeds` | セッション | 自分が発行した配信 URL の一覧（id, name, url, createdAt, lastAccessedAt） |
+| POST | `/api/calendar/feeds` | セッション | 発行（名前だけを送る。トークンはサーバーが作る） |
+| DELETE | `/api/calendar/feeds/:id` | セッション | 失効（自分のものだけ） |
+| GET | `/api/calendar/<token>.ics` | **なし** | ics の配信 |
+
+- ics の配信だけ `server/app.ts` の `requireSession` より前に登録する。購読するカレンダーはログインの Cookie を送れないので、**URL のトークンを知っていることだけが資格**になる。`.ics` で終わるパスしか受けないので、同じ `/api/calendar` の下の `feeds` とは衝突しない。
+- 知らないトークンは 404 だけを返し、理由は返さない。
+- 応答は `text/calendar; charset=utf-8` と `Cache-Control: private, no-cache`（内容は今日を軸に毎日変わる）。取り直しの推奨間隔（`REFRESH-INTERVAL` と `X-PUBLISHED-TTL`）は 1 時間。
+
+入力スキーマは `shared/validation/calendar-feeds.ts`。
+
+## トークン
+
+- 256 ビットの乱数を base64url で表した 43 文字（`crypto.getRandomValues`）。推測できないことだけが防御なので、長さで守る。
+- **ハッシュ化せずそのまま保存する**。DB を読める者はカレンダーの中身もそのまま読めるのでハッシュ化しても守れるものは増えない一方、発行した瞬間にしか URL を出せなくなり、別の端末に登録し直すたびに発行し直すことになる。
+- トークン単体は API に出さない。組み立て済みの URL（`APP_URL` + パス）だけを返すので、画面はトークンを知らない。
+- 配信のたびに `last_accessed_at` を更新する。照合と記録を 1 文（`UPDATE ... RETURNING`）にまとめるので、配信 1 回の問い合わせは予定の読み取りと合わせて 2 回で済む。
+
+## MCP ツール
+
+無し。AI ツールから配信 URL を発行できる必要は無く、秘密を増やす経路を増やさない。

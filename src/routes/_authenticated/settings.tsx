@@ -8,6 +8,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { CalendarFeedSection } from '../../features/calendar-feeds/components/CalendarFeedSection.tsx';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
@@ -22,7 +23,8 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
- * 自分の色（アクセントカラー）、この端末のプッシュ通知、ユーザー管理、ログアウト、バージョン。
+ * 自分の色（アクセントカラー）、この端末のプッシュ通知、カレンダーの配信 URL、
+ * ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
   const { data: me } = useQuery(meQueryOptions);
@@ -32,6 +34,7 @@ function SettingsPage() {
       <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
+      <CalendarFeedSection />
       <SettingsSection title="アカウント">
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/admin/users">

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
+import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
@@ -30,6 +31,8 @@ api.get('/health', async (c) => {
 api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
+// ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）
+api.route('/calendar', calendarIcsRoutes);
 // Cron secret と QStash の署名で保護する（セッションではない）
 api.route('/notifications', notificationsRoutes);
 
@@ -54,6 +57,7 @@ const routes = api
   .get('/me', (c) => c.json(toPublicUser(c.get('user'))))
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
+  .route('/calendar/feeds', calendarFeedsRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
   .route('/push', pushRoutes);
