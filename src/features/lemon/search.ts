@@ -15,6 +15,11 @@ export const ALL = 'all';
  * 範囲は両端を含み、省略した端は制限しない（開始日だけ・終了日だけでも絞り込める）。
  */
 export const lemonSearchSchema = keywordSearchSchema.extend({
+  /**
+   * 記録の入力を開いて始めるしるし（PWA のショートカット。`src/lib/add-shortcut.ts`）。
+   * 絞り込みではないので、開いたらすぐ消す。
+   */
+  add: z.literal('lemon').optional(),
   /** 世話の項目（葉水・水やり・施肥・開花・落果・収穫）。その項目を含む記録だけが残る */
   kind: z.enum(CARE_TYPES).optional(),
   /** 実施日（JST の暦日）の最初・最後 */

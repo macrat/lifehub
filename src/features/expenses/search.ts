@@ -15,6 +15,11 @@ export const SHARED = 'shared';
  * 範囲は両端を含み、省略した端は制限しない（最小だけ・終了日だけでも絞り込める）。
  */
 export const expenseSearchSchema = keywordSearchSchema.extend({
+  /**
+   * 立替の入力を開いて始めるしるし（PWA のショートカット。`src/lib/add-shortcut.ts`）。
+   * 絞り込みではないので、開いたらすぐ消す。
+   */
+  add: z.literal('expense').optional(),
   /** 金額（円）の下限・上限 */
   min: z.coerce.number().int().nonnegative().optional(),
   max: z.coerce.number().int().nonnegative().optional(),

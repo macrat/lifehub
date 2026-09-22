@@ -50,6 +50,17 @@ export default defineConfig({
         // meta（themeColorMeta）で配色ごとに渡す。
         theme_color: undefined,
         background_color: undefined,
+        // ホーム画面のアイコンの長押し（Android）やタスクバーの右クリック（PC）から、
+        // よく開く画面と入力へ直に入る。入力は URL のしるしで開く（`add`。src/lib/add-shortcut.ts）。
+        // ランチャーが出す数には上限（多くは 4 件）があるので、よく使う順に並べる。
+        // アイコンは付けない（付けない場合はアプリのアイコンが出る。5 つ分の絵を持つほどの違いは出ない）。
+        shortcuts: [
+          { name: 'カレンダー', short_name: 'カレンダー', url: '/calendar?view=month' },
+          { name: '予定登録', short_name: '予定', url: '/calendar?view=day&add=event' },
+          { name: 'タスク登録', short_name: 'タスク', url: '/calendar?add=task' },
+          { name: '立替登録', short_name: '立替', url: '/expenses?add=expense' },
+          { name: 'レモンの記録', short_name: 'レモン', url: '/lemon?add=lemon' },
+        ],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

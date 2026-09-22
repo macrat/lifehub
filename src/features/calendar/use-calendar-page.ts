@@ -24,10 +24,11 @@ export const calendarSearchSchema = z.object({
   view: z.enum(['month', 'week', 'day', 'list']).default('month'),
   date: dateStringSchema.optional(),
   /**
-   * 追加ボタンから来たしるし。日表示に既定の時間帯の下書きを置いて入力を開く。
-   * 置いたらすぐ消す（開いている物は画面の状態で、URL に残すものではない）。
+   * 追加ボタンや PWA のショートカットから来たしるし（`src/lib/add-shortcut.ts`）。
+   * 予定は日表示に既定の時間帯の下書きを置いて入力を開き、タスクはその場でフォームを開く。
+   * 開いたらすぐ消す（開いている物は画面の状態で、URL に残すものではない）。
    */
-  add: z.enum(['event']).optional(),
+  add: z.enum(['event', 'task']).optional(),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),

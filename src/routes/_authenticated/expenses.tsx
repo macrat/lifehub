@@ -22,6 +22,7 @@ import {
   matchesExpense,
   useExpenseSearch,
 } from '../../features/expenses/search.ts';
+import { useAddShortcut } from '../../lib/add-shortcut.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -38,9 +39,11 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細（編集・削除）が開く。
  * AppBar の検索窓は内容で履歴を絞り込み、その右の絞り込みボタンで金額・日付の範囲と To・From の
  * 詳細な検索を AppBar の下に開く（残高は絞り込みに関わらず全体の貸借を示す）。
+ * PWA のショートカットからは入力を開いた状態で始まる（`add=expense`）。
  */
 function ExpensesPage() {
-  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(Route.useSearch());
+  const search = Route.useSearch();
+  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
   const balanceQuery = useQuery(balanceQueryOptions);
   const expensesQuery = useQuery(expensesQueryOptions);
   const addExpense = useAddExpense();
@@ -48,6 +51,13 @@ function ExpensesPage() {
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
+
+  // PWA のショートカットから来たら入力を開く
+  useAddShortcut(
+    search.add,
+    () => setAdding(true),
+    () => setFilters({ add: undefined }),
+  );
 
   return (
     <>

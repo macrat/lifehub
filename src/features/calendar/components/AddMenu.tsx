@@ -13,16 +13,10 @@ import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { today } from '../../../lib/date.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { TaskForm } from '../../events/components/TaskForm.tsx';
-import { defaultParticipants, defaultTaskValues } from '../../events/form-values.ts';
-import { useCreateEvent } from '../../events/queries.ts';
-import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
-import { useAddExpense } from '../../expenses/queries.ts';
-import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
-import { useLogCare } from '../../lemon/queries.ts';
-import { useUserLabels } from '../../users/use-user-labels.ts';
+import { AddForm, type AddFormKind } from './AddForm.tsx';
 
-export type AddKind = 'event' | 'task' | 'expense' | 'lemon';
+/** 予定はカレンダーへ送って下書きを置き、それ以外はその場でフォームが開く（`AddForm`） */
+export type AddKind = 'event' | AddFormKind;
 
 const ACTIONS: Record<AddKind, { label: string; icon: typeof EventIcon }> = {
   event: { label: '予定', icon: EventIcon },
@@ -90,11 +84,7 @@ type Props = {
 export function AddMenu({ kinds, date }: Props) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [form, setForm] = useState<Exclude<AddKind, 'event'> | null>(null);
-  const createEvent = useCreateEvent();
-  const addExpense = useAddExpense();
-  const { meId } = useUserLabels();
-  const logCare = useLogCare();
+  const [form, setForm] = useState<AddFormKind | null>(null);
   const close = () => setForm(null);
   const collapse = () => setExpanded(false);
   const open = (kind: AddKind) => {
@@ -137,15 +127,7 @@ export function AddMenu({ kinds, date }: Props) {
           );
         })}
       </SpeedDial>
-      {form === 'task' && (
-        <TaskForm
-          initial={defaultTaskValues(defaultParticipants(meId))}
-          onSubmit={createEvent.mutateAsync}
-          onClose={close}
-        />
-      )}
-      {form === 'expense' && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={close} />}
-      {form === 'lemon' && <CareLogForm onSubmit={logCare.mutateAsync} onClose={close} />}
+      {form && <AddForm kind={form} onClose={close} />}
     </>
   );
 }

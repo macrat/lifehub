@@ -191,6 +191,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## PWA
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
+- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: カレンダー（月表示）・予定登録・タスク登録・立替登録・レモンの記録。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（`src/lib/add-shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。ランチャーが出せる数には上限（多くは 4 件）があるのでよく使う順に並べる。ショートカットごとのアイコンは持たせない（アプリのアイコンが出る）。
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。

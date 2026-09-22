@@ -19,6 +19,7 @@ import {
   useLogCare,
 } from '../../features/lemon/queries.ts';
 import { lemonSearchSchema, matchesCareLog, useLemonSearch } from '../../features/lemon/search.ts';
+import { useAddShortcut } from '../../lib/add-shortcut.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -35,9 +36,11 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  * 履歴の行をタップすると詳細（削除）が開く。
  * AppBar の検索窓はメモで、その右の絞り込みボタンで開くフォームは項目と実施日の範囲で履歴を絞り込む
  * （状況のタイルは絞り込みに関わらず最新の実施日を示す）。
+ * PWA のショートカットからは入力を開いた状態で始まる（`add=lemon`）。
  */
 function LemonPage() {
-  const { filters, activeFilters, setKeyword, setFilters } = useLemonSearch(Route.useSearch());
+  const search = Route.useSearch();
+  const { filters, activeFilters, setKeyword, setFilters } = useLemonSearch(search);
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const logsQuery = useQuery(lemonLogsQueryOptions);
   const logCare = useLogCare();
@@ -45,6 +48,13 @@ function LemonPage() {
   const [adding, setAdding] = useState<CareType[] | null>(null);
   const [selected, setSelected] = useState<CareLog | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
+
+  // PWA のショートカットから来たら、追加ボタンと同じ既定の項目で入力を開く
+  useAddShortcut(
+    search.add,
+    () => setAdding(DEFAULT_CARE_TYPES),
+    () => setFilters({ add: undefined }),
+  );
 
   return (
     <>
