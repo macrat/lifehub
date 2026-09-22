@@ -39,7 +39,7 @@ pnpm dev                          # http://localhost:5173
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
 | `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |
-| `pnpm icons:generate` | `public/icons/favicon.svg` から PWA アイコンの PNG を生成 |
+| `pnpm icons:generate` | `public/icons/` の SVG と MUI のアイコンから PWA アイコン（アプリ・通知・ショートカット）の PNG を生成 |
 | `pnpm tf:plan` / `pnpm tf:apply` | `infra/` の Terraform（ローカルから手動で実行する場合。通常は CI に任せる） |
 
 ## 初回セットアップ（人が一度だけ行う手作業）

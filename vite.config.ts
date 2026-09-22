@@ -4,6 +4,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { buildInfoDefine } from './build-info.ts';
 import { SURFACE } from './shared/color.ts';
+import { SHORTCUTS, shortcutIconSrc } from './src/lib/shortcuts.ts';
 
 /**
  * ステータスバー（スマホ）やタイトルバー（PC）に使う色を index.html に注入する。
@@ -50,6 +51,12 @@ export default defineConfig({
         // meta（themeColorMeta）で配色ごとに渡す。
         theme_color: undefined,
         background_color: undefined,
+        shortcuts: SHORTCUTS.map(({ kind, name, shortName, url }) => ({
+          name,
+          short_name: shortName,
+          url,
+          icons: [{ src: shortcutIconSrc(kind), sizes: '192x192', type: 'image/png' }],
+        })),
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

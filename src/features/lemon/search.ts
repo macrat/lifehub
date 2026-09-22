@@ -4,6 +4,7 @@ import { toDateString } from '../../../shared/date.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { CARE_TYPES } from '../../../shared/validation/lemon.ts';
 import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
+import { addSearchSchema } from '../add/shortcut.ts';
 import type { CareLog } from './queries.ts';
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
@@ -15,6 +16,8 @@ export const ALL = 'all';
  * 範囲は両端を含み、省略した端は制限しない（開始日だけ・終了日だけでも絞り込める）。
  */
 export const lemonSearchSchema = keywordSearchSchema.extend({
+  /** 記録の入力を開いて始めるしるし（`src/features/add/shortcut.ts`）。絞り込みではない */
+  add: addSearchSchema('lemon'),
   /** 世話の項目（葉水・水やり・施肥・開花・落果・収穫）。その項目を含む記録だけが残る */
   kind: z.enum(CARE_TYPES).optional(),
   /** 実施日（JST の暦日）の最初・最後 */

@@ -7,16 +7,17 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
+import { AddCareLogForm } from '../../features/add/components/AddForm.tsx';
+import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
-import { CareLogForm, DEFAULT_CARE_TYPES } from '../../features/lemon/components/CareLogForm.tsx';
+import { DEFAULT_CARE_TYPES } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
 import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
   type CareLog,
   lemonLogsQueryOptions,
   lemonStatusQueryOptions,
-  useLogCare,
 } from '../../features/lemon/queries.ts';
 import { lemonSearchSchema, matchesCareLog, useLemonSearch } from '../../features/lemon/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
@@ -38,15 +39,18 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  * （状況のタイルは絞り込みに関わらず最新の実施日を示す）。
  */
 function LemonPage() {
-  const { filters, activeFilters, setKeyword, setFilters } = useLemonSearch(Route.useSearch());
+  const search = Route.useSearch();
+  const { filters, activeFilters, setKeyword, setFilters } = useLemonSearch(search);
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const logsQuery = useQuery(lemonLogsQueryOptions);
-  const logCare = useLogCare();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState<CareType[] | null>(null);
   // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
   const [selected, setSelected] = useState<{ log: CareLog; editing: boolean } | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
+
+  const openAdd = () => setAdding(DEFAULT_CARE_TYPES);
+  useAddShortcut(search.add, openAdd);
 
   return (
     <>
@@ -88,21 +92,10 @@ function LemonPage() {
         )}
       </QueryView>
 
-      <Fab
-        color="primary"
-        aria-label="レモンの記録を追加"
-        onClick={() => setAdding(DEFAULT_CARE_TYPES)}
-        sx={FAB_SX}
-      >
+      <Fab color="primary" aria-label="レモンの記録を追加" onClick={openAdd} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && (
-        <CareLogForm
-          initialCareTypes={adding}
-          onSubmit={logCare.mutateAsync}
-          onClose={() => setAdding(null)}
-        />
-      )}
+      {adding && <AddCareLogForm initialCareTypes={adding} onClose={() => setAdding(null)} />}
       {selected && (
         <CareLogDetailSheet
           log={selected.log}

@@ -1,7 +1,10 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
-import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
+import { useCallback, useState } from 'react';
+import { AddForm } from '../../features/add/components/AddForm.tsx';
+import { AddMenu } from '../../features/add/components/AddMenu.tsx';
+import type { AddFormKind } from '../../features/add/kinds.ts';
+import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
@@ -67,7 +70,7 @@ type DraftState = Draft & {
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
- * - 追加ボタンの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
+ * - 追加ボタンと PWA のショートカットの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
  */
 function CalendarPage() {
   const search = Route.useSearch();
@@ -88,6 +91,8 @@ function CalendarPage() {
   // クイック入力のシートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ
   // 下に余白を作り、シートに隠れる夜の時間帯までスクロールして見られるようにする
   const [sheetInset, setSheetInset] = useState(0);
+  // 追加ボタンとショートカットのどちらから来ても、開いている入力はこの 1 つ
+  const [adding, setAdding] = useState<AddFormKind | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
@@ -122,21 +127,17 @@ function CalendarPage() {
     });
   };
 
-  // 追加ボタンから来たら、その日の既定の時間帯を枠にして全項目の段から始める。
-  // しるしは使ったらすぐ消す（履歴に積まず、再読み込みで開き直さない）
-  const { setSearch } = page;
-  const addEvent = search.add === 'event';
-  useEffect(() => {
-    if (!addEvent) return;
-    setDraft({
-      range: defaultDraft(page.date),
-      item: null,
-      participantIds: defaultParticipants(meId),
-      editing: true,
-      detent: 'full',
-    });
-    setSearch({ add: undefined }, { replace: true });
-  }, [addEvent, page.date, meId, setSearch]);
+  useAddShortcut(search.add, (kind) =>
+    kind === 'task'
+      ? setAdding('task')
+      : setDraft({
+          range: defaultDraft(page.date),
+          item: null,
+          participantIds: defaultParticipants(meId),
+          editing: true,
+          detent: 'full',
+        }),
+  );
 
   return (
     <>
@@ -210,7 +211,7 @@ function CalendarPage() {
       )}
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
-      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
+      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} onSelect={setAdding} />}
       {selected && (
         <ItemDetailSheet
           item={selected.item}
@@ -218,6 +219,7 @@ function CalendarPage() {
           onClose={() => setSelected(null)}
         />
       )}
+      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
       {draft && (
         <QuickEventForm
           draft={draft.range}
