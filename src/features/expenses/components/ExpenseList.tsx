@@ -63,11 +63,11 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
  * 上が From・下が To の 2 色に割る（お金が上から下へ流れる向き）。
  * 幅 6px を縦に割ると 1 色が 3px しか残らず読めないので、分けるのは上下にする。
  * 2 色はにじませず半分で切り替えて、どちらの色かが一目で分かるようにする。
- * 境目を 200deg（真下から少し傾けた向き）にすると、水平の線と見分けられる。
+ * 境目を 220deg（真下から傾けた向き）にすると、水平の線と見分けられる。
  */
 function expenseBarBackground(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string {
   const from = colorFor(expense.fromUserId).fill;
   if (expense.toUserId === null) return from;
   const to = colorFor(expense.toUserId).fill;
-  return `linear-gradient(200deg, ${from} 50%, ${to} 50%)`;
+  return `linear-gradient(220deg, ${from} 50%, ${to} 50%)`;
 }
