@@ -88,7 +88,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
   );
 }
 
-/** To・From の 1 つ。そのユーザーの色で塗る（共有は色相を持たない無彩色） */
+/** To・From の 1 つ。そのユーザーの色で塗る */
 function UserChip({ label, colors }: { label: string; colors: ItemColors }) {
   return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: colors.text }} />;
 }
