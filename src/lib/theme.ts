@@ -2,7 +2,7 @@ import { createTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { type ColorMode, DEFAULT_HUE, hueColor } from '../../shared/color.ts';
+import { type ColorMode, DEFAULT_HUE, hueColor, SURFACE } from '../../shared/color.ts';
 import { meQueryOptions } from './auth.ts';
 import { createStore } from './store.ts';
 
@@ -43,13 +43,13 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
       light: {
         palette: {
           primary: { main: hueColor(hue, 'accent', 'light') },
-          background: { default: '#ffffff', paper: '#ffffff' },
+          background: { default: SURFACE.light, paper: SURFACE.light },
         },
       },
       dark: {
         palette: {
           primary: { main: hueColor(hue, 'accent', 'dark') },
-          background: { default: '#121212', paper: '#121212' },
+          background: { default: SURFACE.dark, paper: SURFACE.dark },
         },
       },
     },
@@ -60,6 +60,19 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          // Web ページではなくアプリとして触れるようにする（引っ張って更新だけは残す。NoPullToRefresh）
+          body: {
+            // 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残す
+            touchAction: 'manipulation',
+            // 押したときの灰色の四角を出さない。押した手応えは各部品の ripple が示す
+            WebkitTapHighlightColor: 'transparent',
+            // 長押ししても文字が選ばれず、リンクのメニューも出ない
+            WebkitTouchCallout: 'none',
+            userSelect: 'none',
+          },
+          // 文字を選んで写せるのは入力欄だけにする（読むだけの画面の文字も、鉛筆を押せば入力欄に変わる）。
+          // 触れる合図はどちらも継承するので、入力欄では選択も長押しのメニュー（貼り付け）も戻す。
+          'input, textarea': { userSelect: 'text', WebkitTouchCallout: 'default' },
           // 控えとして描いてあるだけの部分（カレンダーのスワイプの前後の面。inert）は
           // View Transition の対象にしない。view-transition-name は文書の中で一意でなければならず、
           // 表示中の面と同じ名前が控えにもあると、遷移そのものが行われない。

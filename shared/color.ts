@@ -11,6 +11,13 @@ export const DEFAULT_HUE = 335;
 
 export const HUE_MAX = 359;
 
+/**
+ * 面（背景）の色。ライト／ダークそれぞれ 1 色で、AppBar も下部ナビもシートもこれと同じ色にする。
+ * ブラウザに渡す `theme-color`（`vite.config.ts` が index.html に注入する）も同じ値にして、
+ * スマホのステータスバーと AppBar が地続きに見えるようにする。
+ */
+export const SURFACE = { light: '#ffffff', dark: '#121212' } as const;
+
 /** 用途ごとの明度・彩度。light/dark は表示モード。 */
 const TONES = {
   /** アクセント（primary）。ボタン・選択状態・FAB など */

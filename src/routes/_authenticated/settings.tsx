@@ -12,6 +12,7 @@ import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
+import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 import { useUpdateApp } from '../../lib/update.ts';
 
@@ -28,6 +29,7 @@ function SettingsPage() {
   const logout = useLogout();
   return (
     <>
+      <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
       <SettingsSection title="アカウント">

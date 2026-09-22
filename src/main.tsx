@@ -7,6 +7,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
+import { watchAppBadge } from './lib/app-badge.ts';
 import { meQueryOptions } from './lib/auth.ts';
 import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
 import { useAppTheme } from './lib/theme.ts';
@@ -94,6 +95,9 @@ window.addEventListener(UNAUTHORIZED_EVENT, () => {
 
 // アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
 registerSW({ immediate: true });
+
+// 通知が付けたホーム画面のアイコンの点を、アプリを見た時点で消す
+watchAppBadge();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root not found');
