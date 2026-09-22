@@ -19,6 +19,12 @@ const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
   day: 'numeric',
   weekday: 'short',
 });
+const paddedDateFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  month: '2-digit',
+  day: '2-digit',
+  weekday: 'short',
+});
 const timeFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: TIME_ZONE,
   hour: '2-digit',
@@ -33,6 +39,14 @@ const weekdayFormatter = new Intl.DateTimeFormat('ja-JP', {
 /** "9/20(日)" */
 export function formatDate(value: Date | string | DateString): string {
   return dateFormatter.format(toDate(value));
+}
+
+/**
+ * "09/20(日)"。日付が縦に並ぶところ（レモンの記録の一覧）で使う。
+ * 桁を揃えると日付の幅が行ごとに動かないので、続けて並べる列の左端が揃う。
+ */
+export function formatDatePadded(value: Date | string | DateString): string {
+  return paddedDateFormatter.format(toDate(value));
 }
 
 /** "2026年09月20日（日）" */
