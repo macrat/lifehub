@@ -48,7 +48,6 @@ type Props = {
 export function AppShell({ children }: Props) {
   const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
-  const busy = useIsLoadingWithoutCache();
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
@@ -63,20 +62,7 @@ export function AppShell({ children }: Props) {
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
           </Toolbar>
-          {/* 手元に何も無いまま待っている間だけ出す細いインジケータ（`useIsLoadingWithoutCache`）。
-              位置を取らないよう AppBar の下端に重ねる */}
-          <LinearProgress
-            color="primary"
-            sx={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 2,
-              opacity: busy ? 0.7 : 0,
-              transition: 'opacity .2s',
-            }}
-          />
+          <TopProgress />
         </AppBar>
 
         {isDesktop && (
@@ -152,6 +138,28 @@ export function AppShell({ children }: Props) {
         )}
       </Box>
     </AppBarSlotProvider>
+  );
+}
+
+/**
+ * 取得を待っていることを伝える細い帯。位置を取らないよう AppBar の下端に重ねる。
+ * 取得の状態を読むのはこの部品だけにして、画面の骨格（AppShell）が取得のたびに描き直されないようにする。
+ */
+function TopProgress() {
+  const busy = useIsLoadingWithoutCache();
+  return (
+    <LinearProgress
+      color="primary"
+      sx={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 2,
+        opacity: busy ? 0.7 : 0,
+        transition: 'opacity .2s',
+      }}
+    />
   );
 }
 
