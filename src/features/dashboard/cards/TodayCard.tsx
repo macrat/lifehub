@@ -30,9 +30,6 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
  *
  * カレンダーと同じ月のキャッシュを読む。そのキャッシュは古くならないので、ホームに入るたびに
  * 取り直す（`useRefreshCalendarItems`。カレンダー画面と同じ扱い）。
- *
- * 行にはカレンダーと同じ `itemTransitionName` を付ける。ホームと予定画面を行き来すると、
- * 両方に在る項目はその場から動く（View Transition）。
  */
 export function TodayCard() {
   useRefreshCalendarItems();
