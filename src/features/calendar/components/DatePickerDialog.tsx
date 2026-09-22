@@ -131,7 +131,7 @@ function DayOptions({
   selected,
   onSelect,
 }: {
-  unit: 'week' | 'day';
+  unit: Exclude<PeriodView, 'month'>;
   month: string;
   selected: DateString;
   onSelect: (date: DateString) => void;

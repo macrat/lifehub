@@ -39,7 +39,7 @@ export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
 /** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
 export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
-/** 月・週・日・リストの 4 通りの表示。増減は検索パラメータのスキーマだけで決まる */
+/** 表示の種類。出どころは検索パラメータのスキーマだけにする */
 export type CalendarView = CalendarSearch['view'];
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;
@@ -114,7 +114,17 @@ export function useCalendarPage(search: CalendarSearch) {
       navigate({ search: (prev) => ({ ...prev, ...next }), replace, resetScroll: false }),
     [navigate],
   );
-  const openDay = useCallback((d: DateString) => setSearch({ view: 'day', date: d }), [setSearch]);
+  /**
+   * 表示の切り替え。keepVisible には、切り替えた先でも見ていたい日を渡す（タップした日、
+   * 入力中の下書きの初日）。表示ごとに一度に出せる期間の広さが違うので、渡された日を代表日にして
+   * その期間に必ず入るようにする。リスト表示では既定の期間（前後の日数）の基準になる。
+   */
+  const changeView = useCallback(
+    (next: CalendarView, keepVisible?: DateString) =>
+      setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next }),
+    [setSearch],
+  );
+  const openDay = useCallback((d: DateString) => changeView('day', d), [changeView]);
 
   /** 前後の月・週・日へ（スワイプ） */
   const move = (direction: 1 | -1) => setSearch({ date: dateAt(direction) }, { replace: true });
@@ -133,12 +143,7 @@ export function useCalendarPage(search: CalendarSearch) {
     move,
     goToday: () => setSearch({ date: today() }),
     openDay,
-    /**
-     * 表示の切り替え。keepVisible には、切り替えた先でも見えていてほしい日を渡す
-     * （入力中の下書きの初日。表示する期間は表示ごとに広さが違うので、渡された日を代表日にして期間に入れる）
-     */
-    changeView: (next: CalendarView, keepVisible?: DateString) =>
-      setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next }),
+    changeView,
     /**
      * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
      * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える。
