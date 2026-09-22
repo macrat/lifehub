@@ -77,6 +77,8 @@ function CareTypeIcons({ careTypes }: { careTypes: CareType[] }) {
         display: 'grid',
         gridTemplateColumns: `repeat(${CARE_TYPES.length}, ${ICON_SIZE})`,
         columnGap: 1,
+        justifyItems: 'center',
+        alignItems: 'center',
         color: 'text.secondary',
       }}
     >
@@ -89,7 +91,12 @@ function CareTypeIcons({ careTypes }: { careTypes: CareType[] }) {
             sx={{ fontSize: ICON_SIZE }}
           />
         ) : (
-          <span key={careType} />
+          // ほとんどの記録は葉水か水やりだけなので、空けたままだと枠が穴に見える。
+          // 薄い点を置いて「ここにも何かが来ることがある」列だと分かるようにする
+          <Box
+            key={careType}
+            sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'action.disabled' }}
+          />
         );
       })}
     </Box>
