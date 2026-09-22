@@ -31,7 +31,9 @@ api.get('/health', async (c) => {
 api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
-// ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）
+// ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
+// この下の /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
+// 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
 // Cron secret と QStash の署名で保護する（セッションではない）
 api.route('/notifications', notificationsRoutes);

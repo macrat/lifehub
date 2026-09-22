@@ -15,7 +15,7 @@ type Props = {
 export function CalendarFeedForm({ onClose, onSubmit }: Props) {
   const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createCalendarFeedSchema,
-    values: (formData) => formValues(formData),
+    values: formValues,
     onSubmit,
     onSaved: onClose,
   });

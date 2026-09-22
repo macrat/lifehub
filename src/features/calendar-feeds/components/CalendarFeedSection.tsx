@@ -42,17 +42,7 @@ export function CalendarFeedSection() {
       <QueryView query={feedsQuery} skeleton={<FeedSkeleton />}>
         {(feeds) =>
           feeds.map((feed) => (
-            <FeedItem
-              key={feed.id}
-              feed={feed}
-              onRevoke={() => {
-                if (
-                  !window.confirm(`「${feed.name}」を失効しますか？この URL では読めなくなります。`)
-                )
-                  return;
-                revokeFeed.mutate(feed.id);
-              }}
-            />
+            <FeedItem key={feed.id} feed={feed} onRevoke={() => revokeFeed.mutate(feed.id)} />
           ))
         }
       </QueryView>
@@ -77,7 +67,14 @@ function FeedItem({ feed, onRevoke }: { feed: CalendarFeed; onRevoke: () => void
           <IconButton aria-label={`${feed.name} の URL をコピー`} onClick={() => copy(feed.url)}>
             <ContentCopyIcon />
           </IconButton>
-          <IconButton edge="end" aria-label={`${feed.name} を失効`} onClick={onRevoke}>
+          <IconButton
+            edge="end"
+            aria-label={`${feed.name} を失効`}
+            onClick={() => {
+              if (window.confirm(`「${feed.name}」を失効しますか？この URL では読めなくなります。`))
+                onRevoke();
+            }}
+          >
             <LinkOffIcon />
           </IconButton>
         </Stack>

@@ -1,8 +1,8 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import type { InferResponseType } from 'hono/client';
 import type { CreateCalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { notify } from '../../lib/ui/notice.ts';
+import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** カレンダーの ics 配信 URL（[docs/features/calendar-feeds.md](../../../docs/features/calendar-feeds.md)） */
 export type CalendarFeed = InferResponseType<typeof api.calendar.feeds.$get>[number];
@@ -13,30 +13,38 @@ export const calendarFeedsQueryOptions = queryOptions({
 });
 
 /**
- * 発行と失効。他の書き込みと違って楽観的更新（`useOptimisticMutation`）には乗せない。
- * 発行される URL はサーバーが作る乱数なので画面に先出しできず、オフラインで溜めても
- * URL を受け取れないまま待つことになるため（発行も失効も急ぐ操作ではない）。
+ * 発行。オフラインでは溜めずにその場で失敗させる（`queue: false`）。
+ * 発行された URL はサーバーが作る乱数なので、送れるまで待っても画面には何も出せない。
+ * 同じ理由で楽観的更新の `apply` も持たない（出す値を先に作れない）。
  */
 export function useCreateCalendarFeed() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: CreateCalendarFeedInput) => {
-      await ensureOk(await api.calendar.feeds.$post({ json: input }));
-    },
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: calendarFeedsQueryOptions.queryKey }),
+  return useOptimisticMutation({
+    request: (input: CreateCalendarFeedInput) => ({
+      method: 'POST' as const,
+      path: api.calendar.feeds.$url().pathname,
+      body: input,
+    }),
+    queue: false,
+    keys: [calendarFeedsQueryOptions.queryKey],
   });
 }
 
+/**
+ * 失効。発行と揃えてオフラインでは溜めない。
+ * 「もう読めない」ことを確かめたい操作なので、送れたかどうかが分からないまま消えて見えるのは困る。
+ */
 export function useRevokeCalendarFeed() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await ensureOk(await api.calendar.feeds[':id'].$delete({ param: { id } }));
+  return useOptimisticMutation({
+    request: (id: string) => ({
+      method: 'DELETE' as const,
+      path: api.calendar.feeds[':id'].$url({ param: { id } }).pathname,
+    }),
+    queue: false,
+    keys: [calendarFeedsQueryOptions.queryKey],
+    apply: (client, id) => {
+      client.setQueryData(calendarFeedsQueryOptions.queryKey, (feeds) =>
+        feeds?.filter((feed) => feed.id !== id),
+      );
     },
-    // 失効はフォームを持たないので、失敗を出す場所がここしかない（消えたつもりで残るのを防ぐ）
-    onError: (error: Error) => notify(error.message),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: calendarFeedsQueryOptions.queryKey }),
   });
 }

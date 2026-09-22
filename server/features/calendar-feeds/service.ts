@@ -6,6 +6,7 @@ import { NotFoundError } from '../../lib/errors.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
 import * as repository from './repository.ts';
+import type { CalendarFeedRow } from './schema.ts';
 
 /**
  * 配信する期間（今日を軸に前後の日数）。購読したカレンダーは定期的に取り直すので、窓は毎日ずれる。
@@ -53,18 +54,16 @@ export async function revokeFeed(id: string, userId: string): Promise<void> {
  *
  * 出すのは予定だけで、タスクは出さない。未完了のタスクが置かれる日は「今日」で毎日動き
  * （`shared/calendar.ts` の `placeTask`）、購読側のカレンダーでは日付が毎日書き換わり続けるため。
+ * 種別は展開する前に絞る（後から捨てると、1 年以上ぶんのタスクの繰り返しを毎回むだに展開する）。
  * 参加者も出さない。ATTENDEE にすると購読しただけのカレンダーで出欠の返事を求められることがある。
  */
 export async function renderIcs(token: string, now: Date = new Date()): Promise<string> {
   if (!(await repository.touchByToken(token, now))) {
     throw new NotFoundError('配信 URL が無効です');
   }
-  const range = { from: addDays(today(now), -PAST_DAYS), to: addDays(today(now), FUTURE_DAYS) };
-  const occurrences = await listOccurrences(range, now);
-  return toIcs(
-    occurrences.filter((occurrence) => occurrence.kind === 'event'),
-    now,
-  );
+  const base = today(now);
+  const range = { from: addDays(base, -PAST_DAYS), to: addDays(base, FUTURE_DAYS) };
+  return toIcs(await listOccurrences(range, now, 'event'), now);
 }
 
 /**
@@ -80,7 +79,7 @@ function newToken(): string {
   return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
 }
 
-function toFeed(row: repository.CalendarFeedRow): CalendarFeed {
+function toFeed(row: CalendarFeedRow): CalendarFeed {
   return {
     id: row.id,
     name: row.name,

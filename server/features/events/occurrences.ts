@@ -7,11 +7,12 @@ import {
   sortItems,
 } from '../../../shared/calendar.ts';
 import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 
-export type { CalendarItem, EventMaster, Occurrence } from '../../../shared/calendar.ts';
+export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
@@ -30,10 +31,15 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
  * 暦日への割り当て（`placeOccurrence`）はしないので、複数日の予定も 1 件のまま出る。
  * カレンダーは暦日に置いた `listItems` を読み、ics の配信（calendar-feeds）は日ごとに割らない
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
+ *
+ * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
+ * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
+ * 捨てるものを展開してから捨てずに済む。
  */
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
+  kind?: EventKind,
 ): Promise<Occurrence[]> {
   const instants = { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
   const rows = await repository.findCalendarRows(instants.from, instants.to);
@@ -53,6 +59,7 @@ export async function listOccurrences(
 
   const result: Occurrence[] = [];
   for (const master of masters) {
+    if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
     result.push(
       ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),

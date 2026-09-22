@@ -1,27 +1,10 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '../../lib/db.ts';
-import { calendarFeeds } from './schema.ts';
-
-/** 画面と配信に必要な列だけ。トークンは URL を組み立てるためにだけ読む */
-export type CalendarFeedRow = {
-  id: string;
-  name: string;
-  token: string;
-  createdAt: Date;
-  lastAccessedAt: Date | null;
-};
-
-const columns = {
-  id: calendarFeeds.id,
-  name: calendarFeeds.name,
-  token: calendarFeeds.token,
-  createdAt: calendarFeeds.createdAt,
-  lastAccessedAt: calendarFeeds.lastAccessedAt,
-};
+import { type CalendarFeedRow, calendarFeeds } from './schema.ts';
 
 export async function findByUser(userId: string): Promise<CalendarFeedRow[]> {
   return db
-    .select(columns)
+    .select()
     .from(calendarFeeds)
     .where(eq(calendarFeeds.userId, userId))
     .orderBy(asc(calendarFeeds.createdAt));
@@ -34,7 +17,7 @@ export async function insert(values: {
   name: string;
   token: string;
 }): Promise<CalendarFeedRow> {
-  const [row] = await db.insert(calendarFeeds).values(values).returning(columns);
+  const [row] = await db.insert(calendarFeeds).values(values).returning();
   if (!row) throw new Error('配信 URL を保存できませんでした');
   return row;
 }

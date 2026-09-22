@@ -12,8 +12,9 @@ const iso = (s: string) => jst(s).toISOString();
 // 「今日」を 2026-09-14（月）の正午に固定する
 const now = jst('2026-09-14T12:00:00');
 
-/** 配信 URL からトークンだけを取り出す（配信の入口はトークンで引くため） */
+/** 発行した URL から ics を取り出す（配信の入口はトークンで引くため、URL から抜き出して渡す） */
 const tokenOf = (url: string) => url.slice(url.lastIndexOf('/') + 1, -'.ics'.length);
+const icsOf = (feed: { url: string }) => renderIcs(tokenOf(feed.url), now);
 
 /** ics の 1 行を取り出す。折り返し（行頭 1 文字の空白）は畳んでから探す */
 const lines = (ics: string) => ics.replace(/\r\n /g, '').split('\r\n');
@@ -48,7 +49,7 @@ describe('calendar-feeds service', () => {
     expect(feed.url).toMatch(/\/api\/calendar\/[\w-]+\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
 
-    const ics = await renderIcs(tokenOf(feed.url), now);
+    const ics = await icsOf(feed);
     expect(lines(ics)[0]).toBe('BEGIN:VCALENDAR');
     expect(valuesOf(ics, 'DTSTART')).toEqual(['20260915T000000Z']);
     expect(valuesOf(ics, 'DTEND')).toEqual(['20260915T010000Z']);
@@ -74,7 +75,7 @@ describe('calendar-feeds service', () => {
       userId,
     );
     const feed = await createFeed({ name: 'スマホ' }, userId);
-    const ics = await renderIcs(tokenOf(feed.url), now);
+    const ics = await icsOf(feed);
     expect(lines(ics)).toContain('DTSTART;VALUE=DATE:20260920');
     expect(lines(ics)).toContain('DTEND;VALUE=DATE:20260922');
   });
@@ -97,7 +98,7 @@ describe('calendar-feeds service', () => {
       userId,
     );
     const feed = await createFeed({ name: 'スマホ' }, userId);
-    const ics = await renderIcs(tokenOf(feed.url), now);
+    const ics = await icsOf(feed);
     expect(valuesOf(ics, 'DTSTART')).toEqual(['20260907T000000Z', '20260921T000000Z']);
     // UID は回ごとに違い、取り直しても同じ回は同じものを指す
     expect(valuesOf(ics, 'UID')).toEqual([
@@ -117,7 +118,7 @@ describe('calendar-feeds service', () => {
       userId,
     );
     const feed = await createFeed({ name: 'スマホ' }, userId);
-    expect(valuesOf(await renderIcs(tokenOf(feed.url), now), 'SUMMARY')).toEqual([]);
+    expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual([]);
   });
 
   it('知らないトークンと、失効させた URL では配信しない', async () => {
@@ -135,7 +136,7 @@ describe('calendar-feeds service', () => {
     expect(phone.url).not.toBe(partner.url);
     await revokeFeed(phone.id, userId);
     expect((await listFeeds(userId)).map((feed) => feed.name)).toEqual(['妻のカレンダー']);
-    await expect(renderIcs(tokenOf(partner.url), now)).resolves.toContain('BEGIN:VCALENDAR');
+    await expect(icsOf(partner)).resolves.toContain('BEGIN:VCALENDAR');
   });
 
   it('他のユーザーの URL は見えず、失効もさせられない', async () => {
@@ -145,6 +146,6 @@ describe('calendar-feeds service', () => {
     const feed = await createFeed({ name: 'スマホ' }, userId);
     expect(await listFeeds(otherId)).toEqual([]);
     await expect(revokeFeed(feed.id, otherId)).rejects.toThrow(NotFoundError);
-    await expect(renderIcs(tokenOf(feed.url), now)).resolves.toContain('BEGIN:VCALENDAR');
+    await expect(icsOf(feed)).resolves.toContain('BEGIN:VCALENDAR');
   });
 });

@@ -30,3 +30,5 @@ export const calendarFeeds = pgTable('calendar_feeds', {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export type CalendarFeedRow = typeof calendarFeeds.$inferSelect;
