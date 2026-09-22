@@ -68,7 +68,7 @@ function SettingsPage() {
  * バージョン。バグに出くわしたとき、どのビルドを見ているかを言えるようにする。
  * コミットは先頭 7 桁だけ出す（このリポジトリで一意に定まり、読み上げも写しもできる長さ）。
  *
- * 更新ボタンは、表示中の版が古いと分かったときの逃げ道。インストールした PWA は
+ * 右の更新ボタンは、表示中の版が古いと分かったときの逃げ道。インストールした PWA は
  * precache から起動するため、再読み込みでは版が変わらない（`src/lib/update.ts`）。
  */
 function VersionSection() {
@@ -81,21 +81,22 @@ function VersionSection() {
         </ListSubheader>
       }
     >
-      <ListItem>
+      <ListItem
+        secondaryAction={
+          <IconButton
+            edge="end"
+            aria-label="最新版に更新"
+            loading={updating}
+            onClick={() => startUpdate(updateApp)}
+          >
+            <RefreshIcon />
+          </IconButton>
+        }
+      >
         <ListItemText
           primary={__BUILD_COMMIT__.slice(0, 7)}
           secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)}`}
         />
-      </ListItem>
-      {/* ボタンの内側の余白のぶん左に詰め、上のバージョンと頭を揃える */}
-      <ListItem sx={{ px: 1, pt: 0 }}>
-        <IconButton
-          aria-label="最新版に更新"
-          loading={updating}
-          onClick={() => startUpdate(updateApp)}
-        >
-          <RefreshIcon />
-        </IconButton>
       </ListItem>
     </List>
   );

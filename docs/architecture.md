@@ -187,7 +187,7 @@ e2e/                          # Playwright
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` と `theme-color` メタは指定しない。ブラウザが OS の配色（`color-scheme: light dark`）に合わせた既定色を使い、ライト／ダークの切り替えに自動で追従するため。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
-- 手動更新: 設定画面の「バージョン」の下の更新ボタン（`src/lib/update.ts`）。`registration.update()` で新しい Service Worker を取りに行き、有効になってから `location.reload()` する。新版が無ければ読み込み直すだけ。取りに行けなかったとき（オフライン等）も読み込み直す（押しても何も起きない状態を作らない）。
+- 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。`registration.update()` で新しい Service Worker を取りに行き、有効になってから `location.reload()` する。新版が無ければ読み込み直すだけ。取りに行けなかったとき（オフライン等）も読み込み直す（押しても何も起きない状態を作らない）。
 - アイコンは `public/icons/favicon.svg` を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
 
 ## 運用
