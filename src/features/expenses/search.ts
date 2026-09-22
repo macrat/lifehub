@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
+import { addSearchSchema } from '../add/shortcut.ts';
 import type { Expense } from './queries.ts';
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
@@ -15,6 +16,8 @@ export const SHARED = 'shared';
  * 範囲は両端を含み、省略した端は制限しない（最小だけ・終了日だけでも絞り込める）。
  */
 export const expenseSearchSchema = keywordSearchSchema.extend({
+  /** 立替の入力を開いて始めるしるし（`src/features/add/shortcut.ts`）。絞り込みではない */
+  add: addSearchSchema('expense'),
   /** 金額（円）の下限・上限 */
   min: z.coerce.number().int().nonnegative().optional(),
   max: z.coerce.number().int().nonnegative().optional(),

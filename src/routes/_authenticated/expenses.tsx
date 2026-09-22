@@ -6,16 +6,16 @@ import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { AddExpenseForm } from '../../features/add/components/AddForm.tsx';
+import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
-import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import {
   balanceQueryOptions,
   type Expense,
   expensesQueryOptions,
-  useAddExpense,
 } from '../../features/expenses/queries.ts';
 import {
   expenseSearchSchema,
@@ -41,15 +41,17 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  * 詳細な検索を AppBar の下に開く（残高は絞り込みに関わらず全体の貸借を示す）。
  */
 function ExpensesPage() {
-  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(Route.useSearch());
+  const search = Route.useSearch();
+  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
   const balanceQuery = useQuery(balanceQueryOptions);
   const expensesQuery = useQuery(expensesQueryOptions);
-  const addExpense = useAddExpense();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
   const [selected, setSelected] = useState<{ expense: Expense; editing: boolean } | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
+
+  useAddShortcut(search.add, () => setAdding(true));
 
   return (
     <>
@@ -90,7 +92,7 @@ function ExpensesPage() {
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
+      {adding && <AddExpenseForm onClose={() => setAdding(false)} />}
       {selected && (
         <ExpenseDetailSheet
           expense={selected.expense}
