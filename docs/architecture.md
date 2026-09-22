@@ -191,12 +191,12 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## PWA
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
-- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: カレンダー（月表示）・予定登録・タスク登録・立替登録・レモンの記録。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（`src/lib/add-shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。ランチャーが出せる数には上限（多くは 4 件）があるのでよく使う順に並べる。ショートカットごとのアイコンは持たせない（アプリのアイコンが出る）。
+- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: カレンダー（月表示）・予定登録・タスク登録・立替登録・レモンの記録。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（`src/lib/add-shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。ランチャーが出せる数には上限（多くは 4 件）があるのでよく使う順に並べる。アイコン（192）は、アプリの中で同じ場所・同じ操作に使っている MUI のアイコン（下部ナビと追加ボタン）を、アプリのアイコンと同じ角丸の板に白で置いたもの。
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
 - 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。インストールした PWA は precache から起動するため再読み込みでは版が変わらないので、`registration.update()` で Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で上記 `autoUpdate` の経路が読み込み直す。新版が無いときと、取りに行けなかったとき（オフライン等）だけ自分で読み込み直す（押しても何も起きない状態を作らない）。
-- アイコンは `public/icons/favicon.svg`（アプリのアイコン）と `public/icons/badge.svg`（通知の小さな印）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
+- アイコンは `public/icons/favicon.svg`（アプリのアイコン）、`public/icons/badge.svg`（通知の小さな印）、`scripts/generate-icons.ts` の `SHORTCUT_ICONS`（ショートカット）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。ショートカットの絵は MUI のアイコンを React からそのまま描き出して使うので、path を書き写して二重に持たない（アプリの表示とショートカットで同じ絵になる）。
 
 ## 運用
 

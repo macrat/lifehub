@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { login } from './login.ts';
 
 /** manifest（`vite.config.ts`）に並べたショートカット */
-type Shortcut = { name: string; url: string };
+type Shortcut = { name: string; url: string; icons: { src: string }[] };
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -45,4 +45,22 @@ test('ショートカットの URL がそれぞれの画面と入力を開く', 
   await expect(page.getByRole('dialog', { name: 'レモンの記録を追加' })).toBeVisible();
   // しるしは使うと消えるので、再読み込みや戻るで開き直さない
   await expect(page).toHaveURL('/lemon');
+});
+
+/**
+ * アイコンは manifest（`vite.config.ts`）と生成（`scripts/generate-icons.ts`）が名前で繋がっているので、
+ * 片方だけを変えると絵の無いショートカットになる。manifest が指す物がそのまま配信されているか確かめる。
+ */
+test('ショートカットのアイコンが配信されている', async ({ page }) => {
+  const manifest = await (await page.request.get('/manifest.webmanifest')).json();
+  const shortcuts: Shortcut[] = manifest.shortcuts;
+  expect(shortcuts.length).toBeGreaterThan(0);
+
+  for (const shortcut of shortcuts) {
+    const src = shortcut.icons[0]?.src;
+    if (!src) throw new Error(`${shortcut.name} のショートカットにアイコンが無い`);
+    const res = await page.request.get(src);
+    expect(res.status(), `${shortcut.name}: ${src}`).toBe(200);
+    expect(res.headers()['content-type']).toBe('image/png');
+  }
 });

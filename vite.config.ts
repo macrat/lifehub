@@ -24,6 +24,19 @@ function themeColorMeta(): Plugin {
   };
 }
 
+/**
+ * ショートカット 1 つ分（manifest の `shortcuts`）。アイコンは種類から決まる名前で参照する
+ * （`scripts/generate-icons.ts` の `SHORTCUT_ICONS` が同じ名前で書き出す）。
+ */
+function shortcut(kind: string, name: string, shortName: string, url: string) {
+  return {
+    name,
+    short_name: shortName,
+    url,
+    icons: [{ src: `/icons/shortcut-${kind}-192.png`, sizes: '192x192', type: 'image/png' }],
+  };
+}
+
 export default defineConfig({
   define: buildInfoDefine,
   plugins: [
@@ -53,13 +66,13 @@ export default defineConfig({
         // ホーム画面のアイコンの長押し（Android）やタスクバーの右クリック（PC）から、
         // よく開く画面と入力へ直に入る。入力は URL のしるしで開く（`add`。src/lib/add-shortcut.ts）。
         // ランチャーが出す数には上限（多くは 4 件）があるので、よく使う順に並べる。
-        // アイコンは付けない（付けない場合はアプリのアイコンが出る。5 つ分の絵を持つほどの違いは出ない）。
+        // アイコンはアプリの中で同じ場所・同じ操作に使っている絵（下部ナビと追加ボタンのアイコン）。
         shortcuts: [
-          { name: 'カレンダー', short_name: 'カレンダー', url: '/calendar?view=month' },
-          { name: '予定登録', short_name: '予定', url: '/calendar?view=day&add=event' },
-          { name: 'タスク登録', short_name: 'タスク', url: '/calendar?add=task' },
-          { name: '立替登録', short_name: '立替', url: '/expenses?add=expense' },
-          { name: 'レモンの記録', short_name: 'レモン', url: '/lemon?add=lemon' },
+          shortcut('calendar', 'カレンダー', 'カレンダー', '/calendar?view=month'),
+          shortcut('event', '予定登録', '予定', '/calendar?view=day&add=event'),
+          shortcut('task', 'タスク登録', 'タスク', '/calendar?add=task'),
+          shortcut('expense', '立替登録', '立替', '/expenses?add=expense'),
+          shortcut('lemon', 'レモンの記録', 'レモン', '/lemon?add=lemon'),
         ],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

@@ -1,11 +1,19 @@
 import { mkdirSync, readFileSync } from 'node:fs';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ChecklistIcon from '@mui/icons-material/Checklist';
+import EventIcon from '@mui/icons-material/Event';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import SpaIcon from '@mui/icons-material/Spa';
 import { chromium } from '@playwright/test';
+import { type ComponentType, createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 /**
- * PWA 用の PNG を生成する。元は 2 つの SVG:
+ * PWA 用の PNG を生成する。元になるのは 2 つの SVG と、アプリが使っている MUI のアイコン:
  * - `public/icons/favicon.svg` → アプリのアイコン（192 / 512 / maskable 512 / apple-touch 180）
  * - `public/icons/badge.svg` → 通知の小さな印（96）。Android はこれを alpha だけの単色として
  *   ステータスバーに出すので、背景の板を持たない字だけの形にしてある。
+ * - `SHORTCUT_ICONS` → ショートカット（manifest の `shortcuts`。`vite.config.ts`）のアイコン（192）
  *
  * 画像ライブラリを増やさず、開発依存に既にある Playwright の Chromium でラスタライズする。
  * アイコンを変えたときだけ実行し、生成物はコミットする。
@@ -13,12 +21,29 @@ import { chromium } from '@playwright/test';
 const icon = readFileSync('public/icons/favicon.svg', 'utf8');
 const badge = readFileSync('public/icons/badge.svg', 'utf8');
 
+/** アプリのアイコンの板と同じブランドカラー（`public/icons/favicon.svg`） */
+const BRAND = '#A0148C';
+
+/**
+ * ショートカットのアイコン。アプリの中で同じ場所へ行く物・同じ物を追加する操作に使っている
+ * アイコン（下部ナビと追加ボタン）をそのまま出すので、押す前と押した後で同じ絵を見ることになる。
+ * キーは `public/icons/shortcut-<キー>-192.png` になり、manifest がこの名前で参照する。
+ */
+const SHORTCUT_ICONS: Record<string, ComponentType> = {
+  calendar: CalendarMonthIcon,
+  event: EventIcon,
+  task: ChecklistIcon,
+  expense: PaymentsIcon,
+  lemon: SpaIcon,
+};
+
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+});
+
 async function render(svg: string, size: number, padding: number, file: string): Promise<void> {
   // maskable（余白あり）は背景を塗りつぶし、それ以外は SVG の角丸を活かすため背景を透過にする
-  const background = padding > 0 ? '#A0148C' : 'transparent';
-  const browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-  });
+  const background = padding > 0 ? BRAND : 'transparent';
   const page = await browser.newPage({
     viewport: { width: size, height: size },
     deviceScaleFactor: 1,
@@ -28,7 +53,22 @@ async function render(svg: string, size: number, padding: number, file: string):
     `<body style="margin:0;background:${background}"><div style="position:absolute;inset:${padding}px;width:${inner}px;height:${inner}px">${svg}</div></body>`,
   );
   await page.locator('body').screenshot({ path: file, omitBackground: padding === 0 });
-  await browser.close();
+  await page.close();
+}
+
+/**
+ * MUI のアイコンからショートカット用の SVG を組み立てる。アプリのアイコンと同じ角丸の板の中央に、
+ * 白い絵を 64 分の 32 の大きさで置く。ランチャーが丸く切り抜いても（安全領域は中央 80%）絵は欠けない。
+ * 絵は React コンポーネントをそのまま描き出して使うので、path をここへ書き写して二重に持たない。
+ */
+function shortcutSvg(Icon: ComponentType): string {
+  const markup = renderToStaticMarkup(createElement(Icon));
+  // MUI は emotion の <style> を伴う <svg viewBox="0 0 24 24"> を返すので、中身（path）だけを取り出す
+  const glyph = markup.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="${BRAND}"/>
+  <svg x="16" y="16" width="32" height="32" viewBox="0 0 24 24" fill="#fff">${glyph}</svg>
+</svg>`;
 }
 
 mkdirSync('public/icons', { recursive: true });
@@ -38,4 +78,8 @@ await render(icon, 180, 0, 'public/icons/apple-touch-icon.png');
 // maskable は安全領域（中央 80%）に収まるよう余白を取る
 await render(icon, 512, 64, 'public/icons/icon-maskable-512.png');
 await render(badge, 96, 0, 'public/icons/badge-96.png');
+for (const [kind, Icon] of Object.entries(SHORTCUT_ICONS)) {
+  await render(shortcutSvg(Icon), 192, 0, `public/icons/shortcut-${kind}-192.png`);
+}
+await browser.close();
 console.log('icons generated');
