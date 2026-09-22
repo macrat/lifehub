@@ -24,6 +24,8 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている予定の範囲（時間指定のものだけここに出す） */
   draft: EventDraft | null;
+  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  draftUserId: string | null;
   /** 空いている所をなぞって時間帯を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
 };
@@ -44,6 +46,7 @@ export function TimeGrid({
   gutterWidth,
   onSelectItem,
   draft,
+  draftUserId,
   onChangeDraft,
 }: Props) {
   const colorFor = useUserColor();
@@ -135,7 +138,7 @@ export function TimeGrid({
                 key={p.key}
                 placed={p}
                 hourHeight={hourHeight}
-                colors={colorFor(colorUserOf(p.item))}
+                colors={colorFor(colorUserOf(p.item.participantIds))}
                 onClick={() => onSelectItem(p.item)}
               />
             ))}
@@ -152,6 +155,7 @@ export function TimeGrid({
             draft={timedDraft}
             column={draftCol + 1}
             hourHeight={hourHeight}
+            colors={colorFor(draftUserId)}
             grab={
               compact
                 ? {

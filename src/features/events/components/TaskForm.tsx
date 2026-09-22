@@ -35,7 +35,7 @@ export function TaskForm({ initial, scope, onSubmit, onClose }: Props) {
       title="タスクを追加"
       onSubmit={handleSubmit}
     >
-      <TaskFormFields initial={initial} errors={errors} thisOnly={thisOnly} />
+      <TaskFormFields initial={initial} errors={errors} thisOnly={thisOnly} autoFocus />
     </RecordSheet>
   );
 }
