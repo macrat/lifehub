@@ -1,7 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
@@ -115,7 +115,7 @@ function FeedItem({
                 onRevoke();
             }}
           >
-            <LinkOffIcon />
+            <DeleteIcon />
           </IconButton>
         </Stack>
       }
