@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 import { type ComponentType, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ADD_KINDS } from '../src/features/calendar/add-kinds.ts';
+import { ADD_KINDS } from '../src/features/add/kinds.ts';
 import { SHORTCUTS, type ShortcutKind, shortcutIconSrc } from '../src/lib/shortcuts.ts';
 import { calendarNavItem } from '../src/lib/ui/navigation.ts';
 

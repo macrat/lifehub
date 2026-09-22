@@ -7,7 +7,7 @@ import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
 import { useAddExpense } from '../../expenses/queries.ts';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import { useLogCare } from '../../lemon/queries.ts';
-import type { AddFormKind } from '../add-kinds.ts';
+import type { AddFormKind } from '../kinds.ts';
 
 type Props = {
   kind: AddFormKind;

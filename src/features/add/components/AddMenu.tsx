@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { today } from '../../../lib/date.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { ADD_KINDS, type AddFormKind, type AddKind } from '../add-kinds.ts';
+import { ADD_KINDS, type AddFormKind, type AddKind } from '../kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;

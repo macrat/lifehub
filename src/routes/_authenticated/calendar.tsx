@@ -1,9 +1,9 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import type { AddFormKind } from '../../features/calendar/add-kinds.ts';
-import { AddForm } from '../../features/calendar/components/AddForm.tsx';
-import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
+import { AddForm } from '../../features/add/components/AddForm.tsx';
+import { AddMenu } from '../../features/add/components/AddMenu.tsx';
+import type { AddFormKind } from '../../features/add/kinds.ts';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
