@@ -12,6 +12,7 @@ import {
   useUpdateUser,
 } from '../../features/users/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
@@ -27,6 +28,7 @@ function AdminUsersPage() {
 
   return (
     <>
+      <NoPullToRefresh />
       <AppBarContent>
         <Button
           color="inherit"

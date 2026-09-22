@@ -182,10 +182,10 @@ e2e/                          # Playwright
 - `view-transition-name` は文書の中で一意でなければならず、重複すると遷移そのものが行われない。同じ項目が複数描かれる所（複数日の予定、スワイプの控えの面）の扱いは [features/calendar.md](features/calendar.md) と `src/lib/theme.ts` を参照。
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。OS の UI と同じ字面になり、待ち時間も文字の入れ替わりも起きない。
 - **ブラウザではなくアプリとして触れるようにする**（`src/lib/theme.ts` の `MuiCssBaseline`）。すべて `body` / `html` に 1 か所だけ置き、個々の部品には書かない:
-  - `overscroll-behavior: contain`（`html`）: 端まで動かしてもスクロールが親へ連鎖せず、引っ張って更新（Android）も起きない。
   - `touch-action: manipulation`: 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残すので、読めない人が拡大する手は塞がない。
   - `-webkit-tap-highlight-color: transparent`: 押したときの灰色の四角を出さない。押した手応えは MUI の ripple が示す。
   - `user-select: none` と `-webkit-touch-callout: none`: 長押ししても文字が選ばれたり、画像・リンクのメニューが出たりしない。選んで写せるのは入力欄（`input, textarea`）だけにする。読むだけの画面の文字も、鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
+- 引っ張って更新（Android）は残す。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面が `NoPullToRefresh`（`src/lib/ui/NoPullToRefresh.tsx`）を置き、`html:has([data-no-pull-to-refresh])` で `overscroll-behavior-y: contain` を当てる。画面の側から `html` の見た目を変える手段は CSS には無いので目印を探す形にしてあり、置いてある間だけ効くので後片付けが要らない（画面を移れば自分で消え、移る途中で前後の画面が同時に在っても取り違えない）。
 
 ## PWA
 

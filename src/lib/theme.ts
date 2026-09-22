@@ -38,9 +38,10 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          // ページの端でのスクロールの連鎖を断つ。引っ張って更新（Android）が起きず、
-          // シートや一覧を端まで動かしてもページごと動かない。
-          html: { overscrollBehavior: 'contain' },
+          // 引っ張って更新（Android）は残す。一覧やカレンダーを最新にする手段になるため。
+          // 出したくない画面（NoPullToRefresh を置いた画面）でだけ止める。
+          // 画面の側から html の見た目を変える手段は CSS には無いので、目印を探して当てる。
+          'html:has([data-no-pull-to-refresh])': { overscrollBehaviorY: 'contain' },
           body: {
             // 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残す
             touchAction: 'manipulation',

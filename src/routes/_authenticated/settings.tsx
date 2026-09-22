@@ -12,6 +12,7 @@ import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
+import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -26,6 +27,7 @@ function SettingsPage() {
   const logout = useLogout();
   return (
     <>
+      <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
       <List
