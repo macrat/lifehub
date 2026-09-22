@@ -98,11 +98,11 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft
 }
 
 /**
- * 下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 時間指定の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
  * 15 分の枠に吸着するたびに震わせ、正時だけ短くして時間の区切りが指で分かるようにする。
  * 見るのは開始 → 終了の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
  */
-export function snapVibration(previous: TimedDraft, draft: TimedDraft): number | null {
+export function timeVibration(previous: TimedDraft, draft: TimedDraft): number | null {
   if (draft.startMin !== previous.startMin) return vibrationFor(draft.startMin);
   if (draft.endMin !== previous.endMin) return vibrationFor(draft.endMin);
   return null;
@@ -111,19 +111,10 @@ export function snapVibration(previous: TimedDraft, draft: TimedDraft): number |
 const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
 
 /**
- * 終日の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
- * 日をまたいで端が変わるたびに震わせ、いくつ先の日まで選んでいるかを数えられるようにする。
- */
-export function dayVibration(previous: AllDayDraft, draft: AllDayDraft): number | null {
-  const same = draft.from === previous.from && draft.to === previous.to;
-  return same ? null : DAY_VIBRATION_MS;
-}
-
-/**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
  */
-export function defaultDraft(date: DateString, now: Date = new Date()): EventDraft {
+export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
   const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
@@ -133,6 +124,15 @@ export function defaultDraft(date: DateString, now: Date = new Date()): EventDra
 export function dayDraft(anchor: DateString, current: DateString): AllDayDraft {
   const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];
   return { allDay: true, from, to };
+}
+
+/**
+ * 終日の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 日をまたいで端が変わるたびに震わせ、いくつ先の日まで選んでいるかを数えられるようにする。
+ */
+export function dayVibration(previous: AllDayDraft, draft: AllDayDraft): number | null {
+  const moved = draft.from !== previous.from || draft.to !== previous.to;
+  return moved ? DAY_VIBRATION_MS : null;
 }
 
 /**

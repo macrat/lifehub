@@ -6,11 +6,11 @@ import {
   defaultDraft,
   draftColumns,
   draftText,
-  snapVibration,
   type TimedDraft,
   type TimeGrab,
   type TimePoint,
   timeDraft,
+  timeVibration,
 } from '../draft.ts';
 
 const DAY = '2031-06-05' as DateString;
@@ -253,7 +253,7 @@ describe('defaultDraft', () => {
   });
 });
 
-describe('snapVibration', () => {
+describe('timeVibration', () => {
   const draft = (startMin: number, endMin: number): TimedDraft => ({
     allDay: false,
     date: DAY,
@@ -262,22 +262,22 @@ describe('snapVibration', () => {
   });
 
   it('動いていなければ震わせない', () => {
-    expect(snapVibration(draft(540, 600), draft(540, 600))).toBeNull();
+    expect(timeVibration(draft(540, 600), draft(540, 600))).toBeNull();
   });
 
   it('開始が正時になったら短く、15 分刻みなら長く震わせる', () => {
-    expect(snapVibration(draft(555, 600), draft(540, 600))).toBe(10);
-    expect(snapVibration(draft(540, 600), draft(555, 600))).toBe(50);
+    expect(timeVibration(draft(555, 600), draft(540, 600))).toBe(10);
+    expect(timeVibration(draft(540, 600), draft(555, 600))).toBe(50);
   });
 
   it('終了が動いたときは終了時刻で決まる', () => {
-    expect(snapVibration(draft(540, 615), draft(540, 600))).toBe(10);
-    expect(snapVibration(draft(540, 600), draft(540, 615))).toBe(50);
+    expect(timeVibration(draft(540, 615), draft(540, 600))).toBe(10);
+    expect(timeVibration(draft(540, 600), draft(540, 615))).toBe(50);
   });
 
   it('枠ごと動いて両方変わるときは開始時刻が基準', () => {
-    expect(snapVibration(draft(540, 615), draft(555, 630))).toBe(50);
-    expect(snapVibration(draft(555, 630), draft(600, 675))).toBe(10);
+    expect(timeVibration(draft(540, 615), draft(555, 630))).toBe(50);
+    expect(timeVibration(draft(555, 630), draft(600, 675))).toBe(10);
   });
 });
 

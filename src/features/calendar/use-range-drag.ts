@@ -69,7 +69,7 @@ export function useRangeDrag<P, G, R>({
    */
   const emit = (d: DragState<P, G, R>, done: boolean) => {
     const range = rangeOf(d);
-    const ms = d.emitted && vibration?.(d.emitted.range, range);
+    const ms = d.emitted ? vibration?.(d.emitted.range, range) : null;
     // Vibration API の無いブラウザ（iOS）では何も起こらない
     if (ms) navigator.vibrate?.(ms);
     d.emitted = { range };
