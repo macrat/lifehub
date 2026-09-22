@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime } from '../../../lib/date.ts';
 import {
   COMPLETED_ROW_SX,
@@ -34,7 +34,7 @@ export function ItemCard({ item, onClick }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
   const colors = colorFor(colorUserOf(item.participantIds));

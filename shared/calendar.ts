@@ -101,6 +101,14 @@ export function taskTimeOnPlacementDate(
   return time && toDateString(new Date(time.at)) === task.placementDate ? time : null;
 }
 
+/**
+ * 完了したタスクか。予定には完了が無いので常に false。
+ * 打ち消し線とチェック印、リストの絞り込み、月グリッドの並びが同じ規則を見るよう、ここ 1 か所に置く。
+ */
+export function isCompletedTask(item: CalendarItem): boolean {
+  return item.kind === 'task' && item.completedAt !== null;
+}
+
 /** 発生を [from, to] の暦日に置く（範囲に掛からなければ空）。予定は掛かる日ごとに 1 件 */
 export function placeOccurrence(
   occurrence: Occurrence,

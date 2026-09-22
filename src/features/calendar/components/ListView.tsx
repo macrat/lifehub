@@ -2,6 +2,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { matchesKeyword } from '../../../lib/search.ts';
@@ -125,7 +126,7 @@ function dateOrDefault(value: string): DateString | undefined {
 function matches(item: CalendarItem, f: ListFilters): boolean {
   if (f.kind !== 'all' && item.kind !== f.kind) return false;
   if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
-  if (f.completed === 'open' && item.kind === 'task' && item.completedAt !== null) return false;
-  if (f.completed === 'done' && (item.kind !== 'task' || item.completedAt === null)) return false;
+  if (f.completed === 'open' && isCompletedTask(item)) return false;
+  if (f.completed === 'done' && !isCompletedTask(item)) return false;
   return matchesKeyword(f.q, item.title, item.location, item.note);
 }
