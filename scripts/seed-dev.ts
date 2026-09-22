@@ -156,6 +156,10 @@ await expenses.addExpense(
 );
 
 await lemon.logCare(
+  { careTypes: ['harvest'], doneAt: dayAt(-60, 10), note: '黄色くなった実を3個' },
+  me.id,
+);
+await lemon.logCare(
   { careTypes: ['mist', 'water', 'fertilize'], doneAt: dayAt(-20, 9), note: '緩効性肥料' },
   me.id,
 );
