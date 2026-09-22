@@ -27,6 +27,9 @@ export type EventDraft =
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = EventDraft & { allDay: false };
 
+/** 終日の下書き（月表示・終日欄に出す帯） */
+export type AllDayDraft = EventDraft & { allDay: true };
+
 /** 時間軸の 1 点（日と、その日の 0:00 からの分） */
 export type TimePoint = { date: DateString; min: number };
 
@@ -42,6 +45,11 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
+/** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
+const HOUR_VIBRATION_MS = 10;
+const STEP_VIBRATION_MS = 50;
+/** 終日の下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類だけなので正時と同じ */
+const DAY_VIBRATION_MS = 10;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -52,7 +60,7 @@ const TAP_MINUTES = 60;
  * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。こちらは指の下の列の日に移るので、
  * 週表示では左右に動かして別の日へ持っていける（日表示は列が 1 つなので日が変わらない）。
  */
-export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): EventDraft {
+export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): TimedDraft {
   if (grab === null) return selectDraft(from, to, moved);
   // つまんだだけ（動かしていない）なら触らない。押した所に枠が飛ばないようにする
   if (!moved) return grab.draft;
@@ -75,7 +83,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 
 /** 空いている所をなぞって選ぶ範囲。触れた 15 分の枠をすべて含める */
-function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft {
+function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft {
   const slotAt = (min: number) => clamp(Math.floor(min / STEP_MINUTES), 0, SLOTS_PER_DAY - 1);
   const fromSlot = slotAt(from.min);
   const toSlot = moved ? slotAt(to.min) : fromSlot;
@@ -90,19 +98,41 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft
 }
 
 /**
+ * 時間指定の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 15 分の枠に吸着するたびに震わせ、正時だけ短くして時間の区切りが指で分かるようにする。
+ * 見るのは開始 → 終了の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
+ */
+export function timeVibration(previous: TimedDraft, draft: TimedDraft): number | null {
+  if (draft.startMin !== previous.startMin) return vibrationFor(draft.startMin);
+  if (draft.endMin !== previous.endMin) return vibrationFor(draft.endMin);
+  return null;
+}
+
+const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
+
+/**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
  */
-export function defaultDraft(date: DateString, now: Date = new Date()): EventDraft {
+export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
   const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
 }
 
 /** 日の 2 点 → 終日の下書き（両端を含む。どちら向きに選んでも同じ） */
-export function dayDraft(anchor: DateString, current: DateString): EventDraft {
+export function dayDraft(anchor: DateString, current: DateString): AllDayDraft {
   const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];
   return { allDay: true, from, to };
+}
+
+/**
+ * 終日の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 日をまたいで端が変わるたびに震わせ、いくつ先の日まで選んでいるかを数えられるようにする。
+ */
+export function dayVibration(previous: AllDayDraft, draft: AllDayDraft): number | null {
+  const moved = draft.from !== previous.from || draft.to !== previous.to;
+  return moved ? DAY_VIBRATION_MS : null;
 }
 
 /**

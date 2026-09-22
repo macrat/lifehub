@@ -6,6 +6,7 @@ import {
   type TimeGrab,
   type TimePoint,
   timeDraft,
+  timeVibration,
 } from './draft.ts';
 import { useRangeDrag } from './use-range-drag.ts';
 
@@ -20,6 +21,7 @@ function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
  * 日は指の下にある列、分はその列の上端からの px で求める（列はどれも上端が同じ）。
  * 列を掴んだ要素からではなく位置から引くので、枠をつまんだまま隣の日へ持っていける。
  * 探すのは同じ時間軸の列だけで、その外（終日欄・別の面）の日は拾わない。
+ * 15 分に吸着して時刻が変わるたび、その時刻に応じた長さで震わせる（`timeVibration`）。
  */
 export function useTimeDrag({
   hourHeight,
@@ -36,10 +38,11 @@ export function useTimeDrag({
     const y = event.clientY - column.getBoundingClientRect().top;
     return { date, min: (y / hourHeight) * 60 };
   };
-  const drag = useRangeDrag<TimePoint, TimeGrab, EventDraft>({
+  const drag = useRangeDrag<TimePoint, TimeGrab, TimedDraft>({
     locate,
     rangeOf: timeDraft,
     onChange,
+    vibration: timeVibration,
   });
   return {
     props: drag.props,

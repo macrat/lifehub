@@ -4,7 +4,7 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
-import type { draftColumns, EventDraft, TimedDraft } from '../draft.ts';
+import type { AllDayDraft, draftColumns, TimedDraft } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
 /** つまむ丸の大きさ（px）。枠の上下の線には重ねて置き、左右は枠の内側に入れる */
@@ -104,7 +104,7 @@ export function DraftBar({
   colors,
   handleProps,
 }: {
-  draft: EventDraft & { allDay: true };
+  draft: AllDayDraft;
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
