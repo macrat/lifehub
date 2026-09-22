@@ -95,7 +95,7 @@ function CareTypeIcons({ careTypes }: { careTypes: CareType[] }) {
           // 薄い点を置いて「ここにも何かが来ることがある」列だと分かるようにする
           <Box
             key={careType}
-            sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'action.disabled' }}
+            sx={{ width: 2, height: 2, borderRadius: '50%', bgcolor: 'action.disabled' }}
           />
         );
       })}
