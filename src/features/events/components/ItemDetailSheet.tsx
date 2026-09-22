@@ -135,7 +135,12 @@ export function ItemDetailSheet({ item, onClose }: Props) {
               />
             )}
             {isTask ? (
-              <TaskFormFields initial={values} errors={form.errors} thisOnly={form.thisOnly} />
+              <TaskFormFields
+                initial={values}
+                errors={form.errors}
+                thisOnly={form.thisOnly}
+                autoFocus={false}
+              />
             ) : (
               <EventFormFields
                 initial={values}

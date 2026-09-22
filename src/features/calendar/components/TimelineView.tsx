@@ -31,6 +31,8 @@ type Props = {
   onSelectDate?: (date: DateString) => void;
   /** 追加しようとしている予定の範囲（終日欄と時間軸に出す） */
   draft: EventDraft | null;
+  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  draftUserId: string | null;
   /** 空いている所をなぞって範囲を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
@@ -52,6 +54,7 @@ export function TimelineView({
   onSelectItem,
   onSelectDate,
   draft,
+  draftUserId,
   onChangeDraft,
   height,
 }: Props) {
@@ -167,7 +170,7 @@ export function TimelineView({
             placed={{ ...p, col: p.col + 1 }}
             compact={compact}
             showTime={false}
-            colors={colorFor(colorUserOf(p.item))}
+            colors={colorFor(colorUserOf(p.item.participantIds))}
             onClick={() => onSelectItem(p.item)}
           />
         ))}
@@ -176,6 +179,7 @@ export function TimelineView({
             draft={draft}
             columns={{ ...draftCols, col: draftCols.col + 1 }}
             lane={laneCount}
+            colors={colorFor(draftUserId)}
             handleProps={compact ? dayDrag.handleProps : null}
           />
         )}
@@ -188,6 +192,7 @@ export function TimelineView({
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
         draft={draft}
+        draftUserId={draftUserId}
         onChangeDraft={onChangeDraft}
       />
     </Box>

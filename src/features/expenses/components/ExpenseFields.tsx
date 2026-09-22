@@ -90,7 +90,6 @@ export function ExpenseFields({ initial, amount, onChangeAmount, errors }: Props
         }}
         error={Boolean(errors.amount)}
         helperText={errors.amount}
-        autoFocus
         fullWidth
       />
       <Calculator onPress={(key) => onChangeAmount(pressKey(amount, key))} />

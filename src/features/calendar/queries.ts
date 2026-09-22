@@ -79,9 +79,12 @@ export function useRefreshCalendarItems() {
   }, [queryClient]);
 }
 
-/** 項目の色を決めるユーザー: 参加者が 1 人ならその人、複数ならアプリ既定の色（null） */
-export function colorUserOf(item: CalendarItem): string | null {
-  return item.participantIds.length === 1 ? (item.participantIds[0] ?? null) : null;
+/**
+ * 色を決めるユーザー: 参加者が 1 人ならその人、そうでなければ共有の無彩色（null）。
+ * 保存済みの項目と、まだ保存していない下書きの枠で同じ規則を使う。
+ */
+export function colorUserOf(participantIds: string[]): string | null {
+  return participantIds.length === 1 ? (participantIds[0] ?? null) : null;
 }
 
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
