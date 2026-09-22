@@ -1,34 +1,31 @@
+import { useTransition } from 'react';
+
 /**
  * 最新版に入れ替えて起動し直す。
  *
  * インストールした PWA はアプリシェルを Service Worker の precache から起動するため、
- * 再読み込みだけでは版が変わらない（新版の取得は次の起動を待つ）。
- * そこで Service Worker を取り直し、新版が有効になってから読み込み直す。
+ * 再読み込みだけでは版が変わらない（新版に切り替わるのは次の起動）。
+ * そこで Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で
+ * registerSW（autoUpdate。`src/main.tsx`）が読み込み直すので、ここでは何もしない。
+ *
+ * 登録の取得に `navigator.serviceWorker.ready` を使わないのは、Service Worker を登録しない
+ * 開発サーバー（`vite.config.ts` の `devOptions`）では永久に解決しないため。
  */
-export async function updateApp(): Promise<void> {
+async function updateApp(): Promise<void> {
   try {
     const registration = await navigator.serviceWorker.getRegistration();
     await registration?.update();
-    const pending = registration?.installing ?? registration?.waiting;
-    if (pending) await whenSettled(pending);
+    if (registration?.installing ?? registration?.waiting) return;
   } catch {
     // 取りに行けなくても（オフライン、Service Worker が無い開発サーバー）読み込み直す。
     // 「押したのに何も起きない」を作らないため、ここで止めない。
   }
+  // 新版が無ければ、ただの再読み込みで終わる。
   location.reload();
 }
 
-/**
- * Service Worker が有効（または破棄）になるまで待つ。
- * 有効になった時点から次の読み込みを新版が処理する（`src/sw.ts` の `skipWaiting`）。
- */
-function whenSettled(worker: ServiceWorker): Promise<void> {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (worker.state === 'activated' || worker.state === 'redundant') resolve();
-    };
-    worker.addEventListener('statechange', check);
-    // 待ち始めるまでに済んでいることがある
-    check();
-  });
+/** 更新ボタン。取りに行っている間は `updating` が立つ（押しても暫く画面が変わらないため） */
+export function useUpdateApp(): { updating: boolean; update: () => void } {
+  const [updating, startUpdate] = useTransition();
+  return { updating, update: () => startUpdate(updateApp) };
 }

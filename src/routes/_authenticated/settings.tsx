@@ -10,12 +10,11 @@ import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useTransition } from 'react';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
-import { updateApp } from '../../lib/update.ts';
+import { useUpdateApp } from '../../lib/update.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -67,12 +66,10 @@ function SettingsPage() {
 /**
  * バージョン。バグに出くわしたとき、どのビルドを見ているかを言えるようにする。
  * コミットは先頭 7 桁だけ出す（このリポジトリで一意に定まり、読み上げも写しもできる長さ）。
- *
- * 右の更新ボタンは、表示中の版が古いと分かったときの逃げ道。インストールした PWA は
- * precache から起動するため、再読み込みでは版が変わらない（`src/lib/update.ts`）。
+ * 右の更新ボタンは、表示中の版が古いと分かったときの逃げ道（`src/lib/update.ts`）。
  */
 function VersionSection() {
-  const [updating, startUpdate] = useTransition();
+  const { updating, update } = useUpdateApp();
   return (
     <List
       subheader={
@@ -83,12 +80,7 @@ function VersionSection() {
     >
       <ListItem
         secondaryAction={
-          <IconButton
-            edge="end"
-            aria-label="最新版に更新"
-            loading={updating}
-            onClick={() => startUpdate(updateApp)}
-          >
+          <IconButton edge="end" aria-label="最新版に更新" loading={updating} onClick={update}>
             <RefreshIcon />
           </IconButton>
         }
