@@ -52,12 +52,7 @@ function ExpensesPage() {
   const [selected, setSelected] = useState<Expense | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
-  // PWA のショートカットから来たら入力を開く
-  useAddShortcut(
-    search.add,
-    () => setAdding(true),
-    () => setFilters({ add: undefined }),
-  );
+  useAddShortcut(search.add, () => setAdding(true));
 
   return (
     <>

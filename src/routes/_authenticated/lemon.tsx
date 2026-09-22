@@ -49,12 +49,7 @@ function LemonPage() {
   const [selected, setSelected] = useState<CareLog | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
-  // PWA のショートカットから来たら、追加ボタンと同じ既定の項目で入力を開く
-  useAddShortcut(
-    search.add,
-    () => setAdding(DEFAULT_CARE_TYPES),
-    () => setFilters({ add: undefined }),
-  );
+  useAddShortcut(search.add, () => setAdding(DEFAULT_CARE_TYPES));
 
   return (
     <>

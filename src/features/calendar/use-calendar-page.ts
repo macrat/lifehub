@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { addSearchSchema } from '../../lib/add-shortcut.ts';
 import {
   addDays,
   addMonths,
@@ -23,12 +24,8 @@ import { useHourZoom } from './use-hour-zoom.ts';
 export const calendarSearchSchema = z.object({
   view: z.enum(['month', 'week', 'day', 'list']).default('month'),
   date: dateStringSchema.optional(),
-  /**
-   * 追加ボタンや PWA のショートカットから来たしるし（`src/lib/add-shortcut.ts`）。
-   * 予定は日表示に既定の時間帯の下書きを置いて入力を開き、タスクはその場でフォームを開く。
-   * 開いたらすぐ消す（開いている物は画面の状態で、URL に残すものではない）。
-   */
-  add: z.enum(['event', 'task']).optional(),
+  /** 予定は日表示に既定の時間帯の下書きを置いて開き、タスクはその場でフォームを開く */
+  add: addSearchSchema('event', 'task'),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),

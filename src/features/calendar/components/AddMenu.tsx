@@ -1,8 +1,4 @@
 import AddIcon from '@mui/icons-material/Add';
-import ChecklistIcon from '@mui/icons-material/Checklist';
-import EventIcon from '@mui/icons-material/Event';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import SpaIcon from '@mui/icons-material/Spa';
 import Backdrop from '@mui/material/Backdrop';
 import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
@@ -13,17 +9,7 @@ import { useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { today } from '../../../lib/date.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { AddForm, type AddFormKind } from './AddForm.tsx';
-
-/** 予定はカレンダーへ送って下書きを置き、それ以外はその場でフォームが開く（`AddForm`） */
-export type AddKind = 'event' | AddFormKind;
-
-const ACTIONS: Record<AddKind, { label: string; icon: typeof EventIcon }> = {
-  event: { label: '予定', icon: EventIcon },
-  task: { label: 'タスク', icon: ChecklistIcon },
-  expense: { label: '立替', icon: PaymentsIcon },
-  lemon: { label: 'レモン', icon: SpaIcon },
-};
+import { ADD_KINDS, type AddFormKind, type AddKind } from '../add-kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
@@ -71,25 +57,25 @@ type Props = {
   kinds: AddKind[];
   /** 予定の初期日付（時刻は今の次の正時）。無ければ今日。タスクは日時なしで開く */
   date?: DateString;
+  /** 選ばれた種類。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
+  onSelect: (kind: AddFormKind) => void;
 };
 
 /**
- * 右下の追加ボタン。選んだ種類のフォームをその場で開く。ホームは 4 種、カレンダーは予定・タスクだけ。
- * 予定だけは、選んだ時間帯を見ながら入れたいので、その日の日表示へ送ってそこで下書きを置く
- * （グリッドをなぞって作るのと同じ流れに合流する。カレンダー画面の `add` パラメータ）。
+ * 右下の追加ボタン。選ばれた種類を画面に伝えるだけで、フォームは画面が出す。ホームは 4 種、
+ * カレンダーは予定・タスクだけ。予定だけは、選んだ時間帯を見ながら入れたいので、その日の日表示へ
+ * 送ってそこで下書きを置く（グリッドをなぞって作るのと同じ流れに合流する。カレンダー画面の `add`）。
  *
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
-export function AddMenu({ kinds, date }: Props) {
+export function AddMenu({ kinds, date, onSelect }: Props) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [form, setForm] = useState<AddFormKind | null>(null);
-  const close = () => setForm(null);
   const collapse = () => setExpanded(false);
   const open = (kind: AddKind) => {
     collapse();
-    if (kind !== 'event') return setForm(kind);
+    if (kind !== 'event') return onSelect(kind);
     navigate({
       to: '/calendar',
       search: { view: 'day', date: date ?? today(), add: 'event' },
@@ -111,7 +97,7 @@ export function AddMenu({ kinds, date }: Props) {
         sx={MENU_SX}
       >
         {kinds.map((kind) => {
-          const { label, icon: Icon } = ACTIONS[kind];
+          const { label, icon: Icon } = ADD_KINDS[kind];
           return (
             <SpeedDialAction
               key={kind}
@@ -127,7 +113,6 @@ export function AddMenu({ kinds, date }: Props) {
           );
         })}
       </SpeedDial>
-      {form && <AddForm kind={form} onClose={close} />}
     </>
   );
 }

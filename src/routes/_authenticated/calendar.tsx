@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
+import type { AddFormKind } from '../../features/calendar/add-kinds.ts';
 import { AddForm } from '../../features/calendar/components/AddForm.tsx';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { CalendarPane } from '../../features/calendar/components/CalendarPane.tsx';
@@ -86,7 +87,8 @@ function CalendarPage() {
     values: ItemFormValues;
     item: CalendarItem | null;
   } | null>(null);
-  const [addingTask, setAddingTask] = useState(false);
+  // 追加ボタンとショートカットのどちらから来ても、開いている入力はこの 1 つ
+  const [adding, setAdding] = useState<AddFormKind | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
@@ -121,20 +123,17 @@ function CalendarPage() {
   };
 
   // 追加ボタンや PWA のショートカットから来たときの入り口。予定はその日の既定の時間帯を枠にして
-  // 全項目の段から始め、タスクは日時なしのフォームをその場で開く
-  useAddShortcut(
-    search.add,
-    (kind) =>
-      kind === 'task'
-        ? setAddingTask(true)
-        : setDraft({
-            range: defaultDraft(page.date),
-            item: null,
-            participantIds: defaultParticipants(meId),
-            editing: true,
-            detent: 'full',
-          }),
-    () => page.setSearch({ add: undefined }, { replace: true }),
+  // 全項目の段から始め、タスクは追加ボタンと同じ日時なしのフォームを開く
+  useAddShortcut(search.add, (kind) =>
+    kind === 'task'
+      ? setAdding('task')
+      : setDraft({
+          range: defaultDraft(page.date),
+          item: null,
+          participantIds: defaultParticipants(meId),
+          editing: true,
+          detent: 'full',
+        }),
   );
 
   return (
@@ -200,9 +199,9 @@ function CalendarPage() {
       )}
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
-      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
+      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} onSelect={setAdding} />}
       {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
-      {addingTask && <AddForm kind="task" onClose={() => setAddingTask(false)} />}
+      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
       {draft && (
         <QuickEventForm
           draft={draft.range}

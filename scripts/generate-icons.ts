@@ -1,19 +1,18 @@
 import { mkdirSync, readFileSync } from 'node:fs';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import ChecklistIcon from '@mui/icons-material/Checklist';
-import EventIcon from '@mui/icons-material/Event';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import SpaIcon from '@mui/icons-material/Spa';
 import { chromium } from '@playwright/test';
 import { type ComponentType, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { ADD_KINDS } from '../src/features/calendar/add-kinds.ts';
+import { type ShortcutKind, shortcutIconSrc } from '../src/lib/shortcuts.ts';
+import { primaryNavItems } from '../src/lib/ui/navigation.ts';
 
 /**
  * PWA 用の PNG を生成する。元になるのは 2 つの SVG と、アプリが使っている MUI のアイコン:
  * - `public/icons/favicon.svg` → アプリのアイコン（192 / 512 / maskable 512 / apple-touch 180）
  * - `public/icons/badge.svg` → 通知の小さな印（96）。Android はこれを alpha だけの単色として
  *   ステータスバーに出すので、背景の板を持たない字だけの形にしてある。
- * - `SHORTCUT_ICONS` → ショートカット（manifest の `shortcuts`。`vite.config.ts`）のアイコン（192）
+ * - `SHORTCUT_ICONS` → ショートカット（manifest の `shortcuts`。`vite.config.ts`）のアイコン（192）。
+ *   絵はアプリが使っている MUI のアイコンそのもので、名前は `src/lib/shortcuts.ts` が決める。
  *
  * 画像ライブラリを増やさず、開発依存に既にある Playwright の Chromium でラスタライズする。
  * アイコンを変えたときだけ実行し、生成物はコミットする。
@@ -25,16 +24,19 @@ const badge = readFileSync('public/icons/badge.svg', 'utf8');
 const BRAND = '#A0148C';
 
 /**
- * ショートカットのアイコン。アプリの中で同じ場所へ行く物・同じ物を追加する操作に使っている
- * アイコン（下部ナビと追加ボタン）をそのまま出すので、押す前と押した後で同じ絵を見ることになる。
- * キーは `public/icons/shortcut-<キー>-192.png` になり、manifest がこの名前で参照する。
+ * ショートカットのアイコン。アプリの中で同じ場所へ行く物（下部ナビ）・同じ物を追加する操作
+ * （追加ボタン）に使っているアイコンをそのまま読むので、押す前と押した後で同じ絵を見ることになり、
+ * アプリ側のアイコンを変えれば生成し直すだけで揃う。
  */
-const SHORTCUT_ICONS: Record<string, ComponentType> = {
-  calendar: CalendarMonthIcon,
-  event: EventIcon,
-  task: ChecklistIcon,
-  expense: PaymentsIcon,
-  lemon: SpaIcon,
+const calendarNavItem = primaryNavItems.find((item) => item.to === '/calendar');
+if (!calendarNavItem) throw new Error('カレンダーのナビ項目が見つからない');
+
+const SHORTCUT_ICONS: Record<ShortcutKind, ComponentType> = {
+  calendar: calendarNavItem.icon,
+  event: ADD_KINDS.event.icon,
+  task: ADD_KINDS.task.icon,
+  expense: ADD_KINDS.expense.icon,
+  lemon: ADD_KINDS.lemon.icon,
 };
 
 const browser = await chromium.launch({
@@ -79,7 +81,7 @@ await render(icon, 180, 0, 'public/icons/apple-touch-icon.png');
 await render(icon, 512, 64, 'public/icons/icon-maskable-512.png');
 await render(badge, 96, 0, 'public/icons/badge-96.png');
 for (const [kind, Icon] of Object.entries(SHORTCUT_ICONS)) {
-  await render(shortcutSvg(Icon), 192, 0, `public/icons/shortcut-${kind}-192.png`);
+  await render(shortcutSvg(Icon), 192, 0, `public${shortcutIconSrc(kind as ShortcutKind)}`);
 }
 await browser.close();
 console.log('icons generated');

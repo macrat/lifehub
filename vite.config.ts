@@ -4,6 +4,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { buildInfoDefine } from './build-info.ts';
 import { SURFACE } from './shared/color.ts';
+import { type ShortcutKind, shortcutIconSrc } from './src/lib/shortcuts.ts';
 
 /**
  * ステータスバー（スマホ）やタイトルバー（PC）に使う色を index.html に注入する。
@@ -24,16 +25,13 @@ function themeColorMeta(): Plugin {
   };
 }
 
-/**
- * ショートカット 1 つ分（manifest の `shortcuts`）。アイコンは種類から決まる名前で参照する
- * （`scripts/generate-icons.ts` の `SHORTCUT_ICONS` が同じ名前で書き出す）。
- */
-function shortcut(kind: string, name: string, shortName: string, url: string) {
+/** ショートカット 1 つ分（manifest の `shortcuts`）。アイコンは種類から決まる（`src/lib/shortcuts.ts`） */
+function shortcut(kind: ShortcutKind, name: string, shortName: string, url: string) {
   return {
     name,
     short_name: shortName,
     url,
-    icons: [{ src: `/icons/shortcut-${kind}-192.png`, sizes: '192x192', type: 'image/png' }],
+    icons: [{ src: shortcutIconSrc(kind), sizes: '192x192', type: 'image/png' }],
   };
 }
 

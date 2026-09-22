@@ -7,6 +7,9 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { useState } from 'react';
+import type { AddFormKind } from '../../features/calendar/add-kinds.ts';
+import { AddForm } from '../../features/calendar/components/AddForm.tsx';
 import { AddMenu } from '../../features/calendar/components/AddMenu.tsx';
 import { BalanceCard } from '../../features/dashboard/cards/BalanceCard.tsx';
 import { LemonCard } from '../../features/dashboard/cards/LemonCard.tsx';
@@ -23,6 +26,7 @@ export const Route = createFileRoute('/_authenticated/')({
 /** ホーム。各機能のカードを並べる（それぞれが自分の機能のクエリを読む）。スマホでは末尾に設定への入口を置く。 */
 function HomePage() {
   const isDesktop = useIsDesktop();
+  const [adding, setAdding] = useState<AddFormKind | null>(null);
   return (
     <>
       <AppBarContent>
@@ -47,7 +51,8 @@ function HomePage() {
           </List>
         )}
       </Stack>
-      <AddMenu kinds={['lemon', 'expense', 'task', 'event']} />
+      <AddMenu kinds={['lemon', 'expense', 'task', 'event']} onSelect={setAdding} />
+      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
     </>
   );
 }

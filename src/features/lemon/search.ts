@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { toDateString } from '../../../shared/date.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { CARE_TYPES } from '../../../shared/validation/lemon.ts';
+import { addSearchSchema } from '../../lib/add-shortcut.ts';
 import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
 import type { CareLog } from './queries.ts';
 
@@ -15,11 +16,8 @@ export const ALL = 'all';
  * 範囲は両端を含み、省略した端は制限しない（開始日だけ・終了日だけでも絞り込める）。
  */
 export const lemonSearchSchema = keywordSearchSchema.extend({
-  /**
-   * 記録の入力を開いて始めるしるし（PWA のショートカット。`src/lib/add-shortcut.ts`）。
-   * 絞り込みではないので、開いたらすぐ消す。
-   */
-  add: z.literal('lemon').optional(),
+  /** 記録の入力を開いて始めるしるし（`src/lib/add-shortcut.ts`）。絞り込みではない */
+  add: addSearchSchema('lemon'),
   /** 世話の項目（葉水・水やり・施肥・開花・落果・収穫）。その項目を含む記録だけが残る */
   kind: z.enum(CARE_TYPES).optional(),
   /** 実施日（JST の暦日）の最初・最後 */

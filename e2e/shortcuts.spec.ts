@@ -1,12 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { login } from './login.ts';
 
 /** manifest（`vite.config.ts`）に並べたショートカット */
 type Shortcut = { name: string; url: string; icons: { src: string }[] };
 
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
+async function shortcuts(page: Page): Promise<Shortcut[]> {
+  const manifest = await (await page.request.get('/manifest.webmanifest')).json();
+  const shortcuts: Shortcut[] = manifest.shortcuts;
+  expect(shortcuts.length).toBeGreaterThan(0);
+  return shortcuts;
+}
 
 /**
  * PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。
@@ -14,10 +17,10 @@ test.beforeEach(async ({ page }) => {
  * そのまま開いて、狙った画面と入力が出ることを確かめる。
  */
 test('ショートカットの URL がそれぞれの画面と入力を開く', async ({ page }) => {
-  const manifest = await (await page.request.get('/manifest.webmanifest')).json();
-  const shortcuts: Shortcut[] = manifest.shortcuts;
+  await login(page);
+  const found = await shortcuts(page);
   const urlOf = (name: string): string => {
-    const shortcut = shortcuts.find((s) => s.name === name);
+    const shortcut = found.find((s) => s.name === name);
     if (!shortcut) throw new Error(`${name} のショートカットが manifest に無い`);
     return shortcut.url;
   };
@@ -48,15 +51,12 @@ test('ショートカットの URL がそれぞれの画面と入力を開く', 
 });
 
 /**
- * アイコンは manifest（`vite.config.ts`）と生成（`scripts/generate-icons.ts`）が名前で繋がっているので、
- * 片方だけを変えると絵の無いショートカットになる。manifest が指す物がそのまま配信されているか確かめる。
+ * アイコンは生成したものをコミットして配信する（`pnpm icons:generate`）。
+ * ショートカットを足して生成を忘れると絵の無いショートカットになるので、manifest が指す物が
+ * 実際に配信されているかを確かめる（ログインは要らない。静的なファイルを読むだけ）。
  */
 test('ショートカットのアイコンが配信されている', async ({ page }) => {
-  const manifest = await (await page.request.get('/manifest.webmanifest')).json();
-  const shortcuts: Shortcut[] = manifest.shortcuts;
-  expect(shortcuts.length).toBeGreaterThan(0);
-
-  for (const shortcut of shortcuts) {
+  for (const shortcut of await shortcuts(page)) {
     const src = shortcut.icons[0]?.src;
     if (!src) throw new Error(`${shortcut.name} のショートカットにアイコンが無い`);
     const res = await page.request.get(src);
