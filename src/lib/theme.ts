@@ -38,21 +38,18 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          // 引っ張って更新（Android）は残す。一覧やカレンダーを最新にする手段になるため。
-          // 出したくない画面（NoPullToRefresh を置いた画面）でだけ止める。
-          // 画面の側から html の見た目を変える手段は CSS には無いので、目印を探して当てる。
-          'html:has([data-no-pull-to-refresh])': { overscrollBehaviorY: 'contain' },
+          // Web ページではなくアプリとして触れるようにする（引っ張って更新だけは残す。NoPullToRefresh）
           body: {
             // 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残す
             touchAction: 'manipulation',
             // 押したときの灰色の四角を出さない。押した手応えは各部品の ripple が示す
             WebkitTapHighlightColor: 'transparent',
-            // 長押しで文字が選ばれたり、リンクのメニューが出たりしない（Web ページではなくアプリとして触る）
+            // 長押ししても文字が選ばれず、リンクのメニューも出ない
             WebkitTouchCallout: 'none',
             userSelect: 'none',
           },
-          // 文字を選んで写せるのは入力欄だけにする。読むだけの画面の文字も、
-          // 鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
+          // 文字を選んで写せるのは入力欄だけにする（読むだけの画面の文字も、鉛筆を押せば入力欄に変わる）。
+          // 触れる合図はどちらも継承するので、入力欄では選択も長押しのメニュー（貼り付け）も戻す。
           'input, textarea': { userSelect: 'text', WebkitTouchCallout: 'default' },
           // 控えとして描いてあるだけの部分（カレンダーのスワイプの前後の面。inert）は
           // View Transition の対象にしない。view-transition-name は文書の中で一意でなければならず、

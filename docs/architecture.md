@@ -185,7 +185,7 @@ e2e/                          # Playwright
   - `touch-action: manipulation`: 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残すので、読めない人が拡大する手は塞がない。
   - `-webkit-tap-highlight-color: transparent`: 押したときの灰色の四角を出さない。押した手応えは MUI の ripple が示す。
   - `user-select: none` と `-webkit-touch-callout: none`: 長押ししても文字が選ばれたり、画像・リンクのメニューが出たりしない。選んで写せるのは入力欄（`input, textarea`）だけにする。読むだけの画面の文字も、鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
-- 引っ張って更新（Android）は残す。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面が `NoPullToRefresh`（`src/lib/ui/NoPullToRefresh.tsx`）を置き、`html:has([data-no-pull-to-refresh])` で `overscroll-behavior-y: contain` を当てる。画面の側から `html` の見た目を変える手段は CSS には無いので目印を探す形にしてあり、置いてある間だけ効くので後片付けが要らない（画面を移れば自分で消え、移る途中で前後の画面が同時に在っても取り違えない）。
+- 引っ張って更新（Android）は残す。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面が `NoPullToRefresh`（`src/lib/ui/NoPullToRefresh.tsx`）を置き、`html` に `overscroll-behavior-y: contain` を当てる（ブラウザはページ全体のスクロールの設定を `html` から読むが、画面の側からそこを狙う手段は `sx` に無いので `GlobalStyles` を使う）。出している間だけ効くので後片付けが要らない。
 
 ## PWA
 

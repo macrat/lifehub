@@ -19,7 +19,7 @@ function themeColorMeta(): Plugin {
       Object.entries(SURFACE).map(([scheme, content]) => ({
         tag: 'meta',
         attrs: { name: 'theme-color', media: `(prefers-color-scheme: ${scheme})`, content },
-        injectTo: 'head' as const,
+        injectTo: 'head',
       })),
   };
 }
