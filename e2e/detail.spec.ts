@@ -1,7 +1,7 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
-import { touchDrag } from './touch.ts';
+import { longPress, touchDrag } from './touch.ts';
 
 /** 記録をタップして開く詳細は予定・立替・レモンで同じ形なので、代表してレモンで一通りなぞる */
 test.use({ ...devices['Pixel 7'] });
@@ -9,14 +9,6 @@ test.use({ ...devices['Pixel 7'] });
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
-
-/** その行を長押しする（動かさずに押さえたまま待って離す） */
-async function longPress(page: Page, target: Locator) {
-  const box = await target.boundingBox();
-  if (!box) throw new Error('押す所が見つからない');
-  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  await touchDrag(page, at, at, { hold: 400 });
-}
 
 test('記録をタップすると読むだけのシートが出て、鉛筆で広がって編集できる', async ({ page }) => {
   const note = `E2E 詳細 ${Date.now()}`;

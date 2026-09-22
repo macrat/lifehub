@@ -1,7 +1,7 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
 import { blockTouchMove } from '../../lib/ui/touch-block.ts';
 // 長押しの区切りはアプリで 1 つ（一覧の行も同じ長さで編集に入る。`use-record-press.ts`）
-import { LONG_PRESS_MS, LONG_PRESS_SLOP as SLOP } from '../../lib/ui/use-record-press.ts';
+import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../lib/ui/use-record-press.ts';
 
 export type DragHandlers = {
   onPointerDown: (event: PointerEvent<HTMLElement>) => void;
@@ -168,7 +168,8 @@ export function useRangeDrag<P, G, R>({
     const d = drag.current;
     if (!d || d.pointerId !== event.pointerId) return;
     const far =
-      Math.abs(event.clientX - d.origin.x) > SLOP || Math.abs(event.clientY - d.origin.y) > SLOP;
+      Math.abs(event.clientX - d.origin.x) > LONG_PRESS_SLOP ||
+      Math.abs(event.clientY - d.origin.y) > LONG_PRESS_SLOP;
     if (!d.active) {
       // 長押しを待つ間に動いたらスクロールのつもりとみなしてやめる
       if (far) stop();

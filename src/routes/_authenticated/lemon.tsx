@@ -83,8 +83,7 @@ function LemonPage() {
           <CareLogList
             logs={logs.filter((log) => matchesCareLog(log, filters))}
             emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
-            onView={(log) => setSelected({ log, editing: false })}
-            onEdit={(log) => setSelected({ log, editing: true })}
+            onSelect={(log, editing) => setSelected({ log, editing })}
           />
         )}
       </QueryView>

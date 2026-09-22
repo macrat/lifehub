@@ -89,7 +89,6 @@ function CalendarPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
   const viewItem = useCallback((item: CalendarItem) => setSelected({ item, editing: false }), []);
-  const editItem = useCallback((item: CalendarItem) => setSelected({ item, editing: true }), []);
   // 同じ予定を直し続けている間は選んだ参加者をそのまま持ち越す（枠を動かすたびに色と選択が戻らない）。
   // つまむ物が変わったときは、直す予定の参加者（追加なら自分）から始める
   const changeDraft = useCallback(
@@ -163,8 +162,7 @@ function CalendarPage() {
           filters={page.filters}
           filtersOpen={filtersOpen}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}
-          onViewItem={viewItem}
-          onEditItem={editItem}
+          onSelectItem={(item, editing) => setSelected({ item, editing })}
         />
       ) : (
         <Box sx={{ height: FILL_HEIGHT, mb: FILL_MARGIN_BOTTOM }}>

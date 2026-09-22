@@ -54,8 +54,7 @@ export function TodayCard() {
               <TodayRow
                 key={itemKey(item)}
                 item={item}
-                onView={(item) => setSelected({ item, editing: false })}
-                onEdit={(item) => setSelected({ item, editing: true })}
+                onSelect={(item, editing) => setSelected({ item, editing })}
               />
             ))
           )
@@ -74,15 +73,14 @@ export function TodayCard() {
 
 function TodayRow({
   item,
-  onView,
-  onEdit,
+  onSelect,
 }: {
   item: CalendarItem;
-  onView: (item: CalendarItem) => void;
-  onEdit: (item: CalendarItem) => void;
+  /** 行を押したとき。editing は長押し（編集で開く）か */
+  onSelect: (item: CalendarItem, editing: boolean) => void;
 }) {
   const colorFor = useUserColor();
-  const press = useRecordPress({ onView: () => onView(item), onEdit: () => onEdit(item) });
+  const press = useRecordPress((editing) => onSelect(item, editing));
   const completed = item.kind === 'task' && item.completedAt !== null;
   const colors = colorFor(colorUserOf(item.participantIds));
   return (

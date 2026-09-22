@@ -32,14 +32,12 @@ type Props = {
   filters: ListFilters;
   filtersOpen: boolean;
   onChangeFilters: (next: ListFiltersPatch) => void;
-  /** 行を単押ししたとき（詳細を読むだけで開く） */
-  onViewItem: (item: CalendarItem) => void;
-  /** 行を長押ししたとき（詳細を編集で開く） */
-  onEditItem: (item: CalendarItem) => void;
+  /** 行を押したとき。editing は長押し（編集で開く）か */
+  onSelectItem: (item: CalendarItem, editing: boolean) => void;
 };
 
 /** リスト表示（Google カレンダーの「スケジュール」）。期間・種別・参加者・完了状態・キーワードで絞り込める時系列の一覧。 */
-export function ListView({ filters, filtersOpen, onChangeFilters, onViewItem, onEditItem }: Props) {
+export function ListView({ filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { users } = useUserLabels();
   // 期間はサーバーに投げ、それ以外の絞り込みは手元で掛ける（打つたびに取り直さない）
   const itemsQuery = useCalendarItems({ from: filters.from, to: filters.to });
@@ -111,13 +109,7 @@ export function ListView({ filters, filtersOpen, onChangeFilters, onViewItem, on
           ) : (
             <Stack spacing={1}>
               {[...grouped.entries()].map(([date, dayItems]) => (
-                <DayList
-                  key={date}
-                  date={date}
-                  items={dayItems}
-                  onViewItem={onViewItem}
-                  onEditItem={onEditItem}
-                />
+                <DayList key={date} date={date} items={dayItems} onSelectItem={onSelectItem} />
               ))}
             </Stack>
           );

@@ -82,8 +82,7 @@ function ExpensesPage() {
           <ExpenseList
             expenses={expenses.filter((e) => matchesExpense(e, filters))}
             emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
-            onView={(expense) => setSelected({ expense, editing: false })}
-            onEdit={(expense) => setSelected({ expense, editing: true })}
+            onSelect={(expense, editing) => setSelected({ expense, editing })}
           />
         )}
       </QueryView>

@@ -23,10 +23,8 @@ import { itemTransitionName } from './item-transition.ts';
 
 type Props = {
   item: CalendarItem;
-  /** 行を単押ししたとき（詳細を読むだけで開く） */
-  onView: (item: CalendarItem) => void;
-  /** 行を長押ししたとき（詳細を編集で開く） */
-  onEdit: (item: CalendarItem) => void;
+  /** 行を押したとき。editing は長押し（編集で開く）か */
+  onSelect: (item: CalendarItem, editing: boolean) => void;
 };
 
 /**
@@ -35,10 +33,10 @@ type Props = {
  * 期限超過は赤、完了は薄く取り消し線。
  * 単押しは閲覧、長押しは編集（`useRecordPress`。グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
  */
-export function ItemCard({ item, onView, onEdit }: Props) {
+export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const press = useRecordPress({ onView: () => onView(item), onEdit: () => onEdit(item) });
+  const press = useRecordPress((editing) => onSelect(item, editing));
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
