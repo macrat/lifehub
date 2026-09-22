@@ -42,6 +42,9 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
+/** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
+const HOUR_VIBRATION_MS = 10;
+const STEP_VIBRATION_MS = 50;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -52,7 +55,7 @@ const TAP_MINUTES = 60;
  * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。こちらは指の下の列の日に移るので、
  * 週表示では左右に動かして別の日へ持っていける（日表示は列が 1 つなので日が変わらない）。
  */
-export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): EventDraft {
+export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): TimedDraft {
   if (grab === null) return selectDraft(from, to, moved);
   // つまんだだけ（動かしていない）なら触らない。押した所に枠が飛ばないようにする
   if (!moved) return grab.draft;
@@ -75,7 +78,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 
 /** 空いている所をなぞって選ぶ範囲。触れた 15 分の枠をすべて含める */
-function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft {
+function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft {
   const slotAt = (min: number) => clamp(Math.floor(min / STEP_MINUTES), 0, SLOTS_PER_DAY - 1);
   const fromSlot = slotAt(from.min);
   const toSlot = moved ? slotAt(to.min) : fromSlot;
@@ -88,6 +91,19 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft
     : Math.min(startMin + TAP_MINUTES, DAY_MINUTES);
   return { allDay: false, date: from.date, startMin, endMin };
 }
+
+/**
+ * 下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 15 分の枠に吸着するたびに震わせ、正時だけ短くして時間の区切りが指で分かるようにする。
+ * 見るのは開始 → 終了の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
+ */
+export function snapVibration(previous: TimedDraft, draft: TimedDraft): number | null {
+  if (draft.startMin !== previous.startMin) return vibrationFor(draft.startMin);
+  if (draft.endMin !== previous.endMin) return vibrationFor(draft.endMin);
+  return null;
+}
+
+const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
 
 /**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
