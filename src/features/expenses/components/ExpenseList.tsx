@@ -1,4 +1,3 @@
-import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -8,15 +7,6 @@ import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense } from '../queries.ts';
 import { formatYen } from './BalanceSummary.tsx';
-
-/** 左端の帯と、その右の中身。帯は行の左端に貼り付けるので、行の左の余白は持たない */
-const ROW_SX = { pl: 0, gap: 2, alignItems: 'stretch' } as const;
-
-/**
- * 色の帯。上下の余白を負のマージンで打ち消して、行の高さいっぱいに伸ばす
- * （行と行の区切りまで届かせて、帯が浮いて見えないようにする）。
- */
-const BAR_SX = { width: 6, flexShrink: 0, my: -1 } as const;
 
 type Props = {
   expenses: Expense[];
@@ -42,8 +32,11 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
         </ListItem>
       )}
       {expenses.map((e) => (
-        <RecordListRow key={e.id} sx={ROW_SX} onSelect={(editing) => onSelect(e, editing)}>
-          <Box sx={{ ...BAR_SX, background: expenseBarBackground(e, colorFor) }} />
+        <RecordListRow
+          key={e.id}
+          accent={expenseBarBackground(e, colorFor)}
+          onSelect={(editing) => onSelect(e, editing)}
+        >
           <ListItemText
             primary={`${formatYen(e.amount)} ${e.description}`}
             secondary={`${formatDate(e.spentOn)} ・ ${
