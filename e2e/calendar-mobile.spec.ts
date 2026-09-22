@@ -295,7 +295,6 @@ test('時間指定の下書きは月表示でも帯で出て、長押しで時�
 
   // 月表示へ切り替えると、その日 1 日ぶんの帯として出る
   await changeView(page, '月');
-  await expect(page).toHaveURL(/view=month/);
   const cell = await page.locator('[data-date="2031-06-18"]').boundingBox();
   const bar = await page.locator('[data-draft]').boundingBox();
   if (!cell || !bar) throw new Error('帯か日のセルが見つからない');
@@ -307,16 +306,17 @@ test('時間指定の下書きは月表示でも帯で出て、長押しで時�
   await expect(page.getByText('6/22(日) 10:00〜11:00')).toBeVisible();
 });
 
-test('表示を切り替えても入力中の予定はそのまま残る', async ({ page }) => {
+test('表示を切り替えても入力中の予定はそのまま残り、その初日へ移る', async ({ page }) => {
   const title = `E2E 表示切替 ${Date.now()}`;
-  await page.goto('/calendar?view=month&date=2031-06-18');
+  // 月表示が指す日（6/1）とは別の週の日を選ぶ。移らなければ週・日には下書きが出ない
+  await page.goto('/calendar?view=month&date=2031-06-01');
 
   await dragDays(page, '2031-06-18', '2031-06-19');
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   await page.getByLabel('タイトルを追加').fill(title);
 
   await changeView(page, '週');
-  await expect(page).toHaveURL(/view=week/);
+  await expect(page).toHaveURL(/date=2031-06-18/);
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 選んだ範囲は週の終日欄にもそのまま出る

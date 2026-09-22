@@ -7,7 +7,7 @@ import { CalendarToolbar } from '../../features/calendar/components/CalendarTool
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
-import { defaultDraft, type EventDraft } from '../../features/calendar/draft.ts';
+import { defaultDraft, draftDays, type EventDraft } from '../../features/calendar/draft.ts';
 import { type CalendarItem, colorUserOf } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
@@ -107,7 +107,10 @@ function CalendarPage() {
           title={page.title}
           onOpenPicker={() => setPickerOpen(true)}
           onToday={page.goToday}
-          onChangeView={(view) => page.setSearch({ view })}
+          // 入力中の下書きは表示を切り替えても残るので、見失わないようその初日を連れていく
+          onChangeView={(view) =>
+            page.changeView(view, draft ? draftDays(draft.range).from : undefined)
+          }
           list={{
             query: page.filters.q,
             onChangeQuery: page.setQuery,

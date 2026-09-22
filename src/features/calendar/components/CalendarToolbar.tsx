@@ -7,11 +7,10 @@ import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
 import { FilterButton } from '../../../lib/ui/FilterButton.tsx';
 import { SearchField } from '../../../lib/ui/SearchField.tsx';
-
-type CalendarView = 'month' | 'week' | 'day' | 'list';
+import type { CalendarView, PeriodView } from '../use-calendar-page.ts';
 
 /** 見出しのタップで何が選べるか。表示している単位と選ぶ単位は揃える（リスト表示に見出しは無い） */
-const PICKER_LABELS: Record<Exclude<CalendarView, 'list'>, string> = {
+const PICKER_LABELS: Record<PeriodView, string> = {
   month: '年月を選ぶ',
   week: '週を選ぶ',
   day: '日付を選ぶ',
