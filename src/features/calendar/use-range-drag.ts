@@ -22,6 +22,16 @@ export type Drag<P, G> = {
   moved: boolean;
 };
 
+/** ドラッグ 1 回の間だけ持つ値。範囲（`Drag`）に、追いかけるのに要るものを足したもの */
+type DragState<P, G, R> = Drag<P, G> & {
+  pointerId: number;
+  origin: { x: number; y: number };
+  /** 始まったか（タッチの長押しを待っている間は false） */
+  active: boolean;
+  /** 直前に渡した範囲。手応えのために 1 つ前と比べる（ドラッグごとに作り直すので持ち越さない） */
+  emitted: { range: R } | null;
+};
+
 type Options<P, G, R> = {
   /** ポインタの位置 → グリッドの 1 点。掴めない所なら null */
   locate: (event: PointerEvent<HTMLElement>) => P | null;
@@ -31,6 +41,8 @@ type Options<P, G, R> = {
   rangeOf: (drag: Drag<P, G>) => R;
   /** 範囲が決まるたび。done はポインタを離した（入力に移ってよい）か */
   onChange: (range: R, done: boolean) => void;
+  /** 範囲が変わったときの手応えの長さ（ms）。震わせないなら null。何が区切りかは呼び出し側が決める */
+  vibration?: (previous: R, next: R) => number | null;
   /** タッチの軽いタップ。省略するとタップでも範囲を選ぶ */
   onTouchTap?: (point: P) => void;
 };
@@ -42,25 +54,32 @@ type Options<P, G, R> = {
  * 渡し方は 2 通りで、範囲そのものがポインタを受けるなら `grabProps`、受けないなら（下の面で受けて
  * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
  * 状態を持つのはそちら 1 か所だけにする。
+ * 範囲が変わるたび `vibration` の長さで震わせ、指が今どこを選んでいるかを手に返す。
  */
 export function useRangeDrag<P, G, R>({
   locate,
   grabOf,
   rangeOf,
   onChange,
+  vibration,
   onTouchTap,
 }: Options<P, G, R>) {
   const [dragging, setDragging] = useState(false);
-  const drag = useRef<{
-    pointerId: number;
-    grab: G | null;
-    from: P;
-    to: P;
-    origin: { x: number; y: number };
-    moved: boolean;
-    active: boolean;
-  } | null>(null);
+  const drag = useRef<DragState<P, G, R> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 範囲を呼び出し側に渡す。1 つ前の範囲から変わっていれば、その長さだけ震わせる。
+   * ドラッグの最初の 1 回は比べる相手が無いので震わせない（押しただけで手応えを返さない）。
+   */
+  const emit = (d: DragState<P, G, R>, done: boolean) => {
+    const range = rangeOf(d);
+    const ms = d.emitted ? vibration?.(d.emitted.range, range) : null;
+    // Vibration API の無いブラウザ（iOS）では何も起こらない
+    if (ms) navigator.vibrate?.(ms);
+    d.emitted = { range };
+    onChange(range, done);
+  };
 
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -98,6 +117,7 @@ export function useRangeDrag<P, G, R>({
       origin: { x: event.clientX, y: event.clientY },
       moved: false,
       active: false,
+      emitted: null,
     };
     const begin = () => {
       const d = drag.current;
@@ -106,7 +126,7 @@ export function useRangeDrag<P, G, R>({
       // グリッドの外に出ても離すまで追いかける（隣の列や画面の外で見失わない）
       element.setPointerCapture(pointerId);
       setDragging(true);
-      onChange(rangeOf(d), false);
+      emit(d, false);
     };
     if (event.pointerType === 'touch' && !instant) timer.current = setTimeout(begin, LONG_PRESS_MS);
     else begin();
@@ -126,7 +146,7 @@ export function useRangeDrag<P, G, R>({
     const to = locate(event);
     if (to === null) return;
     d.to = to;
-    onChange(rangeOf(d), false);
+    emit(d, false);
   };
 
   const up = (event: PointerEvent<HTMLElement>) => {
@@ -134,9 +154,9 @@ export function useRangeDrag<P, G, R>({
     if (!d || d.pointerId !== event.pointerId) return;
     if (d.active) {
       d.to = locate(event) ?? d.to;
-      onChange(rangeOf(d), true);
+      emit(d, true);
     } else if (onTouchTap) onTouchTap(d.from);
-    else onChange(rangeOf(d), true);
+    else emit(d, true);
     stop();
   };
 

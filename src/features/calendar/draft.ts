@@ -27,7 +27,7 @@ export type EventDraft =
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = EventDraft & { allDay: false };
 
-/** 終日の下書き（月グリッドと終日欄に出す帯） */
+/** 終日の下書き（月表示・終日欄に出す帯） */
 export type AllDayDraft = EventDraft & { allDay: true };
 
 /** 時間軸の 1 点（日と、その日の 0:00 からの分） */
@@ -53,6 +53,11 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
+/** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
+const HOUR_VIBRATION_MS = 10;
+const STEP_VIBRATION_MS = 50;
+/** 日の並びで下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類だけなので正時と同じ */
+const DAY_VIBRATION_MS = 10;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -63,7 +68,7 @@ const TAP_MINUTES = 60;
  * 枠そのものをつまんだときは長さを保ち、0:00〜24:00 の中に収める。こちらは指の下の列の日に移るので、
  * 週表示では左右に動かして別の日へ持っていける（日表示は列が 1 つなので日が変わらない）。
  */
-export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): EventDraft {
+export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>): TimedDraft {
   if (grab === null) return selectDraft(from, to, moved);
   // つまんだだけ（動かしていない）なら触らない。押した所に枠が飛ばないようにする
   if (!moved) return grab.draft;
@@ -86,7 +91,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 
 /** 空いている所をなぞって選ぶ範囲。触れた 15 分の枠をすべて含める */
-function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft {
+function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft {
   const slotAt = (min: number) => clamp(Math.floor(min / STEP_MINUTES), 0, SLOTS_PER_DAY - 1);
   const fromSlot = slotAt(from.min);
   const toSlot = moved ? slotAt(to.min) : fromSlot;
@@ -101,10 +106,23 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): EventDraft
 }
 
 /**
+ * 時間指定の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 15 分の枠に吸着するたびに震わせ、正時だけ短くして時間の区切りが指で分かるようにする。
+ * 見るのは開始 → 終了の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
+ */
+export function timeVibration(previous: TimedDraft, draft: TimedDraft): number | null {
+  if (draft.startMin !== previous.startMin) return vibrationFor(draft.startMin);
+  if (draft.endMin !== previous.endMin) return vibrationFor(draft.endMin);
+  return null;
+}
+
+const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
+
+/**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
  */
-export function defaultDraft(date: DateString, now: Date = new Date()): EventDraft {
+export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
   const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
@@ -128,7 +146,7 @@ export function dayGrab(draft: EventDraft | null, point: DayPoint): DayGrab | nu
 }
 
 /**
- * 日の並び（月グリッド・終日欄）のドラッグ → 下書き。
+ * 日の並び（月表示・終日欄）のドラッグ → 下書き。
  * 空いている所からは押した日と今の日を両端にする終日の下書き（両端を含み、どちら向きに選んでも同じ）。
  * つまんだだけで動かしていなければそのまま。端をつまんだときは反対の端を越えられない（最短 1 日）。
  * 帯そのものをつまんだときは動かした日数だけずらす。終日は日数を、時間指定は時間帯を保つ。
@@ -158,6 +176,21 @@ const earlier = (a: DateString, b: DateString) => (a <= b ? a : b);
 const later = (a: DateString, b: DateString) => (a >= b ? a : b);
 
 /**
+ * 日の並びで下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 日をまたいで占める日が変わるたびに震わせ、いくつ先の日まで選んだ・動かしたかを数えられるようにする。
+ */
+export function dayVibration(previous: EventDraft, draft: EventDraft): number | null {
+  const [from, to] = draftDays(draft);
+  const [previousFrom, previousTo] = draftDays(previous);
+  return from === previousFrom && to === previousTo ? null : DAY_VIBRATION_MS;
+}
+
+/** 日の並びで下書きが占める日（両端を含む）。時間指定の下書きはその日 1 日ぶん */
+function draftDays(draft: EventDraft): [DateString, DateString] {
+  return draft.allDay ? [draft.from, draft.to] : [draft.date, draft.date];
+}
+
+/**
  * 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列。掛からなければ null。
  * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
  * 時間指定の下書きはその日 1 日ぶんの列。日の並びに帯として出すのは月グリッドだけで、
@@ -167,7 +200,7 @@ export function draftColumns(
   draft: EventDraft,
   days: DateString[],
 ): { col: number; span: number; roundStart: boolean; roundEnd: boolean } | null {
-  const [start, end] = draft.allDay ? [draft.from, draft.to] : [draft.date, draft.date];
+  const [start, end] = draftDays(draft);
   const first = days.findIndex((d) => d >= start);
   const last = days.findLastIndex((d) => d <= end);
   if (first === -1 || last === -1 || first > last) return null;
@@ -207,10 +240,10 @@ export function draftInstants(draft: EventDraft): {
 }
 
 /** 全項目のフォーム（「その他のオプション」）に渡す既定値 */
-export function draftValues(draft: EventDraft): ItemFormValues {
+export function draftValues(draft: EventDraft, participantIds: string[]): ItemFormValues {
   return draft.allDay
-    ? allDayEventValues(draft.from, draft.to)
-    : eventValuesForRange(draft.date, draft.startMin, draft.endMin);
+    ? allDayEventValues(draft.from, draft.to, participantIds)
+    : eventValuesForRange(draft.date, draft.startMin, draft.endMin, participantIds);
 }
 
 /**

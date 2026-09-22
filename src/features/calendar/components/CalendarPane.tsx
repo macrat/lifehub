@@ -14,6 +14,8 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている予定の範囲。控えの面には出さないので null が来る */
   draft: EventDraft | null;
+  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  draftUserId: string | null;
   /** グリッドをなぞって範囲を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
 };
@@ -34,6 +36,7 @@ export const CalendarPane = memo(function CalendarPane({
   onSelectDate,
   onSelectItem,
   draft,
+  draftUserId,
   onChangeDraft,
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
@@ -48,6 +51,7 @@ export const CalendarPane = memo(function CalendarPane({
       onSelectDate={onSelectDate}
       onSelectItem={onSelectItem}
       draft={draft}
+      draftUserId={draftUserId}
       onChangeDraft={onChangeDraft}
       height="100%"
     />
@@ -58,6 +62,7 @@ export const CalendarPane = memo(function CalendarPane({
       onSelectItem={onSelectItem}
       onSelectDate={view === 'week' ? onSelectDate : undefined}
       draft={draft}
+      draftUserId={draftUserId}
       onChangeDraft={onChangeDraft}
       height="100%"
     />

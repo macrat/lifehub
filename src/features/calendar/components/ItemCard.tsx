@@ -35,7 +35,7 @@ export function ItemCard({ item, onClick }: Props) {
   const completed = isTask && item.completedAt !== null;
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
-  const colors = colorFor(colorUserOf(item));
+  const colors = colorFor(colorUserOf(item.participantIds));
   const meta = [item.participantIds.map(label).join('・'), item.location]
     .filter(Boolean)
     .join(' · ');

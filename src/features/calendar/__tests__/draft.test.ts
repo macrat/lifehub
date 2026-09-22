@@ -6,6 +6,7 @@ import {
   type DayPoint,
   dayDraft,
   dayGrab,
+  dayVibration,
   defaultDraft,
   draftColumns,
   draftText,
@@ -13,6 +14,7 @@ import {
   type TimeGrab,
   type TimePoint,
   timeDraft,
+  timeVibration,
 } from '../draft.ts';
 
 const DAY = '2031-06-05' as DateString;
@@ -376,5 +378,65 @@ describe('defaultDraft', () => {
       startMin: 23 * 60,
       endMin: 24 * 60,
     });
+  });
+});
+
+describe('timeVibration', () => {
+  const draft = (startMin: number, endMin: number): TimedDraft => ({
+    allDay: false,
+    date: DAY,
+    startMin,
+    endMin,
+  });
+
+  it('動いていなければ震わせない', () => {
+    expect(timeVibration(draft(540, 600), draft(540, 600))).toBeNull();
+  });
+
+  it('開始が正時になったら短く、15 分刻みなら長く震わせる', () => {
+    expect(timeVibration(draft(555, 600), draft(540, 600))).toBe(10);
+    expect(timeVibration(draft(540, 600), draft(555, 600))).toBe(50);
+  });
+
+  it('終了が動いたときは終了時刻で決まる', () => {
+    expect(timeVibration(draft(540, 615), draft(540, 600))).toBe(10);
+    expect(timeVibration(draft(540, 600), draft(540, 615))).toBe(50);
+  });
+
+  it('枠ごと動いて両方変わるときは開始時刻が基準', () => {
+    expect(timeVibration(draft(540, 615), draft(555, 630))).toBe(50);
+    expect(timeVibration(draft(555, 630), draft(600, 675))).toBe(10);
+  });
+});
+
+describe('dayVibration', () => {
+  it('選ぶ日が変わっていなければ震わせない', () => {
+    expect(
+      dayVibration(allDay('2031-06-05', '2031-06-06'), allDay('2031-06-05', '2031-06-06')),
+    ).toBeNull();
+  });
+
+  it('日をまたいで端が動いたら震わせる', () => {
+    expect(
+      dayVibration(allDay('2031-06-05', '2031-06-05'), allDay('2031-06-05', '2031-06-06')),
+    ).toBe(10);
+    expect(
+      dayVibration(allDay('2031-06-05', '2031-06-06'), allDay('2031-06-05', '2031-06-05')),
+    ).toBe(10);
+  });
+
+  it('向きが変わって起点の側が動いたときも震わせる', () => {
+    expect(
+      dayVibration(allDay('2031-06-05', '2031-06-05'), allDay('2031-06-04', '2031-06-05')),
+    ).toBe(10);
+  });
+
+  it('帯ごと動かしたときも、時間指定の下書きの日が変わったときも震わせる', () => {
+    expect(
+      dayVibration(allDay('2031-06-05', '2031-06-06'), allDay('2031-06-12', '2031-06-13')),
+    ).toBe(10);
+    const timed = select(at(9 * 60), at(10 * 60), true);
+    expect(dayVibration(timed, { ...timed, date: '2031-06-06' as DateString })).toBe(10);
+    expect(dayVibration(timed, { ...timed, startMin: 8 * 60 })).toBeNull();
   });
 });

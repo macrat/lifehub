@@ -1,7 +1,14 @@
 import type { PointerEvent } from 'react';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { type DayGrab, type DayPoint, dayDraft, dayGrab, type EventDraft } from './draft.ts';
+import {
+  type DayGrab,
+  type DayPoint,
+  dayDraft,
+  dayGrab,
+  dayVibration,
+  type EventDraft,
+} from './draft.ts';
 import { useRangeDrag } from './use-range-drag.ts';
 
 /**
@@ -10,6 +17,7 @@ import { useRangeDrag } from './use-range-drag.ts';
  * 出ている下書きに掛かる所を押したときは、その端か帯そのものをつまむ（`dayGrab`。押したセルの左右で決まる）。
  * つまむのはセルなので、帯が週の行をまたいでも（月表示で帯は行ごとに分かれる）掴んだ物を離さずに動かせる。
  * タッチの軽いタップは選択にせず、`onTapDate`（日表示へ移る）に渡す。
+ * 日をまたいで範囲が変わるたびに震わせる（`dayVibration`）。選び直しでもつまんで動かしたときでも同じ。
  */
 export function useDayDrag({
   draft,
@@ -35,6 +43,7 @@ export function useDayDrag({
     grabOf: (point) => dayGrab(draft, point),
     rangeOf: dayDraft,
     onChange,
+    vibration: dayVibration,
     onTouchTap: onTapDate && ((point) => onTapDate(point.date)),
   });
   return drag.props;

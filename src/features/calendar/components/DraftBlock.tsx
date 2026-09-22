@@ -1,7 +1,8 @@
 import Box from '@mui/material/Box';
-import { alpha, type Theme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
+import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
@@ -12,13 +13,18 @@ const DOT_INSET = 10;
 /** 指の当たりの大きさ（px）。丸は小さく見せ、押せる範囲だけ広げる */
 const TARGET_SIZE = 32;
 
-const OUTLINE = {
-  boxSizing: 'border-box',
-  borderRadius: '4px',
-  border: 2,
-  borderColor: 'primary.main',
-  bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.3),
-} as const;
+/**
+ * 枠の見た目。色は参加者から決まる（保存した予定の帯と同じ規則）ので、選んだ参加者を変えると枠も変わる。
+ * 中は透かして、下に隠れる目盛りや既にある予定が読めるようにする。
+ */
+const outline = (colors: ItemColors) =>
+  ({
+    boxSizing: 'border-box',
+    borderRadius: '4px',
+    border: 2,
+    borderColor: colors.fill,
+    bgcolor: alpha(colors.fill, 0.3),
+  }) as const;
 
 /**
  * 選んでいる時間帯（週・日の時間軸）。つまんで直せるときは、枠そのもので長さを保ったまま動かし
@@ -30,12 +36,15 @@ export function DraftBlock({
   draft,
   column,
   hourHeight,
+  colors,
   grab,
 }: {
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
   hourHeight: number;
+  /** 選んでいる参加者の色 */
+  colors: ItemColors;
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
 }) {
@@ -45,7 +54,7 @@ export function DraftBlock({
       data-draft
       {...grab?.move}
       sx={{
-        ...OUTLINE,
+        ...outline(colors),
         gridColumn: column + 1,
         gridRow: 1,
         // 行の上端から開始の分だけ下げる（列と同じ高さに伸びないよう start 揃え）
@@ -67,11 +76,13 @@ export function DraftBlock({
           <Handle
             end="start"
             position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
+            color={colors.fill}
             handlers={grab.start}
           />
           <Handle
             end="end"
             position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
+            color={colors.fill}
             handlers={grab.end}
           />
         </>
@@ -94,17 +105,20 @@ export function DraftBlock({
 export function DraftBar({
   columns,
   lane,
+  colors,
 }: {
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
+  /** 選んでいる参加者の色 */
+  colors: ItemColors;
 }) {
   const { col, span, roundStart, roundEnd } = columns;
   return (
     <Box
       data-draft
       sx={{
-        ...OUTLINE,
+        ...outline(colors),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
         gridColumn: `${col + 1} / span ${span}`,
@@ -124,10 +138,12 @@ export function DraftBar({
 function Handle({
   end,
   position,
+  color,
   handlers,
 }: {
   end: 'start' | 'end';
   position: Record<string, number | string>;
+  color: string;
   handlers: DragHandlers;
 }) {
   return (
@@ -140,7 +156,7 @@ function Handle({
         width: DOT_SIZE,
         height: DOT_SIZE,
         borderRadius: '50%',
-        bgcolor: 'primary.main',
+        bgcolor: color,
         pointerEvents: 'auto',
         touchAction: 'none',
         // 指の当たりは丸より広く取る。丸を枠の端から離してあるので、横に広げても枠からはみ出さない
