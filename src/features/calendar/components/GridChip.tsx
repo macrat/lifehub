@@ -13,8 +13,8 @@ type Props = {
   placed: Placed;
   compact: boolean;
   colors: ItemColors;
-  /** 無ければ表示専用（スマホの月表示: セルのどこをタップしても日を選ぶ。項目は日表示から開く） */
-  onClick?: () => void;
+  /** タップ・クリックしたとき（詳細を開く） */
+  onClick: () => void;
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
   grab?: DragHandlers;
   /** 編集中（枠を帯で出している）か。場所は残して隠す */
@@ -27,7 +27,8 @@ type Props = {
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
  * 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。タイトルを優先し、時刻は広い画面でだけ添える。
- * 長押しでつまむと編集モード（`grab`）。編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
+ * 単押しは閲覧（詳細を開く）、長押しは編集（`grab`。つまんでそのまま日時を直す）で、アプリ全体の約束と同じ。
+ * 編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
  * つまんだ要素が消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
 export function GridChip({
@@ -48,16 +49,16 @@ export function GridChip({
   const radius = 4;
   return (
     <Box
-      component={onClick ? 'button' : 'span'}
-      type={onClick ? 'button' : undefined}
+      component="button"
+      type="button"
       {...grab}
       onClick={
-        onClick && !hidden
-          ? (e: MouseEvent) => {
+        hidden
+          ? undefined
+          : (e: MouseEvent) => {
               e.stopPropagation();
               onClick();
             }
-          : undefined
       }
       aria-label={item.title}
       sx={{
@@ -67,8 +68,6 @@ export function GridChip({
         viewTransitionName: itemTransitionName(item),
         // 隠すのは見た目だけ（場所は残す）。display: none にすると掴んだ指が離れてしまう
         visibility: hidden ? 'hidden' : undefined,
-        // つまめも押せもしないときは見せるだけ。押した先は下のセルに届かせ、日を選べるようにする
-        pointerEvents: onClick || grab ? 'auto' : 'none',
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
@@ -80,7 +79,7 @@ export function GridChip({
         alignItems: 'center',
         gap: '3px',
         minWidth: 0,
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: 'pointer',
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
         borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,

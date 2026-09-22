@@ -63,6 +63,7 @@ type DraftState = Draft & {
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
+ * - 項目をタップすると詳細（`ItemDetailSheet`）。リストの行は長押しでその詳細が編集で開く
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
@@ -76,7 +77,8 @@ function CalendarPage() {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const { meId } = useUserLabels();
-  const [selected, setSelected] = useState<CalendarItem | null>(null);
+  // 開いている項目と、どちらの顔（閲覧・編集）で開いたか
+  const [selected, setSelected] = useState<{ item: CalendarItem; editing: boolean } | null>(null);
   const [draft, setDraft] = useState<DraftState | null>(null);
   // 「その他のオプション」で全項目のフォームへ移した入力（直している予定も一緒に持ち越す）
   const [expanded, setExpanded] = useState<{
@@ -86,6 +88,8 @@ function CalendarPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
+  const viewItem = useCallback((item: CalendarItem) => setSelected({ item, editing: false }), []);
+  const editItem = useCallback((item: CalendarItem) => setSelected({ item, editing: true }), []);
   // 同じ予定を直し続けている間は選んだ参加者をそのまま持ち越す（枠を動かすたびに色と選択が戻らない）。
   // つまむ物が変わったときは、直す予定の参加者（追加なら自分）から始める
   const changeDraft = useCallback(
@@ -159,7 +163,8 @@ function CalendarPage() {
           filters={page.filters}
           filtersOpen={filtersOpen}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}
-          onSelectItem={setSelected}
+          onViewItem={viewItem}
+          onEditItem={editItem}
         />
       ) : (
         <Box sx={{ height: FILL_HEIGHT, mb: FILL_MARGIN_BOTTOM }}>
@@ -169,7 +174,7 @@ function CalendarPage() {
                 view={view}
                 date={date}
                 onSelectDate={page.openDay}
-                onSelectItem={setSelected}
+                onSelectItem={viewItem}
                 // 枠は表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
                 draft={offset === 0 ? draft : null}
                 draftUserId={draft ? colorUserOf(draft.participantIds) : null}
@@ -196,7 +201,13 @@ function CalendarPage() {
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
       {!draft && <AddMenu kinds={['task', 'event']} date={page.date} />}
-      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <ItemDetailSheet
+          item={selected.item}
+          initialEditing={selected.editing}
+          onClose={() => setSelected(null)}
+        />
+      )}
       {draft && (
         <QuickEventForm
           draft={draft.range}

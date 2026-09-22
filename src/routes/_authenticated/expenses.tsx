@@ -35,7 +35,8 @@ export const Route = createFileRoute('/_authenticated/expenses')({
 
 /**
  * 立替（借方・貸方）。残高と履歴。精算は専用の操作ではなく「誰かが誰かに払った額」を立替として追加する。
- * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行をタップすると詳細（編集・削除）が開く。
+ * 履歴の行は共有なら From だけ、相手が決まっていれば「From → To」。行を単押しすると詳細、長押しすると
+ * その詳細が編集で開く（アプリ全体の「単押しは閲覧、長押しは編集」）。削除は詳細の三点リーダーの中。
  * AppBar の検索窓は内容で履歴を絞り込み、その右の絞り込みボタンで金額・日付の範囲と To・From の
  * 詳細な検索を AppBar の下に開く（残高は絞り込みに関わらず全体の貸借を示す）。
  */
@@ -46,7 +47,8 @@ function ExpensesPage() {
   const addExpense = useAddExpense();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [selected, setSelected] = useState<Expense | null>(null);
+  // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
+  const [selected, setSelected] = useState<{ expense: Expense; editing: boolean } | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
   return (
@@ -80,7 +82,8 @@ function ExpensesPage() {
           <ExpenseList
             expenses={expenses.filter((e) => matchesExpense(e, filters))}
             emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
-            onSelect={setSelected}
+            onView={(expense) => setSelected({ expense, editing: false })}
+            onEdit={(expense) => setSelected({ expense, editing: true })}
           />
         )}
       </QueryView>
@@ -89,7 +92,13 @@ function ExpensesPage() {
         <AddIcon />
       </Fab>
       {adding && <ExpenseForm onSubmit={addExpense.mutateAsync} onClose={() => setAdding(false)} />}
-      {selected && <ExpenseDetailSheet expense={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <ExpenseDetailSheet
+          expense={selected.expense}
+          initialEditing={selected.editing}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </>
   );
 }

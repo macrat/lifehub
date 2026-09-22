@@ -32,7 +32,8 @@ export const Route = createFileRoute('/_authenticated/lemon')({
 
 /**
  * レモンの木の世話。項目ごとの状況と記録の履歴。
- * 履歴の行をタップすると詳細（削除）が開く。
+ * 履歴の行を単押しすると詳細、長押しするとその詳細が編集で開く（アプリ全体の「単押しは閲覧、長押しは編集」）。
+ * 削除は詳細の三点リーダーの中。
  * AppBar の検索窓はメモで、その右の絞り込みボタンで開くフォームは項目と実施日の範囲で履歴を絞り込む
  * （状況のタイルは絞り込みに関わらず最新の実施日を示す）。
  */
@@ -43,7 +44,8 @@ function LemonPage() {
   const logCare = useLogCare();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState<CareType[] | null>(null);
-  const [selected, setSelected] = useState<CareLog | null>(null);
+  // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
+  const [selected, setSelected] = useState<{ log: CareLog; editing: boolean } | null>(null);
   const filtering = filters.q !== '' || activeFilters > 0;
 
   return (
@@ -81,7 +83,8 @@ function LemonPage() {
           <CareLogList
             logs={logs.filter((log) => matchesCareLog(log, filters))}
             emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
-            onSelect={setSelected}
+            onView={(log) => setSelected({ log, editing: false })}
+            onEdit={(log) => setSelected({ log, editing: true })}
           />
         )}
       </QueryView>
@@ -101,7 +104,13 @@ function LemonPage() {
           onClose={() => setAdding(null)}
         />
       )}
-      {selected && <CareLogDetailSheet log={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <CareLogDetailSheet
+          log={selected.log}
+          initialEditing={selected.editing}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </>
   );
 }

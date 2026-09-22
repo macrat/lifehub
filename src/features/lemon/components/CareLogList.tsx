@@ -10,6 +10,7 @@ import {
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
 import { formatDatePadded } from '../../../lib/date.ts';
+import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareLog } from '../queries.ts';
 
@@ -49,15 +50,17 @@ type Props = {
   logs: CareLog[];
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
   emptyMessage: string;
-  /** 行をタップしたとき（詳細を開く） */
-  onSelect: (log: CareLog) => void;
+  /** 行を単押ししたとき（詳細を読むだけで開く） */
+  onView: (log: CareLog) => void;
+  /** 行を長押ししたとき（詳細を編集で開く） */
+  onEdit: (log: CareLog) => void;
 };
 
 /**
  * 世話の記録（新しい順）。1 行が 1 回の記録で、その日付・そのときやったこと・メモを 3 列に並べる。
- * 行をタップで詳細（時刻を含む全文、編集・削除はそこに集める）。
+ * 行は単押しで閲覧（時刻を含む全文）、長押しで編集（`useRecordPress`）。削除は詳細の三点リーダーに集める。
  */
-export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
+export function CareLogList({ logs, emptyMessage, onView, onEdit }: Props) {
   return (
     <List disablePadding>
       {logs.length === 0 && (
@@ -66,19 +69,34 @@ export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
         </ListItem>
       )}
       {logs.map((log) => (
-        <ListItem key={log.id} divider disablePadding>
-          <ListItemButton onClick={() => onSelect(log)} sx={ROW_SX}>
-            {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
-                中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
-            <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
-            <CareTypeIcons careTypes={log.careTypes} />
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {log.note}
-            </Typography>
-          </ListItemButton>
-        </ListItem>
+        <CareLogRow key={log.id} log={log} onView={() => onView(log)} onEdit={() => onEdit(log)} />
       ))}
     </List>
+  );
+}
+
+function CareLogRow({
+  log,
+  onView,
+  onEdit,
+}: {
+  log: CareLog;
+  onView: () => void;
+  onEdit: () => void;
+}) {
+  const press = useRecordPress({ onView, onEdit });
+  return (
+    <ListItem divider disablePadding>
+      <ListItemButton {...press} sx={ROW_SX}>
+        {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
+            中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
+        <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
+        <CareTypeIcons careTypes={log.careTypes} />
+        <Typography variant="body2" color="text.secondary" noWrap>
+          {log.note}
+        </Typography>
+      </ListItemButton>
+    </ListItem>
   );
 }
 

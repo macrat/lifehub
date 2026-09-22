@@ -13,6 +13,8 @@ import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {
   expense: Expense;
+  /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
+  initialEditing?: boolean;
   onClose: () => void;
 };
 
@@ -21,11 +23,11 @@ type Props = {
  * 表示ではフォームと同じ To（誰のために）・From（払った人）で内訳を見せる。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
-export function ExpenseDetailSheet({ expense, onClose }: Props) {
+export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }: Props) {
   const { label } = useUserLabels();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const { amount, setAmount, errors, submitError, submitted, handleSubmit } = useExpenseForm({
     initial: expense,
     onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),

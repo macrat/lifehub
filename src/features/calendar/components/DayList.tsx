@@ -9,11 +9,14 @@ import { itemKey } from './lane-layout.ts';
 type Props = {
   date: DateString;
   items: CalendarItem[];
-  onSelectItem: (item: CalendarItem) => void;
+  /** 行を単押ししたとき（詳細を読むだけで開く） */
+  onViewItem: (item: CalendarItem) => void;
+  /** 行を長押ししたとき（詳細を編集で開く） */
+  onEditItem: (item: CalendarItem) => void;
 };
 
 /** 1 日分の見出しと行の一覧（Google カレンダーの予定リストの体裁） */
-export function DayList({ date, items, onSelectItem }: Props) {
+export function DayList({ date, items, onViewItem, onEditItem }: Props) {
   const today = isToday(date);
   return (
     <Box>
@@ -36,7 +39,9 @@ export function DayList({ date, items, onSelectItem }: Props) {
           予定なし
         </Typography>
       ) : (
-        items.map((item) => <ItemCard key={itemKey(item)} item={item} onClick={onSelectItem} />)
+        items.map((item) => (
+          <ItemCard key={itemKey(item)} item={item} onView={onViewItem} onEdit={onEditItem} />
+        ))
       )}
     </Box>
   );

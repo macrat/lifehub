@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
+import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
   type CalendarItem,
@@ -25,7 +26,8 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 /**
  * 今日の予定と、今日の位置にあるタスク（未完了と、今日完了したもの）を 1 つの一覧に。
  * 1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
- * タスクはチェックで完了・未完了を切り替え、行をタップすると詳細。
+ * タスクはチェックで完了・未完了を切り替え、行は単押しで詳細、長押しでその詳細が編集で開く
+ * （アプリ全体の「単押しは閲覧、長押しは編集」）。
  *
  * カレンダーと同じ月のキャッシュを読む。そのキャッシュは古くならないので、ホームに入るたびに
  * 取り直す（`useRefreshCalendarItems`。カレンダー画面と同じ扱い）。
@@ -33,7 +35,8 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 export function TodayCard() {
   useRefreshCalendarItems();
   const query = useCalendarItems({ from: today(), to: today() });
-  const [selected, setSelected] = useState<CalendarItem | null>(null);
+  // 開いている項目と、どちらの顔（閲覧・編集）で開いたか
+  const [selected, setSelected] = useState<{ item: CalendarItem; editing: boolean } | null>(null);
   return (
     <DashboardCardFrame
       title="今日"
@@ -47,23 +50,39 @@ export function TodayCard() {
               なし
             </Typography>
           ) : (
-            items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
+            items.map((item) => (
+              <TodayRow
+                key={itemKey(item)}
+                item={item}
+                onView={(item) => setSelected({ item, editing: false })}
+                onEdit={(item) => setSelected({ item, editing: true })}
+              />
+            ))
           )
         }
       </QueryView>
-      {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <ItemDetailSheet
+          item={selected.item}
+          initialEditing={selected.editing}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </DashboardCardFrame>
   );
 }
 
 function TodayRow({
   item,
-  onClick,
+  onView,
+  onEdit,
 }: {
   item: CalendarItem;
-  onClick: (item: CalendarItem) => void;
+  onView: (item: CalendarItem) => void;
+  onEdit: (item: CalendarItem) => void;
 }) {
   const colorFor = useUserColor();
+  const press = useRecordPress({ onView: () => onView(item), onEdit: () => onEdit(item) });
   const completed = item.kind === 'task' && item.completedAt !== null;
   const colors = colorFor(colorUserOf(item.participantIds));
   return (
@@ -79,7 +98,7 @@ function TodayRow({
         )}
       </Box>
       <ButtonBase
-        onClick={() => onClick(item)}
+        {...press}
         sx={{
           flexGrow: 1,
           minWidth: 0,

@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime } from '../../../lib/date.ts';
+import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import {
   COMPLETED_ROW_SX,
   COMPLETED_TITLE_SX,
@@ -22,17 +23,22 @@ import { itemTransitionName } from './item-transition.ts';
 
 type Props = {
   item: CalendarItem;
-  onClick: (item: CalendarItem) => void;
+  /** 行を単押ししたとき（詳細を読むだけで開く） */
+  onView: (item: CalendarItem) => void;
+  /** 行を長押ししたとき（詳細を編集で開く） */
+  onEdit: (item: CalendarItem) => void;
 };
 
 /**
- * 一覧（リスト表示・ホーム）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
+ * 一覧（リスト表示）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
  * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分け、色は参加者（1 人のとき）のユーザーの色。
  * 期限超過は赤、完了は薄く取り消し線。
+ * 単押しは閲覧、長押しは編集（`useRecordPress`。グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
  */
-export function ItemCard({ item, onClick }: Props) {
+export function ItemCard({ item, onView, onEdit }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
+  const press = useRecordPress({ onView: () => onView(item), onEdit: () => onEdit(item) });
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
@@ -75,7 +81,7 @@ export function ItemCard({ item, onClick }: Props) {
         )}
       </Box>
       <ButtonBase
-        onClick={() => onClick(item)}
+        {...press}
         sx={{
           flexGrow: 1,
           minWidth: 0,

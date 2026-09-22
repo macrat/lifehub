@@ -282,11 +282,42 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
 
-  // 軽いタップは今までどおり日表示へ
+  // 項目に掛かっていない所の軽いタップは日表示へ
   const tap = await dayPoint(page, '2031-06-18');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-18/);
   await expect(page.getByRole('button', { name: title })).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await detailAction(page, '削除');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('月表示は項目のタップで詳細、項目の無い所のタップで日表示', async ({ page }) => {
+  const title = `E2E 月のタップ ${Date.now()}`;
+  await page.goto('/calendar?view=month&date=2031-06-15');
+
+  // 6/11〜6/12 の終日の予定を作る（下の行はクイック入力のシートに隠れるので上の行で確かめる）
+  await selectDays(page, '2031-06-11', '2031-06-12');
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  const bar = page.getByRole('button', { name: title });
+  await expect(bar).toHaveCount(1);
+
+  // 帯を軽くタップすると読むだけの詳細が出る（日表示へは移らない）
+  const sheet = page.locator('[data-sheet]');
+  const at = await centerOf(bar);
+  await page.touchscreen.tap(at.x, at.y);
+  await expect(sheet.getByText('6/11(水)〜6/12(木)')).toBeVisible();
+  await expect(page).toHaveURL(/view=month/);
+
+  // 項目に掛かっていない所のタップは今までどおり日表示へ
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(sheet).toHaveCount(0);
+  const cell = await dayPoint(page, '2031-06-11');
+  await page.touchscreen.tap(cell.x, cell.y);
+  await expect(page).toHaveURL(/view=day&date=2031-06-11/);
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
@@ -329,7 +360,7 @@ test('月表示でも予定を長押しでつまんで別の日へ動かせる',
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(page.getByLabel(title)).toHaveCount(1);
 
-  // 軽いタップは今までどおり日表示へ。移した先の日に出ている
+  // 項目に掛かっていない所の軽いタップは日表示へ。移した先の日に出ている
   const tap = await dayPoint(page, '2031-06-17');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-17/);
