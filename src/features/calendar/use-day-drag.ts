@@ -1,8 +1,9 @@
 import type { PointerEvent } from 'react';
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { type DayGrab, dayDraft, dayGrab, dayVibration, type EventDraft } from './draft.ts';
-import { useRangeDrag } from './use-range-drag.ts';
+import { type DayGrab, type Draft, dayDraft, dayGrab, dayVibration, itemDraft } from './draft.ts';
+import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 
 /** ポインタの位置にある日のセル（`data-date` を持つ一番上の要素）と、その日 */
 function cellAt(
@@ -20,6 +21,7 @@ function cellAt(
  * ドラッグはセルをまたぐので、日は要素の親子ではなく画面の位置（`data-date` を持つ一番上の要素）から引く。
  * 出ている下書きに掛かる所を押したときは、選び直さずにその下書きをつまむ（つまむ所の決め方は `dayGrab`）。
  * つまむのはセルなので、帯が週の行をまたいでも（月表示で帯は行ごとに分かれる）掴んだ物を離さずに動かせる。
+ * 保存済みの予定は長押しでつまむと編集モードに入り、そのまま日を動かせる（`grabItemProps`）。
  * タッチの軽いタップは選択にせず、`onTapDate`（日表示へ移る）に渡す。
  * 日をまたいで範囲が変わるたびに震わせる（`dayVibration`）。選び直しでもつまんで動かしたときでも同じ。
  */
@@ -28,12 +30,12 @@ export function useDayDrag({
   onChange,
   onTapDate,
 }: {
-  /** この面が日の並びに出している下書き。つまんだ所の意味づけに使う（出していない下書きは掴めない） */
-  draft: EventDraft | null;
-  onChange: (draft: EventDraft, done: boolean) => void;
+  /** この面が日の並びに出している枠。つまんだ所の意味づけに使う（出していない枠は掴めない） */
+  draft: Draft | null;
+  onChange: (draft: Draft, done: boolean) => void;
   onTapDate?: (date: DateString) => void;
 }) {
-  const drag = useRangeDrag<DateString, DayGrab, EventDraft>({
+  const drag = useRangeDrag<DateString, DayGrab, Draft>({
     locate: (event) => cellAt(event)?.date ?? null,
     // 掴んだ物は押した所（セルの左右どちら側か）で決まる。動かしている間は見ないので、矩形も押したときだけ読む
     grabOf: (event) => {
@@ -42,10 +44,26 @@ export function useDayDrag({
       const { left, width } = cell.element.getBoundingClientRect();
       return dayGrab(draft, cell.date, event.clientX < left + width / 2 ? 'left' : 'right');
     },
-    rangeOf: dayDraft,
+    // 範囲と一緒に「何を直しているか」を返す。空いている所からのドラッグ（grab が null）は
+    // つまんだ予定を離れて、新しい予定の下書きになる
+    rangeOf: (d) => ({ range: dayDraft(d), item: d.grab?.item ?? null }),
     onChange,
-    vibration: dayVibration,
+    vibration: (previous, next) => dayVibration(previous.range, next.range),
     onTouchTap: onTapDate,
   });
-  return drag.props;
+  return {
+    /** 日のセルに渡す。帯はポインタを受けないので、つまむのも選び直すのもここから */
+    props: drag.props,
+    /**
+     * 保存済みの予定（帯・項目）を長押しでつまんで編集モードに入り、そのまま動かす。
+     * 軽いタップは詳細（PC の月表示・終日欄）や日表示（スマホの月表示）に譲る。
+     * 枠に出せない項目（タスク、日をまたぐ時間指定の予定）はつまめないので undefined。
+     */
+    grabItemProps: (item: CalendarItem): DragHandlers | undefined => {
+      const range = itemDraft(item);
+      return range
+        ? drag.grabProps({ kind: 'move', draft: range, item }, { tap: false })
+        : undefined;
+    },
+  };
 }

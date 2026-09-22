@@ -1,12 +1,13 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { useMemo } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -23,14 +24,17 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
   onSelectDate?: (date: DateString) => void;
-  /** 追加しようとしている予定の範囲（終日欄と時間軸に出す） */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加・編集しようとしている予定の枠（終日欄と時間軸に出す） */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
-  /** 空いている所をなぞって範囲を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  /** なぞって範囲を決めたとき。done はポインタを離したか */
+  onChangeDraft: (draft: Draft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
+  /** 時間軸（`TimeGrid`）へそのまま渡す */
+  hourHeight: number;
+  onZoom: (ratio: number) => void;
 };
 
 const GUTTER_WIDTH = 44;
@@ -41,7 +45,8 @@ const LANE_HEIGHT = 20;
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  * 終日欄をなぞると終日の予定、時間軸をなぞるとその時間帯の予定を追加できる。
- * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルの長押しから（`draft.ts` の `dayGrab`）。
+ * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルから（`draft.ts` の `dayGrab`）。
+ * 終日の予定も長押しでつまむと編集モードに入り、そのまま日を動かせる（編集中は元の項目を隠して帯で出す）。
  */
 export function TimelineView({
   days,
@@ -52,32 +57,37 @@ export function TimelineView({
   draftUserId,
   onChangeDraft,
   height,
+  hourHeight,
+  onZoom,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
-  const barDraft = draft?.allDay ? draft : null;
+  // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
+  const barDraft = draft?.range.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
-  const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
-  const allDayByDate = new Map<DateString, CalendarItem[]>();
-  const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
-  for (const day of days) {
-    const allDay: CalendarItem[] = [];
-    const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
-    for (const item of itemsByDate.get(day) ?? []) {
-      const slot = timeSlot(item);
-      if (slot) timed.push({ key: itemKey(item), item, ...slot });
-      else allDay.push(item);
+  // 終日欄と時間軸への振り分けと配置は、日付と項目だけで決まる。つまんで高さが変わるたびに
+  // 数え直さない（指を動かしている間は毎フレーム描き直される所なので）
+  const { timedByDate, lanes } = useMemo(() => {
+    const allDayByDate = new Map<DateString, CalendarItem[]>();
+    const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
+    for (const day of days) {
+      const allDay: CalendarItem[] = [];
+      const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
+      for (const item of itemsByDate.get(day) ?? []) {
+        const slot = timeSlot(item);
+        if (slot) timed.push({ key: itemKey(item), item, ...slot });
+        else allDay.push(item);
+      }
+      allDayByDate.set(day, allDay);
+      timedByDate.set(day, layoutTimed(timed));
     }
-    allDayByDate.set(day, allDay);
-    timedByDate.set(day, layoutTimed(timed));
-  }
-  const lanes = layoutLanes(days, allDayByDate);
+    return { timedByDate, lanes: layoutLanes(days, allDayByDate) };
+  }, [days, itemsByDate]);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
-  const draftCols = barDraft && draftColumns(barDraft, days);
+  const draftCols = barDraft && draftColumns(barDraft.range, days);
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
@@ -157,7 +167,7 @@ export function TimelineView({
           <Box
             key={day}
             data-date={day}
-            {...dayDrag}
+            {...dayDrag.props}
             sx={{ gridColumn: i + 2, gridRow: '1 / -1', borderLeft: 1, borderColor: 'divider' }}
           />
         ))}
@@ -169,6 +179,8 @@ export function TimelineView({
             showTime={false}
             colors={colorFor(colorUserOf(p.item.participantIds))}
             onClick={() => onSelectItem(p.item)}
+            grab={dayDrag.grabItemProps(p.item)}
+            hidden={sameOccurrence(barDraft?.item, p.item)}
           />
         ))}
         {draftCols && (
@@ -184,6 +196,7 @@ export function TimelineView({
         days={days}
         timedByDate={timedByDate}
         hourHeight={hourHeight}
+        onZoom={onZoom}
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
         draft={draft}
@@ -194,12 +207,12 @@ export function TimelineView({
   );
 }
 
-/** 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（または別の日の時刻の）タスクは null（終日欄へ） */
+/**
+ * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（または別の日の時刻の）タスクは
+ * null（終日欄へ）。予定の時間帯は枠と同じ規則（`timedSlot`）で決め、置いた所をそのままつまめるようにする。
+ */
 function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
-  if (item.kind === 'event') {
-    if (item.allDay || item.dayCount > 1) return null;
-    return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
-  }
+  if (item.kind === 'event') return timedSlot(item);
   const time = taskTimeOnPlacementDate(item);
   if (!time) return null;
   const startMin = minutesOfDay(time.at);

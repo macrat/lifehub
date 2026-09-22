@@ -7,7 +7,12 @@ import { CalendarToolbar } from '../../features/calendar/components/CalendarTool
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
-import { defaultDraft, draftDays, type EventDraft } from '../../features/calendar/draft.ts';
+import {
+  type Draft,
+  defaultDraft,
+  draftDays,
+  sameOccurrence,
+} from '../../features/calendar/draft.ts';
 import { type CalendarItem, colorUserOf } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
@@ -17,7 +22,12 @@ import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
 import { defaultParticipants, type ItemFormValues } from '../../features/events/form-values.ts';
-import { useCreateEvent } from '../../features/events/queries.ts';
+import {
+  type CreateEventBody,
+  useCreateEvent,
+  useUpdateEvent,
+} from '../../features/events/queries.ts';
+import { grabbedScope } from '../../features/events/recurrence-options.ts';
 import { useUserLabels } from '../../features/users/use-user-labels.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -40,10 +50,8 @@ const FILL_HEIGHT = {
 };
 const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 
-/** 追加しようとしている予定 */
-type Draft = {
-  /** グリッドに出す枠 */
-  range: EventDraft;
+/** 追加しようとしている予定と、長押しでつまんで直している予定（`Draft` の item）の両方 */
+type DraftState = Draft & {
   /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
   participantIds: string[];
   /** 入力を出すか（なぞっている間は出さない） */
@@ -57,6 +65,7 @@ type Draft = {
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
+ * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
  * - 追加ボタンの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
  */
 function CalendarPage() {
@@ -65,24 +74,47 @@ function CalendarPage() {
   const { view } = page;
 
   const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent();
   const { meId } = useUserLabels();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
+  const [draft, setDraft] = useState<DraftState | null>(null);
+  // 「その他のオプション」で全項目のフォームへ移した入力（直している予定も一緒に持ち越す）
+  const [expanded, setExpanded] = useState<{
+    values: ItemFormValues;
+    item: CalendarItem | null;
+  } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
-  // 枠を動かしても選んだ参加者はそのまま持ち越す（選び直しと同じ扱いにすると色と選択が戻ってしまう）
+  // 同じ予定を直し続けている間は選んだ参加者をそのまま持ち越す（枠を動かすたびに色と選択が戻らない）。
+  // つまむ物が変わったときは、直す予定の参加者（追加なら自分）から始める
   const changeDraft = useCallback(
-    (range: EventDraft, editing: boolean) =>
+    (next: Draft, editing: boolean) =>
       setDraft((prev) => ({
-        participantIds: prev?.participantIds ?? defaultParticipants(meId),
-        range,
+        ...next,
+        participantIds:
+          prev && sameOccurrence(prev.item, next.item)
+            ? prev.participantIds
+            : (next.item?.participantIds ?? defaultParticipants(meId)),
         editing,
         detent: 'peek',
       })),
     [meId],
   );
+
+  /**
+   * 下書きの保存。つまんだ予定を直しているときはその予定を上書きし、そうでなければ追加する
+   * （クイック入力からでも「その他のオプション」の全項目のフォームからでも同じ）。
+   */
+  const save = (input: CreateEventBody, item: CalendarItem | null) => {
+    if (!item) return createEvent.mutateAsync(input);
+    return updateEvent.mutateAsync({
+      ...input,
+      id: item.id,
+      scope: grabbedScope(item),
+      occurrenceStart: item.occurrenceStart ?? undefined,
+    });
+  };
 
   // 追加ボタンから来たら、その日の既定の時間帯を枠にして全項目の段から始める。
   // しるしは使ったらすぐ消す（履歴に積まず、再読み込みで開き直さない）
@@ -92,6 +124,7 @@ function CalendarPage() {
     if (!addEvent) return;
     setDraft({
       range: defaultDraft(page.date),
+      item: null,
       participantIds: defaultParticipants(meId),
       editing: true,
       detent: 'full',
@@ -137,10 +170,12 @@ function CalendarPage() {
                 date={date}
                 onSelectDate={page.openDay}
                 onSelectItem={setSelected}
-                // 下書きは表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
-                draft={offset === 0 ? (draft?.range ?? null) : null}
+                // 枠は表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
+                draft={offset === 0 ? draft : null}
                 draftUserId={draft ? colorUserOf(draft.participantIds) : null}
                 onChangeDraft={changeDraft}
+                hourHeight={page.hourHeight}
+                onZoom={page.zoom}
               />
             )}
           </SwipePager>
@@ -165,26 +200,29 @@ function CalendarPage() {
       {draft && (
         <QuickEventForm
           draft={draft.range}
+          item={draft.item}
           participantIds={draft.participantIds}
           onChangeParticipants={(participantIds) =>
             setDraft((prev) => prev && { ...prev, participantIds })
           }
           open={draft.editing}
           initialDetent={draft.detent}
-          onSubmit={(input) => createEvent.mutateAsync(input)}
+          onSubmit={(input) => save(input, draft.item)}
           onChangeDraft={(range) => setDraft((prev) => prev && { ...prev, range, editing: true })}
           onExpand={(values) => {
-            setDraftValues(values);
+            setExpanded({ values, item: draft.item });
             setDraft(null);
           }}
           onClose={() => setDraft(null)}
         />
       )}
-      {draftValues && (
+      {expanded && (
         <EventForm
-          initial={draftValues}
-          onSubmit={(input) => createEvent.mutateAsync(input)}
-          onClose={() => setDraftValues(null)}
+          initial={expanded.values}
+          scope={grabbedScope(expanded.item)}
+          title={expanded.item ? '予定を編集' : '予定を追加'}
+          onSubmit={(input) => save(input, expanded.item)}
+          onClose={() => setExpanded(null)}
         />
       )}
     </>

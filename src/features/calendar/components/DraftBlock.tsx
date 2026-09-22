@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
+import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
@@ -27,22 +28,21 @@ const outline = (colors: ItemColors) =>
   }) as const;
 
 /**
- * 選んでいる時間帯（週・日の時間軸）。つまんで直せるときは、枠そのもので長さを保ったまま動かし
- * （左右に動かせば別の日へ移る）、端の丸で開始・終了を変える。枠がポインタを受けるので、
- * 枠の中から選び直すことはできない（選び直しは空いている所から）。
+ * 追加・編集しようとしている時間帯の枠（週・日の時間軸）。つまんで直せるときは、枠そのもので
+ * 長さを保ったまま動かし（左右に動かせば別の日へ移る）、端の丸で開始・終了を変える。
+ * 枠は長押しを待たずに動き出すので、縦スクロールと横スワイプは枠の外から始める。
+ * 枠がポインタを受けるので、枠の中から選び直すことはできない（選び直しは空いている所から）。
  * `DraftBar` と同じく時間軸のグリッドの直接の子で、列の中には入れない（`TimeGrid`）。
  */
 export function DraftBlock({
   draft,
   column,
-  hourHeight,
   colors,
   grab,
 }: {
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
-  hourHeight: number;
   /** 選んでいる参加者の色 */
   colors: ItemColors;
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
@@ -60,13 +60,15 @@ export function DraftBlock({
         // 行の上端から開始の分だけ下げる（列と同じ高さに伸びないよう start 揃え）
         alignSelf: 'start',
         position: 'relative',
-        mt: `${(startMin / 60) * hourHeight + 1}px`,
-        height: ((endMin - startMin) / 60) * hourHeight - 2,
+        mt: `calc(${atMinute(startMin)} + 1px)`,
+        height: `calc(${atMinute(endMin - startMin)} - 2px)`,
         ml: '1px',
         mr: '2px',
         px: 0.5,
         // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
         pointerEvents: grab ? 'auto' : 'none',
+        // 押した時点から動かすので、ブラウザのスクロール・スワイプには渡さない
+        touchAction: grab ? 'none' : undefined,
         cursor: 'move',
       }}
     >

@@ -5,7 +5,6 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { formatDateTime, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
@@ -20,19 +19,12 @@ import {
 import { describeRRule } from '../recurrence-options.ts';
 import { useItemForm } from '../use-item-form.ts';
 import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
-import { EventFormFields, TaskFormFields } from './EventFields.tsx';
+import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 
 type Props = {
   item: CalendarItem;
   onClose: () => void;
-};
-
-/** 繰り返しのどこを直しているかは見出しには出ないので、入力欄の先頭で示す */
-const SCOPE_LABELS: Record<RecurrenceScope, string> = {
-  this: 'この回だけ編集',
-  following: 'これ以降を編集',
-  all: 'すべての回を編集',
 };
 
 /**
@@ -126,14 +118,7 @@ export function ItemDetailSheet({ item, onClose }: Props) {
       >
         {editing && values ? (
           <>
-            {item.isRecurring && editScope && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={SCOPE_LABELS[editScope]}
-                sx={{ alignSelf: 'flex-start' }}
-              />
-            )}
+            {item.isRecurring && editScope && <ScopeChip scope={editScope} />}
             {isTask ? (
               <TaskFormFields
                 initial={values}
