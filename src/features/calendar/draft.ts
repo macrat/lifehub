@@ -1,4 +1,5 @@
-import { toDateString } from '../../../shared/date.ts';
+import type { DateRange } from '../../../shared/calendar.ts';
+import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
   formatDate,
@@ -34,10 +35,15 @@ export type AllDayDraft = EventDraft & { allDay: true };
 export type TimePoint = { date: DateString; min: number };
 
 /**
- * 時間軸で下書きをつまんだ所。start・end はその端だけを動かし、move は長さを保ったまま動かす。
- * つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、押した所から選び直す。
+ * 下書きをつまんだ所。start・end はその端だけを動かし、move は長さ（時間指定なら時間、終日なら日数）を
+ * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
+ * 押した所から選び直す。
  */
 export type TimeGrab = { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
+/** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
+export type DayGrab =
+  | { kind: 'start' | 'end'; draft: AllDayDraft }
+  | { kind: 'move'; draft: EventDraft };
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
@@ -45,11 +51,12 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
-/** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
-const HOUR_VIBRATION_MS = 10;
-const STEP_VIBRATION_MS = 50;
-/** 終日の下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類だけなので正時と同じ */
-const DAY_VIBRATION_MS = 10;
+/**
+ * 吸着したときの手応えの長さ（ms）。長いのは時間軸の正時だけの合図にして、それ以外の区切り
+ * （15 分の刻み、日をまたぐとき）は短く軽く返す。これで時間の区切りを見ずに聞き分けられる。
+ */
+const LONG_VIBRATION_MS = 50;
+const SHORT_VIBRATION_MS = 10;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -108,7 +115,7 @@ export function timeVibration(previous: TimedDraft, draft: TimedDraft): number |
   return null;
 }
 
-const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
+const vibrationFor = (min: number) => (min % 60 === 0 ? LONG_VIBRATION_MS : SHORT_VIBRATION_MS);
 
 /**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
@@ -120,19 +127,69 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
 }
 
-/** 日の 2 点 → 終日の下書き（両端を含む。どちら向きに選んでも同じ） */
-export function dayDraft(anchor: DateString, current: DateString): AllDayDraft {
-  const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];
-  return { allDay: true, from, to };
+/**
+ * 日の並びで押した所が、今出ている下書きのどこか。掛かっていなければ null（押した所から選び直す）。
+ * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
+ * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
+ * 時間指定は 1 日ぶんの帯で、日の並びでは時間帯を変えられないので帯そのものだけ。
+ * 見るのは帯そのものではなく日のセルの左右。帯は指より薄く（月グリッドで 17px）狙って押せないうえ、
+ * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
+ */
+export function dayGrab(
+  draft: EventDraft | null,
+  date: DateString,
+  half: 'left' | 'right',
+): DayGrab | null {
+  if (draft === null) return null;
+  const { from, to } = draftDays(draft);
+  if (date < from || date > to) return null;
+  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。動かせるのは日だけ
+  if (!draft.allDay) return { kind: 'move', draft };
+  if (date === from && half === 'left') return { kind: 'start', draft };
+  if (date === to && half === 'right') return { kind: 'end', draft };
+  return { kind: 'move', draft };
 }
 
 /**
- * 終日の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
- * 日をまたいで端が変わるたびに震わせ、いくつ先の日まで選んでいるかを数えられるようにする。
+ * 日の並び（月表示・終日欄）のドラッグ → 下書き。
+ * 空いている所からは押した日と今の日を両端にする終日の下書き（両端を含み、どちら向きに選んでも同じ）。
+ * つまんだだけで動かしていなければそのまま。端をつまんだときは反対の端を越えられない（最短 1 日）。
+ * 帯そのものをつまんだときは動かした日数だけずらす。終日は日数を、時間指定は時間帯を保つ。
  */
-export function dayVibration(previous: AllDayDraft, draft: AllDayDraft): number | null {
-  const moved = draft.from !== previous.from || draft.to !== previous.to;
-  return moved ? DAY_VIBRATION_MS : null;
+export function dayDraft({ grab, from, to, moved }: Drag<DateString, DayGrab>): EventDraft {
+  if (grab === null) return { allDay: true, from: earlier(from, to), to: later(from, to) };
+  if (!moved) return grab.draft;
+  switch (grab.kind) {
+    case 'start':
+      return { ...grab.draft, from: earlier(to, grab.draft.to) };
+    case 'end':
+      return { ...grab.draft, to: later(to, grab.draft.from) };
+    case 'move': {
+      const { draft } = grab;
+      const shift = diffDays(from, to);
+      return draft.allDay
+        ? { ...draft, from: addDays(draft.from, shift), to: addDays(draft.to, shift) }
+        : { ...draft, date: addDays(draft.date, shift) };
+    }
+  }
+}
+
+const earlier = (a: DateString, b: DateString) => (a <= b ? a : b);
+const later = (a: DateString, b: DateString) => (a >= b ? a : b);
+
+/**
+ * 日の並びで下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 日をまたいで占める日が変わるたびに震わせ、いくつ先の日まで選んだ・動かしたかを数えられるようにする。
+ */
+export function dayVibration(previous: EventDraft, draft: EventDraft): number | null {
+  const days = draftDays(draft);
+  const previousDays = draftDays(previous);
+  return days.from === previousDays.from && days.to === previousDays.to ? null : SHORT_VIBRATION_MS;
+}
+
+/** 日の並びで下書きが占める期間（両端を含む）。時間指定の下書きはその日 1 日ぶん */
+function draftDays(draft: EventDraft): DateRange {
+  return draft.allDay ? draft : { from: draft.date, to: draft.date };
 }
 
 /**
@@ -143,15 +200,15 @@ export function draftColumns(
   draft: EventDraft,
   days: DateString[],
 ): { col: number; span: number; roundStart: boolean; roundEnd: boolean } | null {
-  if (!draft.allDay) return null;
-  const first = days.findIndex((d) => d >= draft.from);
-  const last = days.findLastIndex((d) => d <= draft.to);
+  const { from, to } = draftDays(draft);
+  const first = days.findIndex((d) => d >= from);
+  const last = days.findLastIndex((d) => d <= to);
   if (first === -1 || last === -1 || first > last) return null;
   return {
     col: first,
     span: last - first + 1,
-    roundStart: days[first] === draft.from,
-    roundEnd: days[last] === draft.to,
+    roundStart: days[first] === from,
+    roundEnd: days[last] === to,
   };
 }
 
