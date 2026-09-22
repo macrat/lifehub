@@ -183,10 +183,10 @@ export function draftInstants(draft: EventDraft): {
 }
 
 /** 全項目のフォーム（「その他のオプション」）に渡す既定値 */
-export function draftValues(draft: EventDraft): ItemFormValues {
+export function draftValues(draft: EventDraft, participantIds: string[]): ItemFormValues {
   return draft.allDay
-    ? allDayEventValues(draft.from, draft.to)
-    : eventValuesForRange(draft.date, draft.startMin, draft.endMin);
+    ? allDayEventValues(draft.from, draft.to, participantIds)
+    : eventValuesForRange(draft.date, draft.startMin, draft.endMin, participantIds);
 }
 
 /**

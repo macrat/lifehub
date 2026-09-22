@@ -8,7 +8,7 @@ import { DatePickerDialog } from '../../features/calendar/components/DatePickerD
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
 import { defaultDraft, type EventDraft } from '../../features/calendar/draft.ts';
-import type { CalendarItem } from '../../features/calendar/queries.ts';
+import { type CalendarItem, colorUserOf } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
   useCalendarPage,
@@ -16,8 +16,9 @@ import {
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
-import type { ItemFormValues } from '../../features/events/form-values.ts';
+import { defaultParticipants, type ItemFormValues } from '../../features/events/form-values.ts';
 import { useCreateEvent } from '../../features/events/queries.ts';
+import { useUserLabels } from '../../features/users/use-user-labels.ts';
 import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
@@ -43,6 +44,8 @@ const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 type Draft = {
   /** グリッドに出す枠 */
   range: EventDraft;
+  /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
+  participantIds: string[];
   /** 入力を出すか（なぞっている間は出さない） */
   editing: boolean;
   /** 入力を開く段。グリッドからは下の段、追加ボタンからは全項目の段 */
@@ -62,15 +65,23 @@ function CalendarPage() {
   const { view } = page;
 
   const createEvent = useCreateEvent();
+  const { meId } = useUserLabels();
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftValues, setDraftValues] = useState<ItemFormValues | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
+  // 枠を動かしても選んだ参加者はそのまま持ち越す（選び直しと同じ扱いにすると色と選択が戻ってしまう）
   const changeDraft = useCallback(
-    (range: EventDraft, editing: boolean) => setDraft({ range, editing, detent: 'peek' }),
-    [],
+    (range: EventDraft, editing: boolean) =>
+      setDraft((prev) => ({
+        participantIds: prev?.participantIds ?? defaultParticipants(meId),
+        range,
+        editing,
+        detent: 'peek',
+      })),
+    [meId],
   );
 
   // 追加ボタンから来たら、その日の既定の時間帯を枠にして全項目の段から始める。
@@ -79,9 +90,14 @@ function CalendarPage() {
   const addEvent = search.add === 'event';
   useEffect(() => {
     if (!addEvent) return;
-    setDraft({ range: defaultDraft(page.date), editing: true, detent: 'full' });
+    setDraft({
+      range: defaultDraft(page.date),
+      participantIds: defaultParticipants(meId),
+      editing: true,
+      detent: 'full',
+    });
     setSearch({ add: undefined }, { replace: true });
-  }, [addEvent, page.date, setSearch]);
+  }, [addEvent, page.date, meId, setSearch]);
 
   return (
     <>
@@ -120,6 +136,7 @@ function CalendarPage() {
                 onSelectItem={setSelected}
                 // 下書きは表示中の面にだけ出す（前後の面は控えなので、同じ枠が二重に出ないように）
                 draft={offset === 0 ? (draft?.range ?? null) : null}
+                draftUserId={draft ? colorUserOf(draft.participantIds) : null}
                 onChangeDraft={changeDraft}
               />
             )}
@@ -145,6 +162,10 @@ function CalendarPage() {
       {draft && (
         <QuickEventForm
           draft={draft.range}
+          participantIds={draft.participantIds}
+          onChangeParticipants={(participantIds) =>
+            setDraft((prev) => prev && { ...prev, participantIds })
+          }
           open={draft.editing}
           initialDetent={draft.detent}
           onSubmit={(input) => createEvent.mutateAsync(input)}

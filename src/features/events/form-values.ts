@@ -10,7 +10,7 @@ export type ItemFormValues = {
   startsAt: string | null;
   /** 予定では終了（排他的）、タスクでは期限 */
   endsAt: string | null;
-  /** 空なら全員（新規作成の既定） */
+  /** 1 人以上（空は検証で弾かれる）。新規作成の既定は `defaultParticipants` */
   participantIds: string[];
   location: string | null;
   note: string | null;
@@ -32,14 +32,25 @@ const EMPTY: ItemFormValues = {
   remindEndMinutes: null,
 };
 
+/**
+ * 新規作成の既定の参加者: 自分だけ。相手の予定を勝手に増やさないよう、
+ * 一緒に入れたいときだけ参加者を足してもらう。ログイン中のユーザーがまだ読めていなければ空
+ * （検証の「1 人以上」で止まるので、誰にも紐づかない予定は保存されない）。
+ */
+export function defaultParticipants(meId: string | null): string[] {
+  return meId === null ? [] : [meId];
+}
+
 /** 指定日の時間帯（0:00 からの分）の予定の既定値。タイムラインのドラッグで選んだ時間帯をそのまま渡す */
 export function eventValuesForRange(
   date: DateString,
   startMin: number,
   endMin: number,
+  participantIds: string[],
 ): ItemFormValues {
   return {
     ...EMPTY,
+    participantIds,
     startsAt: fromMinutesOfDay(date, startMin),
     endsAt: fromMinutesOfDay(date, endMin),
   };
@@ -49,9 +60,14 @@ export function eventValuesForRange(
  * 指定した日（両端を含む）の終日の予定の既定値。月表示・終日欄で選んだ期間をそのまま渡す。
  * 終了は保存されている予定と同じ「排他的な終わり」（翌日 0:00）で持つ。
  */
-export function allDayEventValues(from: DateString, to: DateString): ItemFormValues {
+export function allDayEventValues(
+  from: DateString,
+  to: DateString,
+  participantIds: string[],
+): ItemFormValues {
   return {
     ...EMPTY,
+    participantIds,
     allDay: true,
     startsAt: fromDateValue(from),
     endsAt: fromDateValue(addDays(to, 1)),
@@ -62,8 +78,8 @@ export function allDayEventValues(from: DateString, to: DateString): ItemFormVal
  * タスクの既定値: 日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
  * 「いつかやる」を入れるときは日時に触らずに済む（予定と違って時間の枠を持たない）。
  */
-export function defaultTaskValues(): ItemFormValues {
-  return EMPTY;
+export function defaultTaskValues(participantIds: string[]): ItemFormValues {
+  return { ...EMPTY, participantIds };
 }
 
 /**

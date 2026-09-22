@@ -63,7 +63,7 @@ function TodayRow({
   const colorFor = useUserColor();
   const toggle = useToggleCompletion();
   const isTask = item.kind === 'task';
-  const colors = colorFor(colorUserOf(item));
+  const colors = colorFor(colorUserOf(item.participantIds));
   return (
     <Stack direction="row" sx={{ alignItems: 'center', minHeight: 36 }}>
       <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>

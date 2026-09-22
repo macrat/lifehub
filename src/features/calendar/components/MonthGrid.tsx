@@ -26,6 +26,8 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 追加しようとしている終日の予定の範囲 */
   draft: EventDraft | null;
+  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  draftUserId: string | null;
   /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
@@ -49,6 +51,7 @@ export function MonthGrid({
   onSelectDate,
   onSelectItem,
   draft,
+  draftUserId,
   onChangeDraft,
   height,
 }: Props) {
@@ -115,6 +118,7 @@ export function MonthGrid({
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
           draft={draft}
+          draftUserId={draftUserId}
           drag={drag}
           colorFor={colorFor}
           maxLanes={maxLanes}
@@ -134,6 +138,7 @@ type WeekRowProps = {
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
   draft: EventDraft | null;
+  draftUserId: string | null;
   drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   maxLanes: number;
@@ -149,6 +154,7 @@ function WeekRow({
   onSelectDate,
   onSelectItem,
   draft,
+  draftUserId,
   drag,
   colorFor,
   maxLanes,
@@ -216,7 +222,7 @@ function WeekRow({
           key={p.key}
           placed={p}
           compact={compact}
-          colors={colorFor(colorUserOf(p.item))}
+          colors={colorFor(colorUserOf(p.item.participantIds))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}
@@ -227,6 +233,7 @@ function WeekRow({
           draft={draft}
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
+          colors={colorFor(draftUserId)}
           handleProps={null}
         />
       )}
