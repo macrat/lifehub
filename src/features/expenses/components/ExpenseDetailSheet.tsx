@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
+import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type Expense, useDeleteExpense, useUpdateExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
@@ -20,11 +21,13 @@ type Props = {
 
 /**
  * 立替の詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから削除する。
- * 表示ではフォームと同じ To（誰のために）・From（払った人）で内訳を見せる。
+ * 表示ではフォームと同じ To（誰のために）・From（払った人）で内訳を見せ、
+ * それぞれをそのユーザーの色で塗って、一覧の帯と同じ色で誰かが分かるようにする。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }: Props) {
   const { label } = useUserLabels();
+  const colorFor = useUserColor();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const [editing, setEditing] = useState(initialEditing);
@@ -70,11 +73,22 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
           </Typography>
           <Typography>{formatDateWithYear(expense.spentOn)}</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-            <Chip size="small" label={`To: ${label(expense.toUserId)}`} />
-            <Chip size="small" label={`From: ${label(expense.fromUserId)}`} />
+            <UserChip
+              label={`To: ${label(expense.toUserId)}`}
+              colors={colorFor(expense.toUserId)}
+            />
+            <UserChip
+              label={`From: ${label(expense.fromUserId)}`}
+              colors={colorFor(expense.fromUserId)}
+            />
           </Stack>
         </>
       )}
     </RecordSheet>
   );
+}
+
+/** To・From の 1 つ。そのユーザーの色で塗る（共有は色相を持たない無彩色） */
+function UserChip({ label, colors }: { label: string; colors: ItemColors }) {
+  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: colors.text }} />;
 }
