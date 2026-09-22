@@ -2,6 +2,7 @@ import type { PointerEvent } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import { isDateString } from '../../../shared/date.ts';
 import {
+  DAY_MINUTES,
   type Draft,
   itemDraft,
   type TimedDraft,
@@ -21,17 +22,17 @@ function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
 /**
  * 時間軸（週・日表示）をなぞって時間帯を選ぶ。枠は端をつまんで広げ縮め、枠そのものをつまんで動かせる。
  * 保存済みの予定は長押しでつまむと編集モードに入り、そのまま指を離さずに動かせる。
- * 日は指の下にある列、分はその列の上端からの px で求める（列はどれも上端が同じ）。
+ * 日は指の下にある列、分はその列の中での位置の割合で求める（列はどれも上端が同じで、高さが 1 日ぶん）。
+ * 1 時間が何 px かは CSS が持っているので（`use-hour-zoom.ts`）、同じ数を持たずに描かれた物から読む。
+ * つまんで伸び縮みさせた直後でも、測るのはその時点の列なのでずれない。
  * 列を掴んだ要素からではなく位置から引くので、枠をつまんだまま隣の日へ持っていける。
  * 探すのは同じ時間軸の列だけで、その外（終日欄・別の面）の日は拾わない。
  * 15 分に吸着して時刻が変わるたび、その時刻に応じた長さで震わせる（`timeVibration`）。
  */
 export function useTimeDrag({
-  hourHeight,
   draft,
   onChange,
 }: {
-  hourHeight: number;
   /** この面が時間軸に出している枠。つまんでも直す対象は変わらない（`useDayDrag` と同じ渡し方） */
   draft: Draft | null;
   onChange: (draft: Draft, done: boolean) => void;
@@ -42,8 +43,8 @@ export function useTimeDrag({
     const column = grid ? columnAt(grid, event.clientX) : undefined;
     const date = column?.dataset.date;
     if (!column || date === undefined || !isDateString(date)) return null;
-    const y = event.clientY - column.getBoundingClientRect().top;
-    return { date, min: (y / hourHeight) * 60 };
+    const { top, height } = column.getBoundingClientRect();
+    return { date, min: ((event.clientY - top) / height) * DAY_MINUTES };
   };
   // 時間軸が決めるのは時間指定の枠だけ（終日は日の並びで選ぶ。`use-day-drag.ts`）
   const drag = useRangeDrag<TimePoint, TimeGrab, Draft & { range: TimedDraft }>({

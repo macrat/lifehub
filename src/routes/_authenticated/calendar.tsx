@@ -7,7 +7,12 @@ import { CalendarToolbar } from '../../features/calendar/components/CalendarTool
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
-import { type Draft, defaultDraft, sameOccurrence } from '../../features/calendar/draft.ts';
+import {
+  type Draft,
+  defaultDraft,
+  draftDays,
+  sameOccurrence,
+} from '../../features/calendar/draft.ts';
 import { type CalendarItem, colorUserOf } from '../../features/calendar/queries.ts';
 import {
   calendarSearchSchema,
@@ -135,7 +140,10 @@ function CalendarPage() {
           title={page.title}
           onOpenPicker={() => setPickerOpen(true)}
           onToday={page.goToday}
-          onChangeView={(view) => page.setSearch({ view })}
+          // 入力中の下書きは表示を切り替えても残るので、見失わないようその初日を連れていく
+          onChangeView={(view) =>
+            page.changeView(view, draft ? draftDays(draft.range).from : undefined)
+          }
           list={{
             query: page.filters.q,
             onChangeQuery: page.setQuery,
@@ -166,6 +174,8 @@ function CalendarPage() {
                 draft={offset === 0 ? draft : null}
                 draftUserId={draft ? colorUserOf(draft.participantIds) : null}
                 onChangeDraft={changeDraft}
+                hourHeight={page.hourHeight}
+                onZoom={page.zoom}
               />
             )}
           </SwipePager>

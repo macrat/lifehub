@@ -1,5 +1,6 @@
 import { devices, expect, test } from '@playwright/test';
 import { login } from './login.ts';
+import { touchDrag } from './touch.ts';
 
 /** スワイプはタッチのみ。デスクトップの設定ではなくスマホの設定で動かす */
 test.use({ ...devices['Pixel 7'] });
@@ -9,21 +10,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('カレンダーを左右にスワイプすると前後の月・週へ 1 つずつ移る', async ({ page }) => {
-  const cdp = await page.context().newCDPSession(page);
-  type TouchType = 'touchStart' | 'touchMove' | 'touchEnd';
-  const touch = (type: TouchType, point?: { x: number; y: number }) =>
-    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: point ? [point] : [] });
-  /** 指で (from → to) までなぞって離す */
+  /** 指で (from → to) までなぞって離し、慣性と吸着が終わるまで待つ */
   const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    await touch('touchStart', from);
-    for (let i = 1; i <= 12; i++) {
-      await touch('touchMove', {
-        x: from.x + ((to.x - from.x) * i) / 12,
-        y: from.y + ((to.y - from.y) * i) / 12,
-      });
-      await page.waitForTimeout(16);
-    }
-    await touch('touchEnd');
+    await touchDrag(page, from, to, { steps: 12, delay: 16 });
     await page.waitForTimeout(800);
   };
   const date = () => new URL(page.url()).searchParams.get('date');

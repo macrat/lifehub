@@ -9,6 +9,7 @@ import {
   inclusiveEndDate,
   minutesOfDay,
 } from '../../lib/date.ts';
+import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
@@ -78,7 +79,10 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
  */
 export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
-  return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
+  return {
+    startMin: minutesOfDay(item.startsAt),
+    endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
+  };
 }
 
 /**
@@ -96,7 +100,7 @@ export function sameOccurrence(
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
 const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
-const DAY_MINUTES = 24 * 60;
+export const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
 /**
@@ -133,7 +137,6 @@ export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>):
   }
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 /** 一番近い 15 分の枠に寄せる（つまんだ所からずれないよう、切り捨てではなく四捨五入） */
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 
@@ -171,7 +174,7 @@ const vibrationFor = (min: number) => (min % 60 === 0 ? LONG_VIBRATION_MS : SHOR
  */
 export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
-  const startMin = Math.min(nextHour, 24 * 60 - TAP_MINUTES);
+  const startMin = Math.min(nextHour, DAY_MINUTES - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
 }
 
@@ -237,7 +240,7 @@ export function dayVibration(previous: EventDraft, draft: EventDraft): number | 
 }
 
 /** 日の並びで下書きが占める期間（両端を含む）。時間指定の下書きはその日 1 日ぶん */
-function draftDays(draft: EventDraft): DateRange {
+export function draftDays(draft: EventDraft): DateRange {
   return draft.allDay ? draft : { from: draft.date, to: draft.date };
 }
 

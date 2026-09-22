@@ -62,8 +62,9 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
         styleOverrides: {
           // Web ページではなくアプリとして触れるようにする（引っ張って更新だけは残す。NoPullToRefresh）
           body: {
-            // 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残す
-            touchAction: 'manipulation',
+            // ブラウザの拡大縮小はしない。素早く続けて押しても（日を次々に選ぶ、電卓を叩く）、
+            // つまんでも画面は動かず、つまむ操作はアプリ側で使う（カレンダーの週・日表示の時間軸）
+            touchAction: 'pan-x pan-y',
             // 押したときの灰色の四角を出さない。押した手応えは各部品の ripple が示す
             WebkitTapHighlightColor: 'transparent',
             // 長押ししても文字が選ばれず、リンクのメニューも出ない
