@@ -5,11 +5,12 @@ import { login } from './login.ts';
 type Shortcut = { name: string; url: string };
 
 /**
- * PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。
+ * 入力を開く PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。
  * ランチャーが開くのは manifest に書いた URL そのものなので、manifest から読んだ URL を
- * そのまま開いて、狙った画面と入力が出ることを確かめる。
+ * そのまま開いて、しるし（`add`）が狙った入力を開くことを確かめる。
+ * 画面を開くだけのショートカットは URL が正しければよいので、`src/lib/__tests__/shortcuts.test.ts` で見る。
  */
-test('ショートカットの URL がそれぞれの画面と入力を開く', async ({ page }) => {
+test('ショートカットの URL がそれぞれの入力を開く', async ({ page }) => {
   await login(page);
   const manifest = await (await page.request.get('/manifest.webmanifest')).json();
   const shortcuts: Shortcut[] = manifest.shortcuts;
@@ -18,10 +19,6 @@ test('ショートカットの URL がそれぞれの画面と入力を開く', 
     if (!shortcut) throw new Error(`${name} のショートカットが manifest に無い`);
     return shortcut.url;
   };
-
-  // カレンダー: 月表示
-  await page.goto(urlOf('カレンダー'));
-  await expect(page.getByRole('button', { name: '表示の切替' })).toHaveText('月');
 
   // 予定登録: 日表示に既定の時間帯の下書きを置いて、クイック入力が開く
   // （入力が前に出ている間は後ろの AppBar を読めないので、表示の種類は URL で見る）
