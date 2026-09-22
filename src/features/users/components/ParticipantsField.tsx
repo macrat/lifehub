@@ -24,6 +24,8 @@ type Controlled = {
 
 type Props = {
   name: string;
+  /** 見出し。既定は「参加者」で、選ぶ意味が違うとき（配信 URL に載せる人）だけ差し替える */
+  label?: string;
   error?: string;
 } & (Uncontrolled | Controlled);
 
@@ -32,7 +34,7 @@ type Props = {
  * チェックボックスはそのユーザーの色にして、予定の帯や下書きの枠の色と結び付ける。
  */
 export function ParticipantsField(props: Props) {
-  const { name, error } = props;
+  const { name, label = '参加者', error } = props;
   const { users } = useUserLabels();
   const colorFor = useUserColor();
 
@@ -52,7 +54,7 @@ export function ParticipantsField(props: Props) {
 
   return (
     <FormControl error={Boolean(error)}>
-      <FormLabel sx={{ fontSize: '0.75rem' }}>参加者</FormLabel>
+      <FormLabel sx={{ fontSize: '0.75rem' }}>{label}</FormLabel>
       <FormGroup row>
         {users.map((user) => {
           const { fill } = colorFor(user.id);

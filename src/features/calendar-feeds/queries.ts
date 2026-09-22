@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InferResponseType } from 'hono/client';
-import type { CreateCalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
+import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
@@ -19,13 +19,35 @@ export const calendarFeedsQueryOptions = queryOptions({
  */
 export function useCreateCalendarFeed() {
   return useOptimisticMutation({
-    request: (input: CreateCalendarFeedInput) => ({
+    request: (input: CalendarFeedInput) => ({
       method: 'POST' as const,
       path: api.calendar.feeds.$url().pathname,
       body: input,
     }),
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
+  });
+}
+
+/**
+ * 名前と参加者の変更。発行・失効と揃えてオフラインでは溜めない。
+ * 「もうこの URL からは相手の予定が見えない」ことを確かめたい操作なので、
+ * 送れたかどうかが分からないまま変わって見えるのは困る。
+ */
+export function useUpdateCalendarFeed() {
+  return useOptimisticMutation({
+    request: ({ id, ...input }: CalendarFeedInput & { id: string }) => ({
+      method: 'PATCH' as const,
+      path: api.calendar.feeds[':id'].$url({ param: { id } }).pathname,
+      body: input,
+    }),
+    queue: false,
+    keys: [calendarFeedsQueryOptions.queryKey],
+    apply: (client, { id, ...input }) => {
+      client.setQueryData(calendarFeedsQueryOptions.queryKey, (feeds) =>
+        feeds?.map((feed) => (feed.id === id ? { ...feed, ...input } : feed)),
+      );
+    },
   });
 }
 

@@ -1,12 +1,11 @@
 import { addDays, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
-import type { CreateCalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
+import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { resolveBaseUrl } from '../../lib/env.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
 import * as repository from './repository.ts';
-import type { CalendarFeedRow } from './schema.ts';
 
 /**
  * 配信する期間（今日を軸に前後の日数）。購読したカレンダーは定期的に取り直すので、窓は毎日ずれる。
@@ -21,6 +20,8 @@ export type CalendarFeed = {
   id: string;
   name: string;
   url: string;
+  /** この URL に載せる参加者。この中の誰かが入っている予定だけを配る */
+  participantIds: string[];
   createdAt: string;
   lastAccessedAt: string | null;
 };
@@ -29,17 +30,28 @@ export async function listFeeds(userId: string): Promise<CalendarFeed[]> {
   return (await repository.findByUser(userId)).map(toFeed);
 }
 
-export async function createFeed(
-  input: CreateCalendarFeedInput,
-  userId: string,
-): Promise<CalendarFeed> {
-  const row = await repository.insert({
+export async function createFeed(input: CalendarFeedInput, userId: string): Promise<CalendarFeed> {
+  const values = {
     id: newId(),
     userId,
     name: input.name,
     token: newToken(),
-  });
-  return toFeed(row);
+    createdAt: new Date(),
+  };
+  await repository.insert(values, input.participantIds);
+  // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
+  return toFeed({ ...values, lastAccessedAt: null, participantIds: input.participantIds });
+}
+
+/** 名前と参加者の変更。渡した先を変えずに、その URL が配る範囲だけを絞り直せる */
+export async function updateFeed(
+  id: string,
+  input: CalendarFeedInput,
+  userId: string,
+): Promise<void> {
+  if (!(await repository.update(id, userId, input))) {
+    throw new NotFoundError('配信 URL が見つかりません');
+  }
 }
 
 /** 失効。他のユーザーの URL は消せない（見えてもいない） */
@@ -55,15 +67,22 @@ export async function revokeFeed(id: string, userId: string): Promise<void> {
  * 出すのは予定だけで、タスクは出さない。未完了のタスクが置かれる日は「今日」で毎日動き
  * （`shared/calendar.ts` の `placeTask`）、購読側のカレンダーでは日付が毎日書き換わり続けるため。
  * 種別は展開する前に絞る（後から捨てると、1 年以上ぶんのタスクの繰り返しを毎回むだに展開する）。
- * 参加者も出さない。ATTENDEE にすると購読しただけのカレンダーで出欠の返事を求められることがある。
+ * 参加者は ATTENDEE として出さない。購読しただけのカレンダーで出欠の返事を求められることがある。
+ *
+ * 出すのは、その URL に載せた参加者の誰かが入っている予定だけ。絞り込みは展開した後に行う。
+ * 「この回だけ」の変更で参加者が変わっている回があるので、繰り返し元の参加者で先に落とすと
+ * その回まで一緒に落ちる（逆に、載せていない人だけの回が残ってしまうこともある）。
  */
 export async function renderIcs(token: string, now: Date = new Date()): Promise<string> {
-  if (!(await repository.touchByToken(token, now))) {
-    throw new NotFoundError('配信 URL が無効です');
-  }
+  const feed = await repository.touchByToken(token, now);
+  if (!feed) throw new NotFoundError('配信 URL が無効です');
   const base = today(now);
   const range = { from: addDays(base, -PAST_DAYS), to: addDays(base, FUTURE_DAYS) };
-  return toIcs(await listOccurrences(range, now, 'event'), now);
+  const occurrences = await listOccurrences(range, now, 'event');
+  const included = occurrences.filter((occurrence) =>
+    occurrence.participantIds.some((id) => feed.participantIds.includes(id)),
+  );
+  return toIcs(included, now);
 }
 
 /**
@@ -79,11 +98,20 @@ function newToken(): string {
   return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
 }
 
-function toFeed(row: CalendarFeedRow): CalendarFeed {
+/** 保存されている行（または今しがた保存した値）を画面に出す形にする */
+function toFeed(row: {
+  id: string;
+  name: string;
+  token: string;
+  participantIds: string[];
+  createdAt: Date;
+  lastAccessedAt: Date | null;
+}): CalendarFeed {
   return {
     id: row.id,
     name: row.name,
     url: feedUrl(row.token),
+    participantIds: row.participantIds,
     createdAt: row.createdAt.toISOString(),
     lastAccessedAt: row.lastAccessedAt?.toISOString() ?? null,
   };

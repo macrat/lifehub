@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEventSchema, deleteEventSchema } from '../../../../shared/validation/events.ts';
+import {
+  createEventSchema,
+  deleteEventSchema,
+  updateEventSchema,
+} from '../../../../shared/validation/events.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
-import { createEvent, deleteEvent } from '../../events/service.ts';
+import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
 import { createUser } from '../../users/service.ts';
-import { createFeed, listFeeds, renderIcs, revokeFeed } from '../service.ts';
+import { createFeed, listFeeds, renderIcs, revokeFeed, updateFeed } from '../service.ts';
 
 const jst = (s: string) => new Date(`${s}+09:00`);
 const iso = (s: string) => jst(s).toISOString();
@@ -45,7 +49,7 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(feed.url).toMatch(/\/api\/calendar\/[\w-]+\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
 
@@ -74,7 +78,7 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     const ics = await icsOf(feed);
     expect(lines(ics)).toContain('DTSTART;VALUE=DATE:20260920');
     expect(lines(ics)).toContain('DTEND;VALUE=DATE:20260922');
@@ -97,7 +101,7 @@ describe('calendar-feeds service', () => {
       deleteEventSchema.parse({ scope: 'this', occurrenceStart: iso('2026-09-14T09:00:00') }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     const ics = await icsOf(feed);
     expect(valuesOf(ics, 'DTSTART')).toEqual(['20260907T000000Z', '20260921T000000Z']);
     // UID は回ごとに違い、取り直しても同じ回は同じものを指す
@@ -117,12 +121,12 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual([]);
   });
 
   it('知らないトークンと、失効させた URL では配信しない', async () => {
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     const token = tokenOf(feed.url);
     await expect(renderIcs('unknown-token', now)).rejects.toThrow(NotFoundError);
     await revokeFeed(feed.id, userId);
@@ -131,8 +135,8 @@ describe('calendar-feeds service', () => {
   });
 
   it('1 ユーザーが何本でも持てて、失効は 1 本だけに効く', async () => {
-    const phone = await createFeed({ name: 'スマホ' }, userId);
-    const partner = await createFeed({ name: '妻のカレンダー' }, userId);
+    const phone = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const partner = await createFeed({ name: '妻のカレンダー', participantIds: [userId] }, userId);
     expect(phone.url).not.toBe(partner.url);
     await revokeFeed(phone.id, userId);
     expect((await listFeeds(userId)).map((feed) => feed.name)).toEqual(['妻のカレンダー']);
@@ -143,9 +147,120 @@ describe('calendar-feeds service', () => {
     const otherId = (
       await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
     ).id;
-    const feed = await createFeed({ name: 'スマホ' }, userId);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(await listFeeds(otherId)).toEqual([]);
     await expect(revokeFeed(feed.id, otherId)).rejects.toThrow(NotFoundError);
     await expect(icsOf(feed)).resolves.toContain('BEGIN:VCALENDAR');
+  });
+  it('選んだ参加者が入っている予定だけを配る', async () => {
+    const otherId = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    const event = (title: string, participantIds: string[]) =>
+      createEvent(
+        createEventSchema.parse({
+          kind: 'event',
+          title,
+          startsAt: iso('2026-09-15T09:00:00'),
+          endsAt: iso('2026-09-15T10:00:00'),
+          participantIds,
+        }),
+        userId,
+      );
+    await event('A だけ', [userId]);
+    await event('B だけ', [otherId]);
+    await event('2 人とも', [userId, otherId]);
+
+    const forA = await createFeed({ name: 'A のスマホ', participantIds: [userId] }, userId);
+    expect(valuesOf(await icsOf(forA), 'SUMMARY').sort()).toEqual(['2 人とも', 'A だけ']);
+
+    const forBoth = await createFeed({ name: '共有', participantIds: [userId, otherId] }, userId);
+    expect(valuesOf(await icsOf(forBoth), 'SUMMARY').sort()).toEqual([
+      '2 人とも',
+      'A だけ',
+      'B だけ',
+    ]);
+  });
+
+  it('「この回だけ」参加者を変えた回は、変えた後の参加者で絞る', async () => {
+    const otherId = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    const weekly = await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '週次ミーティング',
+        startsAt: iso('2026-09-07T09:00:00'),
+        endsAt: iso('2026-09-07T10:00:00'),
+        participantIds: [userId],
+        rrule: 'FREQ=WEEKLY;COUNT=3',
+      }),
+      userId,
+    );
+    // 2 回目だけ B に代わってもらう
+    await updateEvent(
+      weekly.id,
+      updateEventSchema.parse({
+        kind: 'event',
+        title: '週次ミーティング',
+        startsAt: iso('2026-09-14T09:00:00'),
+        endsAt: iso('2026-09-14T10:00:00'),
+        participantIds: [otherId],
+        scope: 'this',
+        occurrenceStart: iso('2026-09-14T09:00:00'),
+      }),
+      userId,
+    );
+
+    const forA = await createFeed({ name: 'A のスマホ', participantIds: [userId] }, userId);
+    expect(valuesOf(await icsOf(forA), 'DTSTART')).toEqual([
+      '20260907T000000Z',
+      '20260921T000000Z',
+    ]);
+    const forB = await createFeed({ name: 'B のスマホ', participantIds: [otherId] }, userId);
+    expect(valuesOf(await icsOf(forB), 'DTSTART')).toEqual(['20260914T000000Z']);
+  });
+
+  it('名前と参加者を後から変えられる（URL は変わらない）', async () => {
+    const otherId = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: 'B だけ',
+        startsAt: iso('2026-09-15T09:00:00'),
+        endsAt: iso('2026-09-15T10:00:00'),
+        participantIds: [otherId],
+      }),
+      userId,
+    );
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual([]);
+
+    await updateFeed(
+      feed.id,
+      { name: '2 人のカレンダー', participantIds: [userId, otherId] },
+      userId,
+    );
+    const [changed] = await listFeeds(userId);
+    expect(changed?.name).toBe('2 人のカレンダー');
+    expect(changed?.participantIds.sort()).toEqual([userId, otherId].sort());
+    // 渡した先が登録し直さずに済むよう、URL は発行したときのまま
+    expect(changed?.url).toBe(feed.url);
+    expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual(['B だけ']);
+  });
+
+  it('他のユーザーの URL は変更できない', async () => {
+    const otherId = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    await expect(
+      updateFeed(feed.id, { name: '乗っ取り', participantIds: [otherId] }, otherId),
+    ).rejects.toThrow(NotFoundError);
+    const [unchanged] = await listFeeds(userId);
+    expect(unchanged?.name).toBe('スマホ');
+    expect(unchanged?.participantIds).toEqual([userId]);
   });
 });
