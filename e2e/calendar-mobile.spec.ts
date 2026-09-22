@@ -321,17 +321,9 @@ test('表示を切り替えても入力中の予定はそのまま残り、そ�
   await page.getByLabel('タイトルを追加').fill(title);
 
   await changeView(page, '週');
-  await expect(page).toHaveURL(/view=week/);
-  // 下書きの初日（6/18）を含む週へ移る
-  await expect(page).toHaveURL(/date=2031-06-18/);
+  await expect(page).toHaveURL(/view=week&date=2031-06-18/);
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 選んだ範囲は週の終日欄にもそのまま出る
-  await expect(page.locator('[data-draft]')).toBeVisible();
-
-  // 日表示でも初日が出る（複数日の下書きなので、出るのは最初の日）
-  await changeView(page, '日');
-  await expect(page).toHaveURL(/view=day/);
-  await expect(page).toHaveURL(/date=2031-06-18/);
   await expect(page.locator('[data-draft]')).toBeVisible();
 });

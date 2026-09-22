@@ -188,13 +188,8 @@ export function dayVibration(previous: EventDraft, draft: EventDraft): number | 
 }
 
 /** 日の並びで下書きが占める期間（両端を含む）。時間指定の下書きはその日 1 日ぶん */
-function draftDays(draft: EventDraft): DateRange {
+export function draftDays(draft: EventDraft): DateRange {
   return draft.allDay ? draft : { from: draft.date, to: draft.date };
-}
-
-/** 下書きが始まる日（複数日にわたる終日の下書きなら最初の日） */
-export function draftFirstDay(draft: EventDraft): DateString {
-  return draftDays(draft).from;
 }
 
 /**

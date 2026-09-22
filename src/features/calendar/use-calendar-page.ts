@@ -132,6 +132,12 @@ export function useCalendarPage(search: CalendarSearch) {
     goToday: () => setSearch({ date: today() }),
     openDay,
     /**
+     * 表示の切り替え。keepVisible には、切り替えた先でも見えていてほしい日を渡す
+     * （入力中の下書きの初日。表示する期間は表示ごとに広さが違うので、渡された日を代表日にして期間に入れる）
+     */
+    changeView: (next: CalendarSearch['view'], keepVisible?: DateString) =>
+      setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next }),
+    /**
      * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
      * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える。
      * ダイアログが持つ履歴の項目を選んだ結果で置き換える（積むと、戻ったときに中身のない項目を踏む）
