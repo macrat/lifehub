@@ -40,7 +40,8 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 終日は塗り帯、時間指定の予定は点＋タイトル、タスクはチェック印＋タイトル。タイトルを優先し、時刻は PC でだけ添える
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
- * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）
+ * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
+ *   出ている下書きに掛かるセルを押したときは、選び直さずにその下書きをつまむ（`use-day-drag.ts`）
  */
 export function MonthGrid({
   month,
@@ -55,6 +56,7 @@ export function MonthGrid({
   const compact = useIsMobile();
   const colorFor = useUserColor();
   const drag = useDayDrag({
+    draft,
     onChange: onChangeDraft,
     onTapDate: compact ? onSelectDate : undefined,
   });
@@ -188,7 +190,7 @@ function WeekRow({
           <Box
             key={date}
             data-date={date}
-            {...drag.props}
+            {...drag}
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
@@ -220,14 +222,10 @@ function WeekRow({
           onClick={compact ? undefined : () => onSelectItem(p.item)}
         />
       ))}
-      {draft?.allDay && draftCols && (
-        // 月の帯は 1 行が低く、丸を置くと日付や項目に重なって窮屈なので端はつままない。
-        // 期間を変えるときは選び直す（週の終日欄や時間軸では丸を出す）
+      {draftCols && (
         <DraftBar
-          draft={draft}
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          handleProps={null}
         />
       )}
       {hiddenPerCol.map((n, col) =>

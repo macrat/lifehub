@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import {
+  type AllDayDraft,
+  type DayGrab,
+  type DayPoint,
   dayDraft,
+  dayGrab,
   defaultDraft,
   draftColumns,
   draftText,
@@ -19,6 +23,23 @@ const select = (from: TimePoint, to: TimePoint, moved = false) =>
 /** 下書きを kind の所でつまんで from → to へ動かす */
 const grabbed = (draft: TimedDraft, kind: TimeGrab['kind'], from: TimePoint, to: TimePoint) =>
   timeDraft({ grab: { kind, draft }, from, to, moved: true });
+
+const allDay = (from: string, to: string): AllDayDraft => ({
+  allDay: true,
+  from: from as DateString,
+  to: to as DateString,
+});
+/** 日のセルの 1 点（半分は端をつまむかの判定に使う。選ぶだけなら左右どちらでも同じ） */
+const on = (date: string, half: 'left' | 'right' = 'left'): DayPoint => ({
+  date: date as DateString,
+  half,
+});
+/** 空いている所を from → to へなぞる */
+const selectDays = (from: string, to: string) =>
+  dayDraft({ grab: null, from: on(from), to: on(to), moved: true });
+/** 終日の下書きを kind の所でつまんで from → to へ動かす */
+const draggedDays = (draft: AllDayDraft, kind: DayGrab['kind'], from: string, to: string) =>
+  dayDraft({ grab: { kind, draft }, from: on(from), to: on(to), moved: true });
 
 describe('timeDraft', () => {
   it('動かさずに離したときは押した枠から 1 時間', () => {
@@ -168,19 +189,99 @@ describe('timeDraft（下書きをつまむ）', () => {
 
 describe('dayDraft', () => {
   it('両端を含む期間になる', () => {
-    expect(dayDraft('2031-06-05' as DateString, '2031-06-07' as DateString)).toEqual({
-      allDay: true,
-      from: '2031-06-05',
-      to: '2031-06-07',
-    });
+    expect(selectDays('2031-06-05', '2031-06-07')).toEqual(allDay('2031-06-05', '2031-06-07'));
   });
 
   it('遡ってドラッグしても同じ期間になる', () => {
-    expect(dayDraft('2031-06-07' as DateString, '2031-06-05' as DateString)).toEqual({
-      allDay: true,
-      from: '2031-06-05',
-      to: '2031-06-07',
-    });
+    expect(selectDays('2031-06-07', '2031-06-05')).toEqual(allDay('2031-06-05', '2031-06-07'));
+  });
+
+  it('動かさずに離したときは押した日だけの期間', () => {
+    expect(dayDraft({ grab: null, from: on(DAY), to: on(DAY), moved: false })).toEqual(
+      allDay(DAY, DAY),
+    );
+  });
+});
+
+describe('dayGrab', () => {
+  const draft = allDay('2031-06-05', '2031-06-07');
+
+  it('最初の日の左半分は開始、最後の日の右半分は終了', () => {
+    expect(dayGrab(draft, on('2031-06-05', 'left'))).toEqual({ kind: 'start', draft });
+    expect(dayGrab(draft, on('2031-06-07', 'right'))).toEqual({ kind: 'end', draft });
+  });
+
+  it('それ以外の掛かっている所は帯そのもの', () => {
+    expect(dayGrab(draft, on('2031-06-05', 'right'))).toEqual({ kind: 'move', draft });
+    expect(dayGrab(draft, on('2031-06-06', 'left'))).toEqual({ kind: 'move', draft });
+    expect(dayGrab(draft, on('2031-06-07', 'left'))).toEqual({ kind: 'move', draft });
+  });
+
+  it('1 日だけの下書きは左右の半分が開始・終了になる（中ほどは無い）', () => {
+    const single = allDay(DAY, DAY);
+    expect(dayGrab(single, on(DAY, 'left'))).toEqual({ kind: 'start', draft: single });
+    expect(dayGrab(single, on(DAY, 'right'))).toEqual({ kind: 'end', draft: single });
+  });
+
+  it('掛からない日・時間指定・下書き無しは掴まない', () => {
+    expect(dayGrab(draft, on('2031-06-04', 'right'))).toBeNull();
+    expect(dayGrab(draft, on('2031-06-08', 'left'))).toBeNull();
+    expect(dayGrab(select(at(540), at(540)), on(DAY))).toBeNull();
+    expect(dayGrab(null, on(DAY))).toBeNull();
+  });
+});
+
+describe('dayDraft（下書きをつまむ）', () => {
+  const draft = allDay('2031-06-05', '2031-06-07');
+
+  it('つまんだだけで動かしていなければそのまま', () => {
+    expect(
+      dayDraft({
+        grab: { kind: 'move', draft },
+        from: on(DAY),
+        to: on('2031-06-09'),
+        moved: false,
+      }),
+    ).toEqual(draft);
+  });
+
+  it('開始をつまむと終了は動かない', () => {
+    expect(draggedDays(draft, 'start', '2031-06-05', '2031-06-03')).toEqual(
+      allDay('2031-06-03', '2031-06-07'),
+    );
+  });
+
+  it('開始は終了より後ろへ行けない（最短 1 日）', () => {
+    expect(draggedDays(draft, 'start', '2031-06-05', '2031-06-09')).toEqual(
+      allDay('2031-06-07', '2031-06-07'),
+    );
+  });
+
+  it('終了をつまむと開始は動かない', () => {
+    expect(draggedDays(draft, 'end', '2031-06-07', '2031-06-10')).toEqual(
+      allDay('2031-06-05', '2031-06-10'),
+    );
+  });
+
+  it('終了は開始より前へ行けない（最短 1 日）', () => {
+    expect(draggedDays(draft, 'end', '2031-06-07', '2031-06-01')).toEqual(
+      allDay('2031-06-05', '2031-06-05'),
+    );
+  });
+
+  it('帯そのものをつまむと日数を保ったまま動かした日数だけずれる', () => {
+    expect(draggedDays(draft, 'move', '2031-06-06', '2031-06-09')).toEqual(
+      allDay('2031-06-08', '2031-06-10'),
+    );
+    expect(draggedDays(draft, 'move', '2031-06-06', '2031-06-04')).toEqual(
+      allDay('2031-06-03', '2031-06-05'),
+    );
+  });
+
+  it('月グリッドで下の行へ動かすと 1 週間ぶんずれる', () => {
+    expect(draggedDays(draft, 'move', '2031-06-06', '2031-06-13')).toEqual(
+      allDay('2031-06-12', '2031-06-14'),
+    );
   });
 });
 
@@ -188,7 +289,7 @@ describe('draftColumns', () => {
   const week = ['2031-06-02', '2031-06-03', '2031-06-04', '2031-06-05'] as DateString[];
 
   it('並んだ日のうち掛かっている列を返す', () => {
-    const draft = dayDraft('2031-06-03' as DateString, '2031-06-04' as DateString);
+    const draft = allDay('2031-06-03', '2031-06-04');
     expect(draftColumns(draft, week)).toEqual({
       col: 1,
       span: 2,
@@ -198,7 +299,7 @@ describe('draftColumns', () => {
   });
 
   it('表示の外にはみ出す分は切り詰める', () => {
-    const draft = dayDraft('2031-05-30' as DateString, '2031-06-03' as DateString);
+    const draft = allDay('2031-05-30', '2031-06-03');
     // 前の週から続いている端は丸めない
     expect(draftColumns(draft, week)).toEqual({
       col: 0,
@@ -209,9 +310,7 @@ describe('draftColumns', () => {
   });
 
   it('掛からない週と時間指定の下書きは null', () => {
-    expect(
-      draftColumns(dayDraft('2031-07-01' as DateString, '2031-07-01' as DateString), week),
-    ).toBeNull();
+    expect(draftColumns(allDay('2031-07-01', '2031-07-01'), week)).toBeNull();
     expect(draftColumns(select(at(540), at(540)), week)).toBeNull();
   });
 });
@@ -222,8 +321,8 @@ describe('draftText', () => {
   });
 
   it('終日は日付（複数日なら両端）と「終日」', () => {
-    expect(draftText(dayDraft(DAY, DAY))).toBe('6/5(木) 終日');
-    expect(draftText(dayDraft(DAY, '2031-06-07' as DateString))).toBe('6/5(木)〜6/7(土) 終日');
+    expect(draftText(allDay(DAY, DAY))).toBe('6/5(木) 終日');
+    expect(draftText(allDay(DAY, '2031-06-07'))).toBe('6/5(木)〜6/7(土) 終日');
   });
 });
 

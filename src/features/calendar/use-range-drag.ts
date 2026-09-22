@@ -25,6 +25,8 @@ export type Drag<P, G> = {
 type Options<P, G, R> = {
   /** ポインタの位置 → グリッドの 1 点。掴めない所なら null */
   locate: (event: PointerEvent<HTMLElement>) => P | null;
+  /** 押した所で掴んだ物。空いている所なら null（省略すると、いつでも押した所から選び直す） */
+  grabOf?: (point: P) => G | null;
   /** ドラッグの姿 → 範囲 */
   rangeOf: (drag: Drag<P, G>) => R;
   /** 範囲が決まるたび。done はポインタを離した（入力に移ってよい）か */
@@ -36,10 +38,18 @@ type Options<P, G, R> = {
 /**
  * グリッドをなぞって範囲を選ぶ（Google カレンダーの予定の追加）。
  * マウス・ペンは押した時点から、タッチは長押しから始める（タップや縦スクロール・横スワイプと分ける）。
- * 既にある範囲をつまんで直すときは `grabProps` に「何をつまんだか」を渡し、意味づけは `rangeOf` に委ねる。
- * 範囲は state に持たず onChange で呼び出し側（ページ）に渡す。状態を持つのはそちら 1 か所だけにする。
+ * 既にある範囲をつまんで直すときは「何をつまんだか」を渡し、意味づけは `rangeOf` に委ねる。
+ * 渡し方は 2 通りで、範囲そのものがポインタを受けるなら `grabProps`、受けないなら（下の面で受けて
+ * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
+ * 状態を持つのはそちら 1 か所だけにする。
  */
-export function useRangeDrag<P, G, R>({ locate, rangeOf, onChange, onTouchTap }: Options<P, G, R>) {
+export function useRangeDrag<P, G, R>({
+  locate,
+  grabOf,
+  rangeOf,
+  onChange,
+  onTouchTap,
+}: Options<P, G, R>) {
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{
     pointerId: number;
@@ -136,7 +146,7 @@ export function useRangeDrag<P, G, R>({ locate, rangeOf, onChange, onTouchTap }:
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
         const from = locate(event);
-        if (from !== null) start(event, null, from, false);
+        if (from !== null) start(event, grabOf?.(from) ?? null, from, false);
       },
       onPointerMove: move,
       onPointerUp: up,

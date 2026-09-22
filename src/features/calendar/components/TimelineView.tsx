@@ -45,6 +45,7 @@ const LANE_HEIGHT = 20;
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  * 終日欄をなぞると終日の予定、時間軸をなぞるとその時間帯の予定を追加できる。
+ * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルの長押しから（`use-day-drag.ts`）。
  */
 export function TimelineView({
   days,
@@ -57,7 +58,7 @@ export function TimelineView({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  const dayDrag = useDayDrag({ onChange: onChangeDraft });
+  const dayDrag = useDayDrag({ draft, onChange: onChangeDraft });
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
@@ -157,7 +158,7 @@ export function TimelineView({
           <Box
             key={day}
             data-date={day}
-            {...dayDrag.props}
+            {...dayDrag}
             sx={{ gridColumn: i + 2, gridRow: '1 / -1', borderLeft: 1, borderColor: 'divider' }}
           />
         ))}
@@ -171,13 +172,8 @@ export function TimelineView({
             onClick={() => onSelectItem(p.item)}
           />
         ))}
-        {draft?.allDay && draftCols && (
-          <DraftBar
-            draft={draft}
-            columns={{ ...draftCols, col: draftCols.col + 1 }}
-            lane={laneCount}
-            handleProps={compact ? dayDrag.handleProps : null}
-          />
+        {draftCols && (
+          <DraftBar columns={{ ...draftCols, col: draftCols.col + 1 }} lane={laneCount} />
         )}
       </Box>
 

@@ -48,6 +48,9 @@ function syncHistoryDepth(router: Router): void {
  * ダイアログが開いている間、履歴に項目を 1 つ持たせる。
  * ブラウザバック（iOS の画面端のスワイプを含む）では前の画面へ戻らず、このダイアログだけが閉じる。
  * 画面の操作で閉じたとき（マウントが終わったとき）は、積んだ項目を戻して履歴を元どおりにする。
+ * 閉じるのは戻る操作のときだけで、開いたまま同じ画面の中を移動してよい（カレンダーは予定を入力しながら
+ * 月・週・日を切り替えられる）。その移動で積んだ項目は深さを持たないので、戻ると移動だけが 1 つずつ
+ * 取り消され、ダイアログを開く前の項目まで戻ったところで閉じる。
  *
  * 開いている間はマウントし続けること。閉じた見た目にするだけ（open={false}）では項目は残る
  * （送信中だけ閉じて見せる `RecordSheet` のように、見た目とマウントは別でよい）。
@@ -64,9 +67,12 @@ export function useDialogHistory(onClose: () => void): void {
   useEffect(() => {
     const depth = ++openCount;
     syncHistoryDepth(router);
-    const unsubscribe = router.history.subscribe(({ location }) => {
-      // 自分の項目より手前に移った = 戻る操作で閉じられた（別の画面への移動でも閉じる）
-      if (depthOf(location.state) < depth) latest.current();
+    const unsubscribe = router.history.subscribe(({ location, action }) => {
+      // 戻る操作（BACK・FORWARD・GO）で自分の項目より手前に移った = 閉じられた。
+      // 新しく積む移動（push・replace）では閉じない: 同じ画面の中での移動（カレンダーの表示や日付の
+      // 切り替え）は開いている物を捨てる理由にならず、別の画面への移動ならダイアログごとマウントが終わる
+      if (action.type !== 'PUSH' && action.type !== 'REPLACE' && depthOf(location.state) < depth)
+        latest.current();
     });
     return () => {
       unsubscribe();

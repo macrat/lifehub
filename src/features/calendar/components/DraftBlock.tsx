@@ -1,12 +1,11 @@
 import Box from '@mui/material/Box';
 import { alpha, type Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import type { DateString } from '../../../../shared/types.ts';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
-import type { draftColumns, EventDraft, TimedDraft } from '../draft.ts';
+import type { draftColumns, TimedDraft } from '../draft.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 
-/** つまむ丸の大きさ（px）。枠の上下の線には重ねて置き、左右は枠の内側に入れる */
+/** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
 const DOT_SIZE = 8;
 /** 丸を枠の左右の端から離す距離（px） */
 const DOT_INSET = 10;
@@ -85,29 +84,28 @@ export function DraftBlock({
   );
 }
 
-/** 選んでいる期間（月表示・終日欄）。GridChip と同じくグリッドの列と行に置く */
+/**
+ * 選んでいる期間（月表示・終日欄）。GridChip と同じくグリッドの列と行に置く。
+ * 月・週・日のどこでも同じ見た目で、つまむ丸は出さない（行が低く、丸が日付や項目に重なって窮屈になる）。
+ * 直すのは下のセルを長押ししてから: 最初の日の左半分・最後の日の右半分で端、中ほどで帯ごと動かす
+ * （`use-day-drag.ts`）。
+ */
 export function DraftBar({
-  draft,
   columns,
   lane,
-  handleProps,
 }: {
-  draft: EventDraft & { allDay: true };
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
-  handleProps: ((anchor: DateString) => DragHandlers) | null;
 }) {
   const { col, span, roundStart, roundEnd } = columns;
-  const center = { top: '50%', mt: `${-DOT_SIZE / 2}px` };
   return (
     <Box
       data-draft
       sx={{
         ...OUTLINE,
-        // 帯は見せるだけ。押した先は下のセルに届かせ、そこから選び直せるようにする
+        // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
-        position: 'relative',
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
@@ -117,22 +115,7 @@ export function DraftBar({
         ml: roundStart ? '2px' : 0,
         mr: roundEnd ? '2px' : 0,
       }}
-    >
-      {handleProps && roundStart && (
-        <Handle
-          end="start"
-          position={{ ...center, left: DOT_INSET }}
-          handlers={handleProps(draft.to)}
-        />
-      )}
-      {handleProps && roundEnd && (
-        <Handle
-          end="end"
-          position={{ ...center, right: DOT_INSET }}
-          handlers={handleProps(draft.from)}
-        />
-      )}
-    </Box>
+    />
   );
 }
 
