@@ -47,7 +47,7 @@ const LANE_HEIGHT = 20;
  * 上に日付の見出しと終日欄（終日・複数日の予定、時刻の無いタスク）、下に 0〜24 時の時間軸（TimeGrid）。
  * ここでは項目を終日欄と時間軸に振り分けるだけで、描画は各部品に任せる。
  * 終日欄をなぞると終日の予定、時間軸をなぞるとその時間帯の予定を追加できる。
- * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルの長押しから（`use-day-drag.ts`）。
+ * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルの長押しから（`draft.ts` の `dayGrab`）。
  */
 export function TimelineView({
   days,
@@ -61,7 +61,9 @@ export function TimelineView({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  const dayDrag = useDayDrag({ draft, onChange: onChangeDraft });
+  // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
+  const barDraft = draft?.allDay ? draft : null;
+  const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;
 
@@ -80,9 +82,8 @@ export function TimelineView({
   }
   const lanes = layoutLanes(days, allDayByDate);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
-  // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く。
-  // 時間指定の下書きは終日欄ではなく時間軸に枠で出るので、ここでは持たない
-  const draftCols = draft?.allDay ? draftColumns(draft, days) : null;
+  // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
+  const draftCols = barDraft && draftColumns(barDraft, days);
   const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (

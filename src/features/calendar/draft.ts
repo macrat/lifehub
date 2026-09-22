@@ -1,3 +1,4 @@
+import type { DateRange } from '../../../shared/calendar.ts';
 import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -33,9 +34,6 @@ export type AllDayDraft = EventDraft & { allDay: true };
 /** 時間軸の 1 点（日と、その日の 0:00 からの分） */
 export type TimePoint = { date: DateString; min: number };
 
-/** 日の並び（月グリッド・終日欄）の 1 点（日と、その日のセルの左右どちら側か） */
-export type DayPoint = { date: DateString; half: 'left' | 'right' };
-
 /**
  * 下書きをつまんだ所。start・end はその端だけを動かし、move は長さ（時間指定なら時間、終日なら日数）を
  * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
@@ -53,14 +51,12 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
-/** 吸着したときの手応えの長さ（ms）。正時だけ長くして、時間の区切りを手で見分けられるようにする */
-const HOUR_VIBRATION_MS = 50;
-const STEP_VIBRATION_MS = 10;
 /**
- * 日の並びで下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類しか無いので、
- * 細かい刻みと同じ短さで軽く返す（長い震えは時間軸の正時だけの合図に取っておく）。
+ * 吸着したときの手応えの長さ（ms）。長いのは時間軸の正時だけの合図にして、それ以外の区切り
+ * （15 分の刻み、日をまたぐとき）は短く軽く返す。これで時間の区切りを見ずに聞き分けられる。
  */
-const DAY_VIBRATION_MS = 10;
+const LONG_VIBRATION_MS = 50;
+const SHORT_VIBRATION_MS = 10;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -119,7 +115,7 @@ export function timeVibration(previous: TimedDraft, draft: TimedDraft): number |
   return null;
 }
 
-const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
+const vibrationFor = (min: number) => (min % 60 === 0 ? LONG_VIBRATION_MS : SHORT_VIBRATION_MS);
 
 /**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
@@ -139,12 +135,18 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
  * 見るのは帯そのものではなく日のセルの左右。帯は指より薄く（月グリッドで 17px）狙って押せないうえ、
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
-export function dayGrab(draft: EventDraft | null, point: DayPoint): DayGrab | null {
+export function dayGrab(
+  draft: EventDraft | null,
+  date: DateString,
+  half: 'left' | 'right',
+): DayGrab | null {
   if (draft === null) return null;
-  if (!draft.allDay) return point.date === draft.date ? { kind: 'move', draft } : null;
-  if (point.date < draft.from || point.date > draft.to) return null;
-  if (point.date === draft.from && point.half === 'left') return { kind: 'start', draft };
-  if (point.date === draft.to && point.half === 'right') return { kind: 'end', draft };
+  const { from, to } = draftDays(draft);
+  if (date < from || date > to) return null;
+  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。動かせるのは日だけ
+  if (!draft.allDay) return { kind: 'move', draft };
+  if (date === from && half === 'left') return { kind: 'start', draft };
+  if (date === to && half === 'right') return { kind: 'end', draft };
   return { kind: 'move', draft };
 }
 
@@ -154,22 +156,19 @@ export function dayGrab(draft: EventDraft | null, point: DayPoint): DayGrab | nu
  * つまんだだけで動かしていなければそのまま。端をつまんだときは反対の端を越えられない（最短 1 日）。
  * 帯そのものをつまんだときは動かした日数だけずらす。終日は日数を、時間指定は時間帯を保つ。
  */
-export function dayDraft({ grab, from, to, moved }: Drag<DayPoint, DayGrab>): EventDraft {
-  if (grab === null) {
-    const [start, end] = from.date <= to.date ? [from.date, to.date] : [to.date, from.date];
-    return { allDay: true, from: start, to: end };
-  }
+export function dayDraft({ grab, from, to, moved }: Drag<DateString, DayGrab>): EventDraft {
+  if (grab === null) return { allDay: true, from: earlier(from, to), to: later(from, to) };
   if (!moved) return grab.draft;
   switch (grab.kind) {
     case 'start':
-      return { ...grab.draft, from: earlier(to.date, grab.draft.to) };
+      return { ...grab.draft, from: earlier(to, grab.draft.to) };
     case 'end':
-      return { ...grab.draft, to: later(to.date, grab.draft.from) };
+      return { ...grab.draft, to: later(to, grab.draft.from) };
     case 'move': {
-      const shift = diffDays(from.date, to.date);
-      const draft = grab.draft;
+      const { draft } = grab;
+      const shift = diffDays(from, to);
       return draft.allDay
-        ? { allDay: true, from: addDays(draft.from, shift), to: addDays(draft.to, shift) }
+        ? { ...draft, from: addDays(draft.from, shift), to: addDays(draft.to, shift) }
         : { ...draft, date: addDays(draft.date, shift) };
     }
   }
@@ -183,35 +182,33 @@ const later = (a: DateString, b: DateString) => (a >= b ? a : b);
  * 日をまたいで占める日が変わるたびに震わせ、いくつ先の日まで選んだ・動かしたかを数えられるようにする。
  */
 export function dayVibration(previous: EventDraft, draft: EventDraft): number | null {
-  const [from, to] = draftDays(draft);
-  const [previousFrom, previousTo] = draftDays(previous);
-  return from === previousFrom && to === previousTo ? null : DAY_VIBRATION_MS;
+  const days = draftDays(draft);
+  const previousDays = draftDays(previous);
+  return days.from === previousDays.from && days.to === previousDays.to ? null : SHORT_VIBRATION_MS;
 }
 
-/** 日の並びで下書きが占める日（両端を含む）。時間指定の下書きはその日 1 日ぶん */
-function draftDays(draft: EventDraft): [DateString, DateString] {
-  return draft.allDay ? [draft.from, draft.to] : [draft.date, draft.date];
+/** 日の並びで下書きが占める期間（両端を含む）。時間指定の下書きはその日 1 日ぶん */
+function draftDays(draft: EventDraft): DateRange {
+  return draft.allDay ? draft : { from: draft.date, to: draft.date };
 }
 
 /**
  * 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列。掛からなければ null。
  * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
- * 時間指定の下書きはその日 1 日ぶんの列。日の並びに帯として出すのは月グリッドだけで、
- * 週・日の終日欄は終日の下書きしか渡さない（時間指定はそちらの時間軸に枠で出る）。
  */
 export function draftColumns(
   draft: EventDraft,
   days: DateString[],
 ): { col: number; span: number; roundStart: boolean; roundEnd: boolean } | null {
-  const [start, end] = draftDays(draft);
-  const first = days.findIndex((d) => d >= start);
-  const last = days.findLastIndex((d) => d <= end);
+  const { from, to } = draftDays(draft);
+  const first = days.findIndex((d) => d >= from);
+  const last = days.findLastIndex((d) => d <= to);
   if (first === -1 || last === -1 || first > last) return null;
   return {
     col: first,
     span: last - first + 1,
-    roundStart: days[first] === start,
-    roundEnd: days[last] === end,
+    roundStart: days[first] === from,
+    roundEnd: days[last] === to,
   };
 }
 

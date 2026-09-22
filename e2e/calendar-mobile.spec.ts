@@ -1,18 +1,42 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { E2E_USER } from './global-setup.ts';
 import { touchDrag } from './touch.ts';
+import { changeView, recordViewTransitions } from './view.ts';
 
 /** スマホ（指で触る画面）でのカレンダー操作。PC との違いはここだけで確かめる */
 test.use({ ...devices['Pixel 7'] });
 
 test.beforeEach(async ({ page }) => {
+  // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
+  await recordViewTransitions(page);
   await page.goto('/login');
   await page.getByLabel('メールアドレス').fill(E2E_USER.email);
   await page.getByLabel('パスワード').fill(E2E_USER.password);
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL('/');
 });
+
+/**
+ * 日のセルの中の 1 点。left は最初の日の左半分（開始をつまむ）、right は最後の日の右半分（終了）、
+ * middle はそれ以外（帯ごと動かす・空いている所から選ぶ）。
+ */
+async function dayPoint(page: Page, date: string, at: 'left' | 'middle' | 'right' = 'middle') {
+  const box = await page.locator(`[data-date="${date}"]`).first().boundingBox();
+  if (!box) throw new Error('日のセルが見つからない');
+  const ratio = at === 'left' ? 0.25 : at === 'right' ? 0.75 : 0.5;
+  return { x: box.x + box.width * ratio, y: box.y + box.height / 2 };
+}
+
+/** 日のセルを長押ししてから from → to へなぞる（`at` は押し始めの所） */
+async function dragDays(
+  page: Page,
+  from: string,
+  to: string,
+  at: 'left' | 'middle' | 'right' = 'middle',
+) {
+  await touchDrag(page, await dayPoint(page, from, at), await dayPoint(page, to), { hold: 400 });
+}
 
 test('日表示でタップして選び、端をつまんで広げて予定を作れる', async ({ page }) => {
   const title = `E2E タップ ${Date.now()}`;
@@ -125,15 +149,8 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   const title = `E2E 長押し ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-15');
 
-  const cell = (date: string) => page.locator(`[data-date="${date}"]`);
-  const center = async (date: string) => {
-    const box = await cell(date).boundingBox();
-    if (!box) throw new Error('日のセルが見つからない');
-    return { x: box.x + box.width / 2, y: box.y + box.height - 6 };
-  };
-
   // 長押しからそのまま隣の日までなぞって、複数日の終日の予定にする
-  await touchDrag(page, await center('2031-06-18'), await center('2031-06-19'), { hold: 400 });
+  await dragDays(page, '2031-06-18', '2031-06-19');
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 終日の帯は月・週・日のどこでもつまむ丸を出さない（直すのはセルの長押しから）
   await expect(page.locator('[data-handle]')).toHaveCount(0);
@@ -142,7 +159,7 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
 
   // 軽いタップは今までどおり日表示へ
-  const tap = await center('2031-06-18');
+  const tap = await dayPoint(page, '2031-06-18');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-18/);
   await expect(page.getByRole('button', { name: title })).toBeVisible();
@@ -233,100 +250,41 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
-/**
- * 表示の切り替えを待つ。新しい表示にしかない印（marker）が出て、さらに View Transition の動きが
- * 終わるまで待つ。動いている間は本物の DOM ではなく撮った絵が前に出ていて指で触れない
- * （押しても root に届くだけ）ので、触る前には必ずここを通す。
- */
-async function viewChanged(page: Page, marker: Locator) {
-  await expect(marker).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate<number>(
-        "document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith('::view-transition')).length",
-      ),
-    )
-    .toBe(0);
-}
-
-/** 終日の帯を長押しでつまむ位置。left は最初の日の左半分（開始）、right は最後の日の右半分（終了） */
-async function dayPoint(page: Page, date: string, at: 'left' | 'middle' | 'right') {
-  const box = await page.locator(`[data-date="${date}"]`).first().boundingBox();
-  if (!box) throw new Error('日のセルが見つからない');
-  const ratio = at === 'left' ? 0.25 : at === 'right' ? 0.75 : 0.5;
-  return { x: box.x + box.width * ratio, y: box.y + box.height / 2 };
-}
-
 test('週表示の終日の帯は長押しで端を伸ばし、真ん中で日数ごと動かせる', async ({ page }) => {
   // 週は月曜始まり。6/18(水) を含む週は 6/16〜6/22
   await page.goto('/calendar?view=week&date=2031-06-18');
 
   // 終日欄を長押しからなぞって 6/18〜6/19 の下書きを作る
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-18', 'middle'),
-    await dayPoint(page, '2031-06-19', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-18', '2031-06-19');
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 週・日でも月と同じ見た目にする（つまむ丸は出さない）
   await expect(page.locator('[data-handle]')).toHaveCount(0);
 
   // 最後の日の右半分を長押しすると終了日だけが動く
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-19', 'right'),
-    await dayPoint(page, '2031-06-21', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-19', '2031-06-21', 'right');
   await expect(page.getByText('6/18(水)〜6/21(土) 終日')).toBeVisible();
 
   // 最初の日の左半分を長押しすると開始日だけが動く
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-18', 'left'),
-    await dayPoint(page, '2031-06-17', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-18', '2031-06-17', 'left');
   await expect(page.getByText('6/17(火)〜6/21(土) 終日')).toBeVisible();
 
   // 真ん中を長押しすると日数（5 日）を保ったまま動く
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-19', 'middle'),
-    await dayPoint(page, '2031-06-20', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-19', '2031-06-20');
   await expect(page.getByText('6/18(水)〜6/22(日) 終日')).toBeVisible();
 });
 
 test('月表示の終日の帯も長押しでつまめる（行をまたぐ移動もできる）', async ({ page }) => {
   await page.goto('/calendar?view=month&date=2031-06-15');
 
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-18', 'middle'),
-    await dayPoint(page, '2031-06-19', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-18', '2031-06-19');
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
 
   // 最初の日の左半分で開始日を前へ
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-18', 'left'),
-    await dayPoint(page, '2031-06-16', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-18', '2031-06-16', 'left');
   await expect(page.getByText('6/16(月)〜6/19(木) 終日')).toBeVisible();
 
   // 真ん中を下の行まで動かすと、日数を保ったまま 1 週間ぶんずれる
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-17', 'middle'),
-    await dayPoint(page, '2031-06-24', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-17', '2031-06-24');
   await expect(page.getByText('6/23(月)〜6/26(木) 終日')).toBeVisible();
 });
 
@@ -340,11 +298,8 @@ test('時間指定の下書きは月表示でも帯で出て、長押しで時�
   await expect(page.getByText('6/18(水) 10:00〜11:00')).toBeVisible();
 
   // 月表示へ切り替えると、その日 1 日ぶんの帯として出る
-  await page.getByRole('button', { name: '表示の切替' }).click();
-  await page.getByRole('menuitem', { name: '月' }).click();
+  await changeView(page, '月');
   await expect(page).toHaveURL(/view=month/);
-  // 月グリッドにしかない日（6 週分の先頭。日表示には無い）で切り替わったと見る
-  await viewChanged(page, page.locator('[data-date="2031-05-26"]'));
   const cell = await page.locator('[data-date="2031-06-18"]').boundingBox();
   const bar = await page.locator('[data-draft]').boundingBox();
   if (!cell || !bar) throw new Error('帯か日のセルが見つからない');
@@ -352,12 +307,7 @@ test('時間指定の下書きは月表示でも帯で出て、長押しで時�
   expect(bar.x + bar.width).toBeLessThanOrEqual(cell.x + cell.width + 1);
 
   // 長押しして別の日へ動かすと、時間帯はそのままで日だけが変わる
-  await touchDrag(
-    page,
-    await dayPoint(page, '2031-06-18', 'middle'),
-    await dayPoint(page, '2031-06-22', 'middle'),
-    { hold: 400 },
-  );
+  await dragDays(page, '2031-06-18', '2031-06-22');
   await expect(page.getByText('6/22(日) 10:00〜11:00')).toBeVisible();
 });
 
@@ -365,20 +315,12 @@ test('表示を切り替えても入力中の予定はそのまま残る', async
   const title = `E2E 表示切替 ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-18');
 
-  const center = async (date: string) => {
-    const box = await page.locator(`[data-date="${date}"]`).boundingBox();
-    if (!box) throw new Error('日のセルが見つからない');
-    return { x: box.x + box.width / 2, y: box.y + box.height - 6 };
-  };
-  await touchDrag(page, await center('2031-06-18'), await center('2031-06-19'), { hold: 400 });
+  await dragDays(page, '2031-06-18', '2031-06-19');
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   await page.getByLabel('タイトルを追加').fill(title);
 
-  await page.getByRole('button', { name: '表示の切替' }).click();
-  await page.getByRole('menuitem', { name: '週' }).click();
+  await changeView(page, '週');
   await expect(page).toHaveURL(/view=week/);
-  // 時間軸（週・日表示にしかない）で切り替わったと見る
-  await viewChanged(page, page.locator('[data-sync-scroll]').first());
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 選んだ範囲は週の終日欄にもそのまま出る

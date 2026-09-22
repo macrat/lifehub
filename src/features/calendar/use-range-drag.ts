@@ -35,8 +35,8 @@ type DragState<P, G, R> = Drag<P, G> & {
 type Options<P, G, R> = {
   /** ポインタの位置 → グリッドの 1 点。掴めない所なら null */
   locate: (event: PointerEvent<HTMLElement>) => P | null;
-  /** 押した所で掴んだ物。空いている所なら null（省略すると、いつでも押した所から選び直す） */
-  grabOf?: (point: P) => G | null;
+  /** 押したときに掴んだ物。空いている所なら null（省略すると、いつでも押した所から選び直す） */
+  grabOf?: (event: PointerEvent<HTMLElement>) => G | null;
   /** ドラッグの姿 → 範囲 */
   rangeOf: (drag: Drag<P, G>) => R;
   /** 範囲が決まるたび。done はポインタを離した（入力に移ってよい）か */
@@ -166,7 +166,7 @@ export function useRangeDrag<P, G, R>({
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
         const from = locate(event);
-        if (from !== null) start(event, grabOf?.(from) ?? null, from, false);
+        if (from !== null) start(event, grabOf?.(event) ?? null, from, false);
       },
       onPointerMove: move,
       onPointerUp: up,
