@@ -53,11 +53,11 @@ const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
 const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
-/** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
-const HOUR_VIBRATION_MS = 10;
-const STEP_VIBRATION_MS = 50;
+/** 吸着したときの手応えの長さ（ms）。正時だけ長くして、時間の区切りを手で見分けられるようにする */
+const HOUR_VIBRATION_MS = 50;
+const STEP_VIBRATION_MS = 10;
 /** 日の並びで下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類だけなので正時と同じ */
-const DAY_VIBRATION_MS = 10;
+const DAY_VIBRATION_MS = HOUR_VIBRATION_MS;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
