@@ -157,7 +157,6 @@ export function EventFormFields({
         defaultValue={initial.title}
         error={Boolean(errors.title)}
         helperText={errors.title}
-        autoFocus
         fullWidth
       />
       <EventWhenFields
@@ -179,8 +178,17 @@ export function EventFormFields({
 /**
  * タスクの全項目。予定と違って開始・期限はどちらも任意で、通知は「開始日時に」「期限日時に」の 2 択。
  * 追加のフォーム（`TaskForm`）と詳細からの編集（`ItemDetailSheet`）で同じものを使う。
+ *
+ * autoFocus はタスクの追加だけ（`TaskForm`）。タスクはタイトルを打つだけで終わることが多いので、
+ * 開いた所からそのまま打てるようにする。既にある記録を開くときは、シートが出た瞬間に
+ * ソフトキーボードが立ち上がって中身を覆ってしまうので焦点は当てない。
  */
-export function TaskFormFields({ initial, errors, thisOnly }: ScopedProps) {
+export function TaskFormFields({
+  initial,
+  errors,
+  thisOnly,
+  autoFocus,
+}: ScopedProps & { autoFocus: boolean }) {
   return (
     <>
       <TextField
@@ -189,7 +197,7 @@ export function TaskFormFields({ initial, errors, thisOnly }: ScopedProps) {
         defaultValue={initial.title}
         error={Boolean(errors.title)}
         helperText={errors.title}
-        autoFocus
+        autoFocus={autoFocus}
         fullWidth
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

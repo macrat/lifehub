@@ -29,6 +29,9 @@ import { EventExtraFields, EventWhenFields } from './EventFields.tsx';
 type Props = {
   /** グリッドで選んだ範囲。日時の既定値になり、上の段で直すとここへ戻す */
   draft: EventDraft;
+  /** 選んでいる参加者。グリッドの枠もこの色になるので、選択は呼び出し側が持つ */
+  participantIds: string[];
+  onChangeParticipants: (participantIds: string[]) => void;
   /**
    * なぞり終えて入力できる状態か。PC の吹き出しはドラッグの最中は出さない（枠に重なって選べなくなるため）。
    * スマホのシートは下の段ではグリッドを隠さないので、なぞっている間も出したままにする。
@@ -54,6 +57,8 @@ type Props = {
  */
 export function QuickEventForm({
   draft,
+  participantIds,
+  onChangeParticipants,
   open,
   onSubmit,
   onChangeDraft,
@@ -68,7 +73,7 @@ export function QuickEventForm({
   const peekRef = useRef<HTMLDivElement>(null);
   // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
   const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
-  const initial = draftValues(draft);
+  const initial = draftValues(draft, participantIds);
   const [allDay, setAllDay] = useState(initial.allDay);
 
   const inputFromForm = (fd: FormData) =>
@@ -131,7 +136,12 @@ export function QuickEventForm({
             {draftText(draft)}
           </Typography>
         )}
-        <ParticipantsField name="participantIds" defaultValue={[]} error={errors.participantIds} />
+        <ParticipantsField
+          name="participantIds"
+          value={participantIds}
+          onChange={onChangeParticipants}
+          error={errors.participantIds}
+        />
         {detent === 'peek' && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Button onClick={isMobile ? () => setDetent('full') : expand}>
