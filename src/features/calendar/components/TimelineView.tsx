@@ -13,7 +13,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { DAY_MINUTES, draftColumns, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -38,9 +38,8 @@ type Props = {
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
-  /** 時間軸の 1 時間あたりの高さ（px）。つまむと変わる（`use-hour-zoom.ts`） */
+  /** 時間軸（`TimeGrid`）へそのまま渡す */
   hourHeight: number;
-  /** 時間軸をつまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
 };
 
@@ -215,7 +214,10 @@ export function TimelineView({
 function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind === 'event') {
     if (item.allDay || item.dayCount > 1) return null;
-    return { startMin: minutesOfDay(item.startsAt), endMin: minutesOfDay(item.endsAt) || 24 * 60 };
+    return {
+      startMin: minutesOfDay(item.startsAt),
+      endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
+    };
   }
   const time = taskTime(item);
   if (!time || toDateString(new Date(time.at)) !== item.placementDate) return null;

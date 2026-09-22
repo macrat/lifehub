@@ -18,9 +18,8 @@ type Props = {
   draftUserId: string | null;
   /** グリッドをなぞって範囲を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: EventDraft, done: boolean) => void;
-  /** 週・日の時間軸の 1 時間あたりの高さ（px）。3 面で同じ値を使う（`use-hour-zoom.ts`） */
+  /** 週・日の時間軸へそのまま渡す（`use-hour-zoom.ts`。3 面で同じ値を使う） */
   hourHeight: number;
-  /** 時間軸をつまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
 };
 

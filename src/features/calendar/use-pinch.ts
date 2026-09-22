@@ -1,5 +1,5 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
-import { blockTouchMove } from './touch-block.ts';
+import { blockTouchMove } from '../../lib/ui/touch-block.ts';
 
 type Point = { x: number; y: number };
 

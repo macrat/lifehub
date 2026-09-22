@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { clamp } from '../../lib/math.ts';
 import { useIsMobile } from '../../lib/ui/use-breakpoint.ts';
-import { clamp } from './draft.ts';
 
 /**
  * 1 時間あたりの高さ（px）の下限・上限。下は 1 日 24 時間が画面に収まる所まで、
@@ -28,19 +28,21 @@ export const atMinute = (min: number) => `calc(var(${HOUR_HEIGHT_VAR}) * ${min /
  * 初めの高さだけ画面の幅で決め（指で触る画面は少し詰めて、見える時間帯を広く取る）、
  * あとはつまんだ結果をそのまま保つ。画面を回して幅が変わっても、見ていた高さは変えない。
  *
- * 持つのは小数のまま、渡すのは整数に丸めた値にする。指をゆっくり動かしたときの僅かな倍率も
- * 積もって効き（丸めた値を持つと、毎回同じ数に戻って一向に変わらない）、渡す先から見れば
- * 高さは整数しか取らないので、同じ高さの間は面を描き直さずに済み、作られる CSS も増え続けない。
+ * 積み上げるのは小数（手元の ref）、画面に出すのは整数に丸めた値（state）にする。
+ * 小数で積むので指をゆっくり動かしたときの僅かな倍率も効き（丸めた値を積むと、毎回同じ数に
+ * 戻って一向に変わらない）、整数で出すので、丸めて同じ高さになるフレームでは state が変わらず
+ * 画面もまったく描き直されない。作られる CSS も高さの取り得る数（217 通り）で頭打ちになる。
  */
 export function useHourZoom() {
   const base = useIsMobile() ? 48 : 56;
-  const [height, setHeight] = useState(base);
+  const exact = useRef(base);
+  const [hourHeight, setHourHeight] = useState(base);
   return {
-    hourHeight: Math.round(height),
+    hourHeight,
     // 面（CalendarPane）を経由して渡るので、描き直しを省けるよう関数は固定する
-    zoom: useCallback(
-      (ratio: number) => setHeight((h) => clamp(h * ratio, MIN_HOUR_HEIGHT, MAX_HOUR_HEIGHT)),
-      [],
-    ),
+    zoom: useCallback((ratio: number) => {
+      exact.current = clamp(exact.current * ratio, MIN_HOUR_HEIGHT, MAX_HOUR_HEIGHT);
+      setHourHeight(Math.round(exact.current));
+    }, []),
   };
 }

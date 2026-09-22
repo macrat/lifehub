@@ -7,7 +7,7 @@ import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import type { EventDraft } from '../draft.ts';
+import { DAY_MINUTES, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
@@ -16,6 +16,9 @@ import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './SwipePager.tsx';
 import type { TimedPlaced } from './timeline-layout.ts';
+
+/** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
+const TIME_LINE = 'time-line';
 
 type Props = {
   days: DateString[];
@@ -79,8 +82,8 @@ export function TimeGrid({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const target = days.includes(todayStr) ? (nowMin / 60) * hourHeight - 120 : 7 * hourHeight;
-    el.scrollTop = Math.max(0, target);
+    const at = (min: number) => (min / DAY_MINUTES) * el.scrollHeight;
+    el.scrollTop = Math.max(0, days.includes(todayStr) ? at(nowMin) - 120 : at(7 * 60));
   }, []);
 
   // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
@@ -89,21 +92,22 @@ export function TimeGrid({
   const drawn = useRef(hourHeight);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    const middle = el.scrollTop + el.clientHeight / 2;
-    el.scrollTop = (middle * hourHeight) / drawn.current - el.clientHeight / 2;
+    const previous = drawn.current;
     drawn.current = hourHeight;
+    if (!el || previous === hourHeight) return;
+    const middle = el.scrollTop + el.clientHeight / 2;
+    el.scrollTop = (middle * hourHeight) / previous - el.clientHeight / 2;
   }, [hourHeight]);
 
   // 画面の外に枠が置かれたら（追加ボタンから来たとき）見える所まで送る。
   // 始まりが見えているなら動かさない（なぞって選んでいる最中にグリッドが動くと狙いがずれる）
   const draftStart = timedDraft?.startMin ?? null;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 送るのは枠が移ったときだけ（高さが変わったときは上の効果が受け持つ）
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || draftStart === null) return;
-    const top = (draftStart / 60) * hourHeight;
-    if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - hourHeight) return;
+    const hour = el.scrollHeight / 24;
+    const top = (draftStart / DAY_MINUTES) * el.scrollHeight;
+    if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - hour) return;
     el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
   }, [draftStart]);
 
@@ -120,7 +124,7 @@ export function TimeGrid({
           [HOUR_HEIGHT_VAR]: `${hourHeight}px`,
           display: 'grid',
           gridTemplateColumns: `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`,
-          height: atMinute(24 * 60),
+          height: atMinute(DAY_MINUTES),
           position: 'relative',
         }}
       >
@@ -169,7 +173,6 @@ export function TimeGrid({
               <TimedBlock
                 key={p.key}
                 placed={p}
-                hourHeight={hourHeight}
                 colors={colorFor(colorUserOf(p.item.participantIds))}
                 onClick={() => onSelectItem(p.item)}
               />
@@ -231,21 +234,16 @@ function NowLine({ minutes }: { minutes: number }) {
 
 function TimedBlock({
   placed,
-  hourHeight,
   colors,
   onClick,
 }: {
   placed: TimedPlaced<CalendarItem>;
-  hourHeight: number;
   colors: ItemColors;
   onClick: () => void;
 }) {
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
-  // 時刻を添えるかどうかだけは px で決まるので高さの数を使う（切れた行を見せないため）。
-  // 置く場所と大きさは CSS 変数から引く
-  const showTime = Math.max(((endMin - startMin) / 60) * hourHeight, 18) - 2 >= 34;
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -273,6 +271,11 @@ function TimedBlock({
         opacity: completed ? 0.6 : 1,
         textDecoration: completed ? 'line-through' : 'none',
         '&:hover': { filter: 'brightness(0.95)' },
+        // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので
+        // 決まるので、つまんで伸び縮みしてもブラウザが決め直す。JS に高さの数を持たせない
+        containerType: 'size',
+        [`& .${TIME_LINE}`]: { display: 'none' },
+        '@container (min-height: 34px)': { [`& .${TIME_LINE}`]: { display: 'block' } },
       }}
     >
       <Typography
@@ -282,8 +285,12 @@ function TimedBlock({
         {isTask && (item.completedAt ? '☑ ' : '☐ ')}
         {item.title}
       </Typography>
-      {showTime && item.kind === 'event' && (
-        <Typography component="div" sx={{ fontSize: '0.65rem', lineHeight: 1.2, opacity: 0.9 }}>
+      {item.kind === 'event' && (
+        <Typography
+          component="div"
+          className={TIME_LINE}
+          sx={{ fontSize: '0.65rem', lineHeight: 1.2, opacity: 0.9 }}
+        >
           {formatTime(item.startsAt)}〜{formatTime(item.endsAt)}
         </Typography>
       )}

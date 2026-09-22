@@ -183,6 +183,7 @@ e2e/                          # Playwright
 - フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。OS の UI と同じ字面になり、待ち時間も文字の入れ替わりも起きない。
 - **ブラウザではなくアプリとして触れるようにする**（`src/lib/theme.ts` の `MuiCssBaseline`）。すべて `body` / `html` に 1 か所だけ置き、個々の部品には書かない:
   - `touch-action: pan-x pan-y`: ブラウザの拡大縮小はしない。素早く続けて押しても（日を次々に選ぶ、電卓を叩く）、つまんでも画面は動かない。つまむ操作はアプリ側で使う（カレンダーの週・日表示で時間軸を縦に伸び縮みさせる。[features/calendar.md](features/calendar.md)）ので、ブラウザに取られると効かなくなる。
+  - なぞっている間だけタッチの既定の動きを取り上げるのは JS 側（`src/lib/ui/touch-block.ts` の `blockTouchMove`）。掴んでいる間しか付けないので、普段のスクロールはブラウザの速い経路（passive）のまま。
   - `-webkit-tap-highlight-color: transparent`: 押したときの灰色の四角を出さない。押した手応えは MUI の ripple が示す。
   - `user-select: none` と `-webkit-touch-callout: none`: 長押ししても文字が選ばれたり、画像・リンクのメニューが出たりしない。選んで写せるのは入力欄（`input, textarea`）だけにする。読むだけの画面の文字も、鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
 - 引っ張って更新（Android）は残す。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面が `NoPullToRefresh`（`src/lib/ui/NoPullToRefresh.tsx`）を置き、`html` に `overscroll-behavior-y: contain` を当てる（ブラウザはページ全体のスクロールの設定を `html` から読むが、画面の側からそこを狙う手段は `sx` に無いので `GlobalStyles` を使う）。出している間だけ効くので後片付けが要らない。
