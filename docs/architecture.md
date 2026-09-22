@@ -180,14 +180,20 @@ e2e/                          # Playwright
 - クエリの状態は `QueryView`（`src/lib/ui/QueryView.tsx`）が 1 か所で描き分ける: 手元にデータがあれば取り直し中でも失敗してもそれを出し、まだ無ければ骨組み、無くて失敗しているなら理由を出す。一覧の骨組みは `ListSkeleton`。
 - 画面が変わる移動は View Transition（`src/main.tsx` の `defaultViewTransition`）で繋ぐ。前後の画面に共通して在るもの（同じ予定、立替残高、レモンのカード）には同じ `view-transition-name` を付けてあり、その場から新しい位置へ動く。名前の無いものはブラウザ既定のフェード。アニメーションの記述は持たず、名前を付けるだけにする。画面が変わるのはパスが変わるときと、カレンダーの表示（月・週・日・リスト）が変わるときで、同じ画面の中の更新（スワイプでの前後移動、絞り込み、検索キーワード）では使わない（指やキーに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える）。判定は戻る・進むを含めどの経路でも同じになるよう router に 1 か所だけ置く。
 - `view-transition-name` は文書の中で一意でなければならず、重複すると遷移そのものが行われない。同じ項目が複数描かれる所（複数日の予定、スワイプの控えの面）の扱いは [features/calendar.md](features/calendar.md) と `src/lib/theme.ts` を参照。
-- フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。
+- フォント: システムフォント（`system-ui`）。Web フォントは読み込まない。OS の UI と同じ字面になり、待ち時間も文字の入れ替わりも起きない。
+- **ブラウザではなくアプリとして触れるようにする**（`src/lib/theme.ts` の `MuiCssBaseline`）。すべて `body` / `html` に 1 か所だけ置き、個々の部品には書かない:
+  - `overscroll-behavior: contain`（`html`）: 端まで動かしてもスクロールが親へ連鎖せず、引っ張って更新（Android）も起きない。
+  - `touch-action: manipulation`: 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残すので、読めない人が拡大する手は塞がない。
+  - `-webkit-tap-highlight-color: transparent`: 押したときの灰色の四角を出さない。押した手応えは MUI の ripple が示す。
+  - `user-select: none` と `-webkit-touch-callout: none`: 長押ししても文字が選ばれたり、画像・リンクのメニューが出たりしない。選んで写せるのは入力欄（`input, textarea`）だけにする。読むだけの画面の文字も、鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
 
 ## PWA
 
-- Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` と `theme-color` メタは指定しない。ブラウザが OS の配色（`color-scheme: light dark`）に合わせた既定色を使い、ライト／ダークの切り替えに自動で追従するため。
-- iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。
+- Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
+- ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
+- iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
-- アイコンは `public/icons/favicon.svg` を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
+- アイコンは `public/icons/favicon.svg`（アプリのアイコン）と `public/icons/badge.svg`（通知の小さな印）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。
 
 ## 運用
 

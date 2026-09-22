@@ -1,8 +1,28 @@
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { buildInfoDefine } from './build-info.ts';
+import { SURFACE } from './shared/color.ts';
+
+/**
+ * ステータスバー（スマホ）やタイトルバー（PC）に使う色を index.html に注入する。
+ * 値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）なので、帯が途切れずに繋がって見える。
+ *
+ * manifest の `theme_color` は 1 色しか持てずライト／ダークを切り替えられないので使わず、
+ * メディアクエリを付けられる meta の方に置く。index.html に直書きするとテーマと二重管理になる。
+ */
+function themeColorMeta(): Plugin {
+  return {
+    name: 'lifehub:theme-color-meta',
+    transformIndexHtml: () =>
+      Object.entries(SURFACE).map(([scheme, content]) => ({
+        tag: 'meta',
+        attrs: { name: 'theme-color', media: `(prefers-color-scheme: ${scheme})`, content },
+        injectTo: 'head' as const,
+      })),
+  };
+}
 
 export default defineConfig({
   define: buildInfoDefine,
@@ -10,6 +30,7 @@ export default defineConfig({
     // TanStack Router のプラグインは React プラグインより前に置く（公式の要件）
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
+    themeColorMeta(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',
@@ -24,8 +45,9 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         // vite-plugin-pwa の既定値（theme_color: #42b883, background_color: #ffffff）を
-        // 打ち消して、どちらも manifest に出力しない。色を宣言しなければブラウザが
-        // OS の配色に合わせた既定色を使い、ライト／ダークの切り替えに自動で追従する。
+        // 打ち消して、どちらも manifest に出力しない。manifest の色は 1 色しか持てず
+        // ライト／ダークを切り替えられないため。theme-color はメディアクエリ付きの
+        // meta（themeColorMeta）で配色ごとに渡す。
         theme_color: undefined,
         background_color: undefined,
         icons: [

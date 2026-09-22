@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { type ColorMode, DEFAULT_HUE, hueColor } from '../../shared/color.ts';
+import { type ColorMode, DEFAULT_HUE, hueColor, SURFACE } from '../../shared/color.ts';
 
 /** 表示モード。テーマは prefers-color-scheme に追従するので、色を自前で計算する部品もこれに合わせる */
 export function useColorMode(): ColorMode {
@@ -21,13 +21,13 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
       light: {
         palette: {
           primary: { main: hueColor(hue, 'accent', 'light') },
-          background: { default: '#ffffff', paper: '#ffffff' },
+          background: { default: SURFACE.light, paper: SURFACE.light },
         },
       },
       dark: {
         palette: {
           primary: { main: hueColor(hue, 'accent', 'dark') },
-          background: { default: '#121212', paper: '#121212' },
+          background: { default: SURFACE.dark, paper: SURFACE.dark },
         },
       },
     },
@@ -38,6 +38,21 @@ export function createAppTheme(hue: number = DEFAULT_HUE) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          // ページの端でのスクロールの連鎖を断つ。引っ張って更新（Android）が起きず、
+          // シートや一覧を端まで動かしてもページごと動かない。
+          html: { overscrollBehavior: 'contain' },
+          body: {
+            // 素早く続けて押しても拡大しない（日を次々に選ぶ、電卓を叩く）。つまむ拡大は残す
+            touchAction: 'manipulation',
+            // 押したときの灰色の四角を出さない。押した手応えは各部品の ripple が示す
+            WebkitTapHighlightColor: 'transparent',
+            // 長押しで文字が選ばれたり、リンクのメニューが出たりしない（Web ページではなくアプリとして触る）
+            WebkitTouchCallout: 'none',
+            userSelect: 'none',
+          },
+          // 文字を選んで写せるのは入力欄だけにする。読むだけの画面の文字も、
+          // 鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
+          'input, textarea': { userSelect: 'text', WebkitTouchCallout: 'default' },
           // 控えとして描いてあるだけの部分（カレンダーのスワイプの前後の面。inert）は
           // View Transition の対象にしない。view-transition-name は文書の中で一意でなければならず、
           // 表示中の面と同じ名前が控えにもあると、遷移そのものが行われない。
