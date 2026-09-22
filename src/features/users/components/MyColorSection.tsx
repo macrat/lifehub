@@ -1,10 +1,9 @@
-import Button from '@mui/material/Button';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
-import ListSubheader from '@mui/material/ListSubheader';
 import Stack from '@mui/material/Stack';
+import { SettingsSection } from '../../../lib/ui/SettingsSection.tsx';
+import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useMyColor } from '../use-my-color.ts';
 import { HueSlider } from './HueSlider.tsx';
 import { UserAvatar } from './UserAvatar.tsx';
@@ -13,13 +12,7 @@ import { UserAvatar } from './UserAvatar.tsx';
 export function MyColorSection() {
   const { name, hue, changed, pick, save } = useMyColor();
   return (
-    <List
-      subheader={
-        <ListSubheader component="h3" disableSticky>
-          色
-        </ListSubheader>
-      }
-    >
+    <SettingsSection title="色">
       <ListItem>
         <ListItemAvatar>
           <UserAvatar name={name} hue={hue} />
@@ -29,17 +22,20 @@ export function MyColorSection() {
           secondary="ボタンや選択の色と、カレンダーでこのユーザーの予定・タスクに付く色"
         />
       </ListItem>
-      <Stack spacing={1} sx={{ px: 2, pb: 1 }}>
-        <HueSlider value={hue} onChange={pick} />
-        <Button
-          variant="contained"
-          disabled={!changed}
-          onClick={save}
-          sx={{ alignSelf: 'flex-end' }}
+      <ListItem>
+        <Stack
+          component="form"
+          spacing={1}
+          sx={{ width: '100%' }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
         >
-          保存
-        </Button>
-      </Stack>
-    </List>
+          <HueSlider value={hue} onChange={pick} />
+          <SubmitButton disabled={!changed} sx={{ alignSelf: 'flex-end' }} />
+        </Stack>
+      </ListItem>
+    </SettingsSection>
   );
 }

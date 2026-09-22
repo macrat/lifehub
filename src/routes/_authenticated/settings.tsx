@@ -1,17 +1,16 @@
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import ListSubheader from '@mui/material/ListSubheader';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
+import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -28,13 +27,7 @@ function SettingsPage() {
     <>
       <MyColorSection />
       <PushSection />
-      <List
-        subheader={
-          <ListSubheader component="h3" disableSticky>
-            アカウント
-          </ListSubheader>
-        }
-      >
+      <SettingsSection title="アカウント">
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/admin/users">
             <ListItemIcon>
@@ -54,7 +47,7 @@ function SettingsPage() {
             <ListItemText primary="ログアウト" secondary={me?.email} />
           </ListItemButton>
         </ListItem>
-      </List>
+      </SettingsSection>
       <VersionSection />
     </>
   );
@@ -66,19 +59,13 @@ function SettingsPage() {
  */
 function VersionSection() {
   return (
-    <List
-      subheader={
-        <ListSubheader component="h3" disableSticky>
-          バージョン
-        </ListSubheader>
-      }
-    >
+    <SettingsSection title="バージョン">
       <ListItem>
         <ListItemText
           primary={__BUILD_COMMIT__.slice(0, 7)}
           secondary={`${formatDateWithYear(__BUILD_TIME__)} ${formatTime(__BUILD_TIME__)}`}
         />
       </ListItem>
-    </List>
+    </SettingsSection>
   );
 }
