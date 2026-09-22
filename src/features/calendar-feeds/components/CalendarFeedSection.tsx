@@ -33,8 +33,10 @@ export function CalendarFeedSection() {
   const createFeed = useCreateCalendarFeed();
   const updateFeed = useUpdateCalendarFeed();
   const revokeFeed = useRevokeCalendarFeed();
-  /** 出しているフォーム。発行は feed を持たない（`null` は閉じている） */
-  const [editing, setEditing] = useState<{ feed?: CalendarFeed } | null>(null);
+  const { users } = useUserLabels();
+  // 発行と編集は別の状態にする（ユーザーの管理画面と同じ持ち方）
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<CalendarFeed | null>(null);
 
   return (
     <SettingsSection title="カレンダーの配信">
@@ -47,27 +49,30 @@ export function CalendarFeedSection() {
             <FeedItem
               key={feed.id}
               feed={feed}
-              onEdit={() => setEditing({ feed })}
+              // 並びはユーザーの一覧に合わせる（保存の順ではなく、画面のどこでも同じ順で出す）
+              participants={users
+                .filter((user) => feed.participantIds.includes(user.id))
+                .map((user) => user.name)
+                .join('・')}
+              onEdit={() => setEditing(feed)}
               onRevoke={() => revokeFeed.mutate(feed.id)}
             />
           ))
         }
       </QueryView>
       <ListItem>
-        <Button startIcon={<AddIcon />} onClick={() => setEditing({})}>
+        <Button startIcon={<AddIcon />} onClick={() => setCreating(true)}>
           配信 URL を発行
         </Button>
       </ListItem>
+      {creating && (
+        <CalendarFeedForm onClose={() => setCreating(false)} onSubmit={createFeed.mutateAsync} />
+      )}
       {editing && (
         <CalendarFeedForm
-          feed={editing.feed}
+          feed={editing}
           onClose={() => setEditing(null)}
-          onSubmit={(input) => {
-            const feed = editing.feed;
-            return feed
-              ? updateFeed.mutateAsync({ ...input, id: feed.id })
-              : createFeed.mutateAsync(input);
-          }}
+          onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editing.id })}
         />
       )}
     </SettingsSection>
@@ -77,19 +82,16 @@ export function CalendarFeedSection() {
 /** 1 本の配信 URL。コピー・編集・失効をその場で行う（URL は長いので字面は出さない） */
 function FeedItem({
   feed,
+  participants,
   onEdit,
   onRevoke,
 }: {
   feed: CalendarFeed;
+  /** 表示する対象者の名前（中黒つなぎ） */
+  participants: string;
   onEdit: () => void;
   onRevoke: () => void;
 }) {
-  const { users } = useUserLabels();
-  // 並びはユーザーの一覧に合わせる（保存の順ではなく、画面のどこでも同じ順で出す）
-  const participants = users
-    .filter((user) => feed.participantIds.includes(user.id))
-    .map((user) => user.name)
-    .join('・');
   const read = feed.lastAccessedAt
     ? `最後に読まれたのは ${formatDateTime(feed.lastAccessedAt)}`
     : 'まだ一度も読まれていません';

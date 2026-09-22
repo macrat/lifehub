@@ -24,7 +24,7 @@ type Controlled = {
 
 type Props = {
   name: string;
-  /** 見出し。既定は「参加者」で、選ぶ意味が違うとき（配信 URL に表示する対象者）だけ差し替える */
+  /** 見出し。選ぶ意味が「参加者」と違う画面だけが差し替える */
   label?: string;
   error?: string;
 } & (Uncontrolled | Controlled);

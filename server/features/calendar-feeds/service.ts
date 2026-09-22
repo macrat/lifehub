@@ -5,6 +5,7 @@ import { resolveBaseUrl } from '../../lib/env.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
+import type { CalendarFeedWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 
 /**
@@ -99,14 +100,12 @@ function newToken(): string {
 }
 
 /** 保存されている行（または今しがた保存した値）を画面に出す形にする */
-function toFeed(row: {
-  id: string;
-  name: string;
-  token: string;
-  participantIds: string[];
-  createdAt: Date;
-  lastAccessedAt: Date | null;
-}): CalendarFeed {
+function toFeed(
+  row: Pick<
+    CalendarFeedWithParticipants,
+    'id' | 'name' | 'token' | 'participantIds' | 'createdAt' | 'lastAccessedAt'
+  >,
+): CalendarFeed {
   return {
     id: row.id,
     name: row.name,

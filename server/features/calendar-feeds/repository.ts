@@ -1,21 +1,16 @@
 import { and, asc, eq, getTableColumns, sql } from 'drizzle-orm';
-import { db, runBatch } from '../../lib/db.ts';
+import { db, idArrayAgg, runBatch } from '../../lib/db.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
 export type CalendarFeedWithParticipants = CalendarFeedRow & { participantIds: string[] };
 
-/**
- * 参加者を配列にまとめた行を読む（`events` の repository と同じ組み立て）。
- * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
- */
-const participantIdsColumn = sql<
-  string[]
->`coalesce(array_agg(${calendarFeedParticipants.userId}::text) filter (where ${calendarFeedParticipants.userId} is not null), '{}')`;
-
 export async function findByUser(userId: string): Promise<CalendarFeedWithParticipants[]> {
   return db
-    .select({ ...getTableColumns(calendarFeeds), participantIds: participantIdsColumn })
+    .select({
+      ...getTableColumns(calendarFeeds),
+      participantIds: idArrayAgg(calendarFeedParticipants.userId),
+    })
     .from(calendarFeeds)
     .leftJoin(calendarFeedParticipants, eq(calendarFeedParticipants.feedId, calendarFeeds.id))
     .where(eq(calendarFeeds.userId, userId))

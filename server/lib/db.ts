@@ -1,7 +1,8 @@
 import { neon } from '@neondatabase/serverless';
+import { type SQL, sql } from 'drizzle-orm';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { drizzle as drizzleNodePg } from 'drizzle-orm/node-postgres';
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import type { PgColumn, PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { env } from './env.ts';
 import * as schema from './schema.ts';
 
@@ -51,4 +52,13 @@ export async function runBatch(build: (tx: Database) => BatchQueries): Promise<v
   await db.transaction(async (tx) => {
     for (const query of build(tx)) await query;
   });
+}
+
+/**
+ * 結合した子テーブルの ID を配列にまとめる（参加者のような多対多の相手）。
+ * left join と組にすると、子が 0 件でも親の行が消えない。
+ * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
+ */
+export function idArrayAgg(column: PgColumn): SQL<string[]> {
+  return sql`coalesce(array_agg(${column}::text) filter (where ${column} is not null), '{}')`;
 }

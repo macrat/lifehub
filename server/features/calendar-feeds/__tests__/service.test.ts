@@ -28,11 +28,15 @@ const valuesOf = (ics: string, name: string) =>
     .map((line) => line.slice(line.indexOf(':') + 1));
 
 let userId: string;
+/** 相手のユーザー。参加者で絞るテストが「自分ではない誰か」として使う */
+let otherId: string;
 
 describe('calendar-feeds service', () => {
   beforeEach(async () => {
     await truncateAll();
     userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
+      .id;
+    otherId = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' }))
       .id;
   });
 
@@ -144,18 +148,12 @@ describe('calendar-feeds service', () => {
   });
 
   it('他のユーザーの URL は見えず、失効もさせられない', async () => {
-    const otherId = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
     const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(await listFeeds(otherId)).toEqual([]);
     await expect(revokeFeed(feed.id, otherId)).rejects.toThrow(NotFoundError);
     await expect(icsOf(feed)).resolves.toContain('BEGIN:VCALENDAR');
   });
   it('選んだ参加者が入っている予定だけを配る', async () => {
-    const otherId = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
     const event = (title: string, participantIds: string[]) =>
       createEvent(
         createEventSchema.parse({
@@ -183,9 +181,6 @@ describe('calendar-feeds service', () => {
   });
 
   it('「この回だけ」参加者を変えた回は、変えた後の参加者で絞る', async () => {
-    const otherId = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
     const weekly = await createEvent(
       createEventSchema.parse({
         kind: 'event',
@@ -222,9 +217,6 @@ describe('calendar-feeds service', () => {
   });
 
   it('名前と参加者を後から変えられる（URL は変わらない）', async () => {
-    const otherId = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
     await createEvent(
       createEventSchema.parse({
         kind: 'event',
@@ -252,9 +244,6 @@ describe('calendar-feeds service', () => {
   });
 
   it('他のユーザーの URL は変更できない', async () => {
-    const otherId = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
     const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
     await expect(
       updateFeed(feed.id, { name: '乗っ取り', participantIds: [otherId] }, otherId),
