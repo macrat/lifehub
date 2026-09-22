@@ -1,13 +1,16 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import UndoIcon from '@mui/icons-material/Undo';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ItemFormValues } from '../form-values.ts';
 import {
@@ -37,6 +40,7 @@ type Props = {
  */
 export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props) {
   const { label } = useUserLabels();
+  const colorFor = useUserColor();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
@@ -160,9 +164,17 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               </>
             )}
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-              {item.participantIds.map((id) => (
-                <Chip key={id} size="small" label={label(id)} />
-              ))}
+              {item.participantIds.map((id) => {
+                const { fill, text } = colorFor(id);
+                return (
+                  <Chip
+                    key={id}
+                    size="small"
+                    label={label(id)}
+                    sx={{ bgcolor: fill, color: text }}
+                  />
+                );
+              })}
               {item.isRecurring && (
                 <Chip size="small" variant="outlined" label={describeRRule(item.rrule)} />
               )}
@@ -171,9 +183,18 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               )}
             </Stack>
             {item.location && (
-              <Typography variant="body2" color="text.secondary">
-                場所: {item.location}
-              </Typography>
+              <Link
+                href={mapSearchUrl(item.location)}
+                target="_blank"
+                rel="noreferrer"
+                variant="body2"
+                color="text.secondary"
+                underline="hover"
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+              >
+                <LocationOnIcon fontSize="small" />
+                {item.location}
+              </Link>
             )}
             {item.note && (
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -193,4 +214,12 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
       )}
     </>
   );
+}
+
+/**
+ * 場所の文字列を Google マップの検索で開く URL。
+ * 住所か店名かは入力した人しか知らないので、座標や地物の ID ではなく文字列のまま検索に渡す。
+ */
+function mapSearchUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
