@@ -6,10 +6,9 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
-import type { DragHandlers } from '../use-range-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
@@ -25,12 +24,12 @@ type Props = {
   onSelectDate: (date: DateString) => void;
   /** 項目をクリックしたとき（広い画面のみ。スマホでは項目はタップできず、日をタップする） */
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている終日の予定の範囲 */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加しようとしている予定の枠 */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
   /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  onChangeDraft: (draft: Draft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
   height: string;
 };
@@ -45,8 +44,10 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 完了したタスクは日ごとに一番下へ回す（`completedLast`）
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
- *   出ている下書き（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
- *   その下書きをつまむ。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
+ *   出ている枠（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
+ *   その枠をつまむ（長押しは待たない）。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
+ * - 保存済みの予定は長押しでつまむと編集モードに入り、同じ指のまま日を動かせる。編集中は枠を帯で出し、
+ *   元の項目は隠す（同じ予定が二重に出ないように）
  */
 export function MonthGrid({
   month,
@@ -143,9 +144,9 @@ type WeekRowProps = {
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  draft: EventDraft | null;
+  draft: Draft | null;
   draftUserId: string | null;
-  drag: DragHandlers;
+  drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   maxLanes: number;
   laneHeight: number;
@@ -168,7 +169,7 @@ function WeekRow({
   compact,
 }: WeekRowProps) {
   const placed = layoutLanes(days, itemsByDate);
-  const draftCols = draft && draftColumns(draft, days);
+  const draftCols = draft && draftColumns(draft.range, days);
   const overflow = placed.some((q) => q.lane >= maxLanes);
   const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
   const visible = placed.filter((p) => p.lane < hiddenLaneStart);
@@ -200,7 +201,7 @@ function WeekRow({
           <Box
             key={date}
             data-date={date}
-            {...drag}
+            {...drag.props}
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
@@ -230,6 +231,8 @@ function WeekRow({
           compact={compact}
           colors={colorFor(colorUserOf(p.item.participantIds))}
           onClick={compact ? undefined : () => onSelectItem(p.item)}
+          grab={drag.grabItemProps(p.item)}
+          hidden={sameOccurrence(draft?.item, p.item)}
         />
       ))}
       {draftCols && (

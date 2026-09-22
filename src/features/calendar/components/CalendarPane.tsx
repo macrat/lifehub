@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import type { EventDraft } from '../draft.ts';
+import type { Draft } from '../draft.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import { type PeriodView, periodOf } from '../use-calendar-page.ts';
 import { MonthGrid } from './MonthGrid.tsx';
@@ -12,12 +12,12 @@ type Props = {
   date: DateString;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている予定の範囲。控えの面には出さないので null が来る */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加・編集しようとしている予定の枠。控えの面には出さないので null が来る */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
-  /** グリッドをなぞって範囲を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  /** グリッドをなぞって範囲を決めたとき。done はポインタを離したか */
+  onChangeDraft: (draft: Draft, done: boolean) => void;
   /** 週・日の時間軸へそのまま渡す（`use-hour-zoom.ts`。3 面で同じ値を使う） */
   hourHeight: number;
   onZoom: (ratio: number) => void;

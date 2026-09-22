@@ -9,15 +9,18 @@ type Props = {
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
+  /** 見出し。既定は追加（つまんだ予定を直しているときは呼び出し側が言い換える） */
+  title?: string;
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onClose: () => void;
 };
 
 /**
- * 予定を追加する。開始・終了は必須で、通知は開始前だけを扱う。
- * 既存の予定の編集は詳細（`ItemDetailSheet`）から行う。
+ * 予定の全項目のフォーム。開始・終了は必須で、通知は開始前だけを扱う。
+ * 追加のほか、クイック入力の「その他のオプション」から直し続けるときもここへ来る
+ * （何を保存するかは `onSubmit` を渡す側が決める）。詳細から開く編集は `ItemDetailSheet`。
  */
-export function EventForm({ initial, scope, onSubmit, onClose }: Props) {
+export function EventForm({ initial, scope, title = '予定を追加', onSubmit, onClose }: Props) {
   const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
     { kind: 'event', initial, scope, onSubmit, onSaved: onClose },
   );
@@ -28,7 +31,7 @@ export function EventForm({ initial, scope, onSubmit, onClose }: Props) {
       error={submitError}
       onClose={onClose}
       full
-      title="予定を追加"
+      title={title}
       onSubmit={handleSubmit}
     >
       <EventFormFields

@@ -8,10 +8,11 @@ import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { DAY_MINUTES, type EventDraft } from '../draft.ts';
+import { DAY_MINUTES, type Draft, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
+import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
@@ -32,12 +33,12 @@ type Props = {
   onZoom: (ratio: number) => void;
   gutterWidth: number;
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている予定の範囲（時間指定のものだけここに出す） */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加・編集しようとしている予定の枠（時間指定のものだけここに出す） */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
-  /** 空いている所をなぞって時間帯を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  /** なぞって時間帯を決めたとき。done はポインタを離したか */
+  onChangeDraft: (draft: Draft, done: boolean) => void;
 };
 
 /**
@@ -50,8 +51,9 @@ type Props = {
  * 寸法を組み直したり、その数だけ使い捨ての CSS を作ったりしない。
  * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
- * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
+ * 枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
  * 端の丸をつまむと開始・終了だけが動く。
+ * 保存済みの予定は長押しでつまむと編集モードに入り、同じ指のまま枠として動かせる。
  */
 export function TimeGrid({
   days,
@@ -67,11 +69,14 @@ export function TimeGrid({
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
-  const drag = useTimeDrag({ onChange: onChangeDraft });
+  const drag = useTimeDrag({ draft, onChange: onChangeDraft });
   const pinch = usePinch(onZoom);
-  const timedDraft = draft?.allDay === false ? draft : null;
-  // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の下書きは出さない
+  const timedDraft = draft?.range.allDay === false ? draft.range : null;
+  // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
+  // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
+  // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）
+  const editing = draftCol >= 0 ? draft?.item : null;
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -175,7 +180,10 @@ export function TimeGrid({
                 key={p.key}
                 placed={p}
                 colors={colorFor(colorUserOf(p.item.participantIds))}
+                hidden={sameOccurrence(editing, p.item)}
                 onClick={() => onSelectItem(p.item)}
+                // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC は吹き出しが前に出るので詳細から直す）
+                grab={compact ? drag.grabItemProps(p.item) : undefined}
               />
             ))}
             {day === todayStr && <NowLine minutes={nowMin} />}
@@ -191,15 +199,7 @@ export function TimeGrid({
             draft={timedDraft}
             column={draftCol + 1}
             colors={colorFor(draftUserId)}
-            grab={
-              compact
-                ? {
-                    move: drag.moveProps(timedDraft),
-                    start: drag.resizeProps('start', timedDraft),
-                    end: drag.resizeProps('end', timedDraft),
-                  }
-                : null
-            }
+            grab={compact ? drag.frameProps(timedDraft) : null}
           />
         )}
       </Box>
@@ -233,14 +233,25 @@ function NowLine({ minutes }: { minutes: number }) {
   );
 }
 
+/**
+ * 時間軸に置く 1 項目。タップで詳細、長押しでつまんで編集モード（`grab`）。
+ * 編集中は枠（`DraftBlock`）で出すので隠すが、DOM からは消さない: 長押しでつまんだ要素が
+ * 消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
+ */
 function TimedBlock({
   placed,
   colors,
+  hidden,
   onClick,
+  grab,
 }: {
   placed: TimedPlaced<CalendarItem>;
   colors: ItemColors;
+  /** 編集中（枠で出している）か */
+  hidden: boolean;
   onClick: () => void;
+  /** 長押しでつまむためのハンドラ。つまめないとき（PC・タスク）は undefined */
+  grab: DragHandlers | undefined;
 }) {
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
@@ -248,10 +259,13 @@ function TimedBlock({
   const width = 100 / cols;
   return (
     <ButtonBase
-      onClick={onClick}
+      {...grab}
+      onClick={hidden ? undefined : onClick}
       aria-label={item.title}
       sx={{
         position: 'absolute',
+        // 隠すのは見た目だけ（場所は残す）。display: none にすると掴んだ指が離れてしまう
+        visibility: hidden ? 'hidden' : undefined,
         // 表示を切り替えたとき、同じ項目がこのブロックから動く
         viewTransitionName: itemTransitionName(item),
         top: `calc(${atMinute(startMin)} + 1px)`,

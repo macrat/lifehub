@@ -1,5 +1,15 @@
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import type { RecurrenceScope } from '../../../shared/validation/events.ts';
+
+/**
+ * グリッドでつまんで直すときの範囲。繰り返しの回はその回だけを直す（つまんだのはその回で、
+ * ほかの回の日時まで動かさないため）。単発は行そのもの（＝すべて）を直す。
+ * 保存の指定（`scope`）と入力欄の出し分け（`thisOnly`）が食い違わないよう、決め方はここだけに置く。
+ */
+export function grabbedScope(item: { isRecurring: boolean } | null | undefined): RecurrenceScope {
+  return item?.isRecurring ? 'this' : 'all';
+}
 
 /**
  * フォームの繰り返し選択肢と RRULE 文字列の相互変換。

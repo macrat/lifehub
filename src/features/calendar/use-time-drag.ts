@@ -1,15 +1,17 @@
 import type { PointerEvent } from 'react';
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import { isDateString } from '../../../shared/date.ts';
 import {
   DAY_MINUTES,
-  type EventDraft,
+  type Draft,
+  itemDraft,
   type TimedDraft,
   type TimeGrab,
   type TimePoint,
   timeDraft,
   timeVibration,
 } from './draft.ts';
-import { useRangeDrag } from './use-range-drag.ts';
+import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 
 /** 時間軸（`data-time-grid`）の中で、その x にある列（`data-date`）。外にはみ出したら端の列に寄せる */
 function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
@@ -18,7 +20,8 @@ function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
 }
 
 /**
- * 時間軸（週・日表示）をなぞって時間帯を選ぶ。下書きは端をつまんで広げ縮め、枠をつまんで動かせる。
+ * 時間軸（週・日表示）をなぞって時間帯を選ぶ。枠は端をつまんで広げ縮め、枠そのものをつまんで動かせる。
+ * 保存済みの予定は長押しでつまむと編集モードに入り、そのまま指を離さずに動かせる。
  * 日は指の下にある列、分はその列の中での位置の割合で求める（列はどれも上端が同じで、高さが 1 日ぶん）。
  * 1 時間が何 px かは CSS が持っているので（`use-hour-zoom.ts`）、同じ数を持たずに描かれた物から読む。
  * つまんで伸び縮みさせた直後でも、測るのはその時点の列なのでずれない。
@@ -27,10 +30,14 @@ function columnAt(grid: HTMLElement, clientX: number): HTMLElement | undefined {
  * 15 分に吸着して時刻が変わるたび、その時刻に応じた長さで震わせる（`timeVibration`）。
  */
 export function useTimeDrag({
+  draft,
   onChange,
 }: {
-  onChange: (draft: EventDraft, done: boolean) => void;
+  /** この面が時間軸に出している枠。つまんでも直す対象は変わらない（`useDayDrag` と同じ渡し方） */
+  draft: Draft | null;
+  onChange: (draft: Draft, done: boolean) => void;
 }) {
+  const item = draft?.item ?? null;
   const locate = (event: PointerEvent<HTMLElement>): TimePoint | null => {
     const grid = event.currentTarget.closest<HTMLElement>('[data-time-grid]');
     const column = grid ? columnAt(grid, event.clientX) : undefined;
@@ -39,18 +46,37 @@ export function useTimeDrag({
     const { top, height } = column.getBoundingClientRect();
     return { date, min: ((event.clientY - top) / height) * DAY_MINUTES };
   };
-  const drag = useRangeDrag<TimePoint, TimeGrab, TimedDraft>({
+  // 時間軸が決めるのは時間指定の枠だけ（終日は日の並びで選ぶ。`use-day-drag.ts`）
+  const drag = useRangeDrag<TimePoint, TimeGrab, Draft & { range: TimedDraft }>({
     locate,
-    rangeOf: timeDraft,
+    // 範囲と一緒に「何を直しているか」を返す。空いている所からのドラッグ（grab が null）は
+    // つまんだ予定を離れて、新しい予定の下書きになる
+    rangeOf: (d) => ({ range: timeDraft(d), item: d.grab?.item ?? null }),
     onChange,
-    vibration: timeVibration,
+    vibration: (previous, next) => timeVibration(previous.range, next.range),
   });
   return {
     props: drag.props,
-    /** 枠をつまんで長さを保ったまま動かす。枠は広いので、タッチは長押しから（縦スクロールに譲る） */
-    moveProps: (draft: TimedDraft) => drag.grabProps({ kind: 'move', draft }),
-    /** 端の丸をつまんでその端だけを動かす。丸は押す以外に使い道が無いので長押しを待たない */
-    resizeProps: (kind: 'start' | 'end', draft: TimedDraft) =>
-      drag.grabProps({ kind, draft }, { instant: true }),
+    /**
+     * 出ている枠（`DraftBlock`）に渡すハンドラ。枠そのもので長さを保ったまま動かし、端の丸で
+     * 開始・終了を変える。どれも既に直している枠なので長押しは待たない（縦スクロール・横スワイプは
+     * 枠の外から始める）。
+     */
+    frameProps: (range: TimedDraft) => ({
+      move: drag.grabProps({ kind: 'move', draft: range, item }, { instant: true }),
+      start: drag.grabProps({ kind: 'start', draft: range, item }, { instant: true }),
+      end: drag.grabProps({ kind: 'end', draft: range, item }, { instant: true }),
+    }),
+    /**
+     * 保存済みの予定を長押しでつまんで編集モードに入り、そのまま動かす。
+     * 軽いタップは詳細（`ItemDetailSheet`）に譲るので、動かさずに離したときは何も選ばない。
+     * 時間軸に枠で出せない項目（タスク、日をまたぐ時間指定の予定）はつまめないので undefined。
+     */
+    grabItemProps: (target: CalendarItem): DragHandlers | undefined => {
+      const range = itemDraft(target);
+      return range?.allDay === false
+        ? drag.grabProps({ kind: 'move', draft: range, item: target }, { tap: false })
+        : undefined;
+    },
   };
 }

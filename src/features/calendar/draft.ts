@@ -1,4 +1,4 @@
-import type { DateRange } from '../../../shared/calendar.ts';
+import type { CalendarItem, DateRange } from '../../../shared/calendar.ts';
 import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -6,6 +6,7 @@ import {
   formatMinutesOfDay,
   fromDateValue,
   fromMinutesOfDay,
+  inclusiveEndDate,
   minutesOfDay,
 } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
@@ -26,6 +27,13 @@ export type EventDraft =
   /** from・to はどちらも含む日 */
   | { allDay: true; from: DateString; to: DateString };
 
+/**
+ * グリッドに出している枠。range はその範囲で、item は枠が直している保存済みの予定
+ * （長押しでつまんだもの。まだ無い予定を追加するときは null）。
+ * ドラッグは範囲と対象を一緒に返すので、つまむたびに「今どれを直しているか」が決まる。
+ */
+export type Draft = { range: EventDraft; item: CalendarItem | null };
+
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = EventDraft & { allDay: false };
 
@@ -40,11 +48,54 @@ export type TimePoint = { date: DateString; min: number };
  * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
  * 押した所から選び直す。
  */
-export type TimeGrab = { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
+export type TimeGrab = Grabbed & { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
 /** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
-export type DayGrab =
-  | { kind: 'start' | 'end'; draft: AllDayDraft }
-  | { kind: 'move'; draft: EventDraft };
+export type DayGrab = Grabbed &
+  ({ kind: 'start' | 'end'; draft: AllDayDraft } | { kind: 'move'; draft: EventDraft });
+
+/** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
+type Grabbed = { item: CalendarItem | null };
+
+/**
+ * 保存済みの予定 → グリッドの枠。つまんで直せない項目は null。
+ * 日ごとに 1 件で返る項目からでも、持っている日時（`startsAt` / `endsAt`）だけで期間が決まる。
+ * つまめないのは、長さを持たないタスクと、枠に出せない「日をまたぐ時間指定の予定」。
+ */
+export function itemDraft(item: CalendarItem): EventDraft | null {
+  if (item.kind !== 'event') return null;
+  if (item.allDay)
+    return {
+      allDay: true,
+      from: toDateString(new Date(item.startsAt)),
+      to: inclusiveEndDate(item.endsAt),
+    };
+  const slot = timedSlot(item);
+  return slot && { allDay: false, date: item.placementDate, ...slot };
+}
+
+/**
+ * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
+ * 24:00 に終わる予定は翌日 0:00 で届くので 24 時に読み替える（`TimelineView` の置き場所もこれで決まる）。
+ */
+export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
+  if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
+  return {
+    startMin: minutesOfDay(item.startsAt),
+    endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
+  };
+}
+
+/**
+ * 直している対象が同じか。複数日の予定は日ごとに 1 件で返り、月グリッドでは週の行ごとに帯が分かれるので、
+ * 暦日ではなく「どの発生か」（種別・id・繰り返しの回）で見る。どちらも無い（追加の下書き）なら同じ。
+ */
+export function sameOccurrence(
+  a: CalendarItem | null | undefined,
+  b: CalendarItem | null | undefined,
+): boolean {
+  if (!a || !b) return !a && !b;
+  return a.kind === b.kind && a.id === b.id && a.occurrenceStart === b.occurrenceStart;
+}
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
@@ -128,7 +179,7 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
 }
 
 /**
- * 日の並びで押した所が、今出ている下書きのどこか。掛かっていなければ null（押した所から選び直す）。
+ * 日の並びで押した所が、今出ている枠（下書き・編集中の予定）のどこか。掛かっていなければ null（押した所から選び直す）。
  * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
  * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
  * 時間指定は 1 日ぶんの帯で、日の並びでは時間帯を変えられないので帯そのものだけ。
@@ -136,18 +187,19 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
 export function dayGrab(
-  draft: EventDraft | null,
+  draft: Draft | null,
   date: DateString,
   half: 'left' | 'right',
 ): DayGrab | null {
   if (draft === null) return null;
-  const { from, to } = draftDays(draft);
+  const { range, item } = draft;
+  const { from, to } = draftDays(range);
   if (date < from || date > to) return null;
   // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。動かせるのは日だけ
-  if (!draft.allDay) return { kind: 'move', draft };
-  if (date === from && half === 'left') return { kind: 'start', draft };
-  if (date === to && half === 'right') return { kind: 'end', draft };
-  return { kind: 'move', draft };
+  if (!range.allDay) return { kind: 'move', draft: range, item };
+  if (date === from && half === 'left') return { kind: 'start', draft: range, item };
+  if (date === to && half === 'right') return { kind: 'end', draft: range, item };
+  return { kind: 'move', draft: range, item };
 }
 
 /**
@@ -239,11 +291,28 @@ export function draftInstants(draft: EventDraft): {
       };
 }
 
-/** 全項目のフォーム（「その他のオプション」）に渡す既定値 */
-export function draftValues(draft: EventDraft, participantIds: string[]): ItemFormValues {
-  return draft.allDay
+/**
+ * クイック入力と全項目のフォーム（「その他のオプション」）に渡す既定値。
+ * 保存済みの予定を直しているときは、その予定の内容に枠の日時と選んでいる参加者だけを重ねる
+ * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない）。
+ */
+export function draftValues(
+  draft: EventDraft,
+  participantIds: string[],
+  item: CalendarItem | null = null,
+): ItemFormValues {
+  const when = draft.allDay
     ? allDayEventValues(draft.from, draft.to, participantIds)
     : eventValuesForRange(draft.date, draft.startMin, draft.endMin, participantIds);
+  return item === null
+    ? when
+    : {
+        ...item,
+        allDay: when.allDay,
+        startsAt: when.startsAt,
+        endsAt: when.endsAt,
+        participantIds,
+      };
 }
 
 /**
