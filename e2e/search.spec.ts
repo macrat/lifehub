@@ -173,7 +173,7 @@ test('レモンの詳細検索で種別と日付の範囲で絞り込める', as
 async function addCareLog(page: Page, input: { careType: string; note: string; doneAt: string }) {
   await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
   const form = page.getByRole('dialog');
-  // 追加ボタンからは水やりにチェックが入った状態で開くので、指定された項目だけが残るようにする
+  // 追加ボタンからは葉水にチェックが入った状態で開くので、指定された項目だけが残るようにする
   for (const label of ['葉水', '水やり', '施肥', '開花', '落果', '収穫']) {
     await form.getByRole('checkbox', { name: label }).setChecked(label === input.careType);
   }

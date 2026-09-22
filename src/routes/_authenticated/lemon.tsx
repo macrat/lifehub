@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
-import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
+import { CareLogForm, DEFAULT_CARE_TYPES } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
 import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
@@ -89,7 +89,7 @@ function LemonPage() {
       <Fab
         color="primary"
         aria-label="レモンの記録を追加"
-        onClick={() => setAdding(['water'])}
+        onClick={() => setAdding(DEFAULT_CARE_TYPES)}
         sx={FAB_SX}
       >
         <AddIcon />
