@@ -2,7 +2,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
+import { careTypesLabel } from '../../../../shared/validation/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import type { CareLog } from '../queries.ts';
 
@@ -14,7 +14,10 @@ type Props = {
   onSelect: (log: CareLog) => void;
 };
 
-/** 世話の記録（新しい順）。行をタップで詳細（編集・削除はそこに集める） */
+/**
+ * 世話の記録（新しい順）。1 行が 1 回の記録で、その日時と、そのときやったこと・メモを出す。
+ * 行をタップで詳細（編集・削除はそこに集める）。
+ */
 export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
   return (
     <List disablePadding>
@@ -27,8 +30,8 @@ export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
         <ListItem key={log.id} divider disablePadding>
           <ListItemButton onClick={() => onSelect(log)}>
             <ListItemText
-              primary={CARE_TYPE_LABELS[log.careType]}
-              secondary={[formatDateTime(log.doneAt), log.note].filter(Boolean).join(' ・ ')}
+              primary={formatDateTime(log.doneAt)}
+              secondary={[careTypesLabel(log.careTypes), log.note].filter(Boolean).join(' ・ ')}
               slotProps={{ secondary: { noWrap: true } }}
             />
           </ListItemButton>

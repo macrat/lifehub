@@ -12,17 +12,18 @@ type Props = {
 };
 
 /**
- * 種別ごとの最終実施日と経過日数。タップでその種別の記録フォームを開く。
- * ホーム（水やり・葉水だけ）とレモン画面（5 種別）のどちらもこれを出すので、行き来するときは
- * 同じ種別のカードがその場から動き、片方にしかない種別はフェードする（View Transition）。
+ * 項目ごとの最終実施日と経過日数。タップでその項目にチェックを入れた記録フォームを開く。
+ * ホーム（葉水・水やりだけ）とレモン画面（6 項目）のどちらもこれを出すので、行き来するときは
+ * 同じ項目のカードがその場から動き、片方にしかない項目はフェードする（View Transition）。
  */
 export function CareStatusGrid({ statuses, onSelect }: Props) {
   return (
     <Box
       sx={{
         display: 'grid',
-        // スマホは 3 列（5 種別が 2 行に収まる）。広い画面では自然に 1 行に並ぶ。
-        gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(5, minmax(0, 1fr))' },
+        // スマホは 3 列（6 項目が 2 行に収まり、記録フォームのチェックボックスと同じ並びになる）。
+        // 広い画面では自然に 1 行に並ぶ。
+        gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(6, minmax(0, 1fr))' },
         gap: 1,
       }}
     >

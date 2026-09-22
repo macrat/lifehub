@@ -9,26 +9,26 @@ import { lemonStatusQueryOptions, useLogCare } from '../../lemon/queries.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
- * レモン: 水やり・葉水それぞれの最終実施日からの経過日数。レモンページと同じクエリを読む。
- * タイルをタップするとその種別の記録フォームが開く（レモンページと同じ操作）。
+ * レモン: 葉水・水やりそれぞれの最終実施日からの経過日数。レモンページと同じクエリを読む。
+ * タイルをタップするとその項目にチェックを入れた記録フォームが開く（レモンページと同じ操作）。
  */
 export function LemonCard() {
   const query = useQuery(lemonStatusQueryOptions);
   const logCare = useLogCare();
-  const [adding, setAdding] = useState<CareType | null>(null);
+  const [adding, setAdding] = useState<CareType[] | null>(null);
   return (
     <DashboardCardFrame title="レモン" link={{ to: '/lemon' }}>
       <QueryView query={query} skeleton={<Skeleton variant="rounded" height={86} />}>
         {(statuses) => (
           <CareStatusGrid
-            statuses={statuses.filter((s) => s.careType === 'water' || s.careType === 'mist')}
-            onSelect={(s) => setAdding(s.careType)}
+            statuses={statuses.filter((s) => s.careType === 'mist' || s.careType === 'water')}
+            onSelect={(s) => setAdding([s.careType])}
           />
         )}
       </QueryView>
       {adding && (
         <CareLogForm
-          initialCareType={adding}
+          initialCareTypes={adding}
           onSubmit={logCare.mutateAsync}
           onClose={() => setAdding(null)}
         />

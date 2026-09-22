@@ -122,7 +122,7 @@ async function addExpense(
   await expect(form).toHaveCount(0);
 }
 
-/** レモンの詳細検索。種別と実施日の範囲で記録を絞り込む（立替と同じ絞り込みボタン・フォーム） */
+/** レモンの詳細検索。種別（項目）と実施日の範囲で記録を絞り込む（立替と同じ絞り込みボタン・フォーム） */
 test('レモンの詳細検索で種別と日付の範囲で絞り込める', async ({ page }) => {
   const tag = `E2E 絞込 ${Date.now()}`;
   const watered = `${tag} 水やり`;
@@ -169,12 +169,14 @@ test('レモンの詳細検索で種別と日付の範囲で絞り込める', as
   }
 });
 
-/** レモンの記録を 1 件追加する */
+/** レモンの記録を 1 件追加する（やったことは指定した 1 つだけにする） */
 async function addCareLog(page: Page, input: { careType: string; note: string; doneAt: string }) {
   await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
   const form = page.getByRole('dialog');
-  await form.getByLabel('種別').click();
-  await page.getByRole('option', { name: input.careType }).click();
+  // 追加ボタンからは水やりにチェックが入った状態で開くので、指定された項目だけが残るようにする
+  for (const label of ['葉水', '水やり', '施肥', '開花', '落果', '収穫']) {
+    await form.getByRole('checkbox', { name: label }).setChecked(label === input.careType);
+  }
   await form.getByLabel('日時').fill(input.doneAt);
   await form.getByLabel('メモ', { exact: true }).fill(input.note);
   await form.getByRole('button', { name: '保存' }).click();

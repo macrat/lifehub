@@ -5,18 +5,16 @@ import { useCareLogForm } from '../use-care-log-form.ts';
 import { CareLogFields } from './CareLogFields.tsx';
 
 type Props = {
-  initialCareType?: CareType;
+  /** 最初からチェックを入れておく項目。状況のタイルから始めたときはそのタイルの項目 */
+  initialCareTypes?: CareType[];
   onSubmit: (input: CareLogBody) => Promise<unknown>;
   onClose: () => void;
 };
 
 /** レモンの世話の記録を追加する。日時の既定は今。編集は詳細（`CareLogDetailSheet`）から行う。 */
-export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Props) {
-  const { careType, setCareType, errors, submitError, submitted, handleSubmit } = useCareLogForm({
-    initialCareType,
-    onSubmit,
-    onSaved: onClose,
-  });
+export function CareLogForm({ initialCareTypes = ['water'], onSubmit, onClose }: Props) {
+  const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
+    useCareLogForm({ initialCareTypes, onSubmit, onSaved: onClose });
 
   return (
     <RecordSheet
@@ -26,7 +24,7 @@ export function CareLogForm({ initialCareType = 'water', onSubmit, onClose }: Pr
       title="レモンの記録を追加"
       onSubmit={handleSubmit}
     >
-      <CareLogFields careType={careType} onChangeCareType={setCareType} errors={errors} />
+      <CareLogFields careTypes={careTypes} onToggleCareType={toggleCareType} errors={errors} />
     </RecordSheet>
   );
 }

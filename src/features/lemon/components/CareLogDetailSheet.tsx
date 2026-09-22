@@ -1,7 +1,7 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
+import { careTypesLabel } from '../../../../shared/validation/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { type CareLog, useDeleteCareLog, useUpdateCareLog } from '../queries.ts';
@@ -21,15 +21,17 @@ export function CareLogDetailSheet({ log, onClose }: Props) {
   const updateLog = useUpdateCareLog();
   const deleteLog = useDeleteCareLog();
   const [editing, setEditing] = useState(false);
-  const { careType, setCareType, errors, submitError, submitted, handleSubmit } = useCareLogForm({
-    initialCareType: log.careType,
-    onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
-    onSaved: onClose,
-  });
+  const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
+    useCareLogForm({
+      initialCareTypes: log.careTypes,
+      onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
+      onSaved: onClose,
+    });
 
   return (
     <RecordSheet
-      title={CARE_TYPE_LABELS[careType]}
+      // やったことが無い記録はメモそのものなので、見出しもそう名乗る
+      title={careTypesLabel(careTypes) || 'メモ'}
       open={!submitted}
       onClose={onClose}
       editing={editing}
@@ -51,8 +53,8 @@ export function CareLogDetailSheet({ log, onClose }: Props) {
     >
       {editing ? (
         <CareLogFields
-          careType={careType}
-          onChangeCareType={setCareType}
+          careTypes={careTypes}
+          onToggleCareType={toggleCareType}
           doneAt={log.doneAt}
           note={log.note}
           errors={errors}

@@ -11,7 +11,7 @@ export async function listLogs(): Promise<CareLog[]> {
   return (await repository.findAll()).map(toLog);
 }
 
-/** 種別ごとの状態（shared/lemon.ts の規則）。種別ごとの最新の記録だけを読んで導く */
+/** 項目ごとの状態（shared/lemon.ts の規則）。項目ごとの最新の記録だけを読んで導く */
 export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
   const latest = await repository.findLatestByCareType(now);
   return careStatusesOf(
@@ -43,7 +43,7 @@ export async function deleteLog(id: string): Promise<void> {
 function toLog(row: LemonCareLogRow): CareLog {
   return {
     id: row.id,
-    careType: row.careType,
+    careTypes: row.careTypes,
     doneAt: row.doneAt.toISOString(),
     note: row.note,
     createdBy: row.createdBy,
