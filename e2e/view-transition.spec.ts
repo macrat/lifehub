@@ -130,3 +130,36 @@ test('ホームと立替・レモンを行き来すると、残高とカード�
 
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
+
+test('ホームと予定を行き来すると、今日の項目が同じ名前で前後の画面に在る', async ({ page }) => {
+  const title = `VT ホーム ${Date.now()}`;
+  await page.getByRole('button', { name: '追加' }).hover();
+  await page.getByRole('menuitem', { name: 'タスク' }).click();
+  await page.getByLabel('タイトル').fill(title);
+  // 日時なしのタスクは今日の位置に出る（ホームの「今日」にも、カレンダーの日表示にも）
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByText(title)).toBeVisible();
+
+  /** 予定・タスクの名前だけ（残高やレモンのカードは別の名前で動く） */
+  const items = (all: string[]) => all.filter((name) => name.startsWith('item-')).sort();
+
+  const home = await names(page);
+  expect(new Set(home).size).toBe(home.length);
+  expect(items(home).length).toBeGreaterThan(0);
+
+  // ホームの「今日」から日表示へ。ホームに在った項目はいずれも同じ名前で日表示にも在る
+  await page.getByRole('heading', { name: '今日' }).click();
+  await expect(page).toHaveURL(/view=day/);
+  await settle(page);
+  const day = await names(page);
+  expect(new Set(day).size).toBe(day.length);
+  expect(items(home).filter((name) => !day.includes(name))).toEqual([]);
+
+  // 戻りも同じ（下部ナビ・サイドナビからホームへ）
+  await page.getByRole('link', { name: 'ホーム' }).click();
+  await expect(page).toHaveURL('/');
+  await settle(page);
+  expect(items(await names(page))).toEqual(items(home));
+
+  expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
+});
