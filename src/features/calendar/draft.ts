@@ -48,7 +48,7 @@ export type DayGrab =
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
 const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
-const DAY_MINUTES = 24 * 60;
+export const DAY_MINUTES = 24 * 60;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
 /**

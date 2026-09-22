@@ -9,6 +9,7 @@ import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import type { EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { DraftBlock } from './DraftBlock.tsx';
@@ -20,7 +21,8 @@ type Props = {
   days: DateString[];
   /** 日ごとの時間指定の項目（列の割り当て済み） */
   timedByDate: Map<DateString, TimedPlaced<CalendarItem>[]>;
-  /** 1 時間あたりの高さ（px）。つまむと変わる（`use-hour-zoom.ts`） */
+  /** 1 時間あたりの高さ（px）。つまむと変わる（`use-hour-zoom.ts`）。
+   * 寸法は CSS 変数から引くので、この数を使うのはスクロール位置を測る所だけ */
   hourHeight: number;
   /** つまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
@@ -39,6 +41,9 @@ type Props = {
  * 縦の位置を合わせるのは最初に出したときだけ（今日を含むなら現在時刻の少し上、それ以外は 7 時）。
  * 日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る。
  * 2 本の指でつまむと 1 時間あたりの高さが変わり、時間軸が縦に伸び縮みする。
+ * 高さはグリッドに CSS 変数（`--hour-height`）で置くだけで、目盛り・罫線・ブロック・枠の寸法は
+ * すべてそこからの calc で決まる。伸び縮みで動く値は 1 つなので、指に合わせて何十もの
+ * 寸法を組み直したり、その数だけ使い捨ての CSS を作ったりしない。
  * ただし画面の外に下書きが置かれたとき（追加ボタンから来たとき）は、その枠が見える所まで送る。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  * 選んだ枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
@@ -58,7 +63,7 @@ export function TimeGrid({
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
-  const drag = useTimeDrag({ hourHeight, onChange: onChangeDraft });
+  const drag = useTimeDrag({ onChange: onChangeDraft });
   const pinch = usePinch(onZoom);
   const timedDraft = draft?.allDay === false ? draft : null;
   // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の下書きは出さない
@@ -112,9 +117,10 @@ export function TimeGrid({
       <Box
         data-time-grid
         sx={{
+          [HOUR_HEIGHT_VAR]: `${hourHeight}px`,
           display: 'grid',
           gridTemplateColumns: `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`,
-          height: hourHeight * 24,
+          height: atMinute(24 * 60),
           position: 'relative',
         }}
       >
@@ -125,7 +131,7 @@ export function TimeGrid({
               variant="caption"
               sx={{
                 position: 'absolute',
-                top: h * hourHeight - 7,
+                top: `calc(${atMinute(h * 60)} - 7px)`,
                 right: 4,
                 fontSize: '0.65rem',
                 lineHeight: 1,
@@ -154,7 +160,8 @@ export function TimeGrid({
               // （t.palette はライト固定の値で、ダークでは黒い線になって背景に沈む）
               backgroundImage: (t) => {
                 const line = (t.vars ?? t).palette.divider;
-                return `repeating-linear-gradient(to bottom, transparent 0, transparent ${hourHeight - 1}px, ${line} ${hourHeight - 1}px, ${line} ${hourHeight}px)`;
+                const hour = `var(${HOUR_HEIGHT_VAR})`;
+                return `repeating-linear-gradient(to bottom, transparent 0, transparent calc(${hour} - 1px), ${line} calc(${hour} - 1px), ${line} ${hour})`;
               },
             }}
           >
@@ -167,7 +174,7 @@ export function TimeGrid({
                 onClick={() => onSelectItem(p.item)}
               />
             ))}
-            {day === todayStr && <NowLine top={(nowMin / 60) * hourHeight} />}
+            {day === todayStr && <NowLine minutes={nowMin} />}
           </Box>
         ))}
         {/*
@@ -179,7 +186,6 @@ export function TimeGrid({
           <DraftBlock
             draft={timedDraft}
             column={draftCol + 1}
-            hourHeight={hourHeight}
             colors={colorFor(draftUserId)}
             grab={
               compact
@@ -197,14 +203,14 @@ export function TimeGrid({
   );
 }
 
-function NowLine({ top }: { top: number }) {
+function NowLine({ minutes }: { minutes: number }) {
   return (
     <Box
       sx={{
         position: 'absolute',
         left: 0,
         right: 0,
-        top,
+        top: atMinute(minutes),
         height: 2,
         bgcolor: 'error.main',
         pointerEvents: 'none',
@@ -237,9 +243,9 @@ function TimedBlock({
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
   const completed = isTask && item.completedAt !== null;
-  const top = (startMin / 60) * hourHeight;
-  const heightPx = Math.max(((endMin - startMin) / 60) * hourHeight, 18) - 2;
-  const showTime = heightPx >= 34;
+  // 時刻を添えるかどうかだけは px で決まるので高さの数を使う（切れた行を見せないため）。
+  // 置く場所と大きさは CSS 変数から引く
+  const showTime = Math.max(((endMin - startMin) / 60) * hourHeight, 18) - 2 >= 34;
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -249,8 +255,9 @@ function TimedBlock({
         position: 'absolute',
         // 表示を切り替えたとき、同じ項目がこのブロックから動く
         viewTransitionName: itemTransitionName(item),
-        top: top + 1,
-        height: heightPx,
+        top: `calc(${atMinute(startMin)} + 1px)`,
+        // 短い予定でもタイトルが読める高さを残す
+        height: `calc(max(${atMinute(endMin - startMin)}, 18px) - 2px)`,
         left: `calc(${col * width}% + 1px)`,
         width: `calc(${width}% - 3px)`,
         boxSizing: 'border-box',

@@ -10,6 +10,18 @@ const MIN_HOUR_HEIGHT = 24;
 const MAX_HOUR_HEIGHT = 240;
 
 /**
+ * 1 時間の高さを時間軸の中へ配る CSS 変数。値を置くのは `TimeGrid` のグリッド 1 つだけで、
+ * 中の寸法（目盛り・罫線・予定のブロック・下書きの枠）はすべてここからの calc で決まる。
+ */
+export const HOUR_HEIGHT_VAR = '--hour-height';
+
+/**
+ * 0:00 から `min` 分の所までの縦の長さ（CSS の値）。
+ * つまんで高さが変わってもブラウザが計算し直すので、JS は寸法を持たない。
+ */
+export const atMinute = (min: number) => `calc(var(${HOUR_HEIGHT_VAR}) * ${min / 60})`;
+
+/**
  * 週・日表示の時間軸の、1 時間あたりの高さ。つまむと（`use-pinch.ts`）縦に伸び縮みする。
  * 状態はカレンダー画面に 1 つだけ置き、スワイプの 3 面すべてに同じ値を渡す
  * （面ごとに持つと、拡げたあとスワイプした先だけ元の高さに戻ってしまう）。
