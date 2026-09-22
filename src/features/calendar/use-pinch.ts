@@ -1,9 +1,7 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
+import { blockTouchMove } from './touch-block.ts';
 
 type Point = { x: number; y: number };
-
-const gapOf = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-const preventDefault = (event: Event) => event.preventDefault();
 
 /**
  * 2 本の指でつまんで拡げ縮めする（ピンチ）。指の間隔が変わるたび、直前からの倍率を渡す。
@@ -18,19 +16,16 @@ const preventDefault = (event: Event) => event.preventDefault();
  */
 export function usePinch(onZoom: (ratio: number) => void) {
   const points = useRef(new Map<number, Point>());
-  const gap = useRef(0);
   const block = useRef<AbortController | null>(null);
 
   /** 触れている 2 本の指の間隔。2 本ちょうどでなければ 0（測れない、の意味） */
   const measure = () => {
     const [a, b] = [...points.current.values()];
-    return points.current.size === 2 && a && b ? gapOf(a, b) : 0;
+    return points.current.size === 2 && a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
   };
 
   const end = (event: PointerEvent<HTMLElement>) => {
-    if (!points.current.delete(event.pointerId)) return;
-    gap.current = measure();
-    if (points.current.size >= 2) return;
+    if (!points.current.delete(event.pointerId) || points.current.size >= 2) return;
     block.current?.abort();
     block.current = null;
   };
@@ -42,22 +37,19 @@ export function usePinch(onZoom: (ratio: number) => void) {
     onPointerDownCapture: (event: PointerEvent<HTMLElement>) => {
       if (event.pointerType !== 'touch') return;
       points.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      gap.current = measure();
-      if (points.current.size !== 2 || block.current) return;
+      // 2 本になった瞬間だけがつまみ始め（3 本目からは触れても測れないので何もしない）
+      if (points.current.size !== 2) return;
       for (const id of points.current.keys()) event.currentTarget.setPointerCapture(id);
       block.current = new AbortController();
-      document.addEventListener('touchmove', preventDefault, {
-        capture: true,
-        passive: false,
-        signal: block.current.signal,
-      });
+      blockTouchMove(block.current.signal);
     },
     onPointerMoveCapture: (event: PointerEvent<HTMLElement>) => {
       if (!points.current.has(event.pointerId)) return;
+      // 動かす前の間隔は `points` がそのまま持っている（書き換える前に測る）
+      const previous = measure();
       points.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
       const next = measure();
-      if (gap.current > 0 && next > 0) onZoom(next / gap.current);
-      gap.current = next;
+      if (previous > 0 && next > 0) onZoom(next / previous);
     },
     onPointerUpCapture: end,
     onPointerCancelCapture: end,

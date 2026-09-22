@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { useMemo } from 'react';
 import { taskTime } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
@@ -72,20 +73,24 @@ export function TimelineView({
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
   const single = days.length === 1;
 
-  const allDayByDate = new Map<DateString, CalendarItem[]>();
-  const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
-  for (const day of days) {
-    const allDay: CalendarItem[] = [];
-    const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
-    for (const item of itemsByDate.get(day) ?? []) {
-      const slot = timeSlot(item);
-      if (slot) timed.push({ key: itemKey(item), item, ...slot });
-      else allDay.push(item);
+  // 終日欄と時間軸への振り分けと配置は、日付と項目だけで決まる。つまんで高さが変わるたびに
+  // 数え直さない（指を動かしている間は毎フレーム描き直される所なので）
+  const { timedByDate, lanes } = useMemo(() => {
+    const allDayByDate = new Map<DateString, CalendarItem[]>();
+    const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
+    for (const day of days) {
+      const allDay: CalendarItem[] = [];
+      const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
+      for (const item of itemsByDate.get(day) ?? []) {
+        const slot = timeSlot(item);
+        if (slot) timed.push({ key: itemKey(item), item, ...slot });
+        else allDay.push(item);
+      }
+      allDayByDate.set(day, allDay);
+      timedByDate.set(day, layoutTimed(timed));
     }
-    allDayByDate.set(day, allDay);
-    timedByDate.set(day, layoutTimed(timed));
-  }
-  const lanes = layoutLanes(days, allDayByDate);
+    return { timedByDate, lanes: layoutLanes(days, allDayByDate) };
+  }, [days, itemsByDate]);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、終日欄に 1 行足してその行に置く
   const draftCols = barDraft && draftColumns(barDraft, days);

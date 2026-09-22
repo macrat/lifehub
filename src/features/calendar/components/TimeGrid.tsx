@@ -84,7 +84,7 @@ export function TimeGrid({
   const drawn = useRef(hourHeight);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || drawn.current === hourHeight) return;
+    if (!el) return;
     const middle = el.scrollTop + el.clientHeight / 2;
     el.scrollTop = (middle * hourHeight) / drawn.current - el.clientHeight / 2;
     drawn.current = hourHeight;
@@ -93,13 +93,14 @@ export function TimeGrid({
   // 画面の外に枠が置かれたら（追加ボタンから来たとき）見える所まで送る。
   // 始まりが見えているなら動かさない（なぞって選んでいる最中にグリッドが動くと狙いがずれる）
   const draftStart = timedDraft?.startMin ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 送るのは枠が移ったときだけ（高さが変わったときは上の効果が受け持つ）
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || draftStart === null) return;
     const top = (draftStart / 60) * hourHeight;
     if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - hourHeight) return;
     el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
-  }, [draftStart, hourHeight]);
+  }, [draftStart]);
 
   return (
     <Box

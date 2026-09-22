@@ -85,7 +85,8 @@ export function timeDraft({ grab, from, to, moved }: Drag<TimePoint, TimeGrab>):
   }
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+export const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 /** 一番近い 15 分の枠に寄せる（つまんだ所からずれないよう、切り捨てではなく四捨五入） */
 const snap = (min: number) => clamp(Math.round(min / STEP_MINUTES) * STEP_MINUTES, 0, DAY_MINUTES);
 

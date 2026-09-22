@@ -1,4 +1,5 @@
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
+import { blockTouchMove } from './touch-block.ts';
 
 /** タッチで範囲を選び始めるまでの長押し（ms）。タップや縦スクロールを選択と取り違えないための区切り */
 const LONG_PRESS_MS = 300;
@@ -30,8 +31,6 @@ type DragState<P, G, R> = Drag<P, G> & {
   active: boolean;
   /** 直前に渡した範囲。手応えのために 1 つ前と比べる（ドラッグごとに作り直すので持ち越さない） */
   emitted: { range: R } | null;
-  /** 2 本目の指を見張る後始末。ドラッグが終わるときに外す */
-  watch: AbortController;
 };
 
 type Options<P, G, R> = {
@@ -57,8 +56,9 @@ type Options<P, G, R> = {
  * 押した位置から決めるなら）`grabOf`。範囲は state に持たず onChange で呼び出し側（ページ）に渡す。
  * 状態を持つのはそちら 1 か所だけにする。
  * 範囲が変わるたび `vibration` の長さで震わせ、指が今どこを選んでいるかを手に返す。
- * 2 本目の指が触れたら範囲選びはやめてピンチ（時間軸の拡大縮小。`use-pinch.ts`）に譲る。
- * 2 本目がどこに降りるかは選べないので、掴んだ要素ではなく文書全体で見張る。
+ * 1 つのドラッグは 1 本の指だけのもので、別の指が触れたらそのドラッグは終わる
+ * （時間軸ではそれがピンチの始まり。`use-pinch.ts`）。別の指がどこに降りるかは選べないので、
+ * 掴んだ要素ではなく文書全体で見る。
  */
 export function useRangeDrag<P, G, R>({
   locate,
@@ -88,34 +88,42 @@ export function useRangeDrag<P, G, R>({
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    drag.current?.watch.abort();
     drag.current = null;
     setDragging(false);
   };
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-      drag.current?.watch.abort();
-    },
-    [],
-  );
 
+  // 別の指が触れたら今のドラッグは終わり。出しっぱなしの 1 つで見るので、ドラッグごとの
+  // 付け外しが要らず、「自分を足した pointerdown に自分が呼ばれる」ような際どさもない
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stop が見るのは ref と setState だけで、どの描画でも同じ
+  useEffect(() => {
+    const controller = new AbortController();
+    document.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (drag.current && event.pointerId !== drag.current.pointerId) stop();
+      },
+      { signal: controller.signal },
+    );
+    return () => {
+      controller.abort();
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  // ドラッグ中のタッチは選択にだけ使う（縦スクロールと横スワイプに渡さない）
   useEffect(() => {
     if (!dragging) return;
-    // ドラッグ中のタッチは選択にだけ使う。capture で先に受けて、縦スクロールと横スワイプ（`SwipePager`）に渡さない
-    const block = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    document.addEventListener('touchmove', block, { capture: true, passive: false });
-    return () => document.removeEventListener('touchmove', block, { capture: true });
+    const controller = new AbortController();
+    blockTouchMove(controller.signal);
+    return () => controller.abort();
   }, [dragging]);
 
   /** instant は長押しを待たずに始めるか（端の丸のような、そこを押す以外の意味がない所） */
   const start = (event: PointerEvent<HTMLElement>, grab: G | null, from: P, instant: boolean) => {
+    // 2 本目の指なら、今のドラッグごとやめて新しくは始めない（ピンチに譲る）
+    if (drag.current) return stop();
     const element = event.currentTarget;
     const { pointerId } = event;
-    const watch = new AbortController();
     drag.current = {
       pointerId,
       grab,
@@ -125,15 +133,7 @@ export function useRangeDrag<P, G, R>({
       moved: false,
       active: false,
       emitted: null,
-      watch,
     };
-    document.addEventListener(
-      'pointerdown',
-      (e) => {
-        if (e.pointerId !== pointerId) stop();
-      },
-      { signal: watch.signal },
-    );
     const begin = () => {
       const d = drag.current;
       if (!d) return;
@@ -180,8 +180,6 @@ export function useRangeDrag<P, G, R>({
     props: {
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
-        // 2 本目の指ならピンチなので、選び直さずに今のドラッグごとやめる
-        if (drag.current) return stop();
         const from = locate(event);
         if (from !== null) start(event, grabOf?.(event) ?? null, from, false);
       },
@@ -194,7 +192,6 @@ export function useRangeDrag<P, G, R>({
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0) return;
         event.stopPropagation();
-        if (drag.current) return stop();
         const from = locate(event);
         if (from !== null) start(event, grab, from, instant);
       },
