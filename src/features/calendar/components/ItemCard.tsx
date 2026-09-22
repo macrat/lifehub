@@ -1,12 +1,15 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { taskTime } from '../../../../shared/calendar.ts';
-import { formatDate, formatTime, toDateString } from '../../../lib/date.ts';
-import { useToggleCompletion } from '../../events/queries.ts';
+import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { formatDate, formatTime } from '../../../lib/date.ts';
+import {
+  COMPLETED_ROW_SX,
+  COMPLETED_TITLE_SX,
+  TaskCheckbox,
+} from '../../events/components/TaskCheckbox.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
@@ -30,9 +33,8 @@ type Props = {
 export function ItemCard({ item, onClick }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const toggle = useToggleCompletion();
   const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
   const colors = colorFor(colorUserOf(item.participantIds));
@@ -45,7 +47,7 @@ export function ItemCard({ item, onClick }: Props) {
       direction="row"
       sx={{
         alignItems: 'stretch',
-        opacity: completed ? 0.55 : 1,
+        ...(completed && COMPLETED_ROW_SX),
         // 表示を切り替えたとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
@@ -59,24 +61,8 @@ export function ItemCard({ item, onClick }: Props) {
           flexShrink: 0,
         }}
       >
-        {isTask ? (
-          <Checkbox
-            size="small"
-            checked={completed}
-            onChange={(_, checked) =>
-              toggle.mutate({
-                id: item.id,
-                occurrenceStart: item.occurrenceStart,
-                completed: checked,
-              })
-            }
-            slotProps={{
-              input: {
-                'aria-label': `${item.title} を${completed ? '未完了に戻す' : '完了にする'}`,
-              },
-            }}
-            sx={{ p: 0.5, color: colors.fill, '&.Mui-checked': { color: colors.fill } }}
-          />
+        {item.kind === 'task' ? (
+          <TaskCheckbox item={item} color={colors.fill} />
         ) : (
           <Box
             sx={{
@@ -132,9 +118,7 @@ export function ItemCard({ item, onClick }: Props) {
           )}
         </Box>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography
-            sx={{ overflowWrap: 'anywhere', textDecoration: completed ? 'line-through' : 'none' }}
-          >
+          <Typography sx={{ overflowWrap: 'anywhere', ...(completed && COMPLETED_TITLE_SX) }}>
             {item.title}
           </Typography>
           <Typography
@@ -161,16 +145,17 @@ function eventTimeLabel(item: CalendarEventItem): TimeLabel {
   return { main: formatTime(item.startsAt), sub: `〜${formatTime(item.endsAt)}` };
 }
 
+const TASK_TIME_CAPTIONS = { done: '完了', due: '期限', start: '開始' } as const;
+
 /**
- * タスクは「完了 → 期限 → 開始」の優先で示す。日付が表示位置の日と違う（繰り越し・期限が別日）ときは日付も付ける。
+ * タスクの時刻は `taskTime`（完了 → 期限 → 開始の優先）を見出し付きで示す。
+ * 時刻が表示位置の日と違う（繰り越し・期限が別日）ときは日付も付ける。
  */
 function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
-  const withDate = (iso: string): Pick<TimeLabel, 'main' | 'sub'> => {
-    const sameDay = toDateString(new Date(iso)) === item.placementDate;
-    return sameDay ? { main: formatTime(iso) } : { main: formatDate(iso), sub: formatTime(iso) };
-  };
-  if (item.completedAt) return { caption: '完了', ...withDate(item.completedAt) };
   const time = taskTime(item);
   if (!time) return { main: '' };
-  return { caption: time.kind === 'due' ? '期限' : '開始', ...withDate(time.at) };
+  const caption = TASK_TIME_CAPTIONS[time.kind];
+  return taskTimeOnPlacementDate(item)
+    ? { caption, main: formatTime(time.at) }
+    : { caption, main: formatDate(time.at), sub: formatTime(time.at) };
 }

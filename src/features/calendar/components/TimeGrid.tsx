@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay, today } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
@@ -243,7 +244,7 @@ function TimedBlock({
 }) {
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
-  const completed = isTask && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -282,7 +283,7 @@ function TimedBlock({
         component="div"
         sx={{ fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.25, overflowWrap: 'anywhere' }}
       >
-        {isTask && (item.completedAt ? '☑ ' : '☐ ')}
+        {isTask && (completed ? '☑ ' : '☐ ')}
         {item.title}
       </Typography>
       {item.kind === 'event' && (

@@ -1,3 +1,4 @@
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../queries.ts';
 
@@ -23,6 +24,8 @@ export function itemKey(item: CalendarItem): string {
 /**
  * 並んだ日（1 週など）の項目にレーン（行）を割り当てる（Google カレンダーの月表示の並べ方）。
  * 複数日の予定は 1 本の帯にまとめ、開始が早く長いものから上に置く。次に日ごとの項目を左から順に空いた行へ詰める。
+ * 日ごとの項目は渡された順に上から詰まるので、渡す順がそのままレーンの順になる（入りきらない分を
+ * 畳む呼び出し側では、後ろに回した項目ほど先に畳まれる。`completedLast`）。
  * API は複数日の予定を日ごとに 1 件（dayIndex / dayCount）で返すので、ここで束ねる。
  */
 export function layoutLanes(
@@ -81,6 +84,25 @@ export function layoutLanes(
     }
     return { ...entry, lane };
   });
+}
+
+/**
+ * 完了したタスクを日ごとに一番後ろへ回した並び。
+ * 月グリッドは入りきらないレーンを「+n」に畳むので、セルに残すべきなのは未完了の項目。
+ * 一覧の並び（`shared/calendar.ts` の `sortItems`）は完了したタスクもその時刻（`taskTime`）に置くので、
+ * そのままでは完了したタスクが、時刻の無い未完了のタスクやあとの時刻の予定より前に場所を取ってしまう。
+ * 畳まない所（週・日の終日欄）は落ちる項目が無いので、そのまま `layoutLanes` に渡す。
+ */
+export function completedLast(
+  itemsByDate: Map<DateString, CalendarItem[]>,
+): Map<DateString, CalendarItem[]> {
+  return new Map(
+    [...itemsByDate].map(([date, items]) => [
+      date,
+      // sort は安定なので、完了していない項目どうしの順は元のまま
+      [...items].sort((a, b) => Number(isCompletedTask(a)) - Number(isCompletedTask(b))),
+    ]),
+  );
 }
 
 /**

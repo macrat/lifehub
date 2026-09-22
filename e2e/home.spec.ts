@@ -1,12 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 });
 
 test('ホームからタスクとレモンの記録を追加し、カードに反映される', async ({ page }) => {
@@ -24,9 +20,9 @@ test('ホームからタスクとレモンの記録を追加し、カードに�
   // 葉水の経過日数が「今日」になる（レモンのカード内）
   await expect(page.getByText('今日', { exact: true }).first()).toBeVisible();
 
-  // タスクをホームから完了にすると「今日」の一覧から消える
+  // タスクをホームから完了にしても、今日完了した分は「今日」の一覧に残る（チェックが入る）
   await page.getByRole('checkbox', { name: `${title} を完了にする` }).click();
-  await expect(page.getByText(title)).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `${title} を未完了に戻す` })).toBeChecked();
 });
 
 test('共有の立替で残高が出て、相手からの支払いを記録すると精算済みになる', async ({ page }) => {

@@ -1,15 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 
 test('オフラインでも 2 回目以降はキャッシュから起動し、記録はオンラインに戻ったときに送られる', async ({
   page,
   context,
 }) => {
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
 
   // Service Worker の precache と TanStack Query の永続化が終わるのを待つ

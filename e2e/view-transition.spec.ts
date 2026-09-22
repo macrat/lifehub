@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { E2E_USER } from './global-setup.ts';
+import { login } from './login.ts';
 import { changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
@@ -16,11 +16,7 @@ import { changeView, recordViewTransitions, settle, transitions } from './view.t
  */
 test.beforeEach(async ({ page }) => {
   await recordViewTransitions(page);
-  await page.goto('/login');
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
+  await login(page);
 });
 
 /** 今の画面に付いている view-transition-name（html の root を含む） */

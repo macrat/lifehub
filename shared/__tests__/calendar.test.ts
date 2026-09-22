@@ -71,6 +71,21 @@ describe('sortItems', () => {
     expect(sortItems(items).map((i) => i.title)).toEqual(['11 時の予定', '18 時期限のタスク']);
   });
 
+  it('完了したタスクは、表示と同じ完了の時刻に並ぶ', () => {
+    const items = [
+      event('11 時の予定', '2026-09-21T02:00:00.000Z', '2026-09-21T03:00:00.000Z'),
+      // 前日 9 時期限を 20 時に完了。完了した日に置かれ、行もその日の時間軸も完了の時刻を指すので、並びも 20 時
+      {
+        ...task('前日期限で 20 時に完了したタスク', null, '2026-09-20T00:00:00.000Z'),
+        completedAt: '2026-09-21T11:00:00.000Z',
+      },
+    ];
+    expect(sortItems(items).map((i) => i.title)).toEqual([
+      '11 時の予定',
+      '前日期限で 20 時に完了したタスク',
+    ]);
+  });
+
   it('日付が違えば placementDate 順に並ぶ', () => {
     const later = { ...task('翌日', null, null), placementDate: '2026-09-22' as DateString };
     const earlier = { ...event('前日', '2026-09-20T01:00:00.000Z', '2026-09-20T02:00:00.000Z') };

@@ -2,15 +2,9 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
-import { taskTime } from '../../../../shared/calendar.ts';
+import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import {
-  minutesOfDay,
-  toDateString,
-  WEEKDAY_LABELS,
-  weekdayColor,
-  weekdayIndex,
-} from '../../../lib/date.ts';
+import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DAY_MINUTES, draftColumns, type EventDraft } from '../draft.ts';
@@ -219,8 +213,8 @@ function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | nu
       endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
     };
   }
-  const time = taskTime(item);
-  if (!time || toDateString(new Date(time.at)) !== item.placementDate) return null;
+  const time = taskTimeOnPlacementDate(item);
+  if (!time) return null;
   const startMin = minutesOfDay(time.at);
   return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
 }

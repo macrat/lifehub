@@ -1,11 +1,10 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { taskTime } from '../../../../shared/calendar.ts';
-import { formatTime, toDateString, today } from '../../../lib/date.ts';
+import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { formatTime, today } from '../../../lib/date.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
@@ -15,13 +14,18 @@ import {
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import { useToggleCompletion } from '../../events/queries.ts';
+import {
+  COMPLETED_ROW_SX,
+  COMPLETED_TITLE_SX,
+  TaskCheckbox,
+} from '../../events/components/TaskCheckbox.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
- * 今日の予定と未完了のタスクを 1 つの一覧に。1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
- * タスクはチェックで完了、行をタップすると詳細。
+ * 今日の予定と、今日の位置にあるタスク（未完了と、今日完了したもの）を 1 つの一覧に。
+ * 1 項目 1 行（印・時刻・タイトルだけ）で、名前や終了時刻は出さない。
+ * タスクはチェックで完了・未完了を切り替え、行をタップすると詳細。
  *
  * カレンダーと同じ月のキャッシュを読む。そのキャッシュは古くならないので、ホームに入るたびに
  * 取り直す（`useRefreshCalendarItems`。カレンダー画面と同じ扱い）。
@@ -37,16 +41,15 @@ export function TodayCard() {
       disableGutters
     >
       <QueryView query={query} skeleton={<ListSkeleton rows={2} />}>
-        {(all) => {
-          const items = all.filter((item) => item.completedAt === null);
-          return items.length === 0 ? (
+        {(items) =>
+          items.length === 0 ? (
             <Typography variant="body2" color="text.disabled" sx={{ px: 2 }}>
               なし
             </Typography>
           ) : (
             items.map((item) => <TodayRow key={itemKey(item)} item={item} onClick={setSelected} />)
-          );
-        }}
+          )
+        }
       </QueryView>
       {selected && <ItemDetailSheet item={selected} onClose={() => setSelected(null)} />}
     </DashboardCardFrame>
@@ -61,22 +64,16 @@ function TodayRow({
   onClick: (item: CalendarItem) => void;
 }) {
   const colorFor = useUserColor();
-  const toggle = useToggleCompletion();
-  const isTask = item.kind === 'task';
+  const completed = item.kind === 'task' && item.completedAt !== null;
   const colors = colorFor(colorUserOf(item.participantIds));
   return (
-    <Stack direction="row" sx={{ alignItems: 'center', minHeight: 36 }}>
+    <Stack
+      direction="row"
+      sx={{ alignItems: 'center', minHeight: 36, ...(completed && COMPLETED_ROW_SX) }}
+    >
       <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-        {isTask ? (
-          <Checkbox
-            size="small"
-            checked={false}
-            onChange={() =>
-              toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: true })
-            }
-            slotProps={{ input: { 'aria-label': `${item.title} を完了にする` } }}
-            sx={{ p: 0.5, color: colors.fill, '&.Mui-checked': { color: colors.fill } }}
-          />
+        {item.kind === 'task' ? (
+          <TaskCheckbox item={item} color={colors.fill} />
         ) : (
           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.fill }} />
         )}
@@ -97,12 +94,12 @@ function TodayRow({
         <Typography
           variant="body2"
           component="span"
-          color={isTask && item.isOverdue ? 'error' : 'text.secondary'}
+          color={item.kind === 'task' && item.isOverdue ? 'error' : 'text.secondary'}
           sx={{ width: 44, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
         >
           {timeLabel(item)}
         </Typography>
-        <Typography noWrap sx={{ minWidth: 0 }}>
+        <Typography noWrap sx={{ minWidth: 0, ...(completed && COMPLETED_TITLE_SX) }}>
           {item.title}
         </Typography>
       </ButtonBase>
@@ -110,11 +107,13 @@ function TodayRow({
   );
 }
 
-/** 予定は開始時刻（終日・複数日は「終日」）、タスクは今日の期限か開始の時刻。それ以外は空 */
+/**
+ * 予定は開始時刻（終日・複数日は「終日」）、タスクは置かれた日にある時刻（`taskTimeOnPlacementDate`）。
+ * 別の日を指す時刻は空にする: 1 行に日付を出す余白が無い。
+ */
 function timeLabel(item: CalendarItem): string {
   if (item.kind === 'event')
     return item.allDay || item.dayCount > 1 ? '終日' : formatTime(item.startsAt);
-  const time = taskTime(item);
-  if (!time || toDateString(new Date(time.at)) !== item.placementDate) return '';
-  return formatTime(time.at);
+  const time = taskTimeOnPlacementDate(item);
+  return time ? formatTime(time.at) : '';
 }
