@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
+import { itemTransitionName } from '../../calendar/components/item-transition.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
   type CalendarItem,
@@ -69,7 +70,13 @@ function TodayRow({
   return (
     <Stack
       direction="row"
-      sx={{ alignItems: 'center', minHeight: 36, ...(completed && COMPLETED_ROW_SX) }}
+      sx={{
+        alignItems: 'center',
+        minHeight: 36,
+        ...(completed && COMPLETED_ROW_SX),
+        // 予定画面へ移ったとき、同じ項目がこの行から動く
+        viewTransitionName: itemTransitionName(item),
+      }}
     >
       <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         {item.kind === 'task' ? (
