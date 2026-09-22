@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   dayDraft,
+  dayVibration,
   defaultDraft,
   draftColumns,
   draftText,
@@ -277,5 +278,22 @@ describe('snapVibration', () => {
   it('枠ごと動いて両方変わるときは開始時刻が基準', () => {
     expect(snapVibration(draft(540, 615), draft(555, 630))).toBe(50);
     expect(snapVibration(draft(555, 630), draft(600, 675))).toBe(10);
+  });
+});
+
+describe('dayVibration', () => {
+  const day = (n: number) => `2031-06-0${n}` as DateString;
+
+  it('選ぶ日が変わっていなければ震わせない', () => {
+    expect(dayVibration(dayDraft(day(5), day(6)), dayDraft(day(5), day(6)))).toBeNull();
+  });
+
+  it('日をまたいで端が動いたら震わせる', () => {
+    expect(dayVibration(dayDraft(day(5), day(5)), dayDraft(day(5), day(6)))).toBe(10);
+    expect(dayVibration(dayDraft(day(5), day(6)), dayDraft(day(5), day(5)))).toBe(10);
+  });
+
+  it('向きが変わって起点の側が動いたときも震わせる', () => {
+    expect(dayVibration(dayDraft(day(5), day(5)), dayDraft(day(5), day(4)))).toBe(10);
   });
 });

@@ -27,6 +27,9 @@ export type EventDraft =
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = EventDraft & { allDay: false };
 
+/** 終日の下書き（月表示・終日欄に出す帯） */
+export type AllDayDraft = EventDraft & { allDay: true };
+
 /** 時間軸の 1 点（日と、その日の 0:00 からの分） */
 export type TimePoint = { date: DateString; min: number };
 
@@ -45,6 +48,8 @@ const TAP_MINUTES = 60;
 /** 吸着したときの手応えの長さ（ms）。正時だけ短くして、時間の区切りを手で見分けられるようにする */
 const HOUR_VIBRATION_MS = 10;
 const STEP_VIBRATION_MS = 50;
+/** 終日の下書きが 1 日動いたときの手応えの長さ（ms）。日をまたぐ区切りは 1 種類だけなので正時と同じ */
+const DAY_VIBRATION_MS = 10;
 
 /**
  * 時間軸のドラッグ → 下書き。日は始点のもので決まる（列をまたいでも日は変わらない）。
@@ -106,6 +111,15 @@ export function snapVibration(previous: TimedDraft, draft: TimedDraft): number |
 const vibrationFor = (min: number) => (min % 60 === 0 ? HOUR_VIBRATION_MS : STEP_VIBRATION_MS);
 
 /**
+ * 終日の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
+ * 日をまたいで端が変わるたびに震わせ、いくつ先の日まで選んでいるかを数えられるようにする。
+ */
+export function dayVibration(previous: AllDayDraft, draft: AllDayDraft): number | null {
+  const same = draft.from === previous.from && draft.to === previous.to;
+  return same ? null : DAY_VIBRATION_MS;
+}
+
+/**
  * 追加ボタンから置く下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
  */
@@ -116,7 +130,7 @@ export function defaultDraft(date: DateString, now: Date = new Date()): EventDra
 }
 
 /** 日の 2 点 → 終日の下書き（両端を含む。どちら向きに選んでも同じ） */
-export function dayDraft(anchor: DateString, current: DateString): EventDraft {
+export function dayDraft(anchor: DateString, current: DateString): AllDayDraft {
   const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];
   return { allDay: true, from, to };
 }
