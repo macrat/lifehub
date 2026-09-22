@@ -36,6 +36,7 @@ type Props = {
   hourHeight: number;
   onZoom: (ratio: number) => void;
   bottomInset: number;
+  draftSettled: boolean;
 };
 
 const GUTTER_WIDTH = 44;
@@ -61,6 +62,7 @@ export function TimelineView({
   hourHeight,
   onZoom,
   bottomInset,
+  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
@@ -205,6 +207,7 @@ export function TimelineView({
         draftUserId={draftUserId}
         onChangeDraft={onChangeDraft}
         bottomInset={bottomInset}
+        draftSettled={draftSettled}
       />
     </Box>
   );

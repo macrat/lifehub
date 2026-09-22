@@ -180,6 +180,10 @@ function CalendarPage() {
                 hourHeight={page.hourHeight}
                 onZoom={page.zoom}
                 bottomInset={sheetInset}
+                // なぞっている間は枠を追いかけない（指の下でグリッドが動くと狙いがずれる）。
+                // 余白そのものは出したままにする: 途中で消すとスクロール位置が詰められて、
+                // やはり指の下でグリッドが動く
+                draftSettled={draft?.editing ?? false}
               />
             )}
           </SwipePager>

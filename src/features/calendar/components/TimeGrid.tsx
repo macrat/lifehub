@@ -41,6 +41,8 @@ type Props = {
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
+  /** 枠を置き終えた（指を離した）か */
+  draftSettled: boolean;
 };
 
 /**
@@ -70,6 +72,7 @@ export function TimeGrid({
   draftUserId,
   onChangeDraft,
   bottomInset,
+  draftSettled,
 }: Props) {
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
@@ -116,17 +119,18 @@ export function TimeGrid({
 
   // 見えない所に枠が置かれたら（追加ボタンから来たとき、シートが開いてその時間帯を覆ったとき）
   // 見える所まで送る。見えている下端はシートに覆われた分だけ上がる。
-  // 始まりが見えているなら動かさない（なぞって選んでいる最中にグリッドが動くと狙いがずれる）
+  // 始まりが見えているなら動かさない。なぞっている最中（`draftSettled` が false）も動かさない:
+  // どちらも、指の下でグリッドが動くと狙いがずれるため
   const draftStart = timedDraft?.startMin ?? null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: 送るのは枠かシートが動いたときだけ（伸び縮みは真ん中を保つ上の合わせ方に任せる）
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || draftStart === null) return;
+    if (!el || draftStart === null || !draftSettled) return;
     const top = topOf(draftStart);
     if (top >= el.scrollTop && top <= el.scrollTop + el.clientHeight - bottomInset - hourHeight)
       return;
     el.scrollTo({ top: Math.max(0, top - 120), behavior: 'smooth' });
-  }, [draftStart, bottomInset]);
+  }, [draftStart, draftSettled, bottomInset]);
 
   return (
     <Box

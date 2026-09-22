@@ -35,6 +35,8 @@ type Props = {
   height: string;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
+  /** 枠を置き終えた（指を離した）か */
+  draftSettled: boolean;
 };
 
 const DAY_NUMBER_HEIGHT = 22;
@@ -65,6 +67,7 @@ export function MonthGrid({
   onChangeDraft,
   height,
   bottomInset,
+  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
@@ -93,9 +96,10 @@ export function MonthGrid({
     return () => observer.disconnect();
   }, [laneHeight]);
 
-  // シートに隠れる所に枠を置いたら（下の週を長押ししたときなど）、その帯が見える所まで送る
+  // シートに隠れる所に枠を置いたら（下の週を長押ししたときなど）、その帯が見える所まで送る。
+  // なぞっている最中は動かさない（指の下でグリッドが動くと、掴んでいる日がずれる）
   const scrollRef = useRef<HTMLDivElement>(null);
-  const draftRange = draft?.range;
+  const draftRange = draftSettled ? draft?.range : null;
   useEffect(() => {
     const el = scrollRef.current;
     // 帯は週の行ごとに分かれるので、始まりの 1 本が見えれば足りる

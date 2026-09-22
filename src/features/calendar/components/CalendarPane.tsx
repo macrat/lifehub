@@ -23,6 +23,8 @@ type Props = {
   onZoom: (ratio: number) => void;
   /** クイック入力のシートが下から覆っている高さ（px）。その分だけ下に余白を足してスクロールできるようにする */
   bottomInset: number;
+  /** 枠を置き終えた（指を離した）か。なぞっている最中は枠を追いかけてスクロールしない */
+  draftSettled: boolean;
 };
 
 /**
@@ -46,6 +48,7 @@ export const CalendarPane = memo(function CalendarPane({
   hourHeight,
   onZoom,
   bottomInset,
+  draftSettled,
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
   const { data: items } = useCalendarItems(period.range);
@@ -63,6 +66,7 @@ export const CalendarPane = memo(function CalendarPane({
       onChangeDraft={onChangeDraft}
       height="100%"
       bottomInset={bottomInset}
+      draftSettled={draftSettled}
     />
   ) : (
     <TimelineView
@@ -77,6 +81,7 @@ export const CalendarPane = memo(function CalendarPane({
       hourHeight={hourHeight}
       onZoom={onZoom}
       bottomInset={bottomInset}
+      draftSettled={draftSettled}
     />
   );
 });
