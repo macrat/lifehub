@@ -1,4 +1,4 @@
-import type { DateRange } from '../../../shared/calendar.ts';
+import type { CalendarItem, DateRange } from '../../../shared/calendar.ts';
 import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -25,6 +25,13 @@ export type EventDraft =
   /** from・to はどちらも含む日 */
   | { allDay: true; from: DateString; to: DateString };
 
+/**
+ * グリッドに出している枠。range はその範囲で、item は枠が直している保存済みの予定
+ * （長押しでつまんだもの。まだ無い予定を追加するときは null）。
+ * ドラッグは範囲と対象を一緒に返すので、つまむたびに「今どれを直しているか」が決まる。
+ */
+export type Draft = { range: EventDraft; item: CalendarItem | null };
+
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = EventDraft & { allDay: false };
 
@@ -39,7 +46,12 @@ export type TimePoint = { date: DateString; min: number };
  * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
  * 押した所から選び直す。
  */
-export type TimeGrab = { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
+export type TimeGrab = {
+  kind: 'start' | 'end' | 'move';
+  draft: TimedDraft;
+  /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
+  item: CalendarItem | null;
+};
 /** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
 export type DayGrab =
   | { kind: 'start' | 'end'; draft: AllDayDraft }
@@ -239,11 +251,28 @@ export function draftInstants(draft: EventDraft): {
       };
 }
 
-/** 全項目のフォーム（「その他のオプション」）に渡す既定値 */
-export function draftValues(draft: EventDraft, participantIds: string[]): ItemFormValues {
-  return draft.allDay
+/**
+ * クイック入力と全項目のフォーム（「その他のオプション」）に渡す既定値。
+ * 保存済みの予定を直しているときは、その予定の内容に枠の日時と選んでいる参加者だけを重ねる
+ * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない）。
+ */
+export function draftValues(
+  draft: EventDraft,
+  participantIds: string[],
+  item: CalendarItem | null = null,
+): ItemFormValues {
+  const when = draft.allDay
     ? allDayEventValues(draft.from, draft.to, participantIds)
     : eventValuesForRange(draft.date, draft.startMin, draft.endMin, participantIds);
+  return item === null
+    ? when
+    : {
+        ...item,
+        allDay: when.allDay,
+        startsAt: when.startsAt,
+        endsAt: when.endsAt,
+        participantIds,
+      };
 }
 
 /**

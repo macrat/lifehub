@@ -12,7 +12,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, draftColumns } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -29,12 +29,12 @@ type Props = {
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
   onSelectDate?: (date: DateString) => void;
-  /** 追加しようとしている予定の範囲（終日欄と時間軸に出す） */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加・編集しようとしている予定の枠（終日欄と時間軸に出す） */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
-  /** 空いている所をなぞって範囲を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  /** なぞって範囲を決めたとき。done はポインタを離したか */
+  onChangeDraft: (draft: Draft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
   height: string;
 };
@@ -61,8 +61,9 @@ export function TimelineView({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
-  // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
-  const barDraft = draft?.allDay ? draft : null;
+  // 終日欄に出す下書き。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）。
+  // 編集中の予定も出さない: 直せるのは日だけになってしまい、予定そのものも時間軸に出ているため
+  const barDraft = draft && !draft.item && draft.range.allDay ? draft.range : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
   const hourHeight = compact ? 48 : 56;
   const single = days.length === 1;

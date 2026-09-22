@@ -1,5 +1,13 @@
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import type { RecurrenceScope } from '../../../shared/validation/events.ts';
+
+/** 繰り返しのどこを直しているかの表示（詳細の編集とクイック入力で同じ言葉を使う） */
+export const SCOPE_LABELS: Record<RecurrenceScope, string> = {
+  this: 'この回だけ編集',
+  following: 'これ以降を編集',
+  all: 'すべての回を編集',
+};
 
 /**
  * フォームの繰り返し選択肢と RRULE 文字列の相互変換。

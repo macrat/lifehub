@@ -1,6 +1,7 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
@@ -21,14 +22,21 @@ import {
   draftValues,
   type EventDraft,
 } from '../../calendar/draft.ts';
+import type { CalendarItem } from '../../calendar/queries.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import { eventInputFromForm, type ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
+import { SCOPE_LABELS } from '../recurrence-options.ts';
 import { EventExtraFields, EventWhenFields } from './EventFields.tsx';
 
 type Props = {
   /** グリッドで選んだ範囲。日時の既定値になり、上の段で直すとここへ戻す */
   draft: EventDraft;
+  /**
+   * 直している保存済みの予定（長押しでつまんだもの）。追加のときは null。
+   * 入力の既定値になり、保存は呼び出し側（`onSubmit`）が上書きに振り分ける。
+   */
+  item: CalendarItem | null;
   /** 選んでいる参加者。グリッドの枠もこの色になるので、選択は呼び出し側が持つ */
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
@@ -50,6 +58,7 @@ type Props = {
 
 /**
  * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。
+ * 予定を長押しでつまんで直しているとき（`item`）も同じ入力で、既定値がその予定の内容になるだけ。
  * - スマホ: 画面下のシート（`BottomSheet`）。下の段はタイトルと参加者だけ、上の段まで広げると全項目。
  *   ダイアログには移らず、同じシートの見える量が変わるだけ。下げきると下書きごと取り消す。
  * - PC: 選んだ範囲に寄せた吹き出し。タイトルと参加者だけを扱い、残りは「その他のオプション」で
@@ -57,6 +66,7 @@ type Props = {
  */
 export function QuickEventForm({
   draft,
+  item,
   participantIds,
   onChangeParticipants,
   open,
@@ -73,11 +83,13 @@ export function QuickEventForm({
   const peekRef = useRef<HTMLDivElement>(null);
   // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
   const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
-  const initial = draftValues(draft, participantIds);
+  const initial = draftValues(draft, participantIds, item);
   const [allDay, setAllDay] = useState(initial.allDay);
+  // 繰り返しの回はその回だけを直すので、繰り返しの設定そのものは触らせない（元の回に戻せなくなるため）
+  const thisOnly = item?.isRecurring ?? false;
 
   const inputFromForm = (fd: FormData) =>
-    eventInputFromForm(fd, { initial, allDay, fallback: draftInstants(draft) });
+    eventInputFromForm(fd, { initial, allDay, thisOnly, fallback: draftInstants(draft) });
   const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
     schema: createEventSchema,
     values: inputFromForm,
@@ -122,9 +134,18 @@ export function QuickEventForm({
       )}
       <Stack spacing={1.5} sx={{ px: 2, pt: 1, pb: 1.5 }}>
         {submitError && <Alert severity="error">{submitError}</Alert>}
+        {thisOnly && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={SCOPE_LABELS.this}
+            sx={{ alignSelf: 'flex-start' }}
+          />
+        )}
         <TextField
           name="title"
           label="タイトルを追加"
+          defaultValue={initial.title}
           error={Boolean(errors.title)}
           helperText={errors.title}
           autoFocus={!isMobile}
@@ -201,7 +222,7 @@ export function QuickEventForm({
             allDay={allDay}
             onChangeAllDay={setAllDay}
           />
-          <EventExtraFields initial={initial} errors={errors} thisOnly={false} />
+          <EventExtraFields initial={initial} errors={errors} thisOnly={thisOnly} />
         </Stack>
       </Stack>
     </BottomSheet>

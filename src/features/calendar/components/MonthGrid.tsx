@@ -6,7 +6,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, draftColumns, type EventDraft } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -25,12 +25,12 @@ type Props = {
   onSelectDate: (date: DateString) => void;
   /** 項目をクリックしたとき（広い画面のみ。スマホでは項目はタップできず、日をタップする） */
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている終日の予定の範囲 */
-  draft: EventDraft | null;
-  /** 下書きの色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
+  /** 追加しようとしている予定の枠 */
+  draft: Draft | null;
+  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
   draftUserId: string | null;
   /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
-  onChangeDraft: (draft: EventDraft, done: boolean) => void;
+  onChangeDraft: (draft: Draft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
   height: string;
 };
@@ -46,6 +46,8 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
  *   出ている下書き（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
  *   その下書きをつまむ。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
+ * - 編集中（長押しでつまんだ保存済みの予定）の枠は出さない。月では時間帯を直せず、同じ予定が
+ *   帯と項目で二重に出てしまうため。時間を直すのは週・日の時間軸で行う
  */
 export function MonthGrid({
   month,
@@ -60,8 +62,10 @@ export function MonthGrid({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
+  // 帯で出すのは追加の下書きだけ（編集中の予定はそのまま項目として出す）
+  const barDraft = draft && !draft.item ? draft.range : null;
   const drag = useDayDrag({
-    draft,
+    draft: barDraft,
     onChange: onChangeDraft,
     onTapDate: compact ? onSelectDate : undefined,
   });
@@ -121,7 +125,7 @@ export function MonthGrid({
           itemsByDate={itemsByDate}
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
-          draft={draft}
+          draft={barDraft}
           draftUserId={draftUserId}
           drag={drag}
           colorFor={colorFor}

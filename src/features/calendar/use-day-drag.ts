@@ -1,7 +1,14 @@
 import type { PointerEvent } from 'react';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { type DayGrab, dayDraft, dayGrab, dayVibration, type EventDraft } from './draft.ts';
+import {
+  type DayGrab,
+  type Draft,
+  dayDraft,
+  dayGrab,
+  dayVibration,
+  type EventDraft,
+} from './draft.ts';
 import { useRangeDrag } from './use-range-drag.ts';
 
 /** ポインタの位置にある日のセル（`data-date` を持つ一番上の要素）と、その日 */
@@ -30,10 +37,10 @@ export function useDayDrag({
 }: {
   /** この面が日の並びに出している下書き。つまんだ所の意味づけに使う（出していない下書きは掴めない） */
   draft: EventDraft | null;
-  onChange: (draft: EventDraft, done: boolean) => void;
+  onChange: (draft: Draft, done: boolean) => void;
   onTapDate?: (date: DateString) => void;
 }) {
-  const drag = useRangeDrag<DateString, DayGrab, EventDraft>({
+  const drag = useRangeDrag<DateString, DayGrab, Draft>({
     locate: (event) => cellAt(event)?.date ?? null,
     // 掴んだ物は押した所（セルの左右どちら側か）で決まる。動かしている間は見ないので、矩形も押したときだけ読む
     grabOf: (event) => {
@@ -42,9 +49,11 @@ export function useDayDrag({
       const { left, width } = cell.element.getBoundingClientRect();
       return dayGrab(draft, cell.date, event.clientX < left + width / 2 ? 'left' : 'right');
     },
-    rangeOf: dayDraft,
+    // 日の並びに出すのは追加の下書きだけなので、直している保存済みの予定は無い
+    // （編集中の予定は時間軸にだけ枠で出す。`MonthGrid` / `TimelineView`）
+    rangeOf: (d) => ({ range: dayDraft(d), item: null }),
     onChange,
-    vibration: dayVibration,
+    vibration: (previous, next) => dayVibration(previous.range, next.range),
     onTouchTap: onTapDate,
   });
   return drag.props;

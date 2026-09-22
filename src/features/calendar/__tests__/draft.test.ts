@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   type AllDayDraft,
@@ -9,6 +10,7 @@ import {
   defaultDraft,
   draftColumns,
   draftText,
+  draftValues,
   type TimedDraft,
   type TimeGrab,
   type TimePoint,
@@ -21,9 +23,9 @@ const at = (minutes: number): TimePoint => ({ date: DAY, min: minutes });
 /** 空いている所を from → to へなぞる（moved を省くとその場で離したタップ・クリック） */
 const select = (from: TimePoint, to: TimePoint, moved = false) =>
   timeDraft({ grab: null, from, to, moved });
-/** 下書きを kind の所でつまんで from → to へ動かす */
+/** 下書きを kind の所でつまんで from → to へ動かす（追加の下書きなので直す予定は無い） */
 const grabbed = (draft: TimedDraft, kind: TimeGrab['kind'], from: TimePoint, to: TimePoint) =>
-  timeDraft({ grab: { kind, draft }, from, to, moved: true });
+  timeDraft({ grab: { kind, draft, item: null }, from, to, moved: true });
 
 const allDay = (from: string, to: string): AllDayDraft => ({
   allDay: true,
@@ -104,7 +106,12 @@ describe('timeDraft（下書きをつまむ）', () => {
 
   it('つまんだだけで動かしていなければそのまま', () => {
     expect(
-      timeDraft({ grab: { kind: 'move', draft }, from: at(9 * 60), to: at(12 * 60), moved: false }),
+      timeDraft({
+        grab: { kind: 'move', draft, item: null },
+        from: at(9 * 60),
+        to: at(12 * 60),
+        moved: false,
+      }),
     ).toEqual(draft);
   });
 
@@ -421,5 +428,68 @@ describe('dayVibration', () => {
     ).toBe(10);
     expect(dayVibration(timed, { ...timed, date: day('2031-06-06') })).toBe(10);
     expect(dayVibration(timed, { ...timed, startMin: 8 * 60 })).toBeNull();
+  });
+});
+
+describe('draftValues', () => {
+  const event: CalendarItem = {
+    kind: 'event',
+    id: 'e1',
+    title: '打ち合わせ',
+    allDay: false,
+    startsAt: '2031-06-05T00:00:00.000Z',
+    endsAt: '2031-06-05T01:00:00.000Z',
+    completedAt: null,
+    location: '会議室',
+    note: 'メモ',
+    participantIds: ['u1'],
+    rrule: 'FREQ=WEEKLY',
+    remindStartMinutes: 10,
+    remindEndMinutes: null,
+    occurrenceStart: '2031-06-05T00:00:00.000Z',
+    isRecurring: true,
+    isModified: false,
+    placementDate: DAY,
+    dayIndex: 1,
+    dayCount: 1,
+  };
+
+  it('追加のときは日時と参加者だけの空の予定', () => {
+    expect(draftValues(timed, ['u1'])).toMatchObject({
+      title: '',
+      allDay: false,
+      // `timed` は 9:00〜10:15（なぞって触れた 15 分の枠まで含む）
+      startsAt: '2031-06-05T00:00:00.000Z',
+      endsAt: '2031-06-05T01:15:00.000Z',
+      participantIds: ['u1'],
+      location: null,
+      rrule: null,
+    });
+  });
+
+  it('直している予定があるときは、その内容に枠の日時と参加者だけを重ねる', () => {
+    expect(
+      draftValues({ ...timed, startMin: 13 * 60, endMin: 14 * 60 }, ['u2'], event),
+    ).toMatchObject({
+      title: '打ち合わせ',
+      location: '会議室',
+      note: 'メモ',
+      rrule: 'FREQ=WEEKLY',
+      remindStartMinutes: 10,
+      allDay: false,
+      startsAt: '2031-06-05T04:00:00.000Z',
+      endsAt: '2031-06-05T05:00:00.000Z',
+      participantIds: ['u2'],
+    });
+  });
+
+  it('終日にすると日だけの日時になる（直している内容はそのまま）', () => {
+    expect(draftValues(allDay('2031-06-05', '2031-06-06'), ['u1'], event)).toMatchObject({
+      title: '打ち合わせ',
+      allDay: true,
+      // 終日の終わりは翌日 0:00（JST）
+      startsAt: '2031-06-04T15:00:00.000Z',
+      endsAt: '2031-06-06T15:00:00.000Z',
+    });
   });
 });

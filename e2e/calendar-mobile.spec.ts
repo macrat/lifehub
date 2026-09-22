@@ -88,8 +88,8 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   await page.touchscreen.tap(x, y(10 * 60 + 10));
   await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
 
-  // 丸ではない所から長押しでなぞると、長さ 1 時間を保ったまま 3 時間ぶん下がる
-  await touchDrag(page, { x, y: y(10 * 60 + 30) }, { x, y: y(13 * 60 + 30) }, { hold: 400 });
+  // 丸ではない所からなぞると、長押しを待たずに長さ 1 時間を保ったまま 3 時間ぶん下がる
+  await touchDrag(page, { x, y: y(10 * 60 + 30) }, { x, y: y(13 * 60 + 30) });
   await expect(page.getByText('6/5(木) 13:00〜14:00')).toBeVisible();
 
   // 終了の丸は開始より上へ行けず、開始の 15 分後で止まる
@@ -103,7 +103,58 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
   await expect(page.getByText('6/5(木) 13:45〜14:00')).toBeVisible();
 });
 
-test('週表示では枠を長押しして左右に動かすと別の日へ移る', async ({ page }) => {
+test('予定は長押しでつまんで編集モードに入り、そのまま動かして保存できる', async ({ page }) => {
+  const title = `E2E 長押し編集 ${Date.now()}`;
+  await page.goto('/calendar?view=day&date=2031-06-12');
+
+  const box = await page.locator('[data-date="2031-06-12"]').last().boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const x = box.x + box.width / 2;
+  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  /** 今つまめる物（予定のブロック・編集中の枠）の中心 */
+  const centerOf = async (locator: ReturnType<Page['locator']>) => {
+    const target = await locator.boundingBox();
+    if (!target) throw new Error('つまむ所が見つからない');
+    return { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+  };
+
+  // 10:00〜11:00 の予定を 1 件作る
+  await page.touchscreen.tap(x, y(10 * 60 + 10));
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  const block = page.getByRole('button', { name: title });
+  await expect(block).toBeVisible();
+
+  // 軽いタップは今までどおり詳細を開く（編集モードには入らない）
+  const tap = await centerOf(block);
+  await page.touchscreen.tap(tap.x, tap.y);
+  await expect(page.getByText('6/12(木) 10:00〜11:00')).toBeVisible();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(page.locator('[data-draft]')).toHaveCount(0);
+
+  // 長押しからそのまま指を離さずになぞると、長さを保ったまま 2 時間ぶん下がる。
+  // 入力はその予定の内容から始まる（タイトルはそのまま）
+  await touchDrag(page, tap, { x, y: y(12 * 60 + 30) }, { hold: 400 });
+  await expect(page.getByText('6/12(木) 12:00〜13:00')).toBeVisible();
+  await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
+
+  // 編集中の枠は長押しを待たずに動く
+  await touchDrag(page, await centerOf(page.locator('[data-draft]')), { x, y: y(14 * 60 + 30) });
+  await expect(page.getByText('6/12(木) 14:00〜15:00')).toBeVisible();
+
+  // 保存すると元の予定が動く（別の予定が増えたりしない）
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+  await expect(block).toHaveCount(1);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await block.click();
+  await expect(page.getByText('6/12(木) 14:00〜15:00')).toBeVisible();
+  await detailAction(page, '削除');
+  await expect(block).toHaveCount(0);
+});
+
+test('週表示では枠を左右に動かすと別の日へ移る', async ({ page }) => {
   const title = `E2E 日をまたぐ ${Date.now()}`;
   await page.goto('/calendar?view=week&date=2031-06-05');
 
@@ -120,13 +171,12 @@ test('週表示では枠を長押しして左右に動かすと別の日へ移�
   await page.touchscreen.tap(center(thu), y(10 * 60 + 10));
   await expect(page.getByText('6/5(木) 10:00〜11:00')).toBeVisible();
 
-  // 長押しから隣の列までなぞると、時間帯はそのままで日だけが翌日に移る
+  // 隣の列までなぞると、時間帯はそのままで日だけが翌日に移る
   const fri = await column('2031-06-06');
   await touchDrag(
     page,
     { x: center(thu), y: y(10 * 60 + 30) },
     { x: center(fri), y: y(10 * 60 + 30) },
-    { hold: 400 },
   );
   await expect(page.getByText('6/6(金) 10:00〜11:00')).toBeVisible();
 
