@@ -14,23 +14,18 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { db, runBatch } from '../../lib/db.ts';
+import { db, idArrayAgg, runBatch } from '../../lib/db.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
 export type EventWithParticipants = EventRow & { participantIds: string[] };
 
-/**
- * 参加者を配列にまとめた行を読む。left join + array_agg なので、参加者が 0 人でも行は消えない。
- * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
- */
+/** 参加者を配列にまとめた行を読む（`idArrayAgg`。参加者が 0 人でも行は消えない） */
 function selectRows() {
   return db
     .select({
       ...getTableColumns(events),
-      participantIds: sql<
-        string[]
-      >`coalesce(array_agg(${eventParticipants.userId}::text) filter (where ${eventParticipants.userId} is not null), '{}')`,
+      participantIds: idArrayAgg(eventParticipants.userId),
     })
     .from(events)
     .leftJoin(eventParticipants, eq(eventParticipants.eventId, events.id));

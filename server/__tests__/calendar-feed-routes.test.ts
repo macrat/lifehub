@@ -18,7 +18,7 @@ describe('カレンダー配信のルート', () => {
       name: 'A',
       password: 'password-123456',
     });
-    const feed = await createFeed({ name: 'スマホ' }, user.id);
+    const feed = await createFeed({ name: 'スマホ', participantIds: [user.id] }, user.id);
 
     const ics = await app.request(new URL(feed.url).pathname);
     expect(ics.status).toBe(200);

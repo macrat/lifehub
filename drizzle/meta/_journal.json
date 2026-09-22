@@ -36,6 +36,13 @@
       "when": 1790067920832,
       "tag": "0004_calendar_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790086700345,
+      "tag": "0005_calendar_feed_participants",
+      "breakpoints": true
     }
   ]
 }

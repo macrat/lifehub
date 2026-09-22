@@ -17,3 +17,13 @@ export const dateRangeQuerySchema = z
   .refine((v) => v.from <= v.to, { message: 'from は to 以前にしてください' });
 
 export const uuidSchema = z.uuid();
+
+/**
+ * 参加者（ユーザー ID の集合）。1 人以上で、重複は落とす。
+ * 予定・タスクの参加者（`events.ts`）と、配信 URL に表示する対象者（`calendar-feeds.ts`）が
+ * 同じ選択（`ParticipantsField`）から来るので、規則と文面はここ 1 か所に置く。
+ */
+export const participantIdsSchema = z
+  .array(uuidSchema)
+  .min(1, '参加者を 1 人以上選んでください')
+  .transform((ids) => [...new Set(ids)]);

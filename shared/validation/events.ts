@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { newId } from '../id.ts';
-import { instantSchema, uuidSchema } from './common.ts';
+import { instantSchema, participantIdsSchema, uuidSchema } from './common.ts';
 
 const EVENT_KINDS = ['event', 'task'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -30,10 +30,7 @@ const eventFields = {
   /** 予定では必須（終了）。タスクでは期限（任意） */
   endsAt: instantSchema.nullable().default(null),
   /** 1 人以上 */
-  participantIds: z
-    .array(uuidSchema)
-    .min(1, '参加者を 1 人以上選んでください')
-    .transform((ids) => [...new Set(ids)]),
+  participantIds: participantIdsSchema,
   location: z.string().trim().max(200).nullable().default(null),
   note: z.string().trim().max(2000).nullable().default(null),
   /** null = 単発。繰り返すには startsAt か endsAt の少なくとも一方が必要（DTSTART になる） */
