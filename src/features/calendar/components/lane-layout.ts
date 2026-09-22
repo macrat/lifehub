@@ -84,6 +84,27 @@ export function layoutLanes(
 }
 
 /**
+ * 完了したタスクを日ごとに一番後ろへ回した並び。
+ * 月グリッドは入りきらないレーンを「+n」に畳むので、セルに残すべきなのは未完了の項目。
+ * 一覧の並び（`shared/calendar.ts` の `sortItems`）は完了しているかを見ず期限の時刻で並べるため、
+ * そのままでは完了したタスクが未完了の項目より前に場所を取ってしまう。
+ */
+export function completedLast(
+  itemsByDate: Map<DateString, CalendarItem[]>,
+): Map<DateString, CalendarItem[]> {
+  return new Map(
+    [...itemsByDate].map(([date, items]) => [
+      date,
+      [...items.filter((item) => !isCompleted(item)), ...items.filter(isCompleted)],
+    ]),
+  );
+}
+
+function isCompleted(item: CalendarItem): boolean {
+  return item.kind === 'task' && item.completedAt !== null;
+}
+
+/**
  * 下書きの帯を置くレーン。掛かる列がすべて空いている一番上のレーンを選び、
  * 空きが無ければ一番下のレーンに重ねる（行の高さは決まっているので、はみ出させない）。
  */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { freeLane, layoutLanes } from '../components/lane-layout.ts';
+import { completedLast, freeLane, layoutLanes } from '../components/lane-layout.ts';
 import type { CalendarItem } from '../queries.ts';
 
 const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSchema.parse(d));
@@ -29,6 +29,15 @@ function event(id: string, day: DateString, dayIndex = 1, dayCount = 1): Calenda
     dayIndex,
     dayCount,
   };
+}
+
+/** タスクの項目。completedAt があれば完了している */
+function task(id: string, day: DateString, completedAt: string | null): CalendarItem {
+  const { dayIndex, dayCount, ...rest } = event(id, day) as Extract<
+    CalendarItem,
+    { kind: 'event' }
+  >;
+  return { ...rest, kind: 'task', completedAt, isOverdue: false };
 }
 
 const byDate = (items: CalendarItem[]) => {
@@ -74,5 +83,25 @@ describe('freeLane', () => {
 
   it('空きが無ければ一番下のレーンに重ねる', () => {
     expect(freeLane(placed, 0, 1, 2)).toBe(1);
+  });
+});
+
+describe('completedLast', () => {
+  it('完了したタスクは日ごとに一番後ろへ回る', () => {
+    const [d1] = days as [DateString, DateString, DateString];
+    const ordered = completedLast(
+      byDate([
+        task('完了', d1, '2026-09-21T00:00:00.000Z'),
+        event('予定', d1),
+        task('未完了', d1, null),
+      ]),
+    );
+    expect(ordered.get(d1)?.map((i) => i.title)).toEqual(['予定', '未完了', '完了']);
+  });
+
+  it('完了したタスクが無い日はそのままの順', () => {
+    const [d1] = days as [DateString, DateString, DateString];
+    const ordered = completedLast(byDate([event('a', d1), task('未完了', d1, null)]));
+    expect(ordered.get(d1)?.map((i) => i.title)).toEqual(['a', '未完了']);
   });
 });

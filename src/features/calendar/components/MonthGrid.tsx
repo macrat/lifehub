@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
@@ -13,7 +13,7 @@ import type { DragHandlers } from '../use-range-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
-import { freeLane, layoutLanes } from './lane-layout.ts';
+import { completedLast, freeLane, layoutLanes } from './lane-layout.ts';
 
 type Props = {
   /** 表示する月 "YYYY-MM"（月外の日を薄く出す判定） */
@@ -42,6 +42,7 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 複数日の予定は週の行をまたいで 1 本の帯にする（レーンを割り当てて重ならないように置く）
  * - 終日は塗り帯、時間指定の予定は点＋タイトル、タスクはチェック印＋タイトル。タイトルを優先し、時刻は PC でだけ添える
  * - 高さは画面の残り全部。6 週で等分し、入りきらない項目は「+n」にまとめる
+ * - 完了したタスクは日ごとに一番下へ回し、「+n」に先に入るようにする（`completedLast`）
  * - 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
  *   出ている下書き（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
@@ -67,6 +68,7 @@ export function MonthGrid({
   });
   const laneHeight = compact ? 17 : 20;
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
+  const ordered = useMemo(() => completedLast(itemsByDate), [itemsByDate]);
 
   // 1 週の行に入るレーン数を実測から決める
   const firstWeekRef = useRef<HTMLDivElement>(null);
@@ -118,7 +120,7 @@ export function MonthGrid({
           ref={w === 0 ? firstWeekRef : undefined}
           days={week}
           month={month}
-          itemsByDate={itemsByDate}
+          itemsByDate={ordered}
           onSelectDate={onSelectDate}
           onSelectItem={onSelectItem}
           draft={draft}
