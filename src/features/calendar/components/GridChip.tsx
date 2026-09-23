@@ -1,9 +1,9 @@
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
+import { SplitCheckboxIcon } from '../../../lib/ui/SplitCheckboxIcon.tsx';
+import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
@@ -13,6 +13,8 @@ type Props = {
   placed: Placed;
   compact: boolean;
   colors: ItemColors;
+  /** 参加者 1 人ずつの色（`colorUsersOf` の並び）。点とチェック印を一覧と同じように塗り分ける */
+  participantColors: ItemColors[];
   /** タップ・クリックしたとき（詳細を開く） */
   onClick: () => void;
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
@@ -26,7 +28,10 @@ type Props = {
 /**
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
- * 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。タイトルを優先し、時刻は広い画面でだけ添える。
+ * 帯の色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。
+ * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`VennMark`・`SplitCheckboxIcon`）。
+ * WHY 帯だけ 1 色: 帯は面が広く文字が載るので、塗り分けると文字が読みにくくなる。
+ * タイトルを優先し、時刻は広い画面でだけ添える。
  * 単押しは閲覧（詳細を開く）、長押しは編集（`grab`。つまんでそのまま日時を直す）で、アプリ全体の約束と同じ。
  * 編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
  * つまんだ要素が消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
@@ -35,6 +40,7 @@ export function GridChip({
   placed,
   compact,
   colors,
+  participantColors,
   onClick,
   grab,
   hidden,
@@ -47,6 +53,7 @@ export function GridChip({
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
+  const markSize = compact ? 10 : 12;
   return (
     <Box
       component="button"
@@ -105,18 +112,16 @@ export function GridChip({
       }}
     >
       {isTask ? (
-        completed ? (
-          <CheckBoxIcon sx={{ fontSize: compact ? 10 : 12, flexShrink: 0, color: colors.fill }} />
-        ) : (
-          <CheckBoxOutlineBlankIcon
-            sx={{ fontSize: compact ? 10 : 12, flexShrink: 0, color: colors.fill }}
-          />
-        )
+        <SplitCheckboxIcon
+          colors={participantColors.map((c) => c.fill)}
+          checked={completed}
+          sx={{ fontSize: markSize, flexShrink: 0 }}
+        />
       ) : (
         !isBar && (
-          <Box
-            sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: colors.fill, flexShrink: 0 }}
-          />
+          <Box sx={{ flexShrink: 0 }}>
+            <VennMark colors={participantColors.map((c) => c.mark)} size={markSize} />
+          </Box>
         )
       )}
       <Box

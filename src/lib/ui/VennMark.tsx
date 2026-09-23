@@ -18,16 +18,17 @@ const SIZE = 20;
  * 見分けやすい。重なりを別の色（無彩色や背景色）にすると、3 人・4 人のときに色が細い欠片になる。
  * WHY 円を重ねる: 円を並べるだけだと横に長くなって行の印の枠に収まらず、扇形に割った 1 つの円だと
  * 1 人のときの丸と見分けにくい。重ねると小さくまとまったまま、何人かが輪郭で分かる。
+ * `size` は描く大きさ（px）。形は変えずに縮めるので、月表示の点のような小さな印にも使える。
  */
-export function VennMark({ colors }: { colors: string[] }) {
+export function VennMark({ colors, size = SIZE }: { colors: string[]; size?: number }) {
   const id = useId();
   const count = colors.length;
   // 1 つのときは中心に置く
   const distance = count === 1 ? 0 : GAP / (2 * Math.sin(Math.PI / count));
   return (
     <svg
-      width={SIZE}
-      height={SIZE}
+      width={size}
+      height={size}
       viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`}
       aria-hidden="true"
       style={{ display: 'block' }}
