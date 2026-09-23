@@ -619,3 +619,36 @@ test('タブを行き来しても最後に開いた表示で開く', async ({ pa
   await page.reload();
   await expect(shownView(page)).toHaveText('週');
 });
+
+test('ホームの追加ボタンから始めた予定の入力は、閉じるとホームに戻る', async ({ page }) => {
+  const title = `E2E ホームから ${Date.now()}`;
+  const openFromHome = async () => {
+    await page.goto('/');
+    await page.getByRole('button', { name: '追加' }).click();
+    await page.getByRole('menuitem', { name: '予定' }).click();
+    await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+    await expect(page).toHaveURL(/\/calendar/);
+  };
+
+  // 取り消し
+  await openFromHome();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(page).toHaveURL('/');
+
+  // 戻る操作
+  await openFromHome();
+  await page.goBack();
+  await expect(page).toHaveURL('/');
+
+  // 保存
+  await openFromHome();
+  await page.getByLabel('タイトルを追加').fill(title);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page).toHaveURL('/');
+  await expect(page.getByText(title)).toBeVisible();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByText(title).click();
+  await detailAction(page, '削除');
+  await expect(page.getByText(title)).toHaveCount(0);
+});

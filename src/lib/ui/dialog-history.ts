@@ -14,6 +14,11 @@ function depthOf(state: unknown): number {
   return (state as DialogHistoryState).dialogs ?? 0;
 }
 
+/** 履歴の項目の位置（TanStack Router が state に振る通し番号） */
+export function historyIndexOf(state: unknown): number {
+  return (state as { __TSR_index: number }).__TSR_index;
+}
+
 /** 今開いているダイアログの数。履歴の深さは常にこれに合わせる */
 let openCount = 0;
 let syncScheduled = false;
@@ -41,6 +46,25 @@ function syncHistoryDepth(router: Router): void {
     } else if (diff < 0) {
       router.history.go(diff);
     }
+  });
+}
+
+/**
+ * 履歴の index 番目の項目へ渡る（戻る）。閉じたダイアログの項目がまだ履歴に残っていれば、
+ * それを戻し終えてから渡る。WHY: 閉じたダイアログの項目を戻す go と続けて go を呼ぶと、
+ * どちらも同じ位置から数えられてしまい、狙った項目に着かない。
+ * ダイアログのマウントが終わった後（effect の中）で呼ぶこと。
+ */
+export function traverseTo(router: Router, index: number): void {
+  const go = () => router.history.go(index - historyIndexOf(router.history.location.state));
+  if (depthOf(router.history.location.state) === openCount) {
+    go();
+    return;
+  }
+  const unsubscribe = router.history.subscribe(() => {
+    if (depthOf(router.history.location.state) !== openCount) return;
+    unsubscribe();
+    go();
   });
 }
 

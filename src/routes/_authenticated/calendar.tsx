@@ -72,7 +72,8 @@ type DraftState = Draft & {
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
  * - 追加ボタンの「予定」は今の表示に既定の時間帯の下書きを置き、入力を上の段で開く。月・リストには時間軸が無いので、
  *   入力を閉じるまで日表示を出し、閉じたら元の表示に戻す（`previewDay`）。ほかの画面の追加ボタンと
- *   PWA のショートカットの「予定」もここへ来て同じ流れになる（`add=event`）
+ *   PWA のショートカットの「予定」もここへ来て同じ流れになる（`add=event`）。ほかの画面の追加ボタンから
+ *   来たときは、閉じたらその画面へ戻る（`useAddShortcut` の finish）
  */
 function CalendarPage() {
   const search = Route.useSearch();
@@ -140,17 +141,24 @@ function CalendarPage() {
       detent: 'full',
     });
   };
-  /** 予定の入力（クイック入力・全項目のフォーム）を閉じた。保存でも取り消しでも同じ */
+  const shortcut = useAddShortcut(search.add, (kind) =>
+    kind === 'task' ? setAdding('task') : addEvent(),
+  );
+  /**
+   * 入力（クイック入力・全項目のフォーム・タスクのフォーム）を閉じた。保存でも取り消しでも同じ。
+   * ほかの画面の追加ボタンから来ていればその画面へ戻り、そうでなければ元の表示に戻す
+   */
+  const finishAdding = () => {
+    if (!shortcut.finish()) page.endPreview();
+  };
   const closeDraft = () => {
     setDraft(null);
-    page.endPreview();
+    finishAdding();
   };
   const closeExpanded = () => {
     setExpanded(null);
-    page.endPreview();
+    finishAdding();
   };
-
-  useAddShortcut(search.add, (kind) => (kind === 'task' ? setAdding('task') : addEvent()));
 
   return (
     <>
@@ -234,7 +242,15 @@ function CalendarPage() {
           onClose={() => setSelected(null)}
         />
       )}
-      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
+      {adding && (
+        <AddForm
+          kind={adding}
+          onClose={() => {
+            setAdding(null);
+            finishAdding();
+          }}
+        />
+      )}
       {draft && (
         <QuickEventForm
           draft={draft.range}
