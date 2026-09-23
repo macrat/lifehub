@@ -1,7 +1,7 @@
 import { TZDate } from '@date-fns/tz';
 import { format, getDay } from 'date-fns';
 import { TIME_ZONE } from '../../shared/constants.ts';
-import { addDays, startOfDate, toDateString, today } from '../../shared/date.ts';
+import { addDays, allDayDate, startOfDate, toDateString, today } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
 
 export {
@@ -76,13 +76,18 @@ export function formatDateTime(value: Date | string): string {
   return `${formatDate(value)} ${formatTime(value)}`;
 }
 
+/** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
+export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
+  return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);
+}
+
 /** 予定の期間表示。終日は日付のみ、同日は "9/20(日) 09:00〜10:00"、複数日は両端を日時で。 */
 export function formatEventRange(startsAt: string, endsAt: string, allDay: boolean): string {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
   if (allDay) {
-    const firstDay = toDateString(start);
-    const lastDay = toDateString(new Date(end.getTime() - 1));
+    const firstDay = allDayDate(startsAt, 'start');
+    const lastDay = allDayDate(endsAt, 'end');
     return firstDay === lastDay
       ? formatDate(firstDay)
       : `${formatDate(firstDay)}〜${formatDate(lastDay)}`;

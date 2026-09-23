@@ -7,12 +7,7 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
-import {
-  formatDate,
-  formatDateTime,
-  formatEventRange,
-  inclusiveEndDate,
-} from '../../../lib/date.ts';
+import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
@@ -157,16 +152,11 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
             ) : (
               <>
                 {item.startsAt && (
-                  <Typography>
-                    開始: {item.allDay ? formatDate(item.startsAt) : formatDateTime(item.startsAt)}
-                  </Typography>
+                  <Typography>開始: {formatEdge(item.startsAt, 'start', item.allDay)}</Typography>
                 )}
                 {item.endsAt && (
                   <Typography color={item.isOverdue ? 'error' : 'text.primary'}>
-                    期限:{' '}
-                    {item.allDay
-                      ? formatDate(inclusiveEndDate(item.endsAt))
-                      : formatDateTime(item.endsAt)}
+                    期限: {formatEdge(item.endsAt, 'end', item.allDay)}
                     {item.isOverdue && '（超過）'}
                   </Typography>
                 )}

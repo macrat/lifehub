@@ -1,5 +1,13 @@
 import { addDays as addDaysFn } from 'date-fns';
-import { addDays, diffDays, inclusiveEndDate, startOfDay, toDateString, today } from './date.ts';
+import {
+  addDays,
+  allDayDate,
+  diffDays,
+  inclusiveEndDate,
+  startOfDay,
+  toDateString,
+  today,
+} from './date.ts';
 import type { DateString } from './types.ts';
 import type { EventKind } from './validation/events.ts';
 
@@ -83,30 +91,35 @@ export type TaskTime = { kind: 'done' | 'due' | 'start'; date: DateString; at: s
  *
  * 完了を先に置くのは、完了したタスクを完了した日に置く `placeTask` と揃えるため。
  * 期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
- * 終日の期限は排他的な終端（期限日の翌日 0:00）で持つので、日付は含む期限日にする。
+ * 終日の期限は排他的な終端（期限日の翌日 0:00）で持つので、日付は含む期限日にする（`allDayDate`）。
  */
-export function taskTime(task: {
+export function taskTime(task: TaskTimeSource): TaskTime | null {
+  const anchor = taskAnchor(task);
+  if (!anchor) return null;
+  const { kind, iso, allDay } = anchor;
+  return allDay
+    ? { kind, date: allDayDate(iso, kind === 'due' ? 'end' : 'start'), at: null }
+    : { kind, date: toDateString(new Date(iso)), at: iso };
+}
+
+type TaskTimeSource = {
   allDay: boolean;
   startsAt: string | null;
   endsAt: string | null;
   completedAt: string | null;
-}): TaskTime | null {
-  if (task.completedAt) return timedTaskTime('done', task.completedAt);
-  if (task.endsAt) {
-    return task.allDay
-      ? { kind: 'due', date: inclusiveEndDate(task.endsAt), at: null }
-      : timedTaskTime('due', task.endsAt);
-  }
-  if (task.startsAt) {
-    return task.allDay
-      ? { kind: 'start', date: toDateString(new Date(task.startsAt)), at: null }
-      : timedTaskTime('start', task.startsAt);
-  }
-  return null;
-}
+};
 
-function timedTaskTime(kind: TaskTime['kind'], at: string): TaskTime {
-  return { kind, date: toDateString(new Date(at)), at };
+/**
+ * `taskTime` がどの日時を指すか（暦日に直す前）。並び順は時刻の文字列だけで決まるので、
+ * 1 回の比較ごとにタイムゾーンの計算をしなくて済むよう、ここを直接使う。完了の時刻は終日でも時刻。
+ */
+function taskAnchor(
+  task: TaskTimeSource,
+): { kind: TaskTime['kind']; iso: string; allDay: boolean } | null {
+  if (task.completedAt) return { kind: 'done', iso: task.completedAt, allDay: false };
+  if (task.endsAt) return { kind: 'due', iso: task.endsAt, allDay: task.allDay };
+  if (task.startsAt) return { kind: 'start', iso: task.startsAt, allDay: task.allDay };
+  return null;
 }
 
 /**
@@ -176,9 +189,9 @@ function placeEvent(
   const startsAt = new Date(occurrence.startsAt);
   const endsAt = new Date(occurrence.endsAt);
   const firstDay = toDateString(startsAt);
-  // 終端は排他的なので 1ms 手前の日。長さ 0 なら開始日
+  // 終端は排他的なので含む最終日にする。長さ 0 なら開始日
   const lastDay =
-    endsAt.getTime() > startsAt.getTime() ? toDateString(new Date(endsAt.getTime() - 1)) : firstDay;
+    endsAt.getTime() > startsAt.getTime() ? inclusiveEndDate(occurrence.endsAt) : firstDay;
   const dayCount = diffDays(firstDay, lastDay) + 1;
   const result: Extract<CalendarItem, { kind: 'event' }>[] = [];
   for (let i = 0; i < dayCount; i++) {
@@ -205,8 +218,9 @@ function placeEvent(
  */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
-  const time = taskTime(item);
-  return time ? (time.at ?? '') : '~';
+  const anchor = taskAnchor(item);
+  if (!anchor) return '~';
+  return anchor.allDay ? '' : anchor.iso;
 }
 
 /**

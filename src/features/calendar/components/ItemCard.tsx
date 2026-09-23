@@ -1,6 +1,6 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Typography from '@mui/material/Typography';
-import { isCompletedTask, taskTime } from '../../../../shared/calendar.ts';
+import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import {
@@ -131,7 +131,7 @@ function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
   const caption = TASK_TIME_CAPTIONS[time.kind];
   if (time.at === null)
     return { caption, main: isToday(time.date) ? '今日' : formatDate(time.date) };
-  return time.date === item.placementDate
+  return taskTimeOnPlacementDate(item)
     ? { caption, main: formatTime(time.at) }
     : { caption, main: formatDate(time.at), sub: formatTime(time.at) };
 }

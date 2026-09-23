@@ -2,12 +2,11 @@ import { z } from 'zod';
 import { DAY_MINUTES, DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 import {
   addDays,
+  allDayDate,
   fromMinutesOfDay,
-  inclusiveEndDate,
   startOfDate,
   toDateString,
 } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
   type NotificationPayload,
@@ -52,11 +51,6 @@ function keyOf(ref: NotificationRef): string {
 
 /** ユーザー ID → 終日の項目の通知時刻（その日の 0:00 からの分） */
 type NotifyTimes = Map<string, number>;
-
-/** 終日の項目の開始日／終了日（期限日）。終了は排他的（翌日 0:00）なので含む終了日にする */
-function allDayDate(anchor: string, edge: Edge): DateString {
-  return edge === 'start' ? toDateString(new Date(anchor)) : inclusiveEndDate(anchor);
-}
 
 /**
  * 開始／終了（期限）の通知の宛先と配信予定時刻。完了したタスクには送らない。

@@ -1,4 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
+import type { UpdateUserInput } from '../../../shared/validation/users.ts';
 import { db, runBatch } from '../../lib/db.ts';
 import { accounts, sessions, users } from './schema.ts';
 
@@ -28,7 +29,7 @@ export async function findAllDayNotifyMinutes(): Promise<Map<string, number>> {
 
 export async function updateProfile(
   id: string,
-  values: { name?: string; hue?: number; allDayNotifyMinutes?: number },
+  values: Omit<UpdateUserInput, 'password'>,
 ): Promise<void> {
   await db.update(users).set(values).where(eq(users.id, id));
 }
