@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from '../users/schema.ts';
 
 /**
@@ -32,3 +32,25 @@ export const calendarFeeds = pgTable('calendar_feeds', {
 });
 
 export type CalendarFeedRow = typeof calendarFeeds.$inferSelect;
+
+/**
+ * 配信 URL に載せる参加者。この中の誰かが入っている予定だけを配る。
+ *
+ * 1 行以上あることはアプリ側（Zod）で守る（`event_participants` と同じく、結合テーブルでは
+ * DB 制約にできない）。0 人の URL は何も配らず、持っていても意味が無い。
+ *
+ * 誰を載せるかを列（配列）ではなく行で持つのは、消えたユーザーの ID が残らないようにするため
+ * （`users` を参照して ON DELETE CASCADE で一緒に消える）。
+ */
+export const calendarFeedParticipants = pgTable(
+  'calendar_feed_participants',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => calendarFeeds.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.feedId, table.userId] })],
+);

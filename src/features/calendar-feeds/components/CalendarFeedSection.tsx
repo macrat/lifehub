@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
@@ -13,36 +14,49 @@ import { formatDateTime } from '../../../lib/date.ts';
 import { notify } from '../../../lib/ui/notice.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
 import { SettingsSection } from '../../../lib/ui/SettingsSection.tsx';
+import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
   type CalendarFeed,
   calendarFeedsQueryOptions,
   useCreateCalendarFeed,
   useRevokeCalendarFeed,
+  useUpdateCalendarFeed,
 } from '../queries.ts';
 import { CalendarFeedForm } from './CalendarFeedForm.tsx';
 
 /**
  * 設定画面の「カレンダーの配信」。予定を他のカレンダーアプリで購読するための URL を
- * 何本でも発行し、渡した先ごとに失効させる（[docs/features/calendar-feeds.md](../../../../docs/features/calendar-feeds.md)）。
+ * 何本でも発行し、渡した先ごとに参加者を選んで失効させる（[docs/features/calendar-feeds.md](../../../../docs/features/calendar-feeds.md)）。
  */
 export function CalendarFeedSection() {
   const feedsQuery = useQuery(calendarFeedsQueryOptions);
   const createFeed = useCreateCalendarFeed();
+  const updateFeed = useUpdateCalendarFeed();
   const revokeFeed = useRevokeCalendarFeed();
+  const { users } = useUserLabels();
+  // 発行と編集は別の状態にする（ユーザーの管理画面と同じ持ち方）
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<CalendarFeed | null>(null);
 
   return (
     <SettingsSection title="カレンダーの配信">
       <ListItem>
-        <ListItemText
-          primary="ics の配信 URL"
-          secondary="予定を他のカレンダーアプリで購読するための URL。URL を知っていれば誰でも読めるので、渡す先ごとに発行して、要らなくなったら失効させます。タスクは配信しません。"
-        />
+        <ListItemText primary="ics の配信 URL" />
       </ListItem>
       <QueryView query={feedsQuery} skeleton={<FeedSkeleton />}>
         {(feeds) =>
           feeds.map((feed) => (
-            <FeedItem key={feed.id} feed={feed} onRevoke={() => revokeFeed.mutate(feed.id)} />
+            <FeedItem
+              key={feed.id}
+              feed={feed}
+              // 並びはユーザーの一覧に合わせる（保存の順ではなく、画面のどこでも同じ順で出す）
+              participants={users
+                .filter((user) => feed.participantIds.includes(user.id))
+                .map((user) => user.name)
+                .join('・')}
+              onEdit={() => setEditing(feed)}
+              onRevoke={() => revokeFeed.mutate(feed.id)}
+            />
           ))
         }
       </QueryView>
@@ -54,18 +68,43 @@ export function CalendarFeedSection() {
       {creating && (
         <CalendarFeedForm onClose={() => setCreating(false)} onSubmit={createFeed.mutateAsync} />
       )}
+      {editing && (
+        <CalendarFeedForm
+          feed={editing}
+          onClose={() => setEditing(null)}
+          onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editing.id })}
+        />
+      )}
     </SettingsSection>
   );
 }
 
-/** 1 本の配信 URL。コピーと失効をその場で行う（URL は長いので字面は出さない） */
-function FeedItem({ feed, onRevoke }: { feed: CalendarFeed; onRevoke: () => void }) {
+/** 1 本の配信 URL。コピー・編集・失効をその場で行う（URL は長いので字面は出さない） */
+function FeedItem({
+  feed,
+  participants,
+  onEdit,
+  onRevoke,
+}: {
+  feed: CalendarFeed;
+  /** 表示する対象者の名前（中黒つなぎ） */
+  participants: string;
+  onEdit: () => void;
+  onRevoke: () => void;
+}) {
+  const read = feed.lastAccessedAt
+    ? `最後に読まれたのは ${formatDateTime(feed.lastAccessedAt)}`
+    : 'まだ一度も読まれていません';
+
   return (
     <ListItem
       secondaryAction={
         <Stack direction="row">
           <IconButton aria-label={`${feed.name} の URL をコピー`} onClick={() => copy(feed.url)}>
             <ContentCopyIcon />
+          </IconButton>
+          <IconButton aria-label={`${feed.name} を編集`} onClick={onEdit}>
+            <EditIcon />
           </IconButton>
           <IconButton
             edge="end"
@@ -75,20 +114,16 @@ function FeedItem({ feed, onRevoke }: { feed: CalendarFeed; onRevoke: () => void
                 onRevoke();
             }}
           >
-            <LinkOffIcon />
+            <DeleteIcon />
           </IconButton>
         </Stack>
       }
     >
       <ListItemText
-        // secondaryAction の既定の余白ではボタン 2 つと説明文が重なる
-        sx={{ pr: 10 }}
+        // secondaryAction の既定の余白ではボタン 3 つと説明文が重なる
+        sx={{ pr: 15 }}
         primary={feed.name}
-        secondary={
-          feed.lastAccessedAt
-            ? `最後に読まれたのは ${formatDateTime(feed.lastAccessedAt)}`
-            : 'まだ一度も読まれていません'
-        }
+        secondary={participants ? `${participants} の予定・${read}` : read}
       />
     </ListItem>
   );
