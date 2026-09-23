@@ -142,7 +142,7 @@ function CalendarPage() {
     });
   };
   const finishShortcut = useAddShortcut(search.add, (kind) =>
-    kind === 'task' ? setAdding('task') : addEvent(),
+    kind === 'event' ? addEvent() : setAdding(kind),
   );
   /**
    * 予定の入力（クイック入力・全項目のフォーム。同時に開くのはどちらか 1 つ）を閉じた。
@@ -227,12 +227,7 @@ function CalendarPage() {
       )}
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
-      {!draft && (
-        <AddMenu
-          kinds={['task', 'event']}
-          onSelect={(kind) => (kind === 'event' ? addEvent() : setAdding(kind))}
-        />
-      )}
+      {!draft && <AddMenu kinds={['task', 'event']} onSelect={setAdding} onAddEvent={addEvent} />}
       {selected && (
         <ItemDetailSheet
           item={selected.item}

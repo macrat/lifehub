@@ -55,7 +55,8 @@ function HomePage() {
       </Stack>
       <AddMenu
         kinds={['lemon', 'expense', 'task', 'event']}
-        onSelect={(kind) => (kind === 'event' ? addEventOnCalendar() : setAdding(kind))}
+        onSelect={setAdding}
+        onAddEvent={addEventOnCalendar}
       />
       {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
     </>
