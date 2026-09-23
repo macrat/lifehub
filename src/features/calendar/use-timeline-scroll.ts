@@ -5,11 +5,15 @@ import { pxAtMinute } from './use-hour-zoom.ts';
 const LEAD_IN = 120;
 /** 最初に出したとき、今日を含まない日で見せる時刻（分） */
 const DEFAULT_MINUTES = 7 * 60;
+/** 予定が画面に収まりきらないとき、一番早い予定の上に残す時間（分） */
+const FIT_LEAD_MINUTES = 60;
 
 /**
  * 時間軸（`TimeGrid`）の縦のスクロール位置。返す ref を縦にスクロールする要素に付ける。
- * - 最初に出したときだけ合わせる（今日を含むなら現在時刻の少し上、それ以外は 7 時）。
- *   日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る
+ * - 最初に出したときだけ合わせる。日付を移っても保つので、スワイプの前後でも見ていた時間帯がそのまま残る
+ *   - 予定に合わせるとき（`itemsSpan`）は、一番早い予定から一番遅い予定までが収まるなら画面の真ん中に、
+ *     収まらないなら一番早い予定の 1 時間前を一番上にする（早い予定から順に読み下ろせるように）
+ *   - それ以外は、今日を含むなら現在時刻の少し上、含まないなら 7 時
  * - 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す
  * - 見えない所に下書きの枠が置かれたら（追加ボタンから来たとき、シートに隠れる時間帯をなぞったとき）、
  *   その枠が見える所まで送る
@@ -18,6 +22,7 @@ const DEFAULT_MINUTES = 7 * 60;
  */
 export function useTimelineScroll({
   nowMinutes,
+  itemsSpan,
   hourHeight,
   draftStart,
   settled,
@@ -25,6 +30,8 @@ export function useTimelineScroll({
 }: {
   /** 表示する日に今日が含まれるなら今の時刻（分）、含まれなければ null */
   nowMinutes: number | null;
+  /** 最初になるべく全部見せたい予定の時間帯（分）。予定に合わせないとき・予定が無いときは null */
+  itemsSpan: { startMin: number; endMin: number } | null;
   hourHeight: number;
   /** 時間軸に出している枠の開始（分）。出していなければ null */
   draftStart: number | null;
@@ -42,11 +49,19 @@ export function useTimelineScroll({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.scrollTop = Math.max(
-      0,
-      nowMinutes !== null ? topOf(nowMinutes) - LEAD_IN : topOf(DEFAULT_MINUTES),
-    );
+    el.scrollTop = Math.max(0, initialTop(el.clientHeight - bottomInset));
   }, []);
+
+  function initialTop(visibleHeight: number) {
+    if (itemsSpan) {
+      const top = topOf(itemsSpan.startMin);
+      const bottom = topOf(itemsSpan.endMin);
+      return bottom - top > visibleHeight
+        ? topOf(itemsSpan.startMin - FIT_LEAD_MINUTES)
+        : (top + bottom - visibleHeight) / 2;
+    }
+    return nowMinutes !== null ? topOf(nowMinutes) - LEAD_IN : topOf(DEFAULT_MINUTES);
+  }
 
   // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
   // 伸びた時間軸が一瞬ずれて見えないようにする）。上端を固定すると、拡げるたびに

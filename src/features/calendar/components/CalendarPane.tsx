@@ -23,6 +23,8 @@ type Props = {
   /** 週・日の時間軸へそのまま渡す（`use-hour-zoom.ts`。3 面で同じ値を使う） */
   hourHeight: number;
   onZoom: (ratio: number) => void;
+  /** 週・日の時間軸へそのまま渡す（最初の縦位置を予定に合わせるか） */
+  fitItems: boolean;
   /** クイック入力のシートが下から覆っている高さ（px）。その分だけ下に余白を足してスクロールできるようにする */
   bottomInset: number;
 };
@@ -46,6 +48,7 @@ export const CalendarPane = memo(function CalendarPane({
   onChangeDraft,
   hourHeight,
   onZoom,
+  fitItems,
   bottomInset,
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
@@ -75,6 +78,7 @@ export const CalendarPane = memo(function CalendarPane({
       height="100%"
       hourHeight={hourHeight}
       onZoom={onZoom}
+      fitItems={fitItems}
       bottomInset={bottomInset}
     />
   );

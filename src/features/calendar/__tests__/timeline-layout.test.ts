@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { layoutTimed, partitionTimeline } from '../components/timeline-layout.ts';
+import { layoutTimed, partitionTimeline, timedSpan } from '../components/timeline-layout.ts';
 
 const block = (key: string, startMin: number, endMin: number) => ({
   key,
@@ -105,5 +105,20 @@ describe('partitionTimeline', () => {
       ['due', 15 * 60, 15 * 60 + 30],
       ['late', 23 * 60, 24 * 60],
     ]);
+  });
+});
+
+describe('timedSpan', () => {
+  it('どの日の項目も含めて、一番早い開始から一番遅い終了まで', () => {
+    const timedByDate = new Map([
+      ['2026-09-21' as DateString, layoutTimed([block('a', 600, 660)])],
+      ['2026-09-22' as DateString, layoutTimed([block('b', 540, 570), block('c', 1200, 1260)])],
+      ['2026-09-23' as DateString, []],
+    ]);
+    expect(timedSpan(timedByDate)).toEqual({ startMin: 540, endMin: 1260 });
+  });
+
+  it('時間軸に項目が無ければ null', () => {
+    expect(timedSpan(new Map([['2026-09-21' as DateString, []]]))).toBeNull();
   });
 });
