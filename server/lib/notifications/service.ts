@@ -1,5 +1,4 @@
 import { addDays } from 'date-fns';
-import { eq, lt } from 'drizzle-orm';
 import { startOfDay } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import {
@@ -8,9 +7,8 @@ import {
   resolveNotification,
 } from '../../features/events/notifications.ts';
 import { sendToUsers } from '../../features/push/service.ts';
-import { db } from '../db.ts';
 import { createPublisher, type Publisher } from '../qstash.ts';
-import { sentNotifications } from './schema.ts';
+import * as repository from './repository.ts';
 
 const SENT_RETENTION_DAYS = 30;
 
@@ -39,9 +37,7 @@ export async function enqueueTomorrow(
 ): Promise<{ planned: number; published: number }> {
   const from = addDays(startOfDay(now), 1);
   const to = addDays(from, 1);
-  await db
-    .delete(sentNotifications)
-    .where(lt(sentNotifications.sentAt, addDays(now, -SENT_RETENTION_DAYS)));
+  await repository.purgeSentBefore(addDays(now, -SENT_RETENTION_DAYS));
   return enqueueRange({ from, to });
 }
 
@@ -63,12 +59,7 @@ export async function deliver(
   ref: NotificationRef,
   send: (userIds: string[], message: PushMessage) => Promise<unknown> = sendToUsers,
 ): Promise<'sent' | 'duplicate' | 'stale'> {
-  const inserted = await db
-    .insert(sentNotifications)
-    .values({ key })
-    .onConflictDoNothing()
-    .returning({ key: sentNotifications.key });
-  if (inserted.length === 0) return 'duplicate';
+  if (!(await repository.claim(key))) return 'duplicate';
   const payload = await resolveNotification(ref);
   if (!payload) return 'stale';
   try {
@@ -80,7 +71,7 @@ export async function deliver(
     });
   } catch (error) {
     // QStash が再試行できるよう、送信に失敗した試行を「送信済み」にしない。
-    await db.delete(sentNotifications).where(eq(sentNotifications.key, key));
+    await repository.release(key);
     throw error;
   }
   return 'sent';
