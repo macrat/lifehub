@@ -13,10 +13,8 @@ import { QuickEventForm } from '../../features/calendar/components/QuickEventFor
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
 import { draftDays } from '../../features/calendar/draft.ts';
 import type { CalendarItem } from '../../features/calendar/queries.ts';
-import {
-  calendarSearchSchema,
-  useCalendarPage,
-} from '../../features/calendar/use-calendar-page.ts';
+import { calendarSearchSchema } from '../../features/calendar/search.ts';
+import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { useEventComposer } from '../../features/calendar/use-event-composer.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
