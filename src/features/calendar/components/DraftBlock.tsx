@@ -25,8 +25,8 @@ const outline = (colors: ItemColors) =>
     boxSizing: 'border-box',
     borderRadius: '4px',
     border: 2,
-    borderColor: colors.fill,
-    bgcolor: alpha(colors.fill, 0.3),
+    borderColor: colors.check,
+    bgcolor: alpha(colors.fill, 0.5),
   }) as const;
 
 /**
@@ -81,13 +81,13 @@ export function DraftBlock({
           <Handle
             end="start"
             position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-            color={colors.fill}
+            color={colors.check}
             handlers={grab.start}
           />
           <Handle
             end="end"
             position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-            color={colors.fill}
+            color={colors.check}
             handlers={grab.end}
           />
         </>

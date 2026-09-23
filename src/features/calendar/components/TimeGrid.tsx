@@ -259,7 +259,7 @@ function TimedBlock({
         py: '2px',
         bgcolor: isTask ? colors.tint : colors.fill,
         color: isTask ? 'text.primary' : colors.text,
-        borderLeft: isTask ? `3px solid ${colors.fill}` : 'none',
+        borderLeft: isTask ? `3px solid ${colors.check}` : 'none',
         ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので

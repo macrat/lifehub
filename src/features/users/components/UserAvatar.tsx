@@ -14,5 +14,9 @@ type Props = {
  */
 export function UserAvatar({ name, hue }: Props) {
   const mode = useColorMode();
-  return <Avatar sx={{ bgcolor: hueColor(hue, 'fill', mode) }}>{name.slice(0, 1)}</Avatar>;
+  return (
+    <Avatar sx={{ bgcolor: hueColor(hue, 'fill', mode), color: hueColor(hue, 'onFill', mode) }}>
+      {name.slice(0, 1)}
+    </Avatar>
+  );
 }

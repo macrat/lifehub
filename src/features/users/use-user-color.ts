@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { type ColorMode, fillContrastText, hueColor } from '../../../shared/color.ts';
+import { type ColorMode, hueColor } from '../../../shared/color.ts';
 import { useColorMode } from '../../lib/theme.ts';
 import { usersQueryOptions } from './queries.ts';
 
 export type ItemColors = {
   /** 帯の色 */
   fill: string;
-  /** タスクのチェックボックスの色 */
+  /** 白い面の上の線の色（タスクのチェックボックス、下書きの枠など） */
   check: string;
   /** 一覧の左の印（`VennMark`）の色 */
   mark: string;
@@ -33,7 +33,7 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
     fill: hueColor(hue, 'fill', mode),
     check: hueColor(hue, 'check', mode),
     mark: hueColor(hue, 'mark', mode),
-    text: fillContrastText(mode),
+    text: hueColor(hue, 'onFill', mode),
     tint: hueColor(hue, 'tint', mode),
   };
   cache.set(key, colors);
