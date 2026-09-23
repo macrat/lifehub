@@ -82,7 +82,11 @@ export function AppShell({ children }: Props) {
             <List component="nav">
               {primaryNavItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemLink to={item.to} search={item.search} selected={isActive(item.to)}>
+                  <ListItemLink
+                    to={item.to}
+                    search={isActive(item.to) ? item.reselectSearch : undefined}
+                    selected={isActive(item.to)}
+                  >
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -134,7 +138,7 @@ export function AppShell({ children }: Props) {
                   label={item.label}
                   icon={<item.icon />}
                   to={item.to}
-                  search={item.search}
+                  search={isActive(item.to) ? item.reselectSearch : undefined}
                 />
               ))}
             </BottomNavigation>

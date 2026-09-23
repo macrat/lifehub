@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { dateStringSchema } from '../../../shared/validation/common.ts';
 
 export const viewSchema = z.enum(['month', 'week', 'day', 'list']);
 /** 表示の種類 */
@@ -15,15 +14,9 @@ const widerView: Partial<Record<CalendarView, CalendarView>> = {
   list: 'month',
 };
 
-/**
- * 下部ナビ・サイドナビの「予定」を押したときの検索パラメータ。current は押したときに見ている画面の物。
- * カレンダーを見ているなら一段広い表示へ移り、見ていた日はその中に残す。
- * 月表示やほかの画面からは何も付けない（最後に開いた表示の今日が開く。`use-calendar-page.ts` の storedView）。
- * 表示（view）を持つ検索パラメータはカレンダーだけなので、それが読めればカレンダーを見ている。
- */
-export function calendarNavSearch(current: Partial<Record<string, unknown>>) {
+/** カレンダーを見ているときの「予定」タブの行き先。一段広い表示へ移り、見ていた日はその中に残す */
+export function widerSearch(current: { view?: unknown; date?: unknown }) {
   const view = viewSchema.safeParse(current.view).data;
   const wider = view && widerView[view];
-  if (!wider) return {};
-  return { view: wider, date: dateStringSchema.optional().catch(undefined).parse(current.date) };
+  return wider ? { view: wider, date: current.date } : {};
 }
