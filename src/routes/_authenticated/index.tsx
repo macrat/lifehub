@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import type { AddFormKind } from '../../features/add/kinds.ts';
+import { useAddEventOnCalendar } from '../../features/add/shortcut.ts';
 import { BalanceCard } from '../../features/dashboard/cards/BalanceCard.tsx';
 import { LemonCard } from '../../features/dashboard/cards/LemonCard.tsx';
 import { TodayCard } from '../../features/dashboard/cards/TodayCard.tsx';
@@ -27,6 +28,7 @@ export const Route = createFileRoute('/_authenticated/')({
 function HomePage() {
   const isDesktop = useIsDesktop();
   const [adding, setAdding] = useState<AddFormKind | null>(null);
+  const addEventOnCalendar = useAddEventOnCalendar();
   return (
     <>
       <AppBarContent>
@@ -51,7 +53,11 @@ function HomePage() {
           </List>
         )}
       </Stack>
-      <AddMenu kinds={['lemon', 'expense', 'task', 'event']} onSelect={setAdding} />
+      <AddMenu
+        kinds={['lemon', 'expense', 'task', 'event']}
+        onSelect={setAdding}
+        onAddEvent={addEventOnCalendar}
+      />
       {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
     </>
   );

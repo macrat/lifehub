@@ -18,5 +18,5 @@ export const ADD_KINDS = {
 
 export type AddKind = keyof typeof ADD_KINDS;
 
-/** その場でフォームが開く種類（`AddForm`）。予定だけはカレンダーの日表示へ送って下書きを置く */
+/** その場でフォームが開く種類（`AddForm`）。予定だけはカレンダーに下書きを置く */
 export type AddFormKind = Exclude<AddKind, 'event'>;

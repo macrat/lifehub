@@ -61,6 +61,8 @@ type UseFormSubmitOptions<S extends z.ZodType> = {
  * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 保存できたら知らせる。
  * 送信すると同時に submitted を立ててダイアログを閉じた見た目にし（入力はそのまま残す）、
  * 保存できたら onSaved、失敗したら submitted を戻して開き直し、理由をフォームの中に出す。
+ * 楽観的に保存する書き込みは送り始めた時点で保存できたことになるので（`useOptimisticMutation`）、
+ * onSaved はすぐに呼ばれ、開き直すのはサーバーの返事を待つ書き込み（ログイン、ユーザー、配信 URL）だけ。
  * フォームライブラリを入れない代わりの最小限の共通処理で、各フォームはフィールドの描画に専念する。
  */
 export function useFormSubmit<S extends z.ZodType>({
