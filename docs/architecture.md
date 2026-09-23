@@ -47,7 +47,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
                                              ▼
 [Vercel Function: Hono]           routes.ts（Zod 検証 → Service を呼ぶ薄い層）
   MCP tools (mcp.ts) ────────────────────────┤
-  Cron / QStash コールバック (通知) ───────────┤
+  Cron（/api/cron/*）/ QStash（/api/qstash/*）─┤
                                              ▼
                                       Service 層 ──→ Repository 層 (Drizzle) ──→ Neon Postgres
                                              ▲
@@ -75,7 +75,7 @@ src/                          # クライアント（Vite + React）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
-  app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
+  app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
@@ -88,8 +88,8 @@ server/                       # サーバー（Hono）
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
     middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
-    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  validator.ts（入力検証の 400 応答）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts  cron.ts（Vercel Cron の入口）
+    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -104,7 +104,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
-- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。日次の通知の予約（[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（[features/calendar.md](features/calendar.md#祝日)）の 2 つ。どちらも `CRON_SECRET` の Bearer トークンで保護する（`server/lib/middleware.ts` の `requireCronSecret`）。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/lib/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/calendar.md](features/calendar.md#祝日)）。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
@@ -118,7 +118,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・祝日の取り直し（Cron）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。

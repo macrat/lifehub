@@ -3,7 +3,7 @@ import type { PlannedNotification } from '../features/events/notifications.ts';
 import { env, isProduction, resolveBaseUrl } from './env.ts';
 
 /**
- * QStash の予約と署名検証。
+ * QStash の予約と署名検証。予約した時刻に呼ばれる入口は server/lib/qstash-routes.ts。
  * 予約は本番（VERCEL_ENV=production）かつトークンがあるときだけ行う（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。
  * 署名検証は Preview でも行う。
  */
@@ -24,7 +24,7 @@ const QSTASH_US_URL = 'https://qstash-us-east-1.upstash.io';
 export function createPublisher(): Publisher | null {
   if (!isProduction || !env.QSTASH_TOKEN) return null;
   const client = new Client({ baseUrl: QSTASH_US_URL, token: env.QSTASH_TOKEN });
-  const url = `${resolveBaseUrl()}/api/notifications/deliver`;
+  const url = `${resolveBaseUrl()}/api/qstash/notifications`;
   return {
     publish: async ({ key, at, ref }) => {
       await client.publishJSON({

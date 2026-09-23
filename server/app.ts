@@ -5,18 +5,19 @@ import { HTTPException } from 'hono/http-exception';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
-import { holidaysCronRoutes, holidaysRoutes } from './features/holidays/routes.ts';
+import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toPublicUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
+import { cronRoutes } from './lib/cron.ts';
 import { db } from './lib/db.ts';
 import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { mcpRoutes } from './lib/mcp/routes.ts';
 import { requireSession } from './lib/middleware.ts';
-import { notificationsRoutes } from './lib/notifications/routes.ts';
 import { pushRoutes } from './lib/push/routes.ts';
+import { qstashRoutes } from './lib/qstash-routes.ts';
 
 /**
  * `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。
@@ -36,10 +37,10 @@ api.route('/mcp', mcpRoutes);
 // この下の /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
 // 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
-// Cron secret と QStash の署名で保護する（セッションではない）
-api.route('/notifications', notificationsRoutes);
-// 祝日の取り直し（月次 Cron）は Cron secret で保護する。一覧の GET /holidays は下でログイン必須
-api.route('/holidays', holidaysCronRoutes);
+// Vercel Cron の入口。Cron secret で保護する（セッションではない）
+api.route('/cron', cronRoutes);
+// QStash の配信コールバック。QStash の署名で保護する（セッションではない）
+api.route('/qstash', qstashRoutes);
 
 // これ以降はすべてログイン必須
 api.use('*', requireSession);
