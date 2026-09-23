@@ -140,8 +140,8 @@ function FeedSkeleton() {
 async function copy(url: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(url);
-    notify('配信 URL をコピーしました');
+    notify('info', '配信 URL をコピーしました');
   } catch {
-    notify('コピーできませんでした');
+    notify('error', 'コピーできませんでした');
   }
 }

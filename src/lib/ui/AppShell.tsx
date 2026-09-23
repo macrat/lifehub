@@ -18,7 +18,7 @@ import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
-import { notify, useNotice } from './notice.ts';
+import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
@@ -163,14 +163,20 @@ function TopProgress() {
   );
 }
 
-/** 保存の失敗などの知らせ。フォームは送信と同時に閉じるので、伝える場所は画面の下部に 1 つだけ置く */
+/**
+ * 保存の失敗などの知らせ。フォームは送信と同時に閉じるので、伝える場所は画面の下部に 1 つだけ置く。
+ * ただの知らせはアクセントカラー（primary）、失敗は赤で出す。
+ * WHY NOT: Alert の color="primary" は、CSS 変数テーマでは塗り（filled）の色の変数が
+ * info / success / warning / error の分しか作られないので使えない。info の色を primary に
+ * 塗り替えるのは sx で済ませる（テーマの info を変えると、土曜の青など info を使う他の場所も変わる）。
+ */
 function NoticeSnackbar() {
   const notice = useNotice();
   return (
     <Snackbar
-      open={notice !== null}
+      open={notice.open}
       autoHideDuration={8000}
-      onClose={() => notify(null)}
+      onClose={closeNotice}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       // スマホでは下部ナビの上に出す
       sx={{
@@ -180,8 +186,17 @@ function NoticeSnackbar() {
         },
       }}
     >
-      <Alert severity="error" variant="filled" onClose={() => notify(null)}>
-        {notice}
+      <Alert
+        severity={notice.severity}
+        variant="filled"
+        onClose={closeNotice}
+        sx={
+          notice.severity === 'info'
+            ? { bgcolor: 'primary.main', color: 'primary.contrastText' }
+            : undefined
+        }
+      >
+        {notice.message}
       </Alert>
     </Snackbar>
   );

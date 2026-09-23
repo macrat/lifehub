@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import type { z } from 'zod';
-import { notify } from './ui/notice.ts';
+import { closeNotice } from './ui/notice.ts';
 
 export type FormErrors = Record<string, string>;
 
@@ -90,7 +90,7 @@ export function useFormSubmit<S extends z.ZodType>({
       onSaved?.();
     } catch (error) {
       // 開き直してこの中に理由を出すので、共通の通知は消す（失敗を伝える場所は 1 つにする）
-      notify(null);
+      closeNotice();
       setSubmitted(false);
       setSubmitError(error instanceof Error ? error.message : '保存に失敗しました');
     }

@@ -10,7 +10,7 @@ import { useSyncExternalStore } from 'react';
  * WHY NOT: React の context は Provider を木の上に足す必要があり、状態を持つ階層と使う階層が
  * 離れているほど受け渡しが増える。状態管理のライブラリは、この規模（数行の値を 2 つ）には大きい。
  *
- * 使う側は名前を付けて公開する: `export const [useNotice, notify] = createStore<string | null>(null)`
+ * 使う側は名前を付けて公開する: `export const [usePreviewHue, previewHue] = createStore<number | null>(null)`
  */
 export function createStore<T>(initial: T) {
   let current = initial;
