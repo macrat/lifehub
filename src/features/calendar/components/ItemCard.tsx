@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime } from '../../../lib/date.ts';
-import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import {
   COMPLETED_ROW_SX,
   COMPLETED_TITLE_SX,
@@ -52,14 +52,15 @@ export function ItemCard({ item, onSelect }: Props) {
         viewTransitionName: itemTransitionName(item),
       }}
       mark={
-        item.kind === 'task' ? (
+        isTask ? (
           <TaskCheckbox item={item} color={colors.fill} />
         ) : (
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.fill }} />
+          <Box sx={MARK_DOT_SX} style={{ background: colors.fill }} />
         )
       }
+      leadWidth={64}
       lead={
-        <Box sx={{ width: 64, flexShrink: 0 }}>
+        <>
           {time.caption && (
             <Typography
               variant="caption"
@@ -74,7 +75,7 @@ export function ItemCard({ item, onSelect }: Props) {
             variant="body2"
             component="div"
             color={overdue ? 'error' : 'text.primary'}
-            sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 }}
+            sx={{ lineHeight: 1.3 }}
           >
             {time.main}
           </Typography>
@@ -88,7 +89,7 @@ export function ItemCard({ item, onSelect }: Props) {
               {time.sub}
             </Typography>
           )}
-        </Box>
+        </>
       }
     >
       <Typography sx={{ overflowWrap: 'anywhere', ...(completed && COMPLETED_TITLE_SX) }}>

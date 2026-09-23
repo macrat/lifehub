@@ -1,12 +1,10 @@
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
+import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { itemTransitionName } from '../../calendar/components/item-transition.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
 import {
@@ -81,53 +79,39 @@ function TodayRow({
   onSelect: (item: CalendarItem, editing: boolean) => void;
 }) {
   const colorFor = useUserColor();
-  const press = useRecordPress((editing) => onSelect(item, editing));
   const completed = item.kind === 'task' && item.completedAt !== null;
   const colors = colorFor(colorUserOf(item.participantIds));
   return (
-    <Stack
-      direction="row"
+    <MarkedRow
+      dense
+      onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        alignItems: 'center',
-        minHeight: 36,
         ...(completed && COMPLETED_ROW_SX),
         // 予定画面へ移ったとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
-    >
-      <Box sx={{ width: 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-        {item.kind === 'task' ? (
+      mark={
+        item.kind === 'task' ? (
           <TaskCheckbox item={item} color={colors.fill} />
         ) : (
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.fill }} />
-        )}
-      </Box>
-      <ButtonBase
-        {...press}
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          justifyContent: 'flex-start',
-          textAlign: 'left',
-          py: 0.5,
-          pr: 2,
-          gap: 1.5,
-          borderRadius: 1,
-        }}
-      >
+          <Box sx={MARK_DOT_SX} style={{ background: colors.fill }} />
+        )
+      }
+      leadWidth={44}
+      lead={
         <Typography
           variant="body2"
           component="span"
           color={item.kind === 'task' && item.isOverdue ? 'error' : 'text.secondary'}
-          sx={{ width: 44, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
         >
           {timeLabel(item)}
         </Typography>
-        <Typography noWrap sx={{ minWidth: 0, ...(completed && COMPLETED_TITLE_SX) }}>
-          {item.title}
-        </Typography>
-      </ButtonBase>
-    </Stack>
+      }
+    >
+      <Typography noWrap sx={completed ? COMPLETED_TITLE_SX : undefined}>
+        {item.title}
+      </Typography>
+    </MarkedRow>
   );
 }
 

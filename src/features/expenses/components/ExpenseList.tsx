@@ -2,26 +2,17 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense } from '../queries.ts';
 import { formatYen } from './BalanceSummary.tsx';
 
-/** 印の点。カレンダーの予定の点と同じ大きさにして、一覧どうしが同じ見た目で並ぶようにする */
-const DOT_SX = { width: 10, height: 10, borderRadius: '50%' } as const;
-
 /**
- * 金額の列。桁を揃えて右寄せにし（帳簿と同じ）、行をまたいで金額の大きさを見比べられるようにする。
- * 幅はカレンダーの時刻の列より少し広く、6 桁の金額（¥100,000）まで折り返さない。
+ * 金額の列の幅。カレンダーの時刻の列より少し広く、6 桁の金額（¥100,000）まで折り返さない。
+ * 桁は `MarkedRow` が揃えるので、ここは帳簿と同じ右寄せだけを足す。
  */
-const AMOUNT_SX = {
-  width: 80,
-  flexShrink: 0,
-  textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
-  whiteSpace: 'nowrap',
-} as const;
+const AMOUNT_WIDTH = 80;
 
 type Props = {
   expenses: Expense[];
@@ -35,8 +26,11 @@ type Props = {
  * 立替の履歴（新しい順）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、中身だけが違う:
  * 印は誰から誰へ渡ったかの色の点（`expenseMarkBackground`）、主列は金額、本文は内容と名前。
+ * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
  */
 export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
+  const { label } = useUserLabels();
+  const colorFor = useUserColor();
   if (expenses.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
@@ -50,35 +44,33 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
         <Box key={date}>
           <DateHeading date={date} />
           {sameDay.map((expense) => (
-            <ExpenseRow key={expense.id} expense={expense} onSelect={onSelect} />
+            <MarkedRow
+              key={expense.id}
+              onSelect={(editing) => onSelect(expense, editing)}
+              mark={
+                <Box
+                  sx={MARK_DOT_SX}
+                  style={{ background: expenseMarkBackground(expense, colorFor) }}
+                />
+              }
+              leadWidth={AMOUNT_WIDTH}
+              lead={
+                <Typography variant="body2" component="div" sx={{ textAlign: 'right' }}>
+                  {formatYen(expense.amount)}
+                </Typography>
+              }
+            >
+              <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
+              <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                {expense.toUserId === null
+                  ? label(expense.fromUserId)
+                  : `${label(expense.toUserId)} ← ${label(expense.fromUserId)}`}
+              </Typography>
+            </MarkedRow>
           ))}
         </Box>
       ))}
     </Stack>
-  );
-}
-
-/** 履歴の 1 行。共有なら名前は払った人だけ、相手が決まっていれば簿記の並びで「To ← From」 */
-function ExpenseRow({ expense, onSelect }: { expense: Expense; onSelect: Props['onSelect'] }) {
-  const { label } = useUserLabels();
-  const colorFor = useUserColor();
-  return (
-    <MarkedRow
-      onSelect={(editing) => onSelect(expense, editing)}
-      mark={<Box sx={DOT_SX} style={{ background: expenseMarkBackground(expense, colorFor) }} />}
-      lead={
-        <Typography variant="body2" component="div" sx={AMOUNT_SX}>
-          {formatYen(expense.amount)}
-        </Typography>
-      }
-    >
-      <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
-      <Typography variant="caption" color="text.secondary" component="div" noWrap>
-        {expense.toUserId === null
-          ? label(expense.fromUserId)
-          : `${label(expense.toUserId)} ← ${label(expense.fromUserId)}`}
-      </Typography>
-    </MarkedRow>
   );
 }
 
