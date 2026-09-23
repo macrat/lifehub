@@ -8,6 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
   addMonths,
@@ -16,7 +17,6 @@ import {
   formatMonth,
   formatWeekRange,
   monthGridWeeks,
-  today,
   toMonthString,
   WEEKDAY_LABELS,
   weekDays,

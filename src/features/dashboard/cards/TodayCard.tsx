@@ -1,7 +1,8 @@
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
-import { formatTime, today } from '../../../lib/date.ts';
+import { today } from '../../../../shared/date.ts';
+import { formatTime } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemTransitionName } from '../../calendar/components/item-transition.ts';

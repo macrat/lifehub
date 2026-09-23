@@ -1,15 +1,14 @@
 import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
 import {
-  formatDate,
-  formatMinutesOfDay,
-  fromDateValue,
+  addDays,
+  allDayDate,
+  diffDays,
   fromMinutesOfDay,
-  inclusiveEndDate,
-  minutesOfDay,
-} from '../../lib/date.ts';
+  toDateString,
+} from '../../../shared/date.ts';
+import type { DateString } from '../../../shared/types.ts';
+import { formatDate, formatMinutesOfDay, fromDateValue, minutesOfDay } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
@@ -68,8 +67,8 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
   if (item.allDay)
     return {
       allDay: true,
-      from: toDateString(new Date(item.startsAt)),
-      to: inclusiveEndDate(item.endsAt),
+      from: allDayDate(item.startsAt, 'start'),
+      to: allDayDate(item.endsAt, 'end'),
     };
   const slot = timedSlot(item);
   return slot && { allDay: false, date: item.placementDate, ...slot };

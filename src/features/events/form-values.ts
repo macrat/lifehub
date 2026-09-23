@@ -1,24 +1,28 @@
-import { addDays, isDateString } from '../../../shared/date.ts';
+import type { EventMaster } from '../../../shared/calendar.ts';
+import { addDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
-import { fromDateTimeLocalValue, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
+import { fromDateTimeLocalValue, fromDateValue } from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
-/** 予定・タスクのフォームが扱う値（日時は ISO 文字列）。カレンダーの項目や保存されている行をそのまま渡せる */
-export type ItemFormValues = {
-  title: string;
-  allDay: boolean;
-  startsAt: string | null;
-  /** 予定では終了（排他的）、タスクでは期限 */
-  endsAt: string | null;
-  /** 1 人以上（空は検証で弾かれる）。新規作成の既定は `defaultParticipants` */
-  participantIds: string[];
-  location: string | null;
-  note: string | null;
-  rrule: string | null;
-  remindStartMinutes: number | null;
-  remindEndMinutes: number | null;
-};
+/**
+ * 予定・タスクのフォームが扱う値（日時は ISO 文字列）。保存されている行（`EventMaster`）の入力できる項目なので、
+ * カレンダーの項目や保存されている行をそのまま渡せる。endsAt は予定では終了（排他的）、タスクでは期限。
+ * participantIds は 1 人以上（空は検証で弾かれる。新規作成の既定は `defaultParticipants`）。
+ */
+export type ItemFormValues = Pick<
+  EventMaster,
+  | 'title'
+  | 'allDay'
+  | 'startsAt'
+  | 'endsAt'
+  | 'participantIds'
+  | 'location'
+  | 'note'
+  | 'rrule'
+  | 'remindStartMinutes'
+  | 'remindEndMinutes'
+>;
 
 const EMPTY: ItemFormValues = {
   title: '',
