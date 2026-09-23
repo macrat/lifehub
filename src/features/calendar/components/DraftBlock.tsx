@@ -8,6 +8,7 @@ import type { draftColumns, TimedDraft } from '../draft.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
+import { LANE_INSET } from './lane-layout.ts';
 import { draftProps } from './markers.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
@@ -155,7 +156,8 @@ export function DraftBar({
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
-        height: '100%',
+        // 保存した予定の帯（`GridChip`）と同じだけ上下を空け、隣のレーンの帯と繋げない
+        height: `calc(100% - ${LANE_INSET * 2}px)`,
         // 続きの端は角を丸めず、帯の外にも出さない（前後の週とつながって見えるように）
         borderRadius: `${roundStart ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundStart ? 4 : 0}px`,
         ml: roundStart ? '2px' : 0,
