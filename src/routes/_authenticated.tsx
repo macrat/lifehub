@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { requireSignedIn } from '../lib/auth.ts';
 import { AppShell } from '../lib/ui/AppShell.tsx';
+import { primaryNavItems } from '../navigation.ts';
 
 /**
  * ログイン必須のページをまとめるパスなしレイアウト。
@@ -13,7 +14,7 @@ export const Route = createFileRoute('/_authenticated')({
 
 function AuthenticatedLayout() {
   return (
-    <AppShell>
+    <AppShell navItems={primaryNavItems}>
       <Outlet />
     </AppShell>
   );

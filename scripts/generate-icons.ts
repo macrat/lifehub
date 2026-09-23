@@ -4,7 +4,7 @@ import { type ComponentType, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ADD_KINDS } from '../src/features/add/kinds.ts';
 import { SHORTCUTS, shortcutIconSrc } from '../src/lib/shortcuts.ts';
-import { calendarNavItem } from '../src/lib/ui/navigation.ts';
+import { calendarNavItem } from '../src/navigation.ts';
 
 /**
  * PWA 用の PNG を生成する。元は `public/icons/` の SVG（アプリのアイコンと通知の印）と、

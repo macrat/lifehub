@@ -15,13 +15,13 @@ import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
 import { useRefreshCalendarItems } from './queries.ts';
 import {
   type CalendarSearch,
-  type CalendarView,
   countActiveFilters,
   type ListFilters,
   type SearchPatch,
   storeView,
 } from './search.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
+import type { CalendarView } from './view.ts';
 
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;

@@ -4,15 +4,12 @@ import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
 import { type Filters, type FiltersPatch, matchesKeyword } from '../../lib/search.ts';
 import type { CalendarItem } from './queries.ts';
+import { type CalendarView, viewSchema } from './view.ts';
 
 /**
  * カレンダー画面の検索パラメータ（表示・日付・リスト表示の絞り込み）と、そこから導く絞り込みの規則。
  * 選択欄の値の型は、ここのスキーマから導く（書き写すと、選択肢を足したときにずれる）。
  */
-
-const viewSchema = z.enum(['month', 'week', 'day', 'list']);
-/** 表示の種類 */
-export type CalendarView = z.infer<typeof viewSchema>;
 
 /** リスト表示の種別の絞り込み */
 const kindFilterSchema = z.enum(['event', 'task']);

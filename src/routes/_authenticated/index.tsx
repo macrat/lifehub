@@ -18,8 +18,8 @@ import { TodayCard } from '../../features/dashboard/cards/TodayCard.tsx';
 import { useAddEventOnCalendar } from '../../lib/add-search.ts';
 import { formatDateWithYear } from '../../lib/date.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { settingsNavItem } from '../../lib/ui/navigation.ts';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
+import { settingsNavItem } from '../../navigation.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
   component: HomePage,
