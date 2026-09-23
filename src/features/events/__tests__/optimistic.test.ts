@@ -4,7 +4,7 @@ import type { CalendarItem } from '../../../../shared/calendar.ts';
 import { today } from '../../../../shared/date.ts';
 import { toMonthString } from '../../../lib/date.ts';
 import { CALENDAR_QUERY_KEY } from '../../calendar/queries.ts';
-import { insertItem, removeItem, setCompleted } from '../optimistic.ts';
+import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
 
 /** その暦月のクエリを 1 つだけ持つキャッシュ */
@@ -63,4 +63,63 @@ test('日時の無いタスクは今日に置かれ、完了にすると完了�
 
   removeItem(client, { id: 'tmp' });
   expect(itemsOf(client)).toEqual([]);
+});
+
+/** 毎日 10:00〜11:00 の繰り返し予定の 1 回（サーバーが展開して返した形） */
+function dailyOccurrence(date: string): CalendarItem {
+  const startsAt = new Date(`${date}T10:00:00+09:00`).toISOString();
+  return {
+    id: 'daily',
+    kind: 'event',
+    title: '朝会',
+    allDay: false,
+    startsAt,
+    endsAt: new Date(`${date}T11:00:00+09:00`).toISOString(),
+    completedAt: null,
+    location: null,
+    note: null,
+    participantIds: EVENT.participantIds,
+    rrule: 'FREQ=DAILY',
+    remindStartMinutes: null,
+    remindEndMinutes: null,
+    occurrenceStart: startsAt,
+    isRecurring: true,
+    isModified: false,
+    placementDate: date as CalendarItem['placementDate'],
+    dayIndex: 1,
+    dayCount: 1,
+  };
+}
+
+test('繰り返しの「この回だけ」の日時の変更は、その回だけをその場で動かす', () => {
+  const first = dailyOccurrence('2030-05-02');
+  const second = dailyOccurrence('2030-05-03');
+  const client = clientWith('2030-05', [first, second]);
+  updateItem(client, {
+    ...EVENT,
+    id: 'daily',
+    title: '朝会（延長）',
+    allDay: false,
+    // 2 日目の回を翌日の 13:00〜14:00 へ
+    startsAt: '2030-05-04T13:00:00+09:00',
+    endsAt: '2030-05-04T14:00:00+09:00',
+    rrule: 'FREQ=DAILY',
+    scope: 'this',
+    occurrenceStart: second.occurrenceStart ?? undefined,
+  });
+  const items = itemsOf(client);
+  // 1 日目の回はそのまま
+  expect(items[0]).toEqual(first);
+  expect(items).toHaveLength(2);
+  expect(items[1]).toMatchObject({
+    id: 'daily',
+    title: '朝会（延長）',
+    placementDate: '2030-05-04',
+    startsAt: new Date('2030-05-04T13:00:00+09:00').toISOString(),
+    // どの回かは元の基準日時のまま（再取得で同じ回として届く）
+    occurrenceStart: second.occurrenceStart,
+    rrule: 'FREQ=DAILY',
+    isRecurring: true,
+    isModified: true,
+  });
 });

@@ -33,19 +33,19 @@ export function insertItem(client: QueryClient, input: NewEvent): void {
 }
 
 /**
- * 編集した内容を反映する。単発（繰り返しでなくなる場合を含む）は項目を作り直し、
- * 繰り返しは日時の変化がほかの回に及ぶため、日時を伴わない項目だけを当てる。
+ * 編集した内容を反映する。操作した回を作り直せるときは、元の項目を消して作り直した発生を置く:
+ * - 単発（繰り返しでなくなる場合を含む）: 行そのもの
+ * - 繰り返しの「この回だけ」: その回だけ。基準日時・繰り返しの設定は元の回のまま（回の行は繰り返さない）
+ * 「これ以降」「すべて」は日時の変化がほかの回に及び、その展開はサーバーにしか無いので、
+ * 日時を伴わない項目だけを当てる（残りは再取得で揃う）。
  */
 export function updateItem(client: QueryClient, input: UpdateEventBody & Target): void {
-  const single = input.rrule == null && input.scope !== 'this' && input.scope !== 'following';
-  // 完了はこの更新で変わらない（サーバーも completed_at を触らない）ので、今の値を引き継ぐ。
-  // 取得済みのカレンダー全体から先に探す（完了したタスクは完了日の月にしか無い）
-  const completedAt = single ? completedAtOf(client, input) : null;
+  const replacement = replacementOf(client, input);
   updateCalendars(client, (items, range, now) => {
-    if (single) {
+    if (replacement) {
       return [
-        ...items.filter((item) => item.id !== input.id),
-        ...placeOccurrence({ ...toOccurrence(input), completedAt }, range, now),
+        ...items.filter((item) => !matches(item, input)),
+        ...placeOccurrence(replacement, range, now),
       ];
     }
     return items.map((item) =>
@@ -60,6 +60,26 @@ export function updateItem(client: QueryClient, input: UpdateEventBody & Target)
         : item,
     );
   });
+}
+
+/**
+ * 編集した回を作り直した発生。作り直せない（ほかの回に及ぶ）ときは null。
+ * 完了はこの更新で変わらない（サーバーも completed_at を触らない）ので、今の値を引き継ぐ。
+ * 取得済みのカレンダー全体から先に探す（完了したタスクは完了日の月にしか無く、動かした先の月には居ない）。
+ */
+function replacementOf(client: QueryClient, input: UpdateEventBody & Target): Occurrence | null {
+  const single = input.rrule == null && input.scope !== 'this' && input.scope !== 'following';
+  if (!single && input.scope !== 'this') return null;
+  const current = findItem(client, input);
+  const occurrence = { ...toOccurrence(input), completedAt: current?.completedAt ?? null };
+  if (single) return occurrence;
+  return {
+    ...occurrence,
+    occurrenceStart: input.occurrenceStart ?? null,
+    rrule: current?.rrule ?? occurrence.rrule,
+    isRecurring: true,
+    isModified: true,
+  };
 }
 
 /** 削除した回を消す */
@@ -77,13 +97,13 @@ export function setCompleted(client: QueryClient, target: Target, completed: boo
   );
 }
 
-/** 取得済みのカレンダーから対象の今の完了日時を探す（どの月のキャッシュに居るかは完了日で決まる） */
-function completedAtOf(client: QueryClient, target: Target): string | null {
+/** 取得済みのカレンダーから対象の今の項目を探す（どの月のキャッシュに居るかは完了日や日時で決まる） */
+function findItem(client: QueryClient, target: Target): CalendarItem | undefined {
   for (const [, items] of client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })) {
     const found = items?.find((item) => matches(item, target));
-    if (found) return found.completedAt;
+    if (found) return found;
   }
-  return null;
+  return undefined;
 }
 
 /** 取得済みのカレンダー（暦月ごとのクエリ）をまとめて書き換える。未取得のクエリには触らない */
