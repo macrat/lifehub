@@ -1,3 +1,4 @@
+ALTER TABLE "users" ADD COLUMN "all_day_notify_minutes" integer DEFAULT 420 NOT NULL;--> statement-breakpoint
 -- 既存の終日の項目の通知を日単位に寄せる（0 分前は当日、それ以外は前日）。制約を足す前に行う
 UPDATE "events" SET
 	"remind_start_minutes" = CASE WHEN "remind_start_minutes" IS NULL OR "remind_start_minutes" = 0 THEN "remind_start_minutes" ELSE 1440 END,

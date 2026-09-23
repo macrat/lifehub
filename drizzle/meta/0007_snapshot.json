@@ -1,5 +1,5 @@
 {
-  "id": "03c85a70-5e2f-40ec-a3e1-7b0f42359db6",
+  "id": "e772ee7c-2607-483f-92d4-dd7f9cf145ea",
   "prevId": "1507f55e-27e1-4c35-9190-b229da8dffc7",
   "version": "7",
   "dialect": "postgresql",
@@ -398,6 +398,10 @@
         "events_series_not_recurring_check": {
           "name": "events_series_not_recurring_check",
           "value": "\"events\".\"series_id\" is null or \"events\".\"rrule\" is null"
+        },
+        "events_all_day_remind_check": {
+          "name": "events_all_day_remind_check",
+          "value": "not \"events\".\"all_day\" or (coalesce(\"events\".\"remind_start_minutes\", 0) in (0, 1440) and coalesce(\"events\".\"remind_end_minutes\", 0) in (0, 1440))"
         },
         "events_cancelled_only_series_check": {
           "name": "events_cancelled_only_series_check",
