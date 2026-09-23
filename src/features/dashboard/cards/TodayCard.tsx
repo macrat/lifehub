@@ -1,6 +1,6 @@
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { isCompletedTask, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { today } from '../../../../shared/date.ts';
 import { formatTime } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
@@ -10,14 +10,12 @@ import { itemKey } from '../../calendar/components/lane-layout.ts';
 import { ParticipantsMark } from '../../calendar/components/ParticipantsMark.tsx';
 import {
   type CalendarItem,
-  colorUsersOf,
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
-import { COMPLETED_ROW_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
-import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
@@ -76,23 +74,19 @@ function TodayRow({
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (item: CalendarItem, editing: boolean) => void;
 }) {
-  const colorFor = useUserColor();
-  const completed = item.kind === 'task' && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   return (
     <MarkedRow
       dense
       onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        ...(completed && COMPLETED_ROW_SX),
+        ...(completed && COMPLETED_SX),
         // 予定画面へ移ったとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
       mark={
         item.kind === 'task' ? (
-          <TaskCheckbox
-            item={item}
-            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
-          />
+          <TaskCheckbox item={item} />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />
         )

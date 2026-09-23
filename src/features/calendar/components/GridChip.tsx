@@ -1,18 +1,18 @@
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
-import type { ItemColors } from '../../users/use-user-color.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
+import { colorUserOf } from '../queries.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
 import type { Placed } from './lane-layout.ts';
+import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
   placed: Placed;
   compact: boolean;
-  colors: ItemColors;
   /** タップ・クリックしたとき（詳細を開く） */
   onClick: () => void;
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
@@ -26,27 +26,25 @@ type Props = {
 /**
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
- * 色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。タイトルを優先し、時刻は広い画面でだけ添える。
+ * 帯の色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。
+ * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`ParticipantsMark`・`ParticipantsCheckIcon`）。
+ * 完了したタスクはリスト表示と同じく、印を薄く・タイトルに取り消し線を引く。
+ * WHY 帯だけ 1 色: 帯は面が広く文字が載るので、塗り分けると文字が読みにくくなる。
+ * タイトルを優先し、時刻は広い画面でだけ添える。
  * 単押しは閲覧（詳細を開く）、長押しは編集（`grab`。つまんでそのまま日時を直す）で、アプリ全体の約束と同じ。
  * 編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
  * つまんだ要素が消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
-export function GridChip({
-  placed,
-  compact,
-  colors,
-  onClick,
-  grab,
-  hidden,
-  showTime = !compact,
-}: Props) {
+export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !compact }: Props) {
   const { item, col, span, lane, roundStart, roundEnd } = placed;
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
+  const colors = useUserColor()(colorUserOf(item.participantIds));
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
+  const markSize = compact ? 10 : 12;
   return (
     <Box
       component="button"
@@ -91,7 +89,7 @@ export function GridChip({
             : completed
               ? 'text.disabled'
               : 'text.primary',
-        textDecoration: completed ? 'line-through' : 'none',
+        ...(completed && COMPLETED_TITLE_SX),
         '&:hover': {
           filter: isBar ? 'brightness(0.92)' : undefined,
           bgcolor: isBar ? colors.fill : 'action.hover',
@@ -105,19 +103,14 @@ export function GridChip({
       }}
     >
       {isTask ? (
-        completed ? (
-          <CheckBoxIcon sx={{ fontSize: compact ? 10 : 12, flexShrink: 0, color: colors.fill }} />
-        ) : (
-          <CheckBoxOutlineBlankIcon
-            sx={{ fontSize: compact ? 10 : 12, flexShrink: 0, color: colors.fill }}
-          />
-        )
+        <ParticipantsCheckIcon
+          participantIds={item.participantIds}
+          checked={completed}
+          // 文字は text.disabled で既に薄いので、薄くするのは印だけ
+          sx={{ fontSize: markSize, flexShrink: 0, ...(completed && COMPLETED_SX) }}
+        />
       ) : (
-        !isBar && (
-          <Box
-            sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: colors.fill, flexShrink: 0 }}
-          />
-        )
+        !isBar && <ParticipantsMark participantIds={item.participantIds} size={markSize} />
       )}
       <Box
         component="span"

@@ -92,7 +92,7 @@ export function colorUserOf(participantIds: string[]): string | null {
 
 /**
  * 色を塗り分けるユーザー: 参加者 1 人ずつ（並びは参加者の順）、誰もいなければ共有の無彩色（null）1 つ。
- * 一覧の行の印（予定の `ParticipantsMark`、タスクの `TaskCheckbox`）が使う。
+ * 予定の印（`ParticipantsMark`）とタスクのチェックボックス（`ParticipantsCheckIcon`）が使う。
  * 同じ並びを渡すので、同じ参加者なら印とチェックボックスで同じ位置に同じ色が来る。
  */
 export function colorUsersOf(participantIds: string[]): (string | null)[] {

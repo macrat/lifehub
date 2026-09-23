@@ -3,16 +3,10 @@ import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
-import { COMPLETED_ROW_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
-import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import {
-  type CalendarEventItem,
-  type CalendarItem,
-  type CalendarTaskItem,
-  colorUsersOf,
-} from '../queries.ts';
+import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
 import { itemTransitionName } from './item-transition.ts';
 import { ParticipantsMark } from './ParticipantsMark.tsx';
 
@@ -30,7 +24,6 @@ type Props = {
  */
 export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
-  const colorFor = useUserColor();
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
@@ -43,16 +36,13 @@ export function ItemCard({ item, onSelect }: Props) {
     <MarkedRow
       onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        ...(completed && COMPLETED_ROW_SX),
+        ...(completed && COMPLETED_SX),
         // 表示を切り替えたとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
       mark={
         isTask ? (
-          <TaskCheckbox
-            item={item}
-            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
-          />
+          <TaskCheckbox item={item} />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />
         )

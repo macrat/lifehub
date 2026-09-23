@@ -8,7 +8,8 @@ import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useNow } from '../../../lib/use-now.ts';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
 import type { GridDraft } from '../use-event-composer.ts';
@@ -72,7 +73,6 @@ export function TimeGrid({
   onChangeDraft,
   bottomInset,
 }: Props) {
-  const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
   const compact = useIsMobile();
   const drag = useTimeDrag({ draft, onChange: onChangeDraft });
@@ -156,7 +156,6 @@ export function TimeGrid({
               <TimedBlock
                 key={p.key}
                 placed={p}
-                colors={colorFor(colorUserOf(p.item.participantIds))}
                 hidden={sameOccurrence(editing, p.item)}
                 onClick={() => onSelectItem(p.item)}
                 // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC は吹き出しが前に出るので詳細から直す）
@@ -175,7 +174,7 @@ export function TimeGrid({
           <DraftBlock
             draft={timedDraft}
             column={draftCol + 1}
-            colors={colorFor(colorUserOf(draft.participantIds))}
+            participantIds={draft.participantIds}
             grab={compact ? drag.frameProps(timedDraft) : null}
           />
         )}
@@ -219,13 +218,11 @@ function NowLine({ minutes }: { minutes: number }) {
  */
 function TimedBlock({
   placed,
-  colors,
   hidden,
   onClick,
   grab,
 }: {
   placed: TimedPlaced<CalendarItem>;
-  colors: ItemColors;
   /** 編集中（枠で出している）か */
   hidden: boolean;
   onClick: () => void;
@@ -235,6 +232,7 @@ function TimedBlock({
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
+  const colors = useUserColor()(colorUserOf(item.participantIds));
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -262,8 +260,7 @@ function TimedBlock({
         bgcolor: isTask ? colors.tint : colors.fill,
         color: isTask ? 'text.primary' : colors.text,
         borderLeft: isTask ? `3px solid ${colors.fill}` : 'none',
-        opacity: completed ? 0.6 : 1,
-        textDecoration: completed ? 'line-through' : 'none',
+        ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので
         // 決まるので、つまんで伸び縮みしてもブラウザが決め直す。JS に高さの数を持たせない

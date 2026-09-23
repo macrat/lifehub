@@ -5,9 +5,8 @@ import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
-import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
+import { type CalendarItem, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { useMonthGrid } from '../use-month-grid.ts';
@@ -68,7 +67,6 @@ export function MonthGrid({
   bottomInset,
 }: Props) {
   const compact = useIsMobile();
-  const colorFor = useUserColor();
   const holidays = useHolidays();
   const weather = useWeather();
   const drag = useDayDrag({
@@ -132,7 +130,6 @@ export function MonthGrid({
             onSelectItem={onSelectItem}
             draft={draft}
             drag={drag}
-            colorFor={colorFor}
             holidays={holidays}
             weather={weather}
             maxLanes={maxLanes}
@@ -156,7 +153,6 @@ type WeekRowProps = {
   onSelectItem: (item: CalendarItem) => void;
   draft: GridDraft | null;
   drag: ReturnType<typeof useDayDrag>;
-  colorFor: (userId: string | null) => ItemColors;
   holidays: ReadonlySet<DateString>;
   weather: ReadonlyMap<DateString, DailyWeather>;
   maxLanes: number;
@@ -173,7 +169,6 @@ function WeekRow({
   onSelectItem,
   draft,
   drag,
-  colorFor,
   holidays,
   weather,
   maxLanes,
@@ -236,7 +231,6 @@ function WeekRow({
           key={p.key}
           placed={p}
           compact={compact}
-          colors={colorFor(colorUserOf(p.item.participantIds))}
           onClick={() => onSelectItem(p.item)}
           grab={drag.grabItemProps(p.item)}
           hidden={sameOccurrence(draft?.item, p.item)}
@@ -246,7 +240,7 @@ function WeekRow({
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          colors={colorFor(colorUserOf(draft.participantIds))}
+          participantIds={draft.participantIds}
         />
       )}
       {foldedPerCol.map((n, col) =>

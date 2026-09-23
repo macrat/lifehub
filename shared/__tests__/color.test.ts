@@ -21,7 +21,7 @@ describe('oklchToHex', () => {
 describe('hueColor', () => {
   it('色相が null なら無彩色（R=G=B）になる', () => {
     for (const mode of ['light', 'dark'] as const) {
-      for (const tone of ['accent', 'fill', 'mark', 'tint'] as const) {
+      for (const tone of ['accent', 'fill', 'check', 'mark', 'tint'] as const) {
         const [r, g, b] = channels(hueColor(null, tone, mode));
         expect(r).toBe(g);
         expect(g).toBe(b);

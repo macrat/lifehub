@@ -2,8 +2,9 @@ import Box from '@mui/material/Box';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
-import type { ItemColors } from '../../users/use-user-color.ts';
+import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
+import { colorUserOf } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { draftProps } from './markers.ts';
@@ -38,18 +39,19 @@ const outline = (colors: ItemColors) =>
 export function DraftBlock({
   draft,
   column,
-  colors,
+  participantIds,
   grab,
 }: {
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
-  /** 選んでいる参加者の色 */
-  colors: ItemColors;
+  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  participantIds: string[];
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
 }) {
   const { startMin, endMin } = draft;
+  const colors = useUserColor()(colorUserOf(participantIds));
   return (
     <Box
       {...draftProps}
@@ -106,15 +108,16 @@ export function DraftBlock({
 export function DraftBar({
   columns,
   lane,
-  colors,
+  participantIds,
 }: {
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
-  /** 選んでいる参加者の色 */
-  colors: ItemColors;
+  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  participantIds: string[];
 }) {
   const { col, span, roundStart, roundEnd } = columns;
+  const colors = useUserColor()(colorUserOf(participantIds));
   return (
     <Box
       {...draftProps}
