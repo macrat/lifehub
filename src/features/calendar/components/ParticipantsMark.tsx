@@ -27,5 +27,5 @@ export function ParticipantsCheckIcon({
   ...props
 }: SvgIconProps & { participantIds: string[]; checked: boolean }) {
   const colors = useParticipantColors(participantIds);
-  return <SplitCheckboxIcon colors={colors.map((c) => c.check)} {...props} />;
+  return <SplitCheckboxIcon colors={colors.map((c) => c.line)} {...props} />;
 }

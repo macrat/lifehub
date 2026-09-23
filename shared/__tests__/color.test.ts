@@ -1,3 +1,4 @@
+import { getContrastRatio } from '@mui/material/styles';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_HUE, FILL_TEXT, hueColor, oklchToHex, pickDistinctHue } from '../color.ts';
 
@@ -21,7 +22,7 @@ describe('oklchToHex', () => {
 describe('hueColor', () => {
   it('色相が null なら無彩色（R=G=B）になる', () => {
     for (const mode of ['light', 'dark'] as const) {
-      for (const tone of ['accent', 'fill', 'check', 'mark', 'tint'] as const) {
+      for (const tone of ['accent', 'fill', 'line', 'mark', 'tint'] as const) {
         const [r, g, b] = channels(hueColor(null, tone, mode));
         expect(r).toBe(g);
         expect(g).toBe(b);
@@ -32,7 +33,7 @@ describe('hueColor', () => {
   it('帯と帯の文字は、どの色相でもコントラスト比 7:1（WCAG AAA）以上になる', () => {
     for (const mode of ['light', 'dark'] as const) {
       for (const hue of [null, ...Array.from({ length: 360 }, (_, i) => i)]) {
-        const ratio = contrast(hueColor(hue, 'fill', mode), FILL_TEXT);
+        const ratio = getContrastRatio(hueColor(hue, 'fill', mode), FILL_TEXT);
         expect(ratio, `${mode} ${hue}`).toBeGreaterThanOrEqual(7);
       }
     }
@@ -52,21 +53,6 @@ describe('pickDistinctHue', () => {
     expect(second).not.toBe(DEFAULT_HUE);
   });
 });
-
-/** WCAG 2 のコントラスト比 */
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-/** WCAG 2 の相対輝度 */
-function luminance(hex: string): number {
-  const [r, g, b] = channels(hex).map((v) => {
-    const s = v / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  }) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
 
 /** hex を R・G・B の 3 値に分解する */
 function channels(hex: string): [number, number, number] {

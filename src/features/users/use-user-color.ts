@@ -5,10 +5,10 @@ import { useColorMode } from '../../lib/theme.ts';
 import { usersQueryOptions } from './queries.ts';
 
 export type ItemColors = {
-  /** 帯の色 */
+  /** 帯などの面の色。上に載せる文字は `FILL_TEXT` */
   fill: string;
-  /** タスクのチェックボックスの色 */
-  check: string;
+  /** 無地の面の上の細い線・小さな印の色（チェックボックス、下書きの枠など） */
+  line: string;
   /** 一覧の左の印（`VennMark`）の色 */
   mark: string;
   /** 薄い背景（タイムラインのタスクなど） */
@@ -29,7 +29,7 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
   if (known) return known;
   const colors: ItemColors = {
     fill: hueColor(hue, 'fill', mode),
-    check: hueColor(hue, 'check', mode),
+    line: hueColor(hue, 'line', mode),
     mark: hueColor(hue, 'mark', mode),
     tint: hueColor(hue, 'tint', mode),
   };

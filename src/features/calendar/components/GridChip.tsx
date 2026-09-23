@@ -8,7 +8,7 @@ import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/comple
 import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
-import { LANE_INSET, type Placed } from './lane-layout.ts';
+import { LANE_ITEM_HEIGHT, type Placed } from './lane-layout.ts';
 import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
@@ -69,7 +69,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
-        height: `calc(100% - ${LANE_INSET * 2}px)`,
+        height: LANE_ITEM_HEIGHT,
         ml: isBar && !roundStart ? 0 : '2px',
         mr: isBar && !roundEnd ? 0 : '2px',
         px: '3px',

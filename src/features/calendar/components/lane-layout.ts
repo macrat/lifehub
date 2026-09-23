@@ -3,13 +3,13 @@ import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../queries.ts';
 
 /**
- * レーンの中で項目の上下に空ける隙間（px。上下それぞれ）。レーンは隙間なく積むので、
+ * レーンの中の項目の高さ。上下を 1px ずつ空ける。レーンは隙間なく積むので、
  * 帯をレーンの高さいっぱいに描くと、上下に並んだ帯が 1 本の太い帯に繋がって見える。
  * WHY NOT レーンの間（grid の row-gap）で空ける: レーンの数を行の高さから割り出す計算
  * （`use-month-grid.ts`）や、下書きの帯・「+n」の位置合わせまで隙間の分を足して回ることになる。
  * 項目の側で縮めれば、レーンの寸法はそのまま。
  */
-export const LANE_INSET = 1;
+export const LANE_ITEM_HEIGHT = 'calc(100% - 2px)';
 
 export type Placed = {
   key: string;
