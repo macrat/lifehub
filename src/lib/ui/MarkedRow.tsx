@@ -14,9 +14,6 @@ const MARK_SX = {
   flexShrink: 0,
 } as const;
 
-/** 印の色の点（予定・立替）。塗りは呼び出し側が決める（1 色でもグラデーションでもよい） */
-export const MARK_DOT_SX = { width: 10, height: 10, borderRadius: '50%' } as const;
-
 /** 詰めた行は高さを揃えて（本文が 1 行なので）、印と本文を中央で合わせる */
 const DENSE_ROW_SX = { alignItems: 'center', minHeight: 36 } as const;
 
@@ -46,7 +43,7 @@ const LEAD_SX = {
 
 /**
  * 印・主列・本文の 3 列で並ぶ、枠線を持たない行（Google カレンダー／ToDo リストの体裁）。
- * 左に何の色かを示す印（色の点、タスクのチェック）、その右に行ごとに揃えたい値（時刻、金額）、
+ * 左に何の色かを示す印（`VennMark`、タスクのチェック）、その右に行ごとに揃えたい値（時刻、金額）、
  * 残り全部を本文（上にタイトル、下に補足）が取る。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。
  * 印を押せる範囲の外に置くのは、タスクのチェックを行の押し分けに巻き込まないため。

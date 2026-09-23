@@ -4,10 +4,7 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { DateString } from '../../../../shared/types.ts';
-import { today } from '../../../lib/date.ts';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
 import { ADD_KINDS, type AddFormKind, type AddKind } from '../kinds.ts';
 
@@ -55,31 +52,27 @@ const PILL_SX: SxProps<Theme> = {
 type Props = {
   /** 出す順（SpeedDial は下から上に開くので、先頭が一番下） */
   kinds: AddKind[];
-  /** 予定の初期日付（時刻は今の次の正時）。無ければ今日。タスクは日時なしで開く */
-  date?: DateString;
-  /** 選ばれた種類。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
+  /** その場でフォームが開く種類が選ばれた。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
   onSelect: (kind: AddFormKind) => void;
+  /** 予定が選ばれた。予定はフォームではなくカレンダーの下書きから始まるので、始め方は画面が決める */
+  onAddEvent: () => void;
 };
 
 /**
- * 右下の追加ボタン。ホームは 4 種、カレンダーは予定・タスクだけ。予定だけは、選んだ時間帯を
- * 見ながら入れたいので、その日の日表示へ送ってそこで下書きを置く
- * （グリッドをなぞって作るのと同じ流れに合流する。カレンダー画面の `add`）。
+ * 右下の追加ボタン。ホームは 4 種、カレンダーは予定・タスクだけ。選ばれた種類を画面へ渡すだけで、
+ * 入力を出すのは画面の側。予定だけは、選んだ時間帯を見ながらカレンダーの下書きから入れるので
+ * （グリッドをなぞって作るのと同じ流れ）、フォームの種類とは別に `onAddEvent` で渡す。
  *
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
-export function AddMenu({ kinds, date, onSelect }: Props) {
-  const navigate = useNavigate();
+export function AddMenu({ kinds, onSelect, onAddEvent }: Props) {
   const [expanded, setExpanded] = useState(false);
   const collapse = () => setExpanded(false);
   const open = (kind: AddKind) => {
     collapse();
-    if (kind !== 'event') return onSelect(kind);
-    navigate({
-      to: '/calendar',
-      search: { view: 'day', date: date ?? today(), add: 'event' },
-    });
+    if (kind === 'event') onAddEvent();
+    else onSelect(kind);
   };
 
   return (

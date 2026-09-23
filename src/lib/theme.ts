@@ -90,6 +90,20 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
           }),
         },
       },
+      MuiAlert: {
+        // 塗りの info（ただの知らせ。lib/ui/notice.ts）はアクセントカラーで出す。
+        // WHY NOT palette.info を変える: 土曜日の青（lib/date.ts）など info.main を使う他の場所まで変わる。
+        // WHY NOT color="primary": CSS 変数テーマでは塗りの色の変数が info/success/warning/error の分しか作られない。
+        variants: [
+          {
+            props: { severity: 'info', variant: 'filled' },
+            style: ({ theme: t }) => ({
+              backgroundColor: t.vars.palette.primary.main,
+              color: t.vars.palette.primary.contrastText,
+            }),
+          },
+        ],
+      },
       MuiPaper: {
         defaultProps: { elevation: 0 },
       },

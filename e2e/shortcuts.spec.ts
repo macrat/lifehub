@@ -17,10 +17,8 @@ test('ショートカットの URL がそれぞれの入力を開く', async ({ 
     return shortcut.url;
   };
 
-  // 予定登録: 日表示に既定の時間帯の下書きを置いて、クイック入力が開く
-  // （入力が前に出ている間は後ろの AppBar を読めないので、表示の種類は URL で見る）
+  // 予定登録: 既定の時間帯の下書きを置いて、クイック入力が開く
   await page.goto(urlOf('予定登録'));
-  await expect(page).toHaveURL(/view=day/);
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
 
   // タスク登録

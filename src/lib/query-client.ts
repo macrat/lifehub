@@ -119,7 +119,7 @@ queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_
   onError: (error, _variables, snapshot) => {
     // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
     for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
-    notify(error.message);
+    notify('error', error.message);
   },
   onSettled: (_data, _error, { keys }) => {
     for (const queryKey of keys) {
@@ -184,11 +184,17 @@ export function useOptimisticMutation<TInput>({
     ): void => mutation.mutate(write(input), options),
     /**
      * 保存が受け付けられるまで待つ（フォームはこれを待って閉じる）。
-     * オフラインでは送信が始まらないので、端末に溜めた時点で受け付けたものとして扱う。
-     * 待ってしまうとオンラインに戻るまでフォームを閉じられない。
+     * 溜める書き込みは、送り始めた（オフラインなら端末に溜めた）時点で受け付けたものとして扱い、
+     * サーバーの返事を待たない。結果は楽観的更新で先に画面へ出ているので、待つ間フォームを
+     * 開いたままにすると、保存後の画面に入力の名残（カレンダーの下書きの枠など）が重なって見える。
+     * 失敗は既定の onError が画面を送信前へ戻し、通知で伝える。
+     * WHY NOT 失敗したらフォームを開き直す: そのためには返事が来るまでフォームを（隠して）残す必要があり、
+     * その間は入力の名残が画面に残る。検証はクライアントでも同じスキーマで済ませているので、
+     * サーバーに断られるのは稀で、打ち直しの手間より保存後の見た目が常に正しいことを取る。
+     * 溜めない書き込みはサーバーの結果が無ければ何も出せないので、返事を待ち、失敗はフォームに出す。
      */
     mutateAsync: async (input: TInput): Promise<void> => {
-      if (queue && !onlineManager.isOnline()) {
+      if (queue) {
         mutation.mutate(write(input));
         return;
       }
@@ -202,7 +208,7 @@ export function useOptimisticMutation<TInput>({
  * WHY: id を先に決めておくと、オフラインで作った記録もその場で編集・削除でき（仮の id を
  * 後から本物へ差し替えずに済む）、通信が切れて送り直しても二重に作られない
  * （サーバーは同じ id の作成を upsert として扱う）。
- * 追加は必ずフォームからの保存なので、mutateAsync（保存が受け付けられるまで待つ）だけを返す。
+ * 追加は必ずフォームからの保存なので、mutateAsync（保存が受け付けられたら閉じる）だけを返す。
  */
 export function useCreateMutation<TInput>(
   options: OptimisticMutationOptions<TInput & { id: string }>,

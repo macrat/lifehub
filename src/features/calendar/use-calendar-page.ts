@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
@@ -20,10 +20,40 @@ import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
 
+const viewSchema = z.enum(['month', 'week', 'day', 'list']);
+/** 表示の種類 */
+export type CalendarView = z.infer<typeof viewSchema>;
+
+const LAST_VIEW_KEY = 'calendar-view';
+
+/**
+ * 最後に開いた表示。URL に表示が無いとき（下部ナビのタブ、ホームの追加ボタン、ショートカットから来たとき）
+ * の既定にして、毎回好みの表示へ切り替え直さずに済むようにする。検索パラメータを読むたび
+ * （移動のたび）に読むので、画面が state を保ったままでも後から覚えた表示が反映される。
+ * 置き場所は localStorage: 端末ごとの好みで、サーバーに送る物ではないため。読めない・壊れている
+ * （プライベートブラウズ、消された）ときは月表示から始める。
+ */
+function storedView(): CalendarView {
+  try {
+    return viewSchema.catch('month').parse(localStorage.getItem(LAST_VIEW_KEY));
+  } catch {
+    return 'month';
+  }
+}
+
+function storeView(view: CalendarView): void {
+  try {
+    localStorage.setItem(LAST_VIEW_KEY, view);
+  } catch {
+    // 覚えられなくても表示はできる。次に来たときに月表示から始まるだけ
+  }
+}
+
 export const calendarSearchSchema = z.object({
-  view: z.enum(['month', 'week', 'day', 'list']).default('month'),
+  /** 無ければ最後に開いた表示（`storedView`） */
+  view: viewSchema.default(storedView),
   date: dateStringSchema.optional(),
-  /** 予定は日表示に既定の時間帯の下書きを置いて開き、タスクはその場でフォームを開く */
+  /** 予定は今の表示に既定の時間帯の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
   add: addSearchSchema('event', 'task'),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
@@ -37,8 +67,6 @@ export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
 /** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
 export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
-/** 表示の種類。出どころは検索パラメータのスキーマだけにする */
-export type CalendarView = CalendarSearch['view'];
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;
 
@@ -57,8 +85,8 @@ export type CalendarPeriod = {
 /**
  * カレンダー画面の状態は検索パラメータで決まる（表示・日付・絞り込み）。
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
- * URL に載せない状態（打ちかけのキーワード、時間軸の高さ）もここで持つ。画面の状態を探す所を
- * 1 か所に保つため。
+ * URL に載せない状態（打ちかけのキーワード、時間軸の高さ、追加の間だけの日表示）もここで持つ。
+ * 画面の状態を探す所を 1 か所に保つため。
  *
  * 項目の取り直しは画面に入ったときだけ（`useRefreshCalendarItems`）。表示や日付の切り替えは
  * 検索パラメータが変わるだけでこの画面に留まるので、取り直さず手元のキャッシュをそのまま出す。
@@ -70,7 +98,16 @@ export function useCalendarPage(search: CalendarSearch) {
   const [query, setQuery] = useKeywordSearch(search.q ?? '');
   // 時間軸の高さ（週・日）。3 面で 1 つの値を使う（`use-hour-zoom.ts`）
   const { hourHeight, zoom } = useHourZoom();
-  const { view } = search;
+  // 開いた表示を覚える（URL の表示だけ。戻る・進むで開いた表示も含み、追加の間だけの日表示は含まない）
+  useEffect(() => storeView(search.view), [search.view]);
+  /**
+   * 追加ボタンから予定を入れる間だけ、月・リストの代わりに日表示を出すか。時間帯を見ながら入れたいが、
+   * 月とリストには時間軸が無いため。URL には載せないので、入力を閉じて false に戻せば元の表示がそのまま出る
+   * （表示を URL で切り替えると、閉じたときに元の表示へ戻す移動と履歴の後始末が要る）。
+   * 週・日はそのまま時間軸に下書きを置けるので切り替えない。
+   */
+  const [dayPreview, setDayPreview] = useState(false);
+  const view: CalendarView = dayPreview ? 'day' : search.view;
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
@@ -118,8 +155,11 @@ export function useCalendarPage(search: CalendarSearch) {
    * その期間に必ず入るようにする。リスト表示では最初に一番上へ出す日になる。
    */
   const changeView = useCallback(
-    (next: CalendarView, keepVisible?: DateString) =>
-      setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next }),
+    (next: CalendarView, keepVisible?: DateString) => {
+      // 自分で選んだ表示は、追加が終わってもそのまま残す
+      setDayPreview(false);
+      return setSearch(keepVisible ? { view: next, date: keepVisible } : { view: next });
+    },
     [setSearch],
   );
   const openDay = useCallback((d: DateString) => changeView('day', d), [changeView]);
@@ -144,6 +184,10 @@ export function useCalendarPage(search: CalendarSearch) {
     goToday: () => setSearch({ date: today() }),
     openDay,
     changeView,
+    /** 追加ボタンからの予定の入力を始める。時間軸の無い表示（月・リスト）なら、閉じるまで日表示を出す */
+    previewDay: () => setDayPreview(search.view === 'month' || search.view === 'list'),
+    /** 予定の入力を閉じた。日表示を出していたなら元の表示に戻す */
+    endPreview: () => setDayPreview(false),
     /**
      * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
      * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える。
