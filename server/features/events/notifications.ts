@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
-import { addDays, startOfDate, toDateString } from '../../../shared/date.ts';
+import {
+  addDays,
+  fromMinutesOfDay,
+  inclusiveEndDate,
+  startOfDate,
+  toDateString,
+} from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import {
@@ -49,10 +55,9 @@ function keyOf(ref: NotificationRef): string {
 /** ユーザー ID → 終日の項目の通知時刻（その日の 0:00 からの分） */
 type NotifyTimes = Map<string, number>;
 
-/** 終日の項目の開始日／終了日（期限日）。終了は排他的（翌日 0:00）なので前日 */
+/** 終日の項目の開始日／終了日（期限日）。終了は排他的（翌日 0:00）なので含む終了日にする */
 function allDayDate(anchor: string, edge: Edge): DateString {
-  const date = toDateString(new Date(anchor));
-  return edge === 'start' ? date : addDays(date, -1);
+  return edge === 'start' ? toDateString(new Date(anchor)) : inclusiveEndDate(anchor);
 }
 
 /**
@@ -72,11 +77,9 @@ function remindTargets(
   if (minutes === null || !anchor) return [];
   if (!item.allDay)
     return [{ at: new Date(new Date(anchor).getTime() - minutes * 60 * 1000), userId: null }];
-  const day = startOfDate(addDays(allDayDate(anchor, edge), -Math.ceil(minutes / DAY_MINUTES)));
+  const day = addDays(allDayDate(anchor, edge), -Math.ceil(minutes / DAY_MINUTES));
   return item.participantIds.map((userId) => ({
-    at: new Date(
-      day.getTime() + (notifyTimes.get(userId) ?? DEFAULT_ALL_DAY_NOTIFY_MINUTES) * 60 * 1000,
-    ),
+    at: new Date(fromMinutesOfDay(day, notifyTimes.get(userId) ?? DEFAULT_ALL_DAY_NOTIFY_MINUTES)),
     userId,
   }));
 }
@@ -122,9 +125,12 @@ export async function listNotifications(range: {
   to: Date;
 }): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
-  const notifyTimes = await findAllDayNotifyMinutes();
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
-  for (const item of await itemsAround(range, range.from)) {
+  const [items, notifyTimes] = await Promise.all([
+    itemsAround(range, range.from),
+    findAllDayNotifyMinutes(),
+  ]);
+  for (const item of items) {
     for (const edge of EDGES) {
       for (const { at, userId } of remindTargets(item, edge, notifyTimes)) {
         if (at < range.from || at >= range.to) continue;
@@ -141,16 +147,19 @@ export async function resolveNotification(
   ref: NotificationRef,
 ): Promise<NotificationPayload | null> {
   // 配信予定時刻の時点の状態で見る（QStash の再送で実時刻がずれても、通知が指す瞬間は変わらない）
-  const items = await itemsAround(
-    {
-      from: new Date(ref.at.getTime() - MAX_REMIND_MS),
-      to: new Date(ref.at.getTime() + MAX_REMIND_MS),
-    },
-    ref.at,
-  );
+  const [items, notifyTimes] = await Promise.all([
+    itemsAround(
+      {
+        from: new Date(ref.at.getTime() - MAX_REMIND_MS),
+        to: new Date(ref.at.getTime() + MAX_REMIND_MS),
+      },
+      ref.at,
+    ),
+    findAllDayNotifyMinutes(),
+  ]);
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;
-  const target = remindTargets(item, ref.edge, await findAllDayNotifyMinutes()).find(
+  const target = remindTargets(item, ref.edge, notifyTimes).find(
     (t) => t.userId === ref.userId && t.at.getTime() === ref.at.getTime(),
   );
   if (!target) return null;

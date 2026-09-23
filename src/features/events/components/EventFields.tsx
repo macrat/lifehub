@@ -89,57 +89,24 @@ export function EventWhenFields({
         label="終日"
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        {allDay ? (
-          <>
-            <TextField
-              key="start-date"
-              name="startsAt"
-              label="開始日"
-              type="date"
-              defaultValue={toDateString(new Date(start))}
-              error={Boolean(errors.startsAt)}
-              helperText={errors.startsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-            <TextField
-              key="end-date"
-              name="endsAt"
-              label="終了日"
-              type="date"
-              defaultValue={initial.allDay ? inclusiveEndDate(end) : toDateString(new Date(end))}
-              error={Boolean(errors.endsAt)}
-              helperText={errors.endsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-          </>
-        ) : (
-          <>
-            <TextField
-              key="start-datetime"
-              name="startsAt"
-              label="開始"
-              type="datetime-local"
-              defaultValue={toDateTimeLocalValue(start)}
-              error={Boolean(errors.startsAt)}
-              helperText={errors.startsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-            <TextField
-              key="end-datetime"
-              name="endsAt"
-              label="終了"
-              type="datetime-local"
-              defaultValue={toDateTimeLocalValue(end)}
-              error={Boolean(errors.endsAt)}
-              helperText={errors.endsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-          </>
-        )}
+        <WhenField
+          name="startsAt"
+          label={allDay ? '開始日' : '開始'}
+          value={start}
+          edge="start"
+          savedAllDay={initial.allDay}
+          allDay={allDay}
+          error={errors.startsAt}
+        />
+        <WhenField
+          name="endsAt"
+          label={allDay ? '終了日' : '終了'}
+          value={end}
+          edge="end"
+          savedAllDay={initial.allDay}
+          allDay={allDay}
+          error={errors.endsAt}
+        />
       </Stack>
     </>
   );
@@ -264,28 +231,23 @@ export function TaskFormFields({
         label="終日"
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField
-          // 終日の切り替えで日付だけ／日時に入れ替わるので、入力欄ごと作り直す
-          key={`start-${allDay}`}
+        <WhenField
           name="startsAt"
           label={`開始${unit}`}
-          type={allDay ? 'date' : 'datetime-local'}
-          defaultValue={taskInputValue(initial.startsAt, 'start', initial.allDay, allDay)}
-          error={Boolean(errors.startsAt)}
-          helperText={errors.startsAt}
-          slotProps={{ inputLabel: { shrink: true } }}
-          fullWidth
+          value={initial.startsAt}
+          edge="start"
+          savedAllDay={initial.allDay}
+          allDay={allDay}
+          error={errors.startsAt}
         />
-        <TextField
-          key={`end-${allDay}`}
+        <WhenField
           name="endsAt"
           label={`期限${unit}`}
-          type={allDay ? 'date' : 'datetime-local'}
-          defaultValue={taskInputValue(initial.endsAt, 'end', initial.allDay, allDay)}
-          error={Boolean(errors.endsAt)}
-          helperText={errors.endsAt}
-          slotProps={{ inputLabel: { shrink: true } }}
-          fullWidth
+          value={initial.endsAt}
+          edge="end"
+          savedAllDay={initial.allDay}
+          allDay={allDay}
+          error={errors.endsAt}
         />
       </Stack>
       <ParticipantsField
@@ -322,10 +284,48 @@ export function TaskFormFields({
 }
 
 /**
- * タスクの開始・期限の入力欄の初期値。未設定は空欄。
- * 保存されている終日の期限は排他的（翌日 0:00）なので、日付の欄には含む期限日を出す。
+ * 日時の入力欄 1 つ。終日なら日付だけ（`type="date"`）、そうでなければ日時。予定とタスクで同じものを使う。
+ * 終日の切り替えで種類が入れ替わるので、key に含めて入力欄ごと作り直す（残っている値を別の形式で読ませない）。
  */
-function taskInputValue(
+function WhenField({
+  name,
+  label,
+  value,
+  edge,
+  savedAllDay,
+  allDay,
+  error,
+}: {
+  name: 'startsAt' | 'endsAt';
+  label: string;
+  /** 保存されている ISO 日時。未設定（タスクだけ）は空欄 */
+  value: string | null;
+  edge: 'start' | 'end';
+  /** value が終日の保存形式か（終了は排他的な翌日 0:00） */
+  savedAllDay: boolean;
+  allDay: boolean;
+  error: string | undefined;
+}) {
+  return (
+    <TextField
+      key={`${name}-${allDay}`}
+      name={name}
+      label={label}
+      type={allDay ? 'date' : 'datetime-local'}
+      defaultValue={inputValue(value, edge, savedAllDay, allDay)}
+      error={Boolean(error)}
+      helperText={error}
+      slotProps={{ inputLabel: { shrink: true } }}
+      fullWidth
+    />
+  );
+}
+
+/**
+ * 日時の入力欄の初期値。未設定は空欄。
+ * 保存されている終日の終了は排他的（翌日 0:00）なので、日付の欄には含む終了日を出す。
+ */
+function inputValue(
   value: string | null,
   edge: 'start' | 'end',
   savedAllDay: boolean,

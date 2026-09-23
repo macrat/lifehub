@@ -37,6 +37,16 @@ export function today(now: Date = new Date()): DateString {
   return toDateString(now);
 }
 
+/** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
+export function fromMinutesOfDay(date: DateString, minutes: number): string {
+  return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
+}
+
+/** 排他的な終了日時（終日の項目の保存形式。翌日 0:00）→ 含む終了日 */
+export function inclusiveEndDate(endsAt: string): DateString {
+  return toDateString(new Date(new Date(endsAt).getTime() - 1));
+}
+
 /** JST の 0:00 に切り捨てた瞬間 */
 export function startOfDay(date: Date): Date {
   return startOfDate(toDateString(date));
