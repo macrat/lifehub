@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { DAY_MINUTES, DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
+import {
+  DAY_MINUTES,
+  DEFAULT_ALL_DAY_NOTIFY_MINUTES,
+  TIME_ZONE,
+} from '../../../shared/constants.ts';
 import {
   addDays,
   allDayDate,
@@ -8,12 +12,8 @@ import {
   toDateString,
 } from '../../../shared/date.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
-import {
-  type NotificationPayload,
-  notificationDateFormatter,
-  notificationTimeFormatter,
-} from '../../lib/notifications/types.ts';
-import { findAllDayNotifyMinutes } from '../users/repository.ts';
+import type { NotificationPayload } from '../../lib/notifications/types.ts';
+import { getAllDayNotifyMinutes } from '../users/service.ts';
 import { type CalendarItem, listItems } from './occurrences.ts';
 
 const EDGES = ['start', 'end'] as const;
@@ -100,6 +100,23 @@ async function itemsAround(range: { from: Date; to: Date }, now: Date): Promise<
   });
 }
 
+/** 通知本文の日時「9/20 15:00」（JST） */
+const notificationTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** 通知本文の日付「9/20」（JST）。終日の項目に使う */
+const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  month: 'numeric',
+  day: 'numeric',
+});
+
 /** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」） */
 function body(item: CalendarItem, edge: Edge): string {
   const label = edge === 'start' ? '開始' : item.kind === 'task' ? '期限' : '終了';
@@ -120,7 +137,7 @@ export async function listNotifications(range: {
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
   const [items, notifyTimes] = await Promise.all([
     itemsAround(range, range.from),
-    findAllDayNotifyMinutes(),
+    getAllDayNotifyMinutes(),
   ]);
   for (const item of items) {
     for (const edge of EDGES) {
@@ -147,7 +164,7 @@ export async function resolveNotification(
       },
       ref.at,
     ),
-    findAllDayNotifyMinutes(),
+    getAllDayNotifyMinutes(),
   ]);
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;

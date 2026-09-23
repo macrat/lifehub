@@ -1,7 +1,6 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { z } from 'zod';
-import { uuidSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema } from '../../../shared/validation/common.ts';
 import {
   careLogListQuerySchema,
   careLogSchema,
@@ -10,8 +9,6 @@ import {
 import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
-
-const idParam = z.object({ id: uuidSchema });
 
 export const lemonRoutes = new Hono<AppEnv>()
   .get('/status', async (c) => c.json(await service.getStatus()))
@@ -25,11 +22,11 @@ export const lemonRoutes = new Hono<AppEnv>()
   })
   .put(
     '/logs/:id',
-    zValidator('param', idParam, validationHook),
+    zValidator('param', idParamSchema, validationHook),
     zValidator('json', careLogSchema, validationHook),
     async (c) => c.json(await service.updateLog(c.req.valid('param').id, c.req.valid('json'))),
   )
-  .delete('/logs/:id', zValidator('param', idParam, validationHook), async (c) => {
+  .delete('/logs/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.deleteLog(c.req.valid('param').id);
     return c.body(null, 204);
   });

@@ -57,6 +57,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
+- 層の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。`routes.ts` / `mcp.ts` は repository・`lib/db.ts`・`drizzle-orm` を import できない。それ以外の feature のコード（service.ts、events の occurrences.ts・notifications.ts など）は `lib/db.ts`・`drizzle-orm` を import できず、他の feature の repository も使えない（その feature の service を通す）。`server/lib/` からも feature の repository は使えない。DB に触れるのは各 feature と `lib/notifications/` の repository.ts（と schema.ts）だけになる。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/events` が返す `CalendarItem[]` だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
@@ -87,9 +88,9 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
-    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts  cron.ts（Vercel Cron の入口）
-    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
+    middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts  cron.ts（Vercel Cron の入口）
+    recurrence/（RRULE 展開）  notifications/（service = enqueue・deliver、repository = 送信済み台帳）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）

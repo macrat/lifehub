@@ -1,7 +1,6 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { z } from 'zod';
-import { uuidSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema } from '../../../shared/validation/common.ts';
 import {
   createExpenseRequestSchema,
   expenseListQuerySchema,
@@ -10,8 +9,6 @@ import {
 import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
-
-const idParam = z.object({ id: uuidSchema });
 
 export const expensesRoutes = new Hono<AppEnv>()
   .get('/', zValidator('query', expenseListQuerySchema, validationHook), async (c) =>
@@ -25,11 +22,11 @@ export const expensesRoutes = new Hono<AppEnv>()
   })
   .put(
     '/:id',
-    zValidator('param', idParam, validationHook),
+    zValidator('param', idParamSchema, validationHook),
     zValidator('json', expenseSchema, validationHook),
     async (c) => c.json(await service.updateExpense(c.req.valid('param').id, c.req.valid('json'))),
   )
-  .delete('/:id', zValidator('param', idParam, validationHook), async (c) => {
+  .delete('/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.deleteExpense(c.req.valid('param').id);
     return c.body(null, 204);
   });

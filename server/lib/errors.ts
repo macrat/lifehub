@@ -4,6 +4,9 @@
  */
 export class NotFoundError extends Error {}
 
+/** 権限の無い操作（例: 他のユーザーのパスワードの変更） */
+export class ForbiddenError extends Error {}
+
 export class ConflictError extends Error {}
 
 export class ValidationError extends Error {}

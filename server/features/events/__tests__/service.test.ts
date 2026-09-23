@@ -1,10 +1,13 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
-import { ValidationError } from '../../../lib/errors.ts';
+import { db } from '../../../lib/db.ts';
+import { NotFoundError, ValidationError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
+import { events } from '../schema.ts';
 import {
   completeEvent,
   createEvent,
@@ -240,6 +243,29 @@ describe('events service', () => {
         id: created.id,
         occurrenceStart: iso('2026-09-14T09:00:00'),
       });
+    });
+
+    it('実体化された回の行の ID では読み書きできない（操作の対象は常に繰り返し元）', async () => {
+      const created = await createEvent(weekly(), userId);
+      await deleteEvent(
+        created.id,
+        { scope: 'this', occurrenceStart: jst('2026-09-14T09:00:00') },
+        userId,
+      );
+      const [row] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(eq(events.seriesId, created.id));
+      if (!row) throw new Error('回の行が作られていない');
+
+      await expect(getEvent(row.id)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(deleteEvent(row.id, { scope: 'all' }, userId)).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+      // 取り消した回は取り消されたまま残る
+      expect((await listItems(september, now)).map((o) => o.startsAt)).not.toContain(
+        iso('2026-09-14T09:00:00'),
+      );
     });
 
     it('存在しない回は指定できない', async () => {

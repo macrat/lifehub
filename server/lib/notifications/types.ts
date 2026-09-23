@@ -1,5 +1,4 @@
-import { TIME_ZONE } from '../../../shared/constants.ts';
-
+/** 通知源（server/features/events/notifications.ts）が配信直前に返す、送る中身と宛先 */
 export type NotificationPayload = {
   title: string;
   body: string;
@@ -8,20 +7,3 @@ export type NotificationPayload = {
   /** 送信先（参加者） */
   userIds: string[];
 };
-
-/** 通知本文の日時「9/20 15:00」（JST） */
-export const notificationTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: TIME_ZONE,
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
-/** 通知本文の日付「9/20」（JST）。終日の項目に使う */
-export const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: TIME_ZONE,
-  month: 'numeric',
-  day: 'numeric',
-});

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { app } from '../../../app.ts';
-import { ConflictError } from '../../../lib/errors.ts';
+import { ConflictError, ForbiddenError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
@@ -40,7 +40,7 @@ describe('users service', () => {
       hue: 120,
     });
     expect(third.hue).toBe(120);
-    expect((await updateUser(third.id, { hue: 10 })).hue).toBe(10);
+    expect((await updateUser(third.id, { hue: 10 }, third.id)).hue).toBe(10);
   });
 
   it('同じメールアドレスは登録できない', async () => {
@@ -57,10 +57,30 @@ describe('users service', () => {
 
   it('名前とパスワードを変更できる', async () => {
     const created = await createUser(alice);
-    const updated = await updateUser(created.id, { name: 'Alicia', password: 'new-password-123' });
+    const updated = await updateUser(
+      created.id,
+      { name: 'Alicia', password: 'new-password-123' },
+      created.id,
+    );
     expect(updated.name).toBe('Alicia');
     expect((await login(alice.email, alice.password)).status).toBe(401);
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
+  });
+
+  it('他のユーザーのプロフィールは変更できるが、パスワードは変更できない', async () => {
+    const created = await createUser(alice);
+    const other = await createUser({
+      email: 'bob@example.com',
+      name: 'Bob',
+      password: 'password-bob-12',
+    });
+    expect((await updateUser(created.id, { name: 'Alicia' }, other.id)).name).toBe('Alicia');
+    await expect(
+      updateUser(created.id, { name: 'Mallory', password: 'stolen-password-1' }, other.id),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    // 拒否したときはプロフィールも変えない
+    expect((await listUsers()).find((u) => u.id === created.id)?.name).toBe('Alicia');
+    expect((await login(alice.email, alice.password)).status).toBe(200);
   });
 });
 
@@ -78,7 +98,7 @@ describe('パスワード変更による失効', () => {
     );
     for (const cookie of cookies)
       expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(200);
-    await updateUser(user.id, { password: 'replacement-password-123' });
+    await updateUser(user.id, { password: 'replacement-password-123' }, user.id);
     for (const cookie of cookies)
       expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(401);
     expect((await login(alice.email, 'replacement-password-123')).status).toBe(200);
