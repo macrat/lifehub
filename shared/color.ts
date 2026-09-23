@@ -22,24 +22,34 @@ export const SURFACE = { light: '#ffffff', dark: '#121212' } as const;
 const TONES = {
   /** アクセント（primary）。ボタン・選択状態・FAB など */
   accent: { light: { l: 0.49, c: 0.19 }, dark: { l: 0.72, c: 0.15 } },
-  /** カレンダーの帯など、文字（白／黒）が載る面 */
-  fill: { light: { l: 0.58, c: 0.15 }, dark: { l: 0.7, c: 0.13 } },
   /**
-   * タスクのチェックボックス（`SplitCheckboxIcon`）。明度は fill と同じで、彩度だけ上げる。
-   * WHY: 枠の線が細いので、fill の彩度では色が薄く見え、塗り分けた色の違いが分かりにくい。
-   * 文字が載らないので、帯より鮮やかにしても読みにくくならない。
-   * 色相によっては sRGB の色域に収めるために彩度が落ち、fill と変わらないこともある。
+   * カレンダーの帯など、文字（`FILL_TEXT`）が載る面。彩度を抑えて明るくしたパステル調にする。
+   * WHY: 帯は画面に数多く並ぶので、鮮やかで暗い色だと画面全体が重くなる。
+   * 明るい面に暗い文字を載せれば、色相によらず文字とのコントラストを保てる（白い文字は明るい面では読めない）。
+   * ダークモードでも暗い面の上で浮きすぎないよう、ライトモードより一段暗くする。
    */
-  check: { light: { l: 0.58, c: 0.2 }, dark: { l: 0.7, c: 0.18 } },
+  fill: { light: { l: 0.87, c: 0.07 }, dark: { l: 0.8, c: 0.08 } },
   /**
-   * 一覧の左の印（`VennMark`）。文字が載らないので、ライトモードは fill より明るくして軽く見せる。
-   * 白い面の上の小さな円なので、fill の明度では色が沈んで重く見える。ダークモードは fill と同じ。
-   * WHY NOT チェックボックスにも使う: 枠の線は細く、明るくすると白い面の上で見えにくくなる（`check`）。
+   * 無地の面（白／暗い背景）の上に描く細い線や小さな印（チェックボックス、下書きの枠など）。
+   * fill は面として使うための淡い色で、線にすると面に埋もれて見えないので、ここは暗く鮮やかにする。
+   * 文字が載らないので、鮮やかにしても読みにくくならない。
+   */
+  line: { light: { l: 0.58, c: 0.2 }, dark: { l: 0.7, c: 0.18 } },
+  /**
+   * 一覧の左の印（`VennMark`）。白い面の上の小さな円なので、fill ほど淡いと面に埋もれ、
+   * line ほど暗いと重く見える。その間の明るさにする。
    */
   mark: { light: { l: 0.68, c: 0.14 }, dark: { l: 0.7, c: 0.13 } },
   /** 帯の薄い背景（時間指定の予定など）。文字は本文色 */
   tint: { light: { l: 0.93, c: 0.04 }, dark: { l: 0.3, c: 0.06 } },
 } as const;
+
+/**
+ * fill の上に載せる文字色。fill はどの色相・表示モードでも明るいので、無彩色の暗い 1 色で足りる。
+ * どの fill ともコントラスト比 7:1（WCAG AAA）以上。塗り分けた面（境目をまたぐ文字）にもこの 1 色を使う。
+ * WHY NOT 真っ黒: パステルの面の上では黒が強すぎて浮くので、わずかに明るくする。
+ */
+export const FILL_TEXT = '#1f1f1f';
 
 export type ColorMode = 'light' | 'dark';
 export type Tone = keyof typeof TONES;
@@ -47,16 +57,11 @@ export type Tone = keyof typeof TONES;
 /**
  * 色相と用途から hex を返す。色相が null なら彩度 0 の無彩色（共有の項目の色）。
  * 共有の項目は特定のユーザーのものではないので、どのユーザーの色とも競合しない無彩色にする。
- * 明度は用途ごとの値をそのまま使うため、ダークモードでは白に近く、ライトモードではグレーになる。
+ * 明度は用途ごとの値をそのまま使う。
  */
 export function hueColor(hue: number | null, tone: Tone, mode: ColorMode): string {
   const { l, c } = TONES[tone][mode];
   return hue === null ? oklchToHex(l, 0, 0) : oklchToHex(l, c, normalizeHue(hue));
-}
-
-/** fill の上に載せる文字色。ダークモードの帯は明るいので黒にする */
-export function fillContrastText(mode: ColorMode): string {
-  return mode === 'light' ? '#ffffff' : '#111111';
 }
 
 /** 色相の一覧表示（スライダーの帯など）用。24 段階の hex を返す */

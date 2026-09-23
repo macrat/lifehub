@@ -1,5 +1,5 @@
 import Avatar from '@mui/material/Avatar';
-import { hueColor } from '../../../../shared/color.ts';
+import { FILL_TEXT, hueColor } from '../../../../shared/color.ts';
 import { useColorMode } from '../../../lib/theme.ts';
 
 type Props = {
@@ -14,5 +14,9 @@ type Props = {
  */
 export function UserAvatar({ name, hue }: Props) {
   const mode = useColorMode();
-  return <Avatar sx={{ bgcolor: hueColor(hue, 'fill', mode) }}>{name.slice(0, 1)}</Avatar>;
+  return (
+    <Avatar sx={{ bgcolor: hueColor(hue, 'fill', mode), color: FILL_TEXT }}>
+      {name.slice(0, 1)}
+    </Avatar>
+  );
 }

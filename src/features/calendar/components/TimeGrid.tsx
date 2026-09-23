@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { FILL_TEXT } from '../../../../shared/color.ts';
 import { DAY_MINUTES } from '../../../../shared/constants.ts';
 import { today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
@@ -10,7 +11,6 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { useFillText } from '../../users/use-user-color.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
 import type { CalendarItem } from '../queries.ts';
 import type { GridDraft } from '../use-event-composer.ts';
@@ -242,7 +242,6 @@ function TimedBlock({
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useParticipantColors(item.participantIds);
-  const fillText = useFillText();
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -268,7 +267,7 @@ function TimedBlock({
         px: 0.5,
         py: '2px',
         background: wedgeBackground(colors.map((c) => (isTask ? c.tint : c.fill))),
-        color: isTask ? 'text.primary' : fillText,
+        color: isTask ? 'text.primary' : FILL_TEXT,
         ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので

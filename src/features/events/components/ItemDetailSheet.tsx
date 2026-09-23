@@ -8,10 +8,11 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
-import { useFillText, useUserColor } from '../../users/use-user-color.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ItemFormValues } from '../form-values.ts';
 import {
@@ -42,7 +43,6 @@ type Props = {
 export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const text = useFillText();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
@@ -171,7 +171,7 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
                     key={id}
                     size="small"
                     label={label(id)}
-                    sx={{ bgcolor: fill, color: text }}
+                    sx={{ bgcolor: fill, color: FILL_TEXT }}
                   />
                 );
               })}

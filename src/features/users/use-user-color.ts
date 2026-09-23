@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { type ColorMode, fillContrastText, hueColor } from '../../../shared/color.ts';
+import { type ColorMode, hueColor } from '../../../shared/color.ts';
 import { useColorMode } from '../../lib/theme.ts';
 import { usersQueryOptions } from './queries.ts';
 
 export type ItemColors = {
-  /** 帯の色 */
+  /** 帯などの面の色。上に載せる文字は `FILL_TEXT` */
   fill: string;
-  /** タスクのチェックボックスの色 */
-  check: string;
+  /** 無地の面の上の細い線・小さな印の色（チェックボックス、下書きの枠など） */
+  line: string;
   /** 一覧の左の印（`VennMark`）の色 */
   mark: string;
   /** 薄い背景（タイムラインのタスクなど） */
@@ -29,7 +29,7 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
   if (known) return known;
   const colors: ItemColors = {
     fill: hueColor(hue, 'fill', mode),
-    check: hueColor(hue, 'check', mode),
+    line: hueColor(hue, 'line', mode),
     mark: hueColor(hue, 'mark', mode),
     tint: hueColor(hue, 'tint', mode),
   };
@@ -49,12 +49,4 @@ export function useUserColor(): (userId: string | null) => ItemColors {
       colorsOf(users.find((u) => u.id === userId)?.hue ?? null, mode),
     [users, mode],
   );
-}
-
-/**
- * fill の上に載せる文字色。fill はどの色相でも明度が同じなので、表示モードだけで決まる。
- * 塗り分けた面（境目をまたぐ文字）にも、この 1 色で足りる。
- */
-export function useFillText(): string {
-  return fillContrastText(useColorMode());
 }

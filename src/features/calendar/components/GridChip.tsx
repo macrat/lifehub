@@ -1,14 +1,14 @@
 import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatTime } from '../../../lib/date.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { useFillText } from '../../users/use-user-color.ts';
 import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
-import type { Placed } from './lane-layout.ts';
+import { LANE_ITEM_HEIGHT, type Placed } from './lane-layout.ts';
 import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
@@ -41,7 +41,6 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useParticipantColors(item.participantIds);
-  const fillText = useFillText();
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
@@ -70,7 +69,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
-        height: '100%',
+        height: LANE_ITEM_HEIGHT,
         ml: isBar && !roundStart ? 0 : '2px',
         mr: isBar && !roundEnd ? 0 : '2px',
         px: '3px',
@@ -84,7 +83,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
         background: isBar ? wedgeBackground(colors.map((c) => c.fill)) : undefined,
         color: isBar
-          ? fillText
+          ? FILL_TEXT
           : overdue
             ? 'error.main'
             : completed

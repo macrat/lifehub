@@ -8,6 +8,7 @@ import type { draftColumns, TimedDraft } from '../draft.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
+import { LANE_ITEM_HEIGHT } from './lane-layout.ts';
 import { draftProps } from './markers.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
@@ -22,7 +23,7 @@ const LINE = 2;
 
 /**
  * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
- * 選んだ参加者を変えると枠も変わる。中は線の色を背景色に薄く混ぜた不透明な色で塗る。
+ * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）を背景色に混ぜた不透明な色で塗り、線は line で描く。
  * WHY NOT 半透明: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、半透明だと下の色が透ける。
  * 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
  * WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
@@ -39,7 +40,7 @@ const outline = (colors: ItemColors[]) =>
     background: (t: Theme) =>
       wedgeBackground(
         colors.map(
-          (c) => `color-mix(in srgb, ${c.fill} 30%, ${(t.vars ?? t).palette.background.default})`,
+          (c) => `color-mix(in srgb, ${c.fill} 50%, ${(t.vars ?? t).palette.background.default})`,
         ),
       ),
     backgroundClip: 'padding-box',
@@ -49,7 +50,7 @@ const outline = (colors: ItemColors[]) =>
       inset: -LINE,
       padding: `${LINE}px`,
       borderRadius: 'inherit',
-      background: wedgeBackground(colors.map((c) => c.fill)),
+      background: wedgeBackground(colors.map((c) => c.line)),
       mask: 'linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)',
       pointerEvents: 'none',
     },
@@ -78,7 +79,7 @@ export function DraftBlock({
 }) {
   const { startMin, endMin } = draft;
   const colors = useParticipantColors(participantIds);
-  const fills = colors.map((c) => c.fill);
+  const lines = colors.map((c) => c.line);
   return (
     <Box
       {...draftProps}
@@ -107,13 +108,13 @@ export function DraftBlock({
           <Handle
             end="start"
             position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-            color={wedgeColorNear(fills, 'top-left')}
+            color={wedgeColorNear(lines, 'top-left')}
             handlers={grab.start}
           />
           <Handle
             end="end"
             position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-            color={wedgeColorNear(fills, 'bottom-right')}
+            color={wedgeColorNear(lines, 'bottom-right')}
             handlers={grab.end}
           />
         </>
@@ -154,7 +155,7 @@ export function DraftBar({
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
         alignSelf: 'center',
-        height: '100%',
+        height: LANE_ITEM_HEIGHT,
         // 続きの端は角を丸めず、帯の外にも出さない（前後の週とつながって見えるように）
         borderRadius: `${roundStart ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundStart ? 4 : 0}px`,
         ml: roundStart ? '2px' : 0,

@@ -1,5 +1,6 @@
+import { getContrastRatio } from '@mui/material/styles';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HUE, hueColor, oklchToHex, pickDistinctHue } from '../color.ts';
+import { DEFAULT_HUE, FILL_TEXT, hueColor, oklchToHex, pickDistinctHue } from '../color.ts';
 
 describe('oklchToHex', () => {
   it('ブランドカラーの OKLCH（L 0.49, C 0.205, H 335）がほぼ #A0148C になる', () => {
@@ -21,7 +22,7 @@ describe('oklchToHex', () => {
 describe('hueColor', () => {
   it('色相が null なら無彩色（R=G=B）になる', () => {
     for (const mode of ['light', 'dark'] as const) {
-      for (const tone of ['accent', 'fill', 'check', 'mark', 'tint'] as const) {
+      for (const tone of ['accent', 'fill', 'line', 'mark', 'tint'] as const) {
         const [r, g, b] = channels(hueColor(null, tone, mode));
         expect(r).toBe(g);
         expect(g).toBe(b);
@@ -29,10 +30,13 @@ describe('hueColor', () => {
     }
   });
 
-  it('無彩色の帯はダークモードで白寄り、ライトモードでグレーになる', () => {
-    const [dark] = channels(hueColor(null, 'fill', 'dark'));
-    const [light] = channels(hueColor(null, 'fill', 'light'));
-    expect(dark).toBeGreaterThan(light);
+  it('帯と帯の文字は、どの色相でもコントラスト比 7:1（WCAG AAA）以上になる', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      for (const hue of [null, ...Array.from({ length: 360 }, (_, i) => i)]) {
+        const ratio = getContrastRatio(hueColor(hue, 'fill', mode), FILL_TEXT);
+        expect(ratio, `${mode} ${hue}`).toBeGreaterThanOrEqual(7);
+      }
+    }
   });
 });
 
