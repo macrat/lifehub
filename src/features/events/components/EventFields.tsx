@@ -5,11 +5,15 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
+import { allDayDate } from '../../../../shared/date.ts';
 import {
+  ALL_DAY_REMIND_OPTIONS,
+  type AllDayRemind,
   REMIND_BEFORE_OPTIONS,
   type RecurrenceScope,
+  toAllDayRemind,
 } from '../../../../shared/validation/events.ts';
-import { inclusiveEndDate, toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
+import { toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { ItemFormValues } from '../form-values.ts';
@@ -42,7 +46,13 @@ export function ScopeChip({ scope }: { scope: RecurrenceScope }) {
   );
 }
 
-const REMIND_LABELS: Record<number, string> = {
+/** 終日の予定の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
+const ALL_DAY_REMIND_LABELS: Record<AllDayRemind, string> = {
+  0: '当日',
+  1440: '前日',
+};
+
+const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
   0: '開始時刻',
   5: '5分前',
   10: '10分前',
@@ -73,64 +83,35 @@ export function EventWhenFields({
         label="終日"
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        {allDay ? (
-          <>
-            <TextField
-              key="start-date"
-              name="startsAt"
-              label="開始日"
-              type="date"
-              defaultValue={toDateString(new Date(start))}
-              error={Boolean(errors.startsAt)}
-              helperText={errors.startsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-            <TextField
-              key="end-date"
-              name="endsAt"
-              label="終了日"
-              type="date"
-              defaultValue={initial.allDay ? inclusiveEndDate(end) : toDateString(new Date(end))}
-              error={Boolean(errors.endsAt)}
-              helperText={errors.endsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-          </>
-        ) : (
-          <>
-            <TextField
-              key="start-datetime"
-              name="startsAt"
-              label="開始"
-              type="datetime-local"
-              defaultValue={toDateTimeLocalValue(start)}
-              error={Boolean(errors.startsAt)}
-              helperText={errors.startsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-            <TextField
-              key="end-datetime"
-              name="endsAt"
-              label="終了"
-              type="datetime-local"
-              defaultValue={toDateTimeLocalValue(end)}
-              error={Boolean(errors.endsAt)}
-              helperText={errors.endsAt}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-          </>
-        )}
+        <WhenField
+          name="startsAt"
+          label={allDay ? '開始日' : '開始'}
+          defaultValue={inputValue(start, 'start', initial.allDay, allDay)}
+          allDay={allDay}
+          error={errors.startsAt}
+        />
+        <WhenField
+          name="endsAt"
+          label={allDay ? '終了日' : '終了'}
+          defaultValue={inputValue(end, 'end', initial.allDay, allDay)}
+          allDay={allDay}
+          error={errors.endsAt}
+        />
       </Stack>
     </>
   );
 }
 
 /** 予定の残りの項目（場所・メモ・繰り返し・通知）。日時と同じく 2 つのフォームで共通 */
-export function EventExtraFields({ initial, errors, thisOnly }: ScopedProps) {
+export function EventExtraFields({
+  initial,
+  errors,
+  allDay,
+  thisOnly,
+}: ScopedProps & { allDay: boolean }) {
+  const options = allDay
+    ? ALL_DAY_REMIND_OPTIONS.map((m) => ({ value: m, label: ALL_DAY_REMIND_LABELS[m] }))
+    : REMIND_BEFORE_OPTIONS.map((m) => ({ value: m, label: REMIND_LABELS[m] }));
   return (
     <>
       <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
@@ -144,16 +125,21 @@ export function EventExtraFields({ initial, errors, thisOnly }: ScopedProps) {
       />
       {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
       <TextField
+        // 終日を切り替えると選択肢が入れ替わるので、選択肢に合う値で作り直す
+        key={allDay ? 'all-day' : 'timed'}
         name="remindStartMinutes"
         label="通知"
         select
-        defaultValue={initial.remindStartMinutes ?? SELECT_NONE}
+        defaultValue={
+          (allDay ? toAllDayRemind(initial.remindStartMinutes) : initial.remindStartMinutes) ??
+          SELECT_NONE
+        }
         fullWidth
       >
         <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
-        {REMIND_BEFORE_OPTIONS.map((m) => (
-          <MenuItem key={m} value={m}>
-            {REMIND_LABELS[m]}
+        {options.map(({ value, label }) => (
+          <MenuItem key={value} value={value}>
+            {label}
           </MenuItem>
         ))}
       </TextField>
@@ -193,13 +179,14 @@ export function EventFormFields({
         defaultValue={initial.participantIds}
         error={errors.participantIds}
       />
-      <EventExtraFields initial={initial} errors={errors} thisOnly={thisOnly} />
+      <EventExtraFields initial={initial} errors={errors} allDay={allDay} thisOnly={thisOnly} />
     </>
   );
 }
 
 /**
- * タスクの全項目。予定と違って開始・期限はどちらも任意で、通知は「開始日時に」「期限日時に」の 2 択。
+ * タスクの全項目。予定と違って開始・期限はどちらも任意で、通知は「開始に」「期限に」の 2 択。
+ * 終日なら開始日・期限日（日付だけ）になり、通知はその日の各自の通知時刻（設定画面で選ぶ）に届く。
  * 追加のフォーム（`TaskForm`）と詳細からの編集（`ItemDetailSheet`）で同じものを使う。
  *
  * autoFocus はタスクの追加だけ（`TaskForm`）。タスクはタイトルを打つだけで終わることが多いので、
@@ -209,9 +196,16 @@ export function EventFormFields({
 export function TaskFormFields({
   initial,
   errors,
+  allDay,
+  onChangeAllDay,
   thisOnly,
   autoFocus,
-}: ScopedProps & { autoFocus: boolean }) {
+}: ScopedProps & {
+  allDay: boolean;
+  onChangeAllDay: (allDay: boolean) => void;
+  autoFocus: boolean;
+}) {
+  const unit = allDay ? '日' : '日時';
   return (
     <>
       <TextField
@@ -223,26 +217,24 @@ export function TaskFormFields({
         autoFocus={autoFocus}
         fullWidth
       />
+      <FormControlLabel
+        control={<Switch checked={allDay} onChange={(_, v) => onChangeAllDay(v)} />}
+        label="終日"
+      />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField
+        <WhenField
           name="startsAt"
-          label="開始日時"
-          type="datetime-local"
-          defaultValue={initial.startsAt ? toDateTimeLocalValue(initial.startsAt) : ''}
-          error={Boolean(errors.startsAt)}
-          helperText={errors.startsAt}
-          slotProps={{ inputLabel: { shrink: true } }}
-          fullWidth
+          label={`開始${unit}`}
+          defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
+          allDay={allDay}
+          error={errors.startsAt}
         />
-        <TextField
+        <WhenField
           name="endsAt"
-          label="期限日時"
-          type="datetime-local"
-          defaultValue={initial.endsAt ? toDateTimeLocalValue(initial.endsAt) : ''}
-          error={Boolean(errors.endsAt)}
-          helperText={errors.endsAt}
-          slotProps={{ inputLabel: { shrink: true } }}
-          fullWidth
+          label={`期限${unit}`}
+          defaultValue={inputValue(initial.endsAt, 'end', initial.allDay, allDay)}
+          allDay={allDay}
+          error={errors.endsAt}
         />
       </Stack>
       <ParticipantsField
@@ -265,15 +257,62 @@ export function TaskFormFields({
           control={
             <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
           }
-          label="開始日時に通知"
+          label={`開始${unit}に通知`}
         />
         <FormControlLabel
           control={
             <Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />
           }
-          label="期限日時に通知"
+          label={`期限${unit}に通知`}
         />
       </Stack>
     </>
   );
+}
+
+/**
+ * 日時の入力欄 1 つ。終日なら日付だけ（`type="date"`）、そうでなければ日時。予定とタスクで同じものを使う。
+ * 終日の切り替えで種類が入れ替わるので、key に含めて入力欄ごと作り直す（残っている値を別の形式で読ませない）。
+ */
+function WhenField({
+  name,
+  label,
+  defaultValue,
+  allDay,
+  error,
+}: {
+  name: 'startsAt' | 'endsAt';
+  label: string;
+  defaultValue: string;
+  allDay: boolean;
+  error: string | undefined;
+}) {
+  return (
+    <TextField
+      key={`${name}-${allDay}`}
+      name={name}
+      label={label}
+      type={allDay ? 'date' : 'datetime-local'}
+      defaultValue={defaultValue}
+      error={Boolean(error)}
+      helperText={error}
+      slotProps={{ inputLabel: { shrink: true } }}
+      fullWidth
+    />
+  );
+}
+
+/**
+ * 日時の入力欄の初期値。未設定は空欄。
+ * 保存されている値が終日なら、その保存形式どおりに日付へ直す（終了は排他的なので含む最終日。`allDayDate`）。
+ */
+function inputValue(
+  value: string | null,
+  edge: 'start' | 'end',
+  savedAllDay: boolean,
+  allDay: boolean,
+): string {
+  if (!value) return '';
+  if (!allDay) return toDateTimeLocalValue(value);
+  return savedAllDay ? allDayDate(value, edge) : toDateString(new Date(value));
 }

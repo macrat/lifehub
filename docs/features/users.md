@@ -9,7 +9,7 @@
 | 画面 | パス | 内容 |
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
-| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。PC はサイドナビ、スマホはホームの末尾から開く |
+| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。PC はサイドナビ、スマホはホームの末尾から開く |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
 | 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更 |
 
@@ -40,10 +40,10 @@
 | メソッド | パス | 内容 |
 |---|---|---|
 | ANY | `/api/auth/*` | better-auth のハンドラ |
-| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue）。`hue` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す（users を読み直さない） |
+| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes）。`hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す（users を読み直さない） |
 | GET | `/api/users` | ユーザー一覧（id, name, email, hue） |
 | POST | `/api/users` | ユーザー作成（`hue` は任意） |
-| PATCH | `/api/users/:id` | 名前・色相・パスワードの変更 |
+| PATCH | `/api/users/:id` | 名前・色相・パスワード・終日の通知時刻（`allDayNotifyMinutes`、0:00 からの分）の変更 |
 
 `/api/users` は `server/features/users/routes.ts`。入力スキーマは `shared/validation/users.ts`。
 

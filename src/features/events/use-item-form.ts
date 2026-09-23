@@ -36,7 +36,7 @@ export function useItemForm({
     schema: createEventSchema,
     values: (fd) =>
       kind === 'task'
-        ? taskInputFromForm(fd, { initial, thisOnly })
+        ? taskInputFromForm(fd, { initial, allDay, thisOnly })
         : eventInputFromForm(fd, { initial, allDay, thisOnly }),
     onSubmit: (data) =>
       onSubmit({

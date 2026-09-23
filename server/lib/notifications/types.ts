@@ -18,3 +18,10 @@ export const notificationTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
   minute: '2-digit',
   hourCycle: 'h23',
 });
+
+/** 通知本文の日付「9/20」（JST）。終日の項目に使う */
+export const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  month: 'numeric',
+  day: 'numeric',
+});

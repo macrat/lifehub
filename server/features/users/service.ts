@@ -3,6 +3,7 @@ import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { auth } from '../../lib/auth.ts';
 import { ConflictError, NotFoundError } from '../../lib/errors.ts';
+import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import * as repository from './repository.ts';
 
 export async function listUsers() {
@@ -10,8 +11,13 @@ export async function listUsers() {
 }
 
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
-export function toPublicUser(user: repository.UserRow): repository.UserRow {
+function toPublicUser(user: repository.UserRow): repository.UserRow {
   return { id: user.id, name: user.name, email: user.email, hue: user.hue };
+}
+
+/** ログイン中のユーザー（/api/me）。公開の形に、本人だけが使う設定を足す */
+export function toMe(user: repository.UserRow & { allDayNotifyMinutes: number }) {
+  return { ...toPublicUser(user), allDayNotifyMinutes: user.allDayNotifyMinutes };
 }
 
 async function getUser(id: string) {
@@ -41,11 +47,15 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
 
 export async function updateUser(id: string, input: UpdateUserInput): Promise<repository.UserRow> {
   await getUser(id);
-  if (input.name !== undefined || input.hue !== undefined) {
-    await repository.updateProfile(id, { name: input.name, hue: input.hue });
+  const { password, ...profile } = input;
+  if (Object.values(profile).some((value) => value !== undefined)) {
+    await repository.updateProfile(id, profile);
   }
-  if (input.password !== undefined) {
-    await repository.updatePasswordHash(id, await hashPassword(input.password));
+  if (password !== undefined) {
+    await repository.updatePasswordHash(id, await hashPassword(password));
   }
+  // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
+  // （古い時刻の予約は配信時の再検証で捨てられる）
+  if (input.allDayNotifyMinutes !== undefined) await enqueueUpcoming();
   return getUser(id);
 }

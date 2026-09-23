@@ -8,6 +8,12 @@ async function hue(page: Page): Promise<number> {
   return (await res.json()).hue;
 }
 
+/** サーバーに保存されているログイン中のユーザーの終日の通知時刻（0:00 からの分） */
+async function notifyMinutes(page: Page): Promise<number> {
+  const res = await page.request.get('/api/me');
+  return (await res.json()).allDayNotifyMinutes;
+}
+
 /** 画面上部の取得・保存中インジケータの色。アクセントカラー（primary）がそのまま出る所 */
 function accentColor(page: Page): Promise<string> {
   return page
@@ -83,10 +89,33 @@ test('選んだ色はその場でアクセントカラーになり、保存す�
   await page.goto('/settings');
   await slider.press('Home');
   const saving = page.waitForResponse((res) => res.request().method() === 'PATCH');
-  await page.getByRole('button', { name: '保存' }).click();
+  const save = page.getByRole('region', { name: '色' }).getByRole('button', { name: '保存' });
+  await save.click();
   expect((await saving).ok()).toBe(true);
-  await expect(page.getByRole('button', { name: '保存' })).toBeDisabled();
+  await expect(save).toBeDisabled();
   await expect.poll(() => accentColor(page)).toBe(pickedColor);
   // Home キーで選べる最小の色相
   expect(await hue(page)).toBe(0);
+});
+
+test('終日の通知時刻は設定画面で選び、保存ボタンで保存する', async ({ page }) => {
+  await login(page);
+  await page.goto('/settings');
+  const section = page.getByRole('region', { name: '終日の通知' });
+  const time = section.getByLabel('時刻');
+  const save = section.getByRole('button', { name: '保存' });
+  await expect(save).toBeDisabled();
+
+  // 前の実行で保存した時刻と重ならないよう、今の値と違う時刻を選ぶ
+  const saved = await notifyMinutes(page);
+  const next =
+    saved === 6 * 60 + 30
+      ? { value: '07:15', minutes: 7 * 60 + 15 }
+      : { value: '06:30', minutes: 6 * 60 + 30 };
+  await time.fill(next.value);
+  const saving = page.waitForResponse((res) => res.request().method() === 'PATCH');
+  await save.click();
+  expect((await saving).ok()).toBe(true);
+  await expect(save).toBeDisabled();
+  expect(await notifyMinutes(page)).toBe(next.minutes);
 });

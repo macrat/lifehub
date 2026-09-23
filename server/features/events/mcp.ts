@@ -11,9 +11,9 @@ import * as service from './service.ts';
 const FIELDS_HELP = [
   'kind は "event"（予定）か "task"（タスク）。',
   '日時は ISO 8601（タイムゾーン付き）。予定は startsAt と endsAt が必須。タスクはどちらも任意で、endsAt が期限。',
-  '終日は allDay=true にし、endsAt には終了日（含む）の任意の時刻を指定する。',
+  '終日（予定・タスクとも）は allDay=true にし、endsAt には終了日・期限日（含む）の任意の時刻を指定する。',
   'participantIds は参加者のユーザー ID（1 人以上。users_list で調べる）。',
-  'remindStartMinutes / remindEndMinutes は開始／終了（期限）の何分前に通知するか（0/5/10/15/30/60/120/1440、null なら通知なし）。',
+  'remindStartMinutes / remindEndMinutes は開始／終了（期限）の何分前に通知するか（0/5/10/15/30/60/120/1440、null なら通知なし）。終日では 0（当日）か 1440（前日）だけを指定でき、各参加者が設定した時刻に通知する。',
   'rrule は RFC 5545 の RRULE 文字列（DTSTART なし、例: "FREQ=WEEKLY;BYDAY=MO"）。UNTIL は JST の壁時計（例: UNTIL=20261231T235959）。null なら単発。',
 ].join(' ');
 

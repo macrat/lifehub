@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CalendarFeedSection } from '../../features/calendar-feeds/components/CalendarFeedSection.tsx';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
+import { AllDayNotifySection } from '../../features/users/components/AllDayNotifySection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
- * 自分の色（アクセントカラー）、この端末のプッシュ通知、カレンダーの配信 URL、
+ * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、カレンダーの配信 URL、
  * ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
@@ -34,6 +35,7 @@ function SettingsPage() {
       <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
+      <AllDayNotifySection />
       <CalendarFeedSection />
       <SettingsSection title="アカウント">
         <ListItem disablePadding>

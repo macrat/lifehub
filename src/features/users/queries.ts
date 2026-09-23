@@ -60,12 +60,11 @@ export function useUpdateUser() {
     }),
     queue: false,
     keys: [usersQueryOptions.queryKey, meQueryOptions.queryKey],
-    apply: (client, { id, name, hue }) => {
-      // パスワードは表示に関わらないので、名前と色だけを当てる
-      const changes = {
-        ...(name === undefined ? {} : { name }),
-        ...(hue === undefined ? {} : { hue }),
-      };
+    apply: (client, { id, password: _password, ...input }) => {
+      // パスワードは表示に関わらないので当てない。送らなかった項目（undefined）で今の値を消さない
+      const changes = Object.fromEntries(
+        Object.entries(input).filter(([, value]) => value !== undefined),
+      ) as Partial<typeof input>;
       client.setQueryData(usersQueryOptions.queryKey, (users) =>
         users?.map((user) => (user.id === id ? { ...user, ...changes } : user)),
       );

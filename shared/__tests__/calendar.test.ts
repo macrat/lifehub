@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type CalendarItem, placeOccurrence, sortItems } from '../calendar.ts';
+import { type CalendarItem, placeOccurrence, sortItems, taskTime } from '../calendar.ts';
 import type { DateString } from '../types.ts';
 
 const BASE = {
@@ -46,6 +46,22 @@ function task(title: string, startsAt: string | null, endsAt: string | null): Ca
   };
 }
 
+describe('taskTime', () => {
+  it('終日のタスクは日付だけを返し、期限は含む期限日にする', () => {
+    // 9/21 が期限（保存上は翌日 0:00）
+    expect(taskTime({ ...task('終日', null, '2026-09-21T15:00:00.000Z'), allDay: true })).toEqual({
+      kind: 'due',
+      date: '2026-09-21',
+      at: null,
+    });
+    expect(taskTime(task('9 時期限', null, '2026-09-21T00:00:00.000Z'))).toEqual({
+      kind: 'due',
+      date: '2026-09-21',
+      at: '2026-09-21T00:00:00.000Z',
+    });
+  });
+});
+
 describe('sortItems', () => {
   it('同日内は 終日の予定 → 時刻のある項目 → 時刻の無いタスク の順に並ぶ', () => {
     const items = [
@@ -84,6 +100,15 @@ describe('sortItems', () => {
       '11 時の予定',
       '前日期限で 20 時に完了したタスク',
     ]);
+  });
+
+  it('終日のタスクは期限の 0:00 ではなく、終日の項目として先頭に並ぶ', () => {
+    const items = [
+      event('10 時の予定', '2026-09-21T01:00:00.000Z', '2026-09-21T02:00:00.000Z'),
+      // 9/21 が期限の終日のタスク（保存上の期限は翌日 0:00）
+      { ...task('終日のタスク', null, '2026-09-21T15:00:00.000Z'), allDay: true },
+    ];
+    expect(sortItems(items).map((i) => i.title)).toEqual(['終日のタスク', '10 時の予定']);
   });
 
   it('日付が違えば placementDate 順に並ぶ', () => {

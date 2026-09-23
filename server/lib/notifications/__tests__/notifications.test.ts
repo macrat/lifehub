@@ -12,7 +12,7 @@ import {
   deleteEvent,
   updateEvent,
 } from '../../../features/events/service.ts';
-import { createUser } from '../../../features/users/service.ts';
+import { createUser, updateUser } from '../../../features/users/service.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { deliver, enqueueRange } from '../service.ts';
 
@@ -215,5 +215,58 @@ describe('notifications', () => {
       body: '期限 9/15 17:00',
       url: '/calendar?date=2026-09-15',
     });
+  });
+
+  it('終日の項目は参加者それぞれの通知時刻に送る（既定は 7:00、前日も選べる）', async () => {
+    const other = (
+      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
+    ).id;
+    await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 });
+    const task = await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: 'ゴミ出し',
+        allDay: true,
+        endsAt: iso('2026-09-15T00:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId, other],
+      }),
+      userId,
+    );
+    const event = await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '旅行',
+        allDay: true,
+        startsAt: iso('2026-09-16T00:00:00'),
+        endsAt: iso('2026-09-17T00:00:00'),
+        remindStartMinutes: 1440,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const planned = await listNotifications(tomorrow);
+    expect(planned.map((p) => [p.ref.id, p.ref.userId, p.at.toISOString()])).toEqual([
+      [task.id, userId, iso('2026-09-15T07:00:00')],
+      [task.id, other, iso('2026-09-15T08:30:00')],
+      [event.id, userId, iso('2026-09-15T07:00:00')],
+    ]);
+    const [mine, theirs, trip] = planned.map((p) => p.ref) as NotificationRef[];
+    expect(await resolveNotification(theirs as NotificationRef)).toMatchObject({
+      title: 'タスク: ゴミ出し',
+      body: '期限 9/15 終日',
+      userIds: [other],
+      url: '/calendar?date=2026-09-15',
+    });
+    expect(await resolveNotification(trip as NotificationRef)).toMatchObject({
+      title: '旅行',
+      body: '開始 9/16 終日',
+      userIds: [userId],
+    });
+
+    // 通知時刻を変えると古い予約は送らない
+    await updateUser(userId, { allDayNotifyMinutes: 6 * 60 });
+    expect(await resolveNotification(mine as NotificationRef)).toBeNull();
+    expect(await resolveNotification(theirs as NotificationRef)).not.toBeNull();
   });
 });

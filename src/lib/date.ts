@@ -1,10 +1,16 @@
 import { TZDate } from '@date-fns/tz';
 import { format, getDay } from 'date-fns';
 import { TIME_ZONE } from '../../shared/constants.ts';
-import { addDays, startOfDate, toDateString, today } from '../../shared/date.ts';
+import { addDays, allDayDate, startOfDate, toDateString, today } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
 
-export { addDays, toDateString, today } from '../../shared/date.ts';
+export {
+  addDays,
+  fromMinutesOfDay,
+  inclusiveEndDate,
+  toDateString,
+  today,
+} from '../../shared/date.ts';
 
 /**
  * 表示用の日付・時刻フォーマット。すべて JST。表示は Intl に任せ、計算は date-fns（TZDate）に任せる。
@@ -70,13 +76,18 @@ export function formatDateTime(value: Date | string): string {
   return `${formatDate(value)} ${formatTime(value)}`;
 }
 
+/** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
+export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
+  return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);
+}
+
 /** 予定の期間表示。終日は日付のみ、同日は "9/20(日) 09:00〜10:00"、複数日は両端を日時で。 */
 export function formatEventRange(startsAt: string, endsAt: string, allDay: boolean): string {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
   if (allDay) {
-    const firstDay = toDateString(start);
-    const lastDay = toDateString(new Date(end.getTime() - 1));
+    const firstDay = allDayDate(startsAt, 'start');
+    const lastDay = allDayDate(endsAt, 'end');
     return firstDay === lastDay
       ? formatDate(firstDay)
       : `${formatDate(firstDay)}〜${formatDate(lastDay)}`;
@@ -105,19 +116,9 @@ export function fromDateValue(value: DateString): string {
   return startOfDate(value).toISOString();
 }
 
-/** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
-export function fromMinutesOfDay(date: DateString, minutes: number): string {
-  return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
-}
-
 /** 0:00 からの分 → "09:00"（24:00 はそのまま出す。時間帯の終わりの表示に使う） */
 export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-}
-
-/** 排他的な終了日時 → 含む終了日（終日の予定のフォーム用） */
-export function inclusiveEndDate(endsAt: string): DateString {
-  return toDateString(new Date(new Date(endsAt).getTime() - 1));
 }
 
 /** "YYYY-MM" */

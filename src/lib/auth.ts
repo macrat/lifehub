@@ -2,6 +2,7 @@ import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
+import type { InferResponseType } from 'hono/client';
 import { api } from './api.ts';
 
 /**
@@ -13,7 +14,8 @@ export const authClient = createAuthClient({
   plugins: [oauthProviderClient()],
 });
 
-export type Me = { id: string; name: string; email: string; hue: number };
+/** ログイン中のユーザー。形は API（`/api/me`、サーバーの `toMe`）が決める */
+export type Me = InferResponseType<typeof api.me.$get, 200>;
 
 /**
  * ログイン中のユーザー。未認証なら null。

@@ -14,17 +14,19 @@ type Props = {
 };
 
 /**
- * タスクを追加する。開始・期限はどちらも任意で、通知は「開始日時に」「期限日時に」（= 0 分前）の 2 択。
+ * タスクを追加する。開始・期限はどちらも任意で（終日なら日付だけ）、通知は「開始に」「期限に」の 2 択。
  * 既存のタスクの編集は詳細（`ItemDetailSheet`）から行う。
  */
 export function TaskForm({ initial, scope, onSubmit, onClose }: Props) {
-  const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
-    kind: 'task',
-    initial,
-    scope,
-    onSubmit,
-    onSaved: onClose,
-  });
+  const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
+    {
+      kind: 'task',
+      initial,
+      scope,
+      onSubmit,
+      onSaved: onClose,
+    },
+  );
 
   return (
     <RecordSheet
@@ -35,7 +37,14 @@ export function TaskForm({ initial, scope, onSubmit, onClose }: Props) {
       title="タスクを追加"
       onSubmit={handleSubmit}
     >
-      <TaskFormFields initial={initial} errors={errors} thisOnly={thisOnly} autoFocus />
+      <TaskFormFields
+        initial={initial}
+        errors={errors}
+        allDay={allDay}
+        onChangeAllDay={setAllDay}
+        thisOnly={thisOnly}
+        autoFocus
+      />
     </RecordSheet>
   );
 }

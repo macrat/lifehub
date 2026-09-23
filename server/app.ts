@@ -8,7 +8,7 @@ import { expensesRoutes } from './features/expenses/routes.ts';
 import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
-import { toPublicUser } from './features/users/service.ts';
+import { toMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { cronRoutes } from './lib/cron.ts';
@@ -59,8 +59,8 @@ api.use('*', async (c, next) => {
 });
 
 const routes = api
-  // セッションの検証で読んだユーザーをそのまま返す（hue も載っている。server/lib/auth.ts）
-  .get('/me', (c) => c.json(toPublicUser(c.get('user'))))
+  // セッションの検証で読んだユーザーをそのまま返す（hue と通知時刻も載っている。server/lib/auth.ts）
+  .get('/me', (c) => c.json(toMe(c.get('user'))))
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
   .route('/calendar/feeds', calendarFeedsRoutes)

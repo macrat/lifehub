@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import type { EventKind } from '../../../shared/validation/events.ts';
+import { ALL_DAY_REMIND_OPTIONS, type EventKind } from '../../../shared/validation/events.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -38,7 +38,7 @@ export const events = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     location: text('location'),
     note: text('note'),
-    /** 開始の n 分前に通知。null = 通知なし */
+    /** 開始の n 分前に通知。終日は 0 = 当日、1440 = 前日（各自の通知時刻）。null = 通知なし */
     remindStartMinutes: integer('remind_start_minutes'),
     /** 終了（期限）の n 分前に通知。null = 通知なし */
     remindEndMinutes: integer('remind_end_minutes'),
@@ -82,6 +82,12 @@ export const events = pgTable(
     check(
       'events_series_not_recurring_check',
       sql`${table.seriesId} is null or ${table.rrule} is null`,
+    ),
+    // 終日の通知は日単位だけ。値は ALL_DAY_REMIND_OPTIONS から組む（選択肢を変えたらここも必ず変わる）。
+    // sql.raw なのは、束縛変数にすると制約の定義そのものに $1 が並んでしまうため
+    check(
+      'events_all_day_remind_check',
+      sql`not ${table.allDay} or (coalesce(${table.remindStartMinutes}, 0) in ${sql.raw(`(${ALL_DAY_REMIND_OPTIONS.join(', ')})`)} and coalesce(${table.remindEndMinutes}, 0) in ${sql.raw(`(${ALL_DAY_REMIND_OPTIONS.join(', ')})`)})`,
     ),
     check(
       'events_cancelled_only_series_check',

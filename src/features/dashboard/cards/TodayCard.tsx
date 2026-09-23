@@ -118,12 +118,13 @@ function TodayRow({
 }
 
 /**
- * 予定は開始時刻（終日・複数日は「終日」）、タスクは置かれた日にある時刻（`taskTimeOnPlacementDate`）。
- * 別の日を指す時刻は空にする: 1 行に日付を出す余白が無い。
+ * 予定は開始時刻（終日・複数日は「終日」）、タスクは置かれた日にある日時（`taskTimeOnPlacementDate`。
+ * 日付だけなら「終日」）。別の日を指す日時は空にする: 1 行に日付を出す余白が無い。
  */
 function timeLabel(item: CalendarItem): string {
   if (item.kind === 'event')
     return item.allDay || item.dayCount > 1 ? '終日' : formatTime(item.startsAt);
   const time = taskTimeOnPlacementDate(item);
-  return time ? formatTime(time.at) : '';
+  if (!time) return '';
+  return time.at ? formatTime(time.at) : '終日';
 }

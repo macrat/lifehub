@@ -215,13 +215,13 @@ export function TimelineView({
 }
 
 /**
- * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（または別の日の時刻の）タスクは
+ * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（日付だけ、または別の日の時刻の）タスクは
  * null（終日欄へ）。予定の時間帯は枠と同じ規則（`timedSlot`）で決め、置いた所をそのままつまめるようにする。
  */
 function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind === 'event') return timedSlot(item);
   const time = taskTimeOnPlacementDate(item);
-  if (!time) return null;
+  if (!time?.at) return null;
   const startMin = minutesOfDay(time.at);
   return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
 }

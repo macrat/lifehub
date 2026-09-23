@@ -222,7 +222,7 @@ export function QuickEventForm({
             allDay={allDay}
             onChangeAllDay={setAllDay}
           />
-          <EventExtraFields initial={initial} errors={errors} thisOnly={thisOnly} />
+          <EventExtraFields initial={initial} errors={errors} allDay={allDay} thisOnly={thisOnly} />
         </Stack>
       </Stack>
     </BottomSheet>

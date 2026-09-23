@@ -1,5 +1,6 @@
 import { addDays, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { toAllDayRemind } from '../../../shared/validation/events.ts';
 import { fromDateTimeLocalValue, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
@@ -103,11 +104,9 @@ export function eventInputFromForm(
 ) {
   const startsRaw = formText(formData, 'startsAt');
   const endsRaw = formText(formData, 'endsAt');
-  const toInstant = (raw: string) =>
-    allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
   const when =
     startsRaw && endsRaw
-      ? { allDay, startsAt: toInstant(startsRaw), endsAt: toInstant(endsRaw) }
+      ? { allDay, startsAt: toInstant(startsRaw, allDay), endsAt: toInstant(endsRaw, allDay) }
       : (fallback ?? { allDay, startsAt: initial.startsAt, endsAt: initial.endsAt });
   return {
     kind: 'event' as const,
@@ -121,26 +120,30 @@ export function eventInputFromForm(
       formSelect(formData, 'remindStartMinutes') === null
         ? null
         : Number(formText(formData, 'remindStartMinutes')),
-    remindEndMinutes: initial.remindEndMinutes,
+    // フォームに出していない終了前の通知（MCP から入れたもの）も、終日にしたら日単位に寄せる
+    remindEndMinutes: allDay ? toAllDayRemind(initial.remindEndMinutes) : initial.remindEndMinutes,
   };
 }
 
 /**
  * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
+ * 終日では開始日・期限日（日付だけ）を受け取り、通知はその日の各自の通知時刻になる。
  */
 export function taskInputFromForm(
   formData: FormData,
-  { initial, thisOnly = false }: { initial: ItemFormValues; thisOnly?: boolean },
+  {
+    initial,
+    allDay,
+    thisOnly = false,
+  }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
-  const startsRaw = formText(formData, 'startsAt');
-  const endsRaw = formText(formData, 'endsAt');
   return {
     kind: 'task' as const,
     title: formText(formData, 'title') ?? '',
-    allDay: initial.allDay,
-    startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
-    endsAt: endsRaw ? fromDateTimeLocalValue(endsRaw) : null,
+    allDay,
+    startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
+    endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
     participantIds: formList(formData, 'participantIds'),
     location: formText(formData, 'location'),
     note: formText(formData, 'note'),
@@ -148,4 +151,14 @@ export function taskInputFromForm(
     remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
     remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
   };
+}
+
+/** 日時の入力欄の値 → ISO 日時。終日では日付だけの欄（`type="date"`）から来る */
+function toInstant(raw: string, allDay: boolean): string {
+  return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+}
+
+/** 任意の日時の入力欄（タスクの開始・期限）。空欄は未設定 */
+function optionalInstant(raw: string | null, allDay: boolean): string | null {
+  return raw ? toInstant(raw, allDay) : null;
 }
