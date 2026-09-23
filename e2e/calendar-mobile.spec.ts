@@ -565,13 +565,19 @@ test('表示を切り替えても入力中の予定はそのまま残り、そ�
 /** AppBar の表示の切替に出ている今の表示（入力のシートが前に出ていても読める） */
 const shownView = (page: Page) => page.getByRole('button', { name: '表示の切替' });
 
+/**
+ * 追加ボタンを開く。PC のテスト（events.spec.ts）と同じくホバーで開く: SpeedDial はホバーでも開くので、
+ * click だとホバーで開いた直後の click で閉じてしまうことがある
+ */
+const openAddMenu = (page: Page) => page.getByRole('button', { name: '追加', exact: true }).hover();
+
 test('月表示の追加ボタンは閉じるまで日表示を出し、閉じたら月表示に戻る', async ({ page }) => {
-  const title = `E2E 追加ボタン ${Date.now()}`;
+  const title = `E2E 月表示から ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-15');
   await expect(shownView(page)).toHaveText('月');
 
   // 取り消し: 閉じると月表示に戻る
-  await page.getByRole('button', { name: '追加' }).click();
+  await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await expect(shownView(page)).toHaveText('日');
@@ -579,7 +585,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(shownView(page)).toHaveText('月');
 
   // 保存: 返事を待たずに月表示へ戻り、下書きの枠は残らない
-  await page.getByRole('button', { name: '追加' }).click();
+  await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
   await page.getByLabel('タイトルを追加').fill(title);
   await stall(page, '**/api/events**', 1500);
@@ -590,15 +596,19 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(page.getByRole('button', { name: title })).toHaveCount(1);
   await expect(page).toHaveURL(/view=month&date=2031-06-15/);
 
+  // 後片付けは遅らせずに送り、届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
+  await page.unroute('**/api/events**');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
+  const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');
   await detailAction(page, '削除');
+  await deleted;
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
 });
 
 test('週表示の追加ボタンは週表示のまま下書きを置く', async ({ page }) => {
   await page.goto('/calendar?view=week&date=2031-06-18');
-  await page.getByRole('button', { name: '追加' }).click();
+  await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await expect(shownView(page)).toHaveText('週');
@@ -624,7 +634,7 @@ test('ホームの追加ボタンから始めた予定の入力は、閉じる�
   const title = `E2E ホームから ${Date.now()}`;
   const openFromHome = async () => {
     await page.goto('/');
-    await page.getByRole('button', { name: '追加' }).click();
+    await openAddMenu(page);
     await page.getByRole('menuitem', { name: '予定' }).click();
     await expect(page.getByLabel('タイトルを追加')).toBeVisible();
     await expect(page).toHaveURL(/\/calendar/);
@@ -660,6 +670,8 @@ test('ホームの追加ボタンから始めた予定の入力は、閉じる�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByText(title).click();
+  const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');
   await detailAction(page, '削除');
+  await deleted;
   await expect(page.getByText(title)).toHaveCount(0);
 });
