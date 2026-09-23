@@ -57,26 +57,31 @@ export async function enqueueUpcoming(now: Date = new Date()): Promise<void> {
   }
 }
 
-/** 配信: 台帳に無いキーだけ、参照を再検証して送る。 */
+/**
+ * 配信: 台帳に無いキーだけ、参照を再検証して送る。
+ * 台帳への記録（claim）を先に行い、同時に届いた同じキーの配信を 1 つにする。記録した後に失敗したら
+ * （送る内容の読み出しでも送信でも）記録を取り消して例外を投げ、QStash の再試行で送り直せるようにする。
+ * 取り消さないと、再試行が「送信済み」と判定されて通知が届かないまま終わる。
+ * 再検証で対象が消えていた（stale）ときは記録を残す。送り直しても送る物は無い。
+ */
 export async function deliver(
   key: string,
   ref: NotificationRef,
   send: (userIds: string[], message: PushMessage) => Promise<unknown> = sendToUsers,
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   if (!(await repository.claim(key))) return 'duplicate';
-  const payload = await resolveNotification(ref);
-  if (!payload) return 'stale';
   try {
+    const payload = await resolveNotification(ref);
+    if (!payload) return 'stale';
     await send(payload.userIds, {
       title: payload.title,
       body: payload.body,
       url: payload.url,
       tag: key,
     });
+    return 'sent';
   } catch (error) {
-    // QStash が再試行できるよう、送信に失敗した試行を「送信済み」にしない。
     await repository.release(key);
     throw error;
   }
-  return 'sent';
 }

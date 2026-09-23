@@ -177,6 +177,28 @@ describe('notifications', () => {
     expect(sent).toEqual(['タスク: 提出']);
   });
 
+  it('送る内容を読めなかった（DB の失敗など）キーも送信済みにせず再試行できる', async () => {
+    await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '提出',
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const [planned] = await listNotifications(tomorrow);
+    const { key, ref } = planned as PlannedNotification;
+    const sent: string[] = [];
+    const send = async (_: string[], m: { title: string }) => void sent.push(m.title);
+    // 不正な日時は読み出しの問い合わせを組み立てる所で例外になるので、読み出しの失敗をモック無しで起こせる
+    await expect(deliver(key, { ...ref, at: new Date(Number.NaN) }, send)).rejects.toThrow();
+
+    expect(await deliver(key, ref, send)).toBe('sent');
+    expect(sent).toEqual(['タスク: 提出']);
+  });
+
   it('タスクの通知は配信予定時刻の日を指す', async () => {
     await createEvent(
       createEventSchema.parse({
