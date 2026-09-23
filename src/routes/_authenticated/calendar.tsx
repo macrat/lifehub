@@ -141,7 +141,7 @@ function CalendarPage() {
       detent: 'full',
     });
   };
-  const shortcut = useAddShortcut(search.add, (kind) =>
+  const finishShortcut = useAddShortcut(search.add, (kind) =>
     kind === 'task' ? setAdding('task') : addEvent(),
   );
   /**
@@ -149,7 +149,7 @@ function CalendarPage() {
    * ほかの画面の追加ボタンから来ていればその画面へ戻り、そうでなければ元の表示に戻す
    */
   const finishAdding = () => {
-    if (!shortcut.finish()) page.endPreview();
+    if (!finishShortcut()) page.endPreview();
   };
   const closeDraft = () => {
     setDraft(null);

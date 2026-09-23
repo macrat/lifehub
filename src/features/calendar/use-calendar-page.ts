@@ -22,6 +22,8 @@ import { useRefreshCalendarItems } from './queries.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
 
 const viewSchema = z.enum(['month', 'week', 'day', 'list']);
+/** 表示の種類 */
+export type CalendarView = z.infer<typeof viewSchema>;
 
 const LAST_VIEW_KEY = 'calendar-view';
 
@@ -32,7 +34,7 @@ const LAST_VIEW_KEY = 'calendar-view';
  * 置き場所は localStorage: 端末ごとの好みで、サーバーに送る物ではないため。読めない・壊れている
  * （プライベートブラウズ、消された）ときは月表示から始める。
  */
-function storedView(): z.infer<typeof viewSchema> {
+function storedView(): CalendarView {
   try {
     return viewSchema.catch('month').parse(localStorage.getItem(LAST_VIEW_KEY));
   } catch {
@@ -40,7 +42,7 @@ function storedView(): z.infer<typeof viewSchema> {
   }
 }
 
-function storeView(view: z.infer<typeof viewSchema>): void {
+function storeView(view: CalendarView): void {
   try {
     localStorage.setItem(LAST_VIEW_KEY, view);
   } catch {
@@ -66,8 +68,6 @@ export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
 /** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
 export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
-/** 表示の種類。出どころは検索パラメータのスキーマだけにする */
-export type CalendarView = CalendarSearch['view'];
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;
 
@@ -189,7 +189,7 @@ export function useCalendarPage(search: CalendarSearch) {
     openDay,
     changeView,
     /** 追加ボタンからの予定の入力を始める。時間軸の無い表示（月・リスト）なら、閉じるまで日表示を出す */
-    previewDay: () => setDayPreview(view === 'month' || view === 'list'),
+    previewDay: () => setDayPreview(search.view === 'month' || search.view === 'list'),
     /** 予定の入力を閉じた。日表示を出していたなら元の表示に戻す */
     endPreview: () => setDayPreview(false),
     /**

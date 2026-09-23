@@ -22,7 +22,7 @@ export const addSearchSchema = <K extends AddKind>(...kinds: [K, ...K[]]) =>
 export function useAddShortcut<K extends AddKind>(
   kind: K | undefined,
   open: (kind: K) => void,
-): { finish: () => boolean } {
+): () => boolean {
   const navigate = useNavigate();
   const router = useRouter();
   const latest = useRef(open);
@@ -45,16 +45,14 @@ export function useAddShortcut<K extends AddKind>(
     });
   }, [kind, navigate, router]);
 
-  return {
-    /**
-     * 開いた入力を閉じた（保存でも取り消しでも）。別の画面の追加ボタンから来ていれば true。
-     * その画面へは入力のマウントが終わると同時に戻る（`asDialogEntry`）ので、呼び出し側は
-     * 表示を元に戻さなくてよい（戻す様子が一瞬見えてしまう）。
-     */
-    finish: () => {
-      const leaves = leavesOnClose.current;
-      leavesOnClose.current = false;
-      return leaves;
-    },
+  /**
+   * 返すのは、開いた入力を閉じた（保存でも取り消しでも）ときに呼ぶ関数。別の画面の追加ボタンから
+   * 来ていれば true。その画面へは入力のマウントが終わると同時に戻る（`asDialogEntry`）ので、
+   * 呼び出し側は表示を元に戻さなくてよい（戻す様子が一瞬見えてしまう）。
+   */
+  return () => {
+    const leaves = leavesOnClose.current;
+    leavesOnClose.current = false;
+    return leaves;
   };
 }
