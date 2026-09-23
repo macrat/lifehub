@@ -1,6 +1,7 @@
 import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
+import { stall } from './network.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, settledBox, touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
@@ -559,4 +560,62 @@ test('表示を切り替えても入力中の予定はそのまま残り、そ�
   await expect(page.getByText('6/18(水)〜6/19(木) 終日')).toBeVisible();
   // 選んだ範囲は週の終日欄にもそのまま出る
   await expect(page.locator('[data-draft]')).toBeVisible();
+});
+
+/** AppBar の表示の切替に出ている今の表示（入力のシートが前に出ていても読める） */
+const shownView = (page: Page) => page.getByRole('button', { name: '表示の切替' });
+
+test('月表示の追加ボタンは閉じるまで日表示を出し、閉じたら月表示に戻る', async ({ page }) => {
+  const title = `E2E 追加ボタン ${Date.now()}`;
+  await page.goto('/calendar?view=month&date=2031-06-15');
+  await expect(shownView(page)).toHaveText('月');
+
+  // 取り消し: 閉じると月表示に戻る
+  await page.getByRole('button', { name: '追加' }).click();
+  await page.getByRole('menuitem', { name: '予定' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+  await expect(shownView(page)).toHaveText('日');
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(shownView(page)).toHaveText('月');
+
+  // 保存: 返事を待たずに月表示へ戻り、下書きの枠は残らない
+  await page.getByRole('button', { name: '追加' }).click();
+  await page.getByRole('menuitem', { name: '予定' }).click();
+  await page.getByLabel('タイトルを追加').fill(title);
+  await stall(page, '**/api/events**', 1500);
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.locator('[data-sheet]')).toHaveCount(0, { timeout: 1000 });
+  await expect(page.locator('[data-draft]')).toHaveCount(0);
+  await expect(shownView(page)).toHaveText('月');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(1);
+  await expect(page).toHaveURL(/view=month&date=2031-06-15/);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await detailAction(page, '削除');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('週表示の追加ボタンは週表示のまま下書きを置く', async ({ page }) => {
+  await page.goto('/calendar?view=week&date=2031-06-18');
+  await page.getByRole('button', { name: '追加' }).click();
+  await page.getByRole('menuitem', { name: '予定' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+  await expect(shownView(page)).toHaveText('週');
+  await expect(page.locator('[data-draft]')).toBeVisible();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(shownView(page)).toHaveText('週');
+});
+
+test('タブを行き来しても最後に開いた表示で開く', async ({ page }) => {
+  await page.goto('/calendar');
+  await changeView(page, '週');
+  await page.getByRole('link', { name: '立替' }).click();
+  await expect(page).toHaveURL('/expenses');
+  await page.getByRole('link', { name: '予定' }).click();
+  await expect(shownView(page)).toHaveText('週');
+
+  // 再読み込みしても同じ
+  await page.reload();
+  await expect(shownView(page)).toHaveText('週');
 });

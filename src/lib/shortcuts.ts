@@ -4,8 +4,8 @@
  * 読むのはビルド時（manifest とアイコンの生成）だけなので、React にも zod にも依存させない。
  */
 export const SHORTCUTS = [
-  { kind: 'calendar', name: 'カレンダー', shortName: 'カレンダー', url: '/calendar?view=month' },
-  { kind: 'event', name: '予定登録', shortName: '予定', url: '/calendar?view=day&add=event' },
+  { kind: 'calendar', name: 'カレンダー', shortName: 'カレンダー', url: '/calendar' },
+  { kind: 'event', name: '予定登録', shortName: '予定', url: '/calendar?add=event' },
   { kind: 'task', name: 'タスク登録', shortName: 'タスク', url: '/calendar?add=task' },
   { kind: 'expense', name: '立替登録', shortName: '立替', url: '/expenses?add=expense' },
   { kind: 'lemon', name: 'レモンの記録', shortName: 'レモン', url: '/lemon?add=lemon' },

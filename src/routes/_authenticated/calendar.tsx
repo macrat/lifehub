@@ -70,7 +70,9 @@ type DraftState = Draft & {
  * - 見出しをタップすると年月・週・日の選択ダイアログ
  * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
- * - 追加ボタンと PWA のショートカットの「予定」もここへ来る（`add=event`）。日表示に既定の時間帯を置き、入力を上の段で開く
+ * - 追加ボタンの「予定」は今の表示に既定の時間帯の下書きを置き、入力を上の段で開く。月・リストには時間軸が無いので、
+ *   入力を閉じるまで日表示を出し、閉じたら元の表示に戻す（`previewDay`）。ほかの画面の追加ボタンと
+ *   PWA のショートカットの「予定」もここへ来て同じ流れになる（`add=event`）
  */
 function CalendarPage() {
   const search = Route.useSearch();
@@ -127,17 +129,28 @@ function CalendarPage() {
     });
   };
 
-  useAddShortcut(search.add, (kind) =>
-    kind === 'task'
-      ? setAdding('task')
-      : setDraft({
-          range: defaultDraft(page.date),
-          item: null,
-          participantIds: defaultParticipants(meId),
-          editing: true,
-          detent: 'full',
-        }),
-  );
+  /** 追加ボタンからの予定の入力。下書きを置く日は今見ている日（月なら代表日） */
+  const addEvent = () => {
+    page.previewDay();
+    setDraft({
+      range: defaultDraft(page.date),
+      item: null,
+      participantIds: defaultParticipants(meId),
+      editing: true,
+      detent: 'full',
+    });
+  };
+  /** 予定の入力（クイック入力・全項目のフォーム）を閉じた。保存でも取り消しでも同じ */
+  const closeDraft = () => {
+    setDraft(null);
+    page.endPreview();
+  };
+  const closeExpanded = () => {
+    setExpanded(null);
+    page.endPreview();
+  };
+
+  useAddShortcut(search.add, (kind) => (kind === 'task' ? setAdding('task') : addEvent()));
 
   return (
     <>
@@ -211,7 +224,9 @@ function CalendarPage() {
       )}
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
-      {!draft && <AddMenu kinds={['task', 'event']} date={page.date} onSelect={setAdding} />}
+      {!draft && (
+        <AddMenu kinds={['task', 'event']} onSelect={setAdding} onSelectEvent={addEvent} />
+      )}
       {selected && (
         <ItemDetailSheet
           item={selected.item}
@@ -236,7 +251,7 @@ function CalendarPage() {
             setExpanded({ values, item: draft.item });
             setDraft(null);
           }}
-          onClose={() => setDraft(null)}
+          onClose={closeDraft}
           onChangeInset={setSheetInset}
         />
       )}
@@ -246,7 +261,7 @@ function CalendarPage() {
           scope={grabbedScope(expanded.item)}
           title={expanded.item ? '予定を編集' : '予定を追加'}
           onSubmit={(input) => save(input, expanded.item)}
-          onClose={() => setExpanded(null)}
+          onClose={closeExpanded}
         />
       )}
     </>

@@ -14,14 +14,14 @@ describe('ショートカット', () => {
   });
 
   /**
-   * 「カレンダー」が約束しているのは月表示。既定に頼って `view` を落とすと、既定を変えた日に
-   * 黙って別の表示になるので、URL 自体が月表示を指していることを確かめる。
+   * カレンダーを開くショートカットは、下部ナビのタブと同じく最後に開いた表示で開く。
+   * `view` を付けると、その表示に固定されたうえ、それが「最後に開いた表示」として覚えられてしまう。
    * 入力を開くショートカット（`add`）は、実際に入力が開くところまで E2E で見る。
    */
-  it('カレンダーは既定に頼らず月表示を指している', () => {
-    const calendar = SHORTCUTS.find((s) => s.kind === 'calendar');
-    if (!calendar) throw new Error('カレンダーのショートカットが無い');
-    const { searchParams } = new URL(calendar.url, 'https://lifehub.invalid');
-    expect(searchParams.get('view')).toBe('month');
+  it('カレンダーを開くものは表示を指定しない', () => {
+    for (const { url } of SHORTCUTS.filter((s) => s.url.startsWith('/calendar'))) {
+      const { searchParams } = new URL(url, 'https://lifehub.invalid');
+      expect(searchParams.get('view'), url).toBeNull();
+    }
   });
 });
