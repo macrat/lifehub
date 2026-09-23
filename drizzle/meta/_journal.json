@@ -57,6 +57,13 @@
       "when": 1790151499690,
       "tag": "0007_all_day_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790164816670,
+      "tag": "0008_weather",
+      "breakpoints": true
     }
   ]
 }

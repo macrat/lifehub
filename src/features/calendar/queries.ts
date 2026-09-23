@@ -2,6 +2,7 @@ import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/re
 import { useEffect } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
+import type { DailyWeather } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import { ONE_DAY, type QueryState } from '../../lib/query-client.ts';
@@ -127,4 +128,30 @@ function toSet(dates: DateString[]): ReadonlySet<DateString> {
 /** 祝日（振替休日・国民の休日を含む）の集合。まだ届いていないか取れなかったときは空（どの日も平日の扱い） */
 export function useHolidays(): ReadonlySet<DateString> {
   return useQuery({ ...holidaysQueryOptions, select: toSet }).data ?? EMPTY;
+}
+
+const weatherQueryOptions = queryOptions({
+  queryKey: ['weather'],
+  queryFn: async (): Promise<DailyWeather[]> => {
+    const res = await ensureOk(await api.weather.$get());
+    return res.json();
+  },
+  /**
+   * 1 時間は取り直さない。
+   * WHY: サーバーが気象庁から取り直すのは 3 時間に 1 回で、読むのはスワイプや表示の切り替えのたびに
+   * マウントし直す所（月の週の行・日表示の見出し）なので、既定（staleTime: 0）だとそのたびに問い合わせる。
+   * 祝日と違って 1 日持たないのは、朝の予報が夕方には変わっているため。
+   */
+  staleTime: ONE_DAY / 24,
+});
+
+const NO_WEATHER: ReadonlyMap<DateString, DailyWeather> = new Map();
+
+function toMap(list: DailyWeather[]): ReadonlyMap<DateString, DailyWeather> {
+  return new Map(list.map((w) => [w.date, w]));
+}
+
+/** 日ごとの天気。まだ届いていないか取れなかったときは空（どの日にもアイコンを出さない） */
+export function useWeather(): ReadonlyMap<DateString, DailyWeather> {
+  return useQuery({ ...weatherQueryOptions, select: toMap }).data ?? NO_WEATHER;
 }

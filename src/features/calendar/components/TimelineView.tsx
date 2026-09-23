@@ -8,9 +8,10 @@ import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
-import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
+import { DayWeather } from './DayWeather.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
@@ -41,6 +42,7 @@ type Props = {
 
 const GUTTER_WIDTH = 44;
 const LANE_HEIGHT = 20;
+const DAY_NUMBER_SIZE = 28;
 
 /**
  * 週・日のタイムライン表示（Google カレンダー方式）。
@@ -67,6 +69,7 @@ export function TimelineView({
   const compact = useIsMobile();
   const colorFor = useUserColor();
   const holidays = useHolidays();
+  const weather = useWeather();
   // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
   const barDraft = draft?.range.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
@@ -109,6 +112,7 @@ export function TimelineView({
         <Box />
         {days.map((day) => {
           const weekday = weekdayIndex(day);
+          const dayWeather = weather.get(day);
           return (
             <ButtonBase
               key={day}
@@ -122,6 +126,8 @@ export function TimelineView({
                 gap: single ? 1 : 0,
                 py: 0.5,
                 px: single ? 1 : 0,
+                // 天気が出せる幅かを DayWeather がこの見出しの幅で決める
+                containerType: 'inline-size',
                 borderLeft: 1,
                 borderColor: 'divider',
               }}
@@ -136,7 +142,25 @@ export function TimelineView({
               >
                 {WEEKDAY_LABELS[weekday]}
               </Typography>
-              <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+              <DayNumber date={day} size={DAY_NUMBER_SIZE} holiday={holidays.has(day)} />
+              {/* 天気は見出しの右端に、数字と同じ高さで置く。週表示の数字は列の中央なので、重なる幅なら隠す */}
+              {dayWeather && (
+                <DayWeather
+                  weather={dayWeather}
+                  size={single ? 20 : 14}
+                  reserve={DAY_NUMBER_SIZE}
+                  sx={
+                    single
+                      ? { ml: 'auto' }
+                      : {
+                          position: 'absolute',
+                          bottom: '4px',
+                          right: '2px',
+                          height: DAY_NUMBER_SIZE,
+                        }
+                  }
+                />
+              )}
             </ButtonBase>
           );
         })}

@@ -9,6 +9,7 @@ export * from '../features/expenses/schema.ts';
 export * from '../features/holidays/schema.ts';
 export * from '../features/lemon/schema.ts';
 export * from '../features/users/schema.ts';
+export * from '../features/weather/schema.ts';
 export * from './mcp/schema.ts';
 export * from './notifications/schema.ts';
 export * from './push/schema.ts';

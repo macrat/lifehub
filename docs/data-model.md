@@ -7,7 +7,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 - 主キーは `uuid`。アプリ側で UUID v7 を生成する（`shared/id.ts`。時系列ソート可能）。better-auth 管理のテーブルも `generateId` で UUID v7 を使う。記録を追加する API（events / expenses / lemon）では ID をクライアントが決めて送れる（省略時はサーバーが採番する）。同じ ID の作成は upsert として扱い、オフラインで溜めた書き込みを送り直しても二重に作られない（[architecture.md](architecture.md#オフラインの書き込み)）。
 - 日時は `timestamptz`（UTC 保存、表示時に JST 変換）。日付のみは `date`。TypeScript では JST の暦日を `DateString`（`shared/types.ts`。検証済みの文字列にだけ付く brand 型）で表し、`shared/date.ts` の変換関数と `dateStringSchema` だけが作る。
 - 金額は `integer`（円）。
-- 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。例外は、台帳の `sent_notifications`、外部の ics を写しただけの `holidays`、結合テーブルの `event_participants`、`user_id` が持ち主そのものである `push_subscriptions` と `calendar_feeds`、better-auth 管理のテーブル（それぞれの規約に従う）。
+- 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。例外は、台帳の `sent_notifications`、外部の ics を写しただけの `holidays`、気象庁の予報を写しただけの `weather`、結合テーブルの `event_participants`、`user_id` が持ち主そのものである `push_subscriptions` と `calendar_feeds`、better-auth 管理のテーブル（それぞれの規約に従う）。
 - インデックスは実際に絞り込みや結合で使う列だけに張る。全件を読んで並べる小さなテーブル（`expenses`, `lemon_care_logs`）には張らない。データ量は数千行の桁に留まり、この規模では順次走査が 1ms 前後で終わる一方、インデックスは書き込みのたびに更新費用がかかる。
 - **読み取りは 1 エンドポイント 1 問い合わせを基本にする**。本番の Neon は HTTP ドライバで、問い合わせ 1 回が HTTP の往復 1 回になる。行数より往復の回数が応答時間を決めるので、関連する行は結合・集約でまとめて 1 回で読む。書き込みで複数文が要るときは `runBatch`（[architecture.md](architecture.md#技術スタック)）にまとめる。
 - **画面に出す値が行の集約で決まるなら、行を全部読まずに SQL で畳む**（立替残高、レモンの項目ごとの最新）。計算式そのものは `shared/` に 1 つだけ置き、SQL は集約までを担う。
@@ -27,6 +27,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 | `expenses` | `from_user_id`(user), `to_user_id`(user, null=共有), `amount`, `description`, `spent_on` | 立替（借方・貸方）。from が to のために払った。to が null なら折半。精算も同じ行（from = 払った人、to = 受け取った人） |
 | `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
 | `holidays` | `date`(PK) | 日本の祝日・休日（[features/calendar.md](features/calendar.md#祝日)）。外部の ics を月次 Cron で取り直し、全行を入れ替える。使うのは日付だけなので名前は持たない |
+| `weather` | `date`(PK), `code`, `temp_max` | 日ごとの天気と最高気温（東京。[features/calendar.md](features/calendar.md#天気)）。気象庁の予報を 3 時間ごとの Cron で取り直し、予報のある日を上書きする。過去の日は消さない。最高気温は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
 
 ## 計算ルール
