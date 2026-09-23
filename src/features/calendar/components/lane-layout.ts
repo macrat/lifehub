@@ -1,4 +1,4 @@
-import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { isCompletedTask, occurrenceKey } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../queries.ts';
 
@@ -17,8 +17,9 @@ export type Placed = {
   roundEnd: boolean;
 };
 
+/** 描いた 1 項目の鍵（React の key）。複数日の予定は日ごとに別の項目なので、発生に暦日を足す */
 export function itemKey(item: CalendarItem): string {
-  return `${item.kind}:${item.id}:${item.occurrenceStart}:${item.placementDate}`;
+  return `${occurrenceKey(item)}:${item.placementDate}`;
 }
 
 /**
@@ -38,14 +39,11 @@ export function layoutLanes(
   days.forEach((day, col) => {
     for (const item of itemsByDate.get(day) ?? []) {
       if (item.kind === 'event' && item.dayCount > 1) {
-        const key = `${item.id}:${item.occurrenceStart}`;
+        const key = occurrenceKey(item);
         if (seenBars.has(key)) continue;
         seenBars.add(key);
         const continues = (day: DateString | undefined) =>
-          day !== undefined &&
-          (itemsByDate.get(day) ?? []).some(
-            (i) => i.kind === 'event' && `${i.id}:${i.occurrenceStart}` === key,
-          );
+          day !== undefined && (itemsByDate.get(day) ?? []).some((i) => occurrenceKey(i) === key);
         let span = 1;
         while (continues(days[col + span])) span++;
         entries.push({

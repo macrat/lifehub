@@ -1,4 +1,4 @@
-import type { CalendarItem, DateRange } from '../../../shared/calendar.ts';
+import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -88,14 +88,14 @@ export function timedSlot(item: CalendarItem): { startMin: number; endMin: numbe
 
 /**
  * 直している対象が同じか。複数日の予定は日ごとに 1 件で返り、月グリッドでは週の行ごとに帯が分かれるので、
- * 暦日ではなく「どの発生か」（種別・id・繰り返しの回）で見る。どちらも無い（追加の下書き）なら同じ。
+ * 暦日ではなく「どの発生か」（`occurrenceKey`）で見る。どちらも無い（追加の下書き）なら同じ。
  */
 export function sameOccurrence(
   a: CalendarItem | null | undefined,
   b: CalendarItem | null | undefined,
 ): boolean {
   if (!a || !b) return !a && !b;
-  return a.kind === b.kind && a.id === b.id && a.occurrenceStart === b.occurrenceStart;
+  return occurrenceKey(a) === occurrenceKey(b);
 }
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
