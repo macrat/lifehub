@@ -20,7 +20,7 @@ import {
   useUpdateEvent,
 } from '../queries.ts';
 import { describeRRule } from '../recurrence-options.ts';
-import { useItemForm } from '../use-item-form.ts';
+import { useAllDay, useItemForm } from '../use-item-form.ts';
 import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
 import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
@@ -71,9 +71,12 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
   // 繰り返し元を読んでいる間はまだ入力欄に変えない（違う日時のまま出さない）
   const editing = editScope !== null && values !== null;
 
+  const initial = values ?? item;
+  const [allDay, setAllDay] = useAllDay(initial);
   const form = useItemForm({
     kind: item.kind,
-    initial: values ?? item,
+    initial,
+    allDay,
     scope: editScope ?? 'all',
     onSubmit: (input) =>
       updateEvent.mutateAsync({
@@ -130,8 +133,8 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               <TaskFormFields
                 initial={values}
                 errors={form.errors}
-                allDay={form.allDay}
-                onChangeAllDay={form.setAllDay}
+                allDay={allDay}
+                onChangeAllDay={setAllDay}
                 thisOnly={form.thisOnly}
                 autoFocus={false}
               />
@@ -139,8 +142,8 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               <EventFormFields
                 initial={values}
                 errors={form.errors}
-                allDay={form.allDay}
-                onChangeAllDay={form.setAllDay}
+                allDay={allDay}
+                onChangeAllDay={setAllDay}
                 thisOnly={form.thisOnly}
               />
             )}

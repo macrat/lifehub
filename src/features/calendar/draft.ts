@@ -14,6 +14,7 @@ import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
+  type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
 import { MIN_BLOCK_MINUTES } from './components/timeline-layout.ts';
@@ -179,6 +180,19 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
 }
 
 /**
+ * 終日の切り替え（クイック入力の「終日」）。終日かどうかは下書きだけが持ち、切り替えは下書きそのものを
+ * 入れ替える。見出し・グリッドの枠・保存する日時がいつも同じ 1 つの下書きから決まるように。
+ * 時間指定 → 終日はその日 1 日。終日 → 時間指定は、最初の日に追加ボタンと同じ既定の時間帯（`defaultDraft`）。
+ * 時間指定の枠は日をまたげないので、複数日の終日から戻すと最初の日だけになる。
+ */
+export function withAllDay(draft: EventDraft, allDay: boolean, now: Date = new Date()): EventDraft {
+  if (draft.allDay === allDay) return draft;
+  return draft.allDay
+    ? defaultDraft(draft.from, now)
+    : { allDay: true, from: draft.date, to: draft.date };
+}
+
+/**
  * 日の並びで押した所が、今出ている枠（下書き・編集中の予定）のどこか。掛かっていなければ null（押した所から選び直す）。
  * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
  * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
@@ -277,11 +291,7 @@ export function draftText(draft: EventDraft): string {
 }
 
 /** 保存するときの日時。終日の終わりは「含む日」で送る（サーバーが翌日 0:00 に直す） */
-export function draftInstants(draft: EventDraft): {
-  allDay: boolean;
-  startsAt: string;
-  endsAt: string;
-} {
+export function draftInstants(draft: EventDraft): FormInstants {
   return draft.allDay
     ? { allDay: true, startsAt: fromDateValue(draft.from), endsAt: fromDateValue(draft.to) }
     : {

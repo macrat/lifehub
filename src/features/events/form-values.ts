@@ -83,6 +83,9 @@ export function defaultTaskValues(participantIds: string[]): ItemFormValues {
   return { ...EMPTY, participantIds };
 }
 
+/** 入力欄を通さずに渡す予定の日時（ISO）。終日の終わりは「含む日」のどこか（サーバーが翌日 0:00 に直す） */
+export type FormInstants = { allDay: boolean; startsAt: string; endsAt: string };
+
 /**
  * 予定のフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 全項目のフォームと、スマホのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
@@ -99,7 +102,7 @@ export function eventInputFromForm(
     initial: ItemFormValues;
     allDay: boolean;
     thisOnly?: boolean;
-    fallback?: { allDay: boolean; startsAt: string; endsAt: string };
+    fallback?: FormInstants | undefined;
   },
 ) {
   const startsRaw = formText(formData, 'startsAt');

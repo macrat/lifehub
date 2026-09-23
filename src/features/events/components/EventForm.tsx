@@ -2,7 +2,7 @@ import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { useItemForm } from '../use-item-form.ts';
+import { useAllDay, useItemForm } from '../use-item-form.ts';
 import { EventFormFields } from './EventFields.tsx';
 
 type Props = {
@@ -21,9 +21,15 @@ type Props = {
  * （何を保存するかは `onSubmit` を渡す側が決める）。詳細から開く編集は `ItemDetailSheet`。
  */
 export function EventForm({ initial, scope, title = '予定を追加', onSubmit, onClose }: Props) {
-  const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
-    { kind: 'event', initial, scope, onSubmit, onSaved: onClose },
-  );
+  const [allDay, setAllDay] = useAllDay(initial);
+  const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
+    kind: 'event',
+    initial,
+    allDay,
+    scope,
+    onSubmit,
+    onSaved: onClose,
+  });
 
   return (
     <RecordSheet

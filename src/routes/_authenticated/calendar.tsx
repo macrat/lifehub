@@ -9,6 +9,7 @@ import { CalendarPane } from '../../features/calendar/components/CalendarPane.ts
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
+import { QuickEventForm } from '../../features/calendar/components/QuickEventForm.tsx';
 import { SwipePager } from '../../features/calendar/components/SwipePager.tsx';
 import {
   type Draft,
@@ -23,7 +24,6 @@ import {
 } from '../../features/calendar/use-calendar-page.ts';
 import { EventForm } from '../../features/events/components/EventForm.tsx';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
-import { QuickEventForm } from '../../features/events/components/QuickEventForm.tsx';
 import { defaultParticipants, type ItemFormValues } from '../../features/events/form-values.ts';
 import {
   type CreateEventBody,

@@ -7,27 +7,31 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type ReactNode, useRef, useState } from 'react';
-import { createEventSchema } from '../../../../shared/validation/events.ts';
-import { useFormSubmit } from '../../../lib/form.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import { DRAFT_SELECTOR } from '../../calendar/components/DraftBlock.tsx';
+import {
+  EventExtraFields,
+  EventWhenFields,
+  ScopeChip,
+} from '../../events/components/EventFields.tsx';
+import type { ItemFormValues } from '../../events/form-values.ts';
+import type { CreateEventBody } from '../../events/queries.ts';
+import { grabbedScope } from '../../events/recurrence-options.ts';
+import { useItemForm } from '../../events/use-item-form.ts';
+import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import {
   draftFromInstants,
   draftInstants,
   draftText,
   draftValues,
   type EventDraft,
-} from '../../calendar/draft.ts';
-import type { CalendarItem } from '../../calendar/queries.ts';
-import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { eventInputFromForm, type ItemFormValues } from '../form-values.ts';
-import type { CreateEventBody } from '../queries.ts';
-import { grabbedScope } from '../recurrence-options.ts';
-import { EventExtraFields, EventWhenFields, ScopeChip } from './EventFields.tsx';
+  withAllDay,
+} from '../draft.ts';
+import type { CalendarItem } from '../queries.ts';
+import { DRAFT_SELECTOR } from './DraftBlock.tsx';
 
 type Props = {
   /** グリッドで選んだ範囲。日時の既定値になり、上の段で直すとここへ戻す */
@@ -47,7 +51,7 @@ type Props = {
   open: boolean;
   /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
-  /** 上の段で直した日時を下書き（グリッドの枠）へ戻す */
+  /** 上の段で直した日時・終日の切り替えを下書き（グリッドの枠）へ戻す */
   onChangeDraft: (draft: EventDraft) => void;
   /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
   onExpand: (values: ItemFormValues) => void;
@@ -64,6 +68,9 @@ type Props = {
 /**
  * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。
  * 予定を長押しでつまんで直しているとき（`item`）も同じ入力で、既定値がその予定の内容になるだけ。
+ * 日時（終日かどうかを含む）は下書き（`draft`）だけが持つ。入力で直した日時と終日の切り替えは下書きへ
+ * 戻し、見出し・グリッドの枠・保存する日時がいつも同じ下書きから決まるようにする
+ * （入力の側にも持つと、開いたままグリッドで別の種類の枠を選び直したときに食い違う）。
  * - スマホ: 画面下のシート（`BottomSheet`）。下の段はタイトルと参加者だけ、上の段まで広げると全項目。
  *   ダイアログには移らず、同じシートの見える量が変わるだけ。下げきると下書きごと取り消す。
  * - PC: 選んだ範囲に寄せた吹き出し。タイトルと参加者だけを扱い、残りは「その他のオプション」で
@@ -90,33 +97,35 @@ export function QuickEventForm({
   // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
   const [detent, setDetent] = useState<SheetDetent>(isMobile ? initialDetent : 'peek');
   const initial = draftValues(draft, participantIds, item);
-  const [allDay, setAllDay] = useState(initial.allDay);
-  // その回だけを直すときは、繰り返しの設定そのものは触らせない（回の行は繰り返さない）
-  const thisOnly = grabbedScope(item) === 'this';
-
-  const inputFromForm = (fd: FormData) =>
-    eventInputFromForm(fd, { initial, allDay, thisOnly, fallback: draftInstants(draft) });
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
-    schema: createEventSchema,
-    values: inputFromForm,
-    onSubmit: (data) =>
-      onSubmit({
-        ...data,
-        startsAt: data.startsAt?.toISOString() ?? null,
-        endsAt: data.endsAt?.toISOString() ?? null,
-      }),
+  const { errors, submitError, submitted, handleSubmit, thisOnly, inputFromForm } = useItemForm({
+    kind: 'event',
+    initial,
+    allDay: draft.allDay,
+    // その回だけを直すときは、繰り返しの設定そのものは触らせない（回の行は繰り返さない）
+    scope: grabbedScope(item),
+    // PC の吹き出しには日時の入力欄が無いので、下書きの日時をそのまま保存する
+    fallback: draftInstants(draft),
+    onSubmit,
     onSaved: onClose,
   });
 
+  /** 入力欄の日時 → 下書き。枠に出せない範囲（日をまたぐ時間指定など）なら null */
+  const draftFromForm = (): EventDraft | null => {
+    if (!formRef.current) return null;
+    const { allDay, startsAt, endsAt } = inputFromForm(new FormData(formRef.current));
+    return startsAt && endsAt ? draftFromInstants(allDay, startsAt, endsAt) : null;
+  };
+
   /** 段の移動。下の段に戻るときは、上の段で直した日時を下書き（テキストとグリッドの枠）へ映す */
   const changeDetent = (next: SheetDetent) => {
-    if (next === 'peek' && formRef.current) {
-      const { allDay: whole, startsAt, endsAt } = inputFromForm(new FormData(formRef.current));
-      const range = startsAt && endsAt && draftFromInstants(whole, startsAt, endsAt);
-      if (range) onChangeDraft(range);
-    }
+    const range = next === 'peek' ? draftFromForm() : null;
+    if (range) onChangeDraft(range);
     setDetent(next);
   };
+
+  /** 終日の切り替え。入力欄で直していた日時を保ったまま、下書きそのものを切り替える */
+  const changeAllDay = (allDay: boolean) =>
+    onChangeDraft(withAllDay(draftFromForm() ?? draft, allDay));
 
   /** PC だけ: 入力済みの内容を引き継いで全項目のフォームへ */
   const expand = () => {
@@ -219,10 +228,15 @@ export function QuickEventForm({
             key={`${initial.startsAt}|${initial.endsAt}`}
             initial={initial}
             errors={errors}
-            allDay={allDay}
-            onChangeAllDay={setAllDay}
+            allDay={draft.allDay}
+            onChangeAllDay={changeAllDay}
           />
-          <EventExtraFields initial={initial} errors={errors} allDay={allDay} thisOnly={thisOnly} />
+          <EventExtraFields
+            initial={initial}
+            errors={errors}
+            allDay={draft.allDay}
+            thisOnly={thisOnly}
+          />
         </Stack>
       </Stack>
     </BottomSheet>
