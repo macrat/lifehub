@@ -1,5 +1,6 @@
 import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { DEFAULT_HUE } from '../../../shared/color.ts';
+import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 
 /**
  * better-auth が管理するテーブル（メール＋パスワード認証）。
@@ -13,6 +14,10 @@ export const users = pgTable('users', {
   image: text('image'),
   /** ユーザーの色（OKLCH の色相 0〜359）。アクセントカラーとカレンダーの色に使う（shared/color.ts） */
   hue: integer('hue').notNull().default(DEFAULT_HUE),
+  /** 終日の予定・タスクを通知する時刻（その日の 0:00 からの分）。本人の設定画面で選ぶ */
+  allDayNotifyMinutes: integer('all_day_notify_minutes')
+    .notNull()
+    .default(DEFAULT_ALL_DAY_NOTIFY_MINUTES),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

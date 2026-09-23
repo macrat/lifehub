@@ -7,7 +7,11 @@
 ## 通知内容
 
 - 開始の `remind_start_minutes` 前と、終了（期限）の `remind_end_minutes` 前。項目ごとに選択し、既定はどちらも通知なし。予定のフォームは開始前だけ、タスクのフォームは「開始日時に通知」「期限日時に通知」（= 0 分前）を出す。完了したタスクには送らない。
-- 送信先: 参加者の全端末。
+- 終日の予定・タスクは、開始日／終了日（期限日）の **各参加者の通知時刻**（`users.all_day_notify_minutes`、既定 7:00）に送る。n > 0 のときは n 分を日に切り上げた日数だけ前の日の同じ時刻（1440 = 前日）。予定のフォームは終日なら「当日」「前日」だけを出す。
+  - WHY: 終日には「n 分前」の瞬間が無い（0:00 の n 分前では夜中に届く）。何時に知りたいかは人によって違うので、項目ではなくユーザーの設定（`/settings` の「終日の通知」）で選ぶ。
+  - 宛先はユーザーごとに時刻が違うので、終日の項目は参加者ごとに予約する（`ref.userId`）。時刻のある項目は `userId: null` で参加者全員に 1 つ。
+  - 通知時刻を変えると、users service が当日〜翌日の分をその場で予約し直す。古い時刻の予約は配信時の再検証で配信予定時刻が合わずに捨てられる。
+- 送信先: 参加者の全端末（終日の項目は `ref.userId` の全端末）。
 - 通知をタップすると該当画面（`/calendar?date=YYYY-MM-DD`）を開く。
 
 ## 見た目（`src/sw.ts`）
@@ -22,9 +26,9 @@
 予定の変更・削除のたびに予約をキャンセルする処理を書かなくて済むようにするため、予約は使い捨てにし、配信時に再検証する。
 
 1. Vercel Cron（日次 00:00 JST = UTC `0 15 * * *`）が `GET /api/cron/notifications`（`server/lib/cron.ts`）を呼ぶ（`Authorization: Bearer <CRON_SECRET>` で保護。Vercel は `CRON_SECRET` があればこのヘッダを自動で付ける）。`listNotifications` で翌日分（JST の翌日 0:00〜翌々日 0:00）を列挙し、QStash に `notBefore`（配信時刻）付きで予約する。`deduplicationId` = 通知キーで重複を防ぐ。
-   - キーは配信予定時刻を含む（`event:<id>:<occurrenceStart ISO | single>:<start|end>:<at>`）。日時や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
+   - キーは配信予定時刻を含む（`event:<id>:<occurrenceStart ISO | single>:<start|end>:<at>`、終日の項目は末尾に `:<userId>`）。日時や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
 2. 予定・タスクの作成／変更で当日〜翌日に新たな通知が発生する場合は、その場で同様に予約する（dedupe により重複しない）。service の `create` / `update` から `enqueueUpcoming()` を呼ぶ。
-3. 配信時刻に QStash が `POST /api/qstash/notifications`（`server/lib/qstash-routes.ts`）を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolveNotification(ref)` で対象を再読込する。削除・変更（配信予定時刻がずれた）・完了済みなら送らない。
+3. 配信時刻に QStash が `POST /api/qstash/notifications`（`server/lib/qstash-routes.ts`）を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolveNotification(ref)` で対象を再読込する。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら送らない。
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
 
@@ -34,7 +38,7 @@
 
 ```ts
 // server/features/events/notifications.ts
-export const notificationRefSchema = z.object({ id, occurrenceStart, edge: 'start' | 'end', at });
+export const notificationRefSchema = z.object({ id, occurrenceStart, edge: 'start' | 'end', at, userId });
 export function listNotifications(range): Promise<{ key; at; ref }[]>;   // 予約する通知の列挙
 export function resolveNotification(ref): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```

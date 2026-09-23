@@ -60,8 +60,8 @@ export function useUpdateUser() {
     }),
     queue: false,
     keys: [usersQueryOptions.queryKey, meQueryOptions.queryKey],
-    apply: (client, { id, name, hue }) => {
-      // パスワードは表示に関わらないので、名前と色だけを当てる
+    apply: (client, { id, name, hue, allDayNotifyMinutes }) => {
+      // パスワードは表示に関わらないので、名前と色（と自分だけが持つ通知時刻）だけを当てる
       const changes = {
         ...(name === undefined ? {} : { name }),
         ...(hue === undefined ? {} : { hue }),
@@ -70,7 +70,13 @@ export function useUpdateUser() {
         users?.map((user) => (user.id === id ? { ...user, ...changes } : user)),
       );
       client.setQueryData(meQueryOptions.queryKey, (me) =>
-        me && me.id === id ? { ...me, ...changes } : me,
+        me && me.id === id
+          ? {
+              ...me,
+              ...changes,
+              ...(allDayNotifyMinutes === undefined ? {} : { allDayNotifyMinutes }),
+            }
+          : me,
       );
     },
   });

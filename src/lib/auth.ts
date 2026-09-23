@@ -13,7 +13,14 @@ export const authClient = createAuthClient({
   plugins: [oauthProviderClient()],
 });
 
-export type Me = { id: string; name: string; email: string; hue: number };
+export type Me = {
+  id: string;
+  name: string;
+  email: string;
+  hue: number;
+  /** 終日の予定・タスクを通知する時刻（その日の 0:00 からの分） */
+  allDayNotifyMinutes: number;
+};
 
 /**
  * ログイン中のユーザー。未認証なら null。

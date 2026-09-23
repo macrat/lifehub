@@ -10,6 +10,13 @@ const passwordSchema = z
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
 const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
 
+/** 終日の予定・タスクを通知する時刻（その日の 0:00 からの分） */
+const allDayNotifyMinutesSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(24 * 60 - 1);
+
 export const createUserSchema = z.object({
   email: z.email('メールアドレスの形式が正しくありません'),
   name: z.string().trim().min(1, '名前を入力してください').max(50),
@@ -24,8 +31,9 @@ export const updateUserSchema = z
     name: z.string().trim().min(1, '名前を入力してください').max(50).optional(),
     password: passwordSchema.optional(),
     hue: hueSchema.optional(),
+    allDayNotifyMinutes: allDayNotifyMinutesSchema.optional(),
   })
-  .refine((v) => v.name !== undefined || v.password !== undefined || v.hue !== undefined, {
+  .refine((v) => Object.values(v).some((value) => value !== undefined), {
     message: '変更する項目がありません',
   });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

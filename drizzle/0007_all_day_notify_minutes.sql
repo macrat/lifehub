@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "all_day_notify_minutes" integer DEFAULT 420 NOT NULL;

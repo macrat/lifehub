@@ -128,19 +128,26 @@ export function eventInputFromForm(
 /**
  * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
+ * 終日では開始日・期限日（日付だけ）を受け取り、通知はその日の各自の通知時刻になる。
  */
 export function taskInputFromForm(
   formData: FormData,
-  { initial, thisOnly = false }: { initial: ItemFormValues; thisOnly?: boolean },
+  {
+    initial,
+    allDay,
+    thisOnly = false,
+  }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
-  const startsRaw = formText(formData, 'startsAt');
-  const endsRaw = formText(formData, 'endsAt');
+  const toInstant = (raw: string | null) => {
+    if (!raw) return null;
+    return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+  };
   return {
     kind: 'task' as const,
     title: formText(formData, 'title') ?? '',
-    allDay: initial.allDay,
-    startsAt: startsRaw ? fromDateTimeLocalValue(startsRaw) : null,
-    endsAt: endsRaw ? fromDateTimeLocalValue(endsRaw) : null,
+    allDay,
+    startsAt: toInstant(formText(formData, 'startsAt')),
+    endsAt: toInstant(formText(formData, 'endsAt')),
     participantIds: formList(formData, 'participantIds'),
     location: formText(formData, 'location'),
     note: formText(formData, 'note'),

@@ -86,6 +86,15 @@ describe('sortItems', () => {
     ]);
   });
 
+  it('終日のタスクは期限の 0:00 ではなく、終日の項目として先頭に並ぶ', () => {
+    const items = [
+      event('10 時の予定', '2026-09-21T01:00:00.000Z', '2026-09-21T02:00:00.000Z'),
+      // 9/21 が期限の終日のタスク（保存上の期限は翌日 0:00）
+      { ...task('終日のタスク', null, '2026-09-21T15:00:00.000Z'), allDay: true },
+    ];
+    expect(sortItems(items).map((i) => i.title)).toEqual(['終日のタスク', '10 時の予定']);
+  });
+
   it('日付が違えば placementDate 順に並ぶ', () => {
     const later = { ...task('翌日', null, null), placementDate: '2026-09-22' as DateString };
     const earlier = { ...event('前日', '2026-09-20T01:00:00.000Z', '2026-09-20T02:00:00.000Z') };

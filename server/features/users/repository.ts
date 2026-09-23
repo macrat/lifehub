@@ -20,9 +20,15 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
+/** 終日の予定・タスクの通知時刻（ユーザー ID → その日の 0:00 からの分） */
+export async function findAllDayNotifyMinutes(): Promise<Map<string, number>> {
+  const rows = await db.select({ id: users.id, minutes: users.allDayNotifyMinutes }).from(users);
+  return new Map(rows.map((row) => [row.id, row.minutes]));
+}
+
 export async function updateProfile(
   id: string,
-  values: { name?: string; hue?: number },
+  values: { name?: string; hue?: number; allDayNotifyMinutes?: number },
 ): Promise<void> {
   await db.update(users).set(values).where(eq(users.id, id));
 }

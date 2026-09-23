@@ -115,6 +115,12 @@ export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/** "09:00"（`<input type="time">` の値）→ 0:00 からの分 */
+export function parseMinutesOfDay(value: string): number {
+  const [h, m] = value.split(':').map(Number) as [number, number];
+  return h * 60 + m;
+}
+
 /** 排他的な終了日時 → 含む終了日（終日の予定のフォーム用） */
 export function inclusiveEndDate(endsAt: string): DateString {
   return toDateString(new Date(new Date(endsAt).getTime() - 1));

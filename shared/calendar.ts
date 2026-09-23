@@ -77,13 +77,16 @@ export function normalizeInstants(
  *
  * 完了を先に置くのは、完了したタスクを完了した日に置く `placeTask` と揃えるため。
  * 期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
+ * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので、完了の時刻だけを見る。
  */
 export function taskTime(task: {
+  allDay: boolean;
   startsAt: string | null;
   endsAt: string | null;
   completedAt: string | null;
 }): { kind: 'done' | 'due' | 'start'; at: string } | null {
   if (task.completedAt) return { kind: 'done', at: task.completedAt };
+  if (task.allDay) return null;
   if (task.endsAt) return { kind: 'due', at: task.endsAt };
   if (task.startsAt) return { kind: 'start', at: task.startsAt };
   return null;
@@ -120,7 +123,7 @@ export function placeOccurrence(
   return task.placementDate >= range.from && task.placementDate <= range.to ? [task] : [];
 }
 
-/** 一覧の並び: placementDate 順、同日内は 終日の予定 → 時刻のある項目 → 時刻の無いタスク */
+/** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 → 時刻の無いタスク */
 export function sortItems(items: CalendarItem[]): CalendarItem[] {
   return [...items].sort(compareItems);
 }
@@ -178,13 +181,14 @@ function placeEvent(
 }
 
 /**
- * 同日内の並び順のキー: 終日の予定 → 時刻のある項目（予定の開始、タスクは `taskTime`）→ 時刻の無いタスク。
+ * 同日内の並び順のキー: 終日の項目（予定と未完了のタスク）→ 時刻のある項目（予定の開始、タスクは
+ * `taskTime`）→ 時刻の無いタスク。
  * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す。
  * `taskTime` を通すので、行やブロックが示す時刻と並びの基準は必ず同じものになる。
  */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
-  return taskTime(item)?.at ?? '~';
+  return taskTime(item)?.at ?? (item.allDay ? '' : '~');
 }
 
 /**
