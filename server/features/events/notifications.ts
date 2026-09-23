@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
+import { DAY_MINUTES, DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 import {
   addDays,
   fromMinutesOfDay,
@@ -19,10 +19,8 @@ import { type CalendarItem, listItems } from './occurrences.ts';
 
 const EDGES = ['start', 'end'] as const;
 type Edge = (typeof EDGES)[number];
-const DAY_MINUTES = 1440;
-const DAY_MS = DAY_MINUTES * 60 * 1000;
 /** 配信予定時刻と発生の日時の最大の隔たり。終日の「前日」の通知は 1 日と通知時刻の分だけ離れる */
-const MAX_REMIND_MS = 2 * DAY_MS;
+const MAX_REMIND_MS = 2 * DAY_MINUTES * 60 * 1000;
 
 /** 配信時に再検証するための参照。QStash のメッセージ本文に載せ、配信時に Zod で読み直す */
 export const notificationRefSchema = z.object({
@@ -63,7 +61,7 @@ function allDayDate(anchor: string, edge: Edge): DateString {
 /**
  * 開始／終了（期限）の通知の宛先と配信予定時刻。完了したタスクには送らない。
  * - 時刻のある項目: n 分前に参加者全員へ
- * - 終日の項目: その日（n > 0 なら n 分を日に切り上げた日数だけ前の日）の、参加者それぞれの通知時刻に。
+ * - 終日の項目: その日（n = 1440 なら前日。終日の n は 0 か 1440 だけ）の、参加者それぞれの通知時刻に。
  *   終日の項目には「n 分前」の瞬間が無く（0:00 の n 分前では夜中に届く）、朝に知りたい時刻は人それぞれなので
  */
 function remindTargets(
@@ -77,7 +75,7 @@ function remindTargets(
   if (minutes === null || !anchor) return [];
   if (!item.allDay)
     return [{ at: new Date(new Date(anchor).getTime() - minutes * 60 * 1000), userId: null }];
-  const day = addDays(allDayDate(anchor, edge), -Math.ceil(minutes / DAY_MINUTES));
+  const day = addDays(allDayDate(anchor, edge), -minutes / DAY_MINUTES);
   return item.participantIds.map((userId) => ({
     at: new Date(fromMinutesOfDay(day, notifyTimes.get(userId) ?? DEFAULT_ALL_DAY_NOTIFY_MINUTES)),
     userId,

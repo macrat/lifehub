@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { HUE_MAX } from '../color.ts';
-import { PASSWORD_MIN_LENGTH } from '../constants.ts';
+import { DAY_MINUTES, PASSWORD_MIN_LENGTH } from '../constants.ts';
 
 const passwordSchema = z
   .string()
@@ -15,7 +15,7 @@ const allDayNotifyMinutesSchema = z
   .number()
   .int()
   .min(0)
-  .max(24 * 60 - 1);
+  .max(DAY_MINUTES - 1);
 
 export const createUserSchema = z.object({
   email: z.email('メールアドレスの形式が正しくありません'),

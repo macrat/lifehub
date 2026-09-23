@@ -1,5 +1,5 @@
 import { addDays as addDaysFn } from 'date-fns';
-import { addDays, diffDays, startOfDay, toDateString, today } from './date.ts';
+import { addDays, diffDays, inclusiveEndDate, startOfDay, toDateString, today } from './date.ts';
 import type { DateString } from './types.ts';
 import type { EventKind } from './validation/events.ts';
 
@@ -72,36 +72,53 @@ export function normalizeInstants(
 }
 
 /**
- * タスクを時刻で示すときの基準: 完了 → 期限 → 開始の優先。どれも無ければ null。
- * 一覧の行・タイムラインのブロック・同日内の並び順が同じ時刻を指すよう、規則はここ 1 か所に置く。
+ * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
+ * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
+ */
+export type TaskTime = { kind: 'done' | 'due' | 'start'; date: DateString; at: string | null };
+
+/**
+ * タスクを示す日時: 完了 → 期限 → 開始の優先。どれも無ければ null。
+ * 一覧の行・タイムラインのブロック・同日内の並び順が同じ日時を指すよう、規則はここ 1 か所に置く。
  *
  * 完了を先に置くのは、完了したタスクを完了した日に置く `placeTask` と揃えるため。
  * 期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
- * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので、完了の時刻だけを見る。
+ * 終日の期限は排他的な終端（期限日の翌日 0:00）で持つので、日付は含む期限日にする。
  */
 export function taskTime(task: {
   allDay: boolean;
   startsAt: string | null;
   endsAt: string | null;
   completedAt: string | null;
-}): { kind: 'done' | 'due' | 'start'; at: string } | null {
-  if (task.completedAt) return { kind: 'done', at: task.completedAt };
-  if (task.allDay) return null;
-  if (task.endsAt) return { kind: 'due', at: task.endsAt };
-  if (task.startsAt) return { kind: 'start', at: task.startsAt };
+}): TaskTime | null {
+  if (task.completedAt) return timedTaskTime('done', task.completedAt);
+  if (task.endsAt) {
+    return task.allDay
+      ? { kind: 'due', date: inclusiveEndDate(task.endsAt), at: null }
+      : timedTaskTime('due', task.endsAt);
+  }
+  if (task.startsAt) {
+    return task.allDay
+      ? { kind: 'start', date: toDateString(new Date(task.startsAt)), at: null }
+      : timedTaskTime('start', task.startsAt);
+  }
   return null;
 }
 
+function timedTaskTime(kind: TaskTime['kind'], at: string): TaskTime {
+  return { kind, date: toDateString(new Date(at)), at };
+}
+
 /**
- * 置かれた日（`placementDate`）にあるタスクの時刻。時刻が無い、または別の日を指すときは null。
- * 別の日の時刻（繰り越し・期限が別日）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
+ * 置かれた日（`placementDate`）にあるタスクの日時。無い、または別の日を指すときは null。
+ * 別の日の日時（繰り越し・期限が別日）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
  * 出す側がその区別をここ 1 か所から受け取る。
  */
 export function taskTimeOnPlacementDate(
   task: Extract<CalendarItem, { kind: 'task' }>,
-): { kind: 'done' | 'due' | 'start'; at: string } | null {
+): TaskTime | null {
   const time = taskTime(task);
-  return time && toDateString(new Date(time.at)) === task.placementDate ? time : null;
+  return time?.date === task.placementDate ? time : null;
 }
 
 /**
@@ -181,14 +198,15 @@ function placeEvent(
 }
 
 /**
- * 同日内の並び順のキー: 終日の項目（予定と未完了のタスク）→ 時刻のある項目（予定の開始、タスクは
- * `taskTime`）→ 時刻の無いタスク。
+ * 同日内の並び順のキー: 終日の項目（予定と、日付だけを持つタスク）→ 時刻のある項目（予定の開始、
+ * タスクは `taskTime`）→ 日時の無いタスク。
  * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す。
  * `taskTime` を通すので、行やブロックが示す時刻と並びの基準は必ず同じものになる。
  */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
-  return taskTime(item)?.at ?? (item.allDay ? '' : '~');
+  const time = taskTime(item);
+  return time ? (time.at ?? '') : '~';
 }
 
 /**

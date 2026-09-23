@@ -7,6 +7,18 @@ export type EventKind = (typeof EVENT_KINDS)[number];
 
 export const REMIND_BEFORE_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440] as const;
 
+/**
+ * 終日の項目の通知の選択肢: 0 = 当日、1440 = 前日（どちらも各自の通知時刻に送る）。
+ * 終日には「n 分前」の瞬間が無い（0:00 の n 分前では夜中に届く）ので、日単位だけを許す。
+ */
+export const ALL_DAY_REMIND_OPTIONS = [0, 1440] as const;
+
+/** 時刻のある項目の通知を終日の選択肢に寄せる（0 分前は当日、それ以外は前日）。終日へ切り替えるフォームが使う */
+export function toAllDayRemind(minutes: number | null): number | null {
+  if (minutes === null) return null;
+  return minutes === 0 ? 0 : 1440;
+}
+
 /** RRULE 文字列（DTSTART なし）。厳密な検証はサーバーの recurrence ライブラリで行う。 */
 const rruleSchema = z
   .string()
@@ -43,6 +55,9 @@ const eventFields = {
 
 type EventFieldsOutput = {
   kind: EventKind;
+  allDay: boolean;
+  remindStartMinutes: number | null;
+  remindEndMinutes: number | null;
   startsAt: Date | null;
   endsAt: Date | null;
   rrule: string | null;
@@ -54,6 +69,15 @@ const eventRangeMessage = { message: '開始日時と終了日時を入力して
 const endAfterStart = (v: EventFieldsOutput) =>
   v.startsAt === null || v.endsAt === null || v.endsAt.getTime() >= v.startsAt.getTime();
 const endMessage = { message: '終了日時は開始日時以降にしてください', path: ['endsAt'] };
+const allDayRemindIsDaily = (v: EventFieldsOutput) =>
+  !v.allDay ||
+  [v.remindStartMinutes, v.remindEndMinutes].every(
+    (m) => m === null || (ALL_DAY_REMIND_OPTIONS as readonly number[]).includes(m),
+  );
+const allDayRemindMessage = {
+  message: '終日の通知は当日（0）か前日（1440）です',
+  path: ['remindStartMinutes'],
+};
 const recurrenceHasBase = (v: EventFieldsOutput) =>
   v.rrule === null || v.startsAt !== null || v.endsAt !== null;
 const recurrenceMessage = {
@@ -65,6 +89,7 @@ export const createEventSchema = z
   .object(eventFields)
   .refine(eventHasRange, eventRangeMessage)
   .refine(endAfterStart, endMessage)
+  .refine(allDayRemindIsDaily, allDayRemindMessage)
   .refine(recurrenceHasBase, recurrenceMessage);
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
@@ -104,6 +129,7 @@ export const updateEventSchema = z
   .object({ ...eventFields, ...scopeFields })
   .refine(eventHasRange, eventRangeMessage)
   .refine(endAfterStart, endMessage)
+  .refine(allDayRemindIsDaily, allDayRemindMessage)
   .refine(recurrenceHasBase, recurrenceMessage)
   .refine(requireOccurrenceStart, occurrenceStartMessage);
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

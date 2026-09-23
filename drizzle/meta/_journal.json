@@ -57,6 +57,13 @@
       "when": 1790146305118,
       "tag": "0007_all_day_notify_minutes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790148366141,
+      "tag": "0008_all_day_remind_daily",
+      "breakpoints": true
     }
   ]
 }

@@ -35,7 +35,7 @@ export function AllDayNotifySection() {
             label="時刻"
             type="time"
             value={value}
-            onChange={(event) => pick(event.target.value)}
+            onChange={(event) => pick(event.target as HTMLInputElement)}
             slotProps={{ inputLabel: { shrink: true } }}
             sx={{ flex: 1 }}
           />

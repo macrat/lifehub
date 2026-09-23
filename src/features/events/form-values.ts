@@ -1,5 +1,6 @@
 import { addDays, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { toAllDayRemind } from '../../../shared/validation/events.ts';
 import { fromDateTimeLocalValue, fromDateValue, fromMinutesOfDay } from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
@@ -119,7 +120,8 @@ export function eventInputFromForm(
       formSelect(formData, 'remindStartMinutes') === null
         ? null
         : Number(formText(formData, 'remindStartMinutes')),
-    remindEndMinutes: initial.remindEndMinutes,
+    // フォームに出していない終了前の通知（MCP から入れたもの）も、終日にしたら日単位に寄せる
+    remindEndMinutes: allDay ? toAllDayRemind(initial.remindEndMinutes) : initial.remindEndMinutes,
   };
 }
 

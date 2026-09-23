@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type CalendarItem, placeOccurrence, sortItems } from '../calendar.ts';
+import { type CalendarItem, placeOccurrence, sortItems, taskTime } from '../calendar.ts';
 import type { DateString } from '../types.ts';
 
 const BASE = {
@@ -45,6 +45,22 @@ function task(title: string, startsAt: string | null, endsAt: string | null): Ca
     isOverdue: false,
   };
 }
+
+describe('taskTime', () => {
+  it('終日のタスクは日付だけを返し、期限は含む期限日にする', () => {
+    // 9/21 が期限（保存上は翌日 0:00）
+    expect(taskTime({ ...task('終日', null, '2026-09-21T15:00:00.000Z'), allDay: true })).toEqual({
+      kind: 'due',
+      date: '2026-09-21',
+      at: null,
+    });
+    expect(taskTime(task('9 時期限', null, '2026-09-21T00:00:00.000Z'))).toEqual({
+      kind: 'due',
+      date: '2026-09-21',
+      at: '2026-09-21T00:00:00.000Z',
+    });
+  });
+});
 
 describe('sortItems', () => {
   it('同日内は 終日の予定 → 時刻のある項目 → 時刻の無いタスク の順に並ぶ', () => {

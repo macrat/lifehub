@@ -116,12 +116,6 @@ export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-/** "09:00"（`<input type="time">` の値）→ 0:00 からの分 */
-export function parseMinutesOfDay(value: string): number {
-  const [h, m] = value.split(':').map(Number) as [number, number];
-  return h * 60 + m;
-}
-
 /** "YYYY-MM" */
 export function toMonthString(date: DateString): string {
   return date.slice(0, 7);

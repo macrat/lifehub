@@ -1,8 +1,8 @@
 import type { PointerEvent } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { isDateString } from '../../../shared/date.ts';
 import {
-  DAY_MINUTES,
   type Draft,
   itemDraft,
   type TimedDraft,

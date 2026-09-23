@@ -6,8 +6,10 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import {
+  ALL_DAY_REMIND_OPTIONS,
   REMIND_BEFORE_OPTIONS,
   type RecurrenceScope,
+  toAllDayRemind,
 } from '../../../../shared/validation/events.ts';
 import { inclusiveEndDate, toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
@@ -42,21 +44,11 @@ export function ScopeChip({ scope }: { scope: RecurrenceScope }) {
   );
 }
 
-/**
- * 終日の予定の通知の選択肢。終日には「n 分前」の瞬間が無いので、当日か前日の各自の通知時刻
- * （設定画面で選ぶ）に送る。サーバーは n 分を日に切り上げて前の日を決める（0 = 当日、1440 = 前日）。
- */
+/** 終日の予定の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
 const ALL_DAY_REMIND_LABELS: Record<number, string> = {
   0: '当日',
   1440: '前日',
 };
-const ALL_DAY_REMIND_OPTIONS = [0, 1440] as const;
-
-/** 時刻のある予定の選択肢を終日の選択肢に寄せる（0 分前は当日、それ以外は前日） */
-function allDayRemind(minutes: number | null): number | null {
-  if (minutes === null) return null;
-  return minutes === 0 ? 0 : 1440;
-}
 
 const REMIND_LABELS: Record<number, string> = {
   0: '開始時刻',
@@ -140,7 +132,7 @@ export function EventExtraFields({
         label="通知"
         select
         defaultValue={
-          (allDay ? allDayRemind(initial.remindStartMinutes) : initial.remindStartMinutes) ??
+          (allDay ? toAllDayRemind(initial.remindStartMinutes) : initial.remindStartMinutes) ??
           SELECT_NONE
         }
         fullWidth

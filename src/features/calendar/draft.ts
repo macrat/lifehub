@@ -1,4 +1,5 @@
 import type { CalendarItem, DateRange } from '../../../shared/calendar.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -99,8 +100,7 @@ export function sameOccurrence(
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
 const STEP_MINUTES = 15;
-const SLOTS_PER_DAY = (24 * 60) / STEP_MINUTES;
-export const DAY_MINUTES = 24 * 60;
+const SLOTS_PER_DAY = DAY_MINUTES / STEP_MINUTES;
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 const TAP_MINUTES = 60;
 /**
