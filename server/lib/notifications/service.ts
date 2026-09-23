@@ -1,13 +1,14 @@
 import { addDays } from 'date-fns';
 import { eq, lt } from 'drizzle-orm';
 import { startOfDay } from '../../../shared/date.ts';
+import type { PushMessage } from '../../../shared/push.ts';
 import {
   listNotifications,
   type NotificationRef,
   resolveNotification,
 } from '../../features/events/notifications.ts';
 import { db } from '../db.ts';
-import { type PushMessage, sendToUsers } from '../push/send.ts';
+import { sendToUsers } from '../push/send.ts';
 import { createPublisher, type Publisher } from '../qstash.ts';
 import { sentNotifications } from './schema.ts';
 

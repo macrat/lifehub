@@ -6,6 +6,7 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import type { PushMessage } from '../shared/push.ts';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -21,9 +22,6 @@ registerRoute(
 // 新版を検知したら次回起動で切り替える（autoUpdate）
 self.skipWaiting();
 clientsClaim();
-
-/** サーバー（server/lib/push/send.ts）が送る本文 */
-type PushMessage = { title: string; body: string; url: string; tag: string };
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;

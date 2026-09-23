@@ -1,16 +1,8 @@
 import webpush, { WebPushError } from 'web-push';
+import type { PushMessage } from '../../../shared/push.ts';
 import { pushEndpointSchema } from '../../../shared/validation/push.ts';
 import { env } from '../env.ts';
 import * as repository from './repository.ts';
-
-export type PushMessage = {
-  title: string;
-  body: string;
-  /** タップで開く画面（アプリ内パス） */
-  url: string;
-  /** 通知を束ねるタグ（同じキーの再送で二重表示しない） */
-  tag: string;
-};
 
 let configured = false;
 
