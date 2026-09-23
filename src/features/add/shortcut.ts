@@ -19,7 +19,22 @@ export const addSearchSchema = <K extends AddKind>(...kinds: [K, ...K[]]) =>
  * （前の画面が無い）や再読み込みでは戻り先が無いので、付かないほうが正しい。
  */
 type ReturnState = { returnOnClose?: boolean };
-export const RETURN_ON_CLOSE: ReturnState = { returnOnClose: true };
+const RETURN_ON_CLOSE: ReturnState = { returnOnClose: true };
+
+/**
+ * ほかの画面（ホーム）の追加ボタンから予定の入力を始める。選んだ時間帯を見ながら入れたいので、
+ * 今日の下書きを置きにカレンダーへ送り（カレンダー画面の `add`）、入力を閉じたらこの画面へ戻す
+ * （`RETURN_ON_CLOSE`）。
+ */
+export function useAddEventOnCalendar(): () => void {
+  const navigate = useNavigate();
+  return () =>
+    navigate({
+      to: '/calendar',
+      search: { add: 'event' },
+      state: (prev) => ({ ...prev, ...RETURN_ON_CLOSE }),
+    });
+}
 
 /**
  * しるしを受けて入力を 1 度だけ開く。開くのと同時にしるしを URL から消すので、

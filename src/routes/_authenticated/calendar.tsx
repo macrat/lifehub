@@ -228,7 +228,10 @@ function CalendarPage() {
 
       {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
       {!draft && (
-        <AddMenu kinds={['task', 'event']} onSelect={setAdding} onSelectEvent={addEvent} />
+        <AddMenu
+          kinds={['task', 'event']}
+          onSelect={(kind) => (kind === 'event' ? addEvent() : setAdding(kind))}
+        />
       )}
       {selected && (
         <ItemDetailSheet

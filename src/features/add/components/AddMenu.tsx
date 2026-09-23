@@ -4,11 +4,9 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { ADD_KINDS, type AddFormKind, type AddKind } from '../kinds.ts';
-import { RETURN_ON_CLOSE } from '../shortcut.ts';
+import { ADD_KINDS, type AddKind } from '../kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
@@ -54,13 +52,11 @@ const PILL_SX: SxProps<Theme> = {
 type Props = {
   /** 出す順（SpeedDial は下から上に開くので、先頭が一番下） */
   kinds: AddKind[];
-  /** 選ばれた種類。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
-  onSelect: (kind: AddFormKind) => void;
   /**
-   * 予定が選ばれた。カレンダー画面はその場で下書きを置く。無ければ（ほかの画面）今日の下書きを置きに
-   * カレンダーへ送り（カレンダー画面の `add`）、入力を閉じたらこの画面へ戻す（`RETURN_ON_CLOSE`）
+   * 選ばれた種類。入力を出すのは画面の側（`AddForm`。開いている入力は画面の状態）。
+   * 予定だけはカレンダーに下書きを置く（カレンダー画面はその場で、ほかの画面は `useAddEventOnCalendar`）
    */
-  onSelectEvent?: () => void;
+  onSelect: (kind: AddKind) => void;
 };
 
 /**
@@ -70,19 +66,12 @@ type Props = {
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
-export function AddMenu({ kinds, onSelect, onSelectEvent }: Props) {
-  const navigate = useNavigate();
+export function AddMenu({ kinds, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false);
   const collapse = () => setExpanded(false);
   const open = (kind: AddKind) => {
     collapse();
-    if (kind !== 'event') return onSelect(kind);
-    if (onSelectEvent) return onSelectEvent();
-    navigate({
-      to: '/calendar',
-      search: { add: 'event' },
-      state: (prev) => ({ ...prev, ...RETURN_ON_CLOSE }),
-    });
+    onSelect(kind);
   };
 
   return (
