@@ -73,7 +73,7 @@ type DraftState = Draft & {
  * - 追加ボタンの「予定」は今の表示に既定の時間帯の下書きを置き、入力を上の段で開く。月・リストには時間軸が無いので、
  *   入力を閉じるまで日表示を出し、閉じたら元の表示に戻す（`previewDay`）。ほかの画面の追加ボタンと
  *   PWA のショートカットの「予定」もここへ来て同じ流れになる（`add=event`）。ほかの画面の追加ボタンから
- *   来たときは、閉じたらその画面へ戻る（`useAddShortcut` の finish）
+ *   来たときは、閉じたらその画面へ戻る（`useAddShortcut` が返す関数）
  */
 function CalendarPage() {
   const search = Route.useSearch();
@@ -145,19 +145,14 @@ function CalendarPage() {
     kind === 'task' ? setAdding('task') : addEvent(),
   );
   /**
-   * 予定の入力（クイック入力・全項目のフォーム）を閉じた。保存でも取り消しでも同じ。
-   * ほかの画面の追加ボタンから来ていればその画面へ戻り、そうでなければ元の表示に戻す
+   * 予定の入力（クイック入力・全項目のフォーム。同時に開くのはどちらか 1 つ）を閉じた。
+   * 保存でも取り消しでも同じ。ほかの画面の追加ボタンから来ていればその画面へ戻り、
+   * そうでなければ元の表示に戻す
    */
-  const finishAdding = () => {
-    if (!finishShortcut()) page.endPreview();
-  };
-  const closeDraft = () => {
+  const closeAdding = () => {
     setDraft(null);
-    finishAdding();
-  };
-  const closeExpanded = () => {
     setExpanded(null);
-    finishAdding();
+    if (!finishShortcut()) page.endPreview();
   };
 
   return (
@@ -259,7 +254,7 @@ function CalendarPage() {
             setExpanded({ values, item: draft.item });
             setDraft(null);
           }}
-          onClose={closeDraft}
+          onClose={closeAdding}
           onChangeInset={setSheetInset}
         />
       )}
@@ -269,7 +264,7 @@ function CalendarPage() {
           scope={grabbedScope(expanded.item)}
           title={expanded.item ? '予定を編集' : '予定を追加'}
           onSubmit={(input) => save(input, expanded.item)}
-          onClose={closeExpanded}
+          onClose={closeAdding}
         />
       )}
     </>
