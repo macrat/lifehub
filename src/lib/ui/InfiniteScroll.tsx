@@ -7,7 +7,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { APP_BAR_HEIGHT } from './AppShell.tsx';
+import { APP_BAR_HEIGHT } from './layout.ts';
 
 /** 端がこの距離まで近づいたら続きを読む（見えてから読み始めると、読み終わるまで空白が見える） */
 const PRELOAD_MARGIN = '400px 0px';

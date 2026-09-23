@@ -7,7 +7,7 @@
 ## 画面
 
 - カレンダー `/calendar`（月・週・日・リスト）に予定とタスクを並べて表示する。
-- 予定の全項目のフォームは `src/features/events/components/EventForm.tsx`、タスクは `TaskForm.tsx`。どちらも `RecordSheet` を `full` で出す（スマホは画面いっぱいのシート、PC は中央のダイアログ）。予定の追加はカレンダーの下書きから始まるので、`EventForm` は PC のクイック入力の「その他のオプション」から開く。項目の並び（`EventFields.tsx`）と組み立て（`use-item-form.ts`）は、追加でも詳細からの編集でも同じものを使う。
+- 予定の全項目のフォームは `src/features/events/components/EventForm.tsx`、タスクは `TaskForm.tsx`。どちらも `RecordSheet` を `full` で出す（スマホは画面いっぱいのシート、PC は中央のダイアログ）。予定の追加はカレンダーの下書きから始まるので、`EventForm` は PC のクイック入力の「その他のオプション」から開く。項目の並び（`EventFields.tsx`）と組み立て（`use-item-form.ts`）は、追加でも詳細からの編集でもカレンダーのクイック入力でも同じものを使う。終日かどうかは `useItemForm` の外で持つ（フォームは `useAllDay`、クイック入力は下書き。[calendar.md](calendar.md)）。
   - 予定: タイトル、終日、開始日時、終了日時、参加者、場所、メモ、繰り返し（なし／毎日／毎週／毎月／毎年、UNTIL）、通知（なし／0/5/10/15/30/60/120/1440 分前。終日ではなし／当日／前日）。
   - タスク: タイトル、終日、開始日時、期限日時（どちらも任意。終日では開始日・期限日）、参加者、場所、メモ、繰り返し、開始日時（日）に通知、期限日時（日）に通知。
 - 参加者はユーザーごとのチェックボックス（`ParticipantsField`）。チェックボックスも詳細の参加者チップもそのユーザーの色にして、カレンダーの帯や下書きの枠の色と結び付ける。新規作成の既定は自分だけ（`defaultParticipants`）で、相手の予定は一緒に入れたいときだけ足す。
@@ -54,8 +54,8 @@
 | GET | `/api/events?from&to` | `from`〜`to`（JST 暦日、両端含む）の `CalendarItem[]`（[calendar.md](calendar.md)）。繰り返しは展開済み、実体化された回を反映済み |
 | GET | `/api/events/:id` | 行そのものを返す（繰り返しの「すべて」を編集する起点） |
 | POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
-| PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`）と `occurrenceStart`（元の発生の基準日時）を指定。単発では常に `all` |
-| DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` を指定 |
+| PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |
+| DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` は更新と同じ |
 | POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定 |
 | DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
 

@@ -2,7 +2,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { auth } from '../../lib/auth.ts';
-import { ConflictError, NotFoundError } from '../../lib/errors.ts';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import * as repository from './repository.ts';
 
@@ -45,14 +45,26 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
   return getUser(result.user.id);
 }
 
-export async function updateUser(id: string, input: UpdateUserInput): Promise<repository.UserRow> {
+/**
+ * ユーザーを変更する。actorId は変更する人（ログイン中のユーザー）。
+ * 名前・色・通知時刻は家族で管理する共有プロフィールなので誰でも変えられるが、パスワードは本人だけが変えられる。
+ * これが無いと、片方のセッションを得た攻撃者がもう片方のパスワードも奪える。
+ */
+export async function updateUser(
+  id: string,
+  input: UpdateUserInput,
+  actorId: string,
+): Promise<repository.UserRow> {
+  if (input.password !== undefined && id !== actorId) {
+    throw new ForbiddenError('他のユーザーのパスワードは変更できません');
+  }
   await getUser(id);
   const { password, ...profile } = input;
   if (Object.values(profile).some((value) => value !== undefined)) {
     await repository.updateProfile(id, profile);
   }
   if (password !== undefined) {
-    await repository.updatePasswordHash(id, await hashPassword(password));
+    await repository.replacePasswordAndRevokeSessions(id, await hashPassword(password));
   }
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）

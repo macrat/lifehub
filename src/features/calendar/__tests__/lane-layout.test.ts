@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { completedLast, freeLane, layoutLanes } from '../components/lane-layout.ts';
+import { completedLast, foldLanes, freeLane, layoutLanes } from '../components/lane-layout.ts';
 import type { CalendarItem } from '../queries.ts';
 
 const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSchema.parse(d));
@@ -95,6 +95,42 @@ describe('freeLane', () => {
 
   it('空きが無ければ一番下のレーンに重ねる', () => {
     expect(freeLane(placed, 0, 1, 2)).toBe(1);
+  });
+});
+
+describe('foldLanes', () => {
+  const [d1, d2, d3] = days as [DateString, DateString, DateString];
+  // レーン 0: trip（1〜2 日目）と c、レーン 1: a と d、レーン 2: b
+  const placed = layoutLanes(
+    days,
+    byDate([
+      event('trip', d1, 1, 2),
+      event('a', d1),
+      event('b', d1),
+      event('trip', d2, 2, 2),
+      event('d', d2),
+      event('c', d3),
+    ]),
+  );
+
+  it('入りきるなら畳まない', () => {
+    const folded = foldLanes(placed, 3, days.length);
+    expect(folded.visible).toHaveLength(placed.length);
+    expect(folded.foldedLane).toBe(3);
+    expect(folded.foldedPerCol).toEqual([0, 0, 0]);
+  });
+
+  it('入りきらなければ最後のレーンを「+n」に譲り、そこから下を列ごとに数える', () => {
+    const folded = foldLanes(placed, 2, days.length);
+    expect(folded.foldedLane).toBe(1);
+    expect(folded.visible.map((p) => p.item.title)).toEqual(['trip', 'c']);
+    expect(folded.foldedPerCol).toEqual([2, 1, 0]);
+  });
+
+  it('畳んだ複数日の帯は掛かる列すべてに数える', () => {
+    const folded = foldLanes(placed, 1, days.length);
+    expect(folded.visible).toEqual([]);
+    expect(folded.foldedPerCol).toEqual([3, 2, 1]);
   });
 });
 

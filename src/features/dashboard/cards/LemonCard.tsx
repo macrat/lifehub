@@ -5,7 +5,7 @@ import type { CareType } from '../../../../shared/validation/lemon.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import { CareStatusGrid } from '../../lemon/components/CareStatusGrid.tsx';
-import { lemonStatusQueryOptions, useLogCare } from '../../lemon/queries.ts';
+import { lemonStatusQueryOptions } from '../../lemon/queries.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
@@ -14,7 +14,6 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
  */
 export function LemonCard() {
   const query = useQuery(lemonStatusQueryOptions);
-  const logCare = useLogCare();
   const [adding, setAdding] = useState<CareType[] | null>(null);
   return (
     <DashboardCardFrame title="レモン" link={{ to: '/lemon' }}>
@@ -26,13 +25,7 @@ export function LemonCard() {
           />
         )}
       </QueryView>
-      {adding && (
-        <CareLogForm
-          initialCareTypes={adding}
-          onSubmit={logCare.mutateAsync}
-          onClose={() => setAdding(null)}
-        />
-      )}
+      {adding && <CareLogForm initialCareTypes={adding} onClose={() => setAdding(null)} />}
     </DashboardCardFrame>
   );
 }

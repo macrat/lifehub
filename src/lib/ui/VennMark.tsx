@@ -1,5 +1,6 @@
 import { useId } from 'react';
-import { pointAt, WedgeFill, wedgeAngles } from './WedgeFill.tsx';
+import { WedgeFill } from './WedgeFill.tsx';
+import { pointAt, wedgeAngles } from './wedge.ts';
 
 /** 1 つの円の半径 */
 const RADIUS = 5.5;

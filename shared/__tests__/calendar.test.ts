@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { type CalendarItem, placeOccurrence, sortItems, taskTime } from '../calendar.ts';
+import {
+  type CalendarItem,
+  occurrenceKey,
+  placeOccurrence,
+  sortItems,
+  taskTime,
+} from '../calendar.ts';
 import type { DateString } from '../types.ts';
 
 const BASE = {
@@ -139,5 +145,25 @@ describe('placeOccurrence', () => {
     expect(items.map((i) => i.placementDate)).toEqual(['2026-09-22', '2026-09-23']);
     expect(items.map((i) => (i.kind === 'event' ? i.dayIndex : null))).toEqual([2, 3]);
     expect(items.every((i) => i.kind === 'event' && i.dayCount === 3)).toBe(true);
+  });
+});
+
+describe('occurrenceKey', () => {
+  it('複数日の予定の日ごとの項目は同じ発生になる', () => {
+    const first = event('trip', '2026-09-21T00:00:00+09:00', '2026-09-23T00:00:00+09:00', true);
+    const second = { ...first, placementDate: '2026-09-22' as DateString, dayIndex: 2 };
+    expect(occurrenceKey(second)).toBe(occurrenceKey(first));
+  });
+
+  it('繰り返しの回・種別・id が違えば別の発生になる', () => {
+    const base = { kind: 'event' as const, id: 'a', occurrenceStart: '2026-09-21T00:00:00.000Z' };
+    const keys = [
+      base,
+      { ...base, occurrenceStart: '2026-09-22T00:00:00.000Z' },
+      { ...base, occurrenceStart: null },
+      { ...base, kind: 'task' as const },
+      { ...base, id: 'b' },
+    ].map(occurrenceKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

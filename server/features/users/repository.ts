@@ -21,12 +21,6 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
-/** 終日の予定・タスクの通知時刻（ユーザー ID → その日の 0:00 からの分） */
-export async function findAllDayNotifyMinutes(): Promise<Map<string, number>> {
-  const rows = await db.select({ id: users.id, minutes: users.allDayNotifyMinutes }).from(users);
-  return new Map(rows.map((row) => [row.id, row.minutes]));
-}
-
 export async function updateProfile(
   id: string,
   values: Omit<UpdateUserInput, 'password'>,
@@ -34,9 +28,17 @@ export async function updateProfile(
   await db.update(users).set(values).where(eq(users.id, id));
 }
 
-/** パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く */
-export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
-  // パスワードを変更したユーザーの全端末を失効させる。セッション行は OAuth の参照のため残す。
+/**
+ * パスワードを置き換え、そのユーザーの全端末のセッションを失効させる。
+ * 2 つは片方だけ通ると困る（新しいパスワードなのに古い端末が使える）ので、1 つの原子的な操作にする。
+ * 失効が隠れないよう、名前に両方を書く。
+ * パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く。
+ * セッション行は OAuth の参照のため消さずに期限切れにする。
+ */
+export async function replacePasswordAndRevokeSessions(
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
   await runBatch((tx) => [
     tx.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, userId)),
     tx

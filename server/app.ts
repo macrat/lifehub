@@ -7,6 +7,7 @@ import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
+import { pushRoutes } from './features/push/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toMe } from './features/users/service.ts';
 import { weatherRoutes } from './features/weather/routes.ts';
@@ -14,10 +15,9 @@ import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { cronRoutes } from './lib/cron.ts';
 import { db } from './lib/db.ts';
-import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { mcpRoutes } from './lib/mcp/routes.ts';
 import { requireSession } from './lib/middleware.ts';
-import { pushRoutes } from './lib/push/routes.ts';
 import { qstashRoutes } from './lib/qstash-routes.ts';
 
 /**
@@ -84,6 +84,7 @@ export type AppType = typeof routes;
 export const app = new Hono<AppEnv>()
   .onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
+    if (error instanceof ForbiddenError) return c.json({ message: error.message }, 403);
     if (error instanceof NotFoundError) return c.json({ message: error.message }, 404);
     if (error instanceof ConflictError) return c.json({ message: error.message }, 409);
     if (error instanceof ValidationError) return c.json({ message: error.message }, 400);

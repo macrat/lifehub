@@ -5,7 +5,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import { allDayDate } from '../../../../shared/date.ts';
+import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
   type AllDayRemind,
@@ -13,7 +13,7 @@ import {
   type RecurrenceScope,
   toAllDayRemind,
 } from '../../../../shared/validation/events.ts';
-import { toDateString, toDateTimeLocalValue } from '../../../lib/date.ts';
+import { toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { ItemFormValues } from '../form-values.ts';

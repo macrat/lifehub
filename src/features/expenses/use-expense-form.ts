@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { today } from '../../../shared/date.ts';
 import { expenseSchema } from '../../../shared/validation/expenses.ts';
-import { today } from '../../lib/date.ts';
 import { formSelect, formText, useFormSubmit } from '../../lib/form.ts';
 import { evaluate } from './calculator.ts';
 import type { Expense, ExpenseBody } from './queries.ts';

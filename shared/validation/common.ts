@@ -18,6 +18,9 @@ export const dateRangeQuerySchema = z
 
 export const uuidSchema = z.uuid();
 
+/** 記録 1 件を指す URL のパラメータ（`/:id`）。どの feature の ID も UUID なので 1 つを共有する */
+export const idParamSchema = z.object({ id: uuidSchema });
+
 /**
  * 参加者（ユーザー ID の集合）。1 人以上で、重複は落とす。
  * 予定・タスクの参加者（`events.ts`）と、配信 URL に表示する対象者（`calendar-feeds.ts`）が

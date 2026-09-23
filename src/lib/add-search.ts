@@ -1,17 +1,18 @@
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
-import { usePatchSearch } from '../../lib/search.ts';
-import { traverseTo } from '../../lib/ui/dialog-history.ts';
-import type { AddKind } from './kinds.ts';
+import { ADD_PAGES, type AddKind, type AddPage } from './add-pages.ts';
+import { usePatchSearch } from './search.ts';
+import { traverseTo } from './ui/dialog-history.ts';
 
 /**
  * 入力を開いて始めるしるし（`add`）。PWA のショートカット（`src/lib/shortcuts.ts`）が URL に付ける。
- * 値は開く物の種類で、画面ごとに受け取れる種類を渡す。
+ * 値は開く物の種類で、受け取れる種類は画面ごとに `ADD_PAGES` が決める。
  * 絞り込みのような画面の状態ではないので、受け取った画面が開くと同時に消す（`useAddShortcut`）。
+ * 追加のフォームを持つ機能（予定・立替・レモン）がそれぞれ読むので、どの機能にも属さない
+ * `src/lib` に置く（機能から `features/add` を読むと、機能のフォームを読む `features/add` と輪になる）。
  */
-export const addSearchSchema = <K extends AddKind>(...kinds: [K, ...K[]]) =>
-  z.enum(kinds).optional();
+export const addSearchSchema = (page: AddPage) => z.enum(ADD_PAGES[page]).optional();
 
 /**
  * 別の画面の追加ボタンから来た印（履歴の state）。入力を閉じたら、来る前の画面（来たときの 1 つ前の
