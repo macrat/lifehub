@@ -1,9 +1,8 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime } from '../../../lib/date.ts';
-import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import {
   COMPLETED_ROW_SX,
   COMPLETED_TITLE_SX,
@@ -18,6 +17,7 @@ import {
   colorUserOf,
 } from '../queries.ts';
 import { itemTransitionName } from './item-transition.ts';
+import { ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
   item: CalendarItem;
@@ -27,7 +27,7 @@ type Props = {
 
 /**
  * 一覧（リスト表示）の 1 行（`MarkedRow`。立替の履歴と同じ骨組み）。
- * 印は予定が色の点、タスクはチェックボックスで、色は参加者（1 人のとき）のユーザーの色。
+ * 印は予定が参加者の色を重ねたベン図（`ParticipantsMark`）、タスクは参加者（1 人のとき）の色のチェックボックス。
  * 主列は時刻（折り返さない）、本文はタイトルとメタ情報。期限超過は赤、完了は薄く取り消し線。
  * 単押しは閲覧、長押しは編集（グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
  */
@@ -55,7 +55,7 @@ export function ItemCard({ item, onSelect }: Props) {
         isTask ? (
           <TaskCheckbox item={item} color={colors.fill} />
         ) : (
-          <Box sx={MARK_DOT_SX} style={{ background: colors.fill }} />
+          <ParticipantsMark participantIds={item.participantIds} />
         )
       }
       leadWidth={64}

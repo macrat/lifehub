@@ -1,12 +1,12 @@
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
-import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemTransitionName } from '../../calendar/components/item-transition.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
+import { ParticipantsMark } from '../../calendar/components/ParticipantsMark.tsx';
 import {
   type CalendarItem,
   colorUserOf,
@@ -94,7 +94,7 @@ function TodayRow({
         item.kind === 'task' ? (
           <TaskCheckbox item={item} color={colors.fill} />
         ) : (
-          <Box sx={MARK_DOT_SX} style={{ background: colors.fill }} />
+          <ParticipantsMark participantIds={item.participantIds} />
         )
       }
       leadWidth={44}

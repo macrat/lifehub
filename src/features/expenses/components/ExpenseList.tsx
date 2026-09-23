@@ -2,7 +2,8 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense } from '../queries.ts';
@@ -25,7 +26,7 @@ type Props = {
 /**
  * 立替の履歴（新しい順）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、中身だけが違う:
- * 印は誰から誰へ渡ったかの色の点（`expenseMarkBackground`）、主列は金額、本文は内容と名前。
+ * 印は誰から誰へ渡ったかのベン図（`expenseMarkColors`）、主列は金額、本文は内容と名前。
  * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
  */
 export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
@@ -48,9 +49,9 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
               key={expense.id}
               onSelect={(editing) => onSelect(expense, editing)}
               mark={
-                <Box
-                  sx={MARK_DOT_SX}
-                  style={{ background: expenseMarkBackground(expense, colorFor) }}
+                <VennMark
+                  colors={expenseMarkColors(expense, colorFor)}
+                  overlap={colorFor(null).fill}
                 />
               }
               leadWidth={AMOUNT_WIDTH}
@@ -75,20 +76,12 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
 }
 
 /**
- * 印の点の塗り。共有のために払ったものは払った人 1 色、人から人へのものは
- * 斜め 45° で割り、左下を To・右上を From にする。
- *
- * WHY 斜めに割る: 縦か横の境目で割ると、どちらの側がどちらの人かを示す手掛かりが
- * 上下か左右のどちらか一方しか無い。斜めなら、左が To・右が From（名前と同じ
- * 「To ← From」の並び）と、右上から左下へ（From から To へお金が動く向き）を
- * 1 つの点で同時に示せる。2 色はにじませず半分で切り替えて、色を見分けやすくする。
+ * 印（`VennMark`）の円の色。共有のために払ったものは払った人 1 色の円、人から人へのものは
+ * 左を To・右を From の円にする（名前と同じ「To ← From」の並び）。
+ * 2 つの円の重なりは共有の色になるので、補色どうしでも 2 色が直に接しない。
  */
-function expenseMarkBackground(
-  expense: Expense,
-  colorFor: ReturnType<typeof useUserColor>,
-): string {
+function expenseMarkColors(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string[] {
   const from = colorFor(expense.fromUserId).fill;
-  if (expense.toUserId === null) return from;
-  const to = colorFor(expense.toUserId).fill;
-  return `linear-gradient(45deg, ${to} 50%, ${from} 50%)`;
+  if (expense.toUserId === null) return [from];
+  return [colorFor(expense.toUserId).fill, from];
 }
