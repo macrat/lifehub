@@ -64,7 +64,7 @@ export async function updateUser(
     await repository.updateProfile(id, profile);
   }
   if (password !== undefined) {
-    await repository.updatePasswordHash(id, await hashPassword(password));
+    await repository.replacePasswordAndRevokeSessions(id, await hashPassword(password));
   }
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）
