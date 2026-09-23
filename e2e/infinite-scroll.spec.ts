@@ -1,5 +1,5 @@
 import { devices, expect, type Page, test } from '@playwright/test';
-import { login } from './login.ts';
+import { login, myId } from './login.ts';
 
 /**
  * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
@@ -10,13 +10,6 @@ test.use({ ...devices['Pixel 7'] });
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
-
-async function myId(page: Page): Promise<string> {
-  const users: { id: string; name: string }[] = await (await page.request.get('/api/users')).json();
-  const me = users.find((u) => u.name === 'E2E');
-  if (!me) throw new Error('E2E ユーザーが見つからない');
-  return me.id;
-}
 
 test('予定のリストは基準の日を一番上に出し、上へ戻ると前の月を読み足す', async ({ page }) => {
   const me = await myId(page);

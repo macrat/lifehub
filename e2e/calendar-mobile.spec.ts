@@ -1,6 +1,6 @@
 import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { login } from './login.ts';
+import { login, myId } from './login.ts';
 import { stall } from './network.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, settledBox, touchDrag, touchPinch } from './touch.ts';
 import { changeView, recordViewTransitions } from './view.ts';
@@ -178,6 +178,49 @@ test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みす�
   // 縮めれば元の高さに戻る
   await touchPinch(page, center, 300, 120);
   await expect.poll(height).toBeCloseTo(before, -1);
+});
+
+test('月表示から週・日へ移ると、予定がなるべく全部見える縦位置で出る', async ({ page }) => {
+  const me = await myId(page);
+  const stamp = Date.now();
+  // 他のテストが使わない月に置く。9/14 は 12〜13 時の 1 件だけ、9/21 の週は 6 時台と 22 時台で画面に収まらない
+  for (const [date, start, end] of [
+    ['2033-09-14', 12, 13],
+    ['2033-09-21', 6, 7],
+    ['2033-09-22', 22, 23],
+  ] as const) {
+    const res = await page.request.post('/api/events', {
+      data: {
+        kind: 'event',
+        title: `E2E 縦位置 ${stamp}`,
+        startsAt: `${date}T${String(start).padStart(2, '0')}:00:00+09:00`,
+        endsAt: `${date}T${String(end).padStart(2, '0')}:00:00+09:00`,
+        participantIds: [me],
+      },
+    });
+    expect(res.ok()).toBe(true);
+  }
+  /** 表示中の面の縦位置と 1 時間の高さ（下に足す余白は無いので、中身の高さの 1/24） */
+  const measure = (date: string) =>
+    scroller(page, date).evaluate((el) => ({
+      top: el.scrollTop,
+      middle: el.scrollTop + el.clientHeight / 2,
+      hour: el.scrollHeight / 24,
+    }));
+
+  // 画面に収まる予定は、その真ん中が画面の真ん中に来る
+  await page.goto('/calendar?view=month&date=2033-09-14');
+  await expect(page.getByText(`E2E 縦位置 ${stamp}`).first()).toBeVisible();
+  await changeView(page, '日');
+  const day = await measure('2033-09-14');
+  expect(day.middle).toBeCloseTo(day.hour * 12.5, -1);
+
+  // 収まらないときは、一番早い予定の 1 時間前（5 時）が一番上に来る
+  await page.goto('/calendar?view=month&date=2033-09-21');
+  await expect(page.getByText(`E2E 縦位置 ${stamp}`).first()).toBeVisible();
+  await changeView(page, '週');
+  const week = await measure('2033-09-21');
+  expect(week.top).toBeCloseTo(week.hour * 5, -1);
 });
 
 test('予定のブロックは高さが足りるときだけ時刻を添える', async ({ page }) => {

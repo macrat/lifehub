@@ -64,6 +64,14 @@ export function useCalendarPage(search: CalendarSearch) {
    */
   const [dayPreview, setDayPreview] = useState(false);
   const view: CalendarView = dayPreview ? 'day' : search.view;
+  /**
+   * 今の表示に月表示から切り替えてきたか。週・日の時間軸は、月から来たときだけ最初の縦位置を
+   * 予定に合わせる（`useTimelineScroll`）。月で日を選んで開いたときは予定を見に来ているが、
+   * 週・日を直接開いたときは今の時刻を見たいことが多いので、そちらは今までどおり今の時刻に合わせる。
+   * 切り替えの経路（表示の切替・日付のタップ・戻る）を問わず拾えるよう、関数ではなく表示の移り変わりで見る
+   */
+  const [arrival, setArrival] = useState({ view, fromMonth: false });
+  if (arrival.view !== view) setArrival({ view, fromMonth: arrival.view === 'month' });
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
@@ -122,6 +130,8 @@ export function useCalendarPage(search: CalendarSearch) {
     setQuery,
     hourHeight,
     zoom,
+    /** 月表示から切り替えてきたか（週・日の最初の縦位置を予定に合わせる） */
+    fromMonth: arrival.fromMonth,
     setSearch,
     move,
     goToday: () => setSearch({ date: today() }),
