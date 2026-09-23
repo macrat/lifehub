@@ -93,7 +93,7 @@ function TodayRow({
         item.kind === 'task' ? (
           <TaskCheckbox
             item={item}
-            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
+            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).check)}
           />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />

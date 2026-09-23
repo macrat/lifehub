@@ -54,7 +54,7 @@ export function ItemCard({ item, onSelect }: Props) {
         isTask ? (
           <TaskCheckbox
             item={item}
-            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
+            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).check)}
           />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />

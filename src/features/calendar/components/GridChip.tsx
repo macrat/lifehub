@@ -113,7 +113,7 @@ export function GridChip({
     >
       {isTask ? (
         <SplitCheckboxIcon
-          colors={participantColors.map((c) => c.fill)}
+          colors={participantColors.map((c) => c.check)}
           checked={completed}
           sx={{ fontSize: markSize, flexShrink: 0 }}
         />
