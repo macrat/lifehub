@@ -19,7 +19,8 @@
     "rules": {
       "preset": "recommended",
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noImportCycles": "error"
       },
       "style": {
         "noNonNullAssertion": "error",
