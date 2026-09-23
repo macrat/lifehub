@@ -8,9 +8,10 @@ import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
-import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
+import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
@@ -67,6 +68,7 @@ export function TimelineView({
   const compact = useIsMobile();
   const colorFor = useUserColor();
   const holidays = useHolidays();
+  const weather = useWeather();
   // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
   const barDraft = draft?.range.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
@@ -109,6 +111,7 @@ export function TimelineView({
         <Box />
         {days.map((day) => {
           const weekday = weekdayIndex(day);
+          const dayWeather = weather.get(day);
           return (
             <ButtonBase
               key={day}
@@ -136,7 +139,17 @@ export function TimelineView({
               >
                 {WEEKDAY_LABELS[weekday]}
               </Typography>
-              <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+              {/* 天気は見出しの右端に出す。日表示は数字を左に寄せ、週表示は数字を列の中央に置く */}
+              {single ? (
+                <>
+                  <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+                  {dayWeather && <DayWeather weather={dayWeather} size={20} />}
+                </>
+              ) : (
+                <CenteredWithWeather weather={dayWeather} size={14}>
+                  <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+                </CenteredWithWeather>
+              )}
             </ButtonBase>
           );
         })}

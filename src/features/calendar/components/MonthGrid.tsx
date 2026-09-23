@@ -3,13 +3,15 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
+import type { DailyWeather } from '../../../../shared/weather.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
-import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
+import { CenteredWithWeather } from './DayWeather.tsx';
 import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { completedLast, freeLane, layoutLanes } from './lane-layout.ts';
@@ -73,6 +75,7 @@ export function MonthGrid({
   const compact = useIsMobile();
   const colorFor = useUserColor();
   const holidays = useHolidays();
+  const weather = useWeather();
   const drag = useDayDrag({
     draft,
     onChange: onChangeDraft,
@@ -160,6 +163,7 @@ export function MonthGrid({
             drag={drag}
             colorFor={colorFor}
             holidays={holidays}
+            weather={weather}
             maxLanes={maxLanes}
             laneHeight={laneHeight}
             compact={compact}
@@ -184,6 +188,7 @@ type WeekRowProps = {
   drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   holidays: ReadonlySet<DateString>;
+  weather: ReadonlyMap<DateString, DailyWeather>;
   maxLanes: number;
   laneHeight: number;
   compact: boolean;
@@ -201,6 +206,7 @@ function WeekRow({
   drag,
   colorFor,
   holidays,
+  weather,
   maxLanes,
   laneHeight,
   compact,
@@ -251,13 +257,15 @@ function WeekRow({
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <ButtonBase
-              aria-label={formatDateWithYear(date)}
-              onClick={() => onSelectDate(date)}
-              sx={{ borderRadius: '50%' }}
-            >
-              <DayNumber date={date} size={18} holiday={holidays.has(date)} muted={!inMonth} />
-            </ButtonBase>
+            <CenteredWithWeather weather={weather.get(date)} size={compact ? 12 : 14}>
+              <ButtonBase
+                aria-label={formatDateWithYear(date)}
+                onClick={() => onSelectDate(date)}
+                sx={{ borderRadius: '50%' }}
+              >
+                <DayNumber date={date} size={18} holiday={holidays.has(date)} muted={!inMonth} />
+              </ButtonBase>
+            </CenteredWithWeather>
           </Box>
         );
       })}
