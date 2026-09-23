@@ -63,7 +63,7 @@ describe('条件付き要求', () => {
 
   it('/me は色の変更に追従する（セッションから返しても古くならない）', async () => {
     expect(await (await get('/api/me')).json()).toMatchObject({ name: 'A', hue: 335 });
-    await updateUser(userId, { hue: 120 });
+    await updateUser(userId, { hue: 120 }, userId);
     expect(await (await get('/api/me')).json()).toMatchObject({ hue: 120 });
   });
 });

@@ -221,7 +221,7 @@ describe('notifications', () => {
     const other = (
       await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
     ).id;
-    await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 });
+    await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 }, other);
     const task = await createEvent(
       createEventSchema.parse({
         kind: 'task',
@@ -265,7 +265,7 @@ describe('notifications', () => {
     });
 
     // 通知時刻を変えると古い予約は送らない
-    await updateUser(userId, { allDayNotifyMinutes: 6 * 60 });
+    await updateUser(userId, { allDayNotifyMinutes: 6 * 60 }, userId);
     expect(await resolveNotification(mine as NotificationRef)).toBeNull();
     expect(await resolveNotification(theirs as NotificationRef)).not.toBeNull();
   });

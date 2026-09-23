@@ -87,7 +87,7 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
-    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
+    middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
     mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts  cron.ts（Vercel Cron の入口）
     recurrence/（RRULE 展開）  notifications/（service = enqueue・deliver、repository = 送信済み台帳）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
