@@ -1,12 +1,10 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { z } from 'zod';
+import { idParamSchema } from '../../../shared/validation/common.ts';
 import { createUserSchema, updateUserSchema } from '../../../shared/validation/users.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
-
-const idParam = z.object({ id: z.uuid() });
 
 export const usersRoutes = new Hono<AppEnv>()
   .get('/', async (c) => c.json(await service.listUsers()))
@@ -16,7 +14,7 @@ export const usersRoutes = new Hono<AppEnv>()
   })
   .patch(
     '/:id',
-    zValidator('param', idParam, validationHook),
+    zValidator('param', idParamSchema, validationHook),
     zValidator('json', updateUserSchema, validationHook),
     async (c) =>
       c.json(
