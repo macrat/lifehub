@@ -1,22 +1,22 @@
-import type { CalendarItem, DateRange } from '../../../shared/calendar.ts';
+import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import { addDays, diffDays, toDateString } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
 import {
-  formatDate,
-  formatMinutesOfDay,
-  fromDateValue,
+  addDays,
+  allDayDate,
+  diffDays,
   fromMinutesOfDay,
-  inclusiveEndDate,
-  minutesOfDay,
-} from '../../lib/date.ts';
+  toDateString,
+} from '../../../shared/date.ts';
+import type { DateString } from '../../../shared/types.ts';
+import { formatDate, formatMinutesOfDay, fromDateValue, minutesOfDay } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
+  type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
-import { MIN_BLOCK_MINUTES } from './components/timeline-layout.ts';
+import { MIN_BLOCK_MINUTES, timedSlot } from './components/timeline-layout.ts';
 import type { Drag } from './use-range-drag.ts';
 
 /**
@@ -67,35 +67,23 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
   if (item.allDay)
     return {
       allDay: true,
-      from: toDateString(new Date(item.startsAt)),
-      to: inclusiveEndDate(item.endsAt),
+      from: allDayDate(item.startsAt, 'start'),
+      to: allDayDate(item.endsAt, 'end'),
     };
   const slot = timedSlot(item);
   return slot && { allDay: false, date: item.placementDate, ...slot };
 }
 
 /**
- * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
- * 24:00 に終わる予定は翌日 0:00 で届くので 24 時に読み替える（`TimelineView` の置き場所もこれで決まる）。
- */
-export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
-  if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
-  return {
-    startMin: minutesOfDay(item.startsAt),
-    endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
-  };
-}
-
-/**
  * 直している対象が同じか。複数日の予定は日ごとに 1 件で返り、月グリッドでは週の行ごとに帯が分かれるので、
- * 暦日ではなく「どの発生か」（種別・id・繰り返しの回）で見る。どちらも無い（追加の下書き）なら同じ。
+ * 暦日ではなく「どの発生か」（`occurrenceKey`）で見る。どちらも無い（追加の下書き）なら同じ。
  */
 export function sameOccurrence(
   a: CalendarItem | null | undefined,
   b: CalendarItem | null | undefined,
 ): boolean {
   if (!a || !b) return !a && !b;
-  return a.kind === b.kind && a.id === b.id && a.occurrenceStart === b.occurrenceStart;
+  return occurrenceKey(a) === occurrenceKey(b);
 }
 
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
@@ -176,6 +164,19 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
   const startMin = Math.min(nextHour, DAY_MINUTES - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
+}
+
+/**
+ * 終日の切り替え（クイック入力の「終日」）。終日かどうかは下書きだけが持ち、切り替えは下書きそのものを
+ * 入れ替える。見出し・グリッドの枠・保存する日時がいつも同じ 1 つの下書きから決まるように。
+ * 時間指定 → 終日はその日 1 日。終日 → 時間指定は、最初の日に追加ボタンと同じ既定の時間帯（`defaultDraft`）。
+ * 時間指定の枠は日をまたげないので、複数日の終日から戻すと最初の日だけになる。
+ */
+export function withAllDay(draft: EventDraft, allDay: boolean, now: Date = new Date()): EventDraft {
+  if (draft.allDay === allDay) return draft;
+  return draft.allDay
+    ? defaultDraft(draft.from, now)
+    : { allDay: true, from: draft.date, to: draft.date };
 }
 
 /**
@@ -277,11 +278,7 @@ export function draftText(draft: EventDraft): string {
 }
 
 /** 保存するときの日時。終日の終わりは「含む日」で送る（サーバーが翌日 0:00 に直す） */
-export function draftInstants(draft: EventDraft): {
-  allDay: boolean;
-  startsAt: string;
-  endsAt: string;
-} {
+export function draftInstants(draft: EventDraft): FormInstants {
   return draft.allDay
     ? { allDay: true, startsAt: fromDateValue(draft.from), endsAt: fromDateValue(draft.to) }
     : {

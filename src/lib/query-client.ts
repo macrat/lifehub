@@ -1,9 +1,11 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import {
+  defaultShouldDehydrateMutation,
   type MutateOptions,
+  type Mutation,
   onlineManager,
+  partialMatchKey,
   QueryClient,
-  type UseQueryOptions,
   useIsFetching,
   useMutation,
   useQueryClient,
@@ -11,6 +13,7 @@ import {
 import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
+import { meQueryOptions } from './auth.ts';
 import { notify } from './ui/notice.ts';
 
 export const ONE_HOUR = 1000 * 60 * 60;
@@ -57,6 +60,17 @@ export const persistOptions = {
   maxAge: ONE_DAY * 7,
   // ビルドが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
   buster: __BUILD_TIME__,
+  dehydrateOptions: {
+    /**
+     * 端末に残す mutation は、送れずに保留した書き込み（`WRITE_MUTATION_KEY`）だけにする。
+     * 送り方（関数）は保存できず、復元した mutation はキーに紐づけた既定（setMutationDefaults）で送られる。
+     * 書き込み以外の mutation（プッシュ通知の購読、OAuth の同意）は既定を持たないので、残すと次の起動で
+     * 送り方の無いまま復元されてしまう。TanStack Query の既定は保留中の mutation をすべて残すため、ここで絞る。
+     */
+    shouldDehydrateMutation: (mutation: Mutation) =>
+      defaultShouldDehydrateMutation(mutation) &&
+      partialMatchKey(mutation.options.mutationKey ?? [], WRITE_MUTATION_KEY),
+  },
 };
 
 /**
@@ -93,7 +107,28 @@ type Write<TInput> = {
   keys: WriteKeys;
   /** 楽観的更新（onMutate）が使う入力。送信そのものには要らない */
   input: TInput;
+  /** 書き込んだときにログインしていたユーザーの ID（`sendAsAuthor`） */
+  author: string | null;
 };
+
+/** 今ログインしているユーザーの ID（未ログインなら null） */
+function signedInUserId(): string | null {
+  return queryClient.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+}
+
+/**
+ * 書き込みを、書いた人がまだログインしているときだけ送る。書き込みは送る時点のセッションで送られるので、
+ * 送り直しを待っている間にログアウトして別のユーザーでログインすると、そのユーザーの記録として
+ * 保存されてしまう。ログアウトは溜めた書き込みを捨てるが（`markSignedOut`）、TanStack Query には
+ * 送信中（送り直しの待ちを含む）の mutation を止める手段が無いので、送る試行のたびにここで確かめる。
+ * 通信断ではない失敗として投げるので、送り直さずに諦め、楽観的な表示を戻して通知で伝える。
+ */
+async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> {
+  if (author !== signedInUserId()) {
+    throw new Error('ログインしているユーザーが変わったため、送れていなかった記録を取り消しました');
+  }
+  return sendWrite(request);
+}
 
 /**
  * すべての書き込みが共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
@@ -106,7 +141,7 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  * 再読み込みで復元した書き込みもここに書いた方法で送られる。
  *
  * - networkMode（既定の `online`）: オフラインでは送らずに保留する。保留中の書き込みは
- *   永続化の対象なので（TanStack Query の既定の dehydrate 条件）、アプリを閉じても消えず、
+ *   永続化の対象なので（`persistOptions` の dehydrateOptions）、アプリを閉じても消えず、
  *   オンラインに戻るか次の起動時（main.tsx の `resumeWrites`）に送られる。
  * - scope: 同じ scope の mutation は 1 つずつ順に走る。溜めた書き込みが操作した順に再生されるので、
  *   「追加してから直す」がそのままの順でサーバーに届く。
@@ -114,7 +149,7 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
  */
 queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
-  mutationFn: ({ request }) => sendWrite(request),
+  mutationFn: sendAsAuthor,
   scope: { id: 'write' },
   retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
   onError: (error, _variables, snapshot) => {
@@ -177,7 +212,12 @@ export function useOptimisticMutation<TInput>({
     },
   });
 
-  const write = (input: TInput): Write<TInput> => ({ request: request(input), keys, input });
+  const write = (input: TInput): Write<TInput> => ({
+    request: request(input),
+    keys,
+    input,
+    author: signedInUserId(),
+  });
   return {
     mutate: (
       input: TInput,
@@ -218,17 +258,4 @@ export function useCreateMutation<TInput>(
   return {
     mutateAsync: (input: TInput): Promise<void> => create.mutateAsync({ ...input, id: newId() }),
   };
-}
-
-/**
- * ルートの beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
- * （TanStack Query はオフライン中の取得を一時停止するため、ensureQueryData が完了しなくなる）。
- * キャッシュが無ければ undefined。
- */
-export async function ensureData<T, K extends readonly unknown[]>(
-  client: QueryClient,
-  options: UseQueryOptions<T, Error, T, K> & { queryKey: K },
-): Promise<T | undefined> {
-  if (!onlineManager.isOnline()) return client.getQueryData<T>(options.queryKey);
-  return client.ensureQueryData(options);
 }

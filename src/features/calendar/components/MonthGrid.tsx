@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
@@ -9,12 +8,14 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
+import type { GridDraft } from '../use-event-composer.ts';
+import { useMonthGrid } from '../use-month-grid.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather } from './DayWeather.tsx';
-import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
+import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
-import { completedLast, freeLane, layoutLanes } from './lane-layout.ts';
-import { syncScrollProps } from './SwipePager.tsx';
+import { completedLast, foldLanes, freeLane, layoutLanes } from './lane-layout.ts';
+import { syncScrollProps } from './markers.ts';
 
 type Props = {
   /** 表示する月 "YYYY-MM"（月外の日を薄く出す判定） */
@@ -26,18 +27,14 @@ type Props = {
   onSelectDate: (date: DateString) => void;
   /** 項目をタップ・クリックしたとき（詳細を開く） */
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている予定の枠 */
-  draft: Draft | null;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  draftUserId: string | null;
+  /** 追加・編集しようとしている予定の枠。なぞり終えるまで（`settled`）は枠を追いかけてスクロールしない */
+  draft: GridDraft | null;
   /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
   height: string;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
-  /** 枠を置き終えた（指を離した）か */
-  draftSettled: boolean;
 };
 
 const DAY_NUMBER_HEIGHT = 22;
@@ -65,11 +62,9 @@ export function MonthGrid({
   onSelectDate,
   onSelectItem,
   draft,
-  draftUserId,
   onChangeDraft,
   height,
   bottomInset,
-  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const holidays = useHolidays();
@@ -83,36 +78,13 @@ export function MonthGrid({
   const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
   const ordered = completedLast(itemsByDate);
 
-  // 1 週の行に入るレーン数を実測から決める
-  const firstWeekRef = useRef<HTMLDivElement>(null);
-  const [maxLanes, setMaxLanes] = useState(3);
-  useLayoutEffect(() => {
-    const el = firstWeekRef.current;
-    if (!el) return;
-    const measure = () => {
-      const lanes = Math.floor((el.clientHeight - DAY_NUMBER_HEIGHT - 2) / laneHeight);
-      setMaxLanes(Math.max(1, lanes));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [laneHeight]);
-
-  // シートに隠れる所に枠を置いたら（下の週を長押ししたときなど）、その帯が見える所まで送る。
-  // どこまでが見える所かはスクロールする所の scroll-padding が決めるので、送るのはブラウザに任せる
-  // （既に見えているなら `nearest` は動かさない）。
-  // なぞっている最中は送らない（合図が null）: 指の下でグリッドが動くと、掴んでいる日がずれる
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const span = draftSettled && draft ? draftDays(draft.range) : null;
-  const reveal = span && `${span.from}/${span.to}/${bottomInset}`;
-  useEffect(() => {
-    if (!reveal) return;
-    // 帯は週の行ごとに分かれるので、始まりの 1 本が見えれば足りる
-    scrollRef.current
-      ?.querySelector(DRAFT_SELECTOR)
-      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [reveal]);
+  // レーン数の実測と、置いた枠を見える所まで送るスクロール
+  const { firstWeekRef, scrollRef, maxLanes } = useMonthGrid({
+    laneHeight,
+    headerHeight: DAY_NUMBER_HEIGHT,
+    draftSpan: draft?.settled ? draftDays(draft.range) : null,
+    bottomInset,
+  });
 
   return (
     <Box
@@ -157,7 +129,6 @@ export function MonthGrid({
             onSelectDate={onSelectDate}
             onSelectItem={onSelectItem}
             draft={draft}
-            draftUserId={draftUserId}
             drag={drag}
             holidays={holidays}
             weather={weather}
@@ -180,8 +151,7 @@ type WeekRowProps = {
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  draft: Draft | null;
-  draftUserId: string | null;
+  draft: GridDraft | null;
   drag: ReturnType<typeof useDayDrag>;
   holidays: ReadonlySet<DateString>;
   weather: ReadonlyMap<DateString, DailyWeather>;
@@ -198,7 +168,6 @@ function WeekRow({
   onSelectDate,
   onSelectItem,
   draft,
-  draftUserId,
   drag,
   holidays,
   weather,
@@ -208,14 +177,7 @@ function WeekRow({
 }: WeekRowProps) {
   const placed = layoutLanes(days, itemsByDate);
   const draftCols = draft && draftColumns(draft.range, days);
-  const overflow = placed.some((q) => q.lane >= maxLanes);
-  const hiddenLaneStart = overflow ? maxLanes - 1 : maxLanes;
-  const visible = placed.filter((p) => p.lane < hiddenLaneStart);
-  const hiddenPerCol = new Array<number>(7).fill(0);
-  for (const p of placed) {
-    if (p.lane >= hiddenLaneStart)
-      for (let c = p.col; c < p.col + p.span; c++) hiddenPerCol[c] = (hiddenPerCol[c] ?? 0) + 1;
-  }
+  const { visible, foldedLane, foldedPerCol } = foldLanes(placed, maxLanes, days.length);
 
   return (
     <Box
@@ -274,14 +236,14 @@ function WeekRow({
           hidden={sameOccurrence(draft?.item, p.item)}
         />
       ))}
-      {draftCols && (
+      {draft && draftCols && (
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          userId={draftUserId}
+          participantIds={draft.participantIds}
         />
       )}
-      {hiddenPerCol.map((n, col) =>
+      {foldedPerCol.map((n, col) =>
         n > 0 ? (
           <Typography
             key={days[col]}
@@ -290,7 +252,7 @@ function WeekRow({
             sx={{
               all: 'unset',
               gridColumn: col + 1,
-              gridRow: hiddenLaneStart + 2,
+              gridRow: foldedLane + 2,
               pointerEvents: 'none',
               px: 0.5,
               fontSize: compact ? '0.6rem' : '0.7rem',

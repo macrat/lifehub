@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { SYNC_SCROLL_SELECTOR } from './markers.ts';
 
 type Props<T extends string> = {
   /** 前・今・次の 3 面が受け持つページ。面を見分ける印でもある（下記） */
@@ -16,10 +17,6 @@ type Props<T extends string> = {
   /** 1 面の中身。offset は -1（前）・0（今）・1（次） */
   children: (page: T, offset: -1 | 0 | 1) => ReactNode;
 };
-
-/** 面の中で縦にスクロールする部分（時間軸）に付ける。3 面で縦位置を揃えるための印。 */
-export const syncScrollProps = { 'data-sync-scroll': '' };
-const SYNC_SCROLL_SELECTOR = '[data-sync-scroll]';
 
 /**
  * 横スワイプで前後のページへ移る入れ物（Google カレンダー方式）。前・今・次の 3 面を横に並べ、

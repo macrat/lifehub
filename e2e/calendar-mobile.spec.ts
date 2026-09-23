@@ -630,6 +630,22 @@ test('タブを行き来しても最後に開いた表示で開く', async ({ pa
   await expect(shownView(page)).toHaveText('週');
 });
 
+test('カレンダーで「予定」を押すと一段広い表示へ移り、見ていた日はそのまま', async ({ page }) => {
+  const tab = page.getByRole('link', { name: '予定' });
+  await page.goto('/calendar?view=day&date=2031-06-18');
+  await tab.click();
+  await expect(shownView(page)).toHaveText('週');
+  await expect(page).toHaveURL(/view=week&date=2031-06-18/);
+  await tab.click();
+  await expect(shownView(page)).toHaveText('月');
+  await expect(page).toHaveURL(/view=month&date=2031-06-18/);
+
+  await page.goto('/calendar?view=list&date=2031-06-18');
+  await tab.click();
+  await expect(shownView(page)).toHaveText('月');
+  await expect(page).toHaveURL(/view=month&date=2031-06-18/);
+});
+
 test('ホームの追加ボタンから始めた予定の入力は、閉じるとホームに戻る', async ({ page }) => {
   const title = `E2E ホームから ${Date.now()}`;
   const openFromHome = async () => {

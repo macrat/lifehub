@@ -1,7 +1,8 @@
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { isCompletedTask, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
-import { formatTime, today } from '../../../lib/date.ts';
+import { today } from '../../../../shared/date.ts';
+import { formatTime } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemTransitionName } from '../../calendar/components/item-transition.ts';
@@ -12,7 +13,7 @@ import {
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
-import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';

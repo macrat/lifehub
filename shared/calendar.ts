@@ -60,6 +60,16 @@ export type CalendarItem =
     })
   | (Occurrence & { kind: 'task'; placementDate: DateString; isOverdue: boolean });
 
+/**
+ * 発生（繰り返しの 1 回）を指す鍵: 種別・id（繰り返し元、単発ならその行）・繰り返しの回の基準日時。
+ * 複数日の予定は日ごとに 1 件で返るが、どの日の項目も同じ鍵になる（暦日は含めない）。
+ * 「同じ予定か」を見る所（編集中の予定を隠す、複数日の帯を束ねる、表示の切り替えで動かす）が
+ * 同じ規則で比べるよう、ここ 1 か所に置く。
+ */
+export function occurrenceKey(item: Pick<Occurrence, 'kind' | 'id' | 'occurrenceStart'>): string {
+  return `${item.kind}:${item.id}:${item.occurrenceStart ?? ''}`;
+}
+
 /** 両端を含む JST 暦日の期間 */
 export type DateRange = { from: DateString; to: DateString };
 

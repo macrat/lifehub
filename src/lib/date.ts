@@ -1,16 +1,21 @@
 import { TZDate } from '@date-fns/tz';
 import { format, getDay } from 'date-fns';
 import { TIME_ZONE } from '../../shared/constants.ts';
-import { addDays, allDayDate, startOfDate, toDateString, today } from '../../shared/date.ts';
-import type { DateString } from '../../shared/types.ts';
-
-export {
+import {
   addDays,
-  fromMinutesOfDay,
-  inclusiveEndDate,
+  allDayDate,
+  isDateString,
+  startOfDate,
   toDateString,
   today,
 } from '../../shared/date.ts';
+import type { DateString } from '../../shared/types.ts';
+
+/**
+ * クライアントだけが使う日付の表示・入力欄の変換・カレンダーの並び。
+ * JST の暦日の計算（`shared/date.ts`）はここから再 export せず、使う側が shared から直接読む
+ * （どちらから読むかが関数ごとに分かれないように。サーバーと共有する物は shared、それ以外はここ）。
+ */
 
 /**
  * 表示用の日付・時刻フォーマット。すべて JST。表示は Intl に任せ、計算は date-fns（TZDate）に任せる。
@@ -128,7 +133,9 @@ export function toMonthString(date: DateString): string {
 
 /** 年月（YYYY-MM）の 1 日 */
 export function firstDayOfMonth(month: string): DateString {
-  return toDateString(startOfDate(`${month}-01` as DateString));
+  const date = `${month}-01`;
+  if (!isDateString(date)) throw new Error(`invalid month: ${month}`);
+  return date;
 }
 
 /** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
@@ -219,6 +226,6 @@ export function isToday(date: string): boolean {
 
 function toDate(value: Date | string): Date {
   if (value instanceof Date) return value;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return startOfDate(value as DateString);
+  if (isDateString(value)) return startOfDate(value);
   return new Date(value);
 }

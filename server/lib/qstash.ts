@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Client, Receiver } from '@upstash/qstash';
 import type { PlannedNotification } from '../features/events/notifications.ts';
 import { env, isProduction, resolveBaseUrl } from './env.ts';
@@ -21,6 +22,17 @@ export type Publisher = {
  */
 const QSTASH_US_URL = 'https://qstash-us-east-1.upstash.io';
 
+/**
+ * 通知のキーから QStash の deduplicationId を作る。
+ * QStash は deduplicationId に ':' を許さない（400 になる）が、キーは区切りに ':' を使い、ISO 8601 の時刻も含む。
+ * 文字を置き換えるだけだと、QStash が他に禁じる文字や長さの制限が増えたときにまた壊れ、置き換え先の文字との衝突も
+ * 考えることになるので、SHA-256 の 16 進にして使える文字と長さを固定する。同じキーからは常に同じ ID になる。
+ * キー自体は送信台帳の主キーでもあるので変えない。
+ */
+export function deduplicationIdOf(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
+
 export function createPublisher(): Publisher | null {
   if (!isProduction || !env.QSTASH_TOKEN) return null;
   const client = new Client({ baseUrl: QSTASH_US_URL, token: env.QSTASH_TOKEN });
@@ -31,7 +43,7 @@ export function createPublisher(): Publisher | null {
         url,
         body: { key, ref },
         notBefore: Math.ceil(at.getTime() / 1000),
-        deduplicationId: key,
+        deduplicationId: deduplicationIdOf(key),
         retries: 3,
       });
     },

@@ -7,8 +7,8 @@ import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
+import { formatYen } from '../format.ts';
 import type { Expense, useExpenseHistory } from '../queries.ts';
-import { formatYen } from './BalanceSummary.tsx';
 
 /**
  * 金額の列の幅。カレンダーの時刻の列より少し広く、6 桁の金額（¥100,000）まで折り返さない。

@@ -1,71 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
-import { z } from 'zod';
+import { addDays, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { dateStringSchema } from '../../../shared/validation/common.ts';
 import {
-  addDays,
   addMonths,
   firstDayOfMonth,
   formatDateWithYear,
   formatMonth,
   formatWeekRange,
   monthGridDays,
-  today,
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
 import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
-import { addSearchSchema } from '../add/shortcut.ts';
-import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
+import {
+  type CalendarSearch,
+  countActiveFilters,
+  type ListFilters,
+  type SearchPatch,
+  storeView,
+} from './search.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
-
-const viewSchema = z.enum(['month', 'week', 'day', 'list']);
-/** 表示の種類 */
-export type CalendarView = z.infer<typeof viewSchema>;
-
-const LAST_VIEW_KEY = 'calendar-view';
-
-/**
- * 最後に開いた表示。URL に表示が無いとき（下部ナビのタブ、ホームの追加ボタン、ショートカットから来たとき）
- * の既定にして、毎回好みの表示へ切り替え直さずに済むようにする。検索パラメータを読むたび
- * （移動のたび）に読むので、画面が state を保ったままでも後から覚えた表示が反映される。
- * 置き場所は localStorage: 端末ごとの好みで、サーバーに送る物ではないため。読めない・壊れている
- * （プライベートブラウズ、消された）ときは月表示から始める。
- */
-function storedView(): CalendarView {
-  try {
-    return viewSchema.catch('month').parse(localStorage.getItem(LAST_VIEW_KEY));
-  } catch {
-    return 'month';
-  }
-}
-
-function storeView(view: CalendarView): void {
-  try {
-    localStorage.setItem(LAST_VIEW_KEY, view);
-  } catch {
-    // 覚えられなくても表示はできる。次に来たときに月表示から始まるだけ
-  }
-}
-
-export const calendarSearchSchema = z.object({
-  /** 無ければ最後に開いた表示（`storedView`） */
-  view: viewSchema.default(storedView),
-  date: dateStringSchema.optional(),
-  /** 予定は今の表示に既定の時間帯の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
-  add: addSearchSchema('event', 'task'),
-  // 以下はリスト表示の絞り込み
-  from: dateStringSchema.optional(),
-  to: dateStringSchema.optional(),
-  kind: z.enum(['all', 'event', 'task']).default('all'),
-  participant: z.string().default('all'),
-  completed: z.enum(['all', 'open', 'done']).default('all'),
-  q: z.string().optional(),
-});
-export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
-/** 更新する項目だけ。undefined はその項目を消す（既定に戻す） */
-export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
+import type { CalendarView } from './view.ts';
 
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;
@@ -111,20 +67,7 @@ export function useCalendarPage(search: CalendarSearch) {
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
-  const filters: ListFilters = {
-    from: search.from,
-    to: search.to,
-    kind: search.kind,
-    participant: search.participant,
-    completed: search.completed,
-    q: query,
-  };
-  const activeFilters = [
-    search.kind !== 'all',
-    search.participant !== 'all',
-    search.completed !== 'all',
-    search.from !== undefined || search.to !== undefined,
-  ].filter(Boolean).length;
+  const filters: ListFilters = { ...search, q: query };
 
   /** offset ページ前後を代表する日（月は n か月、週は n 週、日は n 日ずらす） */
   const dateAt = (offset: number): DateString =>
@@ -175,7 +118,7 @@ export function useCalendarPage(search: CalendarSearch) {
     pages: [dateAt(-1), dateAt(0), dateAt(1)] as const,
     title,
     filters,
-    activeFilters,
+    activeFilters: countActiveFilters(filters),
     setQuery,
     hourHeight,
     zoom,

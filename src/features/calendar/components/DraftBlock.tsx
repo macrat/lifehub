@@ -4,15 +4,10 @@ import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
+import { colorUserOf } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
-
-/**
- * 枠に付ける印と、それを探すセレクタ。時間軸のブロックにも月・終日欄の帯にも同じものを付ける。
- * 枠の位置を DOM から引く側（見える所まで送る・吹き出しを寄せる）はこれで探す。
- */
-const draftProps = { 'data-draft': '' };
-export const DRAFT_SELECTOR = '[data-draft]';
+import { draftProps } from './markers.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
 const DOT_SIZE = 8;
@@ -44,19 +39,19 @@ const outline = (colors: ItemColors) =>
 export function DraftBlock({
   draft,
   column,
-  userId,
+  participantIds,
   grab,
 }: {
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  userId: string | null;
+  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  participantIds: string[];
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
 }) {
   const { startMin, endMin } = draft;
-  const colors = useUserColor()(userId);
+  const colors = useUserColor()(colorUserOf(participantIds));
   return (
     <Box
       {...draftProps}
@@ -113,16 +108,16 @@ export function DraftBlock({
 export function DraftBar({
   columns,
   lane,
-  userId,
+  participantIds,
 }: {
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  userId: string | null;
+  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  participantIds: string[];
 }) {
   const { col, span, roundStart, roundEnd } = columns;
-  const colors = useUserColor()(userId);
+  const colors = useUserColor()(colorUserOf(participantIds));
   return (
     <Box
       {...draftProps}

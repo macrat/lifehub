@@ -13,28 +13,25 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
-import { Link, useLocation } from '@tanstack/react-router';
+import { createLink, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
-import { bottomNavItems, primaryNavItems } from './navigation.ts';
+import { BOTTOM_NAV_HEIGHT } from './layout.ts';
+import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
 const DRAWER_WIDTH = 220;
-/** 下部ナビの高さ。ページ側で「画面いっぱい」を計算するときに使う */
-export const BOTTOM_NAV_HEIGHT = 56;
-/** AppBar（dense）の高さ */
-export const APP_BAR_HEIGHT = 48;
-/** 右下の追加ボタン（FAB / SpeedDial）の位置。スマホでは下部ナビの上に置く */
-export const FAB_SX = {
-  position: 'fixed',
-  right: 16,
-  bottom: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 24 },
-} as const;
+
+// MUI の部品を router のリンクにする（`component={Link}` では to と search の型が MUI の props の推論に埋もれる）
+const ListItemLink = createLink(ListItemButton);
+const BottomNavigationLink = createLink(BottomNavigationAction);
 
 type Props = {
+  /** ナビに並べる主要画面（`src/navigation.ts`） */
+  navItems: NavItem[];
   children: ReactNode;
 };
 
@@ -45,12 +42,13 @@ type Props = {
  * - スマホは AppBar + BottomNavigation、PC は permanent Drawer（アプリ名は出さない）。ページ自体は共通。
  * - 設定は PC のサイドナビにだけ置く。スマホではホームの末尾から開く（下部ナビは主要 4 画面に絞る）。
  */
-export function AppShell({ children }: Props) {
+export function AppShell({ navItems, children }: Props) {
   const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
+  const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
 
   return (
@@ -76,14 +74,18 @@ export function AppShell({ children }: Props) {
           >
             <Toolbar variant="dense" />
             <List component="nav">
-              {primaryNavItems.map((item) => (
+              {navItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemButton component={Link} to={item.to} selected={isActive(item.to)}>
+                  <ListItemLink
+                    to={item.to}
+                    search={isActive(item.to) ? item.reselectSearch : undefined}
+                    selected={isActive(item.to)}
+                  >
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
                     <ListItemText primary={item.label} />
-                  </ListItemButton>
+                  </ListItemLink>
                 </ListItem>
               ))}
             </List>
@@ -125,12 +127,12 @@ export function AppShell({ children }: Props) {
           >
             <BottomNavigation value={bottomIndex} showLabels sx={{ height: BOTTOM_NAV_HEIGHT }}>
               {bottomNavItems.map((item) => (
-                <BottomNavigationAction
+                <BottomNavigationLink
                   key={item.to}
                   label={item.label}
                   icon={<item.icon />}
-                  component={Link}
                   to={item.to}
+                  search={isActive(item.to) ? item.reselectSearch : undefined}
                 />
               ))}
             </BottomNavigation>

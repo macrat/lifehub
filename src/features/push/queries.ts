@@ -77,7 +77,7 @@ export function useSubscribePush() {
         }),
       );
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['push', 'status'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: pushStatusQueryOptions.queryKey }),
   });
 }
 
@@ -92,6 +92,6 @@ export function useUnsubscribePush() {
       );
       await subscription.unsubscribe();
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['push', 'status'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: pushStatusQueryOptions.queryKey }),
   });
 }

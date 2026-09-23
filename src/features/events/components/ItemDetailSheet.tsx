@@ -20,8 +20,8 @@ import {
   useToggleCompletion,
   useUpdateEvent,
 } from '../queries.ts';
-import { describeRRule } from '../recurrence-options.ts';
-import { useItemForm } from '../use-item-form.ts';
+import { describeRRule, writeTarget } from '../recurrence-options.ts';
+import { useAllDay, useItemForm } from '../use-item-form.ts';
 import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
 import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
@@ -49,11 +49,7 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
     isRecurring: item.isRecurring,
     editing: initialEditing,
     onDelete: (scope) => {
-      deleteEvent.mutate({
-        id: item.id,
-        scope,
-        occurrenceStart: item.occurrenceStart ?? undefined,
-      });
+      deleteEvent.mutate(writeTarget(item, scope));
       onClose();
     },
   });
@@ -72,17 +68,15 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
   // 繰り返し元を読んでいる間はまだ入力欄に変えない（違う日時のまま出さない）
   const editing = editScope !== null && values !== null;
 
+  const initial = values ?? item;
+  const [allDay, setAllDay] = useAllDay(initial);
   const form = useItemForm({
     kind: item.kind,
-    initial: values ?? item,
+    initial,
+    allDay,
     scope: editScope ?? 'all',
     onSubmit: (input) =>
-      updateEvent.mutateAsync({
-        id: item.id,
-        ...input,
-        scope: editScope ?? 'all',
-        occurrenceStart: item.occurrenceStart ?? undefined,
-      }),
+      updateEvent.mutateAsync({ ...input, ...writeTarget(item, editScope ?? 'all') }),
     onSaved: onClose,
   });
 
@@ -131,8 +125,8 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               <TaskFormFields
                 initial={values}
                 errors={form.errors}
-                allDay={form.allDay}
-                onChangeAllDay={form.setAllDay}
+                allDay={allDay}
+                onChangeAllDay={setAllDay}
                 thisOnly={form.thisOnly}
                 autoFocus={false}
               />
@@ -140,8 +134,8 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
               <EventFormFields
                 initial={values}
                 errors={form.errors}
-                allDay={form.allDay}
-                onChangeAllDay={form.setAllDay}
+                allDay={allDay}
+                onChangeAllDay={setAllDay}
                 thisOnly={form.thisOnly}
               />
             )}

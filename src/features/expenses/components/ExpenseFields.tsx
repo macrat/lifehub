@@ -1,7 +1,7 @@
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { today } from '../../../lib/date.ts';
+import { today } from '../../../../shared/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { normalizeExpression, pressKey } from '../calculator.ts';

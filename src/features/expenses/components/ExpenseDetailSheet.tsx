@@ -7,9 +7,9 @@ import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
+import { formatYen } from '../format.ts';
 import { type Expense, useDeleteExpense, useUpdateExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
-import { formatYen } from './BalanceSummary.tsx';
 import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {

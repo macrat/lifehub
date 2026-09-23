@@ -1,10 +1,16 @@
-import { dateRangeQuerySchema, uuidSchema } from '../../../shared/validation/common.ts';
+import { z } from 'zod';
+import {
+  dateRangeQuerySchema,
+  instantSchema,
+  uuidSchema,
+} from '../../../shared/validation/common.ts';
 import {
   completeEventSchema,
   createEventSchema,
-  deleteEventSchema,
-  updateEventSchema,
+  type OccurrenceTarget,
+  recurrenceScopeSchema,
 } from '../../../shared/validation/events.ts';
+import { ValidationError } from '../../lib/errors.ts';
 import { jsonResult, type ToolRegistrar, textResult } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -19,6 +25,29 @@ const FIELDS_HELP = [
 
 const SCOPE_HELP =
   '繰り返しでは scope を指定する: all=すべての回（既定）、this=occurrenceStart で指定した回だけ、following=その回以降すべて（元を打ち切り新しい繰り返しを作る）。';
+
+/**
+ * 繰り返しのどの回に対する操作か。LLM には平らな 2 項目で渡させ、scope は省略できる（単発では考えなくてよい）。
+ * WHY NOT API の判別共用体（`occurrenceTargetSchema`）をそのまま使わない: 入力の最上位が anyOf になり、
+ * 項目ごとの説明も分岐に散って、LLM が引数の形を読み取りにくい。組み合わせの誤りは `toTarget` が
+ * 何を足せばよいかの文で返す。
+ */
+const targetFields = {
+  scope: recurrenceScopeSchema.default('all'),
+  occurrenceStart: instantSchema.optional(),
+};
+const targetSchema = z.object(targetFields);
+
+/** LLM の入力 → service が受け取る回の指定（判別共用体） */
+function toTarget({ scope, occurrenceStart }: z.infer<typeof targetSchema>): OccurrenceTarget {
+  if (scope === 'all') return { scope };
+  if (!occurrenceStart) {
+    throw new ValidationError(
+      `scope が ${scope} のときは、対象の回を occurrenceStart（events_list が返す値）で指定してください`,
+    );
+  }
+  return { scope, occurrenceStart };
+}
 
 export const registerEventTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
@@ -47,9 +76,16 @@ export const registerEventTools: ToolRegistrar = (server, ctx) => {
     {
       title: '予定・タスクの更新',
       description: `予定またはタスクを更新する（全項目を指定する。kind は変更できない）。${SCOPE_HELP} ${FIELDS_HELP}`,
-      inputSchema: updateEventSchema.safeExtend({ id: uuidSchema }),
+      inputSchema: createEventSchema.safeExtend({ id: uuidSchema, ...targetFields }),
     },
-    async ({ id, ...input }) => jsonResult(await service.updateEvent(id, input, ctx.userId)),
+    async ({ id, scope, occurrenceStart, ...values }) =>
+      jsonResult(
+        await service.updateEvent(
+          id,
+          { ...values, ...toTarget({ scope, occurrenceStart }) },
+          ctx.userId,
+        ),
+      ),
   );
 
   server.registerTool(
@@ -57,10 +93,10 @@ export const registerEventTools: ToolRegistrar = (server, ctx) => {
     {
       title: '予定・タスクの削除',
       description: `予定またはタスクを削除する。${SCOPE_HELP}`,
-      inputSchema: deleteEventSchema.safeExtend({ id: uuidSchema }),
+      inputSchema: targetSchema.extend({ id: uuidSchema }),
     },
-    async ({ id, ...input }) => {
-      await service.deleteEvent(id, input, ctx.userId);
+    async ({ id, ...target }) => {
+      await service.deleteEvent(id, toTarget(target), ctx.userId);
       return textResult('削除しました');
     },
   );

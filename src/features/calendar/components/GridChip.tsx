@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
-import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { colorUserOf } from '../queries.ts';
 import type { DragHandlers } from '../use-range-drag.ts';

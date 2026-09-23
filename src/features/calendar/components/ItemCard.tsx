@@ -3,7 +3,7 @@ import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
-import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';

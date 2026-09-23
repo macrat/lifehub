@@ -19,7 +19,8 @@
     "rules": {
       "preset": "recommended",
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noImportCycles": "error"
       },
       "style": {
         "noNonNullAssertion": "error",
@@ -67,6 +68,114 @@
                   {
                     "group": ["@mui/material/Dialog"],
                     "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": [
+                      "@mui/material/Modal",
+                      "@mui/material/Popover",
+                      "@mui/material/Drawer"
+                    ],
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useComponentExportOnlyModules": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/lib/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/features/**"],
+                    "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "server/**/*.ts",
+        "!**/repository.ts",
+        "!**/schema.ts",
+        "!server/lib/db.ts",
+        "!server/lib/test-db.ts",
+        "!server/lib/history.ts",
+        "!server/lib/auth.ts",
+        "!server/app.ts",
+        "!server/**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/lib/db.ts",
+                      "./db.ts",
+                      "../db.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                  },
+                  {
+                    "group": ["../*/repository.ts", "**/features/*/repository.ts"],
+                    "message": "他の feature の repository は直接使わず、その feature の service を通す"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["server/features/*/routes.ts", "server/features/*/mcp.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["./repository.ts", "**/repository.ts"],
+                    "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
+                  },
+                  {
+                    "group": [
+                      "**/lib/db.ts",
+                      "./db.ts",
+                      "../db.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
                   }
                 ]
               }
