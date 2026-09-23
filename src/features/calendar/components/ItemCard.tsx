@@ -8,14 +8,8 @@ import {
   COMPLETED_TITLE_SX,
   TaskCheckbox,
 } from '../../events/components/TaskCheckbox.tsx';
-import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import {
-  type CalendarEventItem,
-  type CalendarItem,
-  type CalendarTaskItem,
-  colorUserOf,
-} from '../queries.ts';
+import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
 import { itemTransitionName } from './item-transition.ts';
 import { ParticipantsMark } from './ParticipantsMark.tsx';
 
@@ -33,12 +27,10 @@ type Props = {
  */
 export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
-  const colorFor = useUserColor();
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
   const time = isTask ? taskTimeLabel(item) : eventTimeLabel(item);
-  const colors = colorFor(colorUserOf(item.participantIds));
   const meta = [item.participantIds.map(label).join('・'), item.location]
     .filter(Boolean)
     .join(' · ');
@@ -53,7 +45,7 @@ export function ItemCard({ item, onSelect }: Props) {
       }}
       mark={
         isTask ? (
-          <TaskCheckbox item={item} color={colors.fill} />
+          <TaskCheckbox item={item} />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />
         )
