@@ -27,7 +27,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 | `expenses` | `from_user_id`(user), `to_user_id`(user, null=共有), `amount`, `description`, `spent_on` | 立替（借方・貸方）。from が to のために払った。to が null なら折半。精算も同じ行（from = 払った人、to = 受け取った人） |
 | `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
 | `holidays` | `date`(PK) | 日本の祝日・休日（[features/calendar.md](features/calendar.md#祝日)）。外部の ics を月次 Cron で取り直し、全行を入れ替える。使うのは日付だけなので名前は持たない |
-| `weather` | `date`(PK), `code`, `temp_max` | 日ごとの天気と最高気温（東京。[features/calendar.md](features/calendar.md#天気)）。気象庁の予報を 3 時間ごとの Cron で取り直し、予報のある日を上書きする。過去の日は消さない。最高気温は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
+| `weather` | `date`(PK), `code`, `temp_max` | 日ごとの天気と最高気温（東京。[features/calendar.md](features/calendar.md#天気)）。気象庁の予報を 1 日 3 回の Cron で取り直し、予報のある日を上書きする。過去の日は消さない。最高気温は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
 
 ## 計算ルール

@@ -75,7 +75,7 @@ export function parseForecast(json: unknown): WeatherRow[] {
 }
 
 /**
- * 気象庁から取り直して予報のある日を上書きし、上書きした日数を返す（3 時間ごとの Cron）。
+ * 気象庁から取り直して予報のある日を上書きし、上書きした日数を返す（1 日 3 回の Cron）。
  * 取得や解析に失敗したら何も書かずに投げる（手元の天気は前回のまま残る）。
  */
 export async function refreshWeather(): Promise<number> {

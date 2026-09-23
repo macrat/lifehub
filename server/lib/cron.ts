@@ -23,5 +23,5 @@ export const cronRoutes = new Hono<AppEnv>()
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))
   // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
   .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
-  // 3 時間ごと: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
+  // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
   .get('/weather', async (c) => c.json({ count: await refreshWeather() }));
