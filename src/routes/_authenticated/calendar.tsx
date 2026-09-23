@@ -137,6 +137,7 @@ function CalendarPage() {
                 onChangeDraft={composer.grab}
                 hourHeight={page.hourHeight}
                 onZoom={page.zoom}
+                fitItems={page.fromMonth}
                 // 枠と同じく、控えの面には渡さない。
                 // 覆う高さは下部ナビの分だけ多めに取る: 基準が svh と dvh で食い違っても
                 // 足りなくならない側へ倒す（余った分は下の余白が少し増えるだけ）

@@ -33,6 +33,7 @@ type Props = {
   /** 時間軸（`TimeGrid`）へそのまま渡す */
   hourHeight: number;
   onZoom: (ratio: number) => void;
+  fitItems: boolean;
   bottomInset: number;
 };
 
@@ -57,6 +58,7 @@ export function TimelineView({
   height,
   hourHeight,
   onZoom,
+  fitItems,
   bottomInset,
 }: Props) {
   const compact = useIsMobile();
@@ -199,6 +201,7 @@ export function TimelineView({
         onSelectItem={onSelectItem}
         draft={draft}
         onChangeDraft={onChangeDraft}
+        fitItems={fitItems}
         bottomInset={bottomInset}
       />
     </Box>

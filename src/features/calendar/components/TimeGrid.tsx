@@ -24,7 +24,7 @@ import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './markers.ts';
 import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
-import type { TimedPlaced } from './timeline-layout.ts';
+import { type TimedPlaced, timedSpan } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
 const TIME_LINE = 'time-line';
@@ -47,6 +47,8 @@ type Props = {
   draft: GridDraft | null;
   /** なぞって時間帯を決めたとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
+  /** 最初に出したとき、予定がなるべく全部見える縦位置に合わせるか（月表示から来たとき） */
+  fitItems: boolean;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
 };
@@ -74,6 +76,7 @@ export function TimeGrid({
   onSelectItem,
   draft,
   onChangeDraft,
+  fitItems,
   bottomInset,
 }: Props) {
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
@@ -91,6 +94,7 @@ export function TimeGrid({
   const todayStr = today(now);
   const scrollRef = useTimelineScroll({
     nowMinutes: days.includes(todayStr) ? nowMin : null,
+    itemsSpan: fitItems ? timedSpan(timedByDate) : null,
     hourHeight,
     draftStart: timedDraft?.startMin ?? null,
     settled: draft?.settled ?? false,

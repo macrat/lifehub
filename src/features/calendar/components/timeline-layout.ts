@@ -113,3 +113,15 @@ export function partitionTimeline(
   }
   return { allDayByDate, timedByDate };
 }
+
+/** 時間軸に置いた項目全体の時間帯（一番早い開始〜一番遅い終了。分）。1 つも無ければ null */
+export function timedSpan<T>(
+  timedByDate: Map<DateString, TimedPlaced<T>[]>,
+): { startMin: number; endMin: number } | null {
+  const placed = [...timedByDate.values()].flat();
+  if (placed.length === 0) return null;
+  return {
+    startMin: Math.min(...placed.map((p) => p.startMin)),
+    endMin: Math.max(...placed.map((p) => p.endMin)),
+  };
+}
