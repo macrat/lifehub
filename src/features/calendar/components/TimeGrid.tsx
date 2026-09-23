@@ -21,6 +21,7 @@ import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './markers.ts';
+import { useParticipantsFill } from './participants-fill.ts';
 import type { TimedPlaced } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
@@ -213,6 +214,7 @@ function NowLine({ minutes }: { minutes: number }) {
 
 /**
  * 時間軸に置く 1 項目。タップで詳細、長押しでつまんで編集モード（`grab`）。
+ * 予定は帯と同じ塗り（`useParticipantsFill`）。タスクは参加者 1 人の色の薄い面に左の線。
  * 編集中は枠（`DraftBlock`）で出すので隠すが、DOM からは消さない: 長押しでつまんだ要素が
  * 消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
@@ -233,6 +235,7 @@ function TimedBlock({
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useUserColor()(colorUserOf(item.participantIds));
+  const fill = useParticipantsFill(item.participantIds);
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -255,11 +258,11 @@ function TimedBlock({
         textAlign: 'left',
         overflow: 'hidden',
         borderRadius: '4px',
-        px: 0.5,
+        px: `${4 + (isTask ? 0 : fill.rim.start)}px`,
         py: '2px',
-        bgcolor: isTask ? colors.tint : colors.fill,
-        color: isTask ? 'text.primary' : colors.text,
-        borderLeft: isTask ? `3px solid ${colors.fill}` : 'none',
+        ...(isTask
+          ? { bgcolor: colors.tint, color: 'text.primary', borderLeft: `3px solid ${colors.fill}` }
+          : { ...fill.sx, color: fill.text }),
         ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので
