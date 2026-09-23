@@ -91,6 +91,26 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/lib/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/features/**"],
+                    "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

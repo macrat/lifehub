@@ -71,7 +71,7 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
-  lib/                        # 横断
+  lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
