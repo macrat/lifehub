@@ -67,6 +67,42 @@
                   {
                     "group": ["@mui/material/Dialog"],
                     "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": [
+                      "@mui/material/Modal",
+                      "@mui/material/Popover",
+                      "@mui/material/Drawer"
+                    ],
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/events/components/QuickEventForm.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API はコンポーネントから直接呼ばず、features/*/queries.ts のフック経由にする"
+                  },
+                  {
+                    "group": ["@mui/material/Dialog"],
+                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": ["@mui/material/Modal", "@mui/material/Drawer"],
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
                   }
                 ]
               }
