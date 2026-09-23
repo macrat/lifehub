@@ -1,5 +1,10 @@
 import { oauthProviderClient } from '@better-auth/oauth-provider/client';
-import { queryOptions, useQueryClient } from '@tanstack/react-query';
+import {
+  partialMatchKey,
+  type QueryClient,
+  queryOptions,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
 import type { InferResponseType } from 'hono/client';
@@ -32,14 +37,35 @@ export const meQueryOptions = queryOptions({
   staleTime: 1000 * 60 * 5,
 });
 
-/** ログアウト。キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残し、次回起動で即ログイン画面に出す） */
+/**
+ * 未ログインになったことを手元に反映する（ログアウトと、API の 401 の両方がここを通る）。
+ * me を「未ログイン」にし、端末に溜めた書き込み（オフラインの書き込みキュー）を捨てる。
+ * WHY 書き込みを捨てる: 溜めた書き込みは送る時点のセッションで送られるので、残すと次に
+ * ログインした別のユーザーとして送られてしまう。
+ * WHY NOT 401 のときは残して同じユーザーの再ログインを待つ: 401 はオンラインでしか起きず、
+ * オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗する（送り直すのは通信断だけ）。
+ * 残しても通る見込みは無く、誰のものかを覚えて待つ仕組みを足すほどの得も無い。
+ * クエリのキャッシュはここでは消さない。401 を受けた画面はまだ表示中で、消すと表示中のクエリが
+ * 取り直しに走るため（消すのは画面を離れるログアウトだけ。`useLogout`）。
+ */
+export function markSignedOut(client: QueryClient): void {
+  client.setQueryData(meQueryOptions.queryKey, null);
+  client.getMutationCache().clear();
+}
+
+/**
+ * ログアウト。キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残し、
+ * 次回起動で即ログイン画面に出す）。
+ */
 export function useLogout() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return async () => {
     await authClient.signOut();
-    queryClient.setQueryData(meQueryOptions.queryKey, null);
-    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+    markSignedOut(queryClient);
+    queryClient.removeQueries({
+      predicate: (q) => !partialMatchKey(q.queryKey, meQueryOptions.queryKey),
+    });
     await navigate({ to: '/login' });
   };
 }
