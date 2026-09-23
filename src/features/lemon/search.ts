@@ -3,9 +3,6 @@ import { careLogFilterSchema } from '../../../shared/validation/lemon.ts';
 import { type Filters, type FiltersPatch, keywordSearchSchema } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 
-/** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
-export const ALL = 'all';
-
 /**
  * レモンの検索パラメータ。キーワード（q）に加えて、項目と実施日の範囲で絞り込む。
  * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻る。

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { countActiveFilters, type LemonFilters } from '../search.ts';
+import { countActiveFilters, type LemonSearch } from '../search.ts';
 
 /** 何も絞り込んでいない状態 */
-const NO_FILTERS: LemonFilters = { q: '' };
+const NO_FILTERS: LemonSearch = {};
 
 describe('countActiveFilters', () => {
   it('範囲は上下をまとめて 1 つと数え、キーワードは数えない', () => {

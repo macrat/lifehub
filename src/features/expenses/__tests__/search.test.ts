@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { countActiveFilters, type ExpenseFilters } from '../search.ts';
+import { countActiveFilters, type ExpenseSearch } from '../search.ts';
 
 const ME = '11111111-1111-4111-8111-111111111111';
 /** 何も絞り込んでいない状態 */
-const NO_FILTERS: ExpenseFilters = { q: '' };
+const NO_FILTERS: ExpenseSearch = {};
 
 describe('countActiveFilters', () => {
   it('範囲は上下をまとめて 1 つと数える', () => {

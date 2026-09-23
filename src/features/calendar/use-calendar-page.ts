@@ -1,4 +1,3 @@
-import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
@@ -15,7 +14,7 @@ import {
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
-import { useKeywordSearch } from '../../lib/search.ts';
+import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
@@ -66,7 +65,7 @@ export type CalendarPeriod = {
  */
 export function useCalendarPage(search: CalendarSearch) {
   useRefreshCalendarItems();
-  const navigate = useNavigate({ from: '/calendar' });
+  const patchSearch = usePatchSearch();
   // キーワードは打つたびに反映するので、URL を往復させず手元に持つ（URL は置き換えるだけ）
   const [query, setQuery] = useKeywordSearch(search.q ?? '');
   // 時間軸の高さ（週・日）。3 面で 1 つの値を使う（`use-hour-zoom.ts`）
@@ -110,11 +109,8 @@ export function useCalendarPage(search: CalendarSearch) {
   // useCallback: この関数から作る openDay は面（CalendarPane）に渡る。毎回別の関数になると
   // 面が props の同一性で描き直しを省けなくなり、スワイプのたびに 3 面すべてを描き直すことになる
   const setSearch = useCallback(
-    (next: SearchPatch, { replace = false } = {}) =>
-      // resetScroll: false = 画面のスクロール位置に触らない。既定だと router が移動のたびに位置を復元し、
-      // スワイプの面（SwipePager）を中央へ戻した直後に元の位置へ引き戻してしまう
-      navigate({ search: (prev) => ({ ...prev, ...next }), replace, resetScroll: false }),
-    [navigate],
+    (next: SearchPatch, { replace = false } = {}) => patchSearch(next, { replace }),
+    [patchSearch],
   );
   /**
    * 表示の切り替え。keepVisible には、切り替えた先でも見ていたい日を渡す（タップした日、

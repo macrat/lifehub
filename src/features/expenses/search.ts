@@ -3,9 +3,6 @@ import { expenseFilterSchema } from '../../../shared/validation/expenses.ts';
 import { type Filters, type FiltersPatch, keywordSearchSchema } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 
-/** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
-export const ALL = 'all';
-
 /**
  * 立替の検索パラメータ。キーワード（q）に加えて、金額・日付の範囲と To・From で絞り込む。
  * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻る。

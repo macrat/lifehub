@@ -1,6 +1,6 @@
-import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
+import { usePatchSearch } from '../../lib/search.ts';
 import type { AddKind } from './kinds.ts';
 
 /**
@@ -22,19 +22,13 @@ export function useAddShortcut<K extends AddKind>(
   kind: K | undefined,
   open: (kind: K) => void,
 ): void {
-  const navigate = useNavigate();
+  const patchSearch = usePatchSearch();
   const latest = useRef(open);
   latest.current = open;
 
   useEffect(() => {
     if (kind === undefined) return;
     latest.current(kind);
-    navigate({
-      to: '.',
-      search: (prev: Record<string, unknown>) => ({ ...prev, add: undefined }),
-      replace: true,
-      // 一覧のスクロール位置に触らない（開いた直後に先頭へ飛ばさない）
-      resetScroll: false,
-    });
-  }, [kind, navigate]);
+    patchSearch({ add: undefined }, { replace: true });
+  }, [kind, patchSearch]);
 }

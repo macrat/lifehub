@@ -36,10 +36,8 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useFilterSearch(
-    search,
-    countActiveFilters,
-  );
+  const { filters, listFilter, setKeyword, setFilters } = useFilterSearch(search);
+  const activeFilters = countActiveFilters(search);
   const balanceQuery = useBalance();
   const history = useExpenseHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);

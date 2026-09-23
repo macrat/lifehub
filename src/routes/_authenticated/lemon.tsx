@@ -43,10 +43,8 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useFilterSearch(
-    search,
-    countActiveFilters,
-  );
+  const { filters, listFilter, setKeyword, setFilters } = useFilterSearch(search);
+  const activeFilters = countActiveFilters(search);
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const history = useCareLogHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);
