@@ -47,7 +47,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
                                              ▼
 [Vercel Function: Hono]           routes.ts（Zod 検証 → Service を呼ぶ薄い層）
   MCP tools (mcp.ts) ────────────────────────┤
-  Cron / QStash コールバック (通知) ───────────┤
+  Cron（/api/cron/*）/ QStash（/api/qstash/*）─┤
                                              ▼
                                       Service 層 ──→ Repository 層 (Drizzle) ──→ Neon Postgres
                                              ▲
@@ -75,7 +75,7 @@ src/                          # クライアント（Vite + React）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
-  app.ts                      # ルート登録・ミドルウェア（認証、QStash 署名検証、Cron secret）
+  app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
@@ -88,8 +88,8 @@ server/                       # サーバー（Hono）
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
     middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts
-    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  validator.ts（入力検証の 400 応答）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts  cron.ts（Vercel Cron の入口）
+    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -104,7 +104,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
-- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/lib/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/calendar.md](features/calendar.md#祝日)）。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
 - import はすべて相対パスで `.ts` 拡張子付き（Node の型剥がし実行・Vite・Vercel のバンドラで同じ解決になる）。パスエイリアスは使わない。
@@ -118,7 +118,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・通知コールバック・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
@@ -154,7 +154,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
 - Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、シートは上端だけ角丸 16px、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
-- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。カレンダーの項目は参加者が 1 人ならそのユーザーの色、共有（参加者が 1 人でない）なら彩度 0 の無彩色（`src/features/calendar/queries.ts` の `colorUserOf`、`src/features/users/use-user-color.ts`）。ユーザーを表す表示はすべて同じ規則（`useUserColor` の `fill`／`text`）で塗る。まだ保存していない下書きの枠、参加者のチェックボックス、詳細シートの参加者チップも同じ色になる。
+- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。記録やユーザーを表す表示は、誰のものかをそのユーザーの色（`useUserColor` の `fill`／`text`）で示し、誰のものとも決まらない共有のものは彩度 0 の無彩色にする（`src/features/calendar/queries.ts` の `colorUserOf`、`src/features/users/use-user-color.ts`）。どの画面がどこに使うかは [users.md](features/users.md) が持つ。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。
 - **画面の表示領域は貴重な資産**として扱う。「ホーム」「カレンダー」のような情報を持たないページタイトルは出さない（現在地はナビが示す）。同じ情報を複数箇所に出さない。主役（カレンダーのグリッド、一覧、カード）が最も広い面積を占めるようにする。
@@ -162,7 +162,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - スマホでは main の余白を 0 にし、一覧やグリッドを画面端まで広げる（edge-to-edge）。PC のみ最小限の余白を置く。
 - カレンダーの月・週・日表示は画面の残り全部を占める（AppShell が下に確保する余白は負のマージンで打ち消す）。画面いっぱいの基準は `svh`（ブラウザの URL バーなどが最大に出ている状態の高さ）で、`dvh` は URL バーの出入りで値が変わり再読み込みの直後に画面より高くなってしまうため使わない。日をタップすると日表示へ、スマホでは左右のスワイプで前後へ、年月をタップすると選択ダイアログ。前後ボタンは置かない。
 - 月グリッドは Google カレンダー流: 複数日・終日の予定は週ごとに 1 本の連続したバー（レーン割り当て）、時刻付き予定は「● タイトル」（時刻は PC のみ）、タスクはチェック印付き。常にタイトルを優先し、収まらない分は「+n」でまとめる。週・日は Google カレンダーと同じタイムライン（時間軸に塗りブロック、終日欄、現在時刻の線）。
-- 一覧はカードを重ねずフラットな行（左に時刻列、右にタイトルと補足）で並べる。カレンダーのリスト表示は `DayList` / `ItemCard`、ホームの「今日」は同じ体裁のより簡素な行（印・時刻・タイトルだけ）。体裁は別でも、行の中のタスクのチェックと完了した行の見せ方（薄く・取り消し線）は `TaskCheckbox`（`src/features/events/components/`）に置いて共通にする。
+- 一覧はカードを重ねずフラットな行で並べる。日付ごとに見出し（`src/lib/ui/DateHeading.tsx`）を立て、行は左から印（色の点・タスクのチェック）、揃えたい値の列、本文（上にタイトル、下に補足）の 3 列（`src/lib/ui/MarkedRow.tsx`）。カレンダーのリスト表示も立替の履歴もホームの「今日」もこの骨組みを使うので、どの一覧でも同じ順に読める（列の幅と中身は画面ごとに決める）。行の中のタスクのチェックと完了した行の見せ方（薄く・取り消し線）は `TaskCheckbox`（`src/features/events/components/`）に置いて共通にする。
 - 一覧の行には削除などの操作ボタンを置かず、行をタップして開く詳細（`ItemDetailSheet` / `ExpenseDetailSheet` / `CareLogDetailSheet`）に操作を集める。行の主役は内容で、破壊的な操作を目立たせないため。行に残す操作はタスクの完了チェックだけ（1 タップで済ませたい主操作で、取り消しもできる）。
 - 記録 1 件を出す入れ物は `RecordSheet` 1 つに揃える（スマホでは下から出るシート = `BottomSheet`、PC では中央のダイアログ）。追加のフォームも、行をタップして開く詳細も、その詳細からの編集も同じ入れ物で、違うのは中身と三点リーダーに並ぶ操作だけ。予定・タスク・立替・レモンのどれも同じ手順で読み・直し・消せる。
 - 詳細は読むだけで開き、鉛筆を押す（スマホなら上へスワイプする）と同じ入れ物の中が入力欄に変わってその高さまで広がる（別のダイアログを重ねない）。操作は上端の帯に集める: 左に閉じる（バツ）、右に鉛筆（編集中・追加中は保存）と三点リーダー（削除、タスクの完了）。シートがどこまで下がっていても上端だけは見えているので、主な操作はそこに置く。帯（`SheetHeader`）は予定のクイック入力も使う。

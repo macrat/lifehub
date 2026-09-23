@@ -13,7 +13,7 @@ import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { notify } from './ui/notice.ts';
 
-const ONE_DAY = 1000 * 60 * 60 * 24;
+export const ONE_DAY = 1000 * 60 * 60 * 24;
 
 /**
  * オンライン判定の初期値を今の状態に合わせる。
