@@ -3,7 +3,6 @@ import {
   type MutateOptions,
   onlineManager,
   QueryClient,
-  type UseQueryOptions,
   useIsFetching,
   useMutation,
   useQueryClient,
@@ -217,17 +216,4 @@ export function useCreateMutation<TInput>(
   return {
     mutateAsync: (input: TInput): Promise<void> => create.mutateAsync({ ...input, id: newId() }),
   };
-}
-
-/**
- * ルートの beforeLoad 用。オフラインではネットワークを待たずにキャッシュだけを返す
- * （TanStack Query はオフライン中の取得を一時停止するため、ensureQueryData が完了しなくなる）。
- * キャッシュが無ければ undefined。
- */
-export async function ensureData<T, K extends readonly unknown[]>(
-  client: QueryClient,
-  options: UseQueryOptions<T, Error, T, K> & { queryKey: K },
-): Promise<T | undefined> {
-  if (!onlineManager.isOnline()) return client.getQueryData<T>(options.queryKey);
-  return client.ensureQueryData(options);
 }

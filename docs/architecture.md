@@ -72,7 +72,7 @@ src/                          # クライアント（Vite + React）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
     add/（右下の追加ボタン、種類ごとの追加フォーム、URL のしるし（`add`）。機能をまたぐのでどれにも属さない）
   lib/                        # 横断
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
@@ -133,9 +133,9 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
 - **オフラインでも書き込める**。送れない書き込みは端末（IndexedDB）に溜め、オンラインに戻ったときに溜めた順で送る（下記「オフラインの書き込み」）。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
-- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
+- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `resolveMe`（`src/lib/auth.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、待つと完了しない）。
 - ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に自分のクエリを読み、`QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（下記）。
-- ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。
+- ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。ログイン画面だけは、キャッシュにユーザーがいてもオンラインならサーバーに確かめてから「済んでいるので見せない」を決める（期限の切れたキャッシュでアプリへ送り返さないため）。ログイン状態に関わる判定と操作は `src/lib/auth.ts` に集め、画面（routes）はそれを呼ぶだけにする。
 - オンラインかどうかの判定は TanStack Query の `onlineManager` に一本化する（`useOnline`）。表示（`OfflineBanner`）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。`onlineManager` は「オンラインとみなす」から始まり online/offline イベントでしか変わらないので、起動時に `navigator.onLine` を 1 度だけ反映する（`src/lib/query-client.ts`）。オフラインのまま起動しても正しく判定できる。
 
 ## オフラインの書き込み
