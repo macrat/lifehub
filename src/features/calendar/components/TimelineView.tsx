@@ -6,9 +6,8 @@ import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
-import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
+import { type CalendarItem, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
@@ -66,7 +65,6 @@ export function TimelineView({
   draftSettled,
 }: Props) {
   const compact = useIsMobile();
-  const colorFor = useUserColor();
   const holidays = useHolidays();
   const weather = useWeather();
   // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
@@ -195,7 +193,6 @@ export function TimelineView({
             placed={{ ...p, col: p.col + 1 }}
             compact={compact}
             showTime={false}
-            colors={colorFor(colorUserOf(p.item.participantIds))}
             onClick={() => onSelectItem(p.item)}
             grab={dayDrag.grabItemProps(p.item)}
             hidden={sameOccurrence(barDraft?.item, p.item)}
@@ -205,7 +202,7 @@ export function TimelineView({
           <DraftBar
             columns={{ ...draftCols, col: draftCols.col + 1 }}
             lane={laneCount}
-            colors={colorFor(draftUserId)}
+            userId={draftUserId}
           />
         )}
       </Box>

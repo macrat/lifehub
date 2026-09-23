@@ -7,6 +7,7 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
@@ -64,7 +65,7 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
   });
 
   const isTask = item.kind === 'task';
-  const completed = item.completedAt !== null;
+  const completed = isCompletedTask(item);
   // この回だけ／これ以降は開いている回の値から、すべては繰り返し元の値から始める
   const values: ItemFormValues | null =
     editScope === 'all' && item.isRecurring ? (master.data ?? null) : item;

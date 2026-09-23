@@ -3,11 +3,8 @@ import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
-import {
-  COMPLETED_ROW_SX,
-  COMPLETED_TITLE_SX,
-  TaskCheckbox,
-} from '../../events/components/TaskCheckbox.tsx';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
+import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
 import { itemTransitionName } from './item-transition.ts';
@@ -39,7 +36,7 @@ export function ItemCard({ item, onSelect }: Props) {
     <MarkedRow
       onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        ...(completed && COMPLETED_ROW_SX),
+        ...(completed && COMPLETED_SX),
         // 表示を切り替えたとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}

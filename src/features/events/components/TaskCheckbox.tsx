@@ -1,4 +1,5 @@
 import Checkbox from '@mui/material/Checkbox';
+import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { ParticipantsCheckIcon } from '../../calendar/components/ParticipantsMark.tsx';
 import type { CalendarTaskItem } from '../../calendar/queries.ts';
 import { useToggleCompletion } from '../queries.ts';
@@ -10,7 +11,7 @@ import { useToggleCompletion } from '../queries.ts';
  */
 export function TaskCheckbox({ item }: { item: CalendarTaskItem }) {
   const toggle = useToggleCompletion();
-  const completed = item.completedAt !== null;
+  const completed = isCompletedTask(item);
   return (
     <Checkbox
       size="small"
@@ -27,7 +28,3 @@ export function TaskCheckbox({ item }: { item: CalendarTaskItem }) {
     />
   );
 }
-
-/** 完了したタスクの行は薄く、タイトルに取り消し線（リスト表示とホームで同じ見え方にする） */
-export const COMPLETED_ROW_SX = { opacity: 0.55 } as const;
-export const COMPLETED_TITLE_SX = { textDecoration: 'line-through' } as const;

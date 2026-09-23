@@ -2,8 +2,9 @@ import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
-import { COMPLETED_ROW_SX } from '../../events/components/TaskCheckbox.tsx';
-import type { ItemColors } from '../../users/use-user-color.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
+import { colorUserOf } from '../queries.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
 import type { Placed } from './lane-layout.ts';
@@ -12,7 +13,6 @@ import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx'
 type Props = {
   placed: Placed;
   compact: boolean;
-  colors: ItemColors;
   /** タップ・クリックしたとき（詳細を開く） */
   onClick: () => void;
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
@@ -35,19 +35,12 @@ type Props = {
  * 編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
  * つまんだ要素が消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
-export function GridChip({
-  placed,
-  compact,
-  colors,
-  onClick,
-  grab,
-  hidden,
-  showTime = !compact,
-}: Props) {
+export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !compact }: Props) {
   const { item, col, span, lane, roundStart, roundEnd } = placed;
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
+  const colors = useUserColor()(colorUserOf(item.participantIds));
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
@@ -96,7 +89,7 @@ export function GridChip({
             : completed
               ? 'text.disabled'
               : 'text.primary',
-        textDecoration: completed ? 'line-through' : 'none',
+        ...(completed && COMPLETED_TITLE_SX),
         '&:hover': {
           filter: isBar ? 'brightness(0.92)' : undefined,
           bgcolor: isBar ? colors.fill : 'action.hover',
@@ -113,8 +106,8 @@ export function GridChip({
         <ParticipantsCheckIcon
           participantIds={item.participantIds}
           checked={completed}
-          // 完了したタスクの印はリスト表示の行と同じだけ薄くする（文字は text.disabled で薄い）
-          sx={{ fontSize: markSize, flexShrink: 0, ...(completed && COMPLETED_ROW_SX) }}
+          // 文字は text.disabled で既に薄いので、薄くするのは印だけ
+          sx={{ fontSize: markSize, flexShrink: 0, ...(completed && COMPLETED_SX) }}
         />
       ) : (
         !isBar && <ParticipantsMark participantIds={item.participantIds} size={markSize} />

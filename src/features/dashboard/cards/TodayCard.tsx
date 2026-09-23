@@ -1,6 +1,6 @@
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import { isCompletedTask, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
@@ -12,12 +12,9 @@ import {
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/completed-style.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import {
-  COMPLETED_ROW_SX,
-  COMPLETED_TITLE_SX,
-  TaskCheckbox,
-} from '../../events/components/TaskCheckbox.tsx';
+import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
@@ -76,13 +73,13 @@ function TodayRow({
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (item: CalendarItem, editing: boolean) => void;
 }) {
-  const completed = item.kind === 'task' && item.completedAt !== null;
+  const completed = isCompletedTask(item);
   return (
     <MarkedRow
       dense
       onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        ...(completed && COMPLETED_ROW_SX),
+        ...(completed && COMPLETED_SX),
         // 予定画面へ移ったとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
