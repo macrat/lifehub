@@ -57,7 +57,7 @@ export function ParticipantsField(props: Props) {
       <FormLabel sx={{ fontSize: '0.75rem' }}>{label}</FormLabel>
       <FormGroup row>
         {users.map((user) => {
-          const { fill } = colorFor(user.id);
+          const { check } = colorFor(user.id);
           return (
             <FormControlLabel
               key={user.id}
@@ -66,7 +66,7 @@ export function ParticipantsField(props: Props) {
                   name={name}
                   value={user.id}
                   {...checkedProps(user.id)}
-                  sx={{ color: fill, '&.Mui-checked': { color: fill } }}
+                  sx={{ color: check, '&.Mui-checked': { color: check } }}
                 />
               }
               label={user.name}
