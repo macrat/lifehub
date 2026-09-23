@@ -51,7 +51,7 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
               mark={
                 <VennMark
                   colors={expenseMarkColors(expense, colorFor)}
-                  overlap={colorFor(null).fill}
+                  overlap={colorFor(null).mark}
                 />
               }
               leadWidth={AMOUNT_WIDTH}
@@ -81,7 +81,7 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
  * 2 つの円の重なりは共有の色になるので、補色どうしでも 2 色が直に接しない。
  */
 function expenseMarkColors(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string[] {
-  const from = colorFor(expense.fromUserId).fill;
+  const from = colorFor(expense.fromUserId).mark;
   if (expense.toUserId === null) return [from];
-  return [colorFor(expense.toUserId).fill, from];
+  return [colorFor(expense.toUserId).mark, from];
 }

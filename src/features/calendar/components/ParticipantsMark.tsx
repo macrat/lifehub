@@ -7,7 +7,7 @@ import { useUserColor } from '../../users/use-user-color.ts';
  */
 export function ParticipantsMark({ participantIds }: { participantIds: string[] }) {
   const colorFor = useUserColor();
-  const shared = colorFor(null).fill;
-  const colors = participantIds.map((id) => colorFor(id).fill);
+  const shared = colorFor(null).mark;
+  const colors = participantIds.map((id) => colorFor(id).mark);
   return <VennMark colors={colors.length > 0 ? colors : [shared]} overlap={shared} />;
 }
