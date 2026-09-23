@@ -120,11 +120,13 @@ test('記録の行は長押しすると編集で開く（立替・レモンと�
   await page.getByLabel('金額（円）').fill('1500');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page.getByText(`￥1,500 ${note}`)).toBeVisible();
+  // 行は金額・内容・名前を 1 つのボタンに収めるので、直した金額は行の読み上げ名に出る
+  const editedRow = page.getByRole('button', { name: new RegExp(`￥1,500.*${note}`) });
+  await expect(editedRow).toBeVisible();
 
   // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: new RegExp(note) }).click();
   await detailAction(page, '削除');
-  await expect(page.getByText(`￥1,500 ${note}`)).toHaveCount(0);
+  await expect(editedRow).toHaveCount(0);
 });

@@ -89,11 +89,5 @@ export function colorUserOf(participantIds: string[]): string | null {
 
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
 export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
-  const map = new Map<DateString, CalendarItem[]>();
-  for (const item of items) {
-    const list = map.get(item.placementDate) ?? [];
-    list.push(item);
-    map.set(item.placementDate, list);
-  }
-  return map;
+  return Map.groupBy(items, (item) => item.placementDate);
 }

@@ -206,7 +206,8 @@ export function weekdayColor(index: number): string {
   return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
 }
 
-export function isToday(date: DateString): boolean {
+/** 日付（YYYY-MM-DD）が今日か。立替の `spentOn` は印を持たない文字列なので、ここは string で受ける */
+export function isToday(date: string): boolean {
   return date === today();
 }
 
