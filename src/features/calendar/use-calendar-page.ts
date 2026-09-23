@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { addSearchSchema } from '../../lib/add-search.ts';
 import {
   addDays,
   addMonths,
@@ -15,7 +16,6 @@ import {
   weekDays,
 } from '../../lib/date.ts';
 import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
-import { addSearchSchema } from '../add/shortcut.ts';
 import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
@@ -54,7 +54,7 @@ export const calendarSearchSchema = z.object({
   view: viewSchema.default(storedView),
   date: dateStringSchema.optional(),
   /** 予定は今の表示に既定の時間帯の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
-  add: addSearchSchema('event', 'task'),
+  add: addSearchSchema('/calendar'),
   // 以下はリスト表示の絞り込み
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),

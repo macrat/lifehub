@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
@@ -20,6 +19,7 @@ import {
 } from '../../features/lemon/queries.ts';
 import { countActiveFilters, lemonSearchSchema } from '../../features/lemon/search.ts';
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
+import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';

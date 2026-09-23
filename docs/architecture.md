@@ -70,9 +70,9 @@ src/                          # クライアント（Vite + React）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
-    add/（右下の追加ボタン、種類ごとの追加フォーム、URL のしるし（`add`）。機能をまたぐのでどれにも属さない）
+    add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
@@ -196,7 +196,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## PWA
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
-- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/features/add/shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
+- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/lib/add-search.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしを受ける画面と開ける種類は `src/lib/add-pages.ts` の表 1 つで、画面の検索スキーマもショートカットの URL（`addUrl`）もそこから作るので、画面が受け取れない種類をショートカットに書くと型で止まる。しるしは予定・立替・レモンの各機能が読むので、どの機能にも属さない `src/lib` に置く（`features/add` は機能のフォームを読むので、機能から `features/add` を読むと輪になる）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
