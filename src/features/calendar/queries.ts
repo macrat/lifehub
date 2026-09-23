@@ -44,11 +44,12 @@ function calendarMonthQueryOptions(month: string) {
  * [from, to]（両端含む JST 暦日）の項目。範囲に掛かる月のキャッシュを繋いで返す。
  * 揃っていない月だけが後から埋まるので、既に持っている月は待たずに表示できる。
  * どの月もまだ手元に無いときだけ data が undefined になる（画面はそれを見て骨組みを出す）。
+ * complete は範囲のすべての月が揃っているか（揃ってから位置を決めたい画面が見る）。
  */
 export function useCalendarItems(range: {
   from: DateString;
   to: DateString;
-}): QueryState<CalendarItem[]> {
+}): QueryState<CalendarItem[]> & { complete: boolean } {
   return useQueries({
     queries: monthsInRange(range.from, range.to).map(calendarMonthQueryOptions),
     combine: (results) => ({
@@ -60,6 +61,7 @@ export function useCalendarItems(range: {
             .filter((item) => item.placementDate >= range.from && item.placementDate <= range.to)
         : undefined,
       error: results.find((result) => result.error)?.error ?? null,
+      complete: results.every((result) => result.data !== undefined),
     }),
   });
 }

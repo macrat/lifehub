@@ -2,9 +2,11 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
+import { SHARED } from '../../../../shared/validation/expenses.ts';
+import { ALL } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { ALL, type ExpenseFilters, type ExpenseFiltersPatch, SHARED } from '../search.ts';
+import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
 
 type Props = {
   open: boolean;

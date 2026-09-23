@@ -18,7 +18,7 @@ import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
-import { notify, useNotice } from './notice.ts';
+import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
@@ -168,9 +168,9 @@ function NoticeSnackbar() {
   const notice = useNotice();
   return (
     <Snackbar
-      open={notice !== null}
+      open={notice.open}
       autoHideDuration={8000}
-      onClose={() => notify(null)}
+      onClose={closeNotice}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       // スマホでは下部ナビの上に出す
       sx={{
@@ -180,8 +180,8 @@ function NoticeSnackbar() {
         },
       }}
     >
-      <Alert severity="error" variant="filled" onClose={() => notify(null)}>
-        {notice}
+      <Alert severity={notice.severity} variant="filled" onClose={closeNotice}>
+        {notice.message}
       </Alert>
     </Snackbar>
   );

@@ -44,17 +44,25 @@ export function careStatusesOf(lastDoneAt: Partial<Record<CareType, string>>, no
   });
 }
 
-/** 記録（新しい順）から項目ごとの状態を導く。これからの予定（未来の記録）はまだ実施していないものとして扱う */
+/**
+ * 記録（並びは問わない）から項目ごとの状態を導く。これからの予定（未来の記録）はまだ実施していないものとして扱う。
+ * 項目ごとの最新は、記録の日時を比べて選ぶ（ISO 8601 の UTC なので文字列のまま比べられる）
+ */
 export function careStatuses(logs: CareLog[], now: Date): CareStatus[] {
   const lastDoneAt: Partial<Record<CareType, string>> = {};
   for (const log of logs) {
     if (new Date(log.doneAt).getTime() > now.getTime()) continue;
-    for (const careType of log.careTypes) lastDoneAt[careType] ??= log.doneAt;
+    for (const careType of log.careTypes) {
+      if ((lastDoneAt[careType] ?? '') < log.doneAt) lastDoneAt[careType] = log.doneAt;
+    }
   }
   return careStatusesOf(lastDoneAt, now);
 }
 
-/** 一覧の並び: 実施日時の新しい順。同じ日時は元の並び（登録の新しい順）のままにする */
+/**
+ * 一覧の並び: 実施日時の古い順（アプリの一覧はどれも上が古く下が新しい）。同じ日時は元の並びのまま。
+ * サーバーのページ（`findPage`）も同じ並びで返す
+ */
 export function sortCareLogs(logs: CareLog[]): CareLog[] {
-  return [...logs].sort((a, b) => b.doneAt.localeCompare(a.doneAt));
+  return [...logs].sort((a, b) => a.doneAt.localeCompare(b.doneAt));
 }

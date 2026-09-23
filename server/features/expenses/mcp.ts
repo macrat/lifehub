@@ -1,4 +1,4 @@
-import { expenseSchema } from '../../../shared/validation/expenses.ts';
+import { expenseListQuerySchema, expenseSchema } from '../../../shared/validation/expenses.ts';
 import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -19,10 +19,10 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
     {
       title: '立替の履歴',
       description:
-        '立替の履歴を新しい順に返す。fromUserId が払った人、toUserId が誰のために払ったか（null は共有 = 折半）。精算（誰かが誰かに払った額）も同じ形で含まれる。',
-      inputSchema: {},
+        '立替の履歴を新しいほうから 1 ページ分、古い順（items）で返す。nextCursor が null でなければ、それを before に渡すとさらに前のページを返す。fromUserId が払った人、toUserId が誰のために払ったか（null は共有 = 折半）。精算（誰かが誰かに払った額）も同じ形で含まれる。q（内容のキーワード）、min / max（金額）、since / until（使った日、YYYY-MM-DD）、to（"shared" かユーザー ID）、from（ユーザー ID）で絞り込める。',
+      inputSchema: expenseListQuerySchema,
     },
-    async () => jsonResult(await service.listExpenses()),
+    async (input) => jsonResult(await service.listExpenses(input)),
   );
 
   server.registerTool(
