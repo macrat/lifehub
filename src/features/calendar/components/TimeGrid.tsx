@@ -11,6 +11,7 @@ import { useNow } from '../../../lib/use-now.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf } from '../queries.ts';
+import type { GridDraft } from '../use-event-composer.ts';
 import { atMinute, HOUR_HEIGHT_VAR, pxAtMinute } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -36,16 +37,15 @@ type Props = {
   onZoom: (ratio: number) => void;
   gutterWidth: number;
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加・編集しようとしている予定の枠（時間指定のものだけここに出す） */
-  draft: Draft | null;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  draftUserId: string | null;
+  /**
+   * 追加・編集しようとしている予定の枠（時間指定のものだけここに出す）。
+   * なぞり終えるまで（`settled`）は枠を追いかけてスクロールしない
+   */
+  draft: GridDraft | null;
   /** なぞって時間帯を決めたとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
-  /** 枠を置き終えた（指を離した）か */
-  draftSettled: boolean;
 };
 
 /**
@@ -72,10 +72,8 @@ export function TimeGrid({
   gutterWidth,
   onSelectItem,
   draft,
-  draftUserId,
   onChangeDraft,
   bottomInset,
-  draftSettled,
 }: Props) {
   const colorFor = useUserColor();
   // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
@@ -119,9 +117,10 @@ export function TimeGrid({
 
   // 見えない所に枠が置かれたら（追加ボタンから来たとき、シートが開いてその時間帯を覆ったとき）
   // 見える所まで送る。見えている下端はシートに覆われた分だけ上がる。
-  // 始まりが見えているなら動かさない。なぞっている最中（`draftSettled` が false）も動かさない:
+  // 始まりが見えているなら動かさない。なぞっている最中（`settled` が false）も動かさない:
   // どちらも、指の下でグリッドが動くと狙いがずれるため
   const draftStart = timedDraft?.startMin ?? null;
+  const draftSettled = draft?.settled ?? false;
   // biome-ignore lint/correctness/useExhaustiveDependencies: 送るのは枠かシートが動いたときだけ（伸び縮みは真ん中を保つ上の合わせ方に任せる）
   useEffect(() => {
     const el = scrollRef.current;
@@ -213,7 +212,7 @@ export function TimeGrid({
           <DraftBlock
             draft={timedDraft}
             column={draftCol + 1}
-            colors={colorFor(draftUserId)}
+            colors={colorFor(colorUserOf(draft?.participantIds ?? []))}
             grab={compact ? drag.frameProps(timedDraft) : null}
           />
         )}

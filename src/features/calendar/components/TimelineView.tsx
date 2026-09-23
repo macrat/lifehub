@@ -10,6 +10,7 @@ import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
 import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
+import type { GridDraft } from '../use-event-composer.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
@@ -25,9 +26,7 @@ type Props = {
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
   onSelectDate?: (date: DateString) => void;
   /** 追加・編集しようとしている予定の枠（終日欄と時間軸に出す） */
-  draft: Draft | null;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  draftUserId: string | null;
+  draft: GridDraft | null;
   /** なぞって範囲を決めたとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** 全体の高さ（画面の残り全部）。時間軸はこの中でスクロールする */
@@ -36,7 +35,6 @@ type Props = {
   hourHeight: number;
   onZoom: (ratio: number) => void;
   bottomInset: number;
-  draftSettled: boolean;
 };
 
 const GUTTER_WIDTH = 44;
@@ -56,13 +54,11 @@ export function TimelineView({
   onSelectItem,
   onSelectDate,
   draft,
-  draftUserId,
   onChangeDraft,
   height,
   hourHeight,
   onZoom,
   bottomInset,
-  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
@@ -192,7 +188,7 @@ export function TimelineView({
           <DraftBar
             columns={{ ...draftCols, col: draftCols.col + 1 }}
             lane={laneCount}
-            colors={colorFor(draftUserId)}
+            colors={colorFor(colorUserOf(barDraft.participantIds))}
           />
         )}
       </Box>
@@ -205,10 +201,8 @@ export function TimelineView({
         gutterWidth={GUTTER_WIDTH}
         onSelectItem={onSelectItem}
         draft={draft}
-        draftUserId={draftUserId}
         onChangeDraft={onChangeDraft}
         bottomInset={bottomInset}
-        draftSettled={draftSettled}
       />
     </Box>
   );

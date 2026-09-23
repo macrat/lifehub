@@ -9,6 +9,7 @@ import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
+import type { GridDraft } from '../use-event-composer.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
@@ -25,18 +26,14 @@ type Props = {
   onSelectDate: (date: DateString) => void;
   /** 項目をタップ・クリックしたとき（詳細を開く） */
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加しようとしている予定の枠 */
-  draft: Draft | null;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  draftUserId: string | null;
+  /** 追加・編集しようとしている予定の枠。なぞり終えるまで（`settled`）は枠を追いかけてスクロールしない */
+  draft: GridDraft | null;
   /** 日のセルをなぞって期間を選んだとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** グリッド全体の高さ（画面の残り全部） */
   height: string;
   /** クイック入力のシートが下から覆っている高さ（px）。下に同じだけ余白を足す */
   bottomInset: number;
-  /** 枠を置き終えた（指を離した）か */
-  draftSettled: boolean;
 };
 
 const DAY_NUMBER_HEIGHT = 22;
@@ -64,11 +61,9 @@ export function MonthGrid({
   onSelectDate,
   onSelectItem,
   draft,
-  draftUserId,
   onChangeDraft,
   height,
   bottomInset,
-  draftSettled,
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
@@ -103,7 +98,7 @@ export function MonthGrid({
   // （既に見えているなら `nearest` は動かさない）。
   // なぞっている最中は送らない（合図が null）: 指の下でグリッドが動くと、掴んでいる日がずれる
   const scrollRef = useRef<HTMLDivElement>(null);
-  const span = draftSettled && draft ? draftDays(draft.range) : null;
+  const span = draft?.settled ? draftDays(draft.range) : null;
   const reveal = span && `${span.from}/${span.to}/${bottomInset}`;
   useEffect(() => {
     if (!reveal) return;
@@ -156,7 +151,6 @@ export function MonthGrid({
             onSelectDate={onSelectDate}
             onSelectItem={onSelectItem}
             draft={draft}
-            draftUserId={draftUserId}
             drag={drag}
             colorFor={colorFor}
             holidays={holidays}
@@ -179,8 +173,7 @@ type WeekRowProps = {
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  draft: Draft | null;
-  draftUserId: string | null;
+  draft: GridDraft | null;
   drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
   holidays: ReadonlySet<DateString>;
@@ -197,7 +190,6 @@ function WeekRow({
   onSelectDate,
   onSelectItem,
   draft,
-  draftUserId,
   drag,
   colorFor,
   holidays,
@@ -276,7 +268,7 @@ function WeekRow({
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          colors={colorFor(draftUserId)}
+          colors={colorFor(colorUserOf(draft?.participantIds ?? []))}
         />
       )}
       {hiddenPerCol.map((n, col) =>
