@@ -26,6 +26,18 @@
     {
       "path": "/api/cron/holidays",
       "schedule": "0 15 1 * *"
+    },
+    {
+      "path": "/api/cron/weather",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/weather",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/weather",
+      "schedule": "0 9 * * *"
     }
   ],
   "headers": [

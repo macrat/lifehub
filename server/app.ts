@@ -10,6 +10,7 @@ import { lemonRoutes } from './features/lemon/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toMe } from './features/users/service.ts';
+import { weatherRoutes } from './features/weather/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { cronRoutes } from './lib/cron.ts';
@@ -67,6 +68,7 @@ const routes = api
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
   .route('/holidays', holidaysRoutes)
+  .route('/weather', weatherRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

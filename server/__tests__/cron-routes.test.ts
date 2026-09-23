@@ -3,7 +3,12 @@ import { app } from '../app.ts';
 
 describe('Vercel Cron の入口', () => {
   it('Cron secret が無ければどれも 401', async () => {
-    for (const path of ['/api/cron/notifications', '/api/cron/holidays', '/api/cron/unknown']) {
+    for (const path of [
+      '/api/cron/notifications',
+      '/api/cron/holidays',
+      '/api/cron/weather',
+      '/api/cron/unknown',
+    ]) {
       expect((await app.request(path)).status).toBe(401);
     }
   });

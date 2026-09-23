@@ -16,7 +16,8 @@ import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { meQueryOptions } from './auth.ts';
 import { notify } from './ui/notice.ts';
 
-export const ONE_DAY = 1000 * 60 * 60 * 24;
+export const ONE_HOUR = 1000 * 60 * 60;
+export const ONE_DAY = ONE_HOUR * 24;
 
 /**
  * オンライン判定の初期値を今の状態に合わせる。

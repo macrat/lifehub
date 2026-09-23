@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from '../features/holidays/service.ts';
+import { refreshWeather } from '../features/weather/service.ts';
 import type { AppEnv } from './app-env.ts';
 import { env } from './env.ts';
 import { enqueueTomorrow } from './notifications/service.ts';
@@ -21,4 +22,6 @@ export const cronRoutes = new Hono<AppEnv>()
   // 日次: 翌日分の通知を予約する（docs/features/notifications.md）
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))
   // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
-  .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }));
+  .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
+  // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
+  .get('/weather', async (c) => c.json({ count: (await refreshWeather()).length }));

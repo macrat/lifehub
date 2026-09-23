@@ -4,7 +4,7 @@ import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { ONE_HOUR, useOptimisticMutation } from '../../lib/query-client.ts';
 
 export type User = InferResponseType<typeof api.users.$get>[number];
 
@@ -23,7 +23,7 @@ export const usersQueryOptions = queryOptions({
    * WHY NOT 無期限: 相手が自分の色や名前を変えたら、こちらにもいつかは映ってほしい。
    * 自分で変えたときは書き込みが invalidate するので、この時間を待たずに入れ替わる。
    */
-  staleTime: 1000 * 60 * 60,
+  staleTime: ONE_HOUR,
 });
 
 /**
