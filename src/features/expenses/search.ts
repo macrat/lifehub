@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { z } from 'zod';
-import { type ExpenseFilter, expenseFilterSchema } from '../../../shared/validation/expenses.ts';
+import { expenseFilterSchema } from '../../../shared/validation/expenses.ts';
 import { keywordSearchSchema, useKeywordSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 
@@ -56,13 +56,4 @@ export function countActiveFilters(search: ExpenseSearch): number {
     search.to !== undefined,
     search.from !== undefined,
   ].filter(Boolean).length;
-}
-
-/**
- * サーバーに渡す絞り込み（取得のキーにもなる）。入力を開くしるし（add）は絞り込みではないので除き、
- * 空のキーワードは「絞り込まない」と同じキーにする
- */
-export function toListFilter({ add: _add, q, ...filter }: ExpenseFilters): ExpenseFilter {
-  const keyword = q.trim();
-  return keyword ? { ...filter, q: keyword } : filter;
 }

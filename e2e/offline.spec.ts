@@ -46,8 +46,7 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   const listed = await page.waitForResponse(
     (res) => res.url().endsWith('/api/lemon/logs') && res.request().method() === 'GET' && res.ok(),
   );
-  expect(((await listed.json()) as { note: string | null }[]).map((log) => log.note)).toContain(
-    'オフラインで記録した',
-  );
+  const { items } = (await listed.json()) as { items: { note: string | null }[] };
+  expect(items.map((log) => log.note)).toContain('オフラインで記録した');
   await expect(page.getByText('オフラインです', { exact: false })).toBeHidden();
 });

@@ -35,3 +35,16 @@ export function matchesKeyword(keyword: string, ...texts: (string | null | undef
   const q = keyword.trim().toLowerCase();
   return q === '' || texts.some((text) => text?.toLowerCase().includes(q));
 }
+
+/**
+ * 画面の絞り込みから、サーバーに渡す絞り込み（取得のキーにもなる）を作る。入力を開くしるし（add）は
+ * 絞り込みではないので除き、空のキーワードは「絞り込まない」と同じキーにする
+ */
+export function toListFilter<T extends { q: string; add?: unknown }>({
+  add: _add,
+  q,
+  ...filter
+}: T): Omit<T, 'add' | 'q'> & { q?: string } {
+  const keyword = q.trim();
+  return keyword ? { ...filter, q: keyword } : filter;
+}

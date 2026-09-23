@@ -1,11 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
-import { z } from 'zod';
-import { toDateString } from '../../../shared/date.ts';
-import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { CARE_TYPES } from '../../../shared/validation/lemon.ts';
-import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
+import type { z } from 'zod';
+import { careLogFilterSchema } from '../../../shared/validation/lemon.ts';
+import { keywordSearchSchema, useKeywordSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
-import type { CareLog } from './queries.ts';
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
 export const ALL = 'all';
@@ -13,16 +10,12 @@ export const ALL = 'all';
 /**
  * レモンの検索パラメータ。キーワード（q）に加えて、項目と実施日の範囲で絞り込む。
  * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻る。
- * 範囲は両端を含み、省略した端は制限しない（開始日だけ・終了日だけでも絞り込める）。
+ * 絞り込みの規則は API と同じもの（`careLogFilterSchema`）で、そのままサーバーに渡して絞り込ませる。
  */
 export const lemonSearchSchema = keywordSearchSchema.extend({
   /** 記録の入力を開いて始めるしるし（`src/features/add/shortcut.ts`）。絞り込みではない */
   add: addSearchSchema('lemon'),
-  /** 世話の項目（葉水・水やり・施肥・開花・落果・収穫）。その項目を含む記録だけが残る */
-  kind: z.enum(CARE_TYPES).optional(),
-  /** 実施日（JST の暦日）の最初・最後 */
-  since: dateStringSchema.optional(),
-  until: dateStringSchema.optional(),
+  ...careLogFilterSchema.omit({ q: true }).shape,
 });
 export type LemonSearch = z.infer<typeof lemonSearchSchema>;
 
@@ -61,18 +54,4 @@ export function countActiveFilters(search: LemonSearch): number {
     search.kind !== undefined,
     search.since !== undefined || search.until !== undefined,
   ].filter(Boolean).length;
-}
-
-/**
- * 絞り込みに合う記録か。範囲は両端を含む。
- * 記録が持つのは瞬間（doneAt）なので、JST の暦日にしてから日付の範囲と比べる。
- */
-export function matchesCareLog(log: CareLog, f: LemonFilters): boolean {
-  if (f.kind !== undefined && !log.careTypes.includes(f.kind)) return false;
-  if (f.since !== undefined || f.until !== undefined) {
-    const doneOn = toDateString(new Date(log.doneAt));
-    if (f.since !== undefined && doneOn < f.since) return false;
-    if (f.until !== undefined && doneOn > f.until) return false;
-  }
-  return matchesKeyword(f.q, log.note);
 }

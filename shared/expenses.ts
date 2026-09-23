@@ -1,3 +1,5 @@
+import type { HistoryPage } from './types.ts';
+
 /**
  * 立替の行と、そこから導かれる残高。
  * サーバーの一覧・残高と、クライアントの楽観的更新が同じ式を使うため、共通に置く。
@@ -14,14 +16,8 @@ export type Expense = {
   createdAt: string;
 };
 
-/**
- * 履歴の 1 ページ（古い順）。ページは日の途中では切らない（同じ日の立替は必ず同じページに入る）。
- * nextCursor はこのページより前の立替があるときに、次に読むページの `before`（このページの最も古い日）。
- */
-export type ExpensePage = {
-  items: Expense[];
-  nextCursor: string | null;
-};
+/** 履歴の 1 ページ（shared/types.ts の `HistoryPage`） */
+export type ExpensePage = HistoryPage<Expense>;
 
 /** 「誰が誰のために払ったか」ごとの合計。toUserId が null なら共有（折半） */
 export type ExpenseTotal = {

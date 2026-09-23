@@ -12,11 +12,8 @@ import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDe
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
-import {
-  expenseSearchSchema,
-  toListFilter,
-  useExpenseSearch,
-} from '../../features/expenses/search.ts';
+import { expenseSearchSchema, useExpenseSearch } from '../../features/expenses/search.ts';
+import { toListFilter } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';

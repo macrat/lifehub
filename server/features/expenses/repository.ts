@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, gte, ilike, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
+import { containsKeyword } from '../../lib/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -16,9 +17,7 @@ type ExpenseValues = {
 /**
  * before より前（省けば全体）の、新しいほうから limit 件ほどの立替（古い順）。
  * 最も古い日の途中では切らず、その日の立替はすべて入れる（件数は limit より多くなりうる）。
- * WHY 日で切る: 次の境目を日付 1 つ（before）で言えるので、登録日時の精度（DB はマイクロ秒、
- * JSON はミリ秒）に左右されず、境目の行が消されても続きを読める。
- * WHY NOT 行の ID を境目にする: 境目の行が消されると、その位置を引けなくなる。
+ * 日で切る理由は `HistoryPage`（shared/types.ts）。
  * olderThan は、このページより前にまだ立替があるときの次の境目（このページの最も古い日）。
  */
 export async function findPage(
@@ -58,9 +57,8 @@ export async function findPage(
 
 /** 絞り込みの条件。範囲は両端を含む。キーワードは内容の部分一致（大文字小文字を区別しない） */
 function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
-  const q = f.q?.trim();
   return [
-    q ? ilike(expenses.description, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined,
+    containsKeyword(expenses.description, f.q),
     f.min !== undefined ? gte(expenses.amount, f.min) : undefined,
     f.max !== undefined ? lte(expenses.amount, f.max) : undefined,
     f.since !== undefined ? gte(expenses.spentOn, f.since) : undefined,

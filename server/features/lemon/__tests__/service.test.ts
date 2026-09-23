@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { addDays } from '../../../../shared/date.ts';
 import { newId } from '../../../../shared/id.ts';
-import { careLogSchema } from '../../../../shared/validation/lemon.ts';
+import { dateStringSchema } from '../../../../shared/validation/common.ts';
+import { type CareLogListQuery, careLogSchema } from '../../../../shared/validation/lemon.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
 import { getStatus, listLogs, logCare, updateLog } from '../service.ts';
@@ -41,7 +43,7 @@ describe('lemon service', () => {
     await logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: '新芽' }, userId);
     const status = await getStatus(jst('2026-09-14T00:10:00'));
     expect(status.every((s) => s.lastDoneAt === null)).toBe(true);
-    expect(await listLogs()).toMatchObject([{ careTypes: [], note: '新芽' }]);
+    expect((await listLogs({})).items).toMatchObject([{ careTypes: [], note: '新芽' }]);
   });
 
   it('項目の並びは入力の順ではなく CARE_TYPES の順に揃う（重複も落ちる）', async () => {
@@ -69,8 +71,8 @@ describe('lemon service', () => {
     await logCare(input, userId, id);
     await logCare(input, userId, id);
 
-    expect(await listLogs()).toHaveLength(1);
-    expect((await listLogs())[0]).toMatchObject({ id, careTypes: ['water'] });
+    expect((await listLogs({})).items).toHaveLength(1);
+    expect((await listLogs({})).items[0]).toMatchObject({ id, careTypes: ['water'] });
   });
 
   it('記録を編集すると全項目が置き換わり、状態にも反映される', async () => {
@@ -92,7 +94,7 @@ describe('lemon service', () => {
       // 記録した人は編集しても変わらない
       createdBy: userId,
     });
-    expect(await listLogs()).toEqual([updated]);
+    expect((await listLogs({})).items).toEqual([updated]);
 
     // 直した項目の方にだけ日付が付く（元の項目は未実施に戻る）
     const status = await getStatus(jst('2026-09-14T00:10:00'));
@@ -105,6 +107,48 @@ describe('lemon service', () => {
       careType: 'fertilize',
       lastDoneAt: jst('2026-09-12T08:00:00').toISOString(),
       daysSince: 2,
+    });
+  });
+
+  describe('記録のページ', () => {
+    const on = dateStringSchema.parse;
+    const log = (doneAt: string, values: Partial<Parameters<typeof logCare>[0]> = {}) =>
+      logCare({ careTypes: ['water'], doneAt: jst(doneAt), note: null, ...values }, userId);
+
+    it('新しいほうから 1 ページを古い順で返し、JST の日の途中では切らない', async () => {
+      // JST の 1/1〜2/18 に 1 日 1 件（49 件）。1/2 には 0:30 と 23:30 にもう 2 件（UTC では前日と当日）
+      for (let d = 0; d < 49; d++) {
+        const day = addDays(on('2026-01-01'), d);
+        await log(`${day}T12:00:00`);
+      }
+      await log('2026-01-02T00:30:00');
+      await log('2026-01-02T23:30:00');
+
+      // 新しいほうから 50 件目は 1/2 の記録。1/2 の 3 件はすべてこのページに入る
+      const first = await listLogs({});
+      expect(first.items).toHaveLength(50);
+      expect(first.items[0]?.doneAt).toBe(jst('2026-01-02T00:30:00').toISOString());
+      expect(first.items.map((l) => l.doneAt)).toEqual(first.items.map((l) => l.doneAt).sort());
+      expect(first.nextCursor).toBe('2026-01-02');
+
+      const second = await listLogs({ before: on('2026-01-02') });
+      expect(second.items.map((l) => l.doneAt)).toEqual([jst('2026-01-01T12:00:00').toISOString()]);
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('項目・実施日の範囲（JST の暦日、両端を含む）・メモで絞り込む', async () => {
+      await log('2026-09-01T00:30:00', { careTypes: ['mist', 'water'] });
+      await log('2026-09-02T23:30:00', { careTypes: ['fertilize'], note: '液肥を 100% 薄めず' });
+      await log('2026-09-03T00:00:00', { careTypes: [], note: '新芽' });
+      const notes = async (query: CareLogListQuery) =>
+        (await listLogs(query)).items.map((l) => l.doneAt);
+      expect(await notes({ kind: 'mist' })).toEqual([jst('2026-09-01T00:30:00').toISOString()]);
+      expect(await notes({ kind: 'water' })).toHaveLength(1);
+      expect(await notes({ since: on('2026-09-02'), until: on('2026-09-02') })).toEqual([
+        jst('2026-09-02T23:30:00').toISOString(),
+      ]);
+      expect(await notes({ q: '100%' })).toHaveLength(1);
+      expect(await notes({ q: '新芽' })).toEqual([jst('2026-09-03T00:00:00').toISOString()]);
     });
   });
 });

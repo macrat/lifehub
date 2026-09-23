@@ -1,13 +1,23 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
+import { toDateString } from '../../../shared/date.ts';
 import {
   type CareLog,
   type CareStatus,
   careStatuses,
   sortCareLogs,
 } from '../../../shared/lemon.ts';
+import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
+import {
+  applyToHistories,
+  findInHistories,
+  type HistoryPages,
+  historyQueryOptions,
+  isFiltered,
+  useHistory,
+} from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
@@ -16,6 +26,7 @@ export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
 export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 
 const LEMON_QUERY_KEY = ['lemon'] as const;
+const LOGS_QUERY_KEY = [...LEMON_QUERY_KEY, 'logs'] as const;
 
 export const lemonStatusQueryOptions = queryOptions({
   queryKey: [...LEMON_QUERY_KEY, 'status'],
@@ -23,10 +34,28 @@ export const lemonStatusQueryOptions = queryOptions({
     (await ensureOk(await api.lemon.status.$get())).json(),
 });
 
-export const lemonLogsQueryOptions = queryOptions({
-  queryKey: [...LEMON_QUERY_KEY, 'logs'],
-  queryFn: async (): Promise<CareLog[]> => (await ensureOk(await api.lemon.logs.$get())).json(),
-});
+/**
+ * 記録（絞り込みごと。`src/lib/history.ts`）。絞り込みはサーバーが掛ける
+ * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
+ */
+function careLogsQueryOptions(filter: CareLogFilter) {
+  return historyQueryOptions({
+    queryKey: [...LOGS_QUERY_KEY, filter],
+    filtered: isFiltered(filter),
+    queryFn: async ({ pageParam }) =>
+      (
+        await ensureOk(await api.lemon.logs.$get({ query: { ...filter, before: pageParam } }))
+      ).json(),
+  });
+}
+
+/** 絞り込みの無い記録。追加・編集はこれにだけ先回りして書き込み、タイルもこれから導き直す */
+const UNFILTERED = careLogsQueryOptions({}).queryKey;
+
+/** レモン画面の記録（`useHistory`） */
+export function useCareLogHistory(filter: CareLogFilter) {
+  return useHistory(careLogsQueryOptions(filter));
+}
 
 export function useLogCare() {
   return useCreateMutation<CareLogBody>({
@@ -44,10 +73,7 @@ export function useLogCare() {
         note: input.note ?? null,
         createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? '',
       };
-      client.setQueryData(
-        lemonLogsQueryOptions.queryKey,
-        (logs) => logs && sortCareLogs([log, ...logs]),
-      );
+      applyToLogs(client, input.id, log);
       client.setQueryData(
         lemonStatusQueryOptions.queryKey,
         (statuses) => statuses && advanceStatus(statuses, log),
@@ -65,16 +91,9 @@ export function useUpdateCareLog() {
     }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, { id, ...input }) => {
-      client.setQueryData(
-        lemonLogsQueryOptions.queryKey,
-        (logs) =>
-          logs &&
-          sortCareLogs(
-            logs.map((log) =>
-              log.id === id ? { ...log, ...input, note: input.note ?? null } : log,
-            ),
-          ),
-      );
+      const prev = findInHistories<CareLog>(client, LOGS_QUERY_KEY, id);
+      if (!prev) return;
+      applyToLogs(client, id, { ...prev, ...input, note: input.note ?? null });
       // 日時も項目も変えられるので、タイルを 1 つずつ進めるのではなく記録から導き直す
       recomputeStatus(client);
     },
@@ -89,9 +108,7 @@ export function useDeleteCareLog() {
     }),
     keys: [LEMON_QUERY_KEY],
     apply: (client, id) => {
-      client.setQueryData(lemonLogsQueryOptions.queryKey, (logs) =>
-        logs?.filter((log) => log.id !== id),
-      );
+      applyToLogs(client, id, null);
       recomputeStatus(client);
     },
   });
@@ -110,8 +127,34 @@ function advanceStatus(statuses: CareStatus[], log: CareLog): CareStatus[] {
   });
 }
 
-/** 記録の一覧が取得済みなら、そこから状態を導き直す（無ければ再取得に任せる） */
+/** 記録 1 件の変化を読んだ記録に先回りして書き込む（`applyToHistories`。追加・編集は next、削除は null） */
+function applyToLogs(client: QueryClient, id: string, next: CareLog | null): void {
+  applyToHistories(
+    client,
+    { queryKey: LOGS_QUERY_KEY, unfilteredKey: UNFILTERED },
+    id,
+    next && { item: next, day: toDateString(new Date(next.doneAt)), sort: sortCareLogs },
+  );
+}
+
+/**
+ * 絞り込みの無い記録を読んでいれば、そこからタイルを導き直す（無ければ再取得に任せる）。
+ * 読んだページは新しいほうから途切れずに続くので、そこに記録がある項目の最新は本当の最新になる。
+ * そこに記録が無い項目は、もっと古い（まだ読んでいない）記録が最新かもしれないので、
+ * 全部読み終えているとき（未実施と分かる）を除いて今の表示のまま再取得を待つ。
+ */
 function recomputeStatus(client: QueryClient): void {
-  const logs = client.getQueryData(lemonLogsQueryOptions.queryKey);
-  if (logs) client.setQueryData(lemonStatusQueryOptions.queryKey, careStatuses(logs, new Date()));
+  const data = client.getQueryData<HistoryPages<CareLog>>(UNFILTERED);
+  if (!data) return;
+  const computed = careStatuses(
+    data.pages.flatMap((page) => page.items),
+    new Date(),
+  );
+  const complete = data.pages.at(-1)?.nextCursor === null;
+  client.setQueryData(lemonStatusQueryOptions.queryKey, (statuses) =>
+    statuses?.map((status) => {
+      const next = computed.find((s) => s.careType === status.careType);
+      return next && (next.lastDoneAt !== null || complete) ? next : status;
+    }),
+  );
 }

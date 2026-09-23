@@ -2,8 +2,8 @@ import { devices, expect, type Page, test } from '@playwright/test';
 import { login } from './login.ts';
 
 /**
- * 予定のリストと立替の履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
- * 最初に出す位置（予定は基準の日が一番上、立替は最新が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
+ * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
+ * 最初に出す位置（予定は基準の日が一番上、立替・レモンは最新が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -101,5 +101,40 @@ test('立替の履歴は最新を一番下に出し、残高は上に貼り付�
     expect(balanceBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
   } finally {
     for (const id of ids) await page.request.delete(`/api/expenses/${id}`);
+  }
+});
+
+test('レモンの記録は最新を一番下に出し、状況のタイルは上に貼り付いたまま', async ({ page }) => {
+  const stamp = Date.now();
+  const oldest = `E2E 最古 ${stamp}`;
+  const newest = `E2E 最新 ${stamp}`;
+  const ids: string[] = [];
+  try {
+    // 未来の記録はタイルを動かさないので、他のテストに響かない。1 ページ（50 件）より多くする
+    for (let i = 0; i < 60; i++) {
+      const res = await page.request.post('/api/lemon/logs', {
+        data: {
+          careTypes: ['water'],
+          doneAt: new Date(Date.UTC(2099, 0, 1 + i, 3)).toISOString(),
+          note: i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`,
+        },
+      });
+      expect(res.ok()).toBe(true);
+      ids.push((await res.json()).id);
+    }
+
+    await page.goto('/lemon');
+    const tile = page.getByText('水やり', { exact: true }).first();
+    await expect(page.getByText(newest)).toBeInViewport();
+    await expect(tile).toBeInViewport();
+    await expect(page.getByText(oldest)).toHaveCount(0);
+
+    await expect(async () => {
+      await page.mouse.wheel(0, -3000);
+      await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
+    }).toPass();
+    await expect(tile).toBeInViewport();
+  } finally {
+    for (const id of ids) await page.request.delete(`/api/lemon/logs/${id}`);
   }
 });

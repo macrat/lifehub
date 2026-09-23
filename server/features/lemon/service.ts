@@ -1,14 +1,24 @@
 import { newId } from '../../../shared/id.ts';
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
-import type { CareLogInput } from '../../../shared/validation/lemon.ts';
+import type { HistoryPage } from '../../../shared/types.ts';
+import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import { HISTORY_PAGE_SIZE } from '../../lib/history.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
 export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 
-export async function listLogs(): Promise<CareLog[]> {
-  return (await repository.findAll()).map(toLog);
+/**
+ * 記録の 1 ページ（古い順）。全件を返さないのは、記録は増え続けるのに画面が見るのは新しいほうだけだから。
+ * 古いほうは nextCursor を before に渡して続きを読む（`findPage`）。
+ */
+export async function listLogs({
+  before,
+  ...filter
+}: CareLogListQuery): Promise<HistoryPage<CareLog>> {
+  const { rows, olderThan } = await repository.findPage(filter, before, HISTORY_PAGE_SIZE);
+  return { items: rows.map(toLog), nextCursor: olderThan };
 }
 
 /** 項目ごとの状態（shared/lemon.ts の規則）。項目ごとの最新の記録だけを読んで導く */

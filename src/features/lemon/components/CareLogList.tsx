@@ -3,15 +3,18 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
+import type { ReactNode } from 'react';
 import {
   CARE_TYPE_LABELS,
   CARE_TYPES,
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
 import { formatDatePadded } from '../../../lib/date.ts';
+import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
+import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { RecordListRow } from '../../../lib/ui/RecordListRow.tsx';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
-import type { CareLog } from '../queries.ts';
+import type { CareLog, useCareLogHistory } from '../queries.ts';
 
 /** アイコン 1 つの大きさ。枠の幅と揃えて、枠の中に余白が出ないようにする */
 const ICON_SIZE = '1.25rem';
@@ -46,7 +49,10 @@ const ICON_SX = { fontSize: ICON_SIZE } as const;
 const DOT_SX = { width: 2, height: 2, borderRadius: '50%', bgcolor: 'action.disabled' } as const;
 
 type Props = {
-  logs: CareLog[];
+  /** 読んだ分の記録（古い順）と、上の端での読み足しなど（`useCareLogHistory`） */
+  history: ReturnType<typeof useCareLogHistory>;
+  /** 一覧の上に貼り付けておく物（絞り込みのフォームと状況のタイル） */
+  header: ReactNode;
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
   emptyMessage: string;
   /** 行を押したとき。editing は長押し（編集で開く）か */
@@ -54,29 +60,46 @@ type Props = {
 };
 
 /**
- * 世話の記録（新しい順）。1 行が 1 回の記録で、その日付・そのときやったこと・メモを 3 列に並べる。
- * 行は単押しで閲覧（時刻を含む全文）、長押しで編集（`RecordListRow`）。削除は詳細の三点リーダーに集める。
+ * 世話の記録（上が古く下が新しい）。最初は一番下（最新）を出し、上へスクロールすると古いほうのページを
+ * 読み足す（`useCareLogHistory`、`InfiniteScroll`）。1 行が 1 回の記録で、その日付・そのときやったこと・
+ * メモを 3 列に並べる。行は単押しで閲覧（時刻を含む全文）、長押しで編集（`RecordListRow`）。
+ * 削除は詳細の三点リーダーに集める。
  */
-export function CareLogList({ logs, emptyMessage, onSelect }: Props) {
+export function CareLogList({ history, header, emptyMessage, onSelect }: Props) {
   return (
-    <List disablePadding>
-      {logs.length === 0 && (
-        <ListItem>
-          <ListItemText secondary={emptyMessage} />
-        </ListItem>
-      )}
-      {logs.map((log) => (
-        <RecordListRow key={log.id} sx={ROW_SX} onSelect={(editing) => onSelect(log, editing)}>
-          {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
+    <InfiniteScroll
+      header={header}
+      onReachStart={history.loadEarlier}
+      resetKey={history.resetKey}
+      ready={history.ready}
+    >
+      <QueryView query={history.query} skeleton={<ListSkeleton />}>
+        {(logs) => (
+          <List disablePadding>
+            {logs.length === 0 && (
+              <ListItem>
+                <ListItemText secondary={emptyMessage} />
+              </ListItem>
+            )}
+            {logs.map((log) => (
+              <RecordListRow
+                key={log.id}
+                sx={ROW_SX}
+                onSelect={(editing) => onSelect(log, editing)}
+              >
+                {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
               中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
-          <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
-          <CareTypeIcons careTypes={log.careTypes} />
-          <Typography variant="body2" color="text.secondary" noWrap>
-            {log.note}
-          </Typography>
-        </RecordListRow>
-      ))}
-    </List>
+                <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
+                <CareTypeIcons careTypes={log.careTypes} />
+                <Typography variant="body2" color="text.secondary" noWrap>
+                  {log.note}
+                </Typography>
+              </RecordListRow>
+            ))}
+          </List>
+        )}
+      </QueryView>
+    </InfiniteScroll>
   );
 }
 

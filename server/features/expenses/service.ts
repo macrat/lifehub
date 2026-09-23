@@ -10,6 +10,7 @@ import {
 import { newId } from '../../../shared/id.ts';
 import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { HISTORY_PAGE_SIZE } from '../../lib/history.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
@@ -17,17 +18,11 @@ import type { ExpenseRow } from './schema.ts';
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
 /**
- * 1 ページの件数の目安（日の途中では切らないので、これより多くなることがある）。
- * 1 日は数件なので、スマホの画面数枚分になる
- */
-const PAGE_SIZE = 50;
-
-/**
  * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
  * 古いほうは nextCursor を before に渡して続きを読む（`findPage`）。
  */
 export async function listExpenses({ before, ...filter }: ExpenseListQuery): Promise<ExpensePage> {
-  const { rows, olderThan } = await repository.findPage(filter, before, PAGE_SIZE);
+  const { rows, olderThan } = await repository.findPage(filter, before, HISTORY_PAGE_SIZE);
   return { items: rows.map(toExpense), nextCursor: olderThan };
 }
 
