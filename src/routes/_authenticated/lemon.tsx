@@ -88,8 +88,6 @@ function LemonPage() {
                 pt: 2,
                 pb: 0.5,
                 fontWeight: 600,
-                borderBottom: 1,
-                borderColor: 'divider',
               }}
             >
               記録
