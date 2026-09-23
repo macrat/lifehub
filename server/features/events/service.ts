@@ -3,8 +3,7 @@ import { newId } from '../../../shared/id.ts';
 import type {
   CompleteEventInput,
   CreateEventInput,
-  DeleteEventInput,
-  RecurrenceScope,
+  OccurrenceTarget,
   UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
@@ -52,7 +51,7 @@ async function applyUpdate(
 ): Promise<EventMaster> {
   const master = await findMaster(id);
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
-  const target = resolveTarget(master, input.scope, input.occurrenceStart);
+  const target = resolveTarget(master, input);
   const values = normalizeInput(input);
   const { participantIds } = input;
 
@@ -92,11 +91,11 @@ async function applyUpdate(
 
 export async function deleteEvent(
   id: string,
-  input: DeleteEventInput,
+  input: OccurrenceTarget,
   userId: string,
 ): Promise<void> {
   const master = await findMaster(id);
-  const target = resolveTarget(master, input.scope, input.occurrenceStart);
+  const target = resolveTarget(master, input);
 
   if (target.scope === 'this') {
     await materialize(master, target.occurrenceStart, { cancelled: true }, undefined, userId);
@@ -147,8 +146,15 @@ async function setCompletedAt(
 ): Promise<void> {
   const master = await findMaster(id);
   if (master.kind !== 'task') throw new ValidationError('予定は完了にできません');
-  // 繰り返しのタスクで完了にするのは常に 1 つの回
-  const target = resolveTarget(master, 'this', input.occurrenceStart);
+  // 繰り返しのタスクで完了にするのは常に 1 つの回。単発は回の指定が無くてよい（行そのもの）
+  if (master.rrule && !input.occurrenceStart)
+    throw new ValidationError('occurrenceStart が必要です');
+  const target = resolveTarget(
+    master,
+    input.occurrenceStart
+      ? { scope: 'this', occurrenceStart: input.occurrenceStart }
+      : { scope: 'all' },
+  );
   if (target.scope === 'all') {
     await repository.update(id, { completedAt });
     return;
@@ -158,7 +164,7 @@ async function setCompletedAt(
 
 /**
  * 操作の対象。繰り返しの回を指す操作（this / following）は、繰り返しのルールと
- * ルール上に実在する回の基準日時を必ず持つ（無ければここで ValidationError にする）ので、
+ * ルール上に実在する回の基準日時を必ず持つ（実在しなければここで ValidationError にする）ので、
  * 呼び出し側は rrule が null かどうかを改めて確かめなくてよい。
  */
 type Target =
@@ -173,14 +179,13 @@ type Target =
  */
 function resolveTarget(
   master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
-  scope: RecurrenceScope,
-  occurrenceStart: Date | undefined,
+  target: OccurrenceTarget,
 ): Target {
   const { rrule } = master;
-  if (!rrule || scope === 'all') return { scope: 'all' };
-  if (scope === 'following' && occurrenceStart?.getTime() === baseOf(master)?.getTime())
+  if (!rrule || target.scope === 'all') return { scope: 'all' };
+  const { scope, occurrenceStart } = target;
+  if (scope === 'following' && occurrenceStart.getTime() === baseOf(master)?.getTime())
     return { scope: 'all' };
-  if (!occurrenceStart) throw new ValidationError('occurrenceStart が必要です');
   if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   return { scope, rrule, occurrenceStart };
 }

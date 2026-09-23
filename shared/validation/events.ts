@@ -119,38 +119,35 @@ export const createEventRequestSchema = createEventSchema.safeExtend({
 const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
 export type RecurrenceScope = z.infer<typeof recurrenceScopeSchema>;
 
-const occurrenceFields = {
-  /** 繰り返しの回を指す元の発生の基準日時。単発では省略 */
-  occurrenceStart: instantSchema.optional(),
-};
-
-const scopeFields = {
-  scope: recurrenceScopeSchema.default('all'),
-  ...occurrenceFields,
-};
-
-const requireOccurrenceStart = (v: { scope: RecurrenceScope; occurrenceStart?: Date }) =>
-  v.scope === 'all' || v.occurrenceStart !== undefined;
-const occurrenceStartMessage = {
-  message: 'この回だけ／これ以降を指定するときは occurrenceStart が必要です',
-  path: ['occurrenceStart'],
-};
+/**
+ * 書き込み（更新・削除）が指す回。all 以外は、繰り返しの回を指す元の発生の基準日時が要る。
+ * 判別共用体にして、「this なのに基準日時が無い」組み合わせを検証を通った型に残さない
+ * （サーバーは基準日時の有無を確かめ直さず、クライアントは送れない組み合わせを作れない）。
+ * scope は省略させない。この API を呼ぶのは自分のクライアントだけで、常に範囲を決めてから送る。
+ * 単発の予定に this / following が来ても、サーバーは all として扱う（回が 1 つしかない）。
+ */
+export const occurrenceTargetSchema = z.discriminatedUnion('scope', [
+  z.object({ scope: z.literal('all') }),
+  z.object({
+    scope: z.enum(['this', 'following']),
+    occurrenceStart: instantSchema,
+  }),
+]);
+export type OccurrenceTarget = z.infer<typeof occurrenceTargetSchema>;
 
 export const updateEventSchema = z
-  .object({ ...eventFields, ...scopeFields })
+  .object(eventFields)
+  .and(occurrenceTargetSchema)
   .refine(eventHasRange, eventRangeMessage)
   .refine(endAfterStart, endMessage)
   .refine(...allDayRemindRule('remindStartMinutes'))
   .refine(...allDayRemindRule('remindEndMinutes'))
-  .refine(recurrenceHasBase, recurrenceMessage)
-  .refine(requireOccurrenceStart, occurrenceStartMessage);
+  .refine(recurrenceHasBase, recurrenceMessage);
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 
-export const deleteEventSchema = z
-  .object(scopeFields)
-  .refine(requireOccurrenceStart, occurrenceStartMessage);
-export type DeleteEventInput = z.infer<typeof deleteEventSchema>;
-
-/** 完了・完了取り消し（タスクのみ）。繰り返しでは occurrenceStart で回を指定する */
-export const completeEventSchema = z.object(occurrenceFields);
+/** 完了・完了取り消し（タスクのみ）。繰り返しでは occurrenceStart で回を指定する（完了は常に 1 つの回に対して行う） */
+export const completeEventSchema = z.object({
+  /** 繰り返しの回を指す元の発生の基準日時。単発では省略 */
+  occurrenceStart: instantSchema.optional(),
+});
 export type CompleteEventInput = z.infer<typeof completeEventSchema>;

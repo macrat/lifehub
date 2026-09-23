@@ -1,6 +1,7 @@
+import type { z } from 'zod';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { RecurrenceScope } from '../../../shared/validation/events.ts';
+import type { occurrenceTargetSchema, RecurrenceScope } from '../../../shared/validation/events.ts';
 
 /**
  * グリッドでつまんで直すときの範囲。繰り返しの回はその回だけを直す（つまんだのはその回で、
@@ -12,12 +13,10 @@ export function grabbedScope(item: { isRecurring: boolean } | null | undefined):
 }
 
 /**
- * 書き込み（更新・削除・完了）が指す回。API（`shared/validation/events.ts`）と同じく、all 以外は
- * 繰り返しの回の基準日時が要る。サーバーが検証で断る組み合わせ（this なのに基準日時が無い）を型で作れなくする。
+ * 書き込み（更新・削除）が指す行と回。回の指定の形は API のスキーマ（`occurrenceTargetSchema`）から導く
+ * （all 以外は繰り返しの回の基準日時が要る）。書き写さないので、サーバーの規則が変われば型検査で気づける。
  */
-export type OccurrenceTarget =
-  | { id: string; scope: 'all' }
-  | { id: string; scope: 'this' | 'following'; occurrenceStart: string };
+export type OccurrenceTarget = { id: string } & z.input<typeof occurrenceTargetSchema>;
 
 /** 項目と範囲 → 書き込みが指す回。単発（基準日時が無い）は範囲に関わらず行そのもの（all） */
 export function occurrenceTarget(

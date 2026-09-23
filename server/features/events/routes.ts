@@ -4,7 +4,7 @@ import { dateRangeQuerySchema, idParamSchema } from '../../../shared/validation/
 import {
   completeEventSchema,
   createEventRequestSchema,
-  deleteEventSchema,
+  occurrenceTargetSchema,
   updateEventSchema,
 } from '../../../shared/validation/events.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
@@ -39,7 +39,7 @@ export const eventsRoutes = new Hono<AppEnv>()
   .delete(
     '/:id',
     zValidator('param', idParamSchema, validationHook),
-    zValidator('json', deleteEventSchema, validationHook),
+    zValidator('json', occurrenceTargetSchema, validationHook),
     async (c) => {
       await service.deleteEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);

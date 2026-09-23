@@ -22,7 +22,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
 | DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
-| バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォーム・API の入力・MCP ツールの引数を同じスキーマで検証する。 |
+| バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
 | MCP サーバー | `@hono/mcp` + `@modelcontextprotocol/sdk`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。サーバーレスのためセッションを持たない。 |
 | 繰り返しルール | RFC 5545 RRULE（`rrule` ライブラリ） | 予定・タスクで同じ仕組みを使う。展開ロジックを自作しない。 |
@@ -56,6 +56,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 
 - UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
+- **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。`routes.ts` / `mcp.ts` は repository・`lib/db.ts`・`drizzle-orm` を import できない。それ以外の feature のコード（service.ts、events の occurrences.ts・notifications.ts など）は `lib/db.ts`・`drizzle-orm` を import できず、他の feature の repository も使えない（その feature の service を通す）。`server/lib/` からも feature の repository は使えない。DB に触れるのは各 feature と `lib/notifications/` の repository.ts（と schema.ts）だけになる。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。

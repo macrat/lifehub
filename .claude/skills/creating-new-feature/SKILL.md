@@ -10,7 +10,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 ## チェックリスト
 
 1. **要件を書く**: `docs/features/<name>.md` に目的・画面・データ・API・MCP ツール・通知・ホームのカードを 1 ページで書く。
-2. **Zod スキーマ**: `shared/validation/<name>.ts` に入力スキーマを書く。クライアントのフォーム・API・MCP ツールで同じスキーマを使う。
+2. **Zod スキーマ**: `shared/validation/<name>.ts` に入力スキーマを書く。クライアントのフォームと API で同じスキーマを使う。MCP ツールは API の写しにせず LLM が呼びやすい形に作り、項目の定義がそのまま分かりやすいときだけこのスキーマを共有する（`docs/architecture.md` の「レイヤー構成」）。
 3. **サーバー feature** `server/features/<name>/` を作る:
    - `schema.ts`（Drizzle テーブル。共通規約: uuid v7 主キー、`created_at` / `updated_at` / `created_by`、timestamptz）
    - `server/lib/schema.ts` に `export * from '../features/<name>/schema.ts'` を追加

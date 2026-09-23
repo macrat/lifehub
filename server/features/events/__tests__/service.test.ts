@@ -569,7 +569,11 @@ describe('events service', () => {
       );
       await updateEvent(
         created.id,
-        updateEventSchema.parse({ ...weeklyTask(), startsAt: iso('2026-09-08T09:00:00') }),
+        updateEventSchema.parse({
+          ...weeklyTask(),
+          startsAt: iso('2026-09-08T09:00:00'),
+          scope: 'all',
+        }),
         userId,
       );
       const list = await listItems(september, now);

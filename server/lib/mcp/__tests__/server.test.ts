@@ -108,4 +108,33 @@ describe('MCP server', () => {
     });
     expect(result.isError).toBe(true);
   });
+
+  it('繰り返しの回の指定は平らな項目で受け、scope を省略すればすべての回、回の抜けは足すべき物を文で返す', async () => {
+    const client = await connect(userId);
+    const { tools } = await client.listTools();
+    const update = tools.find((t) => t.name === 'events_update');
+    // 入力の最上位はオブジェクト（anyOf にしない）で、scope と occurrenceStart が項目として見える
+    expect(update?.inputSchema.type).toBe('object');
+    expect(Object.keys(update?.inputSchema.properties ?? {})).toEqual(
+      expect.arrayContaining(['id', 'scope', 'occurrenceStart']),
+    );
+
+    const created = JSON.parse(
+      text(
+        await client.callTool({
+          name: 'events_create',
+          arguments: { kind: 'task', title: '提出', participantIds: [userId] },
+        }),
+      ),
+    ) as { id: string };
+    const missing = await client.callTool({
+      name: 'events_delete',
+      arguments: { id: created.id, scope: 'this' },
+    });
+    expect(missing.isError).toBe(true);
+    expect(text(missing)).toContain('occurrenceStart');
+
+    const deleted = await client.callTool({ name: 'events_delete', arguments: { id: created.id } });
+    expect(deleted.isError).toBeFalsy();
+  });
 });
