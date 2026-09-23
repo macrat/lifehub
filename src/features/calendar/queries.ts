@@ -82,23 +82,6 @@ export function useRefreshCalendarItems() {
   }, [queryClient]);
 }
 
-/**
- * 色を決めるユーザー: 参加者が 1 人ならその人、そうでなければ共有の無彩色（null）。
- * 1 色で塗るグリッドの帯と、まだ保存していない下書きの枠で同じ規則を使う。
- */
-export function colorUserOf(participantIds: string[]): string | null {
-  return participantIds.length === 1 ? (participantIds[0] ?? null) : null;
-}
-
-/**
- * 色を塗り分けるユーザー: 参加者 1 人ずつ（並びは参加者の順）、誰もいなければ共有の無彩色（null）1 つ。
- * 予定の印（`ParticipantsMark`）とタスクのチェックボックス（`ParticipantsCheckIcon`）が使う。
- * 同じ並びを渡すので、同じ参加者なら印とチェックボックスで同じ位置に同じ色が来る。
- */
-export function colorUsersOf(participantIds: string[]): (string | null)[] {
-  return participantIds.length > 0 ? participantIds : [null];
-}
-
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
 export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
   return Map.groupBy(items, (item) => item.placementDate);

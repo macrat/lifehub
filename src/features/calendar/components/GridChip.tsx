@@ -2,9 +2,10 @@ import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
+import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { useUserColor } from '../../users/use-user-color.ts';
-import { colorUserOf } from '../queries.ts';
+import { useFillText } from '../../users/use-user-color.ts';
+import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
 import type { Placed } from './lane-layout.ts';
@@ -26,10 +27,9 @@ type Props = {
 /**
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
- * 帯の色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。
- * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`ParticipantsMark`・`ParticipantsCheckIcon`）。
+ * 帯・点・チェック印は、一覧（`ItemCard`）と同じく参加者の色で塗り分ける
+ * （`wedgeBackground`・`ParticipantsMark`・`ParticipantsCheckIcon`）。
  * 完了したタスクはリスト表示と同じく、印を薄く・タイトルに取り消し線を引く。
- * WHY 帯だけ 1 色: 帯は面が広く文字が載るので、塗り分けると文字が読みにくくなる。
  * タイトルを優先し、時刻は広い画面でだけ添える。
  * 単押しは閲覧（詳細を開く）、長押しは編集（`grab`。つまんでそのまま日時を直す）で、アプリ全体の約束と同じ。
  * 編集中は枠（`DraftBar`）で出すので隠すが、DOM からは消さない:
@@ -40,7 +40,8 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
-  const colors = useUserColor()(colorUserOf(item.participantIds));
+  const colors = useParticipantColors(item.participantIds);
+  const fillText = useFillText();
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
@@ -81,19 +82,16 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
         borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
-        bgcolor: isBar ? colors.fill : 'transparent',
+        background: isBar ? wedgeBackground(colors.map((c) => c.fill)) : undefined,
         color: isBar
-          ? colors.text
+          ? fillText
           : overdue
             ? 'error.main'
             : completed
               ? 'text.disabled'
               : 'text.primary',
         ...(completed && COMPLETED_TITLE_SX),
-        '&:hover': {
-          filter: isBar ? 'brightness(0.92)' : undefined,
-          bgcolor: isBar ? colors.fill : 'action.hover',
-        },
+        '&:hover': isBar ? { filter: 'brightness(0.92)' } : { bgcolor: 'action.hover' },
         // all: unset はフォーカスの輪郭も消すので、キーボード操作のときだけ戻す
         '&:focus-visible': {
           outline: '2px solid',

@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
+import { type ItemColors, useFillText, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
 import { type Expense, useDeleteExpense, useUpdateExpense } from '../queries.ts';
@@ -90,5 +90,6 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
 
 /** To・From の 1 つ。そのユーザーの色で塗る */
 function UserChip({ label, colors }: { label: string; colors: ItemColors }) {
-  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: colors.text }} />;
+  const text = useFillText();
+  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: text }} />;
 }

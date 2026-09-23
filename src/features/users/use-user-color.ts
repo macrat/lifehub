@@ -11,8 +11,6 @@ export type ItemColors = {
   check: string;
   /** 一覧の左の印（`VennMark`）の色 */
   mark: string;
-  /** fill の上に載せる文字色 */
-  text: string;
   /** 薄い背景（タイムラインのタスクなど） */
   tint: string;
 };
@@ -33,7 +31,6 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
     fill: hueColor(hue, 'fill', mode),
     check: hueColor(hue, 'check', mode),
     mark: hueColor(hue, 'mark', mode),
-    text: fillContrastText(mode),
     tint: hueColor(hue, 'tint', mode),
   };
   cache.set(key, colors);
@@ -52,4 +49,12 @@ export function useUserColor(): (userId: string | null) => ItemColors {
       colorsOf(users.find((u) => u.id === userId)?.hue ?? null, mode),
     [users, mode],
   );
+}
+
+/**
+ * fill の上に載せる文字色。fill はどの色相でも明度が同じなので、表示モードだけで決まる。
+ * 塗り分けた面（境目をまたぐ文字）にも、この 1 色で足りる。
+ */
+export function useFillText(): string {
+  return fillContrastText(useColorMode());
 }
