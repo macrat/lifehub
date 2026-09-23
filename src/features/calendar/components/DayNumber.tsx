@@ -1,6 +1,10 @@
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { isToday, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
+import { useHolidays } from '../holidays.ts';
+
+/** 月曜 = 0 の曜日番号の日曜。祝日は日曜と同じ色で出す */
+const SUNDAY = 6;
 
 type Props = {
   date: DateString;
@@ -9,9 +13,10 @@ type Props = {
   muted?: boolean;
 };
 
-/** 日付の数字。今日は primary の丸で塗る。土日は曜日の色 */
+/** 日付の数字。今日は primary の丸で塗る。土日は曜日の色、祝日は日曜と同じ赤 */
 export function DayNumber({ date, size, muted = false }: Props) {
   const today = isToday(date);
+  const holiday = useHolidays().has(date);
   return (
     <Typography
       component="span"
@@ -28,7 +33,7 @@ export function DayNumber({ date, size, muted = false }: Props) {
           ? 'primary.contrastText'
           : muted
             ? 'text.disabled'
-            : weekdayColor(weekdayIndex(date)),
+            : weekdayColor(holiday ? SUNDAY : weekdayIndex(date)),
       }}
     >
       {Number(date.slice(8))}

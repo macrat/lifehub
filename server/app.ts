@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
+import { holidaysCronRoutes, holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toPublicUser } from './features/users/service.ts';
@@ -37,6 +38,8 @@ api.route('/mcp', mcpRoutes);
 api.route('/calendar', calendarIcsRoutes);
 // Cron secret と QStash の署名で保護する（セッションではない）
 api.route('/notifications', notificationsRoutes);
+// 祝日の取り直し（月次 Cron）は Cron secret で保護する。一覧の GET /holidays は下でログイン必須
+api.route('/holidays', holidaysCronRoutes);
 
 // これ以降はすべてログイン必須
 api.use('*', requireSession);
@@ -62,6 +65,7 @@ const routes = api
   .route('/calendar/feeds', calendarFeedsRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
+  .route('/holidays', holidaysRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

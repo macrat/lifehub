@@ -12,6 +12,9 @@ export const E2E_USER = {
   password: 'e2e-password-123',
 };
 
+/** E2E の祝日。月曜なので、平日の色から日曜と同じ赤に変わることを確かめられる */
+export const HOLIDAY = '2030-05-06';
+
 export default async function globalSetup() {
   process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/lifehub';
   process.env.BETTER_AUTH_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-000000';
@@ -25,7 +28,10 @@ export default async function globalSetup() {
 
   const { createUser } = await import('../server/features/users/service.ts');
   const { truncateAll } = await import('../server/lib/test-db.ts');
+  const { replaceAll: replaceHolidays } = await import('../server/features/holidays/repository.ts');
   await truncateAll();
+  // 祝日は空だと配布元へ取りに行くので、決まった日を入れておく（E2E を外部のサイトに依存させない）
+  await replaceHolidays([HOLIDAY]);
   await createUser(E2E_USER);
   await createUser({ email: 'partner@example.com', name: '相手', password: 'partner-password-1' });
 }
