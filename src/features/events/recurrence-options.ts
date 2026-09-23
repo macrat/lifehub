@@ -12,6 +12,24 @@ export function grabbedScope(item: { isRecurring: boolean } | null | undefined):
 }
 
 /**
+ * 書き込み（更新・削除・完了）が指す回。API（`shared/validation/events.ts`）と同じく、all 以外は
+ * 繰り返しの回の基準日時が要る。サーバーが検証で断る組み合わせ（this なのに基準日時が無い）を型で作れなくする。
+ */
+export type OccurrenceTarget =
+  | { id: string; scope: 'all' }
+  | { id: string; scope: 'this' | 'following'; occurrenceStart: string };
+
+/** 項目と範囲 → 書き込みが指す回。単発（基準日時が無い）は範囲に関わらず行そのもの（all） */
+export function occurrenceTarget(
+  item: { id: string; occurrenceStart: string | null },
+  scope: RecurrenceScope,
+): OccurrenceTarget {
+  return scope === 'all' || item.occurrenceStart === null
+    ? { id: item.id, scope: 'all' }
+    : { id: item.id, scope, occurrenceStart: item.occurrenceStart };
+}
+
+/**
  * フォームの繰り返し選択肢と RRULE 文字列の相互変換。
  * フォームは頻度と終了日だけを扱う。より複雑なルール（BYDAY など）は API / MCP から直接 RRULE で指定できる。
  */

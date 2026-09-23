@@ -3,7 +3,7 @@ import type { DateString } from '../../../shared/types.ts';
 import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
 import { defaultParticipants, type ItemFormValues } from '../events/form-values.ts';
 import { type CreateEventBody, useCreateEvent, useUpdateEvent } from '../events/queries.ts';
-import { grabbedScope } from '../events/recurrence-options.ts';
+import { grabbedScope, occurrenceTarget } from '../events/recurrence-options.ts';
 import { type Draft, defaultDraft, type EventDraft, sameOccurrence } from './draft.ts';
 import type { CalendarItem } from './queries.ts';
 
@@ -134,12 +134,7 @@ export function useEventComposer(meId: string | null) {
     save: (input: CreateEventBody) => {
       const item = state?.item ?? null;
       if (!item) return createEvent.mutateAsync(input);
-      return updateEvent.mutateAsync({
-        ...input,
-        id: item.id,
-        scope: grabbedScope(item),
-        occurrenceStart: item.occurrenceStart ?? undefined,
-      });
+      return updateEvent.mutateAsync({ ...input, ...occurrenceTarget(item, grabbedScope(item)) });
     },
   };
 }

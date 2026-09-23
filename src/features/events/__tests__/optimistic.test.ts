@@ -6,6 +6,7 @@ import { toMonthString } from '../../../lib/date.ts';
 import { CALENDAR_QUERY_KEY } from '../../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
+import { occurrenceTarget } from '../recurrence-options.ts';
 
 /** その暦月のクエリを 1 つだけ持つキャッシュ */
 function clientWith(month: string, items: CalendarItem[] = []) {
@@ -58,10 +59,10 @@ test('日時の無いタスクは今日に置かれ、完了にすると完了�
   insertItem(client, { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false });
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 
-  setCompleted(client, { id: 'tmp', scope: 'this' }, true);
+  setCompleted(client, { id: 'tmp', scope: 'all' }, true);
   expect(itemsOf(client)[0]?.completedAt).not.toBeNull();
 
-  removeItem(client, { id: 'tmp' });
+  removeItem(client, { id: 'tmp', scope: 'all' });
   expect(itemsOf(client)).toEqual([]);
 });
 
@@ -97,15 +98,13 @@ test('繰り返しの「この回だけ」の日時の変更は、その回だ�
   const client = clientWith('2030-05', [first, second]);
   updateItem(client, {
     ...EVENT,
-    id: 'daily',
     title: '朝会（延長）',
     allDay: false,
     // 2 日目の回を翌日の 13:00〜14:00 へ
     startsAt: '2030-05-04T13:00:00+09:00',
     endsAt: '2030-05-04T14:00:00+09:00',
     rrule: 'FREQ=DAILY',
-    scope: 'this',
-    occurrenceStart: second.occurrenceStart ?? undefined,
+    ...occurrenceTarget(second, 'this'),
   });
   const items = itemsOf(client);
   // 1 日目の回はそのまま
