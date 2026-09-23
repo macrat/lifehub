@@ -5,11 +5,11 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { AddExpenseForm } from '../../features/add/components/AddForm.tsx';
 import { useAddShortcut } from '../../features/add/shortcut.ts';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
+import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
 import { countActiveFilters, expenseSearchSchema } from '../../features/expenses/search.ts';
@@ -87,7 +87,7 @@ function ExpensesPage() {
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && <AddExpenseForm onClose={() => setAdding(false)} />}
+      {adding && <ExpenseForm onClose={() => setAdding(false)} />}
       {selected && (
         <ExpenseDetailSheet
           expense={selected.expense}
