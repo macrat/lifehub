@@ -171,12 +171,8 @@ function CalendarPage() {
       {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
       {draft && (
         <QuickEventForm
-          draft={draft.range}
-          item={draft.item}
-          participantIds={draft.participantIds}
+          draft={draft}
           onChangeParticipants={composer.changeParticipants}
-          open={draft.settled}
-          initialDetent={draft.detent}
           onSubmit={composer.save}
           onChangeDraft={composer.changeRange}
           onExpand={composer.expand}

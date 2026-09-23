@@ -65,27 +65,33 @@ export async function sendToUsers(
     return { sent: 0 };
   }
   const subscriptions = await repository.findByUserIds(userIds);
-  let sent = 0;
-  const failures: unknown[] = [];
-  for (const sub of subscriptions) {
-    // 保存済みの購読も送信直前に検証する。web-push はリダイレクトを追わない。
-    if (!pushEndpointSchema.safeParse(sub.endpoint).success) continue;
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(message),
-        { TTL: 60 * 60, timeout: 10_000 },
-      );
-      sent++;
-    } catch (error) {
-      if (error instanceof WebPushError && (error.statusCode === 404 || error.statusCode === 410)) {
-        await repository.removeByEndpoint(sub.endpoint, sub.userId);
-        continue;
+  // 端末ごとの送信は互いに独立なので並べて送る（1 台の遅い送り先が他の端末を待たせない）
+  const results = await Promise.all(
+    subscriptions.map(async (sub): Promise<'sent' | 'skipped' | { failure: unknown }> => {
+      // 保存済みの購読も送信直前に検証する。web-push はリダイレクトを追わない。
+      if (!pushEndpointSchema.safeParse(sub.endpoint).success) return 'skipped';
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(message),
+          { TTL: 60 * 60, timeout: 10_000 },
+        );
+        return 'sent';
+      } catch (error) {
+        if (
+          error instanceof WebPushError &&
+          (error.statusCode === 404 || error.statusCode === 410)
+        ) {
+          await repository.removeByEndpoint(sub.endpoint, sub.userId);
+          return 'skipped';
+        }
+        console.error('push: failed to send', error);
+        return { failure: error };
       }
-      console.error('push: failed to send', error);
-      failures.push(error);
-    }
-  }
+    }),
+  );
+  const sent = results.filter((r) => r === 'sent').length;
+  const failures = results.flatMap((r) => (typeof r === 'object' ? [r.failure] : []));
   // 呼び出し元が送信済み台帳を確定せず、キューに再試行させられるようにする。
   if (failures.length > 0) throw new AggregateError(failures, 'push delivery failed');
   return { sent };

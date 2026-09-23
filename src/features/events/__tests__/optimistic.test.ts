@@ -6,7 +6,7 @@ import { toMonthString } from '../../../lib/date.ts';
 import { CALENDAR_QUERY_KEY } from '../../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { occurrenceTarget } from '../recurrence-options.ts';
+import { writeTarget } from '../recurrence-options.ts';
 
 /** その暦月のクエリを 1 つだけ持つキャッシュ */
 function clientWith(month: string, items: CalendarItem[] = []) {
@@ -104,7 +104,7 @@ test('繰り返しの「この回だけ」の日時の変更は、その回だ�
     startsAt: '2030-05-04T13:00:00+09:00',
     endsAt: '2030-05-04T14:00:00+09:00',
     rrule: 'FREQ=DAILY',
-    ...occurrenceTarget(second, 'this'),
+    ...writeTarget(second, 'this'),
   });
   const items = itemsOf(client);
   // 1 日目の回はそのまま

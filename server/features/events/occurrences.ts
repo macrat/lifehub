@@ -69,22 +69,7 @@ export async function listOccurrences(
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */
-type MasterFields = Pick<
-  EventWithParticipants,
-  | 'id'
-  | 'kind'
-  | 'title'
-  | 'allDay'
-  | 'startsAt'
-  | 'endsAt'
-  | 'completedAt'
-  | 'location'
-  | 'note'
-  | 'participantIds'
-  | 'rrule'
-  | 'remindStartMinutes'
-  | 'remindEndMinutes'
->;
+type MasterFields = Pick<EventWithParticipants, keyof EventMaster>;
 
 /** 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選ぶ） */
 export function toMaster(row: MasterFields): EventMaster {

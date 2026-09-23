@@ -1,7 +1,10 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import {
+  defaultShouldDehydrateMutation,
   type MutateOptions,
+  type Mutation,
   onlineManager,
+  partialMatchKey,
   QueryClient,
   useIsFetching,
   useMutation,
@@ -56,6 +59,17 @@ export const persistOptions = {
   maxAge: ONE_DAY * 7,
   // ビルドが変わったらキャッシュを捨てる（型の互換性を気にしなくて済む）
   buster: __BUILD_TIME__,
+  dehydrateOptions: {
+    /**
+     * 端末に残す mutation は、送れずに保留した書き込み（`WRITE_MUTATION_KEY`）だけにする。
+     * 送り方（関数）は保存できず、復元した mutation はキーに紐づけた既定（setMutationDefaults）で送られる。
+     * 書き込み以外の mutation（プッシュ通知の購読、OAuth の同意）は既定を持たないので、残すと次の起動で
+     * 送り方の無いまま復元されてしまう。TanStack Query の既定は保留中の mutation をすべて残すため、ここで絞る。
+     */
+    shouldDehydrateMutation: (mutation: Mutation) =>
+      defaultShouldDehydrateMutation(mutation) &&
+      partialMatchKey(mutation.options.mutationKey ?? [], WRITE_MUTATION_KEY),
+  },
 };
 
 /**
@@ -126,7 +140,7 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  * 再読み込みで復元した書き込みもここに書いた方法で送られる。
  *
  * - networkMode（既定の `online`）: オフラインでは送らずに保留する。保留中の書き込みは
- *   永続化の対象なので（TanStack Query の既定の dehydrate 条件）、アプリを閉じても消えず、
+ *   永続化の対象なので（`persistOptions` の dehydrateOptions）、アプリを閉じても消えず、
  *   オンラインに戻るか次の起動時（main.tsx の `resumeWrites`）に送られる。
  * - scope: 同じ scope の mutation は 1 つずつ順に走る。溜めた書き込みが操作した順に再生されるので、
  *   「追加してから直す」がそのままの順でサーバーに届く。

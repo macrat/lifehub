@@ -234,11 +234,11 @@ function WeekRow({
           hidden={sameOccurrence(draft?.item, p.item)}
         />
       ))}
-      {draftCols && (
+      {draft && draftCols && (
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          colors={colorFor(colorUserOf(draft?.participantIds ?? []))}
+          colors={colorFor(colorUserOf(draft.participantIds))}
         />
       )}
       {foldedPerCol.map((n, col) =>

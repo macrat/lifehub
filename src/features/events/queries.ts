@@ -4,7 +4,7 @@ import { api, ensureOk } from '../../lib/api.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
-import { type OccurrenceTarget, occurrenceTarget } from './recurrence-options.ts';
+import { type WriteTarget, writeTarget } from './recurrence-options.ts';
 
 const EVENTS_QUERY_KEY = ['events'] as const;
 
@@ -40,7 +40,7 @@ export function useCreateEvent() {
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: UpdateEventBody & OccurrenceTarget) => ({
+    request: ({ id, ...input }: UpdateEventBody & { id: string }) => ({
       method: 'PUT' as const,
       path: api.events[':id'].$url({ param: { id } }).pathname,
       body: input,
@@ -52,7 +52,7 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: OccurrenceTarget) => ({
+    request: ({ id, ...input }: WriteTarget) => ({
       method: 'DELETE' as const,
       path: api.events[':id'].$url({ param: { id } }).pathname,
       body: input,
@@ -80,6 +80,6 @@ export function useToggleCompletion() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completed }) =>
-      setCompleted(client, occurrenceTarget({ id, occurrenceStart }, 'this'), completed),
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed),
   });
 }

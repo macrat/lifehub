@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { activeFilterCount, type ListFilters, matchesListFilters } from '../search.ts';
+import { countActiveFilters, type ListFilters, matchesListFilters } from '../search.ts';
 
 const DAY = '2031-06-05' as DateString;
 const NONE: ListFilters = {
@@ -48,9 +48,9 @@ describe('matchesListFilters', () => {
   });
 });
 
-describe('activeFilterCount', () => {
+describe('countActiveFilters', () => {
   it('期間は両端で 1 つに数え、キーワードは数えない', () => {
-    expect(activeFilterCount(NONE)).toBe(0);
-    expect(activeFilterCount({ ...NONE, from: DAY, to: DAY, kind: 'task', q: 'a' })).toBe(2);
+    expect(countActiveFilters(NONE)).toBe(0);
+    expect(countActiveFilters({ ...NONE, from: DAY, to: DAY, kind: 'task', q: 'a' })).toBe(2);
   });
 });

@@ -85,34 +85,6 @@
       }
     },
     {
-      "includes": ["src/features/calendar/components/QuickEventForm.tsx"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["**/lib/api.ts"],
-                    "message": "API はコンポーネントから直接呼ばず、features/*/queries.ts のフック経由にする"
-                  },
-                  {
-                    "group": ["@mui/material/Dialog"],
-                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
-                  },
-                  {
-                    "group": ["@mui/material/Modal", "@mui/material/Drawer"],
-                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
       "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
       "linter": {
         "rules": {
@@ -143,6 +115,46 @@
       }
     },
     {
+      "includes": [
+        "server/**/*.ts",
+        "!**/repository.ts",
+        "!**/schema.ts",
+        "!server/lib/db.ts",
+        "!server/lib/test-db.ts",
+        "!server/lib/history.ts",
+        "!server/lib/auth.ts",
+        "!server/app.ts",
+        "!server/**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/lib/db.ts",
+                      "./db.ts",
+                      "../db.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                  },
+                  {
+                    "group": ["../*/repository.ts", "**/features/*/repository.ts"],
+                    "message": "他の feature の repository は直接使わず、その feature の service を通す"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["server/features/*/routes.ts", "server/features/*/mcp.ts"],
       "linter": {
         "rules": {
@@ -156,83 +168,14 @@
                     "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
                   },
                   {
-                    "group": ["**/lib/db.ts", "drizzle-orm", "drizzle-orm/**"],
-                    "message": "DB は repository.ts からだけ触る"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": [
-        "server/features/**/*.ts",
-        "!server/features/*/routes.ts",
-        "!server/features/*/mcp.ts",
-        "!server/features/*/repository.ts",
-        "!server/features/*/schema.ts",
-        "!server/features/*/__tests__/**"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["**/lib/db.ts", "drizzle-orm", "drizzle-orm/**"],
-                    "message": "DB は repository.ts からだけ触る（service は repository を通す）"
-                  },
-                  {
-                    "group": ["../*/repository.ts"],
-                    "message": "他の feature の repository は直接使わず、その feature の service を通す"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["server/lib/**/*.ts", "!server/lib/**/__tests__/**"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["**/features/*/repository.ts"],
-                    "message": "lib から feature の repository は直接使わず、その feature の service を通す"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["server/lib/notifications/service.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["**/lib/db.ts", "../db.ts", "drizzle-orm", "drizzle-orm/**"],
-                    "message": "DB は repository.ts からだけ触る（送信済み台帳は notifications/repository.ts）"
-                  },
-                  {
-                    "group": ["**/features/*/repository.ts"],
-                    "message": "lib から feature の repository は直接使わず、その feature の service を通す"
+                    "group": [
+                      "**/lib/db.ts",
+                      "./db.ts",
+                      "../db.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
                   }
                 ]
               }

@@ -10,19 +10,7 @@ import { formList, formSelect, formText } from '../../lib/form.ts';
  * カレンダーの項目や保存されている行をそのまま渡せる。endsAt は予定では終了（排他的）、タスクでは期限。
  * participantIds は 1 人以上（空は検証で弾かれる。新規作成の既定は `defaultParticipants`）。
  */
-export type ItemFormValues = Pick<
-  EventMaster,
-  | 'title'
-  | 'allDay'
-  | 'startsAt'
-  | 'endsAt'
-  | 'participantIds'
-  | 'location'
-  | 'note'
-  | 'rrule'
-  | 'remindStartMinutes'
-  | 'remindEndMinutes'
->;
+export type ItemFormValues = Omit<EventMaster, 'id' | 'kind' | 'completedAt'>;
 
 const EMPTY: ItemFormValues = {
   title: '',

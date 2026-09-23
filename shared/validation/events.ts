@@ -116,7 +116,7 @@ export const createEventRequestSchema = createEventSchema.safeExtend({
 });
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
-const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
+export const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
 export type RecurrenceScope = z.infer<typeof recurrenceScopeSchema>;
 
 /**
@@ -127,9 +127,9 @@ export type RecurrenceScope = z.infer<typeof recurrenceScopeSchema>;
  * 単発の予定に this / following が来ても、サーバーは all として扱う（回が 1 つしかない）。
  */
 export const occurrenceTargetSchema = z.discriminatedUnion('scope', [
-  z.object({ scope: z.literal('all') }),
+  z.object({ scope: recurrenceScopeSchema.extract(['all']) }),
   z.object({
-    scope: z.enum(['this', 'following']),
+    scope: recurrenceScopeSchema.exclude(['all']),
     occurrenceStart: instantSchema,
   }),
 ]);

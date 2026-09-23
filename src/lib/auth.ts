@@ -100,7 +100,7 @@ export function useLogin(redirectTo: string | undefined) {
       return;
     }
     // ルートガードはキャッシュを見るので、遷移前にログイン後のユーザーを取り直しておく
-    await queryClient.fetchQuery({ ...meQueryOptions, staleTime: 0 });
+    await resolveMe(queryClient, { revalidate: true });
     await navigate({ to: redirectTo ?? '/' });
   };
 }
@@ -109,8 +109,8 @@ export function useLogin(redirectTo: string | undefined) {
  * OAuth の同意（MCP クライアントの認可）への返事。受け付けられたら better-auth が返す URL
  * （クライアントへの戻り先）へ移る。同意の API 呼び出しには oauthProviderClient が
  * window.location.search（署名付きクエリ）を oauth_query として自動で添える。
- * WHY networkMode: 'always': オフラインで保留させない。保留した mutation は永続化され、
- * 送り方（関数）を持たないまま次の起動で復元されてしまう。オフラインならその場で失敗させる。
+ * WHY networkMode: 'always': オフラインで保留させず、その場で失敗させる。保留すると同意の画面が
+ * 「送信中」のまま止まり、オンラインに戻るまで何も起きない。
  */
 export function useConsent() {
   return useMutation({

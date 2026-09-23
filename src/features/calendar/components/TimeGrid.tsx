@@ -171,11 +171,11 @@ export function TimeGrid({
           つまんだ指を離さずに隣の日へ持っていける（列の中に置くと日ごとに要素が入れ替わり、
           掴んでいた要素が DOM から消えた時点でタッチが途切れて横スワイプに化ける）
         */}
-        {timedDraft && draftCol >= 0 && (
+        {draft && timedDraft && draftCol >= 0 && (
           <DraftBlock
             draft={timedDraft}
             column={draftCol + 1}
-            colors={colorFor(colorUserOf(draft?.participantIds ?? []))}
+            colors={colorFor(colorUserOf(draft.participantIds))}
             grab={compact ? drag.frameProps(timedDraft) : null}
           />
         )}

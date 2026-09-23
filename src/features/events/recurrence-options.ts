@@ -16,13 +16,13 @@ export function grabbedScope(item: { isRecurring: boolean } | null | undefined):
  * 書き込み（更新・削除）が指す行と回。回の指定の形は API のスキーマ（`occurrenceTargetSchema`）から導く
  * （all 以外は繰り返しの回の基準日時が要る）。書き写さないので、サーバーの規則が変われば型検査で気づける。
  */
-export type OccurrenceTarget = { id: string } & z.input<typeof occurrenceTargetSchema>;
+export type WriteTarget = { id: string } & z.input<typeof occurrenceTargetSchema>;
 
 /** 項目と範囲 → 書き込みが指す回。単発（基準日時が無い）は範囲に関わらず行そのもの（all） */
-export function occurrenceTarget(
+export function writeTarget(
   item: { id: string; occurrenceStart: string | null },
   scope: RecurrenceScope,
-): OccurrenceTarget {
+): WriteTarget {
   return scope === 'all' || item.occurrenceStart === null
     ? { id: item.id, scope: 'all' }
     : { id: item.id, scope, occurrenceStart: item.occurrenceStart };

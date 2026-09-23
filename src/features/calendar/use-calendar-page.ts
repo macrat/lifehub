@@ -14,10 +14,10 @@ import {
 import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
 import { useRefreshCalendarItems } from './queries.ts';
 import {
-  activeFilterCount,
   type CalendarSearch,
   type CalendarView,
-  listFiltersOf,
+  countActiveFilters,
+  type ListFilters,
   type SearchPatch,
   storeView,
 } from './search.ts';
@@ -67,7 +67,7 @@ export function useCalendarPage(search: CalendarSearch) {
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
-  const filters = listFiltersOf(search, query);
+  const filters: ListFilters = { ...search, q: query };
 
   /** offset ページ前後を代表する日（月は n か月、週は n 週、日は n 日ずらす） */
   const dateAt = (offset: number): DateString =>
@@ -118,7 +118,7 @@ export function useCalendarPage(search: CalendarSearch) {
     pages: [dateAt(-1), dateAt(0), dateAt(1)] as const,
     title,
     filters,
-    activeFilters: activeFilterCount(filters),
+    activeFilters: countActiveFilters(filters),
     setQuery,
     hourHeight,
     zoom,

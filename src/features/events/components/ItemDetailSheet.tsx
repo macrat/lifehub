@@ -19,7 +19,7 @@ import {
   useToggleCompletion,
   useUpdateEvent,
 } from '../queries.ts';
-import { describeRRule, occurrenceTarget } from '../recurrence-options.ts';
+import { describeRRule, writeTarget } from '../recurrence-options.ts';
 import { useAllDay, useItemForm } from '../use-item-form.ts';
 import { useRecurrenceEditing } from '../use-recurrence-editing.ts';
 import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
@@ -48,7 +48,7 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
     isRecurring: item.isRecurring,
     editing: initialEditing,
     onDelete: (scope) => {
-      deleteEvent.mutate(occurrenceTarget(item, scope));
+      deleteEvent.mutate(writeTarget(item, scope));
       onClose();
     },
   });
@@ -75,7 +75,7 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
     allDay,
     scope: editScope ?? 'all',
     onSubmit: (input) =>
-      updateEvent.mutateAsync({ ...input, ...occurrenceTarget(item, editScope ?? 'all') }),
+      updateEvent.mutateAsync({ ...input, ...writeTarget(item, editScope ?? 'all') }),
     onSaved: onClose,
   });
 

@@ -146,20 +146,15 @@ async function setCompletedAt(
 ): Promise<void> {
   const master = await findMaster(id);
   if (master.kind !== 'task') throw new ValidationError('予定は完了にできません');
-  // 繰り返しのタスクで完了にするのは常に 1 つの回。単発は回の指定が無くてよい（行そのもの）
-  if (master.rrule && !input.occurrenceStart)
-    throw new ValidationError('occurrenceStart が必要です');
-  const target = resolveTarget(
-    master,
-    input.occurrenceStart
-      ? { scope: 'this', occurrenceStart: input.occurrenceStart }
-      : { scope: 'all' },
-  );
-  if (target.scope === 'all') {
+  // 単発は行そのもの。繰り返しのタスクで完了にするのは常に 1 つの回
+  if (!master.rrule) {
     await repository.update(id, { completedAt });
     return;
   }
-  await materialize(master, target.occurrenceStart, { completedAt }, undefined, userId);
+  const { occurrenceStart } = input;
+  if (!occurrenceStart) throw new ValidationError('occurrenceStart が必要です');
+  if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
+  await materialize(master, occurrenceStart, { completedAt }, undefined, userId);
 }
 
 /**

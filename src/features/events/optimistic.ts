@@ -10,7 +10,7 @@ import {
 import { monthRange } from '../../lib/date.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import type { CreateEventBody, UpdateEventBody } from './queries.ts';
-import type { OccurrenceTarget } from './recurrence-options.ts';
+import type { WriteTarget } from './recurrence-options.ts';
 
 /**
  * 予定・タスクの楽観的更新。保存を送ると同時に、サーバーが返すはずの項目を取得済みのカレンダーへ置く。
@@ -36,7 +36,7 @@ export function insertItem(client: QueryClient, input: NewEvent): void {
  * 「これ以降」「すべて」は日時の変化がほかの回に及び、その展開はサーバーにしか無いので、
  * 日時を伴わない項目だけを当てる（残りは再取得で揃う）。
  */
-export function updateItem(client: QueryClient, input: UpdateEventBody & OccurrenceTarget): void {
+export function updateItem(client: QueryClient, input: UpdateEventBody & { id: string }): void {
   const replacement = replacementOf(client, input);
   updateCalendars(client, (items, range, now) => {
     if (replacement) {
@@ -66,7 +66,7 @@ export function updateItem(client: QueryClient, input: UpdateEventBody & Occurre
  */
 function replacementOf(
   client: QueryClient,
-  input: UpdateEventBody & OccurrenceTarget,
+  input: UpdateEventBody & { id: string },
 ): Occurrence | null {
   const single = input.rrule == null && input.scope === 'all';
   if (!single && input.scope !== 'this') return null;
@@ -83,16 +83,12 @@ function replacementOf(
 }
 
 /** 削除した回を消す */
-export function removeItem(client: QueryClient, target: OccurrenceTarget): void {
+export function removeItem(client: QueryClient, target: WriteTarget): void {
   updateCalendars(client, (items) => items.filter((item) => !matches(item, target)));
 }
 
 /** 完了・完了取り消しを反映する（完了したタスクは完了日へ移る） */
-export function setCompleted(
-  client: QueryClient,
-  target: OccurrenceTarget,
-  completed: boolean,
-): void {
+export function setCompleted(client: QueryClient, target: WriteTarget, completed: boolean): void {
   const completedAt = completed ? new Date().toISOString() : null;
   updateCalendars(client, (items, range, now) =>
     items.flatMap((item) =>
@@ -102,7 +98,7 @@ export function setCompleted(
 }
 
 /** 取得済みのカレンダーから対象の今の項目を探す（どの月のキャッシュに居るかは完了日や日時で決まる） */
-function findItem(client: QueryClient, target: OccurrenceTarget): CalendarItem | undefined {
+function findItem(client: QueryClient, target: WriteTarget): CalendarItem | undefined {
   for (const [, items] of client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })) {
     const found = items?.find((item) => matches(item, target));
     if (found) return found;
@@ -132,7 +128,7 @@ function rangeOf(queryKey: readonly unknown[]): DateRange | null {
 }
 
 /** 操作の対象に当たる項目か（この回だけ／これ以降／すべて） */
-function matches(item: CalendarItem, target: OccurrenceTarget): boolean {
+function matches(item: CalendarItem, target: WriteTarget): boolean {
   if (item.id !== target.id) return false;
   switch (target.scope) {
     case 'all':

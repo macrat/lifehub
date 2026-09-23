@@ -8,6 +8,7 @@ import {
   completeEventSchema,
   createEventSchema,
   type OccurrenceTarget,
+  recurrenceScopeSchema,
 } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../../lib/errors.ts';
 import { jsonResult, type ToolRegistrar, textResult } from '../../lib/mcp/types.ts';
@@ -32,18 +33,13 @@ const SCOPE_HELP =
  * 何を足せばよいかの文で返す。
  */
 const targetFields = {
-  scope: z.enum(['all', 'this', 'following']).default('all'),
+  scope: recurrenceScopeSchema.default('all'),
   occurrenceStart: instantSchema.optional(),
 };
+const targetSchema = z.object(targetFields);
 
 /** LLM の入力 → service が受け取る回の指定（判別共用体） */
-function toTarget({
-  scope,
-  occurrenceStart,
-}: {
-  scope: 'all' | 'this' | 'following';
-  occurrenceStart?: Date | undefined;
-}): OccurrenceTarget {
+function toTarget({ scope, occurrenceStart }: z.infer<typeof targetSchema>): OccurrenceTarget {
   if (scope === 'all') return { scope };
   if (!occurrenceStart) {
     throw new ValidationError(
@@ -97,7 +93,7 @@ export const registerEventTools: ToolRegistrar = (server, ctx) => {
     {
       title: '予定・タスクの削除',
       description: `予定またはタスクを削除する。${SCOPE_HELP}`,
-      inputSchema: z.object({ id: uuidSchema, ...targetFields }),
+      inputSchema: targetSchema.extend({ id: uuidSchema }),
     },
     async ({ id, ...target }) => {
       await service.deleteEvent(id, toTarget(target), ctx.userId);

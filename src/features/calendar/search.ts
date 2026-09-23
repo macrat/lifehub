@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isCompletedTask } from '../../../shared/calendar.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
-import { matchesKeyword } from '../../lib/search.ts';
+import { type Filters, type FiltersPatch, matchesKeyword } from '../../lib/search.ts';
 import type { CalendarItem } from './queries.ts';
 
 /**
@@ -70,24 +70,14 @@ export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | un
  * リスト表示の絞り込み。キーワードだけは URL ではなく画面の状態（打ちかけの値）から来る
  * （`src/lib/search.ts` の `useKeywordSearch`）。
  */
-export type ListFilters = Pick<
-  CalendarSearch,
-  'from' | 'to' | 'kind' | 'participant' | 'completed'
-> & {
-  q: string;
-};
+type ListFilterKey = 'from' | 'to' | 'kind' | 'participant' | 'completed';
+export type ListFilters = Pick<Filters<CalendarSearch>, ListFilterKey | 'q'>;
 
 /** 絞り込みのフォームが更新する項目だけ。undefined は既定に戻す。キーワードは AppBar の検索窓が持つのでここには無い */
-export type ListFiltersPatch = Pick<SearchPatch, Exclude<keyof ListFilters, 'q'>>;
-
-/** 検索パラメータと打ちかけのキーワード → リスト表示の絞り込み */
-export function listFiltersOf(search: CalendarSearch, q: string): ListFilters {
-  const { from, to, kind, participant, completed } = search;
-  return { from, to, kind, participant, completed, q };
-}
+export type ListFiltersPatch = Pick<FiltersPatch<CalendarSearch>, ListFilterKey>;
 
 /** 効いている絞り込みの数（絞り込みボタンのバッジ）。期間は両端で 1 つ、キーワードは検索窓に見えているので数えない */
-export function activeFilterCount(filters: ListFilters): number {
+export function countActiveFilters(filters: ListFilters): number {
   return [
     filters.kind !== undefined,
     filters.participant !== undefined,
