@@ -27,7 +27,9 @@ export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
 export async function getBalance(): Promise<Balance> {
-  return balanceOf(await repository.sumByDirection(), await twoUsers());
+  // 2 つの問い合わせは互いに依存しないので並べて投げる（Neon の HTTP ドライバでは往復 1 回分で済む）
+  const [totals, pair] = await Promise.all([repository.sumByDirection(), twoUsers()]);
+  return balanceOf(totals, pair);
 }
 
 /**

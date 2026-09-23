@@ -19,16 +19,20 @@ export async function enqueueRange(
 ): Promise<{ planned: number; published: number }> {
   const planned = await listNotifications(range);
   if (!publisher) return { planned: planned.length, published: 0 };
-  let published = 0;
-  for (const item of planned) {
-    try {
-      await publisher.publish(item);
-      published++;
-    } catch (error) {
-      console.error(`notifications: failed to publish ${item.key}`, error);
-    }
-  }
-  return { planned: planned.length, published };
+  // 1 件ずつ待つと件数分の往復が直列に積み重なり、予定を保存した応答（enqueueUpcoming）が遅れる。
+  // 並べて投げ、失敗した分だけ記録する（1 件の失敗で他を止めない。重複は deduplicationId で防がれる）
+  const published = await Promise.all(
+    planned.map(async (item) => {
+      try {
+        await publisher.publish(item);
+        return true;
+      } catch (error) {
+        console.error(`notifications: failed to publish ${item.key}`, error);
+        return false;
+      }
+    }),
+  );
+  return { planned: planned.length, published: published.filter(Boolean).length };
 }
 
 /** 日次 Cron: 翌日分（JST の翌日 0:00 〜 翌々日 0:00）を予約し、古い送信台帳を消す */
