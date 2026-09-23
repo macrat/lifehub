@@ -1,8 +1,12 @@
-import { and, asc, desc, eq, gte, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
+import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
-import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
+import {
+  type ExpenseFilter,
+  type ExpenseListQuery,
+  SHARED,
+} from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -14,45 +18,15 @@ type ExpenseValues = {
   spentOn: string;
 };
 
-/**
- * before より前（省けば全体）の、新しいほうから limit 件ほどの立替（古い順）。
- * 最も古い日の途中では切らず、その日の立替はすべて入れる（件数は limit より多くなりうる）。
- * 日で切る理由は `HistoryPage`（shared/types.ts）。
- * olderThan は、このページより前にまだ立替があるときの次の境目（このページの最も古い日）。
- */
-export async function findPage(
-  filter: ExpenseFilter,
-  before: string | undefined,
-  limit: number,
-): Promise<{ rows: ExpenseRow[]; olderThan: string | null }> {
-  const conditions = [
-    ...filterConditions(filter),
-    before !== undefined ? lt(expenses.spentOn, before) : undefined,
-  ];
-  // 新しいほうから数えて limit 件目の日。ここまでをこのページにする
-  const [boundary] = await db
-    .select({ spentOn: expenses.spentOn })
-    .from(expenses)
-    .where(and(...conditions))
-    .orderBy(desc(expenses.spentOn), desc(expenses.createdAt))
-    .offset(limit - 1)
-    .limit(1);
-  // このページの行と、それより前がまだあるかは互いに依らないので同時に聞く
-  const [rows, older] = await Promise.all([
-    db
-      .select()
-      .from(expenses)
-      .where(and(...conditions, boundary && gte(expenses.spentOn, boundary.spentOn)))
-      .orderBy(asc(expenses.spentOn), asc(expenses.createdAt), asc(expenses.id)),
-    boundary
-      ? db
-          .select({ id: expenses.id })
-          .from(expenses)
-          .where(and(...conditions, lt(expenses.spentOn, boundary.spentOn)))
-          .limit(1)
-      : [],
-  ]);
-  return { rows, olderThan: boundary && older.length > 0 ? boundary.spentOn : null };
+/** 履歴の 1 ページ（`findHistoryPage`）。日は使った日 */
+export function findPage({ before, ...filter }: ExpenseListQuery) {
+  return findHistoryPage({
+    table: expenses,
+    day: expenses.spentOn,
+    order: [expenses.createdAt, expenses.id],
+    conditions: filterConditions(filter),
+    before,
+  });
 }
 
 /** 絞り込みの条件。範囲は両端を含む。キーワードは内容の部分一致（大文字小文字を区別しない） */

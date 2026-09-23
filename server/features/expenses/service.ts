@@ -4,13 +4,12 @@ import {
   balanceOf,
   balancePair,
   type Expense,
-  type ExpensePage,
   type ExpenseTotal,
 } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
+import type { HistoryPage } from '../../../shared/types.ts';
 import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import { HISTORY_PAGE_SIZE } from '../../lib/history.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
@@ -19,11 +18,11 @@ export type { Balance, Expense } from '../../../shared/expenses.ts';
 
 /**
  * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
- * 古いほうは nextCursor を before に渡して続きを読む（`findPage`）。
+ * 古いほうは nextCursor を before に渡して続きを読む（`findHistoryPage`）。
  */
-export async function listExpenses({ before, ...filter }: ExpenseListQuery): Promise<ExpensePage> {
-  const { rows, olderThan } = await repository.findPage(filter, before, HISTORY_PAGE_SIZE);
-  return { items: rows.map(toExpense), nextCursor: olderThan };
+export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage<Expense>> {
+  const { items, nextCursor } = await repository.findPage(query);
+  return { items: items.map(toExpense), nextCursor };
 }
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */

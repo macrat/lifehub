@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { z } from 'zod';
 import { expenseFilterSchema } from '../../../shared/validation/expenses.ts';
-import { keywordSearchSchema, useKeywordSearch } from '../../lib/search.ts';
+import { keywordSearchSchema, toListFilter, useKeywordSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
@@ -35,8 +35,11 @@ export function useExpenseSearch(search: ExpenseSearch) {
   const navigate = useNavigate({ from: '/expenses' });
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
 
+  const filters = { ...search, q: keyword };
   return {
-    filters: { ...search, q: keyword },
+    filters,
+    /** サーバーに渡す絞り込み（取得のキーにもなる。`toListFilter`） */
+    listFilter: toListFilter(filters),
     activeFilters: countActiveFilters(search),
     setKeyword,
     /**

@@ -13,7 +13,6 @@ import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFil
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
 import { expenseSearchSchema, useExpenseSearch } from '../../features/expenses/search.ts';
-import { toListFilter } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -36,9 +35,9 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
+  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
   const balanceQuery = useBalance();
-  const history = useExpenseHistory(toListFilter(filters));
+  const history = useExpenseHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   // 開いている記録と、どちらの顔（閲覧・編集）で開いたか

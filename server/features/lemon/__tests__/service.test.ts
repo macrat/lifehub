@@ -140,15 +140,15 @@ describe('lemon service', () => {
       await log('2026-09-01T00:30:00', { careTypes: ['mist', 'water'] });
       await log('2026-09-02T23:30:00', { careTypes: ['fertilize'], note: '液肥を 100% 薄めず' });
       await log('2026-09-03T00:00:00', { careTypes: [], note: '新芽' });
-      const notes = async (query: CareLogListQuery) =>
+      const doneAts = async (query: CareLogListQuery) =>
         (await listLogs(query)).items.map((l) => l.doneAt);
-      expect(await notes({ kind: 'mist' })).toEqual([jst('2026-09-01T00:30:00').toISOString()]);
-      expect(await notes({ kind: 'water' })).toHaveLength(1);
-      expect(await notes({ since: on('2026-09-02'), until: on('2026-09-02') })).toEqual([
+      expect(await doneAts({ kind: 'mist' })).toEqual([jst('2026-09-01T00:30:00').toISOString()]);
+      expect(await doneAts({ kind: 'water' })).toHaveLength(1);
+      expect(await doneAts({ since: on('2026-09-02'), until: on('2026-09-02') })).toEqual([
         jst('2026-09-02T23:30:00').toISOString(),
       ]);
-      expect(await notes({ q: '100%' })).toHaveLength(1);
-      expect(await notes({ q: '新芽' })).toEqual([jst('2026-09-03T00:00:00').toISOString()]);
+      expect(await doneAts({ q: '100%' })).toHaveLength(1);
+      expect(await doneAts({ q: '新芽' })).toEqual([jst('2026-09-03T00:00:00').toISOString()]);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ExpensePage } from '../../shared/expenses.ts';
+import type { Expense } from '../../shared/expenses.ts';
+import type { HistoryPage } from '../../shared/types.ts';
 import { dateStringSchema } from '../../shared/validation/common.ts';
 import { app } from '../app.ts';
 import { addExpense } from '../features/expenses/service.ts';
@@ -57,7 +58,7 @@ describe('条件付き要求', () => {
     );
     const res = await get('/api/expenses', etag);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as ExpensePage).items).toHaveLength(1);
+    expect(((await res.json()) as HistoryPage<Expense>).items).toHaveLength(1);
   });
 
   it('/me は色の変更に追従する（セッションから返しても古くならない）', async () => {

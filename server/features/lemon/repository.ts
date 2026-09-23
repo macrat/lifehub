@@ -1,64 +1,35 @@
-import { and, arrayContains, asc, desc, eq, gte, lt, lte, type SQL, sql } from 'drizzle-orm';
-import { addDays, startOfDate, toDateString } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
-import type { CareLogFilter, CareType } from '../../../shared/validation/lemon.ts';
+import { arrayContains, desc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
+import { TIME_ZONE } from '../../../shared/constants.ts';
+import type {
+  CareLogFilter,
+  CareLogListQuery,
+  CareType,
+} from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
-/**
- * before（JST の暦日）より前（省けば全体）の、新しいほうから limit 件ほどの記録（古い順）。
- * 最も古い日（実施日時の JST の暦日）の途中では切らず、その日の記録はすべて入れる
- * （件数は limit より多くなりうる。日で切る理由は shared/types.ts の `HistoryPage`）。
- * olderThan は、このページより前にまだ記録があるときの次の境目（このページの最も古い日）。
- */
-export async function findPage(
-  filter: CareLogFilter,
-  before: DateString | undefined,
-  limit: number,
-): Promise<{ rows: LemonCareLogRow[]; olderThan: DateString | null }> {
-  const conditions = [
-    ...filterConditions(filter),
-    before !== undefined ? lt(lemonCareLogs.doneAt, startOfDate(before)) : undefined,
-  ];
-  // 新しいほうから数えて limit 件目の記録の日。その日の 0:00 からをこのページにする
-  const [boundaryRow] = await db
-    .select({ doneAt: lemonCareLogs.doneAt })
-    .from(lemonCareLogs)
-    .where(and(...conditions))
-    .orderBy(desc(lemonCareLogs.doneAt), desc(lemonCareLogs.createdAt))
-    .offset(limit - 1)
-    .limit(1);
-  const boundary = boundaryRow && toDateString(boundaryRow.doneAt);
-  const start = boundary && startOfDate(boundary);
-  // このページの行と、それより前がまだあるかは互いに依らないので同時に聞く
-  const [rows, older] = await Promise.all([
-    db
-      .select()
-      .from(lemonCareLogs)
-      .where(and(...conditions, start && gte(lemonCareLogs.doneAt, start)))
-      .orderBy(asc(lemonCareLogs.doneAt), asc(lemonCareLogs.createdAt), asc(lemonCareLogs.id)),
-    start
-      ? db
-          .select({ id: lemonCareLogs.id })
-          .from(lemonCareLogs)
-          .where(and(...conditions, lt(lemonCareLogs.doneAt, start)))
-          .limit(1)
-      : [],
-  ]);
-  return { rows, olderThan: boundary && older.length > 0 ? boundary : null };
+/** 実施日時の JST の暦日（date）。ページの区切りと日付の範囲の絞り込みに使う */
+const doneOn = sql`(${lemonCareLogs.doneAt} AT TIME ZONE ${TIME_ZONE})::date`;
+
+/** 記録の 1 ページ（`findHistoryPage`）。日は実施日時の JST の暦日 */
+export function findPage({ before, ...filter }: CareLogListQuery) {
+  return findHistoryPage({
+    table: lemonCareLogs,
+    day: doneOn,
+    order: [lemonCareLogs.doneAt, lemonCareLogs.createdAt, lemonCareLogs.id],
+    conditions: filterConditions(filter),
+    before,
+  });
 }
 
-/**
- * 絞り込みの条件。記録が持つのは瞬間（doneAt）なので、日付の範囲は JST の暦日の 0:00 で区切って比べる
- * （範囲は両端を含む）。キーワードはメモの部分一致
- */
+/** 絞り込みの条件。範囲は両端を含む。キーワードはメモの部分一致 */
 function filterConditions(f: CareLogFilter): (SQL | undefined)[] {
   return [
     containsKeyword(lemonCareLogs.note, f.q),
     f.kind !== undefined ? arrayContains(lemonCareLogs.careTypes, [f.kind]) : undefined,
-    f.since !== undefined ? gte(lemonCareLogs.doneAt, startOfDate(f.since)) : undefined,
-    f.until !== undefined ? lt(lemonCareLogs.doneAt, startOfDate(addDays(f.until, 1))) : undefined,
+    f.since !== undefined ? gte(doneOn, f.since) : undefined,
+    f.until !== undefined ? lte(doneOn, f.until) : undefined,
   ];
 }
 

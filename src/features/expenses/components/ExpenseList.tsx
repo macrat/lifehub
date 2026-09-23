@@ -2,9 +2,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
+import { HistoryList } from '../../../lib/ui/HistoryList.tsx';
 import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
-import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense, useExpenseHistory } from '../queries.ts';
@@ -21,7 +20,7 @@ type Props = {
   history: ReturnType<typeof useExpenseHistory>;
   /** 一覧の上に貼り付けておく物（絞り込みのフォームと残高） */
   header: ReactNode;
-  /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかはページが判断する */
+  /** 1 件も無いときの文言（`HistoryList`） */
   emptyMessage: string;
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (expense: Expense, editing: boolean) => void;
@@ -29,7 +28,7 @@ type Props = {
 
 /**
  * 立替の履歴（上が古く下が新しい）。最初は一番下（最新）を出し、上へスクロールすると古いほうのページを
- * 読み足す（`useExpenseHistory`、`InfiniteScroll`）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
+ * 読み足す（`useExpenseHistory`、`HistoryList`）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、中身だけが違う:
  * 印は誰から誰へ渡ったかの色の点（`expenseMarkBackground`）、主列は金額、本文は内容と名前。
  * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
@@ -38,53 +37,40 @@ export function ExpenseList({ history, header, emptyMessage, onSelect }: Props) 
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   return (
-    <InfiniteScroll
-      header={header}
-      onReachStart={history.loadEarlier}
-      resetKey={history.resetKey}
-      ready={history.ready}
-    >
-      <QueryView query={history.query} skeleton={<ListSkeleton />}>
-        {(expenses) =>
-          expenses.length === 0 ? (
-            <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
-              {emptyMessage}
-            </Typography>
-          ) : (
-            [...Map.groupBy(expenses, (e) => e.spentOn)].map(([date, sameDay]) => (
-              <Box key={date} sx={{ pb: 1 }}>
-                <DateHeading date={date} />
-                {sameDay.map((expense) => (
-                  <MarkedRow
-                    key={expense.id}
-                    onSelect={(editing) => onSelect(expense, editing)}
-                    mark={
-                      <Box
-                        sx={MARK_DOT_SX}
-                        style={{ background: expenseMarkBackground(expense, colorFor) }}
-                      />
-                    }
-                    leadWidth={AMOUNT_WIDTH}
-                    lead={
-                      <Typography variant="body2" component="div" sx={{ textAlign: 'right' }}>
-                        {formatYen(expense.amount)}
-                      </Typography>
-                    }
-                  >
-                    <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
-                    <Typography variant="caption" color="text.secondary" component="div" noWrap>
-                      {expense.toUserId === null
-                        ? label(expense.fromUserId)
-                        : `${label(expense.toUserId)} ← ${label(expense.fromUserId)}`}
-                    </Typography>
-                  </MarkedRow>
-                ))}
-              </Box>
-            ))
-          )
-        }
-      </QueryView>
-    </InfiniteScroll>
+    <HistoryList history={history} header={header} emptyMessage={emptyMessage}>
+      {(expenses) =>
+        [...Map.groupBy(expenses, (e) => e.spentOn)].map(([date, sameDay]) => (
+          <Box key={date} sx={{ pb: 1 }}>
+            <DateHeading date={date} />
+            {sameDay.map((expense) => (
+              <MarkedRow
+                key={expense.id}
+                onSelect={(editing) => onSelect(expense, editing)}
+                mark={
+                  <Box
+                    sx={MARK_DOT_SX}
+                    style={{ background: expenseMarkBackground(expense, colorFor) }}
+                  />
+                }
+                leadWidth={AMOUNT_WIDTH}
+                lead={
+                  <Typography variant="body2" component="div" sx={{ textAlign: 'right' }}>
+                    {formatYen(expense.amount)}
+                  </Typography>
+                }
+              >
+                <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
+                <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                  {expense.toUserId === null
+                    ? label(expense.fromUserId)
+                    : `${label(expense.toUserId)} ← ${label(expense.fromUserId)}`}
+                </Typography>
+              </MarkedRow>
+            ))}
+          </Box>
+        ))
+      }
+    </HistoryList>
   );
 }
 

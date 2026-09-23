@@ -20,7 +20,6 @@ import {
   useCareLogHistory,
 } from '../../features/lemon/queries.ts';
 import { lemonSearchSchema, useLemonSearch } from '../../features/lemon/search.ts';
-import { toListFilter } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -43,9 +42,9 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, activeFilters, setKeyword, setFilters } = useLemonSearch(search);
+  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useLemonSearch(search);
   const statusQuery = useQuery(lemonStatusQueryOptions);
-  const history = useCareLogHistory(toListFilter(filters));
+  const history = useCareLogHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [adding, setAdding] = useState<CareType[] | null>(null);
   // 開いている記録と、どちらの顔（閲覧・編集）で開いたか

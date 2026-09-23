@@ -62,79 +62,69 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
   expect(april?.y ?? 0).toBeLessThan(june?.y ?? 0);
 });
 
-test('立替の履歴は最新を一番下に出し、残高は上に貼り付いたまま', async ({ page }) => {
-  const me = await myId(page);
-  const stamp = Date.now();
-  const oldest = `E2E 最古 ${stamp}`;
-  const newest = `E2E 最新 ${stamp}`;
-  const ids: string[] = [];
-  try {
-    // 古い日から新しい日まで 1 日 1 件。1 ページ（50 件）より多くして、最初は読んでいない日を残す
-    for (let i = 0; i < 60; i++) {
-      const res = await page.request.post('/api/expenses', {
-        data: {
-          fromUserId: me,
-          toUserId: null,
-          amount: 100,
-          description: i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`,
-          spentOn: new Date(Date.UTC(2099, 0, 1 + i)).toISOString().slice(0, 10),
-        },
-      });
-      expect(res.ok()).toBe(true);
-      ids.push((await res.json()).id);
+/**
+ * 立替とレモンの履歴。どちらもサーバーが 1 ページ（50 件）ずつ返すので、それより多く置いて、
+ * 最初は読んでいない古い日を残す。日付は他のテストが使わない 2099 年（レモンの未来の記録はタイルを動かさない）
+ */
+const histories = [
+  {
+    name: '立替の履歴は最新を一番下に出し、残高は上に貼り付いたまま',
+    path: '/expenses',
+    api: '/api/expenses',
+    body: (me: string, i: number, text: string) => ({
+      fromUserId: me,
+      toUserId: null,
+      amount: 100,
+      description: text,
+      spentOn: new Date(Date.UTC(2099, 0, 1 + i)).toISOString().slice(0, 10),
+    }),
+    sticky: (page: Page) => page.getByText('残高', { exact: true }),
+  },
+  {
+    name: 'レモンの記録は最新を一番下に出し、状況のタイルは上に貼り付いたまま',
+    path: '/lemon',
+    api: '/api/lemon/logs',
+    body: (_me: string, i: number, text: string) => ({
+      careTypes: ['water'],
+      doneAt: new Date(Date.UTC(2099, 0, 1 + i, 3)).toISOString(),
+      note: text,
+    }),
+    sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
+  },
+];
+
+for (const history of histories) {
+  test(history.name, async ({ page }) => {
+    const me = await myId(page);
+    const stamp = Date.now();
+    const oldest = `E2E 最古 ${stamp}`;
+    const newest = `E2E 最新 ${stamp}`;
+    const ids: string[] = [];
+    try {
+      for (let i = 0; i < 60; i++) {
+        const text = i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`;
+        const res = await page.request.post(history.api, { data: history.body(me, i, text) });
+        expect(res.ok()).toBe(true);
+        ids.push((await res.json()).id);
+      }
+
+      await page.goto(history.path);
+      const sticky = history.sticky(page);
+      await expect(page.getByText(newest)).toBeInViewport();
+      await expect(sticky).toBeInViewport();
+      await expect(page.getByText(oldest)).toHaveCount(0);
+
+      // 上へ戻ると古いほうのページを読む。上に貼り付けた物は隠れない
+      await expect(async () => {
+        await page.mouse.wheel(0, -3000);
+        await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
+      }).toPass();
+      await expect(sticky).toBeInViewport();
+      const oldestBox = await page.getByText(oldest).boundingBox();
+      const stickyBox = await sticky.boundingBox();
+      expect(stickyBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
+    } finally {
+      for (const id of ids) await page.request.delete(`${history.api}/${id}`);
     }
-
-    await page.goto('/expenses');
-    const balance = page.getByText('残高', { exact: true });
-    await expect(page.getByText(newest)).toBeInViewport();
-    await expect(balance).toBeInViewport();
-    await expect(page.getByText(oldest)).toHaveCount(0);
-
-    // 上へ戻ると古いほうのページを読む。残高は AppBar の下に貼り付いたまま
-    await expect(async () => {
-      await page.mouse.wheel(0, -3000);
-      await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
-    }).toPass();
-    await expect(balance).toBeInViewport();
-    const oldestBox = await page.getByText(oldest).boundingBox();
-    const balanceBox = await balance.boundingBox();
-    expect(balanceBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
-  } finally {
-    for (const id of ids) await page.request.delete(`/api/expenses/${id}`);
-  }
-});
-
-test('レモンの記録は最新を一番下に出し、状況のタイルは上に貼り付いたまま', async ({ page }) => {
-  const stamp = Date.now();
-  const oldest = `E2E 最古 ${stamp}`;
-  const newest = `E2E 最新 ${stamp}`;
-  const ids: string[] = [];
-  try {
-    // 未来の記録はタイルを動かさないので、他のテストに響かない。1 ページ（50 件）より多くする
-    for (let i = 0; i < 60; i++) {
-      const res = await page.request.post('/api/lemon/logs', {
-        data: {
-          careTypes: ['water'],
-          doneAt: new Date(Date.UTC(2099, 0, 1 + i, 3)).toISOString(),
-          note: i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`,
-        },
-      });
-      expect(res.ok()).toBe(true);
-      ids.push((await res.json()).id);
-    }
-
-    await page.goto('/lemon');
-    const tile = page.getByText('水やり', { exact: true }).first();
-    await expect(page.getByText(newest)).toBeInViewport();
-    await expect(tile).toBeInViewport();
-    await expect(page.getByText(oldest)).toHaveCount(0);
-
-    await expect(async () => {
-      await page.mouse.wheel(0, -3000);
-      await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
-    }).toPass();
-    await expect(tile).toBeInViewport();
-  } finally {
-    for (const id of ids) await page.request.delete(`/api/lemon/logs/${id}`);
-  }
-});
+  });
+}

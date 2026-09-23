@@ -14,8 +14,7 @@ import { api, ensureOk } from '../../lib/api.ts';
 import {
   applyToHistories,
   findInHistories,
-  historyQueryOptions,
-  isFiltered,
+  type HistorySource,
   useHistory,
 } from '../../lib/history.ts';
 import {
@@ -31,35 +30,25 @@ export type ExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
-const LIST_QUERY_KEY = [...EXPENSES_QUERY_KEY, 'list'] as const;
 
 /**
- * 履歴（絞り込みごと。`src/lib/history.ts`）。絞り込みはサーバーが掛ける
+ * 履歴（`src/lib/history.ts`）。絞り込みはサーバーが掛ける
  * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
  */
-function expensesQueryOptions(filter: ExpenseFilter) {
-  return historyQueryOptions({
-    queryKey: [...LIST_QUERY_KEY, filter],
-    filtered: isFiltered(filter),
-    queryFn: async ({ pageParam }) => {
-      const query = {
-        ...filter,
-        min: filter.min?.toString(),
-        max: filter.max?.toString(),
-        before: pageParam,
-      };
-      return (await ensureOk(await api.expenses.$get({ query }))).json();
-    },
-  });
-}
+const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
+  key: [...EXPENSES_QUERY_KEY, 'list'],
+  fetch: async (filter, before, signal) => {
+    const query = { ...filter, min: filter.min?.toString(), max: filter.max?.toString(), before };
+    return (await ensureOk(await api.expenses.$get({ query }, { init: { signal } }))).json();
+  },
+  dayOf: (expense) => expense.spentOn,
+  sort: sortExpenses,
+};
 
 /** 立替画面の履歴（`useHistory`） */
 export function useExpenseHistory(filter: ExpenseFilter) {
-  return useHistory(expensesQueryOptions(filter));
+  return useHistory(expenseHistory, filter);
 }
-
-/** 絞り込みの無い履歴。追加・編集はこれにだけ先回りして書き込む（`applyChange`） */
-const UNFILTERED: ExpenseFilter = {};
 
 /** 残高の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `balanceOf` が読む形） */
 const totalsQueryOptions = queryOptions({
@@ -108,7 +97,7 @@ export function useUpdateExpense() {
     }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, { id, ...input }) => {
-      const prev = findInHistories<Expense>(client, LIST_QUERY_KEY, id);
+      const prev = findInHistories(client, expenseHistory, id);
       if (prev) applyChange(client, id, prev, { ...prev, ...input });
     },
   });
@@ -122,7 +111,7 @@ export function useDeleteExpense() {
     }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, id) => {
-      const prev = findInHistories<Expense>(client, LIST_QUERY_KEY, id);
+      const prev = findInHistories(client, expenseHistory, id);
       if (prev) applyChange(client, id, prev, null);
     },
   });
@@ -144,12 +133,7 @@ function applyChange(
     const withoutPrev = prev ? addTotal(totals, prev, -1) : totals;
     return next ? addTotal(withoutPrev, next, 1) : withoutPrev;
   });
-  applyToHistories(
-    client,
-    { queryKey: LIST_QUERY_KEY, unfilteredKey: expensesQueryOptions(UNFILTERED).queryKey },
-    id,
-    next && { item: next, day: next.spentOn, sort: sortExpenses },
-  );
+  applyToHistories(client, expenseHistory, id, next);
 }
 
 function addTotal(totals: ExpenseTotal[], e: Expense, sign: 1 | -1): ExpenseTotal[] {
