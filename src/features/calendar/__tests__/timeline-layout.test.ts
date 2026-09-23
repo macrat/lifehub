@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { layoutTimed } from '../components/timeline-layout.ts';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
+import type { DateString } from '../../../../shared/types.ts';
+import { layoutTimed, partitionTimeline } from '../components/timeline-layout.ts';
 
 const block = (key: string, startMin: number, endMin: number) => ({
   key,
@@ -35,5 +37,73 @@ describe('layoutTimed', () => {
     const placed = layoutTimed([block('a', 540, 545), block('b', 550, 560)]);
     expect(placed.every((p) => p.cols === 2)).toBe(true);
     expect(placed.find((p) => p.key === 'a')?.endMin).toBe(545);
+  });
+});
+
+describe('partitionTimeline', () => {
+  const DAY = '2031-06-05' as DateString;
+  const BASE = {
+    completedAt: null,
+    location: null,
+    note: null,
+    participantIds: [],
+    rrule: null,
+    remindStartMinutes: null,
+    remindEndMinutes: null,
+    occurrenceStart: null,
+    isRecurring: false,
+    isModified: false,
+    placementDate: DAY,
+  };
+  const event = (id: string, startsAt: string, endsAt: string, extra = {}): CalendarItem => ({
+    ...BASE,
+    id,
+    kind: 'event',
+    title: id,
+    allDay: false,
+    startsAt,
+    endsAt,
+    dayIndex: 1,
+    dayCount: 1,
+    ...extra,
+  });
+  const task = (id: string, endsAt: string | null, allDay = false): CalendarItem => ({
+    ...BASE,
+    id,
+    kind: 'task',
+    title: id,
+    allDay,
+    startsAt: null,
+    endsAt,
+    isOverdue: false,
+  });
+
+  const items = [
+    event('meeting', '2031-06-05T09:00:00+09:00', '2031-06-05T10:30:00+09:00'),
+    // 24:00 に終わる予定は翌日 0:00 で届く
+    event('late', '2031-06-05T23:00:00+09:00', '2031-06-06T00:00:00+09:00'),
+    event('holiday', '2031-06-05T00:00:00+09:00', '2031-06-06T00:00:00+09:00', { allDay: true }),
+    event('trip', '2031-06-04T09:00:00+09:00', '2031-06-05T18:00:00+09:00', {
+      dayIndex: 2,
+      dayCount: 2,
+    }),
+    task('due', '2031-06-05T15:00:00+09:00'),
+    task('someday', null),
+    task('dated', '2031-06-06T00:00:00+09:00', true),
+  ];
+  const { allDayByDate, timedByDate } = partitionTimeline([DAY], new Map([[DAY, items]]));
+
+  it('時刻のある予定・タスクは時間軸、それ以外は終日欄に分ける', () => {
+    expect(allDayByDate.get(DAY)?.map((item) => item.id)).toEqual([
+      'holiday',
+      'trip',
+      'someday',
+      'dated',
+    ]);
+    expect(timedByDate.get(DAY)?.map((p) => [p.item.id, p.startMin, p.endMin])).toEqual([
+      ['meeting', 9 * 60, 10 * 60 + 30],
+      ['due', 15 * 60, 15 * 60 + 30],
+      ['late', 23 * 60, 24 * 60],
+    ]);
   });
 });

@@ -114,3 +114,26 @@ export function freeLane(placed: Placed[], col: number, span: number, maxLanes: 
   }
   return maxLanes - 1;
 }
+
+/**
+ * 行の高さに入りきらないレーンを「+n」に畳む（月グリッドの 1 週）。
+ * 入りきるなら全部出す。入りきらなければ最後のレーンを「+n」の行に譲り、そこから下の項目を列ごとに数える
+ * （複数日の帯は掛かる列すべてに数える）。
+ * - visible: 出す項目
+ * - foldedLane: 「+n」を置くレーン（畳む物が無ければ出すレーンの数と同じ）
+ * - foldedPerCol: 列ごとの畳んだ数
+ */
+export function foldLanes(
+  placed: Placed[],
+  maxLanes: number,
+  columns: number,
+): { visible: Placed[]; foldedLane: number; foldedPerCol: number[] } {
+  const overflow = placed.some((p) => p.lane >= maxLanes);
+  const foldedLane = overflow ? maxLanes - 1 : maxLanes;
+  const foldedPerCol = new Array<number>(columns).fill(0);
+  for (const p of placed) {
+    if (p.lane < foldedLane) continue;
+    for (let c = p.col; c < p.col + p.span; c++) foldedPerCol[c] = (foldedPerCol[c] ?? 0) + 1;
+  }
+  return { visible: placed.filter((p) => p.lane < foldedLane), foldedLane, foldedPerCol };
+}

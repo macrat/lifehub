@@ -17,7 +17,7 @@ import {
   type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
-import { MIN_BLOCK_MINUTES } from './components/timeline-layout.ts';
+import { MIN_BLOCK_MINUTES, timedSlot } from './components/timeline-layout.ts';
 import type { Drag } from './use-range-drag.ts';
 
 /**
@@ -73,18 +73,6 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
     };
   const slot = timedSlot(item);
   return slot && { allDay: false, date: item.placementDate, ...slot };
-}
-
-/**
- * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
- * 24:00 に終わる予定は翌日 0:00 で届くので 24 時に読み替える（`TimelineView` の置き場所もこれで決まる）。
- */
-export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
-  if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
-  return {
-    startMin: minutesOfDay(item.startsAt),
-    endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
-  };
 }
 
 /**

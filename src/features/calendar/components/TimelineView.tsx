@@ -2,21 +2,20 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
-import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
+import { WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
-import { itemKey, layoutLanes } from './lane-layout.ts';
+import { layoutLanes } from './lane-layout.ts';
 import { TimeGrid } from './TimeGrid.tsx';
-import { layoutTimed, MIN_BLOCK_MINUTES, type TimedPlaced } from './timeline-layout.ts';
+import { partitionTimeline } from './timeline-layout.ts';
 
 type Props = {
   /** 表示する日（週なら 7 日、日なら 1 日） */
@@ -71,19 +70,7 @@ export function TimelineView({
   // 終日欄と時間軸への振り分けと配置は、日付と項目だけで決まる。つまんで高さが変わるたびに
   // 数え直さない（指を動かしている間は毎フレーム描き直される所なので）
   const { timedByDate, lanes } = useMemo(() => {
-    const allDayByDate = new Map<DateString, CalendarItem[]>();
-    const timedByDate = new Map<DateString, TimedPlaced<CalendarItem>[]>();
-    for (const day of days) {
-      const allDay: CalendarItem[] = [];
-      const timed: { key: string; item: CalendarItem; startMin: number; endMin: number }[] = [];
-      for (const item of itemsByDate.get(day) ?? []) {
-        const slot = timeSlot(item);
-        if (slot) timed.push({ key: itemKey(item), item, ...slot });
-        else allDay.push(item);
-      }
-      allDayByDate.set(day, allDay);
-      timedByDate.set(day, layoutTimed(timed));
-    }
+    const { allDayByDate, timedByDate } = partitionTimeline(days, itemsByDate);
     return { timedByDate, lanes: layoutLanes(days, allDayByDate) };
   }, [days, itemsByDate]);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
@@ -206,16 +193,4 @@ export function TimelineView({
       />
     </Box>
   );
-}
-
-/**
- * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（日付だけ、または別の日の時刻の）タスクは
- * null（終日欄へ）。予定の時間帯は枠と同じ規則（`timedSlot`）で決め、置いた所をそのままつまめるようにする。
- */
-function timeSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
-  if (item.kind === 'event') return timedSlot(item);
-  const time = taskTimeOnPlacementDate(item);
-  if (!time?.at) return null;
-  const startMin = minutesOfDay(time.at);
-  return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
 }
