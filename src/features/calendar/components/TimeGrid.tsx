@@ -7,13 +7,15 @@ import { today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatTime, minutesOfDay } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { useUserColor } from '../../users/use-user-color.ts';
+import { useFillText } from '../../users/use-user-color.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
-import { type CalendarItem, colorUserOf } from '../queries.ts';
+import type { CalendarItem } from '../queries.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
+import { useParticipantColors } from '../use-participant-colors.ts';
 import { usePinch } from '../use-pinch.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
@@ -21,6 +23,7 @@ import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './markers.ts';
+import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
 import { type TimedPlaced, timedSpan } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
@@ -217,6 +220,8 @@ function NowLine({ minutes }: { minutes: number }) {
 
 /**
  * 時間軸に置く 1 項目。タップで詳細、長押しでつまんで編集モード（`grab`）。
+ * 予定は帯と同じく参加者の色で面を塗り分ける（`wedgeBackground`）。タスクは同じ塗り分けを薄い色にし、
+ * グリッド・一覧と同じチェック印を添える（文字が載る面が淡いので、印の色で誰のタスクかが分かる）。
  * 編集中は枠（`DraftBlock`）で出すので隠すが、DOM からは消さない: 長押しでつまんだ要素が
  * 消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
@@ -236,7 +241,8 @@ function TimedBlock({
   const { item, startMin, endMin, col, cols } = placed;
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
-  const colors = useUserColor()(colorUserOf(item.participantIds));
+  const colors = useParticipantColors(item.participantIds);
+  const fillText = useFillText();
   const width = 100 / cols;
   return (
     <ButtonBase
@@ -261,9 +267,8 @@ function TimedBlock({
         borderRadius: '4px',
         px: 0.5,
         py: '2px',
-        bgcolor: isTask ? colors.tint : colors.fill,
-        color: isTask ? 'text.primary' : colors.text,
-        borderLeft: isTask ? `3px solid ${colors.fill}` : 'none',
+        background: wedgeBackground(colors.map((c) => (isTask ? c.tint : c.fill))),
+        color: isTask ? 'text.primary' : fillText,
         ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので
@@ -277,7 +282,13 @@ function TimedBlock({
         component="div"
         sx={{ fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.25, overflowWrap: 'anywhere' }}
       >
-        {isTask && (completed ? '☑ ' : '☐ ')}
+        {isTask && (
+          <ParticipantsCheckIcon
+            participantIds={item.participantIds}
+            checked={completed}
+            sx={{ fontSize: '1.2em', verticalAlign: '-0.25em', mr: '2px' }}
+          />
+        )}
         {item.title}
       </Typography>
       {item.kind === 'event' && (
