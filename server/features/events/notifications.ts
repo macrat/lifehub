@@ -38,7 +38,7 @@ export const notificationRefSchema = z.object({
 export type NotificationRef = z.infer<typeof notificationRefSchema>;
 
 export type PlannedNotification = {
-  /** 冪等性のための一意キー（QStash の deduplicationId と送信台帳の主キー）。中身は読まない */
+  /** 冪等性のための一意キー（QStash の deduplicationId の元と送信台帳の主キー）。中身は読まない */
   key: string;
   at: Date;
   ref: NotificationRef;
