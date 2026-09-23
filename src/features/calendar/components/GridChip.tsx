@@ -25,9 +25,8 @@ type Props = {
 /**
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
- * 帯の色は参加者が 1 人ならそのユーザーの色、2 人以上なら共有の無彩色の面を参加者の色の縁で囲む
- * （`useParticipantsFill`）。週をまたいで続く側には縁を付けない（そこで終わっているように見えるため）。
- * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`ParticipantsMark`・`ParticipantsCheckIcon`）。
+ * 帯・点・チェック印は、一覧（`ItemCard`）と同じく参加者の色で塗り分ける
+ * （`useParticipantsFill`・`ParticipantsMark`・`ParticipantsCheckIcon`）。
  * 完了したタスクはリスト表示と同じく、印を薄く・タイトルに取り消し線を引く。
  * タイトルを優先し、時刻は広い画面でだけ添える。
  * 単押しは閲覧（詳細を開く）、長押しは編集（`grab`。つまんでそのまま日時を直す）で、アプリ全体の約束と同じ。
@@ -39,8 +38,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
-  const fill = useParticipantsFill(item.participantIds, { start: !roundStart, end: !roundEnd });
-  const rim = isBar ? fill.rim : { start: 0, end: 0 };
+  const fill = useParticipantsFill(item.participantIds);
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const radius = 4;
@@ -72,8 +70,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         height: '100%',
         ml: isBar && !roundStart ? 0 : '2px',
         mr: isBar && !roundEnd ? 0 : '2px',
-        pl: `${3 + rim.start}px`,
-        pr: `${3 + rim.end}px`,
+        px: '3px',
         display: 'flex',
         alignItems: 'center',
         gap: '3px',
@@ -82,7 +79,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
         borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
-        ...(isBar && fill.sx),
+        background: isBar ? fill.background : 'transparent',
         color: isBar
           ? fill.text
           : overdue

@@ -258,11 +258,11 @@ function TimedBlock({
         textAlign: 'left',
         overflow: 'hidden',
         borderRadius: '4px',
-        px: `${4 + (isTask ? 0 : fill.rim.start)}px`,
+        px: 0.5,
         py: '2px',
         ...(isTask
           ? { bgcolor: colors.tint, color: 'text.primary', borderLeft: `3px solid ${colors.fill}` }
-          : { ...fill.sx, color: fill.text }),
+          : { background: fill.background, color: fill.text }),
         ...(completed && { ...COMPLETED_SX, ...COMPLETED_TITLE_SX }),
         '&:hover': { filter: 'brightness(0.95)' },
         // 時刻の行は入るときだけ出す（切れた行を見せない）。入るかどうかは描かれた高さそのもので

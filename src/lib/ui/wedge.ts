@@ -18,15 +18,33 @@ export function pointAt(angle: number, distance: number): { x: number; y: number
 }
 
 /**
- * 枠を塗り分ける CSS の conic-gradient（帯・ブロックの縁）。3 つは Y の字、4 つは十字の境目で、
- * 色の並びは `WedgeFill` と同じ（1 つ目が左下）。2 つだけは境目を 45° 傾け、左下と右上に分ける。
- * WHY 2 つを斜めに: 帯は横に長いので、`WedgeFill` と同じ縦の境目だと上下の辺がちょうど半分で切れるだけで、
- * 左右の 2 色に見えるだけになる。斜めにすると切れ目が縁を斜めに横切り、塗り分けだと分かる。
- * conic-gradient の角度は真上が 0° で時計回り。`wedgeAngles` の最初の境目は真下（180°）に来る。
+ * 面を塗り分ける CSS の背景（帯・ブロック）。色の並びは `WedgeFill` と同じで、1 つ目が左（左下）に来る。
+ * 2 つは左上と右上に分ける 45° の斜め（/）、4 つは十字。どちらも角度で決まるので conic-gradient で描く。
+ * 3 つは Y の字で、上の 2 本の境目は中心から左上と右上の角へ引く（縦横比が変わっても角に届く）。
+ * WHY 3 つを角へ: `WedgeFill` と同じ 120° ずつだと、横長の帯では上の人の面が中央の小さな三角になる。
+ * 角へ引けば上の面はどの縦横比でも全体の 1/4 になり、T の字に近い開き方で上の人の色も見える。
+ * 角へ引く斜めの線は、上半分を左右に分けた箱それぞれの対角線なので、
+ * 箱の角に向かう linear-gradient（`to top right` の 50% の線は箱の左上と右下の角を通る）で描ける。
+ * WHY 2 つを斜めに: 帯は横に長く、縦の境目だと左右に並んだ 2 つの予定のように見える。
  */
-export function wedgeGradient(colors: string[]): string {
-  const from = colors.length === 2 ? 135 : 180;
-  const step = 360 / colors.length;
-  const stops = colors.map((c, i) => `${c} ${i * step}deg ${(i + 1) * step}deg`);
-  return `conic-gradient(from ${from}deg, ${stops.join(', ')})`;
+export function wedgeBackground(colors: string[]): string {
+  const [a, b, c] = colors;
+  switch (colors.length) {
+    case 1:
+      return String(a);
+    case 2:
+      return `conic-gradient(from 225deg, ${a} 0 180deg, ${b} 180deg 360deg)`;
+    case 3:
+      return [
+        `linear-gradient(to top right, transparent 50%, ${b} 50%) left top / 50% 50% no-repeat`,
+        `linear-gradient(to top left, transparent 50%, ${b} 50%) right top / 50% 50% no-repeat`,
+        `linear-gradient(to right, ${a} 50%, ${c} 50%)`,
+      ].join(', ');
+    default: {
+      // 4 つ以上は 1 つ目が左下から時計回り（4 つなら十字）
+      const step = 360 / colors.length;
+      const stops = colors.map((color, i) => `${color} ${i * step}deg ${(i + 1) * step}deg`);
+      return `conic-gradient(from 180deg, ${stops.join(', ')})`;
+    }
+  }
 }
