@@ -1,11 +1,9 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime } from '../../../lib/date.ts';
-import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
+import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import {
   COMPLETED_ROW_SX,
   COMPLETED_TITLE_SX,
@@ -28,15 +26,14 @@ type Props = {
 };
 
 /**
- * 一覧（リスト表示）の 1 行。Google カレンダー／ToDo の行に倣い、枠線を持たない。
- * 左に時刻の列（折り返さない）、右にタイトルとメタ情報。予定は色の点、タスクはチェックボックスで見分け、色は参加者（1 人のとき）のユーザーの色。
- * 期限超過は赤、完了は薄く取り消し線。
- * 単押しは閲覧、長押しは編集（`useRecordPress`。グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
+ * 一覧（リスト表示）の 1 行（`MarkedRow`。立替の履歴と同じ骨組み）。
+ * 印は予定が色の点、タスクはチェックボックスで、色は参加者（1 人のとき）のユーザーの色。
+ * 主列は時刻（折り返さない）、本文はタイトルとメタ情報。期限超過は赤、完了は薄く取り消し線。
+ * 単押しは閲覧、長押しは編集（グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
  */
 export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const press = useRecordPress((editing) => onSelect(item, editing));
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
@@ -47,50 +44,21 @@ export function ItemCard({ item, onSelect }: Props) {
     .join(' · ');
 
   return (
-    <Stack
-      direction="row"
+    <MarkedRow
+      onSelect={(editing) => onSelect(item, editing)}
       sx={{
-        alignItems: 'stretch',
         ...(completed && COMPLETED_ROW_SX),
         // 表示を切り替えたとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
-    >
-      <Box
-        sx={{
-          width: 44,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {item.kind === 'task' ? (
+      mark={
+        item.kind === 'task' ? (
           <TaskCheckbox item={item} color={colors.fill} />
         ) : (
-          <Box
-            sx={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              bgcolor: colors.fill,
-            }}
-          />
-        )}
-      </Box>
-      <ButtonBase
-        {...press}
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          justifyContent: 'flex-start',
-          textAlign: 'left',
-          py: 0.75,
-          pr: 2,
-          gap: 1.5,
-          borderRadius: 1,
-        }}
-      >
+          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.fill }} />
+        )
+      }
+      lead={
         <Box sx={{ width: 64, flexShrink: 0 }}>
           {time.caption && (
             <Typography
@@ -121,23 +89,22 @@ export function ItemCard({ item, onSelect }: Props) {
             </Typography>
           )}
         </Box>
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography sx={{ overflowWrap: 'anywhere', ...(completed && COMPLETED_TITLE_SX) }}>
-            {item.title}
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            component="div"
-            noWrap
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-          >
-            {meta}
-            {item.isRecurring && <RepeatIcon sx={{ fontSize: 14 }} titleAccess="繰り返し" />}
-          </Typography>
-        </Box>
-      </ButtonBase>
-    </Stack>
+      }
+    >
+      <Typography sx={{ overflowWrap: 'anywhere', ...(completed && COMPLETED_TITLE_SX) }}>
+        {item.title}
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        component="div"
+        noWrap
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+      >
+        {meta}
+        {item.isRecurring && <RepeatIcon sx={{ fontSize: 14 }} titleAccess="繰り返し" />}
+      </Typography>
+    </MarkedRow>
   );
 }
 

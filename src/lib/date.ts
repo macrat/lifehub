@@ -206,7 +206,8 @@ export function weekdayColor(index: number): string {
   return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
 }
 
-export function isToday(date: DateString): boolean {
+/** 日付（YYYY-MM-DD）が今日か。比較するだけなので DateString の印は要らない */
+export function isToday(date: string): boolean {
   return date === today();
 }
 
