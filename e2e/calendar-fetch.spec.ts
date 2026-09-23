@@ -20,9 +20,9 @@ test('表示を切り替えても取り直さず、画面に入ったときだ�
   await expect(page.getByText('2030年05月')).toBeVisible();
   await quiet(page, fetches);
 
-  // 表示の切り替えでは 1 件も取りに行かない
+  // 表示の切り替えでは 1 件も取りに行かない（リストは端へ近づくと前後の月を読み足す無限スクロールなので数えない）
   const afterEnter = fetches();
-  for (const label of ['週', '日', 'リスト', '月'] as const) {
+  for (const label of ['週', '日', '月'] as const) {
     await changeView(page, label);
   }
   await quiet(page, fetches);

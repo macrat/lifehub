@@ -1,6 +1,7 @@
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
+import { usePatchSearch } from '../../lib/search.ts';
 import { traverseTo } from '../../lib/ui/dialog-history.ts';
 import type { AddKind } from './kinds.ts';
 
@@ -47,7 +48,7 @@ export function useAddShortcut<K extends AddKind>(
   kind: K | undefined,
   open: (kind: K) => void,
 ): () => boolean {
-  const navigate = useNavigate();
+  const patchSearch = usePatchSearch();
   const router = useRouter();
   const latest = useRef(open);
   latest.current = open;
@@ -65,14 +66,8 @@ export function useAddShortcut<K extends AddKind>(
     const { state } = router.history.location;
     returnIndex.current = (state as ReturnState).returnOnClose ? state.__TSR_index - 1 : null;
     latest.current(kind);
-    navigate({
-      to: '.',
-      search: (prev: Record<string, unknown>) => ({ ...prev, add: undefined }),
-      replace: true,
-      // 一覧のスクロール位置に触らない（開いた直後に先頭へ飛ばさない）
-      resetScroll: false,
-    });
-  }, [kind, navigate, router]);
+    patchSearch({ add: undefined }, { replace: true });
+  }, [kind, patchSearch, router]);
 
   /**
    * 返すのは、開いた入力を閉じた（保存でも取り消しでも）ときに呼ぶ関数。別の画面の追加ボタンから

@@ -1,6 +1,12 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import {
+  type ExpenseFilter,
+  type ExpenseListQuery,
+  SHARED,
+} from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
+import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -12,8 +18,32 @@ type ExpenseValues = {
   spentOn: string;
 };
 
-export async function findAll(): Promise<ExpenseRow[]> {
-  return db.select().from(expenses).orderBy(desc(expenses.spentOn), desc(expenses.createdAt));
+/** 履歴の 1 ページ（`findHistoryPage`）。日は使った日 */
+export function findPage({ before, ...filter }: ExpenseListQuery) {
+  return findHistoryPage({
+    table: expenses,
+    day: expenses.spentOn,
+    order: [expenses.createdAt, expenses.id],
+    conditions: filterConditions(filter),
+    before,
+  });
+}
+
+/** 絞り込みの条件。範囲は両端を含む。キーワードは内容の部分一致（大文字小文字を区別しない） */
+function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
+  return [
+    containsKeyword(expenses.description, f.q),
+    f.min !== undefined ? gte(expenses.amount, f.min) : undefined,
+    f.max !== undefined ? lte(expenses.amount, f.max) : undefined,
+    f.since !== undefined ? gte(expenses.spentOn, f.since) : undefined,
+    f.until !== undefined ? lte(expenses.spentOn, f.until) : undefined,
+    f.to === SHARED
+      ? isNull(expenses.toUserId)
+      : f.to !== undefined
+        ? eq(expenses.toUserId, f.to)
+        : undefined,
+    f.from !== undefined ? eq(expenses.fromUserId, f.from) : undefined,
+  ];
 }
 
 /**

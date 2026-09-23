@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchesKeyword } from '../search.ts';
+import { matchesKeyword, toListFilter } from '../search.ts';
 
 describe('matchesKeyword', () => {
   it('空のキーワードはすべてに一致する', () => {
@@ -20,5 +20,16 @@ describe('matchesKeyword', () => {
   it('どれか 1 つに一致すればよく、空の欄は一致しない', () => {
     expect(matchesKeyword('駅前', 'ランチ', '駅前のカフェ', null)).toBe(true);
     expect(matchesKeyword('駅前', 'ランチ', null, undefined)).toBe(false);
+  });
+});
+
+describe('toListFilter', () => {
+  it('空のキーワードは絞り込まないのと同じキーになる', () => {
+    expect(toListFilter({ q: '  ', min: undefined })).toEqual(toListFilter({ q: '' }));
+    expect(toListFilter({ q: ' スーパー ' }).q).toBe('スーパー');
+  });
+
+  it('入力を開くしるしはサーバーに渡さない', () => {
+    expect(toListFilter({ q: '', add: 'expense', min: 500 })).toEqual({ min: 500 });
   });
 });

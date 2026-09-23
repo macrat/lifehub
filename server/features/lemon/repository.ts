@@ -1,13 +1,36 @@
-import { desc, eq, lte, sql } from 'drizzle-orm';
-import type { CareType } from '../../../shared/validation/lemon.ts';
+import { arrayContains, desc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
+import { TIME_ZONE } from '../../../shared/constants.ts';
+import type {
+  CareLogFilter,
+  CareLogListQuery,
+  CareType,
+} from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
+import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
-export async function findAll(): Promise<LemonCareLogRow[]> {
-  return db
-    .select()
-    .from(lemonCareLogs)
-    .orderBy(desc(lemonCareLogs.doneAt), desc(lemonCareLogs.createdAt));
+/** 実施日時の JST の暦日（date）。ページの区切りと日付の範囲の絞り込みに使う */
+const doneOn = sql`(${lemonCareLogs.doneAt} AT TIME ZONE ${TIME_ZONE})::date`;
+
+/** 記録の 1 ページ（`findHistoryPage`）。日は実施日時の JST の暦日 */
+export function findPage({ before, ...filter }: CareLogListQuery) {
+  return findHistoryPage({
+    table: lemonCareLogs,
+    day: doneOn,
+    order: [lemonCareLogs.doneAt, lemonCareLogs.createdAt, lemonCareLogs.id],
+    conditions: filterConditions(filter),
+    before,
+  });
+}
+
+/** 絞り込みの条件。範囲は両端を含む。キーワードはメモの部分一致 */
+function filterConditions(f: CareLogFilter): (SQL | undefined)[] {
+  return [
+    containsKeyword(lemonCareLogs.note, f.q),
+    f.kind !== undefined ? arrayContains(lemonCareLogs.careTypes, [f.kind]) : undefined,
+    f.since !== undefined ? gte(doneOn, f.since) : undefined,
+    f.until !== undefined ? lte(doneOn, f.until) : undefined,
+  ];
 }
 
 /**

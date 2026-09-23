@@ -7,8 +7,9 @@ import {
   CARE_TYPES,
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
+import { ALL } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
-import { ALL, type LemonFilters, type LemonFiltersPatch } from '../search.ts';
+import type { LemonFilters, LemonFiltersPatch } from '../search.ts';
 
 type Props = {
   open: boolean;

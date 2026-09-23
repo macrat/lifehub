@@ -1,6 +1,14 @@
-import { type Balance, balanceOf, type Expense } from '../../../shared/expenses.ts';
+import {
+  BALANCE_NEEDS_TWO_USERS,
+  type Balance,
+  balanceOf,
+  balancePair,
+  type Expense,
+  type ExpenseTotal,
+} from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
-import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
+import type { HistoryPage } from '../../../shared/types.ts';
+import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -8,13 +16,27 @@ import type { ExpenseRow } from './schema.ts';
 
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
-export async function listExpenses(): Promise<Expense[]> {
-  return (await repository.findAll()).map(toExpense);
+/**
+ * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
+ * 古いほうは nextCursor を before に渡して続きを読む（`findHistoryPage`）。
+ */
+export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage<Expense>> {
+  const { items, nextCursor } = await repository.findPage(query);
+  return { items: items.map(toExpense), nextCursor };
 }
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
 export async function getBalance(): Promise<Balance> {
   return balanceOf(await repository.sumByDirection(), await twoUsers());
+}
+
+/**
+ * 残高の元になる「誰が誰のために払ったか」ごとの合計（最大 6 行）。クライアントはこれと
+ * ユーザーから残高を導く。書き込みの結果を先に出すとき（楽観的更新）、残高そのものからは
+ * 折半の端数が分からず正しく足し引きできないが、合計なら 1 件分を足し引きするだけで済む
+ */
+export async function getTotals(): Promise<ExpenseTotal[]> {
+  return repository.sumByDirection();
 }
 
 /** id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
@@ -50,11 +72,7 @@ function toExpense(row: ExpenseRow): Expense {
 }
 
 async function twoUsers(): Promise<[string, string]> {
-  const list = await users.listUsers();
-  const [a, b] = list;
-  // 3 人以上のときに先頭 2 人だけで黙って計算しない
-  if (!a || !b || list.length !== 2) {
-    throw new ValidationError('立替の計算はユーザーが 2 人のときだけ行えます');
-  }
-  return [a.id, b.id];
+  const pair = balancePair(await users.listUsers());
+  if (!pair) throw new ValidationError(BALANCE_NEEDS_TWO_USERS);
+  return pair;
 }
