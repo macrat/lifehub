@@ -19,7 +19,7 @@ import { useTimeDrag } from '../use-time-drag.ts';
 import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
 import { itemTransitionName } from './item-transition.ts';
-import { syncScrollProps } from './SwipePager.tsx';
+import { syncScrollProps } from './markers.ts';
 import type { TimedPlaced } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */

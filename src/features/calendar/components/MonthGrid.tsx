@@ -14,7 +14,7 @@ import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { completedLast, foldLanes, freeLane, layoutLanes } from './lane-layout.ts';
-import { syncScrollProps } from './SwipePager.tsx';
+import { syncScrollProps } from './markers.ts';
 
 type Props = {
   /** 表示する月 "YYYY-MM"（月外の日を薄く出す判定） */

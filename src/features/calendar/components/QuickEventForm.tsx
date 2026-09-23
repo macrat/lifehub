@@ -31,7 +31,7 @@ import {
   withAllDay,
 } from '../draft.ts';
 import type { CalendarItem } from '../queries.ts';
-import { DRAFT_SELECTOR } from './DraftBlock.tsx';
+import { DRAFT_SELECTOR } from './markers.ts';
 
 type Props = {
   /** グリッドで選んだ範囲。日時の既定値になり、上の段で直すとここへ戻す */

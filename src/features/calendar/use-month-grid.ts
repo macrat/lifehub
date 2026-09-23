@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { DateRange } from '../../../shared/calendar.ts';
-import { DRAFT_SELECTOR } from './components/DraftBlock.tsx';
+import { DRAFT_SELECTOR } from './components/markers.ts';
 
 /**
  * 月グリッド（`MonthGrid`）の寸法とスクロール。

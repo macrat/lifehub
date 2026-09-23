@@ -14,12 +14,9 @@ import {
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
+import { COMPLETED_ROW_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import {
-  COMPLETED_ROW_SX,
-  COMPLETED_TITLE_SX,
-  TaskCheckbox,
-} from '../../events/components/TaskCheckbox.tsx';
+import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
