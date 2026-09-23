@@ -1,7 +1,7 @@
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { z } from 'zod';
-import { historyIndexOf, traverseTo } from '../../lib/ui/dialog-history.ts';
+import { isDialogEntry } from '../../lib/ui/dialog-history.ts';
 import type { AddKind } from './kinds.ts';
 
 /**
@@ -11,14 +11,6 @@ import type { AddKind } from './kinds.ts';
  */
 export const addSearchSchema = <K extends AddKind>(...kinds: [K, ...K[]]) =>
   z.enum(kinds).optional();
-
-/**
- * 別の画面の追加ボタンから来た印（履歴の state）。入力を閉じたら、来る前の画面（1 つ前の履歴の項目）へ戻す。
- * URL ではなく履歴に持つ: 「どこから来たか」は履歴の並びのことで、PWA のショートカット
- * （前の画面が無い）や再読み込みでは戻り先が無いので、付かないほうが正しい。
- */
-type ReturnState = { returnOnClose?: boolean };
-export const RETURN_ON_CLOSE: ReturnState = { returnOnClose: true };
 
 /**
  * しるしを受けて入力を 1 度だけ開く。開くのと同時にしるしを URL から消すので、
@@ -35,24 +27,19 @@ export function useAddShortcut<K extends AddKind>(
   const router = useRouter();
   const latest = useRef(open);
   latest.current = open;
-  // 戻り先（来る前の画面の履歴の位置）。別の画面の追加ボタンから来たときだけある
-  const returnIndex = useRef<number | null>(null);
-  const [leaving, setLeaving] = useState<number | null>(null);
-
-  // 戻るのは入力のマウントが終わってから（その項目が履歴から消えてから渡る。`traverseTo`）
-  useEffect(() => {
-    if (leaving !== null) traverseTo(router, leaving);
-  }, [leaving, router]);
+  // 別の画面の追加ボタンから来たか（入力を閉じると、その画面へ戻る）
+  const leavesOnClose = useRef(false);
 
   useEffect(() => {
     if (kind === undefined) return;
-    const { state } = router.history.location;
-    returnIndex.current = (state as ReturnState).returnOnClose ? historyIndexOf(state) - 1 : null;
+    leavesOnClose.current = isDialogEntry(router.history.location.state);
     latest.current(kind);
     navigate({
       to: '.',
       search: (prev: Record<string, unknown>) => ({ ...prev, add: undefined }),
       replace: true,
+      // 履歴の state（`asDialogEntry` の印）は残す
+      state: true,
       // 一覧のスクロール位置に触らない（開いた直後に先頭へ飛ばさない）
       resetScroll: false,
     });
@@ -60,15 +47,14 @@ export function useAddShortcut<K extends AddKind>(
 
   return {
     /**
-     * 開いた入力を閉じた（保存でも取り消しでも）。別の画面の追加ボタンから来ていれば、その画面へ戻して true。
-     * true なら画面は離れるので、呼び出し側は表示を元に戻さなくてよい（戻す様子が一瞬見えてしまう）。
+     * 開いた入力を閉じた（保存でも取り消しでも）。別の画面の追加ボタンから来ていれば true。
+     * その画面へは入力のマウントが終わると同時に戻る（`asDialogEntry`）ので、呼び出し側は
+     * 表示を元に戻さなくてよい（戻す様子が一瞬見えてしまう）。
      */
     finish: () => {
-      const index = returnIndex.current;
-      returnIndex.current = null;
-      if (index === null) return false;
-      setLeaving(index);
-      return true;
+      const leaves = leavesOnClose.current;
+      leavesOnClose.current = false;
+      return leaves;
     },
   };
 }

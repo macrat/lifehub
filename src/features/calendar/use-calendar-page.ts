@@ -23,9 +23,34 @@ import { useHourZoom } from './use-hour-zoom.ts';
 
 const viewSchema = z.enum(['month', 'week', 'day', 'list']);
 
+const LAST_VIEW_KEY = 'calendar-view';
+
+/**
+ * 最後に開いた表示。URL に表示が無いとき（下部ナビのタブ、ホームの追加ボタン、ショートカットから来たとき）
+ * の既定にして、毎回好みの表示へ切り替え直さずに済むようにする。検索パラメータを読むたび
+ * （移動のたび）に読むので、画面が state を保ったままでも後から覚えた表示が反映される。
+ * 置き場所は localStorage: 端末ごとの好みで、サーバーに送る物ではないため。読めない・壊れている
+ * （プライベートブラウズ、消された）ときは月表示から始める。
+ */
+function storedView(): z.infer<typeof viewSchema> {
+  try {
+    return viewSchema.catch('month').parse(localStorage.getItem(LAST_VIEW_KEY));
+  } catch {
+    return 'month';
+  }
+}
+
+function storeView(view: z.infer<typeof viewSchema>): void {
+  try {
+    localStorage.setItem(LAST_VIEW_KEY, view);
+  } catch {
+    // 覚えられなくても表示はできる。次に来たときに月表示から始まるだけ
+  }
+}
+
 export const calendarSearchSchema = z.object({
-  /** 無ければ最後に開いた表示（`useLastView`） */
-  view: viewSchema.optional(),
+  /** 無ければ最後に開いた表示（`storedView`） */
+  view: viewSchema.default(storedView),
   date: dateStringSchema.optional(),
   /** 予定は今の表示に既定の時間帯の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
   add: addSearchSchema('event', 'task'),
@@ -42,7 +67,7 @@ export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
 export type SearchPatch = { [K in keyof CalendarSearch]?: CalendarSearch[K] | undefined };
 
 /** 表示の種類。出どころは検索パラメータのスキーマだけにする */
-export type CalendarView = z.infer<typeof viewSchema>;
+export type CalendarView = CalendarSearch['view'];
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
 export type PeriodView = Exclude<CalendarView, 'list'>;
 
@@ -74,7 +99,8 @@ export function useCalendarPage(search: CalendarSearch) {
   const [query, setQuery] = useKeywordSearch(search.q ?? '');
   // 時間軸の高さ（週・日）。3 面で 1 つの値を使う（`use-hour-zoom.ts`）
   const { hourHeight, zoom } = useHourZoom();
-  const lastView = useLastView(search.view);
+  // 開いた表示を覚える（URL の表示だけ。戻る・進むで開いた表示も含み、追加の間だけの日表示は含まない）
+  useEffect(() => storeView(search.view), [search.view]);
   /**
    * 追加ボタンから予定を入れる間だけ、月・リストの代わりに日表示を出すか。時間帯を見ながら入れたいが、
    * 月とリストには時間軸が無いため。URL には載せないので、入力を閉じて false に戻せば元の表示がそのまま出る
@@ -82,7 +108,7 @@ export function useCalendarPage(search: CalendarSearch) {
    * 週・日はそのまま時間軸に下書きを置けるので切り替えない。
    */
   const [dayPreview, setDayPreview] = useState(false);
-  const view: CalendarView = dayPreview ? 'day' : lastView;
+  const view: CalendarView = dayPreview ? 'day' : search.view;
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
@@ -181,39 +207,6 @@ export function useCalendarPage(search: CalendarSearch) {
       setSearch({ date: includesToday ? today() : d }, { replace: true });
     },
   };
-}
-
-const LAST_VIEW_KEY = 'calendar-view';
-
-/**
- * 表示するもの。URL に表示が無ければ（下部ナビのタブ、ホームの追加ボタン、ショートカットから来たとき）
- * 最後に開いた表示にする。毎回好みの表示へ切り替え直さずに済むように。
- * 覚えるのは URL に載った表示だけ（戻る・進むで開いた表示も含む）。追加の間だけの日表示は覚えない。
- * 置き場所は localStorage: 端末ごとの好みで、サーバーに送る物ではないため。読めない・壊れている
- * （プライベートブラウズ、消された）ときは月表示から始める。
- */
-function useLastView(fromUrl: CalendarView | undefined): CalendarView {
-  useEffect(() => {
-    if (fromUrl === undefined) return;
-    try {
-      localStorage.setItem(LAST_VIEW_KEY, fromUrl);
-    } catch {
-      // 覚えられなくても表示はできる。次に来たときに月表示から始まるだけ
-    }
-  }, [fromUrl]);
-  return fromUrl ?? storedView();
-}
-
-/**
- * 覚えている表示。描くたびに読む: 画面はタブを移っても state を保ったまま描き直されることがあり、
- * 最初に読んだ値を state に持つと、その後に覚えた表示が反映されない。
- */
-function storedView(): CalendarView {
-  try {
-    return viewSchema.catch('month').parse(localStorage.getItem(LAST_VIEW_KEY));
-  } catch {
-    return 'month';
-  }
 }
 
 /**

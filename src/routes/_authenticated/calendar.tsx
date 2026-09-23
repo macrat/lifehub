@@ -145,7 +145,7 @@ function CalendarPage() {
     kind === 'task' ? setAdding('task') : addEvent(),
   );
   /**
-   * 入力（クイック入力・全項目のフォーム・タスクのフォーム）を閉じた。保存でも取り消しでも同じ。
+   * 予定の入力（クイック入力・全項目のフォーム）を閉じた。保存でも取り消しでも同じ。
    * ほかの画面の追加ボタンから来ていればその画面へ戻り、そうでなければ元の表示に戻す
    */
   const finishAdding = () => {
@@ -242,15 +242,7 @@ function CalendarPage() {
           onClose={() => setSelected(null)}
         />
       )}
-      {adding && (
-        <AddForm
-          kind={adding}
-          onClose={() => {
-            setAdding(null);
-            finishAdding();
-          }}
-        />
-      )}
+      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
       {draft && (
         <QuickEventForm
           draft={draft.range}
