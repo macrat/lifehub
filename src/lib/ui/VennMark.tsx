@@ -31,7 +31,7 @@ export function VennMark({ colors, size = SIZE }: { colors: string[]; size?: num
       height={size}
       viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`}
       aria-hidden="true"
-      style={{ display: 'block' }}
+      style={{ display: 'block', flexShrink: 0 }}
     >
       <clipPath id={id}>
         {wedgeAngles(count).map((angle, i) => {

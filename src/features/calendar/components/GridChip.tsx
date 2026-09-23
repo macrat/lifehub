@@ -2,20 +2,17 @@ import Box from '@mui/material/Box';
 import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { formatTime } from '../../../lib/date.ts';
-import { SplitCheckboxIcon } from '../../../lib/ui/SplitCheckboxIcon.tsx';
-import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { COMPLETED_ROW_SX } from '../../events/components/TaskCheckbox.tsx';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { itemTransitionName } from './item-transition.ts';
 import type { Placed } from './lane-layout.ts';
+import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
   placed: Placed;
   compact: boolean;
   colors: ItemColors;
-  /** 参加者 1 人ずつの色（`colorUsersOf` の並び）。点とチェック印を一覧と同じように塗り分ける */
-  participantColors: ItemColors[];
   /** タップ・クリックしたとき（詳細を開く） */
   onClick: () => void;
   /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
@@ -30,7 +27,7 @@ type Props = {
  * グリッド（月表示・タイムラインの終日欄）の 1 項目。
  * 帯（終日・複数日の予定）／点＋タイトル（時間指定の予定）／チェック印＋タイトル（タスク）。
  * 帯の色は参加者が 1 人ならそのユーザーの色、そうでなければ共有の無彩色。
- * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`VennMark`・`SplitCheckboxIcon`）。
+ * 点とチェック印は一覧（`ItemCard`）と同じく参加者の色で塗り分ける（`ParticipantsMark`・`ParticipantsCheckIcon`）。
  * 完了したタスクはリスト表示と同じく、印を薄く・タイトルに取り消し線を引く。
  * WHY 帯だけ 1 色: 帯は面が広く文字が載るので、塗り分けると文字が読みにくくなる。
  * タイトルを優先し、時刻は広い画面でだけ添える。
@@ -42,7 +39,6 @@ export function GridChip({
   placed,
   compact,
   colors,
-  participantColors,
   onClick,
   grab,
   hidden,
@@ -114,18 +110,14 @@ export function GridChip({
       }}
     >
       {isTask ? (
-        <SplitCheckboxIcon
-          colors={participantColors.map((c) => c.check)}
+        <ParticipantsCheckIcon
+          participantIds={item.participantIds}
           checked={completed}
           // 完了したタスクの印はリスト表示の行と同じだけ薄くする（文字は text.disabled で薄い）
           sx={{ fontSize: markSize, flexShrink: 0, ...(completed && COMPLETED_ROW_SX) }}
         />
       ) : (
-        !isBar && (
-          <Box sx={{ flexShrink: 0 }}>
-            <VennMark colors={participantColors.map((c) => c.mark)} size={markSize} />
-          </Box>
-        )
+        !isBar && <ParticipantsMark participantIds={item.participantIds} size={markSize} />
       )}
       <Box
         component="span"

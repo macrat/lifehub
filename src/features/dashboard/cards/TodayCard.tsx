@@ -9,7 +9,6 @@ import { itemKey } from '../../calendar/components/lane-layout.ts';
 import { ParticipantsMark } from '../../calendar/components/ParticipantsMark.tsx';
 import {
   type CalendarItem,
-  colorUsersOf,
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
@@ -19,7 +18,6 @@ import {
   COMPLETED_TITLE_SX,
   TaskCheckbox,
 } from '../../events/components/TaskCheckbox.tsx';
-import { useUserColor } from '../../users/use-user-color.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**
@@ -78,7 +76,6 @@ function TodayRow({
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (item: CalendarItem, editing: boolean) => void;
 }) {
-  const colorFor = useUserColor();
   const completed = item.kind === 'task' && item.completedAt !== null;
   return (
     <MarkedRow
@@ -91,10 +88,7 @@ function TodayRow({
       }}
       mark={
         item.kind === 'task' ? (
-          <TaskCheckbox
-            item={item}
-            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).check)}
-          />
+          <TaskCheckbox item={item} />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />
         )

@@ -8,13 +8,7 @@ import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/d
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
-import {
-  type CalendarItem,
-  colorUserOf,
-  colorUsersOf,
-  useHolidays,
-  useWeather,
-} from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather } from './DayWeather.tsx';
@@ -281,7 +275,6 @@ function WeekRow({
           placed={p}
           compact={compact}
           colors={colorFor(colorUserOf(p.item.participantIds))}
-          participantColors={colorUsersOf(p.item.participantIds).map(colorFor)}
           onClick={() => onSelectItem(p.item)}
           grab={drag.grabItemProps(p.item)}
           hidden={sameOccurrence(draft?.item, p.item)}

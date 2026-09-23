@@ -8,13 +8,7 @@ import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
-import {
-  type CalendarItem,
-  colorUserOf,
-  colorUsersOf,
-  useHolidays,
-  useWeather,
-} from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
@@ -202,7 +196,6 @@ export function TimelineView({
             compact={compact}
             showTime={false}
             colors={colorFor(colorUserOf(p.item.participantIds))}
-            participantColors={colorUsersOf(p.item.participantIds).map(colorFor)}
             onClick={() => onSelectItem(p.item)}
             grab={dayDrag.grabItemProps(p.item)}
             hidden={sameOccurrence(barDraft?.item, p.item)}
