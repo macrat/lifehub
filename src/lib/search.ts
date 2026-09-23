@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -48,4 +49,43 @@ export function toListFilter<T extends { q: string; add?: unknown }>({
 }: T): Omit<T, 'add' | 'q'> & { q?: string } {
   const keyword = q.trim();
   return keyword ? { ...filter, q: keyword } : filter;
+}
+
+/** 画面の絞り込み。キーワードだけは URL ではなく検索窓の手元の値を使う（`useKeywordSearch`） */
+export type Filters<S extends { q?: string | undefined }> = Omit<S, 'q'> & { q: string };
+
+/** 更新する項目だけ。undefined はその項目の絞り込みをやめる。キーワードは検索窓が持つのでここには無い */
+export type FiltersPatch<S> = { [K in Exclude<keyof S, 'q'>]?: S[K] | undefined };
+
+/**
+ * 絞り込みのある画面（立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
+ * 画面はここから受け取った値を描く。キーワードだけは打つたびに反映するので手元に持つ（`useKeywordSearch`）。
+ * countActive は効いている条件の数え方（絞り込みボタンのバッジ。画面ごとに条件が違う）。
+ */
+export function useFilterSearch<S extends { q?: string | undefined; add?: unknown }>(
+  search: S,
+  countActive: (search: S) => number,
+) {
+  const navigate = useNavigate();
+  const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
+  const filters: Filters<S> = { ...search, q: keyword };
+  return {
+    filters,
+    /** サーバーに渡す絞り込み（取得のキーにもなる。`toListFilter`） */
+    listFilter: toListFilter(filters),
+    activeFilters: countActive(search),
+    setKeyword,
+    /**
+     * 絞り込みの変更。今の画面のまま検索パラメータだけを変える。履歴には積まず置き換える
+     * （1 項目ごとに戻る先が増えると、戻る操作が入力の巻き戻しになる）。
+     * resetScroll: false = 一覧のスクロール位置に触らない（絞り込んだ直後に先頭へ飛ばさない）。
+     */
+    setFilters: (next: FiltersPatch<S>) =>
+      navigate({
+        to: '.',
+        search: (prev: object) => ({ ...prev, ...next }),
+        replace: true,
+        resetScroll: false,
+      }),
+  };
 }

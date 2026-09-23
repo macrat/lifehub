@@ -19,7 +19,8 @@ import {
   lemonStatusQueryOptions,
   useCareLogHistory,
 } from '../../features/lemon/queries.ts';
-import { lemonSearchSchema, useLemonSearch } from '../../features/lemon/search.ts';
+import { countActiveFilters, lemonSearchSchema } from '../../features/lemon/search.ts';
+import { useFilterSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -42,7 +43,10 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useLemonSearch(search);
+  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const history = useCareLogHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);

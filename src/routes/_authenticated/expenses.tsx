@@ -12,7 +12,8 @@ import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDe
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
-import { expenseSearchSchema, useExpenseSearch } from '../../features/expenses/search.ts';
+import { countActiveFilters, expenseSearchSchema } from '../../features/expenses/search.ts';
+import { useFilterSearch } from '../../lib/search.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
@@ -35,7 +36,10 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useExpenseSearch(search);
+  const { filters, listFilter, activeFilters, setKeyword, setFilters } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
   const balanceQuery = useBalance();
   const history = useExpenseHistory(listFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);
