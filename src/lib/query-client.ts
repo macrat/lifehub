@@ -10,6 +10,7 @@ import {
 import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
+import { meQueryOptions } from './auth.ts';
 import { notify } from './ui/notice.ts';
 
 export const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -91,7 +92,28 @@ type Write<TInput> = {
   keys: WriteKeys;
   /** 楽観的更新（onMutate）が使う入力。送信そのものには要らない */
   input: TInput;
+  /** 書き込んだときにログインしていたユーザーの ID（`sendAsAuthor`） */
+  author: string | null;
 };
+
+/** 今ログインしているユーザーの ID（未ログインなら null） */
+function signedInUserId(): string | null {
+  return queryClient.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+}
+
+/**
+ * 書き込みを、書いた人がまだログインしているときだけ送る。書き込みは送る時点のセッションで送られるので、
+ * 送り直しを待っている間にログアウトして別のユーザーでログインすると、そのユーザーの記録として
+ * 保存されてしまう。ログアウトは溜めた書き込みを捨てるが（`markSignedOut`）、TanStack Query には
+ * 送信中（送り直しの待ちを含む）の mutation を止める手段が無いので、送る試行のたびにここで確かめる。
+ * 通信断ではない失敗として投げるので、送り直さずに諦め、楽観的な表示を戻して通知で伝える。
+ */
+async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> {
+  if (author !== signedInUserId()) {
+    throw new Error('ログインしているユーザーが変わったため、送れていなかった記録を取り消しました');
+  }
+  return sendWrite(request);
+}
 
 /**
  * すべての書き込みが共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
@@ -112,7 +134,7 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
  */
 queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
-  mutationFn: ({ request }) => sendWrite(request),
+  mutationFn: sendAsAuthor,
   scope: { id: 'write' },
   retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
   onError: (error, _variables, snapshot) => {
@@ -175,7 +197,12 @@ export function useOptimisticMutation<TInput>({
     },
   });
 
-  const write = (input: TInput): Write<TInput> => ({ request: request(input), keys, input });
+  const write = (input: TInput): Write<TInput> => ({
+    request: request(input),
+    keys,
+    input,
+    author: signedInUserId(),
+  });
   return {
     mutate: (
       input: TInput,
