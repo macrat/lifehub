@@ -8,8 +8,14 @@ import {
   COMPLETED_TITLE_SX,
   TaskCheckbox,
 } from '../../events/components/TaskCheckbox.tsx';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
+import {
+  type CalendarEventItem,
+  type CalendarItem,
+  type CalendarTaskItem,
+  colorUsersOf,
+} from '../queries.ts';
 import { itemTransitionName } from './item-transition.ts';
 import { ParticipantsMark } from './ParticipantsMark.tsx';
 
@@ -21,12 +27,13 @@ type Props = {
 
 /**
  * 一覧（リスト表示）の 1 行（`MarkedRow`。立替の履歴と同じ骨組み）。
- * 印は予定が参加者の色を重ねたベン図（`ParticipantsMark`）、タスクは参加者（1 人のとき）の色のチェックボックス。
+ * 印は予定が参加者の色を重ねたベン図（`ParticipantsMark`）、タスクは参加者の色で塗り分けたチェックボックス。
  * 主列は時刻（折り返さない）、本文はタイトルとメタ情報。期限超過は赤、完了は薄く取り消し線。
  * 単押しは閲覧、長押しは編集（グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
  */
 export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
+  const colorFor = useUserColor();
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const overdue = isTask && item.isOverdue;
@@ -45,7 +52,10 @@ export function ItemCard({ item, onSelect }: Props) {
       }}
       mark={
         isTask ? (
-          <TaskCheckbox item={item} />
+          <TaskCheckbox
+            item={item}
+            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
+          />
         ) : (
           <ParticipantsMark participantIds={item.participantIds} />
         )

@@ -1,6 +1,6 @@
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
 import { useId } from 'react';
-import { wedgeAngles, wedgePoints } from './wedges.ts';
+import { WedgeFill } from './WedgeFill.tsx';
 
 /**
  * MUI のチェックボックスの形（`@mui/icons-material` の CheckBoxOutlineBlank と CheckBox と同じ図形）。
@@ -14,39 +14,24 @@ const CHECKED =
 
 /**
  * 複数の色で塗り分けたチェックボックスのアイコン（MUI の `Checkbox` の `icon`／`checkedIcon` に渡す）。
- * 色は `VennMark` と同じ並びの扇形で分ける: 2 つは左右、3 つは Y の字、4 つは十字。
- * `fontSize` は `Checkbox` が大きさ（small など）に合わせて渡してくる。
+ * チェックボックスの形で `WedgeFill` を切り抜く。`Checkbox` が渡してくる大きさなどはそのまま `SvgIcon` へ。
  */
 export function SplitCheckboxIcon({
   colors,
   checked,
-  fontSize,
-}: {
-  colors: string[];
-  checked: boolean;
-  fontSize?: SvgIconProps['fontSize'];
-}) {
+  ...props
+}: SvgIconProps & { colors: string[]; checked: boolean }) {
   const id = useId();
   return (
-    <SvgIcon fontSize={fontSize}>
+    <SvgIcon {...props}>
       <clipPath id={id}>
         <path d={checked ? CHECKED : OUTLINE} />
       </clipPath>
+      {/* 切り抜きは translate の外に置く（clipPath は参照した要素の座標系で効くため） */}
       <g clipPath={`url(#${id})`}>
-        {colors.length === 1 ? (
-          <rect width={24} height={24} fill={colors[0]} />
-        ) : (
-          <g transform="translate(12 12)">
-            {wedgeAngles(colors.length).map((angle, i) => (
-              <polygon
-                // biome-ignore lint/suspicious/noArrayIndexKey: 扇形は位置で決まり、並べ替わらない
-                key={i}
-                points={wedgePoints(angle, colors.length, 24)}
-                fill={colors[i]}
-              />
-            ))}
-          </g>
-        )}
+        <g transform="translate(12 12)">
+          <WedgeFill colors={colors} reach={24} />
+        </g>
       </g>
     </SvgIcon>
   );

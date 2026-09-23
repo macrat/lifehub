@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { pointAt, wedgeAngles, wedgePoints } from './wedges.ts';
+import { pointAt, WedgeFill, wedgeAngles } from './WedgeFill.tsx';
 
 /** 1 つの円の半径 */
 const RADIUS = 5.5;
@@ -11,9 +11,8 @@ const GAP = 5.5;
 const SIZE = 20;
 
 /**
- * ベン図の形をした印（予定の参加者、立替の To と From）。円ごとに `colors` の色で塗る。
- * 円は中心の周りに等間隔に並べ（`wedgeAngles`）、重なった領域も中心で扇形に分けて
- * それぞれの円の色で塗る（`wedgePoints`。境目が隣り合う円の中心の垂直二等分線になる）。
+ * ベン図の形をした印（予定の参加者、立替の To と From）。色の数だけ円を `wedgeAngles` の向きに重ね、
+ * 円すべてを合わせた形で `WedgeFill` を切り抜く。重なった領域も、最も近い円の色になる。
  *
  * WHY 重なりも誰かの色で塗る: 小さな印なので、色の面積をできるだけ広く取ったほうが誰の色かを
  * 見分けやすい。重なりを別の色（無彩色や背景色）にすると、3 人・4 人のときに色が細い欠片になる。
@@ -23,7 +22,7 @@ const SIZE = 20;
 export function VennMark({ colors }: { colors: string[] }) {
   const id = useId();
   const count = colors.length;
-  // 1 つのときは中心に置き、切り分けない
+  // 1 つのときは中心に置く
   const distance = count === 1 ? 0 : GAP / (2 * Math.sin(Math.PI / count));
   return (
     <svg
@@ -33,27 +32,16 @@ export function VennMark({ colors }: { colors: string[] }) {
       aria-hidden="true"
       style={{ display: 'block' }}
     >
-      {wedgeAngles(count).map((angle, i) => {
-        const c = pointAt(angle, distance);
-        const clipId = `${id}-${i}`;
-        return (
+      <clipPath id={id}>
+        {wedgeAngles(count).map((angle, i) => {
+          const c = pointAt(angle, distance);
           // biome-ignore lint/suspicious/noArrayIndexKey: 円は位置で決まり、並べ替わらない
-          <g key={i}>
-            {count > 1 && (
-              <clipPath id={clipId}>
-                <polygon points={wedgePoints(angle, count, SIZE)} />
-              </clipPath>
-            )}
-            <circle
-              cx={c.x}
-              cy={c.y}
-              r={RADIUS}
-              fill={colors[i]}
-              clipPath={count > 1 ? `url(#${clipId})` : undefined}
-            />
-          </g>
-        );
-      })}
+          return <circle key={i} cx={c.x} cy={c.y} r={RADIUS} />;
+        })}
+      </clipPath>
+      <g clipPath={`url(#${id})`}>
+        <WedgeFill colors={colors} reach={SIZE} />
+      </g>
     </svg>
   );
 }
