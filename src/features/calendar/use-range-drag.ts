@@ -31,16 +31,25 @@ type GrabOptions = {
   tap?: boolean;
 };
 
+/**
+ * ドラッグ 1 回の段階。進むのは waiting → holding → emitting の向きだけで、どれも飛ばせる
+ * （マウスは holding から、タップにも意味があれば押した時点で emitting から始まる）。
+ */
+type Phase<R> =
+  /** タッチの長押しを待っている（まだ始まっていない。動いたらスクロールとみなしてやめる） */
+  | { kind: 'waiting' }
+  /** 始まったが、まだ何も知らせていない（マウスで予定をつまんだ直後。クリックかもしれない） */
+  | { kind: 'holding' }
+  /** 範囲を知らせている。range は直前に渡した範囲で、手応えのために 1 つ前と比べる */
+  | { kind: 'emitting'; range: R };
+
 /** ドラッグ 1 回の間だけ持つ値。範囲（`Drag`）に、追いかけるのに要るものを足したもの */
 type DragState<P, G, R> = Drag<P, G> & {
   pointerId: number;
   origin: { x: number; y: number };
-  /** 始まったか（タッチの長押しを待っている間は false） */
-  active: boolean;
   /** 動かさずに離したときも選ぶか（`GrabOptions.tap`） */
   tap: boolean;
-  /** 直前に渡した範囲。手応えのために 1 つ前と比べる（ドラッグごとに作り直すので持ち越さない） */
-  emitted: { range: R } | null;
+  phase: Phase<R>;
 };
 
 type Options<P, G, R> = {
@@ -90,10 +99,10 @@ export function useRangeDrag<P, G, R>({
    */
   const emit = (d: DragState<P, G, R>, done: boolean) => {
     const range = rangeOf(d);
-    const ms = d.emitted ? vibration?.(d.emitted.range, range) : null;
+    const ms = d.phase.kind === 'emitting' ? vibration?.(d.phase.range, range) : null;
     // Vibration API の無いブラウザ（iOS）では何も起こらない
     if (ms) navigator.vibrate?.(ms);
-    d.emitted = { range };
+    d.phase = { kind: 'emitting', range };
     onChange(range, done);
   };
 
@@ -141,15 +150,14 @@ export function useRangeDrag<P, G, R>({
       to: from,
       origin: { x: event.clientX, y: event.clientY },
       moved: false,
-      active: false,
       tap,
-      emitted: null,
+      phase: { kind: 'waiting' },
     };
     const longPress = event.pointerType === 'touch' && !instant;
     const begin = () => {
       const d = drag.current;
       if (!d) return;
-      d.active = true;
+      d.phase = { kind: 'holding' };
       // グリッドの外に出ても離すまで追いかける（隣の列や画面の外で見失わない）
       element.setPointerCapture(pointerId);
       // ここからのタッチは選択にだけ使う（縦スクロールと横スワイプに渡さない）。
@@ -170,14 +178,14 @@ export function useRangeDrag<P, G, R>({
     const far =
       Math.abs(event.clientX - d.origin.x) > LONG_PRESS_SLOP ||
       Math.abs(event.clientY - d.origin.y) > LONG_PRESS_SLOP;
-    if (!d.active) {
+    if (d.phase.kind === 'waiting') {
       // 長押しを待つ間に動いたらスクロールのつもりとみなしてやめる
       if (far) stop();
       return;
     }
     if (far) d.moved = true;
     // まだ何も知らせていない（クリックかもしれない）うちは、動いたとはっきりするまで待つ
-    if (!d.emitted && !d.moved) return;
+    if (d.phase.kind === 'holding' && !d.moved) return;
     const to = locate(event);
     if (to === null) return;
     d.to = to;
@@ -187,17 +195,22 @@ export function useRangeDrag<P, G, R>({
   const up = (event: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.pointerId !== event.pointerId) return;
-    if (d.active) {
-      // 知らせたドラッグだけを締めくくる（クリックに終わったものは何も起こさない）
-      if (d.emitted) {
+    switch (d.phase.kind) {
+      case 'emitting':
+        // 知らせたドラッグだけを締めくくる
         d.to = locate(event) ?? d.to;
         emit(d, true);
-      }
-    } else if (d.tap) {
-      // 軽いタップ。日を選ぶ所（月表示のセル）ならそちらへ、それ以外は押した所を範囲にする。
-      // タップを譲る約束（tap: false）で掴んだ物は何もしない（項目の click が詳細を開く）
-      if (onTouchTap) onTouchTap(d.from);
-      else emit(d, true);
+        break;
+      case 'holding':
+        // クリックに終わった（項目の click に任せる）ので何も起こさない
+        break;
+      case 'waiting':
+        // タッチの軽いタップ。日を選ぶ所（月表示のセル）ならそちらへ、それ以外は押した所を範囲にする。
+        // タップを譲る約束（tap: false）で掴んだ物は何もしない（項目の click が詳細を開く）
+        if (!d.tap) break;
+        if (onTouchTap) onTouchTap(d.from);
+        else emit(d, true);
+        break;
     }
     stop();
   };

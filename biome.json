@@ -84,7 +84,7 @@
       }
     },
     {
-      "includes": ["src/features/events/components/QuickEventForm.tsx"],
+      "includes": ["src/features/calendar/components/QuickEventForm.tsx"],
       "linter": {
         "rules": {
           "style": {
@@ -112,14 +112,7 @@
       }
     },
     {
-      "includes": [
-        "src/**/*.tsx",
-        "!src/main.tsx",
-        "!src/routes/**",
-        "!src/features/calendar/components/DraftBlock.tsx",
-        "!src/features/calendar/components/SwipePager.tsx",
-        "!src/features/events/components/TaskCheckbox.tsx"
-      ],
+      "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
       "linter": {
         "rules": {
           "style": {

@@ -7,7 +7,8 @@ import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
 import { FilterButton } from '../../../lib/ui/FilterButton.tsx';
 import { SearchField } from '../../../lib/ui/SearchField.tsx';
-import type { CalendarView, PeriodView } from '../use-calendar-page.ts';
+import type { CalendarView } from '../search.ts';
+import type { PeriodView } from '../use-calendar-page.ts';
 
 /** 見出しのタップで何が選べるか。表示している単位と選ぶ単位は揃える（リスト表示に見出しは無い） */
 const PICKER_LABELS: Record<PeriodView, string> = {

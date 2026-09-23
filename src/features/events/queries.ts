@@ -4,13 +4,13 @@ import { api, ensureOk } from '../../lib/api.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
+import { type OccurrenceTarget, occurrenceTarget } from './recurrence-options.ts';
 
 const EVENTS_QUERY_KEY = ['events'] as const;
 
 /** API へ送る形（日時は ISO 文字列）。サーバーの Zod スキーマの入力型から導く。 */
 export type CreateEventBody = InferRequestType<typeof api.events.$post>['json'];
 export type UpdateEventBody = InferRequestType<(typeof api.events)[':id']['$put']>['json'];
-export type DeleteEventBody = InferRequestType<(typeof api.events)[':id']['$delete']>['json'];
 
 /** 保存されている行そのもの。繰り返しの「すべて」を編集するときに使う。 */
 export function eventQueryOptions(id: string) {
@@ -40,7 +40,7 @@ export function useCreateEvent() {
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: UpdateEventBody & { id: string }) => ({
+    request: ({ id, ...input }: UpdateEventBody & OccurrenceTarget) => ({
       method: 'PUT' as const,
       path: api.events[':id'].$url({ param: { id } }).pathname,
       body: input,
@@ -52,7 +52,7 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: DeleteEventBody & { id: string }) => ({
+    request: ({ id, ...input }: OccurrenceTarget) => ({
       method: 'DELETE' as const,
       path: api.events[':id'].$url({ param: { id } }).pathname,
       body: input,
@@ -80,10 +80,6 @@ export function useToggleCompletion() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completed }) =>
-      setCompleted(
-        client,
-        { id, scope: 'this', occurrenceStart: occurrenceStart ?? undefined },
-        completed,
-      ),
+      setCompleted(client, occurrenceTarget({ id, occurrenceStart }, 'this'), completed),
   });
 }

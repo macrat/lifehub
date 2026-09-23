@@ -3,35 +3,23 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { isCompletedTask } from '../../../../shared/calendar.ts';
-import { isDateString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { firstDayOfMonth, formatMonth, toMonthString } from '../../../lib/date.ts';
-import { matchesKeyword } from '../../../lib/search.ts';
+import { dateOrUndefined } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
+import {
+  completedFilterSchema,
+  kindFilterSchema,
+  type ListFilters,
+  type ListFiltersPatch,
+  matchesListFilters,
+} from '../search.ts';
 import { useListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';
-
-export type ListFilters = {
-  /** 期間の絞り込み。省略した端へは無限スクロールでどこまでも広がる */
-  from: DateString | undefined;
-  to: DateString | undefined;
-  kind: 'all' | 'event' | 'task';
-  /** 'all' = すべて、それ以外は参加者のユーザー ID */
-  participant: string;
-  /** タスクの完了状態。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
-  completed: 'all' | 'open' | 'done';
-  q: string;
-};
-
-/** 更新する項目だけ。undefined は既定に戻す。キーワードは AppBar の検索窓が持つのでここには無い */
-type ListFiltersPatch = {
-  [K in Exclude<keyof ListFilters, 'q'>]?: ListFilters[K] | undefined;
-};
 
 type Props = {
   /** 最初に一番上へ出す日 */
@@ -77,7 +65,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
         select
         size="small"
         value={filters.kind}
-        onChange={(e) => onChangeFilters({ kind: e.target.value as ListFilters['kind'] })}
+        onChange={(e) => onChangeFilters({ kind: kindFilterSchema.parse(e.target.value) })}
       >
         <MenuItem value="all">すべて</MenuItem>
         <MenuItem value="event">予定</MenuItem>
@@ -102,7 +90,9 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
         select
         size="small"
         value={filters.completed}
-        onChange={(e) => onChangeFilters({ completed: e.target.value as ListFilters['completed'] })}
+        onChange={(e) =>
+          onChangeFilters({ completed: completedFilterSchema.parse(e.target.value) })
+        }
       >
         <MenuItem value="all">すべて</MenuItem>
         <MenuItem value="open">未完了</MenuItem>
@@ -124,7 +114,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
     >
       <QueryView query={itemsQuery} skeleton={<ListSkeleton rows={4} />}>
         {(items) => {
-          const grouped = groupByDate(items.filter((item) => matches(item, filters)));
+          const grouped = groupByDate(items.filter((item) => matchesListFilters(item, filters)));
           if (date >= range.from && date <= range.to && !grouped.has(date)) grouped.set(date, []);
           const byMonth = Map.groupBy(
             [...grouped].sort(([a], [b]) => a.localeCompare(b)),
@@ -161,17 +151,4 @@ function firstDayFrom(list: HTMLElement, date: DateString): Element | null {
       (el) => (el.dataset.date ?? '') >= date,
     ) ?? null
   );
-}
-
-/** date 入力は消すと空文字になるので、そのときはその端の絞り込みを外す */
-function dateOrUndefined(value: string): DateString | undefined {
-  return isDateString(value) ? value : undefined;
-}
-
-function matches(item: CalendarItem, f: ListFilters): boolean {
-  if (f.kind !== 'all' && item.kind !== f.kind) return false;
-  if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
-  if (f.completed === 'open' && isCompletedTask(item)) return false;
-  if (f.completed === 'done' && !isCompletedTask(item)) return false;
-  return matchesKeyword(f.q, item.title, item.location, item.note);
 }

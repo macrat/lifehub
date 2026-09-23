@@ -6,13 +6,7 @@ import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
-
-/**
- * 枠に付ける印と、それを探すセレクタ。時間軸のブロックにも月・終日欄の帯にも同じものを付ける。
- * 枠の位置を DOM から引く側（見える所まで送る・吹き出しを寄せる）はこれで探す。
- */
-const draftProps = { 'data-draft': '' };
-export const DRAFT_SELECTOR = '[data-draft]';
+import { draftProps } from './markers.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */
 const DOT_SIZE = 8;
