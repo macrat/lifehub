@@ -1,5 +1,5 @@
 import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { users } from '../../features/users/schema.ts';
+import { users } from '../users/schema.ts';
 
 /** Web Push の購読。端末ごとに 1 行で、user_id がその端末の持ち主（作成者を別に持たない）。配信失敗（410/404）で削除する */
 export const pushSubscriptions = pgTable(

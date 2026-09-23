@@ -7,6 +7,7 @@ import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
+import { pushRoutes } from './features/push/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
@@ -16,7 +17,6 @@ import { db } from './lib/db.ts';
 import { ConflictError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { mcpRoutes } from './lib/mcp/routes.ts';
 import { requireSession } from './lib/middleware.ts';
-import { pushRoutes } from './lib/push/routes.ts';
 import { qstashRoutes } from './lib/qstash-routes.ts';
 
 /**

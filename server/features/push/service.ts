@@ -1,8 +1,45 @@
 import webpush, { WebPushError } from 'web-push';
 import type { PushMessage } from '../../../shared/push.ts';
-import { pushEndpointSchema } from '../../../shared/validation/push.ts';
-import { env } from '../env.ts';
+import { type PushSubscriptionInput, pushEndpointSchema } from '../../../shared/validation/push.ts';
+import { env } from '../../lib/env.ts';
 import * as repository from './repository.ts';
+
+/**
+ * Web Push の購読と送信。購読の行（push_subscriptions）を書き換えるのは、利用者の操作（登録・解除）と
+ * 送信で届かなかった購読の片付けの 2 つで、どちらもここを通る。送信を通知の共通処理
+ * （server/lib/notifications/service.ts）の側に置かないのは、そうすると lib から feature の
+ * repository を直接触ることになり、購読の行を書き換える場所が 2 つに分かれるため。
+ */
+
+/** 端末の購読を登録する。同じ endpoint が既にあれば、今ログインしている人の購読として上書きする */
+export async function subscribe(
+  userId: string,
+  input: PushSubscriptionInput,
+  userAgent: string | null,
+): Promise<void> {
+  await repository.upsert({
+    userId,
+    endpoint: input.endpoint,
+    p256dh: input.keys.p256dh,
+    auth: input.keys.auth,
+    userAgent,
+  });
+}
+
+/** 自分の購読だけを解除する（他人の endpoint を送られても消さない） */
+export async function unsubscribe(userId: string, endpoint: string): Promise<void> {
+  await repository.removeByEndpoint(endpoint, userId);
+}
+
+/**
+ * この端末（endpoint）で本人が通知を受け取っているか。
+ * 同じブラウザで別のユーザーが購読したまま入れ替わると、購読はブラウザに残っていても
+ * 通知は前のユーザー宛てに届くので、持ち主が本人でなければ「受け取っていない」と答える。
+ */
+export async function isSubscribed(userId: string, endpoint: string): Promise<boolean> {
+  const row = await repository.findByEndpoint(endpoint);
+  return row?.userId === userId;
+}
 
 let configured = false;
 

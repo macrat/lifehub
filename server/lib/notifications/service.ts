@@ -7,8 +7,8 @@ import {
   type NotificationRef,
   resolveNotification,
 } from '../../features/events/notifications.ts';
+import { sendToUsers } from '../../features/push/service.ts';
 import { db } from '../db.ts';
-import { sendToUsers } from '../push/send.ts';
 import { createPublisher, type Publisher } from '../qstash.ts';
 import { sentNotifications } from './schema.ts';
 
