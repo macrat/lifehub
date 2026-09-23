@@ -23,6 +23,7 @@ import {
   weekdayColor,
 } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
+import { useHolidays } from '../queries.ts';
 import type { PeriodView } from '../use-calendar-page.ts';
 import { DayNumber } from './DayNumber.tsx';
 
@@ -136,6 +137,7 @@ function DayOptions({
   selected: DateString;
   onSelect: (date: DateString) => void;
 }) {
+  const holidays = useHolidays();
   const selectedWeek = weekDays(selected)[0];
   const optionSx = { borderRadius: 1, py: 0.5 };
   return (
@@ -166,7 +168,13 @@ function DayOptions({
             }}
           >
             {weekDays(week).map((date) => (
-              <DayNumber key={date} date={date} size={32} muted={!date.startsWith(month)} />
+              <DayNumber
+                key={date}
+                date={date}
+                size={32}
+                holiday={holidays.has(date)}
+                muted={!date.startsWith(month)}
+              />
             ))}
           </ButtonBase>
         ) : (
@@ -178,7 +186,12 @@ function DayOptions({
                 onClick={() => onSelect(date)}
                 sx={{ ...optionSx, bgcolor: date === selected ? 'action.selected' : undefined }}
               >
-                <DayNumber date={date} size={32} muted={!date.startsWith(month)} />
+                <DayNumber
+                  date={date}
+                  size={32}
+                  holiday={holidays.has(date)}
+                  muted={!date.startsWith(month)}
+                />
               </ButtonBase>
             ))}
           </Box>

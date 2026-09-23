@@ -11,12 +11,6 @@ import * as repository from './repository.ts';
  */
 const HOLIDAYS_URL = 'https://one.webcal.jp/JapanHolidays/';
 
-async function fetchIcs(): Promise<string> {
-  const res = await fetch(HOLIDAYS_URL);
-  if (!res.ok) throw new Error(`holidays: ${HOLIDAYS_URL} returned ${res.status}`);
-  return res.text();
-}
-
 /**
  * ics から祝日の日付を取り出す（昇順・重複なし）。
  * 配布元は毎年の祝日を RRULE（と EXDATE）で書いているので、解析と展開は ical.js に任せる。
@@ -38,10 +32,10 @@ export function parseHolidays(ics: string): DateString[] {
  * 配布元から取り直して入れ替え、入れ替えた一覧を返す（月次の Cron）。
  * 取得や解析に失敗したら何も書かずに投げる（手元の一覧は前回のまま残る）。
  */
-export async function refreshHolidays(
-  load: () => Promise<string> = fetchIcs,
-): Promise<DateString[]> {
-  const dates = parseHolidays(await load());
+export async function refreshHolidays(): Promise<DateString[]> {
+  const res = await fetch(HOLIDAYS_URL);
+  if (!res.ok) throw new Error(`holidays: ${HOLIDAYS_URL} returned ${res.status}`);
+  const dates = parseHolidays(await res.text());
   await repository.replaceAll(dates);
   return dates;
 }
@@ -50,8 +44,7 @@ export async function refreshHolidays(
  * 祝日の一覧（昇順）。まだ一度も取っていなければ（デプロイ直後など）その場で取ってから返す。
  * WHY: 月次の Cron だけに任せると、最初の実行まで祝日が 1 つも出ない。
  */
-export async function listHolidays(load: () => Promise<string> = fetchIcs): Promise<DateString[]> {
+export async function listHolidays(): Promise<DateString[]> {
   const dates = await repository.findAll();
-  if (dates.length === 0) return refreshHolidays(load);
-  return dates.map((date) => dateStringSchema.parse(date));
+  return dates.length > 0 ? dates : refreshHolidays();
 }

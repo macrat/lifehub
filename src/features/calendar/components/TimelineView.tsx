@@ -8,7 +8,7 @@ import { minutesOfDay, WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts';
-import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DraftBar } from './DraftBlock.tsx';
@@ -66,6 +66,7 @@ export function TimelineView({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
+  const holidays = useHolidays();
   // 終日欄に出す枠。時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
   const barDraft = draft?.range.allDay ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
@@ -135,7 +136,7 @@ export function TimelineView({
               >
                 {WEEKDAY_LABELS[weekday]}
               </Typography>
-              <DayNumber date={day} size={28} />
+              <DayNumber date={day} size={28} holiday={holidays.has(day)} />
             </ButtonBase>
           );
         })}

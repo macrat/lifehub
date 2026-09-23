@@ -31,7 +31,8 @@ export default async function globalSetup() {
   const { replaceAll: replaceHolidays } = await import('../server/features/holidays/repository.ts');
   await truncateAll();
   // 祝日は空だと配布元へ取りに行くので、決まった日を入れておく（E2E を外部のサイトに依存させない）
-  await replaceHolidays([HOLIDAY]);
+  const { dateStringSchema } = await import('../shared/validation/common.ts');
+  await replaceHolidays([dateStringSchema.parse(HOLIDAY)]);
   await createUser(E2E_USER);
   await createUser({ email: 'partner@example.com', name: '相手', password: 'partner-password-1' });
 }

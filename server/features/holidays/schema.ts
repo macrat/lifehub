@@ -1,4 +1,5 @@
 import { date, pgTable } from 'drizzle-orm/pg-core';
+import type { DateString } from '../../../shared/types.ts';
 
 /**
  * 日本の祝日・休日（振替休日・国民の休日を含む）。カレンダーで日付を赤く出すためだけに持つ。
@@ -8,5 +9,5 @@ import { date, pgTable } from 'drizzle-orm/pg-core';
  * 使うのは日付だけなので、祝日の名前も持たない。
  */
 export const holidays = pgTable('holidays', {
-  date: date('date').primaryKey(),
+  date: date('date').$type<DateString>().primaryKey(),
 });

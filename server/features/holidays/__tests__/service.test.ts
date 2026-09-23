@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { listHolidays, parseHolidays, refreshHolidays } from '../service.ts';
 
@@ -30,13 +30,18 @@ const ICS = [
   'END:VCALENDAR',
 ].join('\r\n');
 
-const load = async () => ICS;
-const failing = async (): Promise<string> => {
-  throw new Error('offline');
-};
+/** 配布元の応答を差し替える（外部のサイトに依存させない） */
+const serve = (ics: string) => vi.stubGlobal('fetch', async () => new Response(ics));
+const offline = () =>
+  vi.stubGlobal('fetch', async () => {
+    throw new Error('offline');
+  });
 
 describe('holidays service', () => {
   beforeEach(truncateAll);
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('ics の繰り返しを展開し、除外日を落として日付順に並べる', () => {
     expect(parseHolidays(ICS)).toEqual([
@@ -49,21 +54,23 @@ describe('holidays service', () => {
   });
 
   it('まだ一度も取っていなければ、一覧を返す前に取ってくる', async () => {
-    expect(await listHolidays(load)).toContain('2026-09-22');
+    serve(ICS);
+    expect(await listHolidays()).toContain('2026-09-22');
     // 2 回目は保存した一覧を返す（取りに行かない）
-    expect(await listHolidays(failing)).toContain('2026-09-22');
+    offline();
+    expect(await listHolidays()).toContain('2026-09-22');
   });
 
   it('取り直すと全体を入れ替え、失敗したら前の一覧を残す', async () => {
-    await refreshHolidays(load);
-    await refreshHolidays(async () =>
-      ICS.replace('DTSTART;VALUE=DATE:20260922', 'DTSTART;VALUE=DATE:20260921'),
-    );
-    const dates = await listHolidays(failing);
+    serve(ICS);
+    await refreshHolidays();
+    serve(ICS.replace('DTSTART;VALUE=DATE:20260922', 'DTSTART;VALUE=DATE:20260921'));
+    const dates = await refreshHolidays();
     expect(dates).toContain('2026-09-21');
     expect(dates).not.toContain('2026-09-22');
 
-    await expect(refreshHolidays(failing)).rejects.toThrow('offline');
-    expect(await listHolidays(failing)).toEqual(dates);
+    offline();
+    await expect(refreshHolidays()).rejects.toThrow('offline');
+    expect(await listHolidays()).toEqual(dates);
   });
 });
