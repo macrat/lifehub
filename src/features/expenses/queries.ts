@@ -32,7 +32,7 @@ export function useAddExpense() {
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, input) => {
       const expense: Expense = { ...input, createdAt: new Date().toISOString() };
-      updateList(client, (expenses) => sortExpenses([expense, ...expenses]));
+      updateList(client, (expenses) => sortExpenses([...expenses, expense]));
     },
   });
 }

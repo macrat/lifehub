@@ -163,6 +163,7 @@ function CalendarPage() {
 
       {view === 'list' ? (
         <ListView
+          date={page.date}
           filters={page.filters}
           filtersOpen={filtersOpen}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}

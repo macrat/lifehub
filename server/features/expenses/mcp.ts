@@ -19,7 +19,7 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
     {
       title: '立替の履歴',
       description:
-        '立替の履歴を新しい順に返す。fromUserId が払った人、toUserId が誰のために払ったか（null は共有 = 折半）。精算（誰かが誰かに払った額）も同じ形で含まれる。',
+        '立替の履歴を古い順に返す。fromUserId が払った人、toUserId が誰のために払ったか（null は共有 = 折半）。精算（誰かが誰かに払った額）も同じ形で含まれる。',
       inputSchema: {},
     },
     async () => jsonResult(await service.listExpenses()),

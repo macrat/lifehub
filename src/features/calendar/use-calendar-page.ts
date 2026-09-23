@@ -76,8 +76,8 @@ export function useCalendarPage(search: CalendarSearch) {
   const month = toMonthString(date);
 
   const filters: ListFilters = {
-    from: search.from ?? addDays(date, -7),
-    to: search.to ?? addDays(date, 21),
+    from: search.from,
+    to: search.to,
     kind: search.kind,
     participant: search.participant,
     completed: search.completed,
@@ -119,7 +119,7 @@ export function useCalendarPage(search: CalendarSearch) {
   /**
    * 表示の切り替え。keepVisible には、切り替えた先でも見ていたい日を渡す（タップした日、
    * 入力中の下書きの初日）。表示ごとに一度に出せる期間の広さが違うので、渡された日を代表日にして
-   * その期間に必ず入るようにする。リスト表示では既定の期間（前後の日数）の基準になる。
+   * その期間に必ず入るようにする。リスト表示では最初に一番上へ出す日になる。
    */
   const changeView = useCallback(
     (next: CalendarView, keepVisible?: DateString) =>

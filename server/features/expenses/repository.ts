@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { db } from '../../lib/db.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
@@ -13,7 +13,7 @@ type ExpenseValues = {
 };
 
 export async function findAll(): Promise<ExpenseRow[]> {
-  return db.select().from(expenses).orderBy(desc(expenses.spentOn), desc(expenses.createdAt));
+  return db.select().from(expenses).orderBy(asc(expenses.spentOn), asc(expenses.createdAt));
 }
 
 /**

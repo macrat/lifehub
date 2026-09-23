@@ -46,10 +46,13 @@ export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Bal
     : { amount: -claimOfA, fromUserId: a, toUserId: b };
 }
 
-/** 一覧の並び: 使った日の新しい順、同じ日なら登録の新しい順 */
+/**
+ * 一覧の並び: 使った日の古い順、同じ日なら登録の古い順（アプリの一覧はどれも上が古く下が新しい）。
+ * サーバーの `findAll` も同じ並びで返す
+ */
 export function sortExpenses(expenses: Expense[]): Expense[] {
   return [...expenses].sort(
-    (x, y) => y.spentOn.localeCompare(x.spentOn) || y.createdAt.localeCompare(x.createdAt),
+    (x, y) => x.spentOn.localeCompare(y.spentOn) || x.createdAt.localeCompare(y.createdAt),
   );
 }
 
