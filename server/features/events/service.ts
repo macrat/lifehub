@@ -134,7 +134,7 @@ export async function uncompleteEvent(
 // ---- 内部 ----
 
 async function findMaster(id: string): Promise<EventWithParticipants> {
-  const row = await repository.findById(id);
+  const row = await repository.findMasterById(id);
   if (!row) throw new NotFoundError('見つかりません');
   return row;
 }
