@@ -39,11 +39,15 @@ test('終日のタスクを追加すると、期限日だけを持つタスク�
   await page.getByLabel('タイトル').fill(title);
   await page.getByLabel('終日').check();
   // 終日では日付だけを入れる
-  await expect(page.getByLabel('期限日', { exact: true })).toHaveAttribute('type', 'date');
+  const due = page.getByLabel('期限日', { exact: true });
+  await expect(due).toHaveAttribute('type', 'date');
+  await due.fill(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }));
   await page.getByRole('button', { name: '保存' }).click();
 
+  // 期限が今日なら、時刻の代わりに「期限 今日」と出る
   const row = page.getByText(title);
   await expect(row).toBeVisible();
+  await expect(page.getByRole('button', { name: `期限 今日 ${title}` })).toBeVisible();
   await row.click();
   page.once('dialog', (dialog) => dialog.accept());
   await detailAction(page, '削除');

@@ -1,7 +1,7 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Typography from '@mui/material/Typography';
 import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
-import { formatDate, formatTime, inclusiveEndDate } from '../../../lib/date.ts';
+import { formatDate, formatTime, inclusiveEndDate, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import {
   COMPLETED_ROW_SX,
@@ -126,14 +126,14 @@ function allDayTaskLabel(item: CalendarTaskItem): TimeLabel {
   const due = inclusiveEndDate(item.endsAt);
   return {
     caption: TASK_TIME_CAPTIONS.due,
-    main: due === item.placementDate ? '終日' : formatDate(due),
+    main: isToday(due) ? '今日' : formatDate(due),
   };
 }
 
 /**
  * タスクの時刻は `taskTime`（完了 → 期限 → 開始の優先）を見出し付きで示す。
  * 時刻が表示位置の日と違う（繰り越し・期限が別日）ときは日付も付ける。
- * 未完了の終日のタスクは時刻を持たないので、期限があれば期限日（置かれた日と同じなら「終日」）を示す。
+ * 未完了の終日のタスクは時刻を持たないので、期限があれば期限日（今日なら「今日」）を示す。
  */
 function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
   const time = taskTime(item);
