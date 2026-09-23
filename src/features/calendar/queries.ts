@@ -5,7 +5,7 @@ import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
-import { ONE_DAY, type QueryState } from '../../lib/query-client.ts';
+import { ONE_DAY, ONE_HOUR, type QueryState } from '../../lib/query-client.ts';
 
 /** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
 export type { CalendarItem } from '../../../shared/calendar.ts';
@@ -142,7 +142,7 @@ const weatherQueryOptions = queryOptions({
    * マウントし直す所（月の週の行・日表示の見出し）なので、既定（staleTime: 0）だとそのたびに問い合わせる。
    * 祝日と違って 1 日持たないのは、朝の予報が夕方には変わっているため。
    */
-  staleTime: ONE_DAY / 24,
+  staleTime: ONE_HOUR,
 });
 
 const NO_WEATHER: ReadonlyMap<DateString, DailyWeather> = new Map();

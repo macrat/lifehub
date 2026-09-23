@@ -3,8 +3,7 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import Box from '@mui/material/Box';
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
-import type { SxProps, Theme } from '@mui/material/styles';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type { DailyWeather, WeatherKind } from '../../../../shared/weather.ts';
 
 /**
@@ -32,61 +31,90 @@ const ICONS: Record<WeatherKind, ComponentType<SvgIconProps>> = {
   snowy: AcUnitOutlinedIcon,
 };
 
+/** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
+const GAP = 2;
+
 type Props = {
   weather: DailyWeather;
   /** アイコンの大きさ（px）。気温の字はこれより一回り小さくする */
   size: number;
-  /**
-   * 枠の中央に置いた物（日付の数字）の幅（px）。天気は枠の右端に置くので、枠の幅がこれと
-   * 両脇の天気の分に足りなければ、気温、アイコンの順に隠す（中央の物に重ねない）。
-   * 幅を測る枠は、祖先で一番近い `containerType: 'inline-size'` の要素。そういう枠が無ければ隠さない。
-   */
-  reserve?: number;
-  sx?: SxProps<Theme>;
 };
-
-/** 片側の余白（px）。天気と中央の物のあいだと、天気と枠の端のあいだに取る */
-const GAP = 2;
 
 /**
  * 日付の横に出す天気のアイコンと最高気温。天気の名前（「晴時々曇」など）はホバーと読み上げで出す。
- * 狭いときに出す物を減らすのは CSS のコンテナクエリに任せる（幅を JS で測らない）。
- * 必要な幅は、天気が中央の物の右にあるとして、枠の中央から右半分に天気と余白が収まるかで決める。
+ * 置かれた所の残りの幅を自分の枠（コンテナ）にし、右端に寄せて出す。グリッドの中では右の列に、
+ * 横並びの中では残りの幅に広がる（`gridColumn` と `flex` は、置かれた側の並べ方のほうだけが効く）。
+ *
+ * 狭いときは気温、アイコンの順に隠す。気温は 1 行に入りきらなければ次の行へ折り返し、
+ * 高さで切れて見えなくなる（字の幅を見積もらず、入るかどうかはブラウザに任せる）。
+ * アイコンは幅が固定なので、枠がアイコンより狭いときだけコンテナクエリで隠す。
  */
-export function DayWeather({ weather, size, reserve = 0, sx }: Props) {
+export function DayWeather({ weather, size }: Props) {
   const Icon = ICONS[weather.kind];
-  const fontSize = Math.round(size * 0.8);
-  // 「29°」の幅。数字 2 つと度の記号で字の 1.6 倍ほど（氷点下の「-3°」もおよそ同じ）
-  const tempWidth = fontSize * 1.6;
-  const iconNeeds = reserve + 2 * (size + GAP * 2);
-  const tempNeeds = iconNeeds + 2 * (tempWidth + 2);
   return (
     <Box
-      sx={[
-        {
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          color: 'text.secondary',
-          [`@container (width < ${iconNeeds}px)`]: { display: 'none' },
-        },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
+      sx={{
+        gridColumn: 3,
+        flex: 1,
+        minWidth: 0,
+        pl: `${GAP}px`,
+        pr: '2px',
+        containerType: 'inline-size',
+      }}
     >
-      <Icon titleAccess={weather.label} sx={{ fontSize: size }} />
-      {weather.tempMax !== null && (
-        <Box
-          component="span"
-          aria-label={`最高気温 ${weather.tempMax}度`}
-          sx={{
-            fontSize,
-            lineHeight: 1,
-            [`@container (width < ${tempNeeds}px)`]: { display: 'none' },
-          }}
-        >
-          {weather.tempMax}°
-        </Box>
-      )}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          columnGap: '2px',
+          height: size,
+          overflow: 'hidden',
+          color: 'text.secondary',
+          [`@container (width < ${size}px)`]: { display: 'none' },
+        }}
+      >
+        <Icon titleAccess={weather.label} sx={{ fontSize: size }} />
+        {weather.tempMax !== null && (
+          <Box
+            component="span"
+            aria-label={`最高気温 ${weather.tempMax}度`}
+            sx={{ fontSize: Math.round(size * 0.8), lineHeight: `${size}px` }}
+          >
+            {weather.tempMax}°
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+/**
+ * 中央に置いた物（日付の数字）の右に天気を添える行。数字は枠の中央から動かさず、
+ * 天気は右半分の余りに出す（左右を同じ幅の列にして、真ん中の列に数字を置く）。
+ * 数字と天気の縦の位置は、行の中で中央に揃える。
+ */
+export function CenteredWithWeather({
+  children,
+  weather,
+  size,
+}: {
+  children: ReactNode;
+  weather: DailyWeather | undefined;
+  size: number;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
+      <Box sx={{ gridColumn: 2, display: 'flex' }}>{children}</Box>
+      {weather && <DayWeather weather={weather} size={size} />}
     </Box>
   );
 }

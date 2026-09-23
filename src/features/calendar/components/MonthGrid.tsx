@@ -11,7 +11,7 @@ import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts
 import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
-import { DayWeather } from './DayWeather.tsx';
+import { CenteredWithWeather } from './DayWeather.tsx';
 import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { completedLast, freeLane, layoutLanes } from './lane-layout.ts';
@@ -42,7 +42,6 @@ type Props = {
 };
 
 const DAY_NUMBER_HEIGHT = 22;
-const DAY_NUMBER_SIZE = 18;
 
 /**
  * 月グリッド（Google カレンダー方式）。
@@ -241,7 +240,6 @@ function WeekRow({
       {/* 背景の日セル: 罫線・予定の追加（なぞって選ぶ）。日表示へはスマホなら項目の無い所のタップ、PC は日付の数字から */}
       {days.map((date, col) => {
         const inMonth = date.startsWith(month);
-        const dayWeather = weather.get(date);
         return (
           <Box
             key={date}
@@ -250,9 +248,6 @@ function WeekRow({
             sx={{
               gridColumn: col + 1,
               gridRow: '1 / -1',
-              position: 'relative',
-              // 天気が出せる幅かを DayWeather がこのセルの幅で決める
-              containerType: 'inline-size',
               borderLeft: col === 0 ? 0 : 1,
               borderColor: 'divider',
               display: 'flex',
@@ -262,27 +257,15 @@ function WeekRow({
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <ButtonBase
-              aria-label={formatDateWithYear(date)}
-              onClick={() => onSelectDate(date)}
-              sx={{ borderRadius: '50%' }}
-            >
-              <DayNumber
-                date={date}
-                size={DAY_NUMBER_SIZE}
-                holiday={holidays.has(date)}
-                muted={!inMonth}
-              />
-            </ButtonBase>
-            {/* 天気はセルの右端に、数字と同じ高さで置く（数字はセルの中央のまま動かさない） */}
-            {dayWeather && (
-              <DayWeather
-                weather={dayWeather}
-                size={compact ? 12 : 14}
-                reserve={DAY_NUMBER_SIZE}
-                sx={{ position: 'absolute', top: '2px', right: '2px', height: DAY_NUMBER_SIZE }}
-              />
-            )}
+            <CenteredWithWeather weather={weather.get(date)} size={compact ? 12 : 14}>
+              <ButtonBase
+                aria-label={formatDateWithYear(date)}
+                onClick={() => onSelectDate(date)}
+                sx={{ borderRadius: '50%' }}
+              >
+                <DayNumber date={date} size={18} holiday={holidays.has(date)} muted={!inMonth} />
+              </ButtonBase>
+            </CenteredWithWeather>
           </Box>
         );
       })}

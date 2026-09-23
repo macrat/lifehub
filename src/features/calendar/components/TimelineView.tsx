@@ -11,7 +11,7 @@ import { type Draft, draftColumns, sameOccurrence, timedSlot } from '../draft.ts
 import { type CalendarItem, colorUserOf, useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
-import { DayWeather } from './DayWeather.tsx';
+import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 import { itemKey, layoutLanes } from './lane-layout.ts';
@@ -42,7 +42,6 @@ type Props = {
 
 const GUTTER_WIDTH = 44;
 const LANE_HEIGHT = 20;
-const DAY_NUMBER_SIZE = 28;
 
 /**
  * 週・日のタイムライン表示（Google カレンダー方式）。
@@ -126,8 +125,6 @@ export function TimelineView({
                 gap: single ? 1 : 0,
                 py: 0.5,
                 px: single ? 1 : 0,
-                // 天気が出せる幅かを DayWeather がこの見出しの幅で決める
-                containerType: 'inline-size',
                 borderLeft: 1,
                 borderColor: 'divider',
               }}
@@ -142,24 +139,16 @@ export function TimelineView({
               >
                 {WEEKDAY_LABELS[weekday]}
               </Typography>
-              <DayNumber date={day} size={DAY_NUMBER_SIZE} holiday={holidays.has(day)} />
-              {/* 天気は見出しの右端に、数字と同じ高さで置く。週表示の数字は列の中央なので、重なる幅なら隠す */}
-              {dayWeather && (
-                <DayWeather
-                  weather={dayWeather}
-                  size={single ? 20 : 14}
-                  reserve={DAY_NUMBER_SIZE}
-                  sx={
-                    single
-                      ? { ml: 'auto' }
-                      : {
-                          position: 'absolute',
-                          bottom: '4px',
-                          right: '2px',
-                          height: DAY_NUMBER_SIZE,
-                        }
-                  }
-                />
+              {/* 天気は見出しの右端に出す。日表示は数字を左に寄せ、週表示は数字を列の中央に置く */}
+              {single ? (
+                <>
+                  <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+                  {dayWeather && <DayWeather weather={dayWeather} size={20} />}
+                </>
+              ) : (
+                <CenteredWithWeather weather={dayWeather} size={14}>
+                  <DayNumber date={day} size={28} holiday={holidays.has(day)} />
+                </CenteredWithWeather>
               )}
             </ButtonBase>
           );
