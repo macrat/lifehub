@@ -19,10 +19,7 @@ import { addSearchSchema } from '../add/shortcut.ts';
 import type { ListFilters } from './components/ListView.tsx';
 import { useRefreshCalendarItems } from './queries.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
-
-const viewSchema = z.enum(['month', 'week', 'day', 'list']);
-/** 表示の種類 */
-export type CalendarView = z.infer<typeof viewSchema>;
+import { type CalendarView, viewSchema } from './view.ts';
 
 const LAST_VIEW_KEY = 'calendar-view';
 
