@@ -20,7 +20,7 @@ export const CALENDAR_QUERY_KEY = ['calendar'] as const;
  * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
  * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
  */
-export function calendarMonthQueryOptions(month: string) {
+function calendarMonthQueryOptions(month: string) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, month],
     /**

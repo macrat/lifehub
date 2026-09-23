@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { addDays } from '../../../../shared/date.ts';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import {
@@ -125,9 +126,7 @@ describe('expenses service', () => {
 
     it('新しいほうから 1 ページを古い順で返し、nextCursor で前のページへ続く', async () => {
       // 1 日 1 件を 60 日。1 ページ（50 件）に収まらない
-      const days = Array.from({ length: 60 }, (_, i) =>
-        dateStringSchema.parse(new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10)),
-      );
+      const days = Array.from({ length: 60 }, (_, i) => addDays(day(1), i));
       for (const spentOn of days) await add({ spentOn });
       const first = await listExpenses({});
       expect(first.items.map((e) => e.spentOn)).toEqual(days.slice(10));

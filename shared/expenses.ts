@@ -40,7 +40,7 @@ export type Balance =
  *   (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A
  * （X→Y = X が Y のために払った額。共有は折半。端数は切り捨て）
  * 精算も「B が A に払った」= B→A の行として同じ式に入るので、払えば債権が減る。
- * 利用者は 2 人固定で、登録順の先頭 2 人を A, B とする。
+ * 利用者は 2 人固定で、登録順の先頭 2 人を A, B とする（`balancePair`）。
  *
  * 式はここ 1 か所だけに置く。サーバーは SQL で出した合計を渡し（全行を読まずに済む）、
  * クライアントは同じ合計（`GET /api/expenses/totals`）に楽観的更新の分を足して渡すので、答えは必ず一致する。
@@ -54,6 +54,18 @@ export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Bal
     ? { amount: claimOfA, fromUserId: b, toUserId: a }
     : { amount: -claimOfA, fromUserId: a, toUserId: b };
 }
+
+/**
+ * 残高の A, B（登録順のユーザーの先頭 2 人）。ちょうど 2 人でなければ null
+ * （3 人以上のとき先頭 2 人だけで黙って計算しない）。サーバーとクライアントが同じ規則で選ぶ
+ */
+export function balancePair(users: { id: string }[]): [string, string] | null {
+  const [a, b] = users;
+  return a && b && users.length === 2 ? [a.id, b.id] : null;
+}
+
+/** 残高を計算できないときの理由（`balancePair` が null のとき） */
+export const BALANCE_NEEDS_TWO_USERS = '立替の計算はユーザーが 2 人のときだけ行えます';
 
 /**
  * 一覧の並び: 使った日の古い順、同じ日なら登録の古い順（アプリの一覧はどれも上が古く下が新しい）。

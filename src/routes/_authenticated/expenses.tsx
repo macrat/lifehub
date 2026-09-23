@@ -11,17 +11,16 @@ import { BalanceSummary } from '../../features/expenses/components/BalanceSummar
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
-import { type Expense, useBalance } from '../../features/expenses/queries.ts';
+import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
 import {
   expenseSearchSchema,
   toListFilter,
   useExpenseSearch,
 } from '../../features/expenses/search.ts';
-import { useExpenseHistory } from '../../features/expenses/use-expense-history.ts';
 import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
-import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
+import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
@@ -80,26 +79,12 @@ function ExpensesPage() {
         </SearchField>
       </AppBarContent>
 
-      <QueryView
-        query={history.query}
-        skeleton={
-          <>
-            {header}
-            <ListSkeleton />
-          </>
-        }
-      >
-        {(expenses) => (
-          <ExpenseList
-            expenses={expenses}
-            onReachStart={history.loadEarlier}
-            header={header}
-            resetKey={history.shownFilterKey}
-            emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
-            onSelect={(expense, editing) => setSelected({ expense, editing })}
-          />
-        )}
-      </QueryView>
+      <ExpenseList
+        history={history}
+        header={header}
+        emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
+        onSelect={(expense, editing) => setSelected({ expense, editing })}
+      />
 
       <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
         <AddIcon />

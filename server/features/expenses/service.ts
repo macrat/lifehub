@@ -1,6 +1,8 @@
 import {
+  BALANCE_NEEDS_TWO_USERS,
   type Balance,
   balanceOf,
+  balancePair,
   type Expense,
   type ExpensePage,
   type ExpenseTotal,
@@ -76,11 +78,7 @@ function toExpense(row: ExpenseRow): Expense {
 }
 
 async function twoUsers(): Promise<[string, string]> {
-  const list = await users.listUsers();
-  const [a, b] = list;
-  // 3 人以上のときに先頭 2 人だけで黙って計算しない
-  if (!a || !b || list.length !== 2) {
-    throw new ValidationError('立替の計算はユーザーが 2 人のときだけ行えます');
-  }
-  return [a.id, b.id];
+  const pair = balancePair(await users.listUsers());
+  if (!pair) throw new ValidationError(BALANCE_NEEDS_TWO_USERS);
+  return pair;
 }

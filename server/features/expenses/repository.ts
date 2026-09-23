@@ -16,9 +16,9 @@ type ExpenseValues = {
 /**
  * before より前（省けば全体）の、新しいほうから limit 件ほどの立替（古い順）。
  * 最も古い日の途中では切らず、その日の立替はすべて入れる（件数は limit より多くなりうる）。
- * WHY 日で切る: 画面は日ごとに見出しを立てて並べ、前のページを上に足したときの位置合わせを
- * 日のまとまりで行う。同じ日が 2 ページに分かれると、足した分が既に出ている日の中に入り込む。
- * 次の境目も日付 1 つで言えるので、登録日時の精度（DB はマイクロ秒、JSON はミリ秒）に左右されない。
+ * WHY 日で切る: 次の境目を日付 1 つ（before）で言えるので、登録日時の精度（DB はマイクロ秒、
+ * JSON はミリ秒）に左右されず、境目の行が消されても続きを読める。
+ * WHY NOT 行の ID を境目にする: 境目の行が消されると、その位置を引けなくなる。
  * olderThan は、このページより前にまだ立替があるときの次の境目（このページの最も古い日）。
  */
 export async function findPage(
@@ -38,18 +38,22 @@ export async function findPage(
     .orderBy(desc(expenses.spentOn), desc(expenses.createdAt))
     .offset(limit - 1)
     .limit(1);
-  const rows = await db
-    .select()
-    .from(expenses)
-    .where(and(...conditions, boundary && gte(expenses.spentOn, boundary.spentOn)))
-    .orderBy(asc(expenses.spentOn), asc(expenses.createdAt), asc(expenses.id));
-  if (!boundary) return { rows, olderThan: null };
-  const older = await db
-    .select({ id: expenses.id })
-    .from(expenses)
-    .where(and(...conditions, lt(expenses.spentOn, boundary.spentOn)))
-    .limit(1);
-  return { rows, olderThan: older.length > 0 ? boundary.spentOn : null };
+  // このページの行と、それより前がまだあるかは互いに依らないので同時に聞く
+  const [rows, older] = await Promise.all([
+    db
+      .select()
+      .from(expenses)
+      .where(and(...conditions, boundary && gte(expenses.spentOn, boundary.spentOn)))
+      .orderBy(asc(expenses.spentOn), asc(expenses.createdAt), asc(expenses.id)),
+    boundary
+      ? db
+          .select({ id: expenses.id })
+          .from(expenses)
+          .where(and(...conditions, lt(expenses.spentOn, boundary.spentOn)))
+          .limit(1)
+      : [],
+  ]);
+  return { rows, olderThan: boundary && older.length > 0 ? boundary.spentOn : null };
 }
 
 /** 絞り込みの条件。範囲は両端を含む。キーワードは内容の部分一致（大文字小文字を区別しない） */

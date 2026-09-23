@@ -7,9 +7,6 @@ import { login } from './login.ts';
  */
 test.use({ ...devices['Pixel 7'] });
 
-/** AppBar の高さ（`APP_BAR_HEIGHT`。src/lib/ui/AppShell.tsx はブラウザ向けなのでここでは読めない） */
-const APP_BAR_HEIGHT = 48;
-
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
@@ -46,9 +43,14 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
   const heading = page.getByRole('heading', { name: '6/15' });
   await expect(heading).toBeVisible();
   await expect(page.getByText(`E2E 後日 ${stamp}`)).toBeVisible();
-  // 基準の日の見出しが AppBar のすぐ下に来ている（上には前の日が隠れている）
-  const box = await heading.boundingBox();
-  expect(Math.round(box?.y ?? -1)).toBe(APP_BAR_HEIGHT);
+  // 基準の日の見出しが AppBar のすぐ下に来る（上には前の日が隠れている）。
+  // 下が足りない間は、前後の月が読まれるたびに合わせ直してそこへ落ち着く
+  const bar = await page.getByRole('banner').boundingBox();
+  const barBottom = (bar?.y ?? 0) + (bar?.height ?? 0);
+  // 2px 未満の差は AppBar の下端の線と端数の分
+  await expect
+    .poll(async () => Math.abs(((await heading.boundingBox())?.y ?? -100) - barBottom))
+    .toBeLessThan(2);
 
   // 上へ戻ると前の月、さらに前の月と描き足され、見ていた日は押し下げられない形で上に積まれる
   await expect(async () => {

@@ -110,57 +110,47 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
       </TextField>
     </FilterPanel>
   );
-  // 最初の位置は出している月が揃ってから決める（途中で決めると、あとから埋まった月の分だけずれる）
-  const query = {
-    data: itemsQuery.complete ? itemsQuery.data : undefined,
-    error: itemsQuery.error,
-  };
+  // 読み込み中は広げない（空の月が見出しの分しか伸びず、端が見えたまま次々と広げてしまう）
+  const loaded = itemsQuery.complete;
   return (
-    <QueryView
-      query={query}
-      skeleton={
-        <>
-          {filterPanel}
-          <ListSkeleton rows={4} />
-        </>
-      }
+    <InfiniteScroll
+      header={filterPanel}
+      onReachStart={loaded ? extendStart : undefined}
+      onReachEnd={loaded ? extendEnd : undefined}
+      initialTarget={(list) => firstDayFrom(list, date)}
+      resetKey={JSON.stringify({ date, filters })}
+      // 最初の位置は出している月が揃ってから決める
+      ready={loaded}
     >
-      {(items) => {
-        const grouped = groupByDate(items.filter((item) => matches(item, filters)));
-        if (date >= range.from && date <= range.to && !grouped.has(date)) grouped.set(date, []);
-        const days = [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b));
-        return (
-          <InfiniteScroll
-            header={filterPanel}
-            onReachStart={extendStart}
-            onReachEnd={extendEnd}
-            initialPosition={(list) => firstDayFrom(list, date)}
-            resetKey={JSON.stringify({ date, filters })}
-          >
-            {months.map((month) => (
-              <Box key={month} component="section">
-                <Typography
-                  variant="subtitle2"
-                  component="h2"
-                  sx={{ px: 2, pt: 2, pb: 0.5, borderBottom: 1, borderColor: 'divider' }}
-                >
-                  {formatMonth(firstDayOfMonth(month))}
-                </Typography>
-                <Stack spacing={1}>
-                  {days
-                    .filter(([day]) => toMonthString(day) === month)
-                    .map(([day, dayItems]) => (
-                      <Box key={day} data-date={day}>
-                        <DayList date={day} items={dayItems} onSelectItem={onSelectItem} />
-                      </Box>
-                    ))}
-                </Stack>
-              </Box>
-            ))}
-          </InfiniteScroll>
-        );
-      }}
-    </QueryView>
+      <QueryView query={itemsQuery} skeleton={<ListSkeleton rows={4} />}>
+        {(items) => {
+          const grouped = groupByDate(items.filter((item) => matches(item, filters)));
+          if (date >= range.from && date <= range.to && !grouped.has(date)) grouped.set(date, []);
+          const byMonth = Map.groupBy(
+            [...grouped].sort(([a], [b]) => a.localeCompare(b)),
+            ([day]) => toMonthString(day),
+          );
+          return months.map((month) => (
+            <Box key={month} component="section">
+              <Typography
+                variant="subtitle2"
+                component="h2"
+                sx={{ px: 2, pt: 2, pb: 0.5, borderBottom: 1, borderColor: 'divider' }}
+              >
+                {formatMonth(firstDayOfMonth(month))}
+              </Typography>
+              <Stack spacing={1}>
+                {(byMonth.get(month) ?? []).map(([day, dayItems]) => (
+                  <Box key={day} data-date={day}>
+                    <DayList date={day} items={dayItems} onSelectItem={onSelectItem} />
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          ));
+        }}
+      </QueryView>
+    </InfiniteScroll>
   );
 }
 

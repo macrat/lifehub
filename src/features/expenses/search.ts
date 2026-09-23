@@ -4,8 +4,6 @@ import { type ExpenseFilter, expenseFilterSchema } from '../../../shared/validat
 import { keywordSearchSchema, useKeywordSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
 
-export { SHARED } from '../../../shared/validation/expenses.ts';
-
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
 export const ALL = 'all';
 
@@ -64,15 +62,7 @@ export function countActiveFilters(search: ExpenseSearch): number {
  * サーバーに渡す絞り込み（取得のキーにもなる）。入力を開くしるし（add）は絞り込みではないので除き、
  * 空のキーワードは「絞り込まない」と同じキーにする
  */
-export function toListFilter({
-  q,
-  min,
-  max,
-  since,
-  until,
-  to,
-  from,
-}: ExpenseFilters): ExpenseFilter {
+export function toListFilter({ add: _add, q, ...filter }: ExpenseFilters): ExpenseFilter {
   const keyword = q.trim();
-  return { ...(keyword ? { q: keyword } : {}), min, max, since, until, to, from };
+  return keyword ? { ...filter, q: keyword } : filter;
 }

@@ -1,14 +1,21 @@
 import {
+  hashKey,
   type InfiniteData,
   infiniteQueryOptions,
+  keepPreviousData,
   type QueryClient,
   queryOptions,
+  useInfiniteQuery,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
+import { useEffect } from 'react';
 import {
+  BALANCE_NEEDS_TWO_USERS,
   type Balance,
   balanceOf,
+  balancePair,
   type Expense,
   type ExpensePage,
   type ExpenseTotal,
@@ -31,34 +38,69 @@ export type { Balance, Expense } from '../../../shared/expenses.ts';
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
 const LIST_QUERY_KEY = [...EXPENSES_QUERY_KEY, 'list'] as const;
 
-/**
- * 取得したページ。filterKey はどの絞り込みで取ったか: 絞り込みを変えた直後は取り直すまで前の結果を
- * 出したままにするので（`keepPreviousData`）、画面は出ている結果がどの絞り込みの物かをこれで知る
- */
-type Page = ExpensePage & { filterKey: string };
-type Pages = InfiniteData<Page>;
+type Pages = InfiniteData<ExpensePage>;
 
 /**
  * 履歴（絞り込みごと）。サーバーが新しいほうから 1 ページずつ返し、上へスクロールすると
  * 古いほうのページを足す（`fetchNextPage`）。pages[0] が最新のページで、各ページの中は古い順。
  * 絞り込みはサーバーが掛ける（手元にあるのは読んだページだけなので、手元では絞り込めない）。
  */
-export function expensesQueryOptions(filter: ExpenseFilter) {
+function expensesQueryOptions(filter: ExpenseFilter) {
+  const filtered = Object.values(filter).some((value) => value !== undefined);
   return infiniteQueryOptions({
     queryKey: [...LIST_QUERY_KEY, filter],
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }): Promise<Page> => {
+    // 絞り込んだ結果は打つたびに別のキーになるので、既定（7 日）のまま端末に溜めない
+    ...(filtered ? { gcTime: 1000 * 60 } : {}),
+    queryFn: async ({ pageParam }): Promise<ExpensePage> => {
       const query = {
         ...filter,
         min: filter.min?.toString(),
         max: filter.max?.toString(),
         before: pageParam,
       };
-      const page = await (await ensureOk(await api.expenses.$get({ query }))).json();
-      return { ...page, filterKey: JSON.stringify(filter) };
+      return (await ensureOk(await api.expenses.$get({ query }))).json();
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+}
+
+/**
+ * 立替画面の履歴。読んだページを古い順に繋いで返し、上の端へ近づいたら古いほうのページを読む。
+ * 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）。
+ * resetKey は絞り込みで、変わったら一覧を一番下（最新）へ戻す合図。ready は出している結果が
+ * その絞り込みの物か（前の結果を出している間は位置を決めない）。
+ *
+ * 画面を離れるときは最新のページだけを残す。取り直し（画面に入ったとき・書き込みの後）は
+ * 読んだページをすべて順に読み直すので、遡った分を残すと以後ずっとその回数だけ問い合わせる。
+ */
+export function useExpenseHistory(filter: ExpenseFilter) {
+  const queryClient = useQueryClient();
+  const options = expensesQueryOptions(filter);
+  const { data, error, hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage } =
+    useInfiniteQuery({ ...options, placeholderData: keepPreviousData });
+  const resetKey = hashKey(options.queryKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: キーが同じなら同じキャッシュを指す
+  useEffect(
+    () => () => {
+      queryClient.setQueryData(
+        options.queryKey,
+        (prev) =>
+          prev && { pages: prev.pages.slice(0, 1), pageParams: prev.pageParams.slice(0, 1) },
+      );
+    },
+    [queryClient, resetKey],
+  );
+  return {
+    // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
+    query: { data: data?.pages.toReversed().flatMap((page) => page.items), error },
+    resetKey,
+    ready: data !== undefined && !isPlaceholderData,
+    loadEarlier:
+      hasNextPage && !isFetchingNextPage && !isPlaceholderData
+        ? () => void fetchNextPage()
+        : undefined,
+  };
 }
 
 /** 絞り込みの無い履歴。追加・編集はこれにだけ先回りして書き込む（`applyChange`） */
@@ -78,14 +120,13 @@ const totalsQueryOptions = queryOptions({
 export function useBalance(): QueryState<Balance> {
   const totals = useQuery(totalsQueryOptions);
   const users = useQuery(usersQueryOptions);
-  const [a, b] = users.data ?? [];
-  const pair = a && b && users.data?.length === 2 ? ([a.id, b.id] as [string, string]) : null;
+  const pair = users.data && balancePair(users.data);
   return {
     data: totals.data && pair ? balanceOf(totals.data, pair) : undefined,
     error:
       totals.error ??
       users.error ??
-      (users.data && !pair ? new Error('立替の計算はユーザーが 2 人のときだけ行えます') : null),
+      (users.data && !pair ? new Error(BALANCE_NEEDS_TWO_USERS) : null),
   };
 }
 
@@ -98,7 +139,7 @@ export function useAddExpense() {
     }),
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, input) => {
-      applyChange(client, null, { ...input, createdAt: new Date().toISOString() });
+      applyChange(client, input.id, null, { ...input, createdAt: new Date().toISOString() });
     },
   });
 }
@@ -113,7 +154,7 @@ export function useUpdateExpense() {
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, { id, ...input }) => {
       const prev = findCached(client, id);
-      if (prev) applyChange(client, prev, { ...prev, ...input });
+      if (prev) applyChange(client, id, prev, { ...prev, ...input });
     },
   });
 }
@@ -127,7 +168,7 @@ export function useDeleteExpense() {
     keys: [EXPENSES_QUERY_KEY],
     apply: (client, id) => {
       const prev = findCached(client, id);
-      if (prev) applyChange(client, prev, null);
+      if (prev) applyChange(client, id, prev, null);
     },
   });
 }
@@ -148,14 +189,17 @@ function findCached(client: QueryClient, id: string): Expense | undefined {
  * - 追加・編集: 絞り込みの無い履歴にだけ入れる。絞り込みに合うかはサーバーが決めるので、
  *   絞り込んだ履歴は書き込み後の取り直し（invalidate）に任せる
  */
-function applyChange(client: QueryClient, prev: Expense | null, next: Expense | null): void {
+function applyChange(
+  client: QueryClient,
+  id: string,
+  prev: Expense | null,
+  next: Expense | null,
+): void {
   client.setQueryData(totalsQueryOptions.queryKey, (totals) => {
     if (!totals) return totals;
     const withoutPrev = prev ? addTotal(totals, prev, -1) : totals;
     return next ? addTotal(withoutPrev, next, 1) : withoutPrev;
   });
-  const id = (prev ?? next)?.id;
-  if (id === undefined) return;
   client.setQueriesData<Pages>({ queryKey: LIST_QUERY_KEY }, (data) =>
     data ? withoutExpense(data, id) : data,
   );
