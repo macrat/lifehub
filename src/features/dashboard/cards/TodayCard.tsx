@@ -1,15 +1,15 @@
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { formatTime, today } from '../../../lib/date.ts';
-import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
+import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { itemTransitionName } from '../../calendar/components/item-transition.ts';
 import { itemKey } from '../../calendar/components/lane-layout.ts';
+import { ParticipantsMark } from '../../calendar/components/ParticipantsMark.tsx';
 import {
   type CalendarItem,
-  colorUserOf,
+  colorUsersOf,
   useCalendarItems,
   useRefreshCalendarItems,
 } from '../../calendar/queries.ts';
@@ -80,7 +80,6 @@ function TodayRow({
 }) {
   const colorFor = useUserColor();
   const completed = item.kind === 'task' && item.completedAt !== null;
-  const colors = colorFor(colorUserOf(item.participantIds));
   return (
     <MarkedRow
       dense
@@ -92,9 +91,12 @@ function TodayRow({
       }}
       mark={
         item.kind === 'task' ? (
-          <TaskCheckbox item={item} color={colors.fill} />
+          <TaskCheckbox
+            item={item}
+            colors={colorUsersOf(item.participantIds).map((id) => colorFor(id).fill)}
+          />
         ) : (
-          <Box sx={MARK_DOT_SX} style={{ background: colors.fill }} />
+          <ParticipantsMark participantIds={item.participantIds} />
         )
       }
       leadWidth={44}
