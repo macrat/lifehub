@@ -119,7 +119,7 @@ queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_
   onError: (error, _variables, snapshot) => {
     // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
     for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
-    notify(error.message);
+    notify('error', error.message);
   },
   onSettled: (_data, _error, { keys }) => {
     for (const queryKey of keys) {
