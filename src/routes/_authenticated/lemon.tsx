@@ -21,9 +21,9 @@ import { countActiveFilters, lemonSearchSchema } from '../../features/lemon/sear
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
-import { FAB_SX } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
+import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 

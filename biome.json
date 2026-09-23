@@ -74,6 +74,23 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "src/**/*.tsx",
+        "!src/main.tsx",
+        "!src/routes/**",
+        "!src/features/calendar/components/DraftBlock.tsx",
+        "!src/features/calendar/components/SwipePager.tsx",
+        "!src/features/events/components/TaskCheckbox.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "useComponentExportOnlyModules": "error"
+          }
+        }
+      }
     }
   ]
 }

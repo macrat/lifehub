@@ -6,7 +6,7 @@ import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useState } from 'react';
 import type { AddKind } from '../../../lib/add-pages.ts';
-import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
+import { FAB_SX } from '../../../lib/ui/layout.ts';
 import { ADD_KINDS, type AddFormKind } from '../kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */

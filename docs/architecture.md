@@ -73,7 +73,7 @@ src/                          # クライアント（Vite + React）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
-    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -254,6 +254,7 @@ Preview 環境の挙動:
 
 - TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
+- `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。カレンダー・予定の `DraftBlock.tsx`・`SwipePager.tsx`・`TaskCheckbox.tsx` は部品と一緒に定数（選択子・sx）を export しており、まだ分けていないので除外している（`biome.json`）。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

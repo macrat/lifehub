@@ -32,9 +32,9 @@ import {
 import { grabbedScope } from '../../features/events/recurrence-options.ts';
 import { useUserLabels } from '../../features/users/use-user-labels.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
-import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/AppShell.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
+import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../lib/ui/layout.ts';
 
 export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
