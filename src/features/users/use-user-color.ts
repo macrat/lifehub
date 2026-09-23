@@ -7,12 +7,10 @@ import { usersQueryOptions } from './queries.ts';
 export type ItemColors = {
   /** 帯の色 */
   fill: string;
-  /** 白い面の上の線の色（タスクのチェックボックス、下書きの枠など） */
+  /** タスクのチェックボックスの色 */
   check: string;
   /** 一覧の左の印（`VennMark`）の色 */
   mark: string;
-  /** fill の上に載せる文字色 */
-  text: string;
   /** 薄い背景（タイムラインのタスクなど） */
   tint: string;
 };
@@ -33,7 +31,6 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
     fill: hueColor(hue, 'fill', mode),
     check: hueColor(hue, 'check', mode),
     mark: hueColor(hue, 'mark', mode),
-    text: hueColor(hue, 'onFill', mode),
     tint: hueColor(hue, 'tint', mode),
   };
   cache.set(key, colors);

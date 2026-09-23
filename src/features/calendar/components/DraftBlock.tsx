@@ -1,11 +1,12 @@
 import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
+import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
+import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
-import { colorUserOf } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
+import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { draftProps } from './markers.ts';
 
@@ -16,17 +17,43 @@ const DOT_INSET = 10;
 /** 指の当たりの大きさ（px）。丸は小さく見せ、押せる範囲だけ広げる */
 const TARGET_SIZE = 32;
 
+/** 枠の線の太さ（px） */
+const LINE = 2;
+
 /**
- * 枠の見た目。色は参加者から決まる（保存した予定の帯と同じ規則）ので、選んだ参加者を変えると枠も変わる。
- * 中は透かして、下に隠れる目盛りや既にある予定が読めるようにする。
+ * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
+ * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）を背景色に混ぜた不透明な色で塗る。
+ * 線は fill ではなく check で描く。WHY: fill は面として使う淡い色なので、細い線にすると背景に埋もれる。
+ * WHY NOT 半透明: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、半透明だと下の色が透ける。
+ * 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
+ * WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
+ * WHY NOT 背景を 2 枚重ねる（中を padding-box、線を border-box）: 塗り分けは色の数で層の数が変わり、
+ * 層ごとに切り抜く範囲を並べ直すことになる。
  */
-const outline = (colors: ItemColors) =>
+const outline = (colors: ItemColors[]) =>
   ({
     boxSizing: 'border-box',
+    position: 'relative',
     borderRadius: '4px',
-    border: 2,
-    borderColor: colors.check,
-    bgcolor: alpha(colors.fill, 0.5),
+    border: `${LINE}px solid transparent`,
+    // CSS 変数テーマなので背景色は t.vars から取る（t.palette はライト固定）
+    background: (t: Theme) =>
+      wedgeBackground(
+        colors.map(
+          (c) => `color-mix(in srgb, ${c.fill} 50%, ${(t.vars ?? t).palette.background.default})`,
+        ),
+      ),
+    backgroundClip: 'padding-box',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      inset: -LINE,
+      padding: `${LINE}px`,
+      borderRadius: 'inherit',
+      background: wedgeBackground(colors.map((c) => c.check)),
+      mask: 'linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)',
+      pointerEvents: 'none',
+    },
   }) as const;
 
 /**
@@ -45,13 +72,14 @@ export function DraftBlock({
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
-  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
   /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
 }) {
   const { startMin, endMin } = draft;
-  const colors = useUserColor()(colorUserOf(participantIds));
+  const colors = useParticipantColors(participantIds);
+  const lines = colors.map((c) => c.check);
   return (
     <Box
       {...draftProps}
@@ -62,7 +90,6 @@ export function DraftBlock({
         gridRow: 1,
         // 行の上端から開始の分だけ下げる（列と同じ高さに伸びないよう start 揃え）
         alignSelf: 'start',
-        position: 'relative',
         mt: `calc(${atMinute(startMin)} + 1px)`,
         height: `calc(${atMinute(endMin - startMin)} - 2px)`,
         ml: '1px',
@@ -81,13 +108,13 @@ export function DraftBlock({
           <Handle
             end="start"
             position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-            color={colors.check}
+            color={wedgeColorNear(lines, 'top-left')}
             handlers={grab.start}
           />
           <Handle
             end="end"
             position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-            color={colors.check}
+            color={wedgeColorNear(lines, 'bottom-right')}
             handlers={grab.end}
           />
         </>
@@ -113,11 +140,11 @@ export function DraftBar({
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
-  /** 選んでいる参加者。枠の色は保存した予定の帯と同じ規則（`colorUserOf`）で決まる */
+  /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
 }) {
   const { col, span, roundStart, roundEnd } = columns;
-  const colors = useUserColor()(colorUserOf(participantIds));
+  const colors = useParticipantColors(participantIds);
   return (
     <Box
       {...draftProps}
@@ -147,6 +174,7 @@ function Handle({
 }: {
   end: 'start' | 'end';
   position: Record<string, number | string>;
+  /** 丸の色。置いた場所の枠の線と同じ色（`wedgeColorNear`） */
   color: string;
   handlers: DragHandlers;
 }) {

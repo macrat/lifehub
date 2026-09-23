@@ -3,6 +3,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
@@ -90,5 +91,5 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
 
 /** To・From の 1 つ。そのユーザーの色で塗る */
 function UserChip({ label, colors }: { label: string; colors: ItemColors }) {
-  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: colors.text }} />;
+  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: FILL_TEXT }} />;
 }

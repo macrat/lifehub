@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../../calendar/queries.ts';
@@ -164,13 +165,13 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
             )}
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
               {item.participantIds.map((id) => {
-                const { fill, text } = colorFor(id);
+                const { fill } = colorFor(id);
                 return (
                   <Chip
                     key={id}
                     size="small"
                     label={label(id)}
-                    sx={{ bgcolor: fill, color: text }}
+                    sx={{ bgcolor: fill, color: FILL_TEXT }}
                   />
                 );
               })}
