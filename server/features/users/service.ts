@@ -10,6 +10,11 @@ export async function listUsers() {
   return repository.findAll();
 }
 
+/** 全ユーザーの終日の予定・タスクの通知時刻（ユーザー ID → その日の 0:00 からの分）。通知の列挙と再検証が読む */
+export async function getAllDayNotifyMinutes(): Promise<Map<string, number>> {
+  return repository.findAllDayNotifyMinutes();
+}
+
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
 function toPublicUser(user: repository.UserRow): repository.UserRow {
   return { id: user.id, name: user.name, email: user.email, hue: user.hue };

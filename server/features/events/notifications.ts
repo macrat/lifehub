@@ -13,7 +13,7 @@ import {
 } from '../../../shared/date.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import type { NotificationPayload } from '../../lib/notifications/types.ts';
-import { findAllDayNotifyMinutes } from '../users/repository.ts';
+import { getAllDayNotifyMinutes } from '../users/service.ts';
 import { type CalendarItem, listItems } from './occurrences.ts';
 
 const EDGES = ['start', 'end'] as const;
@@ -137,7 +137,7 @@ export async function listNotifications(range: {
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
   const [items, notifyTimes] = await Promise.all([
     itemsAround(range, range.from),
-    findAllDayNotifyMinutes(),
+    getAllDayNotifyMinutes(),
   ]);
   for (const item of items) {
     for (const edge of EDGES) {
@@ -164,7 +164,7 @@ export async function resolveNotification(
       },
       ref.at,
     ),
-    findAllDayNotifyMinutes(),
+    getAllDayNotifyMinutes(),
   ]);
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;

@@ -31,6 +31,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 ## 守ること
 
 - 計算はサーバーだけで行い、クライアントで再実装しない。
+- サーバーの層の向き（routes / mcp → service → repository → DB、他の feature は service 経由）は biome が強制する。lint に止められたら、規則を緩めずに呼び出しを service へ寄せる。
 - 書かなくて済むものは書かない。Web 標準 → React/Hono/MUI の標準 → 実績あるライブラリ → 自作の順。
 - import は相対パスで `.ts` / `.tsx` 拡張子付き。パスエイリアスは使わない。
 - `pnpm typecheck && pnpm lint && pnpm test` を通してからコミットする。コミットメッセージは Conventional Commits で WHY / WHY NOT を書く。
