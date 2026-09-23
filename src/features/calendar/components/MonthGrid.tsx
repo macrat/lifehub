@@ -7,7 +7,7 @@ import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/d
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
-import { type CalendarItem, colorUserOf } from '../queries.ts';
+import { type CalendarItem, colorUserOf, useHolidays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { DRAFT_SELECTOR, DraftBar } from './DraftBlock.tsx';
@@ -72,6 +72,7 @@ export function MonthGrid({
 }: Props) {
   const compact = useIsMobile();
   const colorFor = useUserColor();
+  const holidays = useHolidays();
   const drag = useDayDrag({
     draft,
     onChange: onChangeDraft,
@@ -158,6 +159,7 @@ export function MonthGrid({
             draftUserId={draftUserId}
             drag={drag}
             colorFor={colorFor}
+            holidays={holidays}
             maxLanes={maxLanes}
             laneHeight={laneHeight}
             compact={compact}
@@ -181,6 +183,7 @@ type WeekRowProps = {
   draftUserId: string | null;
   drag: ReturnType<typeof useDayDrag>;
   colorFor: (userId: string | null) => ItemColors;
+  holidays: ReadonlySet<DateString>;
   maxLanes: number;
   laneHeight: number;
   compact: boolean;
@@ -197,6 +200,7 @@ function WeekRow({
   draftUserId,
   drag,
   colorFor,
+  holidays,
   maxLanes,
   laneHeight,
   compact,
@@ -252,7 +256,7 @@ function WeekRow({
               onClick={() => onSelectDate(date)}
               sx={{ borderRadius: '50%' }}
             >
-              <DayNumber date={date} size={18} muted={!inMonth} />
+              <DayNumber date={date} size={18} holiday={holidays.has(date)} muted={!inMonth} />
             </ButtonBase>
           </Box>
         );

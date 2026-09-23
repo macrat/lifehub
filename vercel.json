@@ -20,8 +20,12 @@
   ],
   "crons": [
     {
-      "path": "/api/notifications/enqueue",
+      "path": "/api/cron/notifications",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/holidays",
+      "schedule": "0 15 1 * *"
     }
   ],
   "headers": [
