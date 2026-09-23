@@ -1,13 +1,11 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { isDateString } from '../../../../shared/date.ts';
-import type { DateString } from '../../../../shared/types.ts';
 import {
   CARE_TYPE_LABELS,
   CARE_TYPES,
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
-import { ALL } from '../../../lib/search.ts';
+import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import type { LemonFilters, LemonFiltersPatch } from '../search.ts';
 
@@ -31,7 +29,7 @@ export function CareLogFilterForm({ open, filters, onChange }: Props) {
         select
         size="small"
         value={filters.kind ?? ALL}
-        onChange={(e) => onChange({ kind: careTypeOrUndefined(e.target.value) })}
+        onChange={(e) => onChange({ kind: optionOrUndefined<CareType>(e.target.value) })}
       >
         <MenuItem value={ALL}>すべて</MenuItem>
         {CARE_TYPES.map((t) => (
@@ -58,14 +56,4 @@ export function CareLogFilterForm({ open, filters, onChange }: Props) {
       />
     </FilterPanel>
   );
-}
-
-/** 「すべて」は絞り込みをやめる（URL にも残さない） */
-function careTypeOrUndefined(value: string): CareType | undefined {
-  return value === ALL ? undefined : (value as CareType);
-}
-
-/** date 入力は消すと空文字になり、打っている途中は日付にならない。どちらも絞り込みをやめる */
-function dateOrUndefined(value: string): DateString | undefined {
-  return isDateString(value) ? value : undefined;
 }
