@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createEventSchema,
-  deleteEventSchema,
+  occurrenceTargetSchema,
   updateEventSchema,
 } from '../../../../shared/validation/events.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
@@ -102,7 +102,7 @@ describe('calendar-feeds service', () => {
     );
     await deleteEvent(
       weekly.id,
-      deleteEventSchema.parse({ scope: 'this', occurrenceStart: iso('2026-09-14T09:00:00') }),
+      occurrenceTargetSchema.parse({ scope: 'this', occurrenceStart: iso('2026-09-14T09:00:00') }),
       userId,
     );
     const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);

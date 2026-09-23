@@ -1,13 +1,10 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { z } from 'zod';
 import { calendarFeedSchema } from '../../../shared/validation/calendar-feeds.ts';
-import { uuidSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema } from '../../../shared/validation/common.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
-
-const idParam = z.object({ id: uuidSchema });
 
 /** 配信 URL の管理（`/api/calendar/feeds`）。ログイン中のユーザー自身の URL だけを扱う */
 export const calendarFeedsRoutes = new Hono<AppEnv>()
@@ -18,7 +15,7 @@ export const calendarFeedsRoutes = new Hono<AppEnv>()
   })
   .patch(
     '/:id',
-    zValidator('param', idParam, validationHook),
+    zValidator('param', idParamSchema, validationHook),
     zValidator('json', calendarFeedSchema, validationHook),
     async (c) => {
       // 変わるのは送った名前と参加者だけ（URL は変わらない）ので、応答の本文は要らない
@@ -26,7 +23,7 @@ export const calendarFeedsRoutes = new Hono<AppEnv>()
       return c.body(null, 204);
     },
   )
-  .delete('/:id', zValidator('param', idParam, validationHook), async (c) => {
+  .delete('/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.revokeFeed(c.req.valid('param').id, c.get('user').id);
     return c.body(null, 204);
   });

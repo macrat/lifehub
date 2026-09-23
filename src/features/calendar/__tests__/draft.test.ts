@@ -20,6 +20,7 @@ import {
   type TimePoint,
   timeDraft,
   timeVibration,
+  withAllDay,
 } from '../draft.ts';
 
 const DAY = '2031-06-05' as DateString;
@@ -426,6 +427,27 @@ describe('defaultDraft', () => {
       startMin: 23 * 60,
       endMin: 24 * 60,
     });
+  });
+});
+
+describe('withAllDay', () => {
+  const now = new Date('2026-09-21T17:11:00+09:00');
+
+  it('時間指定を終日にするとその日 1 日になる', () => {
+    expect(withAllDay(timed, true, now)).toEqual(allDay('2031-06-05', '2031-06-05'));
+  });
+
+  it('終日を時間指定にすると、最初の日の既定の時間帯（次の正時から 1 時間）になる', () => {
+    expect(withAllDay(allDay('2031-06-05', '2031-06-07'), false, now)).toEqual({
+      allDay: false,
+      date: DAY,
+      startMin: 18 * 60,
+      endMin: 19 * 60,
+    });
+  });
+
+  it('同じ種類ならそのまま', () => {
+    expect(withAllDay(timed, false, now)).toBe(timed);
   });
 });
 

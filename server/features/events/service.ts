@@ -3,8 +3,7 @@ import { newId } from '../../../shared/id.ts';
 import type {
   CompleteEventInput,
   CreateEventInput,
-  DeleteEventInput,
-  RecurrenceScope,
+  OccurrenceTarget,
   UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
@@ -31,7 +30,7 @@ export async function createEvent(
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
   await enqueueUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  return savedMaster(id, values, input.participantIds);
+  return toMaster({ ...values, id, participantIds: input.participantIds, completedAt: null });
 }
 
 export async function updateEvent(
@@ -52,62 +51,61 @@ async function applyUpdate(
 ): Promise<EventMaster> {
   const master = await findMaster(id);
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
-  const scope = effectiveScope(master, input.scope, input.occurrenceStart);
+  const target = resolveTarget(master, input);
   const values = normalizeInput(input);
+  const { participantIds } = input;
 
-  if (scope === 'this') {
-    const occurrenceStart = requireOccurrence(master, input.occurrenceStart);
+  if (target.scope === 'this') {
     // 実体化された回は繰り返さない（繰り返しは元の行だけが持つ）
     await materialize(
       master,
-      occurrenceStart,
+      target.occurrenceStart,
       { ...values, rrule: null, cancelled: false },
-      input.participantIds,
+      participantIds,
       userId,
     );
     // 変わったのは回の行で、繰り返し元は読んだままなので、それをそのまま返す
     return toMaster(master);
   }
 
-  if (scope === 'following') {
-    const splitAt = requireOccurrence(master, input.occurrenceStart);
+  // ここから下は保存した値がすべて手元にあるので、読み直さずに応答を組み立てる（往復を 1 回減らす）
+  if (target.scope === 'following') {
     const splitId = await repository.splitFollowing({
       masterId: id,
-      masterRRule: withUntilBefore(master.rrule ?? '', splitAt),
-      splitAt,
+      masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
+      splitAt: target.occurrenceStart,
       newRow: { ...values, createdBy: userId },
-      participantIds: input.participantIds,
+      participantIds,
     });
-    return savedMaster(splitId, values, input.participantIds);
+    return toMaster({ ...values, id: splitId, participantIds, completedAt: null });
   }
 
   await repository.update(id, values, {
-    participantIds: input.participantIds,
+    participantIds,
     dropUncompletedOccurrences:
       baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule,
   });
-  return savedMaster(id, values, input.participantIds, master.completedAt);
+  // 完了状態は入力に無く保存でも変わらないので、保存前の値をそのまま使う
+  return toMaster({ ...values, id, participantIds, completedAt: master.completedAt });
 }
 
 export async function deleteEvent(
   id: string,
-  input: DeleteEventInput,
+  input: OccurrenceTarget,
   userId: string,
 ): Promise<void> {
   const master = await findMaster(id);
-  const scope = effectiveScope(master, input.scope, input.occurrenceStart);
+  const target = resolveTarget(master, input);
 
-  if (scope === 'this') {
-    const occurrenceStart = requireOccurrence(master, input.occurrenceStart);
-    await materialize(master, occurrenceStart, { cancelled: true }, undefined, userId);
+  if (target.scope === 'this') {
+    await materialize(master, target.occurrenceStart, { cancelled: true }, undefined, userId);
     return;
   }
-  if (scope === 'following') {
-    const splitAt = requireOccurrence(master, input.occurrenceStart);
+  if (target.scope === 'following') {
     await repository.truncateFollowing({
       masterId: id,
-      masterRRule: withUntilBefore(master.rrule ?? '', splitAt),
-      splitAt,
+      masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
+      splitAt: target.occurrenceStart,
     });
     return;
   }
@@ -135,29 +133,9 @@ export async function uncompleteEvent(
 // ---- 内部 ----
 
 async function findMaster(id: string): Promise<EventWithParticipants> {
-  const row = await repository.findById(id);
+  const row = await repository.findMasterById(id);
   if (!row) throw new NotFoundError('見つかりません');
   return row;
-}
-
-/**
- * 今しがた保存した値から応答を組み立てる（読み直さずに往復を 1 回減らす）。
- * 完了状態は入力に無く保存でも変わらないので、呼び出し元が保存前の値をそのまま渡す。
- */
-function savedMaster(
-  id: string,
-  values: ReturnType<typeof normalizeInput>,
-  participantIds: string[],
-  completedAt: Date | null = null,
-): EventMaster {
-  return {
-    ...values,
-    id,
-    startsAt: values.startsAt?.toISOString() ?? null,
-    endsAt: values.endsAt?.toISOString() ?? null,
-    completedAt: completedAt?.toISOString() ?? null,
-    participantIds,
-  };
 }
 
 async function setCompletedAt(
@@ -168,34 +146,43 @@ async function setCompletedAt(
 ): Promise<void> {
   const master = await findMaster(id);
   if (master.kind !== 'task') throw new ValidationError('予定は完了にできません');
+  // 単発は行そのもの。繰り返しのタスクで完了にするのは常に 1 つの回
   if (!master.rrule) {
     await repository.update(id, { completedAt });
     return;
   }
-  const occurrenceStart = requireOccurrence(master, input.occurrenceStart);
+  const { occurrenceStart } = input;
+  if (!occurrenceStart) throw new ValidationError('occurrenceStart が必要です');
+  if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   await materialize(master, occurrenceStart, { completedAt }, undefined, userId);
 }
 
-/** 単発は常に all。繰り返しでも先頭の発生に対する following は all と同じ。 */
-function effectiveScope(
-  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
-  scope: RecurrenceScope,
-  occurrenceStart: Date | undefined,
-): RecurrenceScope {
-  if (!master.rrule) return 'all';
-  if (scope === 'following' && occurrenceStart?.getTime() === baseOf(master)?.getTime())
-    return 'all';
-  return scope;
-}
+/**
+ * 操作の対象。繰り返しの回を指す操作（this / following）は、繰り返しのルールと
+ * ルール上に実在する回の基準日時を必ず持つ（実在しなければここで ValidationError にする）ので、
+ * 呼び出し側は rrule が null かどうかを改めて確かめなくてよい。
+ */
+type Target =
+  | { scope: 'all' }
+  | { scope: 'this' | 'following'; rrule: string; occurrenceStart: Date };
 
-/** 繰り返しの回の指定を検証する（ルール上に実在する発生の基準日時であること） */
-function requireOccurrence(
+/**
+ * 指定された範囲を実際に行う操作に読み替え、回の指定を検証する。
+ * - 単発は常に all（回が 1 つしかない）
+ * - 先頭の発生に対する following は all と同じ（以降すべて = 全部）。先頭の基準日時は
+ *   ルールに当てはまらないこともある（DTSTART が BYDAY に合わない）ので、実在の確認より先に見る
+ */
+function resolveTarget(
   master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
-  value: Date | undefined,
-): Date {
-  if (!value) throw new ValidationError('occurrenceStart が必要です');
-  if (!occurrenceExists(master, value)) throw new ValidationError('その回は存在しません');
-  return value;
+  target: OccurrenceTarget,
+): Target {
+  const { rrule } = master;
+  if (!rrule || target.scope === 'all') return { scope: 'all' };
+  const { scope, occurrenceStart } = target;
+  if (scope === 'following' && occurrenceStart.getTime() === baseOf(master)?.getTime())
+    return { scope: 'all' };
+  if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
+  return { scope, rrule, occurrenceStart };
 }
 
 /**

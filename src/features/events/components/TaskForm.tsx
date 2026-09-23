@@ -2,7 +2,7 @@ import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { useItemForm } from '../use-item-form.ts';
+import { useAllDay, useItemForm } from '../use-item-form.ts';
 import { TaskFormFields } from './EventFields.tsx';
 
 type Props = {
@@ -18,15 +18,15 @@ type Props = {
  * 既存のタスクの編集は詳細（`ItemDetailSheet`）から行う。
  */
 export function TaskForm({ initial, scope, onSubmit, onClose }: Props) {
-  const { allDay, setAllDay, thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm(
-    {
-      kind: 'task',
-      initial,
-      scope,
-      onSubmit,
-      onSaved: onClose,
-    },
-  );
+  const [allDay, setAllDay] = useAllDay(initial);
+  const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
+    kind: 'task',
+    initial,
+    allDay,
+    scope,
+    onSubmit,
+    onSaved: onClose,
+  });
 
   return (
     <RecordSheet

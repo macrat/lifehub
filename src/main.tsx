@@ -8,7 +8,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { watchAppBadge } from './lib/app-badge.ts';
-import { meQueryOptions } from './lib/auth.ts';
+import { markSignedOut } from './lib/auth.ts';
 import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
@@ -87,7 +87,7 @@ declare module '@tanstack/react-router' {
 
 // API が 401 を返したら（セッション切れ等）、ログイン画面へ送る。サーバー側の検証が唯一の防御線。
 window.addEventListener(UNAUTHORIZED_EVENT, () => {
-  queryClient.setQueryData(meQueryOptions.queryKey, null);
+  markSignedOut(queryClient);
   if (router.state.location.pathname !== '/login') {
     router.navigate({ to: '/login', search: { redirect: router.state.location.href } });
   }

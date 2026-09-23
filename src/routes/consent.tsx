@@ -5,11 +5,9 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { createFileRoute, redirect } from '@tanstack/react-router';
-import { useState } from 'react';
+import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { authClient, meQueryOptions } from '../lib/auth.ts';
-import { ensureData } from '../lib/query-client.ts';
+import { requireSignedIn, useConsent } from '../lib/auth.ts';
 import { CenteredPage } from '../lib/ui/CenteredPage.tsx';
 
 // 署名付きの OAuth クエリ（未知のキー）をそのまま残すため loose にする
@@ -20,15 +18,11 @@ const searchSchema = z.looseObject({
 
 /**
  * OAuth 2.1 の同意画面（MCP クライアントの認可）。
- * better-auth が署名付きのクエリでここへ送ってくる。同意の API 呼び出しには oauthProviderClient が
- * window.location.search（署名付きクエリ）を oauth_query として自動で添える。
+ * better-auth が署名付きのクエリでここへ送ってくる。返事は `useConsent`。
  */
 export const Route = createFileRoute('/consent')({
   validateSearch: searchSchema,
-  beforeLoad: async ({ context, location }) => {
-    const me = await ensureData(context.queryClient, meQueryOptions);
-    if (!me) throw redirect({ to: '/login', search: { redirect: location.href } });
-  },
+  beforeLoad: ({ context, location }) => requireSignedIn(context.queryClient, location.href),
   component: ConsentPage,
 });
 
@@ -41,21 +35,10 @@ const SCOPE_LABELS: Record<string, string> = {
 
 function ConsentPage() {
   const { client_id: clientId, scope } = Route.useSearch();
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const consent = useConsent();
+  // 受け付けられたら画面を離れるので、移り終わるまで押せないままにする
+  const submitting = consent.isPending || consent.isSuccess;
   const scopes = (scope ?? '').split(' ').filter(Boolean);
-
-  const respond = async (accept: boolean) => {
-    setSubmitting(true);
-    setError(null);
-    const result = await authClient.oauth2.consent({ accept });
-    if (result.error) {
-      setError(result.error.message ?? '処理に失敗しました');
-      setSubmitting(false);
-      return;
-    }
-    window.location.assign(result.data.url);
-  };
 
   return (
     <CenteredPage maxWidth={420}>
@@ -76,12 +59,12 @@ function ConsentPage() {
             ))}
           </List>
         )}
-        {error && <Alert severity="error">{error}</Alert>}
+        {consent.error && <Alert severity="error">{consent.error.message}</Alert>}
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-          <Button disabled={submitting} onClick={() => respond(false)}>
+          <Button disabled={submitting} onClick={() => consent.mutate(false)}>
             拒否
           </Button>
-          <Button variant="contained" disabled={submitting} onClick={() => respond(true)}>
+          <Button variant="contained" disabled={submitting} onClick={() => consent.mutate(true)}>
             許可
           </Button>
         </Stack>

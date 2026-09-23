@@ -3,6 +3,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import type { Draft } from '../draft.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
 import { type PeriodView, periodOf } from '../use-calendar-page.ts';
+import type { GridDraft } from '../use-event-composer.ts';
 import { MonthGrid } from './MonthGrid.tsx';
 import { TimelineView } from './TimelineView.tsx';
 
@@ -12,10 +13,11 @@ type Props = {
   date: DateString;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
-  /** 追加・編集しようとしている予定の枠。控えの面には出さないので null が来る */
-  draft: Draft | null;
-  /** 枠の色を決めるユーザー（選んでいる参加者から決まる。`colorUserOf`） */
-  draftUserId: string | null;
+  /**
+   * 追加・編集しようとしている予定の枠。控えの面には出さないので null が来る。
+   * 枠の色（選んでいる参加者）と、なぞり終えたか（終えるまでは枠を追いかけてスクロールしない）もここから読む
+   */
+  draft: GridDraft | null;
   /** グリッドをなぞって範囲を決めたとき。done はポインタを離したか */
   onChangeDraft: (draft: Draft, done: boolean) => void;
   /** 週・日の時間軸へそのまま渡す（`use-hour-zoom.ts`。3 面で同じ値を使う） */
@@ -23,8 +25,6 @@ type Props = {
   onZoom: (ratio: number) => void;
   /** クイック入力のシートが下から覆っている高さ（px）。その分だけ下に余白を足してスクロールできるようにする */
   bottomInset: number;
-  /** 枠を置き終えた（指を離した）か。なぞっている最中は枠を追いかけてスクロールしない */
-  draftSettled: boolean;
 };
 
 /**
@@ -43,12 +43,10 @@ export const CalendarPane = memo(function CalendarPane({
   onSelectDate,
   onSelectItem,
   draft,
-  draftUserId,
   onChangeDraft,
   hourHeight,
   onZoom,
   bottomInset,
-  draftSettled,
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
   const { data: items } = useCalendarItems(period.range);
@@ -62,11 +60,9 @@ export const CalendarPane = memo(function CalendarPane({
       onSelectDate={onSelectDate}
       onSelectItem={onSelectItem}
       draft={draft}
-      draftUserId={draftUserId}
       onChangeDraft={onChangeDraft}
       height="100%"
       bottomInset={bottomInset}
-      draftSettled={draftSettled}
     />
   ) : (
     <TimelineView
@@ -75,13 +71,11 @@ export const CalendarPane = memo(function CalendarPane({
       onSelectItem={onSelectItem}
       onSelectDate={view === 'week' ? onSelectDate : undefined}
       draft={draft}
-      draftUserId={draftUserId}
       onChangeDraft={onChangeDraft}
       height="100%"
       hourHeight={hourHeight}
       onZoom={onZoom}
       bottomInset={bottomInset}
-      draftSettled={draftSettled}
     />
   );
 });

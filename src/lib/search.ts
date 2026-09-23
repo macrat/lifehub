@@ -1,6 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
+import { isDateString } from '../../shared/date.ts';
+import type { DateString } from '../../shared/types.ts';
 
 /** キーワード検索をする画面の検索パラメータ。空文字は付けない（検索していない状態は URL にも残さない） */
 export const keywordSearchSchema = z.object({ q: z.string().optional() });
@@ -54,6 +56,16 @@ export function toListFilter<T extends { q: string; add?: unknown }>({
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
 export const ALL = 'all';
+
+/** 選択欄の値を絞り込みにする。「すべて」（`ALL`）は絞り込みをやめる（URL にも残さない） */
+export function optionOrUndefined<T extends string>(value: string): T | undefined {
+  return value === ALL ? undefined : (value as T);
+}
+
+/** date 入力の値を絞り込みにする。消すと空文字になり、打っている途中は日付にならない。どちらも絞り込みをやめる */
+export function dateOrUndefined(value: string): DateString | undefined {
+  return isDateString(value) ? value : undefined;
+}
 
 /**
  * 今の画面のまま、検索パラメータの一部だけを変える。replace で履歴に積むか置き換えるかを選ぶ

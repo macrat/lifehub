@@ -22,7 +22,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
 | DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
-| バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォーム・API の入力・MCP ツールの引数を同じスキーマで検証する。 |
+| バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
 | MCP サーバー | `@hono/mcp` + `@modelcontextprotocol/sdk`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。サーバーレスのためセッションを持たない。 |
 | 繰り返しルール | RFC 5545 RRULE（`rrule` ライブラリ） | 予定・タスクで同じ仕組みを使う。展開ロジックを自作しない。 |
@@ -56,7 +56,9 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 
 - UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
+- **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
+- 層の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。サーバーのコードは、`repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できず、他の feature の repository も使えない（その feature の service を通す）。例外を file ごとに足さずに済むよう、禁止はサーバー全体に 1 つの規則で掛け、DB に触ってよい file を除く形にしている。`routes.ts` / `mcp.ts` は加えて自分の feature の repository も使えない。Biome の override は同じ規則の options を足し合わせず後の物で置き換えるので、`routes.ts` / `mcp.ts` 用の規則にはサーバー全体の禁止も書き写してある。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/events` が返す `CalendarItem[]` だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
@@ -70,10 +72,10 @@ src/                          # クライアント（Vite + React）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
-    add/（右下の追加ボタン、種類ごとの追加フォーム、URL のしるし（`add`）。機能をまたぐのでどれにも属さない）
-  lib/                        # 横断
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・ensureData・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  auth.ts
-    ui/（AppShell（FAB_SX・通知の表示など）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+    add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
+  lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -87,9 +89,9 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
-    middleware.ts（requireSession）  errors.ts（NotFound / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  push/（購読管理・送信）  qstash.ts  cron.ts（Vercel Cron の入口）
-    recurrence/（RRULE 展開）  notifications/（enqueue, deliver）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
+    middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts  cron.ts（Vercel Cron の入口）
+    recurrence/（RRULE 展開）  notifications/（service = enqueue・deliver、repository = 送信済み台帳）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -133,9 +135,9 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - キャッシュのキーは画面ではなくデータの単位で決める。範囲を持つクエリは表示範囲ではなく固定の区切り（カレンダーなら JST 暦月。[features/calendar.md](features/calendar.md)）をキーにし、表示や日付を切り替えても同じキャッシュに当たるようにする。
 - **オフラインでも書き込める**。送れない書き込みは端末（IndexedDB）に溜め、オンラインに戻ったときに溜めた順で送る（下記「オフラインの書き込み」）。
 - API レスポンスは Service Worker でキャッシュしない（データの正は TanStack Query の永続キャッシュに一本化する）。
-- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `ensureData`（`src/lib/query-client.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、`ensureQueryData` が完了しなくなる）。
+- ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `resolveMe`（`src/lib/auth.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、待つと完了しない）。
 - ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に自分のクエリを読み、`QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（下記）。
-- ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。
+- ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。ログイン画面だけは、キャッシュにユーザーがいてもオンラインならサーバーに確かめてから「済んでいるので見せない」を決める（期限の切れたキャッシュでアプリへ送り返さないため）。ログイン状態に関わる判定と操作は `src/lib/auth.ts` に集め、画面（routes）はそれを呼ぶだけにする。
 - オンラインかどうかの判定は TanStack Query の `onlineManager` に一本化する（`useOnline`）。表示（`OfflineBanner`）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。`onlineManager` は「オンラインとみなす」から始まり online/offline イベントでしか変わらないので、起動時に `navigator.onLine` を 1 度だけ反映する（`src/lib/query-client.ts`）。オフラインのまま起動しても正しく判定できる。
 
 ## オフラインの書き込み
@@ -143,11 +145,13 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 オフラインでも記録でき、オンラインに戻ったときにまとめて送る。仕組みは TanStack Query の mutation にそのまま乗せ、キューを自作しない。
 
 - **送る内容だけを値として持つ**。書き込み 1 回分は `{ method, path, body }`（`WriteRequest`）というプレーンな値で、mutation の引数になる。関数は保存できないので、送り方は `mutationKey` に紐づけた 1 つの既定（`setMutationDefaults`）に置く。復元した書き込みも同じ既定で送られるので、feature ごとの送信コードを起動時に読み込む必要がない。パスは Hono RPC の `$url()` で組み立て、型で守る。
-- **溜める**: `networkMode: 'online'`（既定）なのでオフラインでは送らずに保留し、保留中の mutation は永続化キャッシュに含まれる（TanStack Query の既定の dehydrate 条件）。アプリを閉じても消えず、次の起動で復元して送る（`main.tsx` の `resumeWrites`）。
+- **溜める**: `networkMode: 'online'`（既定）なのでオフラインでは送らずに保留し、保留中の書き込みは永続化キャッシュに含まれる（`persistOptions` の dehydrateOptions が、保留中の mutation のうち書き込みのキーを持つものだけを残す。既定を持たないほかの mutation は、残すと送り方の無いまま復元されるため）。アプリを閉じても消えず、次の起動で復元して送る（`main.tsx` の `resumeWrites`）。
 - **順序**: すべての書き込みが同じ `scope` を持つので 1 つずつ順に走り、「追加してから直す」が操作した順でサーバーに届く。
 - **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す。
 - **送り直し**: 通信断（`NetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成を upsert として扱う。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
+- **未ログインになったら捨てる**: ログアウトしたとき、API が 401 を返したときは、溜めた書き込みを捨てる（`src/lib/auth.ts` の `markSignedOut`）。書き込みは送る時点のセッションで送られるので、残すと次にログインした別のユーザーとして送られてしまう。401 のときに残して同じユーザーの再ログインを待つことはしない: 401 はオンラインでしか起きず、オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗するので、残しても通る見込みが無い。
+- **書いた人のものとしてだけ送る**: 書き込みは送る時点のセッションで送られるので、書き込みごとに書いたときのユーザーを持ち、送る試行のたびに今のユーザーと比べる（`sendAsAuthor`）。違えば送らずに諦める。ログアウトは溜めた書き込みを捨てるが、送り直しを待っている書き込みは TanStack Query では止められず、その間に別のユーザーでログインすると、その人の記録として保存されてしまうため。
 - **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
 
 ## UI / UX 方針
@@ -158,11 +162,11 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。
 - **画面の表示領域は貴重な資産**として扱う。「ホーム」「カレンダー」のような情報を持たないページタイトルは出さない（現在地はナビが示す）。同じ情報を複数箇所に出さない。主役（カレンダーのグリッド、一覧、カード）が最も広い面積を占めるようにする。
-- AppBar はアプリ名の帯ではなく、そのページの操作のための帯（`AppBarContent` で Portal 経由に差し込む: カレンダーの年月と表示の切替、リスト表示・立替・レモンの検索、ユーザー登録など）。検索窓は `src/lib/ui/SearchField.tsx` を共通で使い、窓と右に並べる操作（絞り込みボタン）は1 つの塊として帯の中央に置いて最大幅で頭打ちにする（PC で帯いっぱいに伸ばすと、サイドナビの上まで窓が伸びる割に読める文字数は増えず、目とポインタの移動だけが長くなる。スマホでは帯の残り幅をすべて使う）。キーワードは画面の状態として持ち、URL の `q` は `history.replaceState` で置き換えるだけにする（`useKeywordSearch`, `src/lib/search.ts`）。ルーターで移動しないので、打った文字がそのまま同じ描画で反映され、IME の変換も途切れない。再読み込みや共有では `q` から復元する。検索窓だけで足りない画面（カレンダーのリスト表示、立替、レモン）は検索窓の右に絞り込みボタン（`src/lib/ui/FilterButton.tsx`）を置き、AppBar の下に詳細な絞り込みのフォーム（`src/lib/ui/FilterPanel.tsx`）を開く。キーワード以外の絞り込みは検索パラメータそのものを状態にし（履歴には積まず置き換える）、効いている条件の数はボタンのバッジに出す。それ以外（アカウントメニューなど）は置かない。ログアウトとユーザー管理は設定画面。スマホでは dense（48px）。
+- AppBar はアプリ名の帯ではなく、そのページの操作のための帯（`AppBarContent` で Portal 経由に差し込む: カレンダーの年月と表示の切替、リスト表示・立替・レモンの検索、ユーザー登録など）。検索窓は `src/lib/ui/SearchField.tsx` を共通で使い、窓と右に並べる操作（絞り込みボタン）は1 つの塊として帯の中央に置いて最大幅で頭打ちにする（PC で帯いっぱいに伸ばすと、サイドナビの上まで窓が伸びる割に読める文字数は増えず、目とポインタの移動だけが長くなる。スマホでは帯の残り幅をすべて使う）。キーワードは画面の状態として持ち、URL の `q` は `history.replaceState` で置き換えるだけにする（`useKeywordSearch`, `src/lib/search.ts`）。ルーターで移動しないので、打った文字がそのまま同じ描画で反映され、IME の変換も途切れない。再読み込みや共有では `q` から復元する。検索窓だけで足りない画面（カレンダーのリスト表示、立替、レモン）は検索窓の右に絞り込みボタン（`src/lib/ui/FilterButton.tsx`）を置き、AppBar の下に詳細な絞り込みのフォーム（`src/lib/ui/FilterPanel.tsx`）を開く。キーワード以外の絞り込みは検索パラメータそのものを状態にし（履歴には積まず置き換える。立替・レモンは `useFilterSearch`）、効いている条件の数はボタンのバッジに出す。「すべて」や空欄は絞り込まない状態として URL に残さない（入力値から絞り込みへの読み替えは `src/lib/search.ts` の `optionOrUndefined`・`dateOrUndefined`）。それ以外（アカウントメニューなど）は置かない。ログアウトとユーザー管理は設定画面。スマホでは dense（48px）。
 - スマホでは main の余白を 0 にし、一覧やグリッドを画面端まで広げる（edge-to-edge）。PC のみ最小限の余白を置く。
 - カレンダーの月・週・日表示は画面の残り全部を占める（AppShell が下に確保する余白は負のマージンで打ち消す）。画面いっぱいの基準は `svh`（ブラウザの URL バーなどが最大に出ている状態の高さ）で、`dvh` は URL バーの出入りで値が変わり再読み込みの直後に画面より高くなってしまうため使わない。日をタップすると日表示へ、スマホでは左右のスワイプで前後へ、年月をタップすると選択ダイアログ。前後ボタンは置かない。
 - 月グリッドは Google カレンダー流: 複数日・終日の予定は週ごとに 1 本の連続したバー（レーン割り当て）、時刻付き予定は「● タイトル」（時刻は PC のみ）、タスクはチェック印付き。常にタイトルを優先し、収まらない分は「+n」でまとめる。週・日は Google カレンダーと同じタイムライン（時間軸に塗りブロック、終日欄、現在時刻の線）。
-- 一覧はカードを重ねずフラットな行で並べる。日付ごとに見出し（`src/lib/ui/DateHeading.tsx`）を立て、行は左から印（色の円を重ねたベン図 `src/lib/ui/VennMark.tsx`・タスクのチェック）、揃えたい値の列、本文（上にタイトル、下に補足）の 3 列（`src/lib/ui/MarkedRow.tsx`）。カレンダーのリスト表示も立替の履歴もホームの「今日」もこの骨組みを使うので、どの一覧でも同じ順に読める（列の幅と中身は画面ごとに決める）。行の中のタスクのチェックと完了した行の見せ方（薄く・取り消し線）は `TaskCheckbox`（`src/features/events/components/`）に置いて共通にする。
+- 一覧はカードを重ねずフラットな行で並べる。日付ごとに見出し（`src/lib/ui/DateHeading.tsx`）を立て、行は左から印（色の円を重ねたベン図 `src/lib/ui/VennMark.tsx`・タスクのチェック）、揃えたい値の列、本文（上にタイトル、下に補足）の 3 列（`src/lib/ui/MarkedRow.tsx`）。カレンダーのリスト表示も立替の履歴もホームの「今日」もこの骨組みを使うので、どの一覧でも同じ順に読める（列の幅と中身は画面ごとに決める）。行の中のタスクのチェック（`TaskCheckbox`）と完了した行の見せ方（薄く・取り消し線。`completed-style.ts`）は `src/features/events/components/` に置いて共通にする。
 - カレンダーのリスト表示と立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。立替とレモンの履歴は増え続けるので全件は取らず、サーバーが新しいほうから日の途中で切らずに 1 ページずつ返す（`shared/types.ts` の `HistoryPage`）。読み足し・絞り込みの切り替え・楽観的更新の書き込みは `src/lib/history.ts`（機能ごとに `HistorySource` を 1 つ定める）、一覧の入れ物は `src/lib/ui/HistoryList.tsx`、サーバーのページ分けは `findHistoryPage` に置き、両方が使う。画面（window）そのものをスクロールし、端へ近づくと続きを足す。最初に出す位置は画面ごとに決める（リストは表示中の日を一番上、立替・レモンは最新を一番下）。絞り込みのフォームや残高・状況のタイルは一覧の上に貼り付け（`position: sticky`）、どこまでスクロールしても隠れない。前に足しても見ている所が動かないよう、見出しの下で最初に見えている要素（ブラウザのスクロールアンカーと同じ選び方）の位置を覚えておき、描き直した後でずれた分だけ戻す。ブラウザのスクロールアンカー（`overflow-anchor`）は Safari が対応していないので使わず、二重にずれないよう止めている。
 - 一覧の行には削除などの操作ボタンを置かず、行をタップして開く詳細（`ItemDetailSheet` / `ExpenseDetailSheet` / `CareLogDetailSheet`）に操作を集める。行の主役は内容で、破壊的な操作を目立たせないため。行に残す操作はタスクの完了チェックだけ（1 タップで済ませたい主操作で、取り消しもできる）。
 - 記録 1 件を出す入れ物は `RecordSheet` 1 つに揃える（スマホでは下から出るシート = `BottomSheet`、PC では中央のダイアログ）。追加のフォームも、行をタップして開く詳細も、その詳細からの編集も同じ入れ物で、違うのは中身と三点リーダーに並ぶ操作だけ。予定・タスク・立替・レモンのどれも同じ手順で読み・直し・消せる。
@@ -174,7 +178,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - 記録のシート（追加・詳細・編集）は、開いた瞬間に入力欄へ焦点を当てない。スマホではソフトキーボードが立ち上がってシートの中身を覆い、何を書く入れ物なのかが読めなくなるため。例外はタスクの追加（`TaskForm`）で、タイトルを打つだけで終わることが多いので開いた所からそのまま打てるようにする。PC のクイック入力の吹き出し（`QuickEventForm`）も、タイトルだけの小さな入れ物なのでタイトルに焦点を当てる（スマホのシートでは当てない）。
 - 保存を押したら送信の完了を待たずに閉じる（結果は楽観的更新で即座に画面に出る）。閉じるのはマウントごとで、保存を押した瞬間から画面は保存後とまったく同じになる（カレンダーの下書きの枠やつまむ所も残らない）。失敗したら画面を送信前へ戻し、理由を画面下部の通知で伝える。入力したまま開き直すことはしない: 開き直せるようにフォームを隠して残すと、返事が来るまで入力の名残が画面に残るため（クライアントでもサーバーと同じスキーマで検証するので、断られるのは稀）。例外はサーバーの結果が無いと何も出せない書き込み（ログイン、ユーザーの登録・変更、配信 URL。`queue: false`）で、返事を待ち、失敗したら入力したまま開き直して理由をフォームの先頭に出す。
 - 下から出るシート（`src/lib/ui/BottomSheet.tsx`）は `translateY` だけで見える量を変え、止まる位置は中身の実測から決める。下へなぞって下げきると閉じる。なぞり始める場所は選ばない（入力欄やボタンの上も含む。つまむ帯だけでは狭すぎる）。縦に少し（8px）動かすまではシートを動かさないので、タップや文字の選択は今までどおり中身に届き、そこで指を捕まえるので押したことにはならない。中身のスクロールもシートが面倒を見て、指の下がまだスクロールできるならそちらを先に動かす（ブラウザ任せ（`touch-action: pan-y`）にすると、スクロールできない所でもなぞりを取り上げられてシートを動かせない）。`peekRef` を渡すと上・下の 2 段で止まり（カレンダーのクイック入力）、常に画面いっぱいの高さで、後ろを触れるようモーダルにしない。渡さなければ段は 1 つで、中身の高さのまま画面の下に出し（画面いっぱいが上限）、後ろは暗くして触れなくする。項目が少ないフォームほど入力欄も操作も指の届く下半分に集まり、後ろの一覧も見えたままになる。
-- ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。閉じるのは戻る操作のときだけで、新しく積む移動では閉じない（カレンダーは予定を入力しながら月・週・日を切り替えられる。別の画面へ移るときはダイアログごとマウントが終わる）。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog を直接使うことは biome が禁じる。
+- ダイアログ（`src/lib/ui/Dialog.tsx`）は開いている間だけ履歴に項目を 1 つ持つ（`useDialogHistory`）。戻る操作（ブラウザバック、iOS の画面端のスワイプ）は重なったダイアログを閉じるだけで、後ろのページまで戻らない。開いている物（選んだ項目、入力途中の値）は URL で表せないので、URL ではなく history の state に「開いているダイアログの数」だけを書く。画面の操作で閉じたときは積んだ項目を戻すので、履歴に抜け殻は残らない。閉じるのは戻る操作のときだけで、新しく積む移動では閉じない（カレンダーは予定を入力しながら月・週・日を切り替えられる。別の画面へ移るときはダイアログごとマウントが終わる）。ダイアログの中から画面を移る操作（年月の選択）は replace で行う（push すると、戻ったときに中身のないダイアログの項目を踏む）。MUI の Dialog と、同じく重ねて開く Modal・Popover・Drawer を部品や画面から直接使うことは biome が禁じる。使ってよいのは履歴を自分で持つ `lib/ui` の入れ物（`Dialog`・`BottomSheet`・`AppShell` の常設の Drawer）と、`useDialogHistory` を自分で呼ぶ PC のクイック入力の吹き出し（`QuickEventForm` の Popover。import の行の biome-ignore に理由を書く）だけ。
 - 入力は極力少ないタップで完了させる（ホームのクイック追加、既定値の自動入力、日付は今日を初期値）。
 - 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き、失敗したら書き込み前へ戻す。送信が終われば関連クエリを invalidate してサーバーの値に合わせる（再取得の完了は待たない）。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。フォームは送り始めた時点（オフラインなら端末に溜めた時点）で保存できたものとして扱って閉じる。
 - 失敗を伝える場所は 1 つにする。返事を待つフォーム（`queue: false`）は開き直したフォームの中に、それ以外（楽観的に保存したフォーム・削除・完了・色の変更）は画面下部の通知（Snackbar。`lib/ui/notice.ts`）に出す。
@@ -195,7 +199,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## PWA
 
 - Web App Manifest（`name: LifeHub`, `display: standalone`, アイコン 192/512/maskable）。`theme_color` / `background_color` は指定しない。manifest の色は 1 色しか持てず、ライト／ダークを切り替えられないため。
-- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/features/add/shortcut.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
+- ショートカット（manifest の `shortcuts`。ホーム画面のアイコンの長押し、タスクバーの右クリックから開く）: 一覧は `src/lib/shortcuts.ts` に 1 つだけ置き、manifest（`vite.config.ts`）とアイコンの生成が同じ物を読む。入力を開くものは URL のしるし（`add`）で始め、受けた画面が開くと同時にしるしを消す（スキーマも消す処理も `src/lib/add-search.ts`。開いている入力は画面の状態で、URL に残す物ではない）。しるしを受ける画面と開ける種類は `src/lib/add-pages.ts` の表 1 つで、画面の検索スキーマもショートカットの URL（`addUrl`）もそこから作るので、画面が受け取れない種類をショートカットに書くと型で止まる。しるしは予定・立替・レモンの各機能が読むので、どの機能にも属さない `src/lib` に置く（`features/add` は機能のフォームを読むので、機能から `features/add` を読むと輪になる）。しるしが開くのは追加ボタンが開くのと同じ入力（同じ状態）で、ショートカット専用の道は作らない。
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
@@ -253,6 +257,8 @@ Preview 環境の挙動:
 
 - TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
+- import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `lib/notifications/repository.ts`）へ移す。
+- `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

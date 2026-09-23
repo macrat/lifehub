@@ -17,22 +17,13 @@ import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
+import { BOTTOM_NAV_HEIGHT } from './layout.ts';
 import { bottomNavItems, primaryNavItems } from './navigation.ts';
 import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
 const DRAWER_WIDTH = 220;
-/** 下部ナビの高さ。ページ側で「画面いっぱい」を計算するときに使う */
-export const BOTTOM_NAV_HEIGHT = 56;
-/** AppBar（dense）の高さ */
-export const APP_BAR_HEIGHT = 48;
-/** 右下の追加ボタン（FAB / SpeedDial）の位置。スマホでは下部ナビの上に置く */
-export const FAB_SX = {
-  position: 'fixed',
-  right: 16,
-  bottom: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 24 },
-} as const;
 
 type Props = {
   children: ReactNode;

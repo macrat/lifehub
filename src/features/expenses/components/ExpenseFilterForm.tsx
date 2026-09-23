@@ -1,9 +1,7 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { isDateString } from '../../../../shared/date.ts';
-import type { DateString } from '../../../../shared/types.ts';
 import { SHARED } from '../../../../shared/validation/expenses.ts';
-import { ALL } from '../../../lib/search.ts';
+import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
@@ -61,7 +59,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         select
         size="small"
         value={filters.to ?? ALL}
-        onChange={(e) => onChange({ to: userOrUndefined(e.target.value) })}
+        onChange={(e) => onChange({ to: optionOrUndefined(e.target.value) })}
       >
         <MenuItem value={ALL}>すべて</MenuItem>
         <MenuItem value={SHARED}>共有</MenuItem>
@@ -76,7 +74,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         select
         size="small"
         value={filters.from ?? ALL}
-        onChange={(e) => onChange({ from: userOrUndefined(e.target.value) })}
+        onChange={(e) => onChange({ from: optionOrUndefined(e.target.value) })}
       >
         <MenuItem value={ALL}>すべて</MenuItem>
         {users.map((u) => (
@@ -93,14 +91,4 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
 function amountOrUndefined(value: string): number | undefined {
   const amount = Number(value);
   return value === '' || Number.isNaN(amount) ? undefined : amount;
-}
-
-/** date 入力は消すと空文字になり、打っている途中は日付にならない。どちらも絞り込みをやめる */
-function dateOrUndefined(value: string): DateString | undefined {
-  return isDateString(value) ? value : undefined;
-}
-
-/** 「すべて」は絞り込みをやめる（URL にも残さない） */
-function userOrUndefined(value: string): string | undefined {
-  return value === ALL ? undefined : value;
 }

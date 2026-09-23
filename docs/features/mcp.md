@@ -15,14 +15,14 @@
 
 ## ツール一覧
 
-命名は `<feature>_<verb>_<object>`。引数スキーマは `shared/validation` の Zod を共有する。説明文は AI が正しく使えるよう具体的に書く。
+命名は `<feature>_<verb>_<object>`。ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。`shared/validation` の Zod は、項目の定義がそのまま LLM にも分かりやすいときだけ共有し、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。説明文は AI が正しく使えるよう具体的に書く。
 
 | ツール | 内容 |
 |---|---|
 | `events_list` | 期間内の予定とタスク（繰り返し展開済み、`placementDate` 付き）を列挙する |
 | `events_create` | 予定またはタスクを作成する（`kind`） |
-| `events_update` | 更新する（`scope`: all / this / following） |
-| `events_delete` | 削除する（`scope`: all / this / following） |
+| `events_update` | 更新する（`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
+| `events_delete` | 削除する（`scope` と `occurrenceStart` は更新と同じ） |
 | `events_complete` | タスクを完了にする（繰り返しは `occurrenceStart` で回を指定） |
 | `events_uncomplete` | 完了を取り消す |
 | `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
@@ -32,7 +32,7 @@
 | `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
 | `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる） |
 
-各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマには `shared/validation` の Zod オブジェクトをそのまま渡す（refine も効く）。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
+各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 
 ## 接続方法
 

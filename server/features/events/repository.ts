@@ -68,8 +68,17 @@ function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undef
   );
 }
 
-export async function findById(id: string): Promise<EventWithParticipants | undefined> {
-  const rows = await selectRows().where(eq(events.id, id)).groupBy(events.id).limit(1);
+/**
+ * 繰り返し元・単発の行を ID で読む。実体化された回の行（series_id を持つ）は返さない。
+ * クライアントと MCP が指す ID は常に繰り返し元のもの（回は繰り返し元の ID と occurrenceStart で指す）で、
+ * 回の行は rrule を持たないので、返すと単発として扱われ、「すべて」の削除で回の行が消えて
+ * 取り消した回が復活する、といった繰り返し元を通さない書き込みになってしまう。
+ */
+export async function findMasterById(id: string): Promise<EventWithParticipants | undefined> {
+  const rows = await selectRows()
+    .where(and(eq(events.id, id), isNull(events.seriesId)))
+    .groupBy(events.id)
+    .limit(1);
   return rows[0];
 }
 

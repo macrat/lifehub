@@ -8,6 +8,9 @@ import { fromDateTimeLocalValue } from '../../lib/date.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import type { CareLogBody } from './queries.ts';
 
+/** 追加ボタンから始めたときに最初からチェックを入れておく項目。いちばん高頻度にやるのが葉水 */
+export const DEFAULT_CARE_TYPES: CareType[] = ['mist'];
+
 /**
  * 世話の記録フォームの共通処理。追加（`CareLogForm`）と詳細からの編集（`CareLogDetailSheet`）で
  * 同じ組み立てと検証を使う。項目はメモが必須かどうかとシートの見出しを変えるので、

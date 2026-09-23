@@ -20,3 +20,4 @@ export const pushSubscriptionSchema = z.object({
 
 // 不正な既存購読も解除できるよう、解除には送信先の制約を適用しない。
 export const unsubscribeSchema = z.object({ endpoint: z.url().max(4096) });
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;

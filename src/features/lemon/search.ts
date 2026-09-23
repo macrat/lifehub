@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import { careLogFilterSchema } from '../../../shared/validation/lemon.ts';
+import { addSearchSchema } from '../../lib/add-search.ts';
 import { type Filters, type FiltersPatch, keywordSearchSchema } from '../../lib/search.ts';
-import { addSearchSchema } from '../add/shortcut.ts';
 
 /**
  * レモンの検索パラメータ。キーワード（q）に加えて、項目と実施日の範囲で絞り込む。
@@ -9,8 +9,8 @@ import { addSearchSchema } from '../add/shortcut.ts';
  * 絞り込みの規則は API と同じもの（`careLogFilterSchema`）で、そのままサーバーに渡して絞り込ませる。
  */
 export const lemonSearchSchema = keywordSearchSchema.extend({
-  /** 記録の入力を開いて始めるしるし（`src/features/add/shortcut.ts`）。絞り込みではない */
-  add: addSearchSchema('lemon'),
+  /** 記録の入力を開いて始めるしるし（`src/lib/add-search.ts`）。絞り込みではない */
+  add: addSearchSchema('/lemon'),
   ...careLogFilterSchema.omit({ q: true }).shape,
 });
 export type LemonSearch = z.infer<typeof lemonSearchSchema>;

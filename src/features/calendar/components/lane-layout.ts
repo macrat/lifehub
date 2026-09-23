@@ -1,4 +1,4 @@
-import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { isCompletedTask, occurrenceKey } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../queries.ts';
 
@@ -17,8 +17,9 @@ export type Placed = {
   roundEnd: boolean;
 };
 
+/** 描いた 1 項目の鍵（React の key）。複数日の予定は日ごとに別の項目なので、発生に暦日を足す */
 export function itemKey(item: CalendarItem): string {
-  return `${item.kind}:${item.id}:${item.occurrenceStart}:${item.placementDate}`;
+  return `${occurrenceKey(item)}:${item.placementDate}`;
 }
 
 /**
@@ -38,14 +39,11 @@ export function layoutLanes(
   days.forEach((day, col) => {
     for (const item of itemsByDate.get(day) ?? []) {
       if (item.kind === 'event' && item.dayCount > 1) {
-        const key = `${item.id}:${item.occurrenceStart}`;
+        const key = occurrenceKey(item);
         if (seenBars.has(key)) continue;
         seenBars.add(key);
         const continues = (day: DateString | undefined) =>
-          day !== undefined &&
-          (itemsByDate.get(day) ?? []).some(
-            (i) => i.kind === 'event' && `${i.id}:${i.occurrenceStart}` === key,
-          );
+          day !== undefined && (itemsByDate.get(day) ?? []).some((i) => occurrenceKey(i) === key);
         let span = 1;
         while (continues(days[col + span])) span++;
         entries.push({
@@ -115,4 +113,27 @@ export function freeLane(placed: Placed[], col: number, span: number, maxLanes: 
     if (!used) return lane;
   }
   return maxLanes - 1;
+}
+
+/**
+ * 行の高さに入りきらないレーンを「+n」に畳む（月グリッドの 1 週）。
+ * 入りきるなら全部出す。入りきらなければ最後のレーンを「+n」の行に譲り、そこから下の項目を列ごとに数える
+ * （複数日の帯は掛かる列すべてに数える）。
+ * - visible: 出す項目
+ * - foldedLane: 「+n」を置くレーン（畳む物が無ければ出すレーンの数と同じ）
+ * - foldedPerCol: 列ごとの畳んだ数
+ */
+export function foldLanes(
+  placed: Placed[],
+  maxLanes: number,
+  columns: number,
+): { visible: Placed[]; foldedLane: number; foldedPerCol: number[] } {
+  const overflow = placed.some((p) => p.lane >= maxLanes);
+  const foldedLane = overflow ? maxLanes - 1 : maxLanes;
+  const foldedPerCol = new Array<number>(columns).fill(0);
+  for (const p of placed) {
+    if (p.lane < foldedLane) continue;
+    for (let c = p.col; c < p.col + p.span; c++) foldedPerCol[c] = (foldedPerCol[c] ?? 0) + 1;
+  }
+  return { visible: placed.filter((p) => p.lane < foldedLane), foldedLane, foldedPerCol };
 }
