@@ -640,6 +640,17 @@ test('ホームの追加ボタンから始めた予定の入力は、閉じる�
   await page.goBack();
   await expect(page).toHaveURL('/');
 
+  // 入力中に日付や表示を切り替えて履歴を積んでいても、閉じればホームへ戻る
+  // （全項目の段のシートが AppBar に重なるので、AppBar のボタンは直接押す）
+  await openFromHome();
+  await page.getByRole('button', { name: '今日' }).dispatchEvent('click');
+  await page.getByRole('button', { name: '表示の切替' }).dispatchEvent('click');
+  await page.getByRole('menuitem', { name: '週', exact: true }).click();
+  await expect(page).toHaveURL(/view=week/);
+  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(page).toHaveURL('/');
+
   // 保存
   await openFromHome();
   await page.getByLabel('タイトルを追加').fill(title);

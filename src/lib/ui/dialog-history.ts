@@ -14,16 +14,6 @@ function depthOf(state: unknown): number {
   return (state as DialogHistoryState).dialogs ?? 0;
 }
 
-/**
- * 画面を移ると同時にダイアログを開くときの、移った先の履歴の項目の state（navigate の state に渡す）。
- * 移った項目そのものをダイアログの項目として数えるので、ダイアログは項目を積まず、閉じると
- * （戻る操作でも画面の操作でも）1 つ前の項目、つまり移る前の画面へ戻る。
- */
-export const asDialogEntry = <S>(prev: S): S => ({ ...prev, dialogs: depthOf(prev) + 1 });
-
-/** 今の履歴の項目が `asDialogEntry` で来た（閉じると前の画面へ戻る）か */
-export const isDialogEntry = (state: unknown): boolean => depthOf(state) > 0;
-
 /** 今開いているダイアログの数。履歴の深さは常にこれに合わせる */
 let openCount = 0;
 let syncScheduled = false;
@@ -51,6 +41,25 @@ function syncHistoryDepth(router: Router): void {
     } else if (diff < 0) {
       router.history.go(diff);
     }
+  });
+}
+
+/**
+ * 履歴の index 番目の項目（`__TSR_index`）へ渡る。間に積んだ項目（ダイアログ、画面の中の移動）は
+ * いくつあってもまとめて越える。閉じたダイアログの項目を戻す go がまだ済んでいなければ、
+ * それが済んでから渡る。WHY: go を続けて呼ぶと、どちらも同じ位置から数えられてしまい、
+ * 狙った項目に着かない。ダイアログのマウントが終わった後（effect の中）で呼ぶこと。
+ */
+export function traverseTo(router: Router, index: number): void {
+  const go = () => router.history.go(index - router.history.location.state.__TSR_index);
+  if (depthOf(router.history.location.state) === openCount) {
+    go();
+    return;
+  }
+  // 次に届くのが、閉じたダイアログの項目を戻した知らせ
+  const unsubscribe = router.history.subscribe(() => {
+    unsubscribe();
+    go();
   });
 }
 

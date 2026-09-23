@@ -7,8 +7,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { FAB_SX } from '../../../lib/ui/AppShell.tsx';
-import { asDialogEntry } from '../../../lib/ui/dialog-history.ts';
 import { ADD_KINDS, type AddFormKind, type AddKind } from '../kinds.ts';
+import { RETURN_ON_CLOSE } from '../shortcut.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
@@ -58,7 +58,7 @@ type Props = {
   onSelect: (kind: AddFormKind) => void;
   /**
    * 予定が選ばれた。カレンダー画面はその場で下書きを置く。無ければ（ほかの画面）今日の下書きを置きに
-   * カレンダーへ送り（カレンダー画面の `add`）、入力を閉じたらこの画面へ戻す（`asDialogEntry`）
+   * カレンダーへ送り（カレンダー画面の `add`）、入力を閉じたらこの画面へ戻す（`RETURN_ON_CLOSE`）
    */
   onSelectEvent?: () => void;
 };
@@ -81,7 +81,7 @@ export function AddMenu({ kinds, onSelect, onSelectEvent }: Props) {
     navigate({
       to: '/calendar',
       search: { add: 'event' },
-      state: asDialogEntry,
+      state: (prev) => ({ ...prev, ...RETURN_ON_CLOSE }),
     });
   };
 
