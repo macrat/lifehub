@@ -163,13 +163,7 @@ function TopProgress() {
   );
 }
 
-/**
- * 保存の失敗などの知らせ。フォームは送信と同時に閉じるので、伝える場所は画面の下部に 1 つだけ置く。
- * ただの知らせはアクセントカラー（primary）、失敗は赤で出す。
- * WHY NOT: Alert の color="primary" は、CSS 変数テーマでは塗り（filled）の色の変数が
- * info / success / warning / error の分しか作られないので使えない。info の色を primary に
- * 塗り替えるのは sx で済ませる（テーマの info を変えると、土曜の青など info を使う他の場所も変わる）。
- */
+/** 保存の失敗などの知らせ。フォームは送信と同時に閉じるので、伝える場所は画面の下部に 1 つだけ置く */
 function NoticeSnackbar() {
   const notice = useNotice();
   return (
@@ -186,16 +180,7 @@ function NoticeSnackbar() {
         },
       }}
     >
-      <Alert
-        severity={notice.severity}
-        variant="filled"
-        onClose={closeNotice}
-        sx={
-          notice.severity === 'info'
-            ? { bgcolor: 'primary.main', color: 'primary.contrastText' }
-            : undefined
-        }
-      >
+      <Alert severity={notice.severity} variant="filled" onClose={closeNotice}>
         {notice.message}
       </Alert>
     </Snackbar>

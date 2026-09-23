@@ -31,8 +31,9 @@ export function createStore<T>(initial: T) {
     );
   }
 
-  function setValue(value: T): void {
-    current = value;
+  /** 前の値から次の値を決めるときは関数を渡す（閉じるときに文言を残す、など） */
+  function setValue(value: T | ((prev: T) => T)): void {
+    current = value instanceof Function ? value(current) : value;
     for (const listener of listeners) listener();
   }
 

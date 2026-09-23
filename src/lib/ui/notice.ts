@@ -21,20 +21,14 @@ type Notice = {
  * 閉じても種類と文言は残す。WHY: 閉じるアニメーションの間も同じ見た目のまま消えるようにするため
  * （消すと、閉じる途中で色や文言が変わって見える）。
  */
-let current: Notice = { severity: 'info', message: '', open: false };
-const [useNotice, setNotice] = createStore(current);
+const [useNotice, setNotice] = createStore<Notice>({ severity: 'info', message: '', open: false });
 
 export { useNotice };
 
-function update(next: Notice): void {
-  current = next;
-  setNotice(next);
-}
-
 export function notify(severity: NoticeSeverity, message: string): void {
-  update({ severity, message, open: true });
+  setNotice({ severity, message, open: true });
 }
 
 export function closeNotice(): void {
-  if (current.open) update({ ...current, open: false });
+  setNotice((notice) => ({ ...notice, open: false }));
 }
