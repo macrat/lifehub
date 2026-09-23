@@ -1,33 +1,23 @@
 import { useNavigate } from '@tanstack/react-router';
-import { z } from 'zod';
-import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { keywordSearchSchema, matchesKeyword, useKeywordSearch } from '../../lib/search.ts';
+import type { z } from 'zod';
+import { type ExpenseFilter, expenseFilterSchema } from '../../../shared/validation/expenses.ts';
+import { keywordSearchSchema, useKeywordSearch } from '../../lib/search.ts';
 import { addSearchSchema } from '../add/shortcut.ts';
-import type { Expense } from './queries.ts';
+
+export { SHARED } from '../../../shared/validation/expenses.ts';
 
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
 export const ALL = 'all';
-/** To の「共有」。ユーザー ID と混ざらないよう、URL にも語として置く */
-export const SHARED = 'shared';
 
 /**
  * 立替の検索パラメータ。キーワード（q）に加えて、金額・日付の範囲と To・From で絞り込む。
  * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻る。
- * 範囲は両端を含み、省略した端は制限しない（最小だけ・終了日だけでも絞り込める）。
+ * 絞り込みの規則は API と同じもの（`expenseFilterSchema`）で、そのままサーバーに渡して絞り込ませる。
  */
 export const expenseSearchSchema = keywordSearchSchema.extend({
   /** 立替の入力を開いて始めるしるし（`src/features/add/shortcut.ts`）。絞り込みではない */
   add: addSearchSchema('expense'),
-  /** 金額（円）の下限・上限 */
-  min: z.coerce.number().int().nonnegative().optional(),
-  max: z.coerce.number().int().nonnegative().optional(),
-  /** 使った日の最初・最後 */
-  since: dateStringSchema.optional(),
-  until: dateStringSchema.optional(),
-  /** To（誰のために払ったか）: SHARED（共有）かユーザー ID */
-  to: z.string().optional(),
-  /** From（払った人）: ユーザー ID（From に共有は無い） */
-  from: z.string().optional(),
+  ...expenseFilterSchema.omit({ q: true }).shape,
 });
 export type ExpenseSearch = z.infer<typeof expenseSearchSchema>;
 
@@ -70,13 +60,19 @@ export function countActiveFilters(search: ExpenseSearch): number {
   ].filter(Boolean).length;
 }
 
-/** 絞り込みに合う立替か。範囲は両端を含み、日付は文字列のまま比べられる（YYYY-MM-DD） */
-export function matchesExpense(expense: Expense, f: ExpenseFilters): boolean {
-  if (f.min !== undefined && expense.amount < f.min) return false;
-  if (f.max !== undefined && expense.amount > f.max) return false;
-  if (f.since !== undefined && expense.spentOn < f.since) return false;
-  if (f.until !== undefined && expense.spentOn > f.until) return false;
-  if (f.to !== undefined && (expense.toUserId ?? SHARED) !== f.to) return false;
-  if (f.from !== undefined && expense.fromUserId !== f.from) return false;
-  return matchesKeyword(f.q, expense.description);
+/**
+ * サーバーに渡す絞り込み（取得のキーにもなる）。入力を開くしるし（add）は絞り込みではないので除き、
+ * 空のキーワードは「絞り込まない」と同じキーにする
+ */
+export function toListFilter({
+  q,
+  min,
+  max,
+  since,
+  until,
+  to,
+  from,
+}: ExpenseFilters): ExpenseFilter {
+  const keyword = q.trim();
+  return { ...(keyword ? { q: keyword } : {}), min, max, since, until, to, from };
 }

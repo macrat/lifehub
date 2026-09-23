@@ -112,7 +112,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## 横断機能との接続
 
 - **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/lib/mcp/server.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
-- **ホーム**: 集約 API は持たない。`src/features/dashboard/cards/*` の各カードが自分の機能のクエリ（`useCalendarItems` / `balanceQueryOptions` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無く、書き込み後の無効化はその機能のキーだけで済む。カードごとに読み込みとエラーを出せる。
+- **ホーム**: 集約 API は持たない。`src/features/dashboard/cards/*` の各カードが自分の機能のクエリ（`useCalendarItems` / `useBalance` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無く、書き込み後の無効化はその機能のキーだけで済む。カードごとに読み込みとエラーを出せる。
 - **通知**: 通知源は events だけなので registry を置かず、`server/lib/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 

@@ -14,6 +14,15 @@ export type Expense = {
   createdAt: string;
 };
 
+/**
+ * 履歴の 1 ページ（古い順）。ページは日の途中では切らない（同じ日の立替は必ず同じページに入る）。
+ * nextCursor はこのページより前の立替があるときに、次に読むページの `before`（このページの最も古い日）。
+ */
+export type ExpensePage = {
+  items: Expense[];
+  nextCursor: string | null;
+};
+
 /** 「誰が誰のために払ったか」ごとの合計。toUserId が null なら共有（折半） */
 export type ExpenseTotal = {
   fromUserId: string;
@@ -34,7 +43,7 @@ export type Balance =
  * 利用者は 2 人固定で、登録順の先頭 2 人を A, B とする。
  *
  * 式はここ 1 か所だけに置く。サーバーは SQL で出した合計を渡し（全行を読まずに済む）、
- * クライアントは手元の履歴をそのまま渡す（Expense は ExpenseTotal として読める）ので、答えは必ず一致する。
+ * クライアントは同じ合計（`GET /api/expenses/totals`）に楽観的更新の分を足して渡すので、答えは必ず一致する。
  */
 export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Balance {
   const total = (from: string, to: string | null) =>
@@ -48,7 +57,7 @@ export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Bal
 
 /**
  * 一覧の並び: 使った日の古い順、同じ日なら登録の古い順（アプリの一覧はどれも上が古く下が新しい）。
- * サーバーの `findAll` も同じ並びで返す
+ * サーバーのページ（`findPage`）も同じ並びで返す
  */
 export function sortExpenses(expenses: Expense[]): Expense[] {
   return [...expenses].sort(

@@ -3,7 +3,7 @@ import { login } from './login.ts';
 
 /**
  * 予定のリストと立替の履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
- * 最初に出す位置（予定は基準の日が一番上、立替は最新が一番下）と、上へ戻ると古いほうが描き足されることを確かめる。
+ * 最初に出す位置（予定は基準の日が一番上、立替は最新が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -67,14 +67,14 @@ test('立替の履歴は最新を一番下に出し、残高は上に貼り付�
   const newest = `E2E 最新 ${stamp}`;
   const ids: string[] = [];
   try {
-    // 古い日から新しい日まで 1 日 1 件。描き足す単位（30 日）より多くして、上に描いていない日を残す
-    for (let i = 0; i < 40; i++) {
+    // 古い日から新しい日まで 1 日 1 件。1 ページ（50 件）より多くして、最初は読んでいない日を残す
+    for (let i = 0; i < 60; i++) {
       const res = await page.request.post('/api/expenses', {
         data: {
           fromUserId: me,
           toUserId: null,
           amount: 100,
-          description: i === 0 ? oldest : i === 39 ? newest : `E2E ${i} ${stamp}`,
+          description: i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`,
           spentOn: new Date(Date.UTC(2099, 0, 1 + i)).toISOString().slice(0, 10),
         },
       });
@@ -88,7 +88,7 @@ test('立替の履歴は最新を一番下に出し、残高は上に貼り付�
     await expect(balance).toBeInViewport();
     await expect(page.getByText(oldest)).toHaveCount(0);
 
-    // 上へ戻ると古い日が描き足される。残高は AppBar の下に貼り付いたまま
+    // 上へ戻ると古いほうのページを読む。残高は AppBar の下に貼り付いたまま
     await expect(async () => {
       await page.mouse.wheel(0, -3000);
       await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });

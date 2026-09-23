@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
+import {
+  type ExpenseInput,
+  type ExpenseListQuery,
+  SHARED,
+} from '../../../../shared/validation/expenses.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser } from '../../users/service.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
@@ -90,7 +95,7 @@ describe('expenses service', () => {
     await addExpense(input, a, id);
     await addExpense(input, a, id);
 
-    expect(await listExpenses()).toHaveLength(1);
+    expect((await listExpenses({})).items).toHaveLength(1);
     expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
   });
 
@@ -100,6 +105,84 @@ describe('expenses service', () => {
       a,
     );
     await deleteExpense(expense.id);
-    expect(await listExpenses()).toHaveLength(0);
+    expect((await listExpenses({})).items).toHaveLength(0);
+  });
+
+  describe('履歴のページ', () => {
+    const day = (n: number) => dateStringSchema.parse(`2026-01-${String(n).padStart(2, '0')}`);
+    const add = (values: Partial<ExpenseInput> = {}) =>
+      addExpense(
+        {
+          fromUserId: a,
+          toUserId: null,
+          amount: 1000,
+          description: '買い物',
+          spentOn: on,
+          ...values,
+        },
+        a,
+      );
+
+    it('新しいほうから 1 ページを古い順で返し、nextCursor で前のページへ続く', async () => {
+      // 1 日 1 件を 60 日。1 ページ（50 件）に収まらない
+      const days = Array.from({ length: 60 }, (_, i) =>
+        dateStringSchema.parse(new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10)),
+      );
+      for (const spentOn of days) await add({ spentOn });
+      const first = await listExpenses({});
+      expect(first.items.map((e) => e.spentOn)).toEqual(days.slice(10));
+      expect(first.nextCursor).toBe(days[10]);
+
+      const second = await listExpenses({ before: days[10] });
+      expect(second.items.map((e) => e.spentOn)).toEqual(days.slice(0, 10));
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('日の途中では切らず、その日の立替はすべて同じページに入れる', async () => {
+      for (let n = 0; n < 49; n++) await add({ spentOn: day(20) });
+      // 50 件目の日（1/10）には 3 件あり、3 件ともこのページに入る
+      for (let n = 0; n < 3; n++) await add({ spentOn: day(10) });
+      await add({ spentOn: day(1) });
+
+      const first = await listExpenses({});
+      expect(first.items).toHaveLength(52);
+      expect(first.nextCursor).toBe('2026-01-10');
+      const second = await listExpenses({ before: day(10) });
+      expect(second.items.map((e) => e.spentOn)).toEqual(['2026-01-01']);
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('金額・日付の範囲は両端を含み、片方だけでも絞り込める', async () => {
+      await add({ amount: 999, spentOn: day(1) });
+      await add({ amount: 1000, spentOn: day(2) });
+      await add({ amount: 1001, spentOn: day(3) });
+      const amounts = async (query: ExpenseListQuery) =>
+        (await listExpenses(query)).items.map((e) => e.amount);
+      expect(await amounts({ min: 1000 })).toEqual([1000, 1001]);
+      expect(await amounts({ max: 1000 })).toEqual([999, 1000]);
+      expect(await amounts({ since: day(2), until: day(3) })).toEqual([1000, 1001]);
+    });
+
+    it('To は共有とユーザーを選び分け、From は払った人で絞り込む', async () => {
+      await add({ description: '共有' });
+      await add({ description: 'B の分', toUserId: b });
+      await add({ description: 'B が払った', fromUserId: b });
+      const names = async (query: ExpenseListQuery) =>
+        (await listExpenses(query)).items.map((e) => e.description);
+      expect(await names({ to: SHARED })).toEqual(['共有', 'B が払った']);
+      expect(await names({ to: b })).toEqual(['B の分']);
+      expect(await names({ from: b })).toEqual(['B が払った']);
+    });
+
+    it('キーワードは内容の部分一致で、大文字小文字と % _ をそのまま扱う', async () => {
+      await add({ description: 'スーパーで Milk' });
+      await add({ description: '100% ジュース' });
+      await add({ description: 'コンビニ' });
+      const names = async (q: string) =>
+        (await listExpenses({ q })).items.map((e) => e.description);
+      expect(await names('milk')).toEqual(['スーパーで Milk']);
+      expect(await names('%')).toEqual(['100% ジュース']);
+      expect(await names('_')).toEqual([]);
+    });
   });
 });

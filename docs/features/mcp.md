@@ -27,7 +27,7 @@
 | `events_uncomplete` | 完了を取り消す |
 | `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
 | `expenses_get_balance` | 立替残高を返す |
-| `expenses_list` | 立替の履歴（精算を含む） |
+| `expenses_list` | 立替の履歴（精算を含む）の 1 ページ。画面と同じ絞り込みができ、`nextCursor` を `before` に渡すと前のページ |
 | `expenses_add` | 立替（精算を含む）を追加する |
 | `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
 | `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる） |

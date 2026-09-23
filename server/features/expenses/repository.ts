@@ -1,5 +1,6 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
@@ -12,8 +13,61 @@ type ExpenseValues = {
   spentOn: string;
 };
 
-export async function findAll(): Promise<ExpenseRow[]> {
-  return db.select().from(expenses).orderBy(asc(expenses.spentOn), asc(expenses.createdAt));
+/**
+ * before より前（省けば全体）の、新しいほうから limit 件ほどの立替（古い順）。
+ * 最も古い日の途中では切らず、その日の立替はすべて入れる（件数は limit より多くなりうる）。
+ * WHY 日で切る: 画面は日ごとに見出しを立てて並べ、前のページを上に足したときの位置合わせを
+ * 日のまとまりで行う。同じ日が 2 ページに分かれると、足した分が既に出ている日の中に入り込む。
+ * 次の境目も日付 1 つで言えるので、登録日時の精度（DB はマイクロ秒、JSON はミリ秒）に左右されない。
+ * olderThan は、このページより前にまだ立替があるときの次の境目（このページの最も古い日）。
+ */
+export async function findPage(
+  filter: ExpenseFilter,
+  before: string | undefined,
+  limit: number,
+): Promise<{ rows: ExpenseRow[]; olderThan: string | null }> {
+  const conditions = [
+    ...filterConditions(filter),
+    before !== undefined ? lt(expenses.spentOn, before) : undefined,
+  ];
+  // 新しいほうから数えて limit 件目の日。ここまでをこのページにする
+  const [boundary] = await db
+    .select({ spentOn: expenses.spentOn })
+    .from(expenses)
+    .where(and(...conditions))
+    .orderBy(desc(expenses.spentOn), desc(expenses.createdAt))
+    .offset(limit - 1)
+    .limit(1);
+  const rows = await db
+    .select()
+    .from(expenses)
+    .where(and(...conditions, boundary && gte(expenses.spentOn, boundary.spentOn)))
+    .orderBy(asc(expenses.spentOn), asc(expenses.createdAt), asc(expenses.id));
+  if (!boundary) return { rows, olderThan: null };
+  const older = await db
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(and(...conditions, lt(expenses.spentOn, boundary.spentOn)))
+    .limit(1);
+  return { rows, olderThan: older.length > 0 ? boundary.spentOn : null };
+}
+
+/** 絞り込みの条件。範囲は両端を含む。キーワードは内容の部分一致（大文字小文字を区別しない） */
+function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
+  const q = f.q?.trim();
+  return [
+    q ? ilike(expenses.description, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined,
+    f.min !== undefined ? gte(expenses.amount, f.min) : undefined,
+    f.max !== undefined ? lte(expenses.amount, f.max) : undefined,
+    f.since !== undefined ? gte(expenses.spentOn, f.since) : undefined,
+    f.until !== undefined ? lte(expenses.spentOn, f.until) : undefined,
+    f.to === SHARED
+      ? isNull(expenses.toUserId)
+      : f.to !== undefined
+        ? eq(expenses.toUserId, f.to)
+        : undefined,
+    f.from !== undefined ? eq(expenses.fromUserId, f.from) : undefined,
+  ];
 }
 
 /**

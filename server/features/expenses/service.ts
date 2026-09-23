@@ -1,6 +1,12 @@
-import { type Balance, balanceOf, type Expense } from '../../../shared/expenses.ts';
+import {
+  type Balance,
+  balanceOf,
+  type Expense,
+  type ExpensePage,
+  type ExpenseTotal,
+} from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
-import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
+import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -8,13 +14,33 @@ import type { ExpenseRow } from './schema.ts';
 
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
-export async function listExpenses(): Promise<Expense[]> {
-  return (await repository.findAll()).map(toExpense);
+/**
+ * 1 ページの件数の目安（日の途中では切らないので、これより多くなることがある）。
+ * 1 日は数件なので、スマホの画面数枚分になる
+ */
+const PAGE_SIZE = 50;
+
+/**
+ * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
+ * 古いほうは nextCursor を before に渡して続きを読む（`findPage`）。
+ */
+export async function listExpenses({ before, ...filter }: ExpenseListQuery): Promise<ExpensePage> {
+  const { rows, olderThan } = await repository.findPage(filter, before, PAGE_SIZE);
+  return { items: rows.map(toExpense), nextCursor: olderThan };
 }
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
 export async function getBalance(): Promise<Balance> {
   return balanceOf(await repository.sumByDirection(), await twoUsers());
+}
+
+/**
+ * 残高の元になる「誰が誰のために払ったか」ごとの合計（最大 6 行）。クライアントはこれと
+ * ユーザーから残高を導く。書き込みの結果を先に出すとき（楽観的更新）、残高そのものからは
+ * 折半の端数が分からず正しく足し引きできないが、合計なら 1 件分を足し引きするだけで済む
+ */
+export async function getTotals(): Promise<ExpenseTotal[]> {
+  return repository.sumByDirection();
 }
 
 /** id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する */

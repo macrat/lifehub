@@ -7,7 +7,6 @@ import { MARK_DOT_SX, MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Expense } from '../queries.ts';
-import { useShownDays } from '../use-shown-days.ts';
 import { formatYen } from './BalanceSummary.tsx';
 
 /**
@@ -17,8 +16,10 @@ import { formatYen } from './BalanceSummary.tsx';
 const AMOUNT_WIDTH = 80;
 
 type Props = {
-  /** 絞り込んだ後の履歴（古い順） */
+  /** 読んだ分の履歴（古い順） */
   expenses: Expense[];
+  /** 上の端へ近づいたとき（古いほうを読む）。undefined なら読む物が無いか読み込み中 */
+  onReachStart: (() => void) | undefined;
   /** 一覧の上に貼り付けておく物（絞り込みのフォームと残高） */
   header: ReactNode;
   /** 変わったら新しいほうの末尾へ戻す（絞り込みを変えたとき） */
@@ -30,20 +31,28 @@ type Props = {
 };
 
 /**
- * 立替の履歴（上が古く下が新しい）。最初は一番下（最新）を出し、上へスクロールすると古い日を描き足す
- * （`useShownDays`、`InfiniteScroll`）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
+ * 立替の履歴（上が古く下が新しい）。最初は一番下（最新）を出し、上へスクロールすると古いほうのページを
+ * 読み足す（`useExpenseHistory`、`InfiniteScroll`）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、中身だけが違う:
  * 印は誰から誰へ渡ったかの色の点（`expenseMarkBackground`）、主列は金額、本文は内容と名前。
  * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
  */
-export function ExpenseList({ expenses, header, resetKey, emptyMessage, onSelect }: Props) {
+export function ExpenseList({
+  expenses,
+  onReachStart,
+  header,
+  resetKey,
+  emptyMessage,
+  onSelect,
+}: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const { days, showEarlier } = useShownDays(expenses, resetKey);
+  // ページは日の途中で切れないので、日ごとのまとまりが 2 つに割れることはない
+  const days = [...Map.groupBy(expenses, (e) => e.spentOn)];
   return (
     <InfiniteScroll
       header={header}
-      onReachStart={showEarlier}
+      onReachStart={onReachStart}
       initialPosition="end"
       resetKey={resetKey}
     >

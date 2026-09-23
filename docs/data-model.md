@@ -30,7 +30,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/schema.ts`
 
 ## 計算ルール
 
-- **立替残高**（A が B に対して持つ債権）= (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。共有は折半。精算も「払った人 → 受け取った人」の同じ形の行）。端数は切り捨て。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出して `shared/expenses.ts` の `balanceOf` に渡す（履歴の行数に応答時間が左右されない）。クライアントの楽観的更新は手元の履歴をそのまま同じ関数に渡す。
+- **立替残高**（A が B に対して持つ債権）= (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。共有は折半。精算も「払った人 → 受け取った人」の同じ形の行）。端数は切り捨て。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出して `shared/expenses.ts` の `balanceOf` に渡す（履歴の行数に応答時間が左右されない）。クライアントも同じ合計（`GET /api/expenses/totals`）を受け取って同じ関数に渡し、楽観的更新では合計に 1 件分を足し引きする。
 - **レモンの世話の状態**は項目ごとの最新の記録だけで決まる。サーバーは `care_types` を `unnest` で 1 項目 1 行にほどいてから `DISTINCT ON (care_type)` で項目ごとに 1 行だけ読み、`shared/lemon.ts` の `careStatusesOf` に渡す。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、触っていない回の行は作らない（繰り返し元 + 実体化した回 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。rrule ライブラリの走査は必ず DTSTART から始まるため、1 つのルールにつき走査は 1 回だけにし、必要な窓の外は瞬間に戻さず読み飛ばす（`expandOccurrences` の `lookbehind` / `lookahead`）。
 - **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/events.md](features/events.md) の規則で `events` の `occurrences.ts` が算出し、予定と統合する。放棄されずに残る最初の回は「今以前の最後の発生の 1 つ前」なので、走査はそこから始める（それより前の回は必ず放棄済みで、完了した回は実体化された行から拾う）。
