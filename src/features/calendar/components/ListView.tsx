@@ -5,19 +5,13 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { firstDayOfMonth, formatMonth, toMonthString } from '../../../lib/date.ts';
-import { dateOrUndefined } from '../../../lib/search.ts';
+import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
-import {
-  completedFilterSchema,
-  kindFilterSchema,
-  type ListFilters,
-  type ListFiltersPatch,
-  matchesListFilters,
-} from '../search.ts';
+import { type ListFilters, type ListFiltersPatch, matchesListFilters } from '../search.ts';
 import { useListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';
 
@@ -64,10 +58,10 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
         label="種別"
         select
         size="small"
-        value={filters.kind}
-        onChange={(e) => onChangeFilters({ kind: kindFilterSchema.parse(e.target.value) })}
+        value={filters.kind ?? ALL}
+        onChange={(e) => onChangeFilters({ kind: optionOrUndefined(e.target.value) })}
       >
-        <MenuItem value="all">すべて</MenuItem>
+        <MenuItem value={ALL}>すべて</MenuItem>
         <MenuItem value="event">予定</MenuItem>
         <MenuItem value="task">タスク</MenuItem>
       </TextField>
@@ -75,10 +69,10 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
         label="参加者"
         select
         size="small"
-        value={filters.participant}
-        onChange={(e) => onChangeFilters({ participant: e.target.value })}
+        value={filters.participant ?? ALL}
+        onChange={(e) => onChangeFilters({ participant: optionOrUndefined(e.target.value) })}
       >
-        <MenuItem value="all">すべて</MenuItem>
+        <MenuItem value={ALL}>すべて</MenuItem>
         {users.map((u) => (
           <MenuItem key={u.id} value={u.id}>
             {u.name}
@@ -89,12 +83,10 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
         label="完了"
         select
         size="small"
-        value={filters.completed}
-        onChange={(e) =>
-          onChangeFilters({ completed: completedFilterSchema.parse(e.target.value) })
-        }
+        value={filters.completed ?? ALL}
+        onChange={(e) => onChangeFilters({ completed: optionOrUndefined(e.target.value) })}
       >
-        <MenuItem value="all">すべて</MenuItem>
+        <MenuItem value={ALL}>すべて</MenuItem>
         <MenuItem value="open">未完了</MenuItem>
         <MenuItem value="done">完了済み</MenuItem>
       </TextField>

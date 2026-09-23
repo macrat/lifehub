@@ -7,9 +7,9 @@ const DAY = '2031-06-05' as DateString;
 const NONE: ListFilters = {
   from: undefined,
   to: undefined,
-  kind: 'all',
-  participant: 'all',
-  completed: 'all',
+  kind: undefined,
+  participant: undefined,
+  completed: undefined,
   q: '',
 };
 

@@ -15,9 +15,9 @@ const viewSchema = z.enum(['month', 'week', 'day', 'list']);
 export type CalendarView = z.infer<typeof viewSchema>;
 
 /** リスト表示の種別の絞り込み */
-export const kindFilterSchema = z.enum(['all', 'event', 'task']);
-/** リスト表示の完了状態の絞り込み。all = 両方、open = 未完了のみ、done = 完了のみ（予定は除く） */
-export const completedFilterSchema = z.enum(['all', 'open', 'done']);
+const kindFilterSchema = z.enum(['event', 'task']);
+/** リスト表示の完了状態の絞り込み。open = 未完了のみ、done = 完了のみ（予定は除く） */
+const completedFilterSchema = z.enum(['open', 'done']);
 
 const LAST_VIEW_KEY = 'calendar-view';
 
@@ -55,10 +55,11 @@ export const calendarSearchSchema = z.object({
   /** 期間の絞り込み。省略した端へは無限スクロールでどこまでも広がる */
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
-  kind: kindFilterSchema.default('all'),
-  /** 'all' = すべて、それ以外は参加者のユーザー ID */
-  participant: z.string().default('all'),
-  completed: completedFilterSchema.default('all'),
+  // 省略は「絞り込まない」。立替・レモンと同じく「すべて」を値として URL に残さない（`src/lib/search.ts` の ALL）
+  kind: kindFilterSchema.optional(),
+  /** 参加者のユーザー ID */
+  participant: z.string().optional(),
+  completed: completedFilterSchema.optional(),
   q: z.string().optional(),
 });
 export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
@@ -88,17 +89,17 @@ export function listFiltersOf(search: CalendarSearch, q: string): ListFilters {
 /** 効いている絞り込みの数（絞り込みボタンのバッジ）。期間は両端で 1 つ、キーワードは検索窓に見えているので数えない */
 export function activeFilterCount(filters: ListFilters): number {
   return [
-    filters.kind !== 'all',
-    filters.participant !== 'all',
-    filters.completed !== 'all',
+    filters.kind !== undefined,
+    filters.participant !== undefined,
+    filters.completed !== undefined,
     filters.from !== undefined || filters.to !== undefined,
   ].filter(Boolean).length;
 }
 
 /** 項目が絞り込みに当たるか。期間はサーバーに投げるので、ここではそれ以外を手元で掛ける */
 export function matchesListFilters(item: CalendarItem, f: ListFilters): boolean {
-  if (f.kind !== 'all' && item.kind !== f.kind) return false;
-  if (f.participant !== 'all' && !item.participantIds.includes(f.participant)) return false;
+  if (f.kind !== undefined && item.kind !== f.kind) return false;
+  if (f.participant !== undefined && !item.participantIds.includes(f.participant)) return false;
   if (f.completed === 'open' && isCompletedTask(item)) return false;
   if (f.completed === 'done' && !isCompletedTask(item)) return false;
   return matchesKeyword(f.q, item.title, item.location, item.note);
