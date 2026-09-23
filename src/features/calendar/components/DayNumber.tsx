@@ -1,16 +1,18 @@
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
-import { isToday, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
+import { dateColor, isToday } from '../../../lib/date.ts';
 
 type Props = {
   date: DateString;
   size: number;
+  /** 祝日か（`useHolidays` の集合を引くのは呼び出し側。日ごとに購読させない） */
+  holiday: boolean;
   /** 表示中の月の外など、薄く出すとき */
   muted?: boolean;
 };
 
-/** 日付の数字。今日は primary の丸で塗る。土日は曜日の色 */
-export function DayNumber({ date, size, muted = false }: Props) {
+/** 日付の数字。今日は primary の丸で塗る。土日は曜日の色、祝日は日曜と同じ赤 */
+export function DayNumber({ date, size, holiday, muted = false }: Props) {
   const today = isToday(date);
   return (
     <Typography
@@ -24,11 +26,7 @@ export function DayNumber({ date, size, muted = false }: Props) {
         fontSize: size < 24 ? '0.7rem' : '0.95rem',
         fontWeight: today ? 700 : 400,
         bgcolor: today ? 'primary.main' : 'transparent',
-        color: today
-          ? 'primary.contrastText'
-          : muted
-            ? 'text.disabled'
-            : weekdayColor(weekdayIndex(date)),
+        color: today ? 'primary.contrastText' : muted ? 'text.disabled' : dateColor(date, holiday),
       }}
     >
       {Number(date.slice(8))}

@@ -206,6 +206,11 @@ export function weekdayColor(index: number): string {
   return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
 }
 
+/** 日付の文字色。曜日の色で、祝日は日曜と同じ赤 */
+export function dateColor(date: DateString, holiday: boolean): string {
+  return weekdayColor(holiday ? 6 : weekdayIndex(date));
+}
+
 /** 日付（YYYY-MM-DD）が今日か。立替の `spentOn` は印を持たない文字列なので、ここは string で受ける */
 export function isToday(date: string): boolean {
   return date === today();
