@@ -48,12 +48,7 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
             <MarkedRow
               key={expense.id}
               onSelect={(editing) => onSelect(expense, editing)}
-              mark={
-                <VennMark
-                  colors={expenseMarkColors(expense, colorFor)}
-                  overlap={colorFor(null).mark}
-                />
-              }
+              mark={<VennMark colors={expenseMarkColors(expense, colorFor)} />}
               leadWidth={AMOUNT_WIDTH}
               lead={
                 <Typography variant="body2" component="div" sx={{ textAlign: 'right' }}>
@@ -78,7 +73,6 @@ export function ExpenseList({ expenses, emptyMessage, onSelect }: Props) {
 /**
  * 印（`VennMark`）の円の色。共有のために払ったものは払った人 1 色の円、人から人へのものは
  * 左を To・右を From の円にする（名前と同じ「To ← From」の並び）。
- * 2 つの円の重なりは共有の色になるので、補色どうしでも 2 色が直に接しない。
  */
 function expenseMarkColors(expense: Expense, colorFor: ReturnType<typeof useUserColor>): string[] {
   const from = colorFor(expense.fromUserId).mark;
