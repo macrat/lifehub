@@ -38,7 +38,9 @@ export function useAppTheme(): Theme {
  */
 function createAppTheme(hue: number = DEFAULT_HUE) {
   return createTheme({
-    cssVariables: { colorSchemeSelector: 'media' },
+    // nativeColor: パレットに oklch() をそのまま渡し、明暗の派生色や文字色は CSS（color-mix・相対色）で作らせる。
+    // これが無いと MUI はパレットの色を JS で解析するので、hex / rgb しか受けない
+    cssVariables: { colorSchemeSelector: 'media', nativeColor: true },
     colorSchemes: {
       light: {
         palette: {
