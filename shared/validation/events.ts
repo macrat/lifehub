@@ -55,15 +55,8 @@ const eventFields = {
   remindEndMinutes: remindMinutesSchema,
 };
 
-type EventFieldsOutput = {
-  kind: EventKind;
-  allDay: boolean;
-  remindStartMinutes: number | null;
-  remindEndMinutes: number | null;
-  startsAt: Date | null;
-  endsAt: Date | null;
-  rrule: string | null;
-};
+/** 予定・タスクの項目（検証後）。規則（下の refine）はこの形を読む */
+type EventFieldsOutput = z.output<z.ZodObject<typeof eventFields>>;
 
 const eventHasRange = (v: EventFieldsOutput) =>
   v.kind !== 'event' || (v.startsAt !== null && v.endsAt !== null);
@@ -95,13 +88,20 @@ const recurrenceMessage = {
   path: ['rrule'],
 };
 
-export const createEventSchema = z
-  .object(eventFields)
-  .refine(eventHasRange, eventRangeMessage)
-  .refine(endAfterStart, endMessage)
-  .refine(...allDayRemindRule('remindStartMinutes'))
-  .refine(...allDayRemindRule('remindEndMinutes'))
-  .refine(recurrenceHasBase, recurrenceMessage);
+/**
+ * 予定・タスクの項目の組み合わせの規則。作成と更新（と MCP の部分更新を重ねた後の値）が同じ規則を通るよう、
+ * 規則はここ 1 か所に並べ、スキーマの形（回の指定の有無）とは切り離す。
+ */
+export function withEventRules<T extends z.ZodType<EventFieldsOutput>>(schema: T): T {
+  return schema
+    .refine(eventHasRange, eventRangeMessage)
+    .refine(endAfterStart, endMessage)
+    .refine(...allDayRemindRule('remindStartMinutes'))
+    .refine(...allDayRemindRule('remindEndMinutes'))
+    .refine(recurrenceHasBase, recurrenceMessage);
+}
+
+export const createEventSchema = withEventRules(z.object(eventFields));
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
 /**
@@ -135,14 +135,7 @@ export const occurrenceTargetSchema = z.discriminatedUnion('scope', [
 ]);
 export type OccurrenceTarget = z.infer<typeof occurrenceTargetSchema>;
 
-export const updateEventSchema = z
-  .object(eventFields)
-  .and(occurrenceTargetSchema)
-  .refine(eventHasRange, eventRangeMessage)
-  .refine(endAfterStart, endMessage)
-  .refine(...allDayRemindRule('remindStartMinutes'))
-  .refine(...allDayRemindRule('remindEndMinutes'))
-  .refine(recurrenceHasBase, recurrenceMessage);
+export const updateEventSchema = withEventRules(z.object(eventFields).and(occurrenceTargetSchema));
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 
 /** 完了・完了取り消し（タスクのみ）。繰り返しでは occurrenceStart で回を指定する（完了は常に 1 つの回に対して行う） */
