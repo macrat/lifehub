@@ -3,6 +3,7 @@ import {
   defaultShouldDehydrateMutation,
   type MutateOptions,
   type Mutation,
+  type MutationOptions,
   onlineManager,
   partialMatchKey,
   QueryClient,
@@ -146,8 +147,23 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  */
 const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
 
+/** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
+const settleWrite = {
+  mutationFn: sendAsAuthor,
+  onError: (error, _variables, snapshot) => {
+    // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
+    for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
+    notify('error', error.message);
+  },
+  onSettled: (_data, _error, { keys }) => {
+    for (const queryKey of keys) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  },
+} satisfies MutationOptions<unknown, Error, Write<unknown>, Snapshot>;
+
 /**
- * 書き込みの既定。中身は関数なのでキャッシュに保存されないが、mutationKey で引き当てられるので、
+ * 溜める書き込みの既定。中身は関数なのでキャッシュに保存されないが、mutationKey で引き当てられるので、
  * 再読み込みで復元した書き込みもここに書いた方法で送られる。
  *
  * - networkMode（既定の `online`）: オフラインでは送らずに保留する。保留中の書き込みは
@@ -158,21 +174,6 @@ const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
  * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは同じ id の作成が既にあれば何も書かない）。
  *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
  */
-/** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
-const settleWrite = {
-  mutationFn: sendAsAuthor,
-  onError: (error: Error, _variables: Write<unknown>, snapshot: Snapshot | undefined) => {
-    // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
-    for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
-    notify('error', error.message);
-  },
-  onSettled: (_data: unknown, _error: Error | null, { keys }: Write<unknown>) => {
-    for (const queryKey of keys) {
-      void queryClient.invalidateQueries({ queryKey });
-    }
-  },
-};
-
 queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
   ...settleWrite,
   scope: { id: 'write' },

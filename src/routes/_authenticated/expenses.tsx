@@ -37,8 +37,12 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering, panel } =
-    useFilterSearch(search, countActiveFilters);
+  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const balanceQuery = useBalance();
   const history = useExpenseHistory(listFilter);
   const adding = useToggle();

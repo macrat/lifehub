@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 import { z } from 'zod';
 import { isDateString } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
-import { useToggle } from './ui/use-toggle.ts';
 
 /** キーワード検索をする画面の検索パラメータ。空文字は付けない（検索していない状態は URL にも残さない） */
 export const keywordSearchSchema = z.object({ q: z.string().optional() });
@@ -113,8 +112,6 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
 ) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
-  // 詳細な絞り込みのフォーム（`FilterPanel`）を開いているか。URL には載せない（開き直したら閉じている）
-  const panel = useToggle();
   const filters: Filters<S> = { ...search, q: keyword };
   const activeFilters = countActive(search);
   return {
@@ -128,6 +125,5 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
     activeFilters,
     /** 何かで絞り込んでいるか（空の一覧の文言を「一致するものが無い」にする） */
     filtering: keyword !== '' || activeFilters > 0,
-    panel,
   };
 }

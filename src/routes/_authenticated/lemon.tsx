@@ -26,7 +26,7 @@ import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
-import { useOpenWith } from '../../lib/ui/use-toggle.ts';
+import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   validateSearch: lemonSearchSchema,
@@ -44,8 +44,12 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering, panel } =
-    useFilterSearch(search, countActiveFilters);
+  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const history = useCareLogHistory(listFilter);
   // 追加のフォームと、最初から選んでおく項目（状況のタイルから開くとその項目）
