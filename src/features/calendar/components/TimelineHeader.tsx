@@ -4,7 +4,7 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
-import { useDailyWeather, useHolidays } from '../queries.ts';
+import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
 
@@ -18,8 +18,7 @@ type Props = {
 
 /** 週・日のタイムラインの、日付の見出しの行（曜日・日付・天気） */
 export function TimelineHeader({ days, columns, onSelectDate }: Props) {
-  const holidays = useHolidays();
-  const weather = useDailyWeather(days);
+  const { holidays, weather } = useCalendarDays(days);
   const single = days.length === 1;
   return (
     <Box

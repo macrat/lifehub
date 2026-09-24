@@ -19,6 +19,8 @@ export const apiKeysQueryOptions = queryOptions({
  * 発行。発行したキーを画面に出すために応答の本文が要るので、書き込みの共通の mutation
  * （`useOptimisticMutation`。応答を返さない）ではなく、応答を待って返す mutation にする。
  * オフラインでは溜めずにその場で失敗する（キーはサーバーが作るので、送れるまで出せるものが無い）。
+ * 応答には一覧に出す項目がすべて載っているので、一覧は取り直さずに末尾（作成日時の昇順）へ足す。
+ * キーそのものは一覧に入れない（キャッシュは端末の IndexedDB に残るので、秘密を置かない）。
  */
 export function useCreateApiKey() {
   const queryClient = useQueryClient();
@@ -26,7 +28,9 @@ export function useCreateApiKey() {
     mutationFn: async (input: ApiKeyInput): Promise<IssuedApiKey> =>
       (await ensureOk(await api['api-keys'].$post({ json: input }))).json(),
     networkMode: 'always',
-    onSettled: () => queryClient.invalidateQueries({ queryKey: apiKeysQueryOptions.queryKey }),
+    onSuccess: ({ key: _key, ...apiKey }) => {
+      queryClient.setQueryData(apiKeysQueryOptions.queryKey, (keys) => keys && [...keys, apiKey]);
+    },
   });
 }
 

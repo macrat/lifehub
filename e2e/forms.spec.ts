@@ -70,7 +70,8 @@ test('カレンダーに追加した予定は通信を待たずに出る', async
   await page.getByLabel('タイトルを追加').fill(title);
   await page.getByLabel('開始').fill('2030-02-04T09:00');
   await page.getByLabel('終了').fill('2030-02-04T10:00');
-  await stall(page, '**/api/events**', 1500);
+  // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる
+  await stall(page, '**/api/{events,calendar}**', 1500);
   await page.getByRole('button', { name: '保存' }).click();
 
   await expect(sheet).toHaveCount(0, { timeout: 3000 });

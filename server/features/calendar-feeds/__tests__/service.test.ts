@@ -31,6 +31,14 @@ const valuesOf = (ics: string, name: string) =>
     .filter((line) => line.startsWith(`${name}:`) || line.startsWith(`${name};`))
     .map((line) => line.slice(line.indexOf(':') + 1));
 
+/** 発行して、画面と同じく一覧から読み直す（発行は何も返さない） */
+async function issue(input: { name: string; participantIds: string[] }, by: string) {
+  await createFeed(input, by);
+  const feed = (await listFeeds(by)).find((f) => f.name === input.name);
+  if (!feed) throw new Error(`発行した配信 URL が一覧に無い: ${input.name}`);
+  return feed;
+}
+
 let userId: string;
 /** 相手のユーザー。参加者で絞るテストが「自分ではない誰か」として使う */
 let otherId: string;
@@ -55,7 +63,7 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(feed.url).toMatch(/\/api\/calendar\/[\w-]+\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
 
@@ -84,7 +92,7 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     const ics = await icsOf(feed);
     expect(lines(ics)).toContain('DTSTART;VALUE=DATE:20260920');
     expect(lines(ics)).toContain('DTEND;VALUE=DATE:20260922');
@@ -107,7 +115,7 @@ describe('calendar-feeds service', () => {
       occurrenceTargetSchema.parse({ scope: 'this', occurrenceStart: iso('2026-09-14T09:00:00') }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     const ics = await icsOf(feed);
     expect(valuesOf(ics, 'DTSTART')).toEqual(['20260907T000000Z', '20260921T000000Z']);
     // UID は回ごとに違い、取り直しても同じ回は同じものを指す
@@ -127,12 +135,12 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual([]);
   });
 
   it('知らないトークンと、失効させた URL では配信しない', async () => {
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     const token = tokenOf(feed.url);
     await expect(renderIcs('unknown-token', now)).rejects.toThrow(NotFoundError);
     await revokeFeed(feed.id, userId);
@@ -141,8 +149,8 @@ describe('calendar-feeds service', () => {
   });
 
   it('1 ユーザーが何本でも持てて、失効は 1 本だけに効く', async () => {
-    const phone = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
-    const partner = await createFeed({ name: '妻のカレンダー', participantIds: [userId] }, userId);
+    const phone = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
+    const partner = await issue({ name: '妻のカレンダー', participantIds: [userId] }, userId);
     expect(phone.url).not.toBe(partner.url);
     await revokeFeed(phone.id, userId);
     expect((await listFeeds(userId)).map((feed) => feed.name)).toEqual(['妻のカレンダー']);
@@ -150,7 +158,7 @@ describe('calendar-feeds service', () => {
   });
 
   it('他のユーザーの URL は見えず、失効もさせられない', async () => {
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(await listFeeds(otherId)).toEqual([]);
     await expect(revokeFeed(feed.id, otherId)).rejects.toThrow(NotFoundError);
     await expect(icsOf(feed)).resolves.toContain('BEGIN:VCALENDAR');
@@ -171,10 +179,10 @@ describe('calendar-feeds service', () => {
     await event('B だけ', [otherId]);
     await event('2 人とも', [userId, otherId]);
 
-    const forA = await createFeed({ name: 'A のスマホ', participantIds: [userId] }, userId);
+    const forA = await issue({ name: 'A のスマホ', participantIds: [userId] }, userId);
     expect(valuesOf(await icsOf(forA), 'SUMMARY').sort()).toEqual(['2 人とも', 'A だけ']);
 
-    const forBoth = await createFeed({ name: '共有', participantIds: [userId, otherId] }, userId);
+    const forBoth = await issue({ name: '共有', participantIds: [userId, otherId] }, userId);
     expect(valuesOf(await icsOf(forBoth), 'SUMMARY').sort()).toEqual([
       '2 人とも',
       'A だけ',
@@ -209,12 +217,12 @@ describe('calendar-feeds service', () => {
       userId,
     );
 
-    const forA = await createFeed({ name: 'A のスマホ', participantIds: [userId] }, userId);
+    const forA = await issue({ name: 'A のスマホ', participantIds: [userId] }, userId);
     expect(valuesOf(await icsOf(forA), 'DTSTART')).toEqual([
       '20260907T000000Z',
       '20260921T000000Z',
     ]);
-    const forB = await createFeed({ name: 'B のスマホ', participantIds: [otherId] }, userId);
+    const forB = await issue({ name: 'B のスマホ', participantIds: [otherId] }, userId);
     expect(valuesOf(await icsOf(forB), 'DTSTART')).toEqual(['20260914T000000Z']);
   });
 
@@ -229,7 +237,7 @@ describe('calendar-feeds service', () => {
       }),
       userId,
     );
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual([]);
 
     await updateFeed(
@@ -246,7 +254,7 @@ describe('calendar-feeds service', () => {
   });
 
   it('他のユーザーの URL は変更できない', async () => {
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
     await expect(
       updateFeed(feed.id, { name: '乗っ取り', participantIds: [otherId] }, otherId),
     ).rejects.toThrow(NotFoundError);

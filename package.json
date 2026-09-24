@@ -91,7 +91,8 @@
     "tf:plan": "terraform -chdir=infra plan",
     "tf:apply": "terraform -chdir=infra apply",
     "icons:generate": "tsx scripts/generate-icons.ts",
-    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed-dev.ts",
+    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed-dev.ts && pnpm data:refresh",
+    "data:refresh": "tsx --env-file-if-exists=.env.local scripts/refresh-calendar-data.ts",
     "calendar:export": "tsx --env-file-if-exists=.env.local scripts/export-ics.ts"
   }
 }

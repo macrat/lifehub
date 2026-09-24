@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import type { DateRange } from '../../../shared/calendar.ts';
 import { instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db.ts';
@@ -12,10 +13,10 @@ export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
  * 1 回の往復で読む。
  */
 export async function findBetween(
-  from: DateString,
-  to: DateString,
+  range: DateRange,
 ): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const instants = instantRange({ from, to });
+  const { from, to } = range;
+  const instants = instantRange(range);
   const [daily, hourly] = await runBatch((tx) => [
     tx
       .select()

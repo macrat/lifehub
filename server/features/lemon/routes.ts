@@ -17,14 +17,17 @@ export const lemonRoutes = new Hono<AppEnv>()
   )
   .post('/logs', zValidator('json', createCareLogRequestSchema, validationHook), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    const log = await service.logCare(input, c.get('user').id, id);
-    return c.json(log, 201);
+    await service.logCare(input, c.get('user').id, id);
+    return c.body(null, 204);
   })
   .put(
     '/logs/:id',
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', careLogSchema, validationHook),
-    async (c) => c.json(await service.updateLog(c.req.valid('param').id, c.req.valid('json'))),
+    async (c) => {
+      await service.updateLog(c.req.valid('param').id, c.req.valid('json'));
+      return c.body(null, 204);
+    },
   )
   .delete('/logs/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.deleteLog(c.req.valid('param').id);

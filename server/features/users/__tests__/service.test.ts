@@ -34,7 +34,8 @@ describe('users service', () => {
       hue: 120,
     });
     expect(third.hue).toBe(120);
-    expect((await updateUser(third.id, { hue: 10 }, third.id)).hue).toBe(10);
+    await updateUser(third.id, { hue: 10 }, third.id);
+    expect((await listUsers()).find((u) => u.id === third.id)?.hue).toBe(10);
   });
 
   it('同じメールアドレスは登録できない', async () => {
@@ -51,20 +52,16 @@ describe('users service', () => {
 
   it('名前とパスワードを変更できる', async () => {
     const created = await createUser(alice);
-    const updated = await updateUser(
-      created.id,
-      { name: 'Alicia', password: 'new-password-123' },
-      created.id,
-    );
-    expect(updated.name).toBe('Alicia');
+    await updateUser(created.id, { name: 'Alicia', password: 'new-password-123' }, created.id);
+    expect((await listUsers()).find((u) => u.id === created.id)?.name).toBe('Alicia');
     expect((await login(alice.email, alice.password)).status).toBe(401);
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
   });
 
-  it('パスワードだけの変更も、変えた後のユーザーを返す', async () => {
+  it('パスワードだけの変更ではプロフィールは変わらない', async () => {
     const created = await createUser(alice);
-    const updated = await updateUser(created.id, { password: 'new-password-123' }, created.id);
-    expect(updated).toEqual(created);
+    await updateUser(created.id, { password: 'new-password-123' }, created.id);
+    expect(await listUsers()).toEqual([created]);
   });
 
   it('いないユーザーは変更できない', async () => {
@@ -82,7 +79,7 @@ describe('users service', () => {
       name: 'Bob',
       password: 'password-bob-12',
     });
-    expect((await updateUser(created.id, { name: 'Alicia' }, other.id)).name).toBe('Alicia');
+    await updateUser(created.id, { name: 'Alicia' }, other.id);
     await expect(
       updateUser(created.id, { name: 'Mallory', password: 'stolen-password-1' }, other.id),
     ).rejects.toBeInstanceOf(ForbiddenError);

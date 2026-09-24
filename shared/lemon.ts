@@ -6,13 +6,13 @@ import { CARE_TYPE_LABELS, CARE_TYPES, type CareType } from './validation/lemon.
  * サーバーの一覧・状態と、クライアントの楽観的更新が同じ規則を使うため、共通に置く。
  */
 
+/** 記録した人は持たない（画面にも MCP にも出す所が無い） */
 export type CareLog = {
   id: string;
   /** その 1 回でやったこと。空なら項目に結び付かない記録（メモ） */
   careTypes: CareType[];
   doneAt: string;
   note: string | null;
-  createdBy: string;
 };
 
 /** 記録の名前。やったことが 1 つも無い記録はメモそのものなので、そう名乗る */

@@ -5,7 +5,7 @@ import { dateColor, isToday } from '../../../lib/date.ts';
 type Props = {
   date: DateString;
   size: number;
-  /** 祝日か（`useHolidays` の集合を引くのは呼び出し側。日ごとに購読させない） */
+  /** 祝日か（`useCalendarDays` の集合を引くのは呼び出し側。日ごとに購読させない） */
   holiday: boolean;
   /** 表示中の月の外など、薄く出すとき */
   muted?: boolean;

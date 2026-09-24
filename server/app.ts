@@ -3,16 +3,15 @@ import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
 import { apiKeysRoutes } from './features/api-keys/routes.ts';
+import { calendarRoutes } from './features/calendar/routes.ts';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
-import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
-import { toMe } from './features/users/service.ts';
-import { weatherRoutes } from './features/weather/routes.ts';
+import { getMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { cronRoutes } from './lib/cron.ts';
@@ -37,7 +36,7 @@ api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
 // ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
-// この下の /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
+// この下の /calendar と /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
 // 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
 // 記録投入用エンドポイントは API キーで保護する（デバイスや外部のサービスは Cookie を持てない）
@@ -63,17 +62,21 @@ api.use('*', async (c, next) => {
   if (c.req.method === 'GET') c.header('Cache-Control', 'private, no-cache');
 });
 
+/**
+ * 画面専用の API。互換性や REST としての形より通信の本数と量を優先する（docs/architecture.md）。
+ * 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で取り直して揃えるので、
+ * 返しても読まれない（`src/lib/api.ts` の `sendWrite` は本文を読まない）。例外は API キーの発行で、
+ * キーそのものを見せられるのは発行の応答だけなので本文で返す。
+ */
 const routes = api
-  // セッションの検証で読んだユーザーをそのまま返す（hue と通知時刻も載っている。server/lib/auth.ts）
-  .get('/me', (c) => c.json(toMe(c.get('user'))))
+  .get('/me', async (c) => c.json(await getMe(c.get('user'))))
   .route('/users', usersRoutes)
+  .route('/calendar', calendarRoutes)
   .route('/events', eventsRoutes)
   .route('/calendar/feeds', calendarFeedsRoutes)
   .route('/api-keys', apiKeysRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
-  .route('/holidays', holidaysRoutes)
-  .route('/weather', weatherRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

@@ -9,7 +9,6 @@ import {
 } from '../../../shared/lemon.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { meQueryOptions } from '../../lib/auth.ts';
 import {
   applyToHistories,
   findInHistories,
@@ -66,7 +65,6 @@ export function useLogCare() {
         careTypes: input.careTypes,
         doneAt: input.doneAt,
         note: input.note ?? null,
-        createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? '',
       };
       applyToHistories(client, careLogHistory, input.id, log);
       client.setQueryData(

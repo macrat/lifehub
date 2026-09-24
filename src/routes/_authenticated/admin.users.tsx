@@ -1,15 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
 import Button from '@mui/material/Button';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { UserForm } from '../../features/users/components/UserForm.tsx';
 import { UserList } from '../../features/users/components/UserList.tsx';
-import {
-  type User,
-  useCreateUser,
-  usersQueryOptions,
-  useUpdateUser,
-} from '../../features/users/queries.ts';
+import { type User, useCreateUser, useUpdateUser, useUsers } from '../../features/users/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
@@ -20,7 +14,7 @@ export const Route = createFileRoute('/_authenticated/admin/users')({
 });
 
 function AdminUsersPage() {
-  const usersQuery = useQuery(usersQueryOptions);
+  const usersQuery = useUsers();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const creating = useToggle();

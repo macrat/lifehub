@@ -71,21 +71,23 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    const updated = await updateExpense(expense.id, {
+    await updateExpense(expense.id, {
       fromUserId: b,
       toUserId: a,
       amount: 500,
       description: 'A の分',
       spentOn: dateStringSchema.parse('2026-09-02'),
     });
-    expect(updated).toMatchObject({
-      id: expense.id,
-      fromUserId: b,
-      toUserId: a,
-      amount: 500,
-      description: 'A の分',
-      spentOn: '2026-09-02',
-    });
+    expect((await listExpenses({})).items).toMatchObject([
+      {
+        id: expense.id,
+        fromUserId: b,
+        toUserId: a,
+        amount: 500,
+        description: 'A の分',
+        spentOn: '2026-09-02',
+      },
+    ]);
     expect(await getBalance()).toEqual({ amount: 500, fromUserId: a, toUserId: b });
   });
 

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { meQueryOptions } from '../../lib/auth.ts';
-import { type User, usersQueryOptions } from './queries.ts';
+import { type User, useUsers } from './queries.ts';
 
 type OwnerOption = { value: string | null; label: string };
 
@@ -10,7 +10,7 @@ type OwnerOption = { value: string | null; label: string };
  */
 export function useUserLabels() {
   const { data: me } = useQuery(meQueryOptions);
-  const { data } = useQuery(usersQueryOptions);
+  const { data } = useUsers();
   const users: User[] = (data ?? [])
     .slice()
     .sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0));

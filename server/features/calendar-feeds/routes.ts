@@ -6,19 +6,21 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
-/** 配信 URL の管理（`/api/calendar/feeds`）。ログイン中のユーザー自身の URL だけを扱う */
+/**
+ * 配信 URL の管理（`/api/calendar/feeds`）。ログイン中のユーザー自身の URL だけを扱う。
+ * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も本文を返さない）。
+ */
 export const calendarFeedsRoutes = new Hono<AppEnv>()
   .get('/', async (c) => c.json(await service.listFeeds(c.get('user').id)))
   .post('/', zValidator('json', calendarFeedSchema, validationHook), async (c) => {
-    const feed = await service.createFeed(c.req.valid('json'), c.get('user').id);
-    return c.json(feed, 201);
+    await service.createFeed(c.req.valid('json'), c.get('user').id);
+    return c.body(null, 204);
   })
   .patch(
     '/:id',
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', calendarFeedSchema, validationHook),
     async (c) => {
-      // 変わるのは送った名前と参加者だけ（URL は変わらない）ので、応答の本文は要らない
       await service.updateFeed(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);
     },

@@ -36,10 +36,8 @@ export async function logCare(
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */
-export async function updateLog(id: string, input: CareLogInput): Promise<CareLog> {
-  const row = await repository.update(id, input);
-  if (!row) throw new NotFoundError('記録が見つかりません');
-  return toLog(row);
+export async function updateLog(id: string, input: CareLogInput): Promise<void> {
+  if (!(await repository.update(id, input))) throw new NotFoundError('記録が見つかりません');
 }
 
 export async function deleteLog(id: string): Promise<void> {
@@ -52,6 +50,5 @@ function toLog(row: LemonCareLogRow): CareLog {
     careTypes: row.careTypes,
     doneAt: row.doneAt.toISOString(),
     note: row.note,
-    createdBy: row.createdBy,
   };
 }

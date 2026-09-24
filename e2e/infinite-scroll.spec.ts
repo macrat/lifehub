@@ -96,9 +96,13 @@ for (const history of histories) {
     try {
       for (let i = 0; i < 60; i++) {
         const text = i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`;
-        const res = await page.request.post(history.api, { data: history.body(me, i, text) });
+        // ID は送る側が決める（書き込みの応答は本文を返さない）
+        const id = crypto.randomUUID();
+        const res = await page.request.post(history.api, {
+          data: { id, ...history.body(me, i, text) },
+        });
         expect(res.ok()).toBe(true);
-        ids.push((await res.json()).id);
+        ids.push(id);
       }
 
       await page.goto(history.path);

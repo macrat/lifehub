@@ -8,7 +8,7 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import type { CalendarItem } from '../../events/queries.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
-import { useDailyWeather, useHolidays } from '../queries.ts';
+import { useCalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { useMonthGrid } from '../use-month-grid.ts';
@@ -68,8 +68,7 @@ export function MonthGrid({
   bottomInset,
 }: Props) {
   const compact = useIsMobile();
-  const holidays = useHolidays();
-  const weather = useDailyWeather(days);
+  const { holidays, weather } = useCalendarDays(days);
   const drag = useDayDrag({
     draft,
     onChange: onChangeDraft,

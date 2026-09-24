@@ -21,7 +21,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { usersQueryOptions } from '../users/queries.ts';
+import { useUsers } from '../users/queries.ts';
 
 /**
  * 追加と編集で同じ形（編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
@@ -66,7 +66,7 @@ const totalsQueryOptions = queryOptions({
  */
 export function useBalance(): QueryState<Balance> {
   const totals = useQuery(totalsQueryOptions);
-  const users = useQuery(usersQueryOptions);
+  const users = useUsers();
   const pair = users.data && balancePair(users.data);
   return {
     data: totals.data && pair ? balanceOf(totals.data, pair) : undefined,

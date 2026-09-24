@@ -17,14 +17,17 @@ export const expensesRoutes = new Hono<AppEnv>()
   .get('/totals', async (c) => c.json(await service.getTotals()))
   .post('/', zValidator('json', createExpenseRequestSchema, validationHook), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    const expense = await service.addExpense(input, c.get('user').id, id);
-    return c.json(expense, 201);
+    await service.addExpense(input, c.get('user').id, id);
+    return c.body(null, 204);
   })
   .put(
     '/:id',
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', expenseSchema, validationHook),
-    async (c) => c.json(await service.updateExpense(c.req.valid('param').id, c.req.valid('json'))),
+    async (c) => {
+      await service.updateExpense(c.req.valid('param').id, c.req.valid('json'));
+      return c.body(null, 204);
+    },
   )
   .delete('/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.deleteExpense(c.req.valid('param').id);

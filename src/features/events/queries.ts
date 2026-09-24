@@ -6,8 +6,12 @@ import {
 } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { useCallback, useEffect } from 'react';
-import type { CalendarItem } from '../../../shared/calendar.ts';
-import type { DateString } from '../../../shared/types.ts';
+import {
+  type CalendarItem,
+  type CalendarPeriod,
+  type DateRange,
+  inRange,
+} from '../../../shared/calendar.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
@@ -103,13 +107,13 @@ export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 /**
- * 1 か月（JST 暦月）分の項目。キャッシュの単位を表示範囲ではなく暦月に固定する。
+ * 1 か月（JST 暦月）分の項目と、その月の祝日・天気。キャッシュの単位を表示範囲ではなく暦月に固定する。
  * 月・週・日・リストのどの表示も、同じ日を見ているなら同じ月のキャッシュに当たるので、
  * 表示や日付を切り替えても手元の内容をそのまま出したまま裏で取り直せる
  * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
  * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
  */
-function calendarMonthQueryOptions(month: string) {
+export function calendarMonthQueryOptions(month: string) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, month],
     /**
@@ -122,11 +126,25 @@ function calendarMonthQueryOptions(month: string) {
      */
     staleTime: Number.POSITIVE_INFINITY,
     // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
-    queryFn: async (): Promise<CalendarItem[]> => {
-      const res = await ensureOk(await api.events.$get({ query: monthRange(month) }));
+    queryFn: async (): Promise<CalendarPeriod> => {
+      const res = await ensureOk(await api.calendar.$get({ query: monthRange(month) }));
       return res.json();
     },
   });
+}
+
+/**
+ * [from, to]（両端含む JST 暦日）に掛かる月のクエリを読み、`combine` でまとめる。
+ * `combine` は範囲ごとに固定した関数を渡す: TanStack Query は combine が前と別の関数だと、
+ * 結果が変わっていなくても描くたびに繋ぎ直し、前の結果と中身を 1 件ずつ比べ直す（replaceEqualDeep）。
+ * カレンダーはドラッグの 1 コマごとに描き直すので、そのたびに全項目を繋いで比べることになる。
+ */
+export function useCalendarPeriods<T>(
+  range: DateRange | null,
+  combine: (results: UseQueryResult<CalendarPeriod>[]) => T,
+): T {
+  const months = range ? monthsInRange(range.from, range.to) : [];
+  return useQueries({ queries: months.map(calendarMonthQueryOptions), combine });
 }
 
 /**
@@ -135,29 +153,25 @@ function calendarMonthQueryOptions(month: string) {
  * どの月もまだ手元に無いときだけ data が undefined になる（画面はそれを見て骨組みを出す）。
  * complete は範囲のすべての月が揃っているか（揃ってから位置を決めたい画面が見る）。
  */
-export function useCalendarItems(range: {
-  from: DateString;
-  to: DateString;
-}): QueryState<CalendarItem[]> & { complete: boolean } {
+export function useCalendarItems(
+  range: DateRange,
+): QueryState<CalendarItem[]> & { complete: boolean } {
   const { from, to } = range;
-  // 固定する: TanStack Query は combine が前と別の関数だと、結果が変わっていなくても描くたびに
-  // 繋ぎ直し、前の結果と中身を 1 件ずつ比べ直す（replaceEqualDeep）。カレンダーはドラッグの 1 コマごとに
-  // 描き直すので、そのたびに全項目を繋いで比べることになる。範囲が同じなら同じ関数にして、比べ直しを省く
   const combine = useCallback(
-    (results: UseQueryResult<CalendarItem[]>[]) => ({
+    (results: UseQueryResult<CalendarPeriod>[]) => ({
       // 月は互いに重ならず昇順なので、範囲で絞って繋ぐだけで重複せず placementDate 順も保たれる
       // （月をまたぐ予定はサーバーが日ごとの項目にして返すため、月ごとに別の日として分かれる）
       data: results.some((result) => result.data !== undefined)
         ? results
-            .flatMap((result) => result.data ?? [])
-            .filter((item) => item.placementDate >= from && item.placementDate <= to)
+            .flatMap((result) => result.data?.items ?? [])
+            .filter((item) => inRange(item.placementDate, { from, to }))
         : undefined,
       error: results.find((result) => result.error)?.error ?? null,
       complete: results.every((result) => result.data !== undefined),
     }),
     [from, to],
   );
-  return useQueries({ queries: monthsInRange(from, to).map(calendarMonthQueryOptions), combine });
+  return useCalendarPeriods(range, combine);
 }
 
 /**

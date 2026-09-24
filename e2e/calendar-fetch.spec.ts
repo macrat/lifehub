@@ -4,13 +4,13 @@ import { countFetches, quiet } from './network.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /**
- * カレンダーの項目を取り直すのは画面に入ったときだけ（`src/features/calendar/queries.ts` の
- * `useRefreshCalendarItems`）。月のキャッシュが古くならないことに支えられているので、
+ * カレンダーの項目（と同じ応答に載る祝日・天気）を取り直すのは画面に入ったときだけ
+ * （`src/features/events/queries.ts` の `useRefreshCalendarItems`）。月のキャッシュが古くならないことに支えられているので、
  * `staleTime` が戻ると表示を切り替えるたびに静かに通信が増える。回数で押さえる。
  */
 
 test('表示を切り替えても取り直さず、画面に入ったときだけ取り直す', async ({ page }) => {
-  const fetches = countFetches(page, '/api/events');
+  const fetches = countFetches(page, '/api/calendar');
   // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
   await recordViewTransitions(page);
   await login(page);

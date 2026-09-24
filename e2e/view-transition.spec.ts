@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { login } from './login.ts';
+import { login, myId } from './login.ts';
 import { changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
@@ -33,8 +33,7 @@ const captured = async (page: Page): Promise<string[]> =>
 
 test('カレンダーの表示を切り替えると、同じ予定が同じ名前で前後の画面に在る', async ({ page }) => {
   // 画面からの追加は他のテストで確かめているので、ここは API で用意する
-  const users = await (await page.request.get('/api/users')).json();
-  const participantIds = [users[0].id];
+  const participantIds = [await myId(page)];
   const add = (body: Record<string, unknown>) =>
     page.request.post('/api/events', { data: { participantIds, ...body } });
   // 時刻のある予定、週をまたぐ終日の予定（月グリッドでは週の行ごとに帯が分かれる）、
@@ -133,9 +132,8 @@ test('ホームと立替・レモンを行き来すると、残高とカード�
 
 test('ホームと予定を行き来すると、今日の項目が同じ名前で前後の画面に在る', async ({ page }) => {
   // 日時なしのタスクは今日の位置に出る（ホームの「今日」にも、カレンダーの日表示にも）
-  const users = await (await page.request.get('/api/users')).json();
   await page.request.post('/api/events', {
-    data: { kind: 'task', title: 'VT ホーム', participantIds: [users[0].id] },
+    data: { kind: 'task', title: 'VT ホーム', participantIds: [await myId(page)] },
   });
   await page.goto('/');
   await expect(page.getByText('VT ホーム')).toBeVisible();
