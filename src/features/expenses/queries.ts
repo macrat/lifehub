@@ -1,5 +1,4 @@
 import { type QueryClient, queryOptions, useQuery } from '@tanstack/react-query';
-import type { InferRequestType } from 'hono/client';
 import {
   BALANCE_NEEDS_TWO_USERS,
   type Balance,
@@ -9,7 +8,7 @@ import {
   type ExpenseTotal,
   sortExpenses,
 } from '../../../shared/expenses.ts';
-import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
+import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import {
   applyToHistories,
@@ -24,8 +23,12 @@ import {
 } from '../../lib/query-client.ts';
 import { usersQueryOptions } from '../users/queries.ts';
 
-/** 追加と編集で同じ形（編集は全項目を置き換える） */
-export type ExpenseBody = InferRequestType<typeof api.expenses.$post>['json'];
+/**
+ * 追加と編集で同じ形（編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
+ * 送る JSON としてもそのまま使える。日付は印の付いた DateString なので、楽観的更新で作る行の型
+ * （`Expense`）と一致する。
+ */
+export type ExpenseBody = ExpenseInput;
 /** 行と残高の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 

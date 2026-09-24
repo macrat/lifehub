@@ -1,5 +1,6 @@
 import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import type { DateString } from '../../../shared/types.ts';
 import {
   type ExpenseFilter,
   type ExpenseListQuery,
@@ -15,7 +16,7 @@ type ExpenseValues = {
   toUserId: string | null;
   amount: number;
   description: string;
-  spentOn: string;
+  spentOn: DateString;
 };
 
 /** 履歴の 1 ページ（`findHistoryPage`）。日は使った日 */

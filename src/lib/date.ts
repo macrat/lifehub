@@ -219,8 +219,8 @@ export function dateColor(date: DateString, holiday: boolean): string {
   return weekdayColor(holiday ? 6 : weekdayIndex(date));
 }
 
-/** 日付（YYYY-MM-DD）が今日か。立替の `spentOn` は印を持たない文字列なので、ここは string で受ける */
-export function isToday(date: string): boolean {
+/** 日付（JST の暦日）が今日か */
+export function isToday(date: DateString): boolean {
   return date === today();
 }
 

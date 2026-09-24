@@ -1,4 +1,5 @@
 import { date, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { DateString } from '../../../shared/types.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -15,7 +16,7 @@ export const expenses = pgTable('expenses', {
   /** 円 */
   amount: integer('amount').notNull(),
   description: text('description').notNull(),
-  spentOn: date('spent_on').notNull(),
+  spentOn: date('spent_on').$type<DateString>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
