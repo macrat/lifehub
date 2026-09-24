@@ -2,7 +2,8 @@ import { act, createElement, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../../lib/ui/use-record-press.ts';
-import { type Drag, useRangeDrag } from '../use-range-drag.ts';
+import type { Drag } from '../range-drag-session.ts';
+import { useRangeDrag } from '../use-range-drag.ts';
 
 // React の act を使う（テスト用の描画ライブラリは入れていない）
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -15,7 +16,7 @@ const rangeOf = ({ grab, from, to, moved }: Drag<number, string>) =>
 
 let unmount: () => void = () => {};
 
-/** フックを 1 度だけ描いて、返したハンドラを受け取る（ハンドラは ref だけを見るので描き直さなくてよい） */
+/** フックを 1 度だけ描いて、返したハンドラを受け取る（ドラッグの状態は描画をまたぐ `RangeDragSession` が持つので描き直さなくてよい） */
 function setup(options: Options = {}) {
   const onChange = vi.fn();
   let handlers!: ReturnType<typeof useRangeDrag<number, string, string>>;

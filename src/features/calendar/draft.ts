@@ -17,7 +17,7 @@ import {
   type ItemFormValues,
 } from '../events/form-values.ts';
 import { MIN_BLOCK_MINUTES, timedSlot } from './components/timeline-layout.ts';
-import type { Drag } from './use-range-drag.ts';
+import type { Drag } from './range-drag-session.ts';
 
 /**
  * グリッドで選んだ、まだ保存していない予定の範囲（Google カレンダーの下書き）。

@@ -45,7 +45,7 @@
         "noExcessiveLinesPerFunction": {
           "level": "error",
           "options": {
-            "maxLines": 180
+            "maxLines": 100
           }
         }
       }
