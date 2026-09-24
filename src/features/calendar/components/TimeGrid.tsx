@@ -68,7 +68,7 @@ type Props = {
  * 覆われた夜の時間帯もスクロールすれば見られる（1 時間の高さは変えない）。
  * 空いている所をタップ・ドラッグすると、その時間帯を選んで予定を追加できる（`use-time-drag.ts`）。
  * 枠は、枠そのものをドラッグすると長さを保ったまま動き（週表示では左右に動かすと別の日へ移る）、
- * 端の丸をつまむと開始・終了だけが動く。
+ * 端（スマホは丸、PC は上下の線）をつまむと開始・終了だけが動く。
  * 保存済みの予定は長押しでつまむと編集モードに入り、同じ指のまま枠として動かせる。
  */
 export function TimeGrid({
@@ -84,7 +84,7 @@ export function TimeGrid({
   fitItems,
   bottomInset,
 }: Props) {
-  // 下書きをつまんで直せるのはスマホのとき。PC は下書きに寄せた吹き出し（モーダル）が前に出て枠に触れない
+  // 予定の長押しと枠の端の丸はスマホだけ（PC は予定を詳細から直し、枠の端は上下の線でつまむ）
   const compact = useIsMobile();
   const drag = useTimeDrag({ draft, onChange: onChangeDraft });
   const pinch = usePinch(onZoom);
@@ -171,7 +171,7 @@ export function TimeGrid({
                 placed={p}
                 hidden={sameOccurrence(editing, p.item)}
                 onClick={() => onSelectItem(p.item)}
-                // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC は吹き出しが前に出るので詳細から直す）
+                // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC はクリックで開く詳細から直す）
                 grab={compact ? drag.grabItemProps(p.item) : undefined}
               />
             ))}
@@ -188,7 +188,8 @@ export function TimeGrid({
             draft={timedDraft}
             column={draftCol + 1}
             participantIds={draft.participantIds}
-            grab={compact ? drag.frameProps(timedDraft) : null}
+            grab={drag.frameProps(timedDraft)}
+            dots={compact}
           />
         )}
       </Box>

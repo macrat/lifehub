@@ -1,9 +1,10 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Grow from '@mui/material/Grow';
 import IconButton from '@mui/material/IconButton';
-// biome-ignore lint/style/noRestrictedImports: 履歴の項目はこの部品が自分で持つ（下の useDialogHistory。スマホのシートと PC の吹き出しで 1 つを共有する）
-import Popover from '@mui/material/Popover';
+import Paper from '@mui/material/Paper';
+import Popper from '@mui/material/Popper';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
@@ -14,6 +15,7 @@ import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import {
   EventExtraFields,
   EventWhenFields,
@@ -32,7 +34,7 @@ type Props = {
    * グリッドの下書き。範囲（`range`）は日時の既定値になり、上の段で直すとここへ戻す。
    * `item` は直している保存済みの予定（長押しでつまんだもの。追加のときは null）で、入力の既定値になり、
    * 保存は呼び出し側（`onSubmit`）が上書きに振り分ける。参加者はグリッドの枠の色にもなるので呼び出し側が持つ。
-   * `settled`（なぞり終えた）までは PC の吹き出しを出さない（枠に重なって選べなくなるため）。
+   * `settled`（なぞり終えた）までは PC の吹き出しを隠す（枠に重なって選べなくなるため）。
    * スマホのシートは下の段ではグリッドを隠さないので、なぞっている間も出したままにする。
    * `detent` は開く段（グリッドをなぞったときは下の段、追加ボタンからは上の段）。
    */
@@ -86,6 +88,7 @@ type LayoutProps = {
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
  * 段はこのシートだけのもので、開く段は下書きが決める（グリッドからは下の段、追加ボタンからは上の段）。
+ * 開いてもタイトルに焦点は置かない（開いた途端にキーボードでグリッドを隠さない）。
  */
 function QuickSheet({
   draft,
@@ -126,7 +129,6 @@ function QuickSheet({
             rangeText={detent === 'peek' ? draftText(draft.range) : null}
             participantIds={draft.participantIds}
             onChangeParticipants={onChangeParticipants}
-            autoFocus={false}
           >
             <Button onClick={() => changeDetent('full')}>その他のオプション</Button>
           </QuickFields>
@@ -164,40 +166,71 @@ function QuickSheet({
 }
 
 /**
- * PC: 選んだ範囲に寄せた吹き出し。外側をクリックすると Google カレンダーと同じく下書きを捨てる。
+ * 吹き出しを寄せる先。測るたびに今出ている枠を探す（枠は動かすたびに場所が変わり、月表示では週ごとの
+ * 帯に入れ替わる）。同じ物を渡し続けるので、Popper は開くたびにだけ位置を測り直す。
+ */
+const draftAnchor = {
+  getBoundingClientRect: () =>
+    (document.querySelector(DRAFT_SELECTOR) ?? document.body).getBoundingClientRect(),
+};
+
+/**
+ * PC: 選んだ範囲に寄せた吹き出し。外側を押すと Google カレンダーと同じく下書きを捨てる。
+ * 開いたままグリッドの枠をつまんで直せるよう、モーダルにしない（Popover の背景は画面全体を覆い、
+ * 枠にも触れなくなる）。外を押したことは `usePressOutside` で知り、枠を押したときは閉じない。
+ * なぞっている間（`settled` でない）は枠に重ならないよう隠し、離したら枠の新しい場所に寄せ直す。
+ * 隠す間も入力を残すため、中身はマウントしたままにし（`keepMounted`）、開き終えるたびにタイトルに
+ * 焦点を戻す（autoFocus は最初のマウントでしか効かず、そのときは隠れている）。
  * 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる。
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProps) {
   const { form } = quick;
+  const paperRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const open = draft.settled && !form.submitted;
+  usePressOutside(paperRef, { enabled: open, ignore: DRAFT_SELECTOR, onPress: onClose });
   return (
-    <Popover
-      open={draft.settled && !form.submitted}
-      onClose={onClose}
-      anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
-      anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
-      transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-      slotProps={{ paper: { sx: { width: 340 } } }}
+    <Popper
+      open={open}
+      anchorEl={draftAnchor}
+      placement="right"
+      keepMounted
+      transition
+      sx={{ zIndex: 'modal' }}
     >
-      <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
-        <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
-          <IconButton aria-label="閉じる" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Stack>
-        <QuickFields
-          form={form}
-          title={quick.initial.title}
-          rangeText={draftText(draft.range)}
-          participantIds={draft.participantIds}
-          onChangeParticipants={onChangeParticipants}
-          autoFocus
-        >
-          <Button onClick={quick.expand}>その他のオプション</Button>
-          <SubmitButton />
-        </QuickFields>
-      </QuickFormBox>
-    </Popover>
+      {({ TransitionProps }) => (
+        <Grow {...TransitionProps} onEntered={() => titleRef.current?.focus()}>
+          <Paper
+            ref={paperRef}
+            elevation={8}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose();
+            }}
+            sx={{ width: 340 }}
+          >
+            <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
+              <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+                <IconButton aria-label="閉じる" onClick={onClose}>
+                  <CloseIcon />
+                </IconButton>
+              </Stack>
+              <QuickFields
+                form={form}
+                title={quick.initial.title}
+                titleRef={titleRef}
+                rangeText={draftText(draft.range)}
+                participantIds={draft.participantIds}
+                onChangeParticipants={onChangeParticipants}
+              >
+                <Button onClick={quick.expand}>その他のオプション</Button>
+                <SubmitButton />
+              </QuickFields>
+            </QuickFormBox>
+          </Paper>
+        </Grow>
+      )}
+    </Popper>
   );
 }
 
@@ -228,19 +261,19 @@ function QuickFormBox({
 function QuickFields({
   form,
   title,
+  titleRef,
   rangeText,
   participantIds,
   onChangeParticipants,
-  autoFocus,
   children,
 }: {
   form: Pick<Quick['form'], 'errors' | 'submitError' | 'thisOnly'>;
   title: string;
+  /** タイトルの入力欄。焦点を置くときに使う */
+  titleRef?: RefObject<HTMLInputElement | null>;
   rangeText: string | null;
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
-  /** 開いたらタイトルに焦点を置くか。スマホでは開いた途端にキーボードでグリッドを隠さない */
-  autoFocus: boolean;
   children: ReactNode;
 }) {
   return (
@@ -251,9 +284,9 @@ function QuickFields({
         name="title"
         label="タイトルを追加"
         defaultValue={title}
+        inputRef={titleRef}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
-        autoFocus={autoFocus}
         fullWidth
       />
       {rangeText !== null && (

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
+import { centerOf, settledBox } from './touch.ts';
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -81,6 +82,53 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
   await page.getByRole('button', { name: title }).click();
   await detailAction(page, '削除');
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+});
+
+test('週表示で吹き出しを開いたまま、枠の上下の線と枠そのものをドラッグして直せる', async ({
+  page,
+}) => {
+  await page.goto('/calendar?view=week&date=2031-06-04');
+
+  const column = page.locator('[data-date="2031-06-05"]').last();
+  const box = await column.boundingBox();
+  if (!box) throw new Error('時間軸の列が見つからない');
+  const y = (minutes: number) => box.y + (minutes / 60) * (box.height / 24);
+  const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 5 });
+    await page.mouse.up();
+  };
+  const draftBox = () => settledBox(page.locator('[data-draft]'));
+
+  await drag(
+    { x: box.x + box.width / 2, y: y(9 * 60 + 5) },
+    { x: box.x + box.width / 2, y: y(9 * 60 + 50) },
+  );
+  await expect(page.getByText('6/5(木) 09:00〜10:00')).toBeVisible();
+  await page.getByLabel('タイトルを追加').fill('入力途中');
+
+  // 下の線は丸ではなく線のどこでもつまめる（左端の近くから）
+  let b = await draftBox();
+  await drag({ x: b.x + 6, y: b.y + b.height }, { x: b.x + 6, y: y(11 * 60 + 25) });
+  await expect(page.getByText('6/5(木) 09:00〜11:30')).toBeVisible();
+
+  // 上の線（右端の近く）で開始だけを動かす
+  b = await draftBox();
+  await drag({ x: b.x + b.width - 6, y: b.y }, { x: b.x + b.width - 6, y: y(8 * 60 + 5) });
+  await expect(page.getByText('6/5(木) 08:00〜11:30')).toBeVisible();
+
+  // 枠そのものをつまむと長さを保ったまま隣の日へ移る。入力途中のタイトルは残る
+  const c = await centerOf(page.locator('[data-draft]'));
+  await drag(c, { x: c.x + box.width, y: c.y + box.height / 24 });
+  await expect(page.getByText('6/6(金) 09:00〜12:30')).toBeVisible();
+  await expect(page.getByLabel('タイトルを追加')).toHaveValue('入力途中');
+  await expect(page.getByLabel('タイトルを追加')).toBeFocused();
+
+  // 吹き出しと枠の外を押すと下書きを捨て、押した所から新しく選び始めはしない
+  await page.mouse.click(box.x + box.width / 2, y(20 * 60));
+  await expect(page.locator('[data-draft]')).toHaveCount(0);
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
 });
 
 test('月表示でクリックして終日の予定をその場で作れる', async ({ page }) => {
