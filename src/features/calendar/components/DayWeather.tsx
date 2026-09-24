@@ -1,35 +1,8 @@
-import AcUnitOutlinedIcon from '@mui/icons-material/AcUnitOutlined';
-import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
-import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import Box from '@mui/material/Box';
-import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
-import type { ComponentType, ReactNode } from 'react';
-import type { DailyWeather, WeatherKind } from '../../../../shared/weather.ts';
-
-/**
- * Material Symbols の `rainy`（Apache-2.0）。雨雲から雨が落ちる絵。
- * Material Icons（@mui/icons-material）の雨に近い絵は傘（`Umbrella`）だけで、線画は閉じた傘になり
- * 雨に見えないので、公式の図形だけをここに持つ（`src/features/lemon/care-type-icons.tsx` と同じ理由で、
- * アイコン 1 つのために Material Symbols のパッケージは足さない）。
- */
-function RainyIcon(props: SvgIconProps) {
-  return (
-    <SvgIcon {...props} viewBox="0 -960 960 960">
-      <path d="M558-84q-15 8-30.5 2.5T504-102l-60-120q-8-15-2.5-30.5T462-276q15-8 30.5-2.5T516-258l60 120q8 15 2.5 30.5T558-84Zm240 0q-15 8-30.5 2.5T744-102l-60-120q-8-15-2.5-30.5T702-276q15-8 30.5-2.5T756-258l60 120q8 15 2.5 30.5T798-84Zm-480 0q-15 8-30.5 2.5T264-102l-60-120q-8-15-2.5-30.5T222-276q15-8 30.5-2.5T276-258l60 120q8 15 2.5 30.5T318-84Zm-18-236q-91 0-155.5-64.5T80-540q0-83 55-145t136-73q32-57 87.5-89.5T480-880q90 0 156.5 57.5T717-679q69 6 116 57t47 122q0 75-52.5 127.5T700-320H300Zm0-80h400q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-40q0-66-47-113t-113-47q-48 0-87.5 26T333-704l-10 24h-25q-57 2-97.5 42.5T160-540q0 58 41 99t99 41Zm180-200Z" />
-    </SvgIcon>
-  );
-}
-
-/**
- * 天気の種類ごとのアイコン。
- * 線画（Outlined）で文字と同じ控えめな色にするのは、日付の横に毎日並んでも予定より目立たせないため。
- */
-const ICONS: Record<WeatherKind, ComponentType<SvgIconProps>> = {
-  sunny: WbSunnyOutlinedIcon,
-  cloudy: CloudOutlinedIcon,
-  rainy: RainyIcon,
-  snowy: AcUnitOutlinedIcon,
-};
+import type { ReactNode } from 'react';
+import type { DailyWeather } from '../../../../shared/weather.ts';
+import { WeatherIcon } from './WeatherIcon.tsx';
+import { WIDE_RATIO } from './weather-glyphs.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
@@ -42,15 +15,22 @@ type Props = {
 
 /**
  * 日付の横に出す天気のアイコンと最高気温。天気の名前（「晴時々曇」など）はホバーと読み上げで出す。
+ * 線画で文字と同じ控えめな色にするのは、日付の横に毎日並んでも予定より目立たせないため。
  * 置かれた所の残りの幅を自分の枠（コンテナ）にし、右端に寄せて出す。グリッドの中では右の列に、
  * 横並びの中では残りの幅に広がる（`gridColumn` と `flex` は、置かれた側の並べ方のほうだけが効く）。
  *
- * 狭いときは気温、アイコンの順に隠す。気温は 1 行に入りきらなければ次の行へ折り返し、
- * 高さで切れて見えなくなる（字の幅を見積もらず、入るかどうかはブラウザに任せる）。
- * アイコンは幅が固定なので、枠がアイコンより狭いときだけコンテナクエリで隠す。
+ * 狭いときは気温、横並びのアイコン、正方形のアイコンの順に諦める。気温は 1 行に入りきらなければ
+ * 次の行へ折り返し、高さで切れて見えなくなる（字の幅を見積もらず、入るかどうかはブラウザに任せる）。
+ * アイコンは幅が固定なので、枠がその幅より狭いときにコンテナクエリで切り替える。天気が変わる日は、
+ * 横並びが入らなければ 1 文字分に重ねた形にし（変わり方の印は無くなるが、どの天気かは分かる）、
+ * それも入らなければ隠す。重ねた形のときは気温も出さない（入っても、横並びより広い枠で気温が消え、
+ * 狭い枠で戻るという逆転になるため）。
  */
 export function DayWeather({ weather, size }: Props) {
-  const Icon = ICONS[weather.kind];
+  const wide = Math.ceil(size * WIDE_RATIO);
+  const narrow = `@container (width < ${wide}px)`;
+  const changes = 'change' in weather.icon;
+  const iconSx = { fontSize: size };
   return (
     <Box
       sx={{
@@ -75,12 +55,38 @@ export function DayWeather({ weather, size }: Props) {
           [`@container (width < ${size}px)`]: { display: 'none' },
         }}
       >
-        <Icon titleAccess={weather.label} sx={{ fontSize: size }} />
+        {changes ? (
+          <>
+            <WeatherIcon
+              icon={weather.icon}
+              layout="wide"
+              titleAccess={weather.label}
+              sx={{ ...iconSx, [narrow]: { display: 'none' } }}
+            />
+            <WeatherIcon
+              icon={weather.icon}
+              layout="square"
+              titleAccess={weather.label}
+              sx={{ ...iconSx, display: 'none', [narrow]: { display: 'inline-block' } }}
+            />
+          </>
+        ) : (
+          <WeatherIcon
+            icon={weather.icon}
+            layout="square"
+            titleAccess={weather.label}
+            sx={iconSx}
+          />
+        )}
         {weather.tempMax !== null && (
           <Box
             component="span"
             aria-label={`最高気温 ${weather.tempMax}度`}
-            sx={{ fontSize: Math.round(size * 0.8), lineHeight: `${size}px` }}
+            sx={{
+              fontSize: Math.round(size * 0.8),
+              lineHeight: `${size}px`,
+              ...(changes && { [narrow]: { display: 'none' } }),
+            }}
           >
             {weather.tempMax}°
           </Box>

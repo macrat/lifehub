@@ -74,7 +74,7 @@ describe('weather service', () => {
     serve(forecast(['302', '202', '200'], ['202', '200', '101']));
     expect(await listWeather()).toContainEqual({
       date: '2026-09-24',
-      kind: 'rainy',
+      icon: { symbol: 'cloud', change: 'sometimes', next: 'rain' },
       label: '曇一時雨',
       tempMax: 29,
     });
