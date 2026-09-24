@@ -96,10 +96,16 @@ export function CenteredWithWeather({
   children,
   weather,
   size,
+  muted = false,
 }: {
   children: ReactNode;
   weather: DailyWeather | undefined;
   size: number;
+  /**
+   * 表示中の月の外など、行ごと薄く出すとき。数字と天気は元の色が違う（曜日の色と text.secondary）ので、
+   * 色を替えるのでなく行に同じ不透明度を掛けて、同じ割合で薄める
+   */
+  muted?: boolean;
 }) {
   return (
     <Box
@@ -108,6 +114,7 @@ export function CenteredWithWeather({
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
         width: '100%',
+        opacity: muted ? (t) => t.palette.action.disabledOpacity : undefined,
       }}
     >
       <Box sx={{ gridColumn: 2, display: 'flex' }}>{children}</Box>
