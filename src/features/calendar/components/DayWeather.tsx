@@ -7,6 +7,9 @@ import { wideRatio } from './weather-glyphs.ts';
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
 
+/** アイコンと気温のあいだの余白（px） */
+const TEMP_GAP = 2;
+
 type Props = {
   weather: DailyWeather;
   /** アイコンの大きさ（px）。気温の字はこれより一回り小さくする */
@@ -19,16 +22,20 @@ type Props = {
  * 置かれた所の残りの幅を自分の枠（コンテナ）にし、右端に寄せて出す。グリッドの中では右の列に、
  * 横並びの中では残りの幅に広がる（`gridColumn` と `flex` は、置かれた側の並べ方のほうだけが効く）。
  *
- * 狭いときは気温、横並びのアイコン、正方形のアイコンの順に諦める。気温は 1 行に入りきらなければ
- * 次の行へ折り返し、高さで切れて見えなくなる（字の幅を見積もらず、入るかどうかはブラウザに任せる）。
- * アイコンは幅が固定なので、枠がその幅より狭いときにコンテナクエリで切り替える。天気が変わる日は、
- * 横並びが入らなければ 1 文字分に重ねた形にし（変わり方の印は無くなるが、どの天気かは分かる）、
- * それも入らなければ隠す。重ねた形のときは気温も出さない（入っても、横並びより広い枠で気温が消え、
- * 狭い枠で戻るという逆転になるため）。
+ * 狭いときは、横並びのアイコン（天気が変わる日の `/` `→`）、気温、正方形のアイコンの順に諦める。
+ * 気温より変わり方の印を先に諦めるのは、どの天気が混ざるかは重ねた形でも分かり、変わり方は名前でも
+ * 分かる一方、気温はほかで分からないため。
+ * - 横並びは、横並びと気温が両方入る幅が無ければ、コンテナクエリで 1 文字分に重ねた形に切り替える。
+ *   気温の幅は数字 2 桁と「°」が収まる 3ch と見る（ch は数字 1 字の幅なので、東京の最高気温なら
+ *   見積もりでなく上限になる。コンテナの字の大きさを気温と揃え、ch を気温の数字の幅にする）。
+ * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
+ * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
  */
 export function DayWeather({ weather, size }: Props) {
-  // 横並びが入らない幅。天気が 1 つの日は正方形の幅で、下の「全部隠す」と同じ条件になる
-  const narrow = `@container (width < ${Math.ceil(size * wideRatio(weather.icon))}px)`;
+  // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
+  const wide = Math.ceil(size * wideRatio(weather.icon));
+  const temp = weather.tempMax === null ? '' : ` + ${TEMP_GAP}px + 3ch`;
+  const narrow = `@container (width < calc(${wide}px${temp}))`;
   const common = { icon: weather.icon, titleAccess: weather.label };
   return (
     <Box
@@ -39,6 +46,8 @@ export function DayWeather({ weather, size }: Props) {
         pl: `${GAP}px`,
         pr: '2px',
         containerType: 'inline-size',
+        // コンテナクエリの ch を気温の数字の幅にする
+        fontSize: Math.round(size * 0.8),
       }}
     >
       <Box
@@ -47,7 +56,7 @@ export function DayWeather({ weather, size }: Props) {
           flexWrap: 'wrap',
           justifyContent: 'flex-end',
           alignItems: 'center',
-          columnGap: '2px',
+          columnGap: `${TEMP_GAP}px`,
           height: size,
           overflow: 'hidden',
           color: 'text.secondary',
@@ -68,11 +77,7 @@ export function DayWeather({ weather, size }: Props) {
           <Box
             component="span"
             aria-label={`最高気温 ${weather.tempMax}度`}
-            sx={{
-              fontSize: Math.round(size * 0.8),
-              lineHeight: `${size}px`,
-              [narrow]: { display: 'none' },
-            }}
+            sx={{ lineHeight: `${size}px` }}
           >
             {weather.tempMax}°
           </Box>
