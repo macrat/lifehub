@@ -17,8 +17,12 @@ constexpr uint32_t I2C_FREQ = 400000;
 // 明るさは読める範囲で低めにする（点いている時間は数秒なので、消費への影響は小さい）
 constexpr uint8_t BRIGHTNESS = 96;
 
-// 送れなかったときはアイコンを灰色にして、赤い × を重ねる
+// 送れなかったときはアイコンを灰色にして、赤い × を重ねる。
+// × は画面の中央に、縁から 3/16 ずつ空けて置く（アイコンの絵とおおむね同じ広さになる）
 constexpr uint16_t FAILED_COLOR = TFT_DARKGREY;
+constexpr int CROSS_NEAR = icons::SIZE * 3 / 16;
+constexpr int CROSS_FAR = icons::SIZE - CROSS_NEAR;
+constexpr float CROSS_WIDTH = icons::SIZE / 16.0f;
 
 void backlight(bool on) {
   if (on) {
@@ -52,8 +56,8 @@ void show(Icon icon) {
 
 void showFailed(Icon icon) {
   drawIcon(icon, true);
-  M5.Display.drawWideLine(24, 24, 104, 104, 8, TFT_RED);
-  M5.Display.drawWideLine(104, 24, 24, 104, 8, TFT_RED);
+  M5.Display.drawWideLine(CROSS_NEAR, CROSS_NEAR, CROSS_FAR, CROSS_FAR, CROSS_WIDTH, TFT_RED);
+  M5.Display.drawWideLine(CROSS_FAR, CROSS_NEAR, CROSS_NEAR, CROSS_FAR, CROSS_WIDTH, TFT_RED);
 }
 
 void off() {
