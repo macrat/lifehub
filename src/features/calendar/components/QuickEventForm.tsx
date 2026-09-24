@@ -14,6 +14,7 @@ import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import {
   EventExtraFields,
   EventWhenFields,
@@ -32,7 +33,7 @@ type Props = {
    * グリッドの下書き。範囲（`range`）は日時の既定値になり、上の段で直すとここへ戻す。
    * `item` は直している保存済みの予定（長押しでつまんだもの。追加のときは null）で、入力の既定値になり、
    * 保存は呼び出し側（`onSubmit`）が上書きに振り分ける。参加者はグリッドの枠の色にもなるので呼び出し側が持つ。
-   * `settled`（なぞり終えた）までは PC の吹き出しを出さない（枠に重なって選べなくなるため）。
+   * `settled`（なぞり終えた）までは PC の吹き出しを隠す（枠に重なって選べなくなるため）。
    * スマホのシートは下の段ではグリッドを隠さないので、なぞっている間も出したままにする。
    * `detent` は開く段（グリッドをなぞったときは下の段、追加ボタンからは上の段）。
    */
@@ -86,6 +87,7 @@ type LayoutProps = {
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
  * 段はこのシートだけのもので、開く段は下書きが決める（グリッドからは下の段、追加ボタンからは上の段）。
+ * 開いてもタイトルに焦点は置かない（開いた途端にキーボードでグリッドを隠さない）。
  */
 function QuickSheet({
   draft,
@@ -126,7 +128,6 @@ function QuickSheet({
             rangeText={detent === 'peek' ? draftText(draft.range) : null}
             participantIds={draft.participantIds}
             onChangeParticipants={onChangeParticipants}
-            autoFocus={false}
           >
             <Button onClick={() => changeDetent('full')}>その他のオプション</Button>
           </QuickFields>
@@ -164,20 +165,36 @@ function QuickSheet({
 }
 
 /**
- * PC: 選んだ範囲に寄せた吹き出し。外側をクリックすると Google カレンダーと同じく下書きを捨てる。
+ * PC: 選んだ範囲に寄せた吹き出し。外側を押すと Google カレンダーと同じく下書きを捨てる。
+ * 開いたままグリッドの枠をつまんで直せるよう、モーダルにせず（背景で画面を覆わず）、枠を押したときは
+ * 閉じない（`usePressOutside`）。なぞっている間（`settled` でない）は枠に重ならないよう隠し、
+ * 離したら枠の新しい場所に寄せ直す。隠す間も入力を残すため、閉じても中身は捨てない（`keepMounted`）。
  * 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる。
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProps) {
   const { form } = quick;
+  const paperRef = useRef<HTMLDivElement>(null);
+  const open = draft.settled && !form.submitted;
+  usePressOutside(paperRef, { enabled: open, ignore: DRAFT_SELECTOR, onPress: onClose });
   return (
     <Popover
-      open={draft.settled && !form.submitted}
+      open={open}
       onClose={onClose}
       anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
       anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
       transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-      slotProps={{ paper: { sx: { width: 340 } } }}
+      keepMounted
+      hideBackdrop
+      // 開くたび（枠を直し終えるたび）タイトルに焦点を戻す。入力欄の autoFocus は最初のマウントでしか
+      // 効かず、keepMounted だと最初は隠れているので効かない
+      disableAutoFocus
+      slotProps={{
+        // 吹き出しの外は下の画面に押させる（外を押したときの閉じ方は usePressOutside）
+        root: { sx: { pointerEvents: 'none' } },
+        paper: { ref: paperRef, sx: { width: 340, pointerEvents: 'auto' } },
+        transition: { onEntered: quick.focusTitle },
+      }}
     >
       <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
         <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
@@ -191,7 +208,6 @@ function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProp
           rangeText={draftText(draft.range)}
           participantIds={draft.participantIds}
           onChangeParticipants={onChangeParticipants}
-          autoFocus
         >
           <Button onClick={quick.expand}>その他のオプション</Button>
           <SubmitButton />
@@ -231,7 +247,6 @@ function QuickFields({
   rangeText,
   participantIds,
   onChangeParticipants,
-  autoFocus,
   children,
 }: {
   form: Pick<Quick['form'], 'errors' | 'submitError' | 'thisOnly'>;
@@ -239,8 +254,6 @@ function QuickFields({
   rangeText: string | null;
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
-  /** 開いたらタイトルに焦点を置くか。スマホでは開いた途端にキーボードでグリッドを隠さない */
-  autoFocus: boolean;
   children: ReactNode;
 }) {
   return (
@@ -253,7 +266,6 @@ function QuickFields({
         defaultValue={title}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
-        autoFocus={autoFocus}
         fullWidth
       />
       {rangeText !== null && (

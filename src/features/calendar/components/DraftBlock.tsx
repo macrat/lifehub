@@ -14,6 +14,13 @@ const DOT_SIZE = 8;
 const DOT_INSET = 10;
 /** 指の当たりの大きさ（px）。丸は小さく見せ、押せる範囲だけ広げる */
 const TARGET_SIZE = 32;
+/**
+ * PC で端をつまめる線の当たりの太さ（px）。枠の上下の線に重ね、主に枠の外側へ張り出させる
+ * （内側に広く取ると、短い枠で動かすためにつまめる所が無くなる）
+ */
+const EDGE_TARGET = 8;
+/** そのうち枠の内側に入れる分（px） */
+const EDGE_INSET = 3;
 
 /** 枠の線の太さ（px） */
 const LINE = 2;
@@ -66,8 +73,9 @@ const outline = (colors: ItemColors[]) =>
   }) as const;
 
 /**
- * 追加・編集しようとしている時間帯の枠（週・日の時間軸）。つまんで直せるときは、枠そのもので
- * 長さを保ったまま動かし（左右に動かせば別の日へ移る）、端の丸で開始・終了を変える。
+ * 追加・編集しようとしている時間帯の枠（週・日の時間軸）。枠そのもので長さを保ったまま動かし
+ * （左右に動かせば別の日へ移る）、端で開始・終了を変える。端はスマホでは丸（指で狙える大きさの印が要る）、
+ * PC では上下の線のどこでも（Google カレンダーと同じく、線に載せるとカーソルが変わる）。
  * 枠は長押しを待たずに動き出すので、縦スクロールと横スワイプは枠の外から始める。
  * 枠がポインタを受けるので、枠の中から選び直すことはできない（選び直しは空いている所から）。
  * `DraftBar` と同じく時間軸のグリッドの直接の子で、列の中には入れない（`TimeGrid`）。
@@ -77,14 +85,17 @@ export function DraftBlock({
   column,
   participantIds,
   grab,
+  dots,
 }: {
   draft: TimedDraft;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
   /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
-  /** つまんで直せるとき（スマホ）。PC は吹き出しが前に出て枠に触れないので null */
+  /** つまんで直すときのハンドラ。見せるだけのときは null */
   grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
+  /** 端を丸でつまむか（スマホ）。false なら上下の線のどこでもつまめる（PC） */
+  dots: boolean;
 }) {
   const { startMin, endMin } = draft;
   const colors = useParticipantColors(participantIds);
@@ -116,7 +127,7 @@ export function DraftBlock({
         cursor: 'move',
       }}
     >
-      {grab && (
+      {grab && dots && (
         <>
           <Handle
             end="start"
@@ -130,6 +141,12 @@ export function DraftBlock({
             color={wedgeColorNear(lines, 'bottom-right')}
             handlers={grab.end}
           />
+        </>
+      )}
+      {grab && !dots && (
+        <>
+          <Edge end="start" handlers={grab.start} />
+          <Edge end="end" handlers={grab.end} />
         </>
       )}
     </Box>
@@ -207,6 +224,25 @@ function Handle({
           position: 'absolute',
           inset: -(TARGET_SIZE - DOT_SIZE) / 2,
         },
+      }}
+    />
+  );
+}
+
+/** PC で下書きの端をつまむ線。枠の上下の線に重ねた、枠の幅いっぱいの見えない当たり */
+function Edge({ end, handlers }: { end: 'start' | 'end'; handlers: DragHandlers }) {
+  return (
+    <Box
+      data-handle={end}
+      {...handlers}
+      sx={{
+        position: 'absolute',
+        // 位置は線（border）の内側から測るので、線の太さの分だけ外へずらす
+        [end === 'start' ? 'top' : 'bottom']: EDGE_INSET - EDGE_TARGET - LINE,
+        left: -LINE,
+        right: -LINE,
+        height: EDGE_TARGET,
+        cursor: 'ns-resize',
       }}
     />
   );
