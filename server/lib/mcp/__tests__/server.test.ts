@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { today } from '../../../../shared/date.ts';
 import { createTestUser, truncateAll } from '../../test-db.ts';
 import { createMcpServer } from '../server.ts';
 
@@ -134,6 +135,43 @@ describe('MCP server', () => {
 
     const deleted = await client.callTool({ name: 'events_delete', arguments: { id: created.id } });
     expect(deleted.isError).toBeFalsy();
+  });
+
+  it('今を指す日時（世話の日時・立替の日付）は省略でき、省くと今になる', async () => {
+    const client = await connect(userId);
+    const { tools } = await client.listTools();
+    const required = (name: string) =>
+      tools.find((t) => t.name === name)?.inputSchema.required ?? [];
+    expect(required('lemon_log_care')).not.toContain('doneAt');
+    expect(required('expenses_add')).not.toContain('spentOn');
+
+    const before = Date.now();
+    const log = JSON.parse(
+      text(await client.callTool({ name: 'lemon_log_care', arguments: { careTypes: ['water'] } })),
+    ) as { doneAt: string };
+    expect(new Date(log.doneAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(new Date(log.doneAt).getTime()).toBeLessThanOrEqual(Date.now());
+
+    const expense = JSON.parse(
+      text(
+        await client.callTool({
+          name: 'expenses_add',
+          arguments: { fromUserId: userId, toUserId: null, amount: 100, description: 'パン' },
+        }),
+      ),
+    ) as { spentOn: string };
+    expect(expense.spentOn).toBe(today());
+  });
+
+  it('省略できる日時も、組み合わせの規則（項目かメモ、From と To の違い）は確かめる', async () => {
+    const client = await connect(userId);
+    const empty = await client.callTool({ name: 'lemon_log_care', arguments: { careTypes: [] } });
+    expect(empty.isError).toBe(true);
+    const same = await client.callTool({
+      name: 'expenses_add',
+      arguments: { fromUserId: userId, toUserId: userId, amount: 100, description: 'パン' },
+    });
+    expect(same.isError).toBe(true);
   });
 
   describe('events_update は部分更新', () => {

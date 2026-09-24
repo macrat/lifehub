@@ -1,6 +1,16 @@
-import { careLogSchema } from '../../../shared/validation/lemon.ts';
+import { instantSchema } from '../../../shared/validation/common.ts';
+import { careLogFieldsSchema, withCareLogRules } from '../../../shared/validation/lemon.ts';
 import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
+
+/**
+ * 世話の記録の入力。doneAt は省略でき、省くと今になる。
+ * WHY: LLM は今の日時を正確には知らないので、必須にすると推し量った日時が記録される。
+ * 「今やった」の記録がほとんどなので、日時を言われたときだけ渡させる。
+ */
+const logCareInputSchema = withCareLogRules(
+  careLogFieldsSchema.extend({ doneAt: instantSchema.optional() }),
+);
 
 export const registerLemonTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
@@ -19,9 +29,10 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
     {
       title: 'レモンの世話を記録',
       description:
-        'レモンの木の世話を 1 件記録する。careTypes はその 1 回でやったことの配列で、mist / water / fertilize / bloom / drop / harvest から必要なだけ挙げる（葉水と水やりを一緒にやったなら ["mist", "water"]）。doneAt は ISO 8601（省略時は現在時刻を指定すること）。careTypes が空なら本文（note）が必須で、その記録はメモになる。',
-      inputSchema: careLogSchema,
+        'レモンの木の世話を 1 件記録する。careTypes はその 1 回でやったことの配列で、mist / water / fertilize / bloom / drop / harvest から必要なだけ挙げる（葉水と水やりを一緒にやったなら ["mist", "water"]）。doneAt は ISO 8601 で、今やったことなら省略する（省略すると今）。careTypes が空なら本文（note）が必須で、その記録はメモになる。',
+      inputSchema: logCareInputSchema,
     },
-    async (input) => jsonResult(await service.logCare(input, ctx.userId)),
+    async ({ doneAt, ...input }) =>
+      jsonResult(await service.logCare({ ...input, doneAt: doneAt ?? new Date() }, ctx.userId)),
   );
 };

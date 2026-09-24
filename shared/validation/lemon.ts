@@ -26,22 +26,30 @@ export function normalizeCareTypes(careTypes: readonly CareType[]): CareType[] {
   return CARE_TYPES.filter((t) => careTypes.includes(t));
 }
 
-/** 追加と編集で同じ形（編集は全項目を置き換える） */
-export const careLogSchema = z
-  .object({
-    /**
-     * 1 回の記録に結び付ける項目。葉水と水やりは大抵まとめてやり、その途中で開花や落果に気づくので、
-     * 1 回の世話を種別ごとの記録に割らずに 1 件へまとめる。
-     */
-    careTypes: z.array(z.enum(CARE_TYPES)).transform(normalizeCareTypes),
-    doneAt: instantSchema,
-    note: z.string().trim().max(2000).nullable().default(null),
-  })
-  .refine((v) => v.careTypes.length > 0 || (v.note !== null && v.note.length > 0), {
+/** 1 件の記録の項目（組み合わせの規則を掛ける前）。MCP が一部の項目を省略できる形に変えるのに使う */
+export const careLogFieldsSchema = z.object({
+  /**
+   * 1 回の記録に結び付ける項目。葉水と水やりは大抵まとめてやり、その途中で開花や落果に気づくので、
+   * 1 回の世話を種別ごとの記録に割らずに 1 件へまとめる。
+   */
+  careTypes: z.array(z.enum(CARE_TYPES)).transform(normalizeCareTypes),
+  doneAt: instantSchema,
+  note: z.string().trim().max(2000).nullable().default(null),
+});
+
+/** 記録の組み合わせの規則。追加・編集と MCP の入力が同じ規則を通るよう、スキーマの形とは切り離す */
+export function withCareLogRules<
+  T extends z.ZodType<{ careTypes: CareType[]; note: string | null }>,
+>(schema: T): T {
+  return schema.refine((v) => v.careTypes.length > 0 || (v.note !== null && v.note.length > 0), {
     // 項目を 1 つも選ばない記録はメモそのもの。本文まで空だと何も残らない
     message: '項目を選ぶか、メモを入力してください',
     path: ['note'],
   });
+}
+
+/** 追加と編集で同じ形（編集は全項目を置き換える） */
+export const careLogSchema = withCareLogRules(careLogFieldsSchema);
 export type CareLogInput = z.infer<typeof careLogSchema>;
 
 /** API（POST /api/lemon/logs）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
