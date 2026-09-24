@@ -12,5 +12,10 @@ export async function ingest(input: RecordInput, userId: string) {
       const { careTypes, doneAt, note, id } = input;
       return logCare({ careTypes, doneAt, note }, userId, id);
     }
+    default: {
+      // type を増やして振り分けを足し忘れたら型エラーにする（何も作らずに 201 を返さない）
+      const unhandled: never = input.type;
+      throw new Error(`unknown record type: ${unhandled}`);
+    }
   }
 }
