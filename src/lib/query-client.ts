@@ -145,7 +145,7 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  *   オンラインに戻るか次の起動時（main.tsx の `resumeWrites`）に送られる。
  * - scope: 同じ scope の mutation は 1 つずつ順に走る。溜めた書き込みが操作した順に再生されるので、
  *   「追加してから直す」がそのままの順でサーバーに届く。
- * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは upsert する）。
+ * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは同じ id の作成が既にあれば何も書かない）。
  *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
  */
 queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
@@ -248,7 +248,7 @@ export function useOptimisticMutation<TInput>({
  * 記録を追加する mutation。行の id をここで決めて入力に足す（1 回の操作につき 1 つ）。
  * WHY: id を先に決めておくと、オフラインで作った記録もその場で編集・削除でき（仮の id を
  * 後から本物へ差し替えずに済む）、通信が切れて送り直しても二重に作られない
- * （サーバーは同じ id の作成を upsert として扱う）。
+ * （サーバーは同じ id の作成が既にあれば何も書かない）。
  * 追加は必ずフォームからの保存なので、mutateAsync（保存が受け付けられたら閉じる）だけを返す。
  */
 export function useCreateMutation<TInput>(

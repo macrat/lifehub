@@ -125,15 +125,15 @@ function participantRows(eventId: string, userIds: string[]) {
 
 /**
  * 行と参加者を原子的に作る。id は呼び出し元（多くはクライアント）が決めたもの。
- * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かない（二重に作らない）。
+ * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
+ * 参加者も、行が参加者を持たないとき（この文で作ったばかりの行）だけ入れる。行が既にあるのに
+ * 参加者だけ足すと、編集で外した人が戻ってしまう（参加者は 1 人以上なので 0 人は作る前だけ）。
  */
 export async function insert(row: NewEventRow, participantIds: string[]): Promise<void> {
   await runBatch((tx) => [
-    tx.insert(events).values(row).onConflictDoUpdate({ target: events.id, set: row }),
-    tx
-      .insert(eventParticipants)
-      .values(participantRows(row.id, participantIds))
-      .onConflictDoNothing(),
+    tx.insert(events).values(row).onConflictDoNothing(),
+    insertParticipantsWhere(tx, and(eq(events.id, row.id), hasNoParticipants(tx)), participantIds),
   ]);
 }
 
@@ -193,15 +193,7 @@ export async function materializeOccurrence(
       ? [copyMasterParticipants(tx, isTarget)]
       : [
           tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, occurrenceId(tx))),
-          tx.insert(eventParticipants).select(
-            tx
-              .select({
-                eventId: events.id,
-                userId: sql<string>`unnest(${sql.param(participantIds)}::uuid[])`.as('user_id'),
-              })
-              .from(events)
-              .where(isTarget),
-          ),
+          insertParticipantsWhere(tx, isTarget, participantIds),
         ]),
   ]);
 }
@@ -209,19 +201,35 @@ export async function materializeOccurrence(
 /** 回が参加者を持たなければ、繰り返し元の参加者を写す */
 function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
   const master = alias(eventParticipants, 'master_participants');
-  const own = alias(eventParticipants, 'own_participants');
   return tx.insert(eventParticipants).select(
     tx
       .select({ eventId: events.id, userId: master.userId })
       .from(events)
       .innerJoin(master, eq(master.eventId, events.seriesId))
-      .where(
-        and(
-          isTarget,
-          notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id))),
-        ),
-      ),
+      .where(and(isTarget, hasNoParticipants(tx))),
   );
+}
+
+/**
+ * where に合う行（1 行）に userIds を参加者として入れる文。行の ID を手元に持たない書き込み（回の実体化）と、
+ * 行を作る文と同じ batch で「作れたときだけ」入れる書き込み（where に条件を足す）に使う。
+ */
+function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
+  return tx.insert(eventParticipants).select(
+    tx
+      .select({
+        eventId: events.id,
+        userId: sql<string>`unnest(${sql.param(userIds)}::uuid[])`.as('user_id'),
+      })
+      .from(events)
+      .where(where),
+  );
+}
+
+/** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
+function hasNoParticipants(tx: Database): SQL {
+  const own = alias(eventParticipants, 'own_participants');
+  return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
 }
 
 /** 参加者を置き換える 2 文（消して入れ直す）。行と同じ runBatch に入れて、行と参加者を原子的に書く */

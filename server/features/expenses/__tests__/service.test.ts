@@ -99,6 +99,17 @@ describe('expenses service', () => {
     expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
   });
 
+  it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
+    const id = newId();
+    const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
+    await addExpense(input, a, id);
+    await updateExpense(id, { ...input, amount: 3000 });
+    const resent = await addExpense(input, b, id);
+
+    expect(resent).toMatchObject({ amount: 3000 });
+    expect((await listExpenses({})).items).toMatchObject([{ id, amount: 3000 }]);
+  });
+
   it('立替を削除できる', async () => {
     const expense = await addExpense(
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
