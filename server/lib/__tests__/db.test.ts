@@ -1,9 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { users } from '../../features/users/schema.ts';
-import { createUser } from '../../features/users/service.ts';
 import { db, runBatch } from '../db.ts';
-import { truncateAll } from '../test-db.ts';
+import { createTestUser, truncateAll } from '../test-db.ts';
 
 /**
  * runBatch は全文が通るか何も残らないかのどちらかになること。
@@ -13,9 +12,7 @@ describe('runBatch', () => {
   beforeEach(truncateAll);
 
   it('途中で失敗したら前の文も残さない', async () => {
-    const userId = (
-      await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' })
-    ).id;
+    const userId = await createTestUser('A');
     await expect(
       runBatch((tx) => [
         tx.update(users).set({ name: '変更後' }).where(eq(users.id, userId)),

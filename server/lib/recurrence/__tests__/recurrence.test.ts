@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { jst } from '../../../../shared/__tests__/jst.ts';
 import { ValidationError } from '../../errors.ts';
 import { expandOccurrences, normalizeRRule, withUntilBefore } from '../index.ts';
-
-const jst = (s: string) => new Date(`${s}+09:00`);
 
 describe('normalizeRRule', () => {
   it.each([

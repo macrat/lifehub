@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 import { createFeed } from '../features/calendar-feeds/service.ts';
-import { createUser } from '../features/users/service.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { createTestUser, truncateAll } from '../lib/test-db.ts';
 
 /**
  * `/api/calendar` の下には、ログインが要る配信 URL の管理（`feeds`）と、ログインの要らない
@@ -13,12 +12,8 @@ describe('カレンダー配信のルート', () => {
   beforeEach(truncateAll);
 
   it('ics はログイン無しで読め、配信 URL の管理はログインが要る', async () => {
-    const user = await createUser({
-      email: 'a@example.com',
-      name: 'A',
-      password: 'password-123456',
-    });
-    const feed = await createFeed({ name: 'スマホ', participantIds: [user.id] }, user.id);
+    const userId = await createTestUser('A');
+    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
 
     const ics = await app.request(new URL(feed.url).pathname);
     expect(ics.status).toBe(200);

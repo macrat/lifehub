@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import {
   createEventSchema,
   occurrenceTargetSchema,
   updateEventSchema,
 } from '../../../../shared/validation/events.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
 import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
-import { createUser } from '../../users/service.ts';
 import {
   createFeed,
   listFeeds,
@@ -16,9 +16,6 @@ import {
   revokeFeed,
   updateFeed,
 } from '../service.ts';
-
-const jst = (s: string) => new Date(`${s}+09:00`);
-const iso = (s: string) => jst(s).toISOString();
 
 // 「今日」を 2026-09-14（月）の正午に固定する
 const now = jst('2026-09-14T12:00:00');
@@ -41,10 +38,8 @@ let otherId: string;
 describe('calendar-feeds service', () => {
   beforeEach(async () => {
     await truncateAll();
-    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
-    otherId = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' }))
-      .id;
+    userId = await createTestUser('A');
+    otherId = await createTestUser('B');
   });
 
   it('発行した URL で予定を配信し、最後に読まれた日時を記録する', async () => {

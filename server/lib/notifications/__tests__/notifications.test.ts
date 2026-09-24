@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import {
   listNotifications,
@@ -12,12 +13,11 @@ import {
   deleteEvent,
   updateEvent,
 } from '../../../features/events/service.ts';
-import { createUser, updateUser } from '../../../features/users/service.ts';
+import { updateUser } from '../../../features/users/service.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
+import { createTestUser } from '../../test-db.ts';
 import { deliver, enqueueRange } from '../service.ts';
 
-const jst = (s: string) => new Date(`${s}+09:00`);
-const iso = (s: string) => jst(s).toISOString();
 const tomorrow = { from: jst('2026-09-15T00:00:00'), to: jst('2026-09-16T00:00:00') };
 
 let userId: string;
@@ -25,8 +25,7 @@ let userId: string;
 describe('notifications', () => {
   beforeEach(async () => {
     await truncateAll();
-    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
+    userId = await createTestUser('A');
   });
 
   it('予定の開始 N 分前と、タスクの開始・期限を列挙する', async () => {
@@ -240,9 +239,7 @@ describe('notifications', () => {
   });
 
   it('終日の項目は参加者それぞれの通知時刻に送る（既定は 7:00、前日も選べる）', async () => {
-    const other = (
-      await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })
-    ).id;
+    const other = await createTestUser('B');
     await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 }, other);
     const task = await createEvent(
       createEventSchema.parse({

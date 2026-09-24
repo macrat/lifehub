@@ -1,20 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { jst } from '../../../../shared/__tests__/jst.ts';
 import { addDays } from '../../../../shared/date.ts';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { type CareLogListQuery, careLogSchema } from '../../../../shared/validation/lemon.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
-import { createUser } from '../../users/service.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
 import { getStatus, listLogs, logCare, updateLog } from '../service.ts';
-
-const jst = (s: string) => new Date(`${s}+09:00`);
 
 describe('lemon service', () => {
   let userId: string;
   beforeEach(async () => {
     await truncateAll();
-    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
+    userId = await createTestUser('A');
   });
 
   it('1 件の記録が複数の項目を進め、項目ごとに最終実施日と経過日数（JST の暦日差）を返す', async () => {
