@@ -36,8 +36,8 @@ struct Action {
   screen::Icon icon;
 };
 constexpr Action ACTIONS[] = {
-    {record::Care::Mist, screen::Icon::Leaf},
-    {record::Care::MistAndWater, screen::Icon::Drop},
+    {record::Care::Mist, screen::Icon::Mist},
+    {record::Care::MistAndWater, screen::Icon::Water},
 };
 // 表より 1 回多く続けて押したら送らない（間違えて押したときの取り消し）
 constexpr int CANCEL_PRESSES = std::size(ACTIONS) + 1;

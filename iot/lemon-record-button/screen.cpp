@@ -1,7 +1,8 @@
 #include "screen.h"
 
 #include <M5Unified.h>
-#include <math.h>
+
+#include "icons.h"
 
 namespace {
 
@@ -16,13 +17,12 @@ constexpr uint32_t I2C_FREQ = 400000;
 // 明るさは読める範囲で低めにする（点いている時間は数秒なので、消費への影響は小さい）
 constexpr uint8_t BRIGHTNESS = 96;
 
-constexpr int SIZE = 128;
-constexpr int CENTER = SIZE / 2;
-
-constexpr uint16_t LEAF_COLOR = 0x3E68;      // #3BCD44 付近の緑
-constexpr uint16_t LEAF_VEIN_COLOR = 0x1B83;  // 濃い緑
-constexpr uint16_t DROP_COLOR = 0x2D7F;      // #2BAFFF 付近の青
+// 送れなかったときはアイコンを灰色にして、赤い × を重ねる。
+// × は画面の中央に、縁から 3/16 ずつ空けて置く（アイコンの絵とおおむね同じ広さになる）
 constexpr uint16_t FAILED_COLOR = TFT_DARKGREY;
+constexpr int CROSS_NEAR = icons::SIZE * 3 / 16;
+constexpr int CROSS_FAR = icons::SIZE - CROSS_NEAR;
+constexpr float CROSS_WIDTH = icons::SIZE / 16.0f;
 
 void backlight(bool on) {
   if (on) {
@@ -35,57 +35,11 @@ void backlight(bool on) {
   }
 }
 
-// 葉: 2 つの円が重なるレンズ形を、左下から右上へ向けて斜めに置く。
-// レンズは凸なので、1 行ごとに内側の左端と右端を探して横線で塗る。
-void drawLeaf(bool failed) {
-  const uint16_t color = failed ? FAILED_COLOR : LEAF_COLOR;
-  constexpr float R = 70.0f;  // 円の半径
-  constexpr float D = 48.0f;  // 軸から円の中心までの距離（大きいほど細く、先が尖る）
-  const float k = 1.0f / sqrtf(2.0f);
-  auto inside = [&](int x, int y) {
-    const float dx = x - CENTER, dy = y - CENTER;
-    const float u = (dx - dy) * k;  // 葉の軸方向（右上が正）
-    const float v = (dx + dy) * k;  // 軸と直交する方向
-    return (v - D) * (v - D) + u * u <= R * R && (v + D) * (v + D) + u * u <= R * R;
-  };
-  for (int y = 0; y < SIZE; ++y) {
-    int left = -1, right = -1;
-    for (int x = 0; x < SIZE; ++x) {
-      if (!inside(x, y)) continue;
-      if (left < 0) left = x;
-      right = x;
-    }
-    if (left >= 0) M5.Display.drawFastHLine(left, y, right - left + 1, color);
-  }
-  // 葉脈と葉柄: 軸に沿った線を、左下の先端から少し外へ伸ばす
-  const int half = static_cast<int>(sqrtf(R * R - D * D) * k);
-  M5.Display.drawWideLine(CENTER - half - 10, CENTER + half + 10, CENTER + half - 8,
-                          CENTER - half + 8, 3, failed ? FAILED_COLOR : LEAF_VEIN_COLOR);
-}
-
-// 水滴: 円と、その円に接する三角（上の尖り）
-void drawDrop(bool failed) {
-  const uint16_t color = failed ? FAILED_COLOR : DROP_COLOR;
-  constexpr int CY = 78, R = 34, TOP = 12;
-  const float d = CY - TOP;
-  const float a = acosf(R / d);  // 真上から接点までの角度
-  const int tx = static_cast<int>(R * sinf(a));
-  const int ty = CY - static_cast<int>(R * cosf(a));
-  M5.Display.fillCircle(CENTER, CY, R, color);
-  M5.Display.fillTriangle(CENTER, TOP, CENTER - tx, ty, CENTER + tx, ty, color);
-  // 光の照り返し
-  if (!failed) M5.Display.fillCircle(CENTER - 13, CY + 4, 7, TFT_WHITE);
-}
-
+// アプリのレモンの画面と同じアイコンを、黒地に白（送れなかったときは灰色）で画面いっぱいに描く
 void drawIcon(screen::Icon icon, bool failed) {
-  M5.Display.startWrite();
-  M5.Display.fillScreen(TFT_BLACK);
-  if (icon == screen::Icon::Leaf) {
-    drawLeaf(failed);
-  } else {
-    drawDrop(failed);
-  }
-  M5.Display.endWrite();
+  const uint8_t* image = icon == screen::Icon::Mist ? icons::MIST : icons::WATER;
+  M5.Display.pushGrayscaleImage(0, 0, icons::SIZE, icons::SIZE, image, lgfx::grayscale_4bit,
+                                failed ? FAILED_COLOR : TFT_WHITE, TFT_BLACK);
 }
 
 }  // namespace
@@ -102,8 +56,8 @@ void show(Icon icon) {
 
 void showFailed(Icon icon) {
   drawIcon(icon, true);
-  M5.Display.drawWideLine(24, 24, 104, 104, 8, TFT_RED);
-  M5.Display.drawWideLine(104, 24, 24, 104, 8, TFT_RED);
+  M5.Display.drawWideLine(CROSS_NEAR, CROSS_NEAR, CROSS_FAR, CROSS_FAR, CROSS_WIDTH, TFT_RED);
+  M5.Display.drawWideLine(CROSS_FAR, CROSS_NEAR, CROSS_NEAR, CROSS_FAR, CROSS_WIDTH, TFT_RED);
 }
 
 void off() {
