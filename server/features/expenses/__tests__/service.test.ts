@@ -7,8 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
-import { createUser } from '../../users/service.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;
@@ -19,8 +18,8 @@ const on = dateStringSchema.parse('2026-09-01');
 describe('expenses service', () => {
   beforeEach(async () => {
     await truncateAll();
-    a = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' })).id;
-    b = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' })).id;
+    a = await createTestUser('A');
+    b = await createTestUser('B');
   });
 
   it('立替が無ければ精算済み', async () => {

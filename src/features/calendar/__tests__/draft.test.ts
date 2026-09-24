@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { jst } from '../../../../shared/__tests__/jst.ts';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import {
   defaultDraft,
@@ -22,8 +23,6 @@ describe('draftText', () => {
 });
 
 describe('defaultDraft', () => {
-  const jst = (s: string) => new Date(`${s}+09:00`);
-
   it('現在時刻の分を切り上げた正時から 1 時間', () => {
     expect(defaultDraft(DAY, jst('2026-09-21T17:11:00'))).toEqual({
       allDay: false,

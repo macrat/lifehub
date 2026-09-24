@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { truncateAll } from '../../../lib/test-db.ts';
-import { createUser } from '../../users/service.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
 import { isSubscribed, subscribe, unsubscribe } from '../service.ts';
 
 const endpoint = 'https://fcm.googleapis.com/fcm/send/test';
@@ -11,10 +10,8 @@ describe('push service', () => {
   let bobId: string;
   beforeEach(async () => {
     await truncateAll();
-    aliceId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
-    bobId = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' }))
-      .id;
+    aliceId = await createTestUser('A');
+    bobId = await createTestUser('B');
   });
 
   it('購読しているのは持ち主だけで、同じ端末で別の人が購読し直すとその人のものになる', async () => {

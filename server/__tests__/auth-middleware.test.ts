@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
-import { createUser } from '../features/users/service.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { createTestUser, truncateAll } from '../lib/test-db.ts';
 
 describe('認証ミドルウェア', () => {
   beforeEach(truncateAll);
@@ -21,7 +20,7 @@ describe('認証ミドルウェア', () => {
   });
 
   it('ログイン後の Cookie で API にアクセスできる', async () => {
-    await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' });
+    await createTestUser('A');
     const login = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

@@ -4,8 +4,8 @@ import type { HistoryPage } from '../../shared/types.ts';
 import { dateStringSchema } from '../../shared/validation/common.ts';
 import { app } from '../app.ts';
 import { addExpense } from '../features/expenses/service.ts';
-import { createUser, updateUser } from '../features/users/service.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { updateUser } from '../features/users/service.ts';
+import { createTestUser, truncateAll } from '../lib/test-db.ts';
 
 /**
  * 変わっていない応答を再送しないこと（ETag と条件付き要求）。
@@ -17,8 +17,7 @@ describe('条件付き要求', () => {
 
   beforeEach(async () => {
     await truncateAll();
-    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
+    userId = await createTestUser('A');
     const login = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

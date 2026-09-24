@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { ValidationError } from '../../../lib/errors.ts';
@@ -10,7 +11,7 @@ import {
   uncompleteEvent,
   updateEvent,
 } from '../service.ts';
-import { iso, jst, now, resetUsers, september } from './service-fixtures.ts';
+import { now, resetUsers, september } from './service-fixtures.ts';
 
 let userId: string;
 

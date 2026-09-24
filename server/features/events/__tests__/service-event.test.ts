@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { newId } from '../../../../shared/id.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
@@ -14,7 +15,7 @@ import {
   listItems,
   updateEvent,
 } from '../service.ts';
-import { iso, jst, now, resetUsers, september } from './service-fixtures.ts';
+import { now, resetUsers, september } from './service-fixtures.ts';
 
 let userId: string;
 let partnerId: string;

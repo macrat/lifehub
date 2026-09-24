@@ -1,8 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createUser } from '../../../features/users/service.ts';
-import { truncateAll } from '../../test-db.ts';
+import { createTestUser, truncateAll } from '../../test-db.ts';
 import { createMcpServer } from '../server.ts';
 
 async function connect(userId: string): Promise<Client> {
@@ -23,9 +22,8 @@ describe('MCP server', () => {
   let userId: string;
   beforeEach(async () => {
     await truncateAll();
-    userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-      .id;
-    await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' });
+    userId = await createTestUser('A');
+    await createTestUser('B');
   });
 
   it('全 feature のツールを公開する', async () => {
