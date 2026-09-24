@@ -92,8 +92,8 @@ export function DraftBlock({
   column: number;
   /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
-  /** つまんで直すときのハンドラ。見せるだけのときは null */
-  grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers } | null;
+  /** つまんで直すときのハンドラ（枠そのもの・開始の端・終了の端） */
+  grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers };
   /** 端を丸でつまむか（スマホ）。false なら上下の線のどこでもつまめる（PC） */
   dots: boolean;
 }) {
@@ -103,7 +103,7 @@ export function DraftBlock({
   return (
     <Box
       {...draftProps}
-      {...grab?.move}
+      {...grab.move}
       // ドラッグで変わる場所と大きさは sx ではなく style で渡す。
       // WHY: sx は値の組ごとに CSS の規則を作って文書に足し、消さない。15 分・1 日ずれるたびに組が変わるので、
       // なぞるほど使い捨ての規則が溜まり、そのたびに見た目の規則（塗り分けの背景など）も丸ごと作り直す。
@@ -120,14 +120,12 @@ export function DraftBlock({
         alignSelf: 'start',
         ml: '1px',
         mr: '2px',
-        // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
-        pointerEvents: grab ? 'auto' : 'none',
         // 押した時点から動かすので、ブラウザのスクロール・スワイプには渡さない
-        touchAction: grab ? 'none' : undefined,
+        touchAction: 'none',
         cursor: 'move',
       }}
     >
-      {grab && dots && (
+      {dots ? (
         <>
           <Handle
             end="start"
@@ -142,8 +140,7 @@ export function DraftBlock({
             handlers={grab.end}
           />
         </>
-      )}
-      {grab && !dots && (
+      ) : (
         <>
           <Edge end="start" handlers={grab.start} />
           <Edge end="end" handlers={grab.end} />
@@ -237,7 +234,7 @@ function Edge({ end, handlers }: { end: 'start' | 'end'; handlers: DragHandlers 
       {...handlers}
       sx={{
         position: 'absolute',
-        // 位置は線（border）の内側から測るので、線の太さの分だけ外へずらす
+        // 位置は線（border）の内側から測るので、線の太さの分も外へずらす
         [end === 'start' ? 'top' : 'bottom']: EDGE_INSET - EDGE_TARGET - LINE,
         left: -LINE,
         right: -LINE,

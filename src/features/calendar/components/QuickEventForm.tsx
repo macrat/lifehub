@@ -1,9 +1,10 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Grow from '@mui/material/Grow';
 import IconButton from '@mui/material/IconButton';
-// biome-ignore lint/style/noRestrictedImports: 履歴の項目はこの部品が自分で持つ（下の useDialogHistory。スマホのシートと PC の吹き出しで 1 つを共有する）
-import Popover from '@mui/material/Popover';
+import Paper from '@mui/material/Paper';
+import Popper from '@mui/material/Popper';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
@@ -165,55 +166,71 @@ function QuickSheet({
 }
 
 /**
+ * 吹き出しを寄せる先。測るたびに今出ている枠を探す（枠は動かすたびに場所が変わり、月表示では週ごとの
+ * 帯に入れ替わる）。同じ物を渡し続けるので、Popper は開くたびにだけ位置を測り直す。
+ */
+const draftAnchor = {
+  getBoundingClientRect: () =>
+    (document.querySelector(DRAFT_SELECTOR) ?? document.body).getBoundingClientRect(),
+};
+
+/**
  * PC: 選んだ範囲に寄せた吹き出し。外側を押すと Google カレンダーと同じく下書きを捨てる。
- * 開いたままグリッドの枠をつまんで直せるよう、モーダルにせず（背景で画面を覆わず）、枠を押したときは
- * 閉じない（`usePressOutside`）。なぞっている間（`settled` でない）は枠に重ならないよう隠し、
- * 離したら枠の新しい場所に寄せ直す。隠す間も入力を残すため、閉じても中身は捨てない（`keepMounted`）。
+ * 開いたままグリッドの枠をつまんで直せるよう、モーダルにしない（Popover の背景は画面全体を覆い、
+ * 枠にも触れなくなる）。外を押したことは `usePressOutside` で知り、枠を押したときは閉じない。
+ * なぞっている間（`settled` でない）は枠に重ならないよう隠し、離したら枠の新しい場所に寄せ直す。
+ * 隠す間も入力を残すため、中身はマウントしたままにし（`keepMounted`）、開き終えるたびにタイトルに
+ * 焦点を戻す（autoFocus は最初のマウントでしか効かず、そのときは隠れている）。
  * 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる。
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProps) {
   const { form } = quick;
   const paperRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const open = draft.settled && !form.submitted;
   usePressOutside(paperRef, { enabled: open, ignore: DRAFT_SELECTOR, onPress: onClose });
   return (
-    <Popover
+    <Popper
       open={open}
-      onClose={onClose}
-      anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
-      anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
-      transformOrigin={{ vertical: 'center', horizontal: 'left' }}
+      anchorEl={draftAnchor}
+      placement="right"
       keepMounted
-      hideBackdrop
-      // 開くたび（枠を直し終えるたび）タイトルに焦点を戻す。入力欄の autoFocus は最初のマウントでしか
-      // 効かず、keepMounted だと最初は隠れているので効かない
-      disableAutoFocus
-      slotProps={{
-        // 吹き出しの外は下の画面に押させる（外を押したときの閉じ方は usePressOutside）
-        root: { sx: { pointerEvents: 'none' } },
-        paper: { ref: paperRef, sx: { width: 340, pointerEvents: 'auto' } },
-        transition: { onEntered: quick.focusTitle },
-      }}
+      transition
+      sx={{ zIndex: 'modal' }}
     >
-      <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
-        <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
-          <IconButton aria-label="閉じる" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Stack>
-        <QuickFields
-          form={form}
-          title={quick.initial.title}
-          rangeText={draftText(draft.range)}
-          participantIds={draft.participantIds}
-          onChangeParticipants={onChangeParticipants}
-        >
-          <Button onClick={quick.expand}>その他のオプション</Button>
-          <SubmitButton />
-        </QuickFields>
-      </QuickFormBox>
-    </Popover>
+      {({ TransitionProps }) => (
+        <Grow {...TransitionProps} onEntered={() => titleRef.current?.focus()}>
+          <Paper
+            ref={paperRef}
+            elevation={8}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose();
+            }}
+            sx={{ width: 340 }}
+          >
+            <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
+              <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+                <IconButton aria-label="閉じる" onClick={onClose}>
+                  <CloseIcon />
+                </IconButton>
+              </Stack>
+              <QuickFields
+                form={form}
+                title={quick.initial.title}
+                titleRef={titleRef}
+                rangeText={draftText(draft.range)}
+                participantIds={draft.participantIds}
+                onChangeParticipants={onChangeParticipants}
+              >
+                <Button onClick={quick.expand}>その他のオプション</Button>
+                <SubmitButton />
+              </QuickFields>
+            </QuickFormBox>
+          </Paper>
+        </Grow>
+      )}
+    </Popper>
   );
 }
 
@@ -244,6 +261,7 @@ function QuickFormBox({
 function QuickFields({
   form,
   title,
+  titleRef,
   rangeText,
   participantIds,
   onChangeParticipants,
@@ -251,6 +269,8 @@ function QuickFields({
 }: {
   form: Pick<Quick['form'], 'errors' | 'submitError' | 'thisOnly'>;
   title: string;
+  /** タイトルの入力欄。焦点を置くときに使う */
+  titleRef?: RefObject<HTMLInputElement | null>;
   rangeText: string | null;
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
@@ -264,6 +284,7 @@ function QuickFields({
         name="title"
         label="タイトルを追加"
         defaultValue={title}
+        inputRef={titleRef}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
         fullWidth

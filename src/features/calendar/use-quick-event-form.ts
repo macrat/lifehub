@@ -63,11 +63,6 @@ export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onExpand, on
     },
     /** 終日の切り替え。入力欄で直していた日時を保ったまま、下書きそのものを切り替える */
     changeAllDay: (allDay: boolean) => onChangeDraft(withAllDay(draftFromForm() ?? range, allDay)),
-    /** PC だけ: タイトルの入力欄に焦点を置く（吹き出しを開くたび） */
-    focusTitle: () => {
-      const title = formRef.current?.elements.namedItem('title');
-      if (title instanceof HTMLInputElement) title.focus();
-    },
     /** PC だけ: 入力済みの内容を引き継いで全項目のフォームへ */
     expand: () => {
       const input = form.inputFromForm(new FormData(formRef.current ?? undefined));

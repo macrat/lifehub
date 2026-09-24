@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { login } from './login.ts';
+import { centerOf, settledBox } from './touch.ts';
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -98,11 +99,7 @@ test('週表示で吹き出しを開いたまま、枠の上下の線と枠そ�
     await page.mouse.move(to.x, to.y, { steps: 5 });
     await page.mouse.up();
   };
-  const draftBox = async () => {
-    const b = await page.locator('[data-draft]').boundingBox();
-    if (!b) throw new Error('下書きの枠が見つからない');
-    return b;
-  };
+  const draftBox = () => settledBox(page.locator('[data-draft]'));
 
   await drag(
     { x: box.x + box.width / 2, y: y(9 * 60 + 5) },
@@ -122,11 +119,8 @@ test('週表示で吹き出しを開いたまま、枠の上下の線と枠そ�
   await expect(page.getByText('6/5(木) 08:00〜11:30')).toBeVisible();
 
   // 枠そのものをつまむと長さを保ったまま隣の日へ移る。入力途中のタイトルは残る
-  b = await draftBox();
-  await drag(
-    { x: b.x + b.width / 2, y: b.y + b.height / 2 },
-    { x: b.x + b.width / 2 + box.width, y: b.y + b.height / 2 + box.height / 24 },
-  );
+  const c = await centerOf(page.locator('[data-draft]'));
+  await drag(c, { x: c.x + box.width, y: c.y + box.height / 24 });
   await expect(page.getByText('6/6(金) 09:00〜12:30')).toBeVisible();
   await expect(page.getByLabel('タイトルを追加')).toHaveValue('入力途中');
   await expect(page.getByLabel('タイトルを追加')).toBeFocused();
