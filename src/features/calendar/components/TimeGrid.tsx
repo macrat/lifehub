@@ -24,7 +24,7 @@ import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
-import { HourlyWeather } from './HourlyWeather.tsx';
+import { HourlyWeatherColumn } from './HourlyWeatherColumn.tsx';
 import { syncScrollProps } from './markers.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
@@ -141,7 +141,7 @@ export function TimeGrid({
               {h}:00
             </Typography>
           ))}
-          {hourlyWeatherDate && <HourlyWeather date={hourlyWeatherDate} />}
+          {hourlyWeatherDate && <HourlyWeatherColumn date={hourlyWeatherDate} />}
         </Box>
         {days.map((day, i) => (
           <Box

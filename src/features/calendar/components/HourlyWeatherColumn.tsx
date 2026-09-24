@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
+import { memo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
-import type { HourlyWeather as Span } from '../../../../shared/weather.ts';
+import type { HourlyWeather } from '../../../../shared/weather.ts';
 import { useHourlyWeather } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
@@ -17,12 +18,17 @@ const GAP = 2;
  * 予定の脇に添える補助の情報なので、時刻の字より控えめな色（text.disabled）で小さく出す。
  * 気象庁の区切りは 3 時間ごとで時刻の目盛りと重なるので、アイコンは変わり目の時刻の字と縦の中央を揃える
  * （その日の最初の区間の 0:00 だけは、上にはみ出さないよう上端に揃える）。
+ * 時間軸はドラッグの 1 コマごとに描き直されるので、props（日付）が変わらなければ描き直さない（memo）。
  */
-export function HourlyWeather({ date }: { date: DateString }) {
+export const HourlyWeatherColumn = memo(function HourlyWeatherColumn({
+  date,
+}: {
+  date: DateString;
+}) {
   return useHourlyWeather(date).map((span) => <HourlySpan key={span.startMin} span={span} />);
-}
+});
 
-function HourlySpan({ span }: { span: Span }) {
+function HourlySpan({ span }: { span: HourlyWeather }) {
   const half = HOURLY_ICON_SIZE / 2;
   const top = `max(${atMinute(span.startMin)} - ${half}px, 0px)`;
   return (

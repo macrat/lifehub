@@ -51,11 +51,11 @@ function forecast(short: string[], weekly: string[], shortMax = '29', shortDays 
 }
 
 /** 天気分布予報と同じ形。`start`（JST）から 3 時間ごとに天気が並ぶ（地点の気温も混ざる） */
-function hourly(start: string, weather: string[]) {
+function hourly(start: string, weather: string[], duration = 'PT3H') {
   const first = new Date(start);
   const timeDefines = weather.map((_, i) => ({
     dateTime: addMinutes(first, i * 180).toISOString(),
-    duration: 'PT3H',
+    duration,
   }));
   return {
     areaTimeSeries: { timeDefines, weather, wind: [] },
@@ -69,11 +69,12 @@ function hourly(start: string, weather: string[]) {
  */
 function serve(json: { forecast?: unknown; hourly?: unknown; amedas?: unknown }) {
   vi.stubGlobal('fetch', async (url: string) => {
-    const body = url.includes('/wdist/')
-      ? json.hourly
+    const key = url.includes('/wdist/')
+      ? 'hourly'
       : url.includes('/amedas/')
-        ? json.amedas
-        : json.forecast;
+        ? 'amedas'
+        : 'forecast';
+    const body = json[key];
     return body === undefined ? new Response(null, { status: 404 }) : Response.json(body);
   });
 }
@@ -273,15 +274,9 @@ describe('weather service', () => {
 
     it('区間が 3 時間でない報は読まずに投げ、手元の天気を残す', async () => {
       await refreshHourly('2026-09-24T18:00:00+09:00', ['晴れ']);
-      const broken = hourly('2026-09-24T18:00:00+09:00', ['雨']);
       serve({
         forecast: forecast([], []),
-        hourly: {
-          areaTimeSeries: {
-            ...broken.areaTimeSeries,
-            timeDefines: broken.areaTimeSeries.timeDefines.map((t) => ({ ...t, duration: 'PT1H' })),
-          },
-        },
+        hourly: hourly('2026-09-24T18:00:00+09:00', ['雨'], 'PT1H'),
       });
       await expect(refreshWeather()).rejects.toThrow('refresh failed');
       expect((await hourlyOf('2026-09-24', '2026-09-24')).map((w) => w.label)).toEqual(['晴れ']);

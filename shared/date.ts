@@ -48,6 +48,17 @@ export function fromMinutesOfDay(date: DateString, minutes: number): string {
   return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
 }
 
+/**
+ * 両端を含む JST 暦日の期間 → 瞬間の期間（from の 0:00 から、to の翌日 0:00 の手前まで。to は排他的）。
+ * 日付で指定された期間を、日時の列（timestamptz）で絞るときに使う。
+ */
+export function instantRange(range: { from: DateString; to: DateString }): {
+  from: Date;
+  to: Date;
+} {
+  return { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
+}
+
 /** 排他的な終了日時（終日の項目の保存形式。翌日 0:00）→ 含む終了日 */
 export function inclusiveEndDate(endsAt: string): DateString {
   return toDateString(new Date(new Date(endsAt).getTime() - 1));

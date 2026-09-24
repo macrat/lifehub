@@ -97,11 +97,11 @@ export function parseForecast(json: unknown): repository.WeatherRow[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** 日ごとの天気を取り直して、予報のある日を上書きする。上書きした行を返す */
-async function refreshDailyWeather(): Promise<repository.WeatherRow[]> {
+/** 日ごとの天気を取り直して、予報のある日を上書きする。上書きした日の数を返す */
+async function refreshDailyWeather(): Promise<number> {
   const rows = parseForecast(await (await fetchOk(FORECAST_URL)).json());
   await repository.upsertDaily(rows);
-  return rows;
+  return rows.length;
 }
 
 /**
@@ -157,11 +157,11 @@ function parseHourlyForecast(json: unknown): repository.HourlyWeatherRow[] {
   });
 }
 
-/** 3 時間ごとの天気を取り直して、予報のある区間を上書きする。上書きした行を返す */
-async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRow[]> {
+/** 3 時間ごとの天気を取り直して、予報のある区間を上書きする。上書きした区間の数を返す */
+async function refreshHourlyWeather(): Promise<number> {
   const rows = parseHourlyForecast(await (await fetchOk(HOURLY_URL)).json());
   await repository.upsertHourly(rows);
-  return rows;
+  return rows.length;
 }
 
 /**
@@ -171,11 +171,11 @@ async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRow[]> {
  */
 export async function refreshWeather(): Promise<{ daily: number; hourly: number }> {
   const [daily, hourly] = await Promise.allSettled([refreshDailyWeather(), refreshHourlyWeather()]);
-  if (daily.status === 'rejected' || hourly.status === 'rejected') {
-    const errors = [daily, hourly].flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
-    throw new AggregateError(errors, 'weather: refresh failed');
+  if (daily.status === 'fulfilled' && hourly.status === 'fulfilled') {
+    return { daily: daily.value, hourly: hourly.value };
   }
-  return { daily: daily.value.length, hourly: hourly.value.length };
+  const errors = [daily, hourly].flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
+  throw new AggregateError(errors, 'weather: refresh failed');
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
-import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
+import { instantRange, toDateString, today } from '../../../shared/date.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -41,7 +41,7 @@ export async function listOccurrences(
   now: Date = new Date(),
   kind?: EventKind,
 ): Promise<Occurrence[]> {
-  const instants = { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
+  const instants = instantRange(range);
   const rows = await repository.findCalendarRows(instants.from, instants.to);
 
   // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
@@ -241,7 +241,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   // 今以後の最初の発生はそこから高々 2 つ先にあるため（今日の回がまだ来ていなければ 2 つ先、
   // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
   // 2 つ先まで先読みするのは、範囲の終わり際の回の放棄を判定するため。
-  const rangeEnd = startOfDate(addDays(range.to, 1));
+  const rangeEnd = instantRange(range).to;
   const bases = expandOccurrences({
     rrule: master.rrule,
     dtstart: base,

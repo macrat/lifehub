@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
-import { addDays, startOfDate } from '../../../shared/date.ts';
+import { instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db.ts';
 import { weather, weatherHourly } from './schema.ts';
@@ -15,6 +15,7 @@ export async function findBetween(
   from: DateString,
   to: DateString,
 ): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
+  const instants = instantRange({ from, to });
   const [daily, hourly] = await runBatch((tx) => [
     tx
       .select()
@@ -25,10 +26,7 @@ export async function findBetween(
       .select()
       .from(weatherHourly)
       .where(
-        and(
-          gte(weatherHourly.startsAt, startOfDate(from)),
-          lt(weatherHourly.startsAt, startOfDate(addDays(to, 1))),
-        ),
+        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
       )
       .orderBy(asc(weatherHourly.startsAt)),
   ]);
