@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import type { Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
@@ -23,8 +22,14 @@ const LINE = 2;
 
 /**
  * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
- * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）を背景色に混ぜた不透明な色で塗り、線は line で描く。
- * WHY NOT 半透明: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、半透明だと下の色が透ける。
+ * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）で半透明に塗り、下の予定や日付が透けて見えるようにする。
+ * 線は line で不透明に描く。
+ * 中は不透明な色で塗り分けた疑似要素に opacity をかけて半透明にする。
+ * WHY NOT 半透明の色で塗る: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、色ごとに透かすと
+ * 重なった所だけ下の層の色が混ざる。opacity は塗り分けた後の面全体にかかるので、何人でも同じ濃さになる。
+ * WHY 疑似要素: 枠そのものに opacity をかけると、線やつまむ丸・時刻まで薄くなる。
+ * 中の疑似要素は z-index: -1 で枠の中身（丸・時刻）の下に置き、isolation で枠の外へは潜らせない。
+ * 線の下まで広げておき（線は不透明なので見えない）、角の丸めを線の外側と揃える。
  * 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
  * WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
  * WHY NOT 背景を 2 枚重ねる（中を padding-box、線を border-box）: 塗り分けは色の数で層の数が変わり、
@@ -34,16 +39,19 @@ const outline = (colors: ItemColors[]) =>
   ({
     boxSizing: 'border-box',
     position: 'relative',
+    isolation: 'isolate',
     borderRadius: '4px',
     border: `${LINE}px solid transparent`,
-    // CSS 変数テーマなので背景色は t.vars から取る（t.palette はライト固定）
-    background: (t: Theme) =>
-      wedgeBackground(
-        colors.map(
-          (c) => `color-mix(in srgb, ${c.fill} 50%, ${(t.vars ?? t).palette.background.default})`,
-        ),
-      ),
-    backgroundClip: 'padding-box',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      inset: -LINE,
+      zIndex: -1,
+      borderRadius: 'inherit',
+      background: wedgeBackground(colors.map((c) => c.fill)),
+      opacity: 0.5,
+      pointerEvents: 'none',
+    },
     '&::before': {
       content: '""',
       position: 'absolute',
