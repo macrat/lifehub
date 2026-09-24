@@ -1,9 +1,8 @@
 import { expect, test } from 'vitest';
 import { defaultParticipants, defaultTaskValues, shiftedEnd } from '../form-values.ts';
 
-test('タスクの既定値は日時なし', () => {
-  expect(defaultTaskValues([]).startsAt).toBeNull();
-  expect(defaultTaskValues([]).endsAt).toBeNull();
+test('タスクの既定値は終日で、日時なし', () => {
+  expect(defaultTaskValues([])).toMatchObject({ allDay: true, startsAt: null, endsAt: null });
 });
 
 test('新規作成の既定の参加者は自分だけ', () => {

@@ -68,11 +68,13 @@ export function allDayEventValues(
 }
 
 /**
- * タスクの既定値: 日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
+ * タスクの既定値: 終日で、日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
  * 「いつかやる」を入れるときは日時に触らずに済む（予定と違って時間の枠を持たない）。
+ * 終日にするのは、タスクの期限はたいてい「この日まで」で、時刻まで決めることは少ないから
+ * （日付だけの欄なら日を選ぶだけで済む。時刻が要るときは「終日」を切る）。
  */
 export function defaultTaskValues(participantIds: string[]): ItemFormValues {
-  return { ...EMPTY, participantIds };
+  return { ...EMPTY, participantIds, allDay: true };
 }
 
 /** 入力欄を通さずに渡す予定の日時（ISO）。終日の終わりは「含む日」のどこか（サーバーが翌日 0:00 に直す） */
