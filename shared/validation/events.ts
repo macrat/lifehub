@@ -108,7 +108,7 @@ const recurrenceMessage = {
  * 予定・タスクの項目の組み合わせの規則。作成と更新（と MCP の部分更新を重ねた後の値）が同じ規則を通るよう、
  * 規則はここ 1 か所に並べ、スキーマの形（回の指定の有無）とは切り離す。
  */
-export function withEventRules<T extends z.ZodType<EventFieldsOutput>>(schema: T): T {
+function withEventRules<T extends z.ZodType<EventFieldsOutput>>(schema: T): T {
   return schema
     .refine(eventHasRange, eventRangeMessage)
     .refine(endAfterStart, endMessage)

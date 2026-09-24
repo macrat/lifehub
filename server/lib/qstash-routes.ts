@@ -3,15 +3,15 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { notificationRefSchema } from '../features/events/notifications.ts';
+import { deliver } from '../features/notifications/service.ts';
 import type { AppEnv } from './app-env.ts';
-import { deliver } from './notifications/service.ts';
 import { verifyQStashSignature } from './qstash.ts';
 import { validationHook } from './validator.ts';
 
 const deliverBodySchema = z.object({ key: z.string().min(1), ref: notificationRefSchema });
 
 /**
- * QStash が予約した時刻に呼ぶ入口をすべてここに集める（予約する側は server/lib/qstash.ts）。
+ * QStash が予約した時刻に呼ぶ入口をすべてここに集める（予約する側は機能ごと。通知は server/features/notifications/publisher.ts）。
  * セッションではなく QStash の署名で保護する。検査はこの集まり全体に 1 度だけ掛けるので、
  * 入口を足しても保護を付け忘れることがない。server/app.ts で認証ミドルウェアより前に `/qstash` へ登録する。
  * 署名は本文に対して付くので、検査で本文を読む（Hono が読んだ本文を覚えているので、後から zValidator が

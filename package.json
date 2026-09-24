@@ -27,6 +27,7 @@
     "@tanstack/react-query-persist-client": "^5.103.1",
     "@tanstack/react-router": "^1.170.38",
     "@upstash/qstash": "^2.11.3",
+    "@vercel/functions": "^3.9.8",
     "better-auth": "^1.7.5",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.2",

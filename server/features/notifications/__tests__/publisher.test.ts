@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deduplicationIdOf } from '../qstash.ts';
+import { deduplicationIdOf } from '../publisher.ts';
 
 describe('deduplicationIdOf', () => {
   const key = 'event:01a0ce6f-21f3-72cc-9d6f-ce9b9b2d7eff:single:start:2026-09-23T13:30:00.000Z';

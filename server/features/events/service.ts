@@ -7,8 +7,8 @@ import type {
   UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
+import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -60,7 +60,7 @@ export async function createEvent(
 ): Promise<EventMaster> {
   const values = normalizeInput(input);
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
-  await enqueueUpcoming();
+  scheduleUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
   return toMaster({ ...values, id, participantIds: input.participantIds, completedAt: null });
 }
@@ -71,8 +71,7 @@ export async function updateEvent(
   userId: string,
 ): Promise<EventMaster> {
   const result = await applyUpdate(id, input, userId);
-  // 当日〜翌日に新たな通知が発生する場合はその場で予約する（重複は dedupe で防ぐ）
-  await enqueueUpcoming();
+  scheduleUpcoming();
   return result;
 }
 
@@ -160,6 +159,8 @@ export async function uncompleteEvent(
   userId: string,
 ): Promise<void> {
   await setCompletedAt(id, input, null, userId);
+  // 完了していた間は日次 Cron が列挙しないので、当日の通知はここで予約し直さないと届かない
+  scheduleUpcoming();
 }
 
 // ---- 内部 ----

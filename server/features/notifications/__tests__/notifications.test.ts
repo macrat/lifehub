@@ -1,21 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
 import {
   listNotifications,
   type NotificationRef,
   type PlannedNotification,
   resolveNotification,
-} from '../../../features/events/notifications.ts';
-import {
-  completeEvent,
-  createEvent,
-  deleteEvent,
-  updateEvent,
-} from '../../../features/events/service.ts';
-import { updateUser } from '../../../features/users/service.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
-import { createTestUser } from '../../test-db.ts';
+} from '../../events/notifications.ts';
+import { completeEvent, createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
+import { updateUser } from '../../users/service.ts';
+import { findAllDayNotifyMinutes as notifyTimes } from '../repository.ts';
 import { deliver, enqueueRange } from '../service.ts';
 
 const tomorrow = { from: jst('2026-09-15T00:00:00'), to: jst('2026-09-16T00:00:00') };
@@ -62,7 +57,7 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const planned = await listNotifications(tomorrow);
+    const planned = await listNotifications(tomorrow, await notifyTimes());
     // 並びは一覧と同じ（同日内はその項目が示す時刻の順。タスクは期限の 17:00）
     expect(planned.map((p) => [p.key, p.at.toISOString()])).toEqual([
       [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
@@ -90,17 +85,17 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const planned = await listNotifications(tomorrow);
+    const planned = await listNotifications(tomorrow, await notifyTimes());
     const eventRef = planned.find((p) => p.ref.id === event.id)?.ref as NotificationRef;
     const taskRef = planned.find((p) => p.ref.id === task.id)?.ref as NotificationRef;
 
-    expect(await resolveNotification(eventRef)).toMatchObject({
+    expect(await resolveNotification(eventRef, await notifyTimes())).toMatchObject({
       title: '歯医者',
       body: '開始 9/15 10:00',
       userIds: [userId],
       url: '/calendar?date=2026-09-15',
     });
-    expect(await resolveNotification(taskRef)).toMatchObject({
+    expect(await resolveNotification(taskRef, await notifyTimes())).toMatchObject({
       title: 'タスク: 提出',
       body: '期限 9/15 17:00',
     });
@@ -116,12 +111,12 @@ describe('notifications', () => {
       },
       userId,
     );
-    expect(await resolveNotification(eventRef)).toBeNull();
+    expect(await resolveNotification(eventRef, await notifyTimes())).toBeNull();
     await deleteEvent(event.id, { scope: 'all' }, userId);
-    expect(await resolveNotification(eventRef)).toBeNull();
+    expect(await resolveNotification(eventRef, await notifyTimes())).toBeNull();
 
     await completeEvent(task.id, {}, userId);
-    expect(await resolveNotification(taskRef)).toBeNull();
+    expect(await resolveNotification(taskRef, await notifyTimes())).toBeNull();
   });
 
   it('同じキーは一度しか送らず、予約先が無ければ列挙だけする', async () => {
@@ -161,7 +156,7 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const [planned] = await listNotifications(tomorrow);
+    const [planned] = await listNotifications(tomorrow, await notifyTimes());
     const { key, ref } = planned as PlannedNotification;
     await expect(
       deliver(key, ref, async () => {
@@ -187,7 +182,7 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const [planned] = await listNotifications(tomorrow);
+    const [planned] = await listNotifications(tomorrow, await notifyTimes());
     const { key, ref } = planned as PlannedNotification;
     const sent: string[] = [];
     const send = async (_: string[], m: { title: string }) => void sent.push(m.title);
@@ -209,9 +204,11 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const [planned] = await listNotifications(tomorrow);
+    const [planned] = await listNotifications(tomorrow, await notifyTimes());
     // 繰り越されるタスクの位置は「今日」で決まるので、再検証が 1 日前の状態を見ていると前日になる
-    expect(await resolveNotification((planned as PlannedNotification).ref)).toMatchObject({
+    expect(
+      await resolveNotification((planned as PlannedNotification).ref, await notifyTimes()),
+    ).toMatchObject({
       url: '/calendar?date=2026-09-15',
     });
   });
@@ -229,9 +226,11 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const planned = await listNotifications(tomorrow);
+    const planned = await listNotifications(tomorrow, await notifyTimes());
     expect(planned.map((p) => p.at.toISOString())).toEqual([iso('2026-09-15T17:00:00')]);
-    expect(await resolveNotification((planned[0] as PlannedNotification).ref)).toMatchObject({
+    expect(
+      await resolveNotification((planned[0] as PlannedNotification).ref, await notifyTimes()),
+    ).toMatchObject({
       title: 'タスク: 薬',
       body: '期限 9/15 17:00',
       url: '/calendar?date=2026-09-15',
@@ -264,20 +263,22 @@ describe('notifications', () => {
       }),
       userId,
     );
-    const planned = await listNotifications(tomorrow);
+    const planned = await listNotifications(tomorrow, await notifyTimes());
     expect(planned.map((p) => [p.ref.id, p.ref.userId, p.at.toISOString()])).toEqual([
       [task.id, userId, iso('2026-09-15T07:00:00')],
       [task.id, other, iso('2026-09-15T08:30:00')],
       [event.id, userId, iso('2026-09-15T07:00:00')],
     ]);
     const [mine, theirs, trip] = planned.map((p) => p.ref) as NotificationRef[];
-    expect(await resolveNotification(theirs as NotificationRef)).toMatchObject({
-      title: 'タスク: ゴミ出し',
-      body: '期限 9/15 終日',
-      userIds: [other],
-      url: '/calendar?date=2026-09-15',
-    });
-    expect(await resolveNotification(trip as NotificationRef)).toMatchObject({
+    expect(await resolveNotification(theirs as NotificationRef, await notifyTimes())).toMatchObject(
+      {
+        title: 'タスク: ゴミ出し',
+        body: '期限 9/15 終日',
+        userIds: [other],
+        url: '/calendar?date=2026-09-15',
+      },
+    );
+    expect(await resolveNotification(trip as NotificationRef, await notifyTimes())).toMatchObject({
       title: '旅行',
       body: '開始 9/16 終日',
       userIds: [userId],
@@ -285,7 +286,9 @@ describe('notifications', () => {
 
     // 通知時刻を変えると古い予約は送らない
     await updateUser(userId, { allDayNotifyMinutes: 6 * 60 }, userId);
-    expect(await resolveNotification(mine as NotificationRef)).toBeNull();
-    expect(await resolveNotification(theirs as NotificationRef)).not.toBeNull();
+    expect(await resolveNotification(mine as NotificationRef, await notifyTimes())).toBeNull();
+    expect(
+      await resolveNotification(theirs as NotificationRef, await notifyTimes()),
+    ).not.toBeNull();
   });
 });

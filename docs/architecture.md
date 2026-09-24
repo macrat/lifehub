@@ -86,12 +86,13 @@ server/                       # サーバー（Hono）
     routes.ts                 # Hono ルート（Zod 検証 → service）
     mcp.ts                    # MCP ツール定義
     notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
+  features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
     middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts  cron.ts（Vercel Cron の入口）
-    recurrence/（RRULE 展開）  notifications/（service = enqueue・deliver、repository = 送信済み台帳）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts（QStash の署名検証）  cron.ts（Vercel Cron の入口）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
+    recurrence/（RRULE 展開）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -116,7 +117,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/lib/mcp/server.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
 - **ホーム**: 集約 API は持たない。`src/features/dashboard/cards/*` の各カードが自分の機能のクエリ（`useCalendarItems` / `useBalance` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無く、書き込み後の無効化はその機能のキーだけで済む。カードごとに読み込みとエラーを出せる。
-- **通知**: 通知源は events だけなので registry を置かず、`server/lib/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
+- **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 
 ## 認証・認可
@@ -260,7 +261,7 @@ Preview 環境の挙動:
 
 - TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
-- import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `lib/notifications/repository.ts`）へ移す。
+- import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `features/notifications/repository.ts`）へ移す。
 - `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
 - 1 file は 400 行、1 関数は 100 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。file の上限はテスト（`__tests__/`・`e2e/`）にも同じ値を掛ける。関数は中央値が 1 桁、99% が 100 行未満に収まるので、それを超える関数は責務を 2 つ以上抱えているとみなす。超えたら上限を上げずに、状態と操作はフック（`use-*.ts`）へ、表示は小さな部品へ、React に依らない仕組みは素の TS へと、関心ごとに分ける。テストが長くなったら、確かめる関心ごと（対象の関数の群れ、画面の操作の種類）で file を分け、共有する準備と略記は隣の補助 file（例: `e2e/calendar-mobile.ts`、`__tests__/draft-fixtures.ts`）に置く。テスト全体で使う物は 1 か所に置いて書き写さない: 日時を JST で書く略記（`jst` / `iso`）は `shared/__tests__/jst.ts`、サーバーのテストのユーザー（自分 A と相手 B）は `server/lib/test-db.ts` の `createTestUser`。テストでは関数の行数を数えない。`describe`・`test` のコールバックは場合を並べる入れ物で、長さが処理の複雑さを表さないため。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。

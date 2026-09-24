@@ -32,7 +32,7 @@ export type Env = z.infer<typeof envObject>;
 
 /**
  * 本番で必ず要る変数。1 つでも欠けていれば起動しない。
- * 欠けたままでも通知の予約（`server/lib/qstash.ts`）と送信（`server/features/push/service.ts`）は
+ * 欠けたままでも通知の予約（`server/features/notifications/publisher.ts`）と送信（`server/features/push/service.ts`）は
  * 何もせずに正常終了してしまい、画面にもログにも異常が出ないので、起動時に落とすしかない。
  * Preview には本番の秘密情報を渡さない（`infra/vercel.tf`）ので対象は production だけ。
  */

@@ -7,7 +7,7 @@ import * as repository from './repository.ts';
 /**
  * Web Push の購読と送信。購読の行（push_subscriptions）を書き換えるのは、利用者の操作（登録・解除）と
  * 送信で届かなかった購読の片付けの 2 つで、どちらもここを通る。送信を通知の共通処理
- * （server/lib/notifications/service.ts）の側に置かないのは、そうすると lib から feature の
+ * （server/features/notifications/service.ts）の側に置かないのは、そうすると別の feature の
  * repository を直接触ることになり、購読の行を書き換える場所が 2 つに分かれるため。
  */
 

@@ -12,8 +12,6 @@ import {
   toDateString,
 } from '../../../shared/date.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
-import { findAllDayNotifyMinutes } from '../../lib/notifications/repository.ts';
-import type { NotificationPayload } from '../../lib/notifications/types.ts';
 import { type CalendarItem, listItems } from './occurrences.ts';
 
 const EDGES = ['start', 'end'] as const;
@@ -37,6 +35,16 @@ export const notificationRefSchema = z.object({
 });
 export type NotificationRef = z.infer<typeof notificationRefSchema>;
 
+/** 配信直前の再検証（`resolveNotification`）が返す、送る中身と宛先 */
+export type NotificationPayload = {
+  title: string;
+  body: string;
+  /** タップで開く画面（アプリ内パス） */
+  url: string;
+  /** 送信先（参加者） */
+  userIds: string[];
+};
+
 export type PlannedNotification = {
   /** 冪等性のための一意キー（QStash の deduplicationId の元と送信台帳の主キー）。中身は読まない */
   key: string;
@@ -49,8 +57,12 @@ function keyOf(ref: NotificationRef): string {
   return `event:${ref.id}:${ref.occurrenceStart ?? 'single'}:${ref.edge}:${ref.at.toISOString()}${user}`;
 }
 
-/** ユーザー ID → 終日の項目の通知時刻（その日の 0:00 からの分） */
-type NotifyTimes = Map<string, number>;
+/**
+ * ユーザー ID → 終日の項目の通知時刻（その日の 0:00 からの分）。
+ * 読み出しは通知の側（server/features/notifications）が行って渡す。この file は予定・タスクから
+ * 通知を導く計算と events の読み出しだけを持ち、他の feature の保存先を読まない。
+ */
+export type NotifyTimes = Map<string, number>;
 
 /**
  * 開始／終了（期限）の通知の宛先と配信予定時刻。完了したタスクには送らない。
@@ -129,16 +141,13 @@ function body(item: CalendarItem, edge: Edge): string {
 }
 
 /** [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ） */
-export async function listNotifications(range: {
-  from: Date;
-  to: Date;
-}): Promise<PlannedNotification[]> {
+export async function listNotifications(
+  range: { from: Date; to: Date },
+  notifyTimes: NotifyTimes,
+): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
-  const [items, notifyTimes] = await Promise.all([
-    itemsAround(range, range.from),
-    findAllDayNotifyMinutes(),
-  ]);
+  const items = await itemsAround(range, range.from);
   for (const item of items) {
     for (const edge of EDGES) {
       for (const { at, userId } of remindTargets(item, edge, notifyTimes)) {
@@ -154,18 +163,16 @@ export async function listNotifications(range: {
 /** 配信直前の再検証。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら null */
 export async function resolveNotification(
   ref: NotificationRef,
+  notifyTimes: NotifyTimes,
 ): Promise<NotificationPayload | null> {
   // 配信予定時刻の時点の状態で見る（QStash の再送で実時刻がずれても、通知が指す瞬間は変わらない）
-  const [items, notifyTimes] = await Promise.all([
-    itemsAround(
-      {
-        from: new Date(ref.at.getTime() - MAX_REMIND_MS),
-        to: new Date(ref.at.getTime() + MAX_REMIND_MS),
-      },
-      ref.at,
-    ),
-    findAllDayNotifyMinutes(),
-  ]);
+  const items = await itemsAround(
+    {
+      from: new Date(ref.at.getTime() - MAX_REMIND_MS),
+      to: new Date(ref.at.getTime() + MAX_REMIND_MS),
+    },
+    ref.at,
+  );
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;
   const target = remindTargets(item, ref.edge, notifyTimes).find(

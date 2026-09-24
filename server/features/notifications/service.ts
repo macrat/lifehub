@@ -1,13 +1,14 @@
 import { addDays } from 'date-fns';
 import { startOfDay } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
+import { afterResponse } from '../../lib/after-response.ts';
 import {
   listNotifications,
   type NotificationRef,
   resolveNotification,
-} from '../../features/events/notifications.ts';
-import { sendToUsers } from '../../features/push/service.ts';
-import { createPublisher, type Publisher } from '../qstash.ts';
+} from '../events/notifications.ts';
+import { sendToUsers } from '../push/service.ts';
+import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
 
 const SENT_RETENTION_DAYS = 30;
@@ -17,9 +18,9 @@ export async function enqueueRange(
   range: { from: Date; to: Date },
   publisher: Publisher | null = createPublisher(),
 ): Promise<{ planned: number; published: number }> {
-  const planned = await listNotifications(range);
+  const planned = await listNotifications(range, await repository.findAllDayNotifyMinutes());
   if (!publisher) return { planned: planned.length, published: 0 };
-  // 1 件ずつ待つと件数分の往復が直列に積み重なり、予定を保存した応答（enqueueUpcoming）が遅れる。
+  // 1 件ずつ待つと件数分の往復が直列に積み重なる（日次 Cron の応答や、書き込みの後の予約が長引く）。
   // 並べて投げ、失敗した分だけ記録する（1 件の失敗で他を止めない。重複は deduplicationId で防がれる）
   const published = await Promise.all(
     planned.map(async (item) => {
@@ -46,15 +47,21 @@ export async function enqueueTomorrow(
 }
 
 /**
- * 予定・タスクの作成／変更時: 今から翌日の終わりまでに発生する通知をその場で予約する。
- * 日次 Cron が既に予約した分は deduplicationId で重複しない。失敗しても呼び出し元の処理は止めない。
+ * 通知を増やしうる書き込み（予定・タスクの作成・変更・完了の取り消し、終日の通知時刻の変更）の後に呼ぶ。
+ * 今から翌日の終わりまでに発生する通知を、応答を返した後で予約する（書き込みの応答は予約を待たない）。
+ * 日次 Cron は翌日分しか予約しないので、当日の分はここで予約しないと届かない。
+ * 日次 Cron が既に予約した分は deduplicationId で重複しない。減らす書き込み（削除・完了）は呼ばなくてよい
+ * （古い予約は配信時の再検証で捨てられる）。
  */
-export async function enqueueUpcoming(now: Date = new Date()): Promise<void> {
-  try {
-    await enqueueRange({ from: now, to: addDays(startOfDay(now), 2) });
-  } catch (error) {
-    console.error('notifications: enqueueUpcoming failed', error);
-  }
+export function scheduleUpcoming(now: Date = new Date()): void {
+  afterResponse('notifications: enqueueUpcoming', () => enqueueUpcoming(now));
+}
+
+async function enqueueUpcoming(now: Date): Promise<void> {
+  // 予約先が無い環境（ローカル・Preview）では、列挙（予定の読み出しと繰り返しの展開）もしない
+  const publisher = createPublisher();
+  if (!publisher) return;
+  await enqueueRange({ from: now, to: addDays(startOfDay(now), 2) }, publisher);
 }
 
 /**
@@ -71,7 +78,7 @@ export async function deliver(
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   if (!(await repository.claim(key))) return 'duplicate';
   try {
-    const payload = await resolveNotification(ref);
+    const payload = await resolveNotification(ref, await repository.findAllDayNotifyMinutes());
     if (!payload) return 'stale';
     await send(payload.userIds, {
       title: payload.title,

@@ -158,8 +158,8 @@
                     "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
                   },
                   {
-                    "group": ["../*/repository.ts", "**/features/*/repository.ts"],
-                    "message": "他の feature の repository は直接使わず、その feature の service を通す"
+                    "group": ["**/repository.ts", "!./repository.ts"],
+                    "message": "他の feature の repository は直接使わず、その feature の service を通す（自分の ./repository.ts だけを読む）"
                   }
                 ]
               }
