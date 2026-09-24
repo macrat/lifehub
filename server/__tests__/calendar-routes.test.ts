@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarPeriod } from '../../shared/calendar.ts';
 import { app } from '../app.ts';
+import { refreshHolidays } from '../features/holidays/service.ts';
 import { truncateAll } from '../lib/test-db.ts';
 import { loginAs } from './login.ts';
 
@@ -32,14 +33,15 @@ describe('カレンダーの 1 期間分', () => {
   beforeEach(async () => {
     await truncateAll();
     ({ userId, cookie } = await loginAs('A'));
-    // 祝日は配布元の ics、天気は気象庁の予報（空の予報）を返す。外部のサイトに依存させない
-    vi.stubGlobal('fetch', async (url: string) =>
-      url.includes('webcal') ? new Response(ICS) : Response.json([]),
-    );
+    // 祝日だけを表に入れておく（天気は空）。この後は外のサイトへ行けば失敗する
+    vi.stubGlobal('fetch', async () => new Response(ICS));
+    await refreshHolidays();
+    vi.stubGlobal('fetch', async () => {
+      throw new Error('offline');
+    });
   });
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.restoreAllMocks();
   });
 
   const addEvent = (title: string, startsAt: string, endsAt: string) =>
@@ -49,7 +51,7 @@ describe('カレンダーの 1 期間分', () => {
       body: JSON.stringify({ kind: 'event', title, startsAt, endsAt, participantIds: [userId] }),
     });
 
-  it('期間の項目と祝日と天気を 1 回で返す', async () => {
+  it('期間の項目と祝日と天気を 1 回で返し、外のサイトへは取りに行かない', async () => {
     // 書き込みは本文を返さない
     const added = await addEvent('5 月', '2030-05-10T01:00:00.000Z', '2030-05-10T02:00:00.000Z');
     expect(added.status).toBe(204);
@@ -62,23 +64,6 @@ describe('カレンダーの 1 期間分', () => {
     const period = (await res.json()) as CalendarPeriod;
     expect(period.items.map((item) => item.title)).toEqual(['5 月']);
     expect(period.holidays).toEqual(['2030-05-06']);
-    expect(period.weather).toEqual([]);
-  });
-
-  it('祝日と天気が取れなくても、項目は返す', async () => {
-    await addEvent('5 月', '2030-05-10T01:00:00.000Z', '2030-05-10T02:00:00.000Z');
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.stubGlobal('fetch', async () => {
-      throw new Error('offline');
-    });
-
-    const res = await app.request('/api/calendar?from=2030-05-01&to=2030-05-31', {
-      headers: { cookie },
-    });
-    expect(res.status).toBe(200);
-    const period = (await res.json()) as CalendarPeriod;
-    expect(period.items.map((item) => item.title)).toEqual(['5 月']);
-    expect(period.holidays).toEqual([]);
     expect(period.weather).toEqual([]);
   });
 });

@@ -58,19 +58,18 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput,
   actorId: string,
-): Promise<repository.UserRow> {
+): Promise<void> {
   if (input.password !== undefined && id !== actorId) {
     throw new ForbiddenError('他のユーザーのパスワードは変更できません');
   }
   const { password, ...profile } = input;
-  const user = await repository.update(
+  const updated = await repository.update(
     id,
     profile,
     password === undefined ? undefined : await hashPassword(password),
   );
-  if (!user) throw new NotFoundError('ユーザーが見つかりません');
+  if (!updated) throw new NotFoundError('ユーザーが見つかりません');
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）
   if (input.allDayNotifyMinutes !== undefined) scheduleUpcoming();
-  return user;
 }

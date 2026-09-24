@@ -29,14 +29,10 @@ export default async function globalSetup() {
   const { createUser } = await import('../server/features/users/service.ts');
   const { truncateAll } = await import('../server/lib/test-db.ts');
   const { replaceAll: replaceHolidays } = await import('../server/features/holidays/repository.ts');
-  const { upsert: upsertWeather } = await import('../server/features/weather/repository.ts');
   await truncateAll();
-  // 祝日と天気は空だと配布元へ取りに行くので、決まった日を入れておく（E2E を外部のサイトに依存させない。
-  // カレンダーの項目と同じ応答で返すので、取りに行くとその間カレンダーも待たされる）。
-  // 天気はテストが見ない日に 1 行だけ置く
+  // 祝日は決まった日を入れておく（祝日の色を確かめるテストが使う。E2E を外部のサイトに依存させない）
   const { dateStringSchema } = await import('../shared/validation/common.ts');
   await replaceHolidays([dateStringSchema.parse(HOLIDAY)]);
-  await upsertWeather([{ date: dateStringSchema.parse('2000-01-01'), code: '100', tempMax: null }]);
   await createUser(E2E_USER);
   await createUser({ email: 'partner@example.com', name: '相手', password: 'partner-password-1' });
 }

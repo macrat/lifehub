@@ -1,6 +1,6 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
-import { type DateRange, inRange } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/calendar.ts';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { addDays, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -111,17 +111,12 @@ export async function refreshWeather(): Promise<repository.WeatherRow[]> {
 
 /**
  * [from, to]（両端含む）の日ごとの天気（日付順）。手元にあるのは、過去の日は取っておいたすべて、
- * 先の日は予報のある日（最長 7 日先）まで。
- * まだ一度も取っていなければ（デプロイ直後など）その場で取ってから返す。取り始める前の月は空なので、
- * 空だったときだけ「一度も取っていないのか」を確かめる。
+ * 先の日は予報のある日（最長 7 日先）まで。手元の表を読むだけで、気象庁へは取りに行かない
+ * （取るのは 1 日 3 回の Cron とデプロイ。`scripts/refresh-calendar-data.ts`）。
  * 表に無い天気コード（気象庁が新しく足したものなど）の日は、アイコンを決められないので返さない。
  */
 export async function listWeather(range: DateRange): Promise<DailyWeather[]> {
-  const stored = await repository.findInRange(range);
-  const rows =
-    stored.length > 0 || (await repository.hasAny())
-      ? stored
-      : (await refreshWeather()).filter((row) => inRange(row.date, range));
+  const rows = await repository.findInRange(range);
   return rows.flatMap(({ date, code, tempMax }) => {
     const telop = TELOPS[code];
     return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];

@@ -86,17 +86,18 @@ describe('weather service', () => {
     ]);
   });
 
-  it('まだ一度も取っていなければ、一覧を返す前に取ってくる', async () => {
+  it('取り直した天気をアイコンと名前にして返す。一覧は配布元へは取りに行かない', async () => {
+    offline();
+    expect(await listWeather(ALL)).toEqual([]);
     serve(forecast(['302', '202', '200'], ['202', '200', '101']));
+    await refreshWeather();
+    offline();
     expect(await listWeather(ALL)).toContainEqual({
       date: '2026-09-24',
       icon: { symbol: 'cloud', change: 'sometimes', next: 'rain' },
       label: '曇一時雨',
       tempMax: 29,
     });
-    // 2 回目は保存した天気を返す（取りに行かない）
-    offline();
-    expect(await listWeather(ALL)).toHaveLength(4);
   });
 
   it('取り直すと予報のある日を上書きし、予報から外れた日と、報から消えた最高気温は残す', async () => {
@@ -123,18 +124,18 @@ describe('weather service', () => {
     expect(await listWeather(ALL)).toHaveLength(4);
   });
 
-  it('期間の中の日だけを返し、期間に天気が無くても一度取っていれば取りに行かない', async () => {
+  it('期間の中の日だけを返す', async () => {
     serve(forecast(['302', '202', '200'], ['202', '200', '101']));
+    await refreshWeather();
     expect((await listWeather(range('2026-09-24', '2026-09-25'))).map((w) => w.date)).toEqual([
       '2026-09-24',
       '2026-09-25',
     ]);
-    offline();
-    expect(await listWeather(range('2026-08-01', '2026-08-31'))).toEqual([]);
   });
 
   it('表に無い天気コードの日は返さない', async () => {
     serve(forecast(['999', '100', '100'], ['100', '100', '100']));
+    await refreshWeather();
     expect((await listWeather(ALL)).map((w) => w.date)).not.toContain('2026-09-23');
   });
 
@@ -160,8 +161,7 @@ describe('weather service', () => {
   it('昨日の行が無ければ何も書かない', async () => {
     serve(amedas(24.6));
     expect(await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'))).toBeUndefined();
-    offline();
-    await expect(listWeather(ALL)).rejects.toThrow('offline');
+    expect(await listWeather(ALL)).toEqual([]);
   });
 
   it('欠測なら何も書かずに投げ、予報の値を残す', async () => {

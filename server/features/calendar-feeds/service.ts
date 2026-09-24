@@ -31,17 +31,11 @@ export async function listFeeds(userId: string): Promise<CalendarFeed[]> {
   return (await repository.findByUser(userId)).map(toFeed);
 }
 
-export async function createFeed(input: CalendarFeedInput, userId: string): Promise<CalendarFeed> {
-  const values = {
-    id: newId(),
-    userId,
-    name: input.name,
-    token: newToken(),
-    createdAt: new Date(),
-  };
-  await repository.insert(values, input.participantIds);
-  // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  return toFeed({ ...values, lastAccessedAt: null, participantIds: input.participantIds });
+export async function createFeed(input: CalendarFeedInput, userId: string): Promise<void> {
+  await repository.insert(
+    { id: newId(), userId, name: input.name, token: newToken(), createdAt: new Date() },
+    input.participantIds,
+  );
 }
 
 /** 名前と参加者の変更。渡した先を変えずに、その URL が配る範囲だけを絞り直せる */

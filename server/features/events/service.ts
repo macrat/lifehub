@@ -85,10 +85,9 @@ export async function updateEvent(
   id: string,
   input: UpdateEventInput,
   userId: string,
-): Promise<EventMaster> {
-  const result = await applyUpdate(await findMaster(id), input, userId);
+): Promise<void> {
+  await applyUpdate(await findMaster(id), input, userId);
   scheduleUpcoming();
-  return result;
 }
 
 async function applyUpdate(

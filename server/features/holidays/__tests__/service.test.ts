@@ -61,27 +61,16 @@ describe('holidays service', () => {
     ]);
   });
 
-  it('まだ一度も取っていなければ、一覧を返す前に取ってくる', async () => {
-    serve(ICS);
-    expect(await listHolidays(ALL)).toContain('2026-09-22');
-    // 2 回目は保存した一覧を返す（取りに行かない）
+  it('一覧は手元の表の期間の中だけを返し、配布元へは取りに行かない', async () => {
     offline();
-    expect(await listHolidays(ALL)).toContain('2026-09-22');
-  });
-
-  it('期間の中の祝日だけを返す', async () => {
+    expect(await listHolidays(ALL)).toEqual([]);
     serve(ICS);
+    await refreshHolidays();
+    offline();
     expect(await listHolidays(range('2026-05-01', '2026-09-22'))).toEqual([
       '2026-05-06',
       '2026-09-22',
     ]);
-  });
-
-  it('期間に祝日が無くても、一度取っていれば取りに行かない', async () => {
-    serve(ICS);
-    await refreshHolidays();
-    offline();
-    expect(await listHolidays(range('2026-06-01', '2026-06-30'))).toEqual([]);
   });
 
   it('取り直すと全体を入れ替え、失敗したら前の一覧を残す', async () => {

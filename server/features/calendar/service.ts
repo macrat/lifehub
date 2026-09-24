@@ -9,22 +9,13 @@ import { listWeather } from '../weather/service.ts';
  * WHY NOT 祝日と天気を別の問い合わせで丸ごと配る: 面を出すたびに問い合わせが 3 本になり、
  * どちらも使うのは表示している期間だけなのに、取っておいた全期間（祝日は 1955 年から、
  * 天気は取り始めてからの毎日）を送ることになる。
- *
- * 祝日と天気が取れなかったときは空にして項目だけを返す。どちらも補助の情報で、カレンダーそのものは止めない
- * （まだ一度も取っていないときは配布元へ取りに行くので、配布元が落ちていると失敗しうる）。
+ * どれも手元の表を読むだけで、外のサイトへは取りに行かない（配布元が遅い・落ちているときに項目まで待たせない）。
  */
 export async function getCalendar(range: DateRange): Promise<CalendarPeriod> {
   const [items, holidays, weather] = await Promise.all([
     listItems(range),
-    listHolidays(range).catch(emptyOnFailure('holidays')),
-    listWeather(range).catch(emptyOnFailure('weather')),
+    listHolidays(range),
+    listWeather(range),
   ]);
   return { items, holidays, weather };
-}
-
-function emptyOnFailure(label: string) {
-  return (error: unknown): [] => {
-    console.error(`calendar: failed to list ${label}`, error);
-    return [];
-  };
 }

@@ -251,7 +251,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。private リポジトリの Artifact はリポジトリを読める人しか取り出せないので暗号化はしない。戻し方は [README](../README.md#バックアップ)。
 
-**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
+**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
 
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。

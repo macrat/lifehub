@@ -51,10 +51,8 @@ export async function addExpense(
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */
-export async function updateExpense(id: string, input: ExpenseInput): Promise<Expense> {
-  const row = await repository.update(id, input);
-  if (!row) throw new NotFoundError('立替が見つかりません');
-  return toExpense(row);
+export async function updateExpense(id: string, input: ExpenseInput): Promise<void> {
+  if (!(await repository.update(id, input))) throw new NotFoundError('立替が見つかりません');
 }
 
 export async function deleteExpense(id: string): Promise<void> {

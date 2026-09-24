@@ -88,19 +88,20 @@ describe('lemon service', () => {
       { careTypes: ['water'], doneAt: jst('2026-09-10T08:00:00'), note: null },
       userId,
     );
-    const updated = await updateLog(log.id, {
+    await updateLog(log.id, {
       careTypes: ['fertilize'],
       doneAt: jst('2026-09-12T08:00:00'),
       note: 'まちがえて水やりで記録していた',
     });
 
-    expect(updated).toMatchObject({
-      id: log.id,
-      careTypes: ['fertilize'],
-      doneAt: jst('2026-09-12T08:00:00').toISOString(),
-      note: 'まちがえて水やりで記録していた',
-    });
-    expect((await listLogs({})).items).toEqual([updated]);
+    expect((await listLogs({})).items).toEqual([
+      {
+        id: log.id,
+        careTypes: ['fertilize'],
+        doneAt: jst('2026-09-12T08:00:00').toISOString(),
+        note: 'まちがえて水やりで記録していた',
+      },
+    ]);
 
     // 直した項目の方にだけ日付が付く（元の項目は未実施に戻る）
     const status = await getStatus(jst('2026-09-14T00:10:00'));

@@ -15,11 +15,6 @@ export async function findInRange({ from, to }: DateRange): Promise<WeatherRow[]
     .orderBy(asc(weather.date));
 }
 
-/** 一度でも取ってきたか（1 行でもあるか） */
-export async function hasAny(): Promise<boolean> {
-  return (await db.select().from(weather).limit(1)).length > 0;
-}
-
 /**
  * 日ごとに上書きする。渡さなかった日（予報から外れた過去の日）は残す。
  * 最高気温は null で上書きしない: 気象庁は日中を過ぎると今日の最高気温を報から外すので、

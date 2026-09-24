@@ -20,6 +20,7 @@ pnpm install
 cp .env.example .env.local        # 必要なら値を編集
 docker compose up -d              # Postgres を起動
 pnpm db:migrate                   # スキーマを適用
+pnpm data:refresh                 # 祝日と天気を取ってくる
 pnpm user:create --email you@example.com --name あなた --password 'xxxxxxxxxxxx'
 pnpm dev                          # http://localhost:5173
 ```
@@ -39,7 +40,8 @@ pnpm dev                          # http://localhost:5173
 | `pnpm db:dump <file>` / `pnpm db:restore <file>` | `DATABASE_URL` の DB をまるごと SQL に書き出す／書き出した SQL を戻す（`pg_dump` / `psql` を使う。[バックアップ](#バックアップ)） |
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
 | `pnpm calendar:export <file>` | `DATABASE_URL` の DB にある全員の全予定を ics に書き出す |
-| `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない） |
+| `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない）。最後に `pnpm data:refresh` も走る |
+| `pnpm data:refresh` | `DATABASE_URL` の DB に祝日と天気を配布元から取り直して入れる（デプロイでも実行する。カレンダーは表を読むだけで取りに行かないため） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |
 | `pnpm icons:generate` | `public/icons/` の SVG と MUI のアイコンから PWA アイコン（アプリ・通知・ショートカット）の PNG を生成 |
 | `pnpm tf:plan` / `pnpm tf:apply` | `infra/` の Terraform（ローカルから手動で実行する場合。通常は CI に任せる） |

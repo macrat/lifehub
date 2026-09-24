@@ -14,11 +14,6 @@ export async function findInRange({ from, to }: DateRange): Promise<DateString[]
   return rows.map((row) => row.date);
 }
 
-/** 一度でも取ってきたか（1 行でもあるか） */
-export async function hasAny(): Promise<boolean> {
-  return (await db.select().from(holidays).limit(1)).length > 0;
-}
-
 /** 全行を入れ替える。取り直しの途中で読まれても、古い一覧か新しい一覧のどちらかが見える */
 export async function replaceAll(dates: DateString[]): Promise<void> {
   await runBatch((tx) => [
