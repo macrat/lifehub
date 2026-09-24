@@ -2,10 +2,14 @@ import { useCallback, useReducer } from 'react';
 import type { DateString } from '../../../shared/types.ts';
 import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
 import { defaultParticipants, type ItemFormValues } from '../events/form-values.ts';
-import { type CreateEventBody, useCreateEvent, useUpdateEvent } from '../events/queries.ts';
+import {
+  type CalendarItem,
+  type CreateEventBody,
+  useCreateEvent,
+  useUpdateEvent,
+} from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
 import { type Draft, defaultDraft, type EventDraft, sameOccurrence } from './draft.ts';
-import type { CalendarItem } from './queries.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。

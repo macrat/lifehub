@@ -8,8 +8,8 @@ import {
   sortItems,
 } from '../../../shared/calendar.ts';
 import { monthRange } from '../../lib/date.ts';
-import { CALENDAR_QUERY_KEY } from '../calendar/queries.ts';
 import type { CreateEventBody, UpdateEventBody } from './queries.ts';
+import { CALENDAR_QUERY_KEY } from './query-keys.ts';
 import type { WriteTarget } from './recurrence-options.ts';
 
 /**

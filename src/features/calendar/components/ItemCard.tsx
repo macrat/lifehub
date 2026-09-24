@@ -4,11 +4,11 @@ import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { ParticipantsMark } from '../../events/components/ParticipantsMark.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
+import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../../events/queries.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../queries.ts';
-import { itemTransitionName } from './item-transition.ts';
-import { ParticipantsMark } from './ParticipantsMark.tsx';
+import { itemTransitionName } from '../item-transition.ts';
 
 type Props = {
   item: CalendarItem;

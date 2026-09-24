@@ -8,11 +8,11 @@ import { EventComposer } from '../../features/calendar/components/EventComposer.
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { PeriodPager } from '../../features/calendar/components/PeriodPager.tsx';
 import { draftDays } from '../../features/calendar/draft.ts';
-import type { CalendarItem } from '../../features/calendar/queries.ts';
 import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
+import type { CalendarItem } from '../../features/events/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 
 export const Route = createFileRoute('/_authenticated/calendar')({

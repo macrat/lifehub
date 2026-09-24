@@ -1,11 +1,11 @@
 import Box from '@mui/material/Box';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
+import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
+import { LANE_ITEM_HEIGHT } from '../lane-layout.ts';
 import { atMinute } from '../use-hour-zoom.ts';
-import { useParticipantColors } from '../use-participant-colors.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
-import { LANE_ITEM_HEIGHT } from './lane-layout.ts';
 import { draftProps } from './markers.ts';
 
 /** つまむ丸の大きさ（px）。時間軸の枠の上下の線には重ねて置き、左右は枠の内側に入れる */

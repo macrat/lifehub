@@ -1,7 +1,7 @@
-import { type CalendarItem, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
-import { DAY_MINUTES } from '../../../../shared/constants.ts';
-import type { DateString } from '../../../../shared/types.ts';
-import { minutesOfDay } from '../../../lib/date.ts';
+import { type CalendarItem, taskTimeOnPlacementDate } from '../../../shared/calendar.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
+import type { DateString } from '../../../shared/types.ts';
+import { minutesOfDay } from '../../lib/date.ts';
 import { itemKey } from './lane-layout.ts';
 
 /**

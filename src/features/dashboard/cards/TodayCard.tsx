@@ -5,17 +5,17 @@ import { today } from '../../../../shared/date.ts';
 import { formatTime } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { itemTransitionName } from '../../calendar/components/item-transition.ts';
-import { itemKey } from '../../calendar/components/lane-layout.ts';
-import { ParticipantsMark } from '../../calendar/components/ParticipantsMark.tsx';
+import { itemTransitionName } from '../../calendar/item-transition.ts';
+import { itemKey } from '../../calendar/lane-layout.ts';
+import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
+import { ParticipantsMark } from '../../events/components/ParticipantsMark.tsx';
+import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import {
   type CalendarItem,
   useCalendarItems,
   useRefreshCalendarItems,
-} from '../../calendar/queries.ts';
-import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
+} from '../../events/queries.ts';
 import { DashboardCardFrame } from './DashboardCardFrame.tsx';
 
 /**

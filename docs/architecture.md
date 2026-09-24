@@ -72,6 +72,7 @@ src/                          # クライアント（Vite + React）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
+      （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
@@ -160,7 +161,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
 - Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、シートは上端だけ角丸 16px、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
-- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。記録やユーザーを表す表示は、誰のものかをそのユーザーの色（`useUserColor` の `fill`／`mark` など）で示し、複数人のものはそれぞれの色で塗り分け、誰のものでもないものは彩度 0 の無彩色にする（`src/features/calendar/use-participant-colors.ts`、`src/features/users/use-user-color.ts`）。色の上の文字色は色相によらず 1 つ（`shared/color.ts` の `FILL_TEXT`）。どの画面がどこに使うかは [users.md](features/users.md) が持つ。
+- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。記録やユーザーを表す表示は、誰のものかをそのユーザーの色（`useUserColor` の `fill`／`mark` など）で示し、複数人のものはそれぞれの色で塗り分け、誰のものでもないものは彩度 0 の無彩色にする（`src/features/events/use-participant-colors.ts`、`src/features/users/use-user-color.ts`）。色の上の文字色は色相によらず 1 つ（`shared/color.ts` の `FILL_TEXT`）。どの画面がどこに使うかは [users.md](features/users.md) が持つ。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。今いる画面のタブをもう一度押したときの行き先は項目ごとに決められる（`NavItem` の `reselectSearch`）。カレンダーでは一段広い表示（日→週、週・リスト→月）へ移る（`src/features/calendar/view.ts` の `widerSearch`）。
 - **画面の表示領域は貴重な資産**として扱う。「ホーム」「カレンダー」のような情報を持たないページタイトルは出さない（現在地はナビが示す）。同じ情報を複数箇所に出さない。主役（カレンダーのグリッド、一覧、カード）が最も広い面積を占めるようにする。

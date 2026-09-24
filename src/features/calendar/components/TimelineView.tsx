@@ -1,13 +1,13 @@
 import Box from '@mui/material/Box';
 import { useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
+import type { CalendarItem } from '../../events/queries.ts';
 import type { Draft } from '../draft.ts';
-import type { CalendarItem } from '../queries.ts';
+import { partitionTimeline } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { AllDayRow } from './AllDayRow.tsx';
 import { TimeGrid } from './TimeGrid.tsx';
 import { TimelineHeader } from './TimelineHeader.tsx';
-import { partitionTimeline } from './timeline-layout.ts';
 
 type Props = {
   /** 表示する日（週なら 7 日、日なら 1 日） */

@@ -2,9 +2,9 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import type { CalendarItem } from '../queries.ts';
+import type { CalendarItem } from '../../events/queries.ts';
+import { itemKey } from '../lane-layout.ts';
 import { ItemCard } from './ItemCard.tsx';
-import { itemKey } from './lane-layout.ts';
 
 type Props = {
   date: DateString;
