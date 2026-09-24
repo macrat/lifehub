@@ -21,7 +21,7 @@
 |---|---|
 | `events_list` | 期間内の予定とタスク（繰り返し展開済み、`placementDate` 付き）を列挙する |
 | `events_create` | 予定またはタスクを作成する（`kind`） |
-| `events_update` | 更新する（`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
+| `events_update` | 変える項目だけを指定して更新する（省いた項目は今の値のまま、`null` は消す。`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
 | `events_delete` | 削除する（`scope` と `occurrenceStart` は更新と同じ） |
 | `events_complete` | タスクを完了にする（繰り返しは `occurrenceStart` で回を指定） |
 | `events_uncomplete` | 完了を取り消す |
@@ -32,7 +32,9 @@
 | `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
 | `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる） |
 
-各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
+各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。
+
+予定の更新は、API では全項目の置き換えだが、MCP では部分更新にする。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、置き換えにすると省いた繰り返しや場所が消える。`mcp.ts` が対象の今の値（`service.getWriteBase`。回の指定があればその回の値）に指定された項目だけを重ね、重ねた結果に作成・更新と同じ組み合わせの規則（`eventRulesSchema`）を掛けてから service の更新を呼ぶ。部分更新の項目（`eventPatchSchema`）は既定値を持たない項目の型から作る。既定値があると、省いた項目が既定値で埋まってしまうため。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 
 ## 接続方法
 

@@ -20,6 +20,38 @@ export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));
 }
 
+/**
+ * 書き込みの対象の今の値を、作成・更新の入力の形で返す。部分更新（MCP）が省いた項目をこれで埋める。
+ * - all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
+ *   繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう
+ * - 終日の終了は保存形式（翌日 0:00 の排他的な終端）ではなく入力の形（含む最終日のどこか）にする。
+ *   保存形式のまま入力に戻すと、正規化（`normalizeInstants`）でもう 1 日延びる
+ */
+export async function getWriteBase(id: string, input: OccurrenceTarget): Promise<CreateEventInput> {
+  const master = await findMaster(id);
+  const target = resolveTarget(master, input);
+  const row =
+    target.scope === 'all'
+      ? master
+      : ((await repository.findOccurrence(id, target.occurrenceStart)) ?? {
+          ...master,
+          ...shiftTo(master, target.occurrenceStart),
+        });
+  return {
+    kind: master.kind,
+    title: row.title,
+    allDay: row.allDay,
+    startsAt: row.startsAt,
+    endsAt: row.allDay && row.endsAt ? new Date(row.endsAt.getTime() - 1) : row.endsAt,
+    participantIds: row.participantIds,
+    location: row.location,
+    note: row.note,
+    rrule: master.rrule,
+    remindStartMinutes: row.remindStartMinutes,
+    remindEndMinutes: row.remindEndMinutes,
+  };
+}
+
 /** id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function createEvent(
   input: CreateEventInput,

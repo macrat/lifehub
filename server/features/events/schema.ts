@@ -11,7 +11,11 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { ALL_DAY_REMIND_OPTIONS, type EventKind } from '../../../shared/validation/events.ts';
+import {
+  ALL_DAY_REMIND_OPTIONS,
+  type EventKind,
+  type RemindMinutes,
+} from '../../../shared/validation/events.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -39,9 +43,9 @@ export const events = pgTable(
     location: text('location'),
     note: text('note'),
     /** 開始の n 分前に通知。終日は 0 = 当日、1440 = 前日（各自の通知時刻）。null = 通知なし */
-    remindStartMinutes: integer('remind_start_minutes'),
+    remindStartMinutes: integer('remind_start_minutes').$type<RemindMinutes>(),
     /** 終了（期限）の n 分前に通知。null = 通知なし */
-    remindEndMinutes: integer('remind_end_minutes'),
+    remindEndMinutes: integer('remind_end_minutes').$type<RemindMinutes>(),
     /** RFC 5545 RRULE（DTSTART なし）。DTSTART は starts_at（無ければ ends_at）。null = 単発 */
     rrule: text('rrule'),
     /** 繰り返しの一部として作られた行が指す繰り返し元 */

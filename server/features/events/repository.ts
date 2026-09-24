@@ -82,6 +82,18 @@ export async function findMasterById(id: string): Promise<EventWithParticipants 
   return rows[0];
 }
 
+/** 実体化された回の行（無ければ undefined。その回はルールどおりで、繰り返し元をずらした値になる） */
+export async function findOccurrence(
+  seriesId: string,
+  occurrenceStart: Date,
+): Promise<EventWithParticipants | undefined> {
+  const rows = await selectRows()
+    .where(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)))
+    .groupBy(events.id)
+    .limit(1);
+  return rows[0];
+}
+
 /**
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
