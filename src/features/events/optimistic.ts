@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
   type CalendarItem,
+  type CalendarPeriod,
   type DateRange,
   normalizeInstants,
   type Occurrence,
@@ -99,25 +100,33 @@ export function setCompleted(client: QueryClient, target: WriteTarget, completed
 
 /** 取得済みのカレンダーから対象の今の項目を探す（どの月のキャッシュに居るかは完了日や日時で決まる） */
 function findItem(client: QueryClient, target: WriteTarget): CalendarItem | undefined {
-  for (const [, items] of client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })) {
-    const found = items?.find((item) => matches(item, target));
+  for (const [, period] of client.getQueriesData<CalendarPeriod>({
+    queryKey: CALENDAR_QUERY_KEY,
+  })) {
+    const found = period?.items.find((item) => matches(item, target));
     if (found) return found;
   }
   return undefined;
 }
 
-/** 取得済みのカレンダー（暦月ごとのクエリ）をまとめて書き換える。未取得のクエリには触らない */
+/**
+ * 取得済みのカレンダー（暦月ごとのクエリ）の項目をまとめて書き換える。未取得のクエリには触らない。
+ * 祝日と天気は書き込みで変わらないので、そのまま残す。
+ */
 function updateCalendars(
   client: QueryClient,
   update: (items: CalendarItem[], range: DateRange, now: Date) => CalendarItem[],
 ): void {
   const now = new Date();
-  for (const [queryKey, items] of client.getQueriesData<CalendarItem[]>({
+  for (const [queryKey, period] of client.getQueriesData<CalendarPeriod>({
     queryKey: CALENDAR_QUERY_KEY,
   })) {
     const range = rangeOf(queryKey);
-    if (!items || !range) continue;
-    client.setQueryData(queryKey, sortItems(update(items, range, now)));
+    if (!period || !range) continue;
+    client.setQueryData<CalendarPeriod>(queryKey, {
+      ...period,
+      items: sortItems(update(period.items, range, now)),
+    });
   }
 }
 

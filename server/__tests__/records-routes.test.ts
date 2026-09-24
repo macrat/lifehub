@@ -1,8 +1,11 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
 import { app } from '../app.ts';
 import { createKey } from '../features/api-keys/service.ts';
+import { lemonCareLogs } from '../features/lemon/schema.ts';
 import { listLogs } from '../features/lemon/service.ts';
+import { db } from '../lib/db.ts';
 import { createTestUser, truncateAll } from '../lib/test-db.ts';
 
 /**
@@ -29,9 +32,11 @@ describe('記録投入のルート', () => {
     const before = Date.now();
     const res = await post({ type: 'lemon', careTypes: ['water', 'mist'] }, key);
     expect(res.status).toBe(201);
-    const log = (await res.json()) as { careTypes: string[]; doneAt: string; createdBy: string };
+    const log = (await res.json()) as { id: string; careTypes: string[]; doneAt: string };
     expect(log.careTypes).toEqual(['mist', 'water']);
-    expect(log.createdBy).toBe(userId);
+    // 記録した人は応答に載らない（画面にも MCP にも出す所が無い）ので、保存した行で確かめる
+    const [row] = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, log.id));
+    expect(row?.createdBy).toBe(userId);
     // 日時を省くと受け取った時刻になる
     expect(new Date(log.doneAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
   });

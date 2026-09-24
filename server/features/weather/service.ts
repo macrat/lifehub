@@ -1,5 +1,6 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
+import type { DateRange } from '../../../shared/calendar.ts';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { addDays, minutesOfDay, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -185,8 +186,8 @@ export async function refreshWeather(): Promise<{ daily: number; hourly: number 
  * 3 時間ごとの天気は、同じ日に間を空けずに続く同じ天気を 1 つの区間にまとめる（日をまたぐと分ける。`HourlyWeather`）。
  * 表に無い天気の区間は前後の区間ともつなげない。
  */
-export async function listWeather(from: DateString, to: DateString): Promise<WeatherInRange> {
-  const rows = await repository.findBetween(from, to);
+export async function listWeather(range: DateRange): Promise<WeatherInRange> {
+  const rows = await repository.findBetween(range);
   const daily = rows.daily.flatMap(({ date, code, tempMax }) => {
     const telop = TELOPS[code];
     return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];

@@ -5,11 +5,9 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
-export const weatherRoutes = new Hono<AppEnv>().get(
+/** カレンダーの 1 期間分（`/api/calendar?from&to`） */
+export const calendarRoutes = new Hono<AppEnv>().get(
   '/',
   zValidator('query', dateRangeQuerySchema, validationHook),
-  async (c) => {
-    const { from, to } = c.req.valid('query');
-    return c.json(await service.listWeather(from, to));
-  },
+  async (c) => c.json(await service.getCalendar(c.req.valid('query'))),
 );

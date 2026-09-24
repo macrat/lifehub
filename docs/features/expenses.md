@@ -31,8 +31,8 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 |---|---|---|
 | GET | `/api/expenses?before=YYYY-MM-DD&q=&min=&max=&since=&until=&to=&from=` | 履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。新しいほうから 50 件ほどで、日の途中では切らない（同じ日の立替は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。絞り込みは画面と同じ（範囲は両端を含み、キーワードは内容の大文字小文字を区別しない部分一致） |
 | GET | `/api/expenses/totals` | 残高の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`。最大 6 行） |
-| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
-| PUT | `/api/expenses/:id` | 編集。全項目を置き換える（入力は追加と同じ形） |
+| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。応答は 204 |
+| PUT | `/api/expenses/:id` | 編集。全項目を置き換える（入力は追加と同じ形）。応答は 204 |
 | DELETE | `/api/expenses/:id` | 削除 |
 
 入力スキーマは `shared/validation/expenses.ts`。

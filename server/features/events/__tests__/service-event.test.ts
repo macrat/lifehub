@@ -286,7 +286,7 @@ describe('events service', () => {
 
     it('「これ以降すべて」の変更は元を打ち切って新しい繰り返しを作る', async () => {
       const created = await createEvent(weekly(), userId);
-      const next = await updateEvent(
+      await updateEvent(
         created.id,
         updateEventSchema.parse({
           ...weekly(),
@@ -298,16 +298,17 @@ describe('events service', () => {
         }),
         userId,
       );
-      expect(next.id).not.toBe(created.id);
       expect((await getEvent(created.id)).rrule).toBe('FREQ=WEEKLY;UNTIL=20260921T085959Z');
 
+      // 9/21 からは別の id の新しい繰り返しになる
       const list = await listItems(september, now);
-      expect(list.map((o) => [o.id, o.startsAt])).toEqual([
-        [created.id, iso('2026-09-07T09:00:00')],
-        [created.id, iso('2026-09-14T09:00:00')],
-        [next.id, iso('2026-09-21T10:00:00')],
-        [next.id, iso('2026-09-28T10:00:00')],
+      expect(list.map((o) => [o.id === created.id ? 'old' : 'new', o.startsAt])).toEqual([
+        ['old', iso('2026-09-07T09:00:00')],
+        ['old', iso('2026-09-14T09:00:00')],
+        ['new', iso('2026-09-21T10:00:00')],
+        ['new', iso('2026-09-28T10:00:00')],
       ]);
+      expect(new Set(list.map((o) => o.id)).size).toBe(2);
     });
 
     it('「これ以降すべて」の削除。先頭の回に対しては繰り返しごと消す', async () => {

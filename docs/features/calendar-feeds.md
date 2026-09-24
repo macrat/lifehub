@@ -48,8 +48,8 @@ URL ごとに**載せる参加者**を選ぶ。選んだ人の誰かが入って
 | メソッド | パス | 認証 | 内容 |
 |---|---|---|---|
 | GET | `/api/calendar/feeds` | セッション | 自分が発行した配信 URL の一覧（id, name, url, participantIds, createdAt, lastAccessedAt） |
-| POST | `/api/calendar/feeds` | セッション | 発行（名前と参加者を送る。トークンはサーバーが作る） |
-| PATCH | `/api/calendar/feeds/:id` | セッション | 名前と参加者の変更（自分のものだけ）。変わるのは送った内容だけで URL は変わらないので、応答は 204 |
+| POST | `/api/calendar/feeds` | セッション | 発行（名前と参加者を送る。トークンはサーバーが作る）。応答は 204 で、発行した URL は画面が書き込み後に取り直す一覧から読む |
+| PATCH | `/api/calendar/feeds/:id` | セッション | 名前と参加者の変更（自分のものだけ）。URL は変わらない。応答は 204 |
 | DELETE | `/api/calendar/feeds/:id` | セッション | 失効（自分のものだけ） |
 | GET | `/api/calendar/<token>.ics` | **なし** | ics の配信 |
 

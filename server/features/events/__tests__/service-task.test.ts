@@ -211,7 +211,7 @@ describe('events service', () => {
         { scope: 'this', occurrenceStart: jst('2026-09-07T09:00:00') },
         userId,
       );
-      const next = await updateEvent(
+      await updateEvent(
         created.id,
         updateEventSchema.parse({
           ...weeklyTask(),
@@ -226,7 +226,7 @@ describe('events service', () => {
       const list = await listItems(september, jst('2026-09-28T12:00:00'));
       expect(
         list.map((t) => [
-          t.id === next.id ? 'new' : 'old',
+          t.id === created.id ? 'old' : 'new',
           t.title,
           t.occurrenceStart,
           t.placementDate,

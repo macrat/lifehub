@@ -15,9 +15,18 @@ function toPublicUser(user: repository.UserRow): repository.UserRow {
   return { id: user.id, name: user.name, email: user.email, hue: user.hue };
 }
 
-/** ログイン中のユーザー（/api/me）。公開の形に、本人だけが使う設定を足す */
-export function toMe(user: repository.UserRow & { allDayNotifyMinutes: number }) {
-  return { ...toPublicUser(user), allDayNotifyMinutes: user.allDayNotifyMinutes };
+/**
+ * ログイン中のユーザーとユーザーの一覧（/api/me）。本人は公開の形に本人だけが使う設定を足したもの。
+ * 本人はセッションの検証で読んだユーザーをそのまま使う（hue と通知時刻も載っている。server/lib/auth.ts）。
+ * WHY 一覧も載せる: 名前と色を出す所は本人（先頭に並べる・自分の色）と一覧を必ず一緒に読むので、
+ * 別々に問い合わせると起動のたびに 2 本になる。一覧は 2 人分だけで小さい。
+ */
+export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: number }) {
+  return {
+    ...toPublicUser(user),
+    allDayNotifyMinutes: user.allDayNotifyMinutes,
+    users: await listUsers(),
+  };
 }
 
 /**
@@ -49,19 +58,18 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput,
   actorId: string,
-): Promise<repository.UserRow> {
+): Promise<void> {
   if (input.password !== undefined && id !== actorId) {
     throw new ForbiddenError('他のユーザーのパスワードは変更できません');
   }
   const { password, ...profile } = input;
-  const user = await repository.update(
+  const updated = await repository.update(
     id,
     profile,
     password === undefined ? undefined : await hashPassword(password),
   );
-  if (!user) throw new NotFoundError('ユーザーが見つかりません');
+  if (!updated) throw new NotFoundError('ユーザーが見つかりません');
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）
   if (input.allDayNotifyMinutes !== undefined) scheduleUpcoming();
-  return user;
 }

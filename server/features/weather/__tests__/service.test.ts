@@ -95,7 +95,7 @@ function amedas(maxAtMidnight: number | null, day = '20260924') {
 const NO_HOURLY = hourly('2026-09-24T18:00:00+09:00', []);
 
 /** 日ごとの天気の一覧（テストの日を含む 9 月） */
-const daily = async () => (await listWeather(SEP.from, SEP.to)).daily;
+const daily = async () => (await listWeather(SEP)).daily;
 const SEP = { from: '2026-09-01' as DateString, to: '2026-09-30' as DateString };
 
 describe('weather service', () => {
@@ -122,7 +122,10 @@ describe('weather service', () => {
       label: '曇一時雨',
       tempMax: 29,
     });
-    const range = await listWeather('2026-09-24' as DateString, '2026-09-25' as DateString);
+    const range = await listWeather({
+      from: '2026-09-24' as DateString,
+      to: '2026-09-25' as DateString,
+    });
     expect(range.daily.map((w) => w.date)).toEqual(['2026-09-24', '2026-09-25']);
   });
 
@@ -154,7 +157,7 @@ describe('weather service', () => {
   it('日ごとと 3 時間ごとは、片方の取得に失敗してももう片方を書いてから投げる', async () => {
     serve({ hourly: hourly('2026-09-24T18:00:00+09:00', ['晴れ']) });
     await expect(refreshWeather()).rejects.toThrow('refresh failed');
-    const range = await listWeather(SEP.from, SEP.to);
+    const range = await listWeather(SEP);
     expect(range.daily).toEqual([]);
     expect(range.hourly.map((w) => w.label)).toEqual(['晴れ']);
   });
@@ -212,7 +215,7 @@ describe('weather service', () => {
       await refreshWeather();
     };
     const hourlyOf = async (from: string, to: string) =>
-      (await listWeather(from as DateString, to as DateString)).hourly;
+      (await listWeather({ from: from as DateString, to: to as DateString })).hourly;
 
     it('同じ日に続く同じ天気を 1 つの区間にまとめ、日をまたぐと分ける', async () => {
       await refreshHourly('2026-09-24T18:00:00+09:00', ['くもり', '雨', '雨', '雨', '雨', '晴れ']);

@@ -1,10 +1,16 @@
-import { asc } from 'drizzle-orm';
+import { and, asc, gte, lte } from 'drizzle-orm';
+import type { DateRange } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db.ts';
 import { holidays } from './schema.ts';
 
-export async function findAll(): Promise<DateString[]> {
-  const rows = await db.select().from(holidays).orderBy(asc(holidays.date));
+/** [from, to]（両端含む）の祝日（昇順） */
+export async function findInRange({ from, to }: DateRange): Promise<DateString[]> {
+  const rows = await db
+    .select()
+    .from(holidays)
+    .where(and(gte(holidays.date, from), lte(holidays.date, to)))
+    .orderBy(asc(holidays.date));
   return rows.map((row) => row.date);
 }
 
