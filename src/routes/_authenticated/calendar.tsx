@@ -8,10 +8,12 @@ import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { PeriodPager } from '../../features/calendar/components/PeriodPager.tsx';
 import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
-import { useCalendarOverlays } from '../../features/calendar/use-calendar-overlays.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
+import type { CalendarItem } from '../../features/events/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
+import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
@@ -33,8 +35,10 @@ function CalendarPage() {
   const { view } = page;
   const add = useCalendarAdd(page, search.add);
   const { draft } = add.composer;
-  const overlays = useCalendarOverlays(page.selectDate);
-  const { selection, picker, filterPanel } = overlays;
+  const selection = useRecordSelection<CalendarItem>();
+  // 年月・週・日の選択ダイアログと、リスト表示の詳細な絞り込み（どちらも URL に載せない）
+  const picker = useToggle();
+  const filterPanel = useToggle();
 
   return (
     <>
@@ -42,13 +46,13 @@ function CalendarPage() {
         <CalendarToolbar
           view={view}
           title={page.title}
-          onOpenPicker={picker.show}
+          onOpenPicker={picker.on}
           onToday={page.goToday}
           onChangeView={add.changeView}
           list={{
             query: page.filters.q,
             onChangeQuery: page.setQuery,
-            filtersOpen: filterPanel.open,
+            filtersOpen: filterPanel.value,
             onToggleFilters: filterPanel.toggle,
             activeFilters: page.activeFilters,
           }}
@@ -59,7 +63,7 @@ function CalendarPage() {
         <ListView
           date={page.date}
           filters={page.filters}
-          filtersOpen={filterPanel.open}
+          filtersOpen={filterPanel.value}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}
           onSelectItem={selection.open}
         />
@@ -75,16 +79,19 @@ function CalendarPage() {
           hourHeight={page.hourHeight}
           onZoom={page.zoom}
           fitItems={page.fromMonth}
-          bottomInset={overlays.sheetInset}
+          bottomInset={add.sheetInset}
         />
       )}
 
-      {picker.open && view !== 'list' && (
+      {picker.value && view !== 'list' && (
         <DatePickerDialog
           unit={view}
           date={page.date}
-          onClose={picker.close}
-          onSelect={picker.select}
+          onClose={picker.off}
+          onSelect={(date) => {
+            picker.off();
+            page.selectDate(date);
+          }}
         />
       )}
 
@@ -103,7 +110,7 @@ function CalendarPage() {
       <EventComposer
         composer={add.composer}
         onClose={add.closeComposer}
-        onChangeInset={overlays.setSheetInset}
+        onChangeInset={add.setSheetInset}
       />
     </>
   );

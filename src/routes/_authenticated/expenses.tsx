@@ -48,7 +48,7 @@ function ExpensesPage() {
 
   const header = (
     <>
-      <ExpenseFilterForm open={panel.open} filters={filters} onChange={setFilters} />
+      <ExpenseFilterForm open={panel.value} filters={filters} onChange={setFilters} />
       <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="body2" color="text.secondary">
           残高
@@ -67,7 +67,7 @@ function ExpensesPage() {
     <>
       <AppBarContent>
         <SearchField label="立替を検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton open={panel.open} count={activeFilters} onToggle={panel.toggle} />
+          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
         </SearchField>
       </AppBarContent>
 

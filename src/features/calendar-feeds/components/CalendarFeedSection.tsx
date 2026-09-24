@@ -9,11 +9,11 @@ import ListItemText from '@mui/material/ListItemText';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { formatDateTime } from '../../../lib/date.ts';
 import { notify } from '../../../lib/ui/notice.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
 import { SettingsSection } from '../../../lib/ui/SettingsSection.tsx';
+import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
   type CalendarFeed,
@@ -35,8 +35,9 @@ export function CalendarFeedSection() {
   const revokeFeed = useRevokeCalendarFeed();
   const { users } = useUserLabels();
   // 発行と編集は別の状態にする（ユーザーの管理画面と同じ持ち方）
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<CalendarFeed | null>(null);
+  const creating = useToggle();
+  const editing = useOpenWith<CalendarFeed>();
+  const editingFeed = editing.value;
 
   return (
     <SettingsSection title="カレンダーの配信">
@@ -54,25 +55,25 @@ export function CalendarFeedSection() {
                 .filter((user) => feed.participantIds.includes(user.id))
                 .map((user) => user.name)
                 .join('・')}
-              onEdit={() => setEditing(feed)}
+              onEdit={() => editing.open(feed)}
               onRevoke={() => revokeFeed.mutate(feed.id)}
             />
           ))
         }
       </QueryView>
       <ListItem>
-        <Button startIcon={<AddIcon />} onClick={() => setCreating(true)}>
+        <Button startIcon={<AddIcon />} onClick={creating.on}>
           配信 URL を発行
         </Button>
       </ListItem>
-      {creating && (
-        <CalendarFeedForm onClose={() => setCreating(false)} onSubmit={createFeed.mutateAsync} />
+      {creating.value && (
+        <CalendarFeedForm onClose={creating.off} onSubmit={createFeed.mutateAsync} />
       )}
-      {editing && (
+      {editingFeed && (
         <CalendarFeedForm
-          feed={editing}
-          onClose={() => setEditing(null)}
-          onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editing.id })}
+          feed={editingFeed}
+          onClose={editing.close}
+          onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editingFeed.id })}
         />
       )}
     </SettingsSection>

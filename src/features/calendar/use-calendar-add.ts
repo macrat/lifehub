@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { DateString } from '../../../shared/types.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
+import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 import type { AddFormKind } from '../add/kinds.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { draftDays } from './draft.ts';
@@ -29,7 +30,10 @@ export function useCalendarAdd(page: CalendarPageControls, add: CalendarSearch['
   const { meId } = useUserLabels();
   // 予定の入力（下書き・クイック入力・全項目のフォーム）。状態と移り変わりはフックが 1 つで持つ
   const composer = useEventComposer(meId);
-  const [adding, setAdding] = useState<AddFormKind | null>(null);
+  const adding = useOpenWith<AddFormKind>();
+  // クイック入力のシートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ
+  // 下に余白を作り、シートに隠れる夜の時間帯までスクロールして見られるようにする
+  const [sheetInset, setSheetInset] = useState(0);
 
   /** 追加ボタンからの予定の入力。月・リストには時間軸が無いので、閉じるまで日表示を出す */
   const addEvent = () => {
@@ -37,19 +41,21 @@ export function useCalendarAdd(page: CalendarPageControls, add: CalendarSearch['
     composer.start(page.date);
   };
   const finishShortcut = useAddShortcut(add, (kind) =>
-    kind === 'event' ? addEvent() : setAdding(kind),
+    kind === 'event' ? addEvent() : adding.open(kind),
   );
 
   return {
     composer,
     /** その場で開いているフォームの種類（予定以外） */
-    adding,
+    adding: adding.value,
     addEvent,
-    openForm: setAdding,
+    openForm: adding.open,
     /** 表示の切り替え。入力中の下書きは表示を切り替えても残るので、見失わないようその初日を連れていく */
     changeView: (view: CalendarView) =>
       page.changeView(view, composer.draft ? draftDays(composer.draft.range).from : undefined),
-    closeForm: () => setAdding(null),
+    closeForm: adding.close,
+    sheetInset,
+    setSheetInset,
     /**
      * 予定の入力（クイック入力・全項目のフォーム。同時に開くのはどちらか 1 つ）を閉じた。
      * 保存でも取り消しでも同じ。ほかの画面の追加ボタンから来ていればその画面へ戻り、

@@ -1,8 +1,8 @@
 import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import type { CareType } from '../../../../shared/validation/lemon.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
+import { useOpenWith } from '../../../lib/ui/use-toggle.ts';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import { CareStatusGrid } from '../../lemon/components/CareStatusGrid.tsx';
 import { lemonStatusQueryOptions } from '../../lemon/queries.ts';
@@ -14,18 +14,18 @@ import { DashboardCardFrame } from './DashboardCardFrame.tsx';
  */
 export function LemonCard() {
   const query = useQuery(lemonStatusQueryOptions);
-  const [adding, setAdding] = useState<CareType[] | null>(null);
+  const adding = useOpenWith<CareType[]>();
   return (
     <DashboardCardFrame title="レモン" link={{ to: '/lemon' }}>
       <QueryView query={query} skeleton={<Skeleton variant="rounded" height={86} />}>
         {(statuses) => (
           <CareStatusGrid
             statuses={statuses.filter((s) => s.careType === 'mist' || s.careType === 'water')}
-            onSelect={(s) => setAdding([s.careType])}
+            onSelect={(s) => adding.open([s.careType])}
           />
         )}
       </QueryView>
-      {adding && <CareLogForm initialCareTypes={adding} onClose={() => setAdding(null)} />}
+      {adding.value && <CareLogForm initialCareTypes={adding.value} onClose={adding.close} />}
     </DashboardCardFrame>
   );
 }

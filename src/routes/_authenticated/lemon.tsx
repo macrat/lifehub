@@ -59,7 +59,7 @@ function LemonPage() {
     <>
       <AppBarContent>
         <SearchField label="メモを検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton open={panel.open} count={activeFilters} onToggle={panel.toggle} />
+          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
         </SearchField>
       </AppBarContent>
 
@@ -67,7 +67,7 @@ function LemonPage() {
         history={history}
         header={
           <>
-            <CareLogFilterForm open={panel.open} filters={filters} onChange={setFilters} />
+            <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
             <Box sx={{ px: 2, pt: 1.5 }}>
               <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
                 {(statuses) => (
