@@ -11,6 +11,7 @@ import type { DateString } from '../../../shared/types.ts';
  * 天気はコードだけを持ち、アイコンの種類と名前は読むときに `telops.ts` で引く。
  * 最高気温（℃）は予報に無い日（短期予報も週間予報も今日の分を出さなくなった後の今日など）があるので null を許し、
  * 上書きするときも値の無い報では前の値を残す（`repository.ts`）。
+ * 終わった日の最高気温は、毎朝アメダスの観測値で予報の値を上書きする（`service.ts` の `recordObservedTempMax`）。
  */
 export const weather = pgTable('weather', {
   date: date('date').$type<DateString>().primaryKey(),
