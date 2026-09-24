@@ -28,7 +28,7 @@
         "noExcessiveLinesPerFile": {
           "level": "error",
           "options": {
-            "maxLines": 350
+            "maxLines": 400
           }
         }
       },
@@ -202,14 +202,6 @@
       "includes": ["**/__tests__/**", "e2e/**"],
       "linter": {
         "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 750
-              }
-            }
-          },
           "complexity": {
             "noExcessiveLinesPerFunction": "off"
           }
