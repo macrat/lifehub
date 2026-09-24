@@ -1,7 +1,5 @@
 import Box from '@mui/material/Box';
 import type { Theme } from '@mui/material/styles';
-import Typography from '@mui/material/Typography';
-import { formatMinutesOfDay } from '../../../lib/date.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
@@ -34,8 +32,8 @@ const FILL_OPACITY = 0.6;
  * 中は不透明な色で塗り分けた疑似要素に opacity をかけて半透明にする。
  * WHY NOT 半透明の色で塗る: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、色ごとに透かすと
  * 重なった所だけ下の層の色が混ざる。opacity は塗り分けた後の面全体にかかるので、何人でも同じ濃さになる。
- * WHY 疑似要素: 枠そのものに opacity をかけると、線やつまむ丸・時刻まで薄くなる。
- * 中の疑似要素は z-index: -1 で枠の中身（丸・時刻）の下に置き、isolation で枠の外へは潜らせない。
+ * WHY 疑似要素: 枠そのものに opacity をかけると、線やつまむ丸まで薄くなる。
+ * 中の疑似要素は z-index: -1 で枠の中身（つまむ丸）の下に置き、isolation で枠の外へは潜らせない。
  * 線の下まで広げておき（線は不透明なので見えない）、角の丸めを線の外側と揃える。
  * 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
  * WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
@@ -116,7 +114,6 @@ export function DraftBlock({
         height: `calc(${atMinute(endMin - startMin)} - 2px)`,
         ml: '1px',
         mr: '2px',
-        px: 0.5,
         // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
         pointerEvents: grab ? 'auto' : 'none',
         // 押した時点から動かすので、ブラウザのスクロール・スワイプには渡さない
@@ -124,8 +121,7 @@ export function DraftBlock({
         cursor: 'move',
       }}
     >
-      {/* 時刻は丸と重なるので、つまむ丸を出さない PC でだけ（ドラッグ中の目印として）添える */}
-      {grab ? (
+      {grab && (
         <>
           <Handle
             end="start"
@@ -140,10 +136,6 @@ export function DraftBlock({
             handlers={grab.end}
           />
         </>
-      ) : (
-        <Typography component="div" sx={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1.25 }}>
-          {formatMinutesOfDay(startMin)}〜{formatMinutesOfDay(endMin)}
-        </Typography>
       )}
     </Box>
   );
