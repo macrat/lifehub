@@ -1,5 +1,5 @@
 import { and, asc, eq, exists, getTableColumns, sql } from 'drizzle-orm';
-import { db, idArrayAgg, runBatch } from '../../lib/db.ts';
+import { db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -63,7 +63,7 @@ export async function update(
       tx
         .select({
           feedId: calendarFeeds.id,
-          userId: sql<string>`unnest(${sql.param(values.participantIds)}::uuid[])`.as('user_id'),
+          userId: unnestIds(values.participantIds, 'user_id'),
         })
         .from(calendarFeeds)
         .where(owned),

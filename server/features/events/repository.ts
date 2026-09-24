@@ -15,7 +15,7 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { type Database, db, idArrayAgg, runBatch } from '../../lib/db.ts';
+import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -30,6 +30,12 @@ function selectRows() {
     })
     .from(events)
     .leftJoin(eventParticipants, eq(eventParticipants.eventId, events.id));
+}
+
+/** 条件に合う行を 1 つ、参加者と一緒に読む */
+async function findOne(where: SQL | undefined): Promise<EventWithParticipants | undefined> {
+  const rows = await selectRows().where(where).groupBy(events.id).limit(1);
+  return rows[0];
 }
 
 /**
@@ -76,11 +82,7 @@ function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undef
  * 取り消した回が復活する、といった繰り返し元を通さない書き込みになってしまう。
  */
 export async function findMasterById(id: string): Promise<EventWithParticipants | undefined> {
-  const rows = await selectRows()
-    .where(and(eq(events.id, id), isNull(events.seriesId)))
-    .groupBy(events.id)
-    .limit(1);
-  return rows[0];
+  return findOne(and(eq(events.id, id), isNull(events.seriesId)));
 }
 
 /** 実体化された回の行（無ければ undefined。その回はルールどおりで、繰り返し元をずらした値になる） */
@@ -88,11 +90,7 @@ export async function findOccurrence(
   seriesId: string,
   occurrenceStart: Date,
 ): Promise<EventWithParticipants | undefined> {
-  const rows = await selectRows()
-    .where(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)))
-    .groupBy(events.id)
-    .limit(1);
-  return rows[0];
+  return findOne(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)));
 }
 
 /**
@@ -219,7 +217,7 @@ function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: 
     tx
       .select({
         eventId: events.id,
-        userId: sql<string>`unnest(${sql.param(userIds)}::uuid[])`.as('user_id'),
+        userId: unnestIds(userIds, 'user_id'),
       })
       .from(events)
       .where(where),
