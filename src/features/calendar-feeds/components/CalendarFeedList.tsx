@@ -10,9 +10,8 @@ import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
-import { notify } from '../../../lib/ui/notice.ts';
+import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
-import { SettingsSection } from '../../../lib/ui/SettingsSection.tsx';
 import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
@@ -25,10 +24,10 @@ import {
 import { CalendarFeedForm } from './CalendarFeedForm.tsx';
 
 /**
- * 設定画面の「カレンダーの配信」。予定を他のカレンダーアプリで購読するための URL を
+ * 設定画面の「外部連携」の配信 URL の行。予定を他のカレンダーアプリで購読するための URL を
  * 何本でも発行し、渡した先ごとに参加者を選んで失効させる（[docs/features/calendar-feeds.md](../../../../docs/features/calendar-feeds.md)）。
  */
-export function CalendarFeedSection() {
+export function CalendarFeedList() {
   const feedsQuery = useQuery(calendarFeedsQueryOptions);
   const createFeed = useCreateCalendarFeed();
   const updateFeed = useUpdateCalendarFeed();
@@ -40,7 +39,7 @@ export function CalendarFeedSection() {
   const editingFeed = editing.value;
 
   return (
-    <SettingsSection title="カレンダーの配信">
+    <>
       <ListItem>
         <ListItemText primary="ics の配信 URL" />
       </ListItem>
@@ -76,7 +75,7 @@ export function CalendarFeedSection() {
           onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editingFeed.id })}
         />
       )}
-    </SettingsSection>
+    </>
   );
 }
 
@@ -101,7 +100,10 @@ function FeedItem({
     <ListItem
       secondaryAction={
         <Stack direction="row">
-          <IconButton aria-label={`${feed.name} の URL をコピー`} onClick={() => copy(feed.url)}>
+          <IconButton
+            aria-label={`${feed.name} の URL をコピー`}
+            onClick={() => copyToClipboard(feed.url, '配信 URL をコピーしました')}
+          >
             <ContentCopyIcon />
           </IconButton>
           <IconButton aria-label={`${feed.name} を編集`} onClick={onEdit}>
@@ -136,13 +138,4 @@ function FeedSkeleton() {
       <ListItemText primary={<Skeleton width="40%" />} secondary={<Skeleton width="60%" />} />
     </ListItem>
   );
-}
-
-async function copy(url: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(url);
-    notify('info', '配信 URL をコピーしました');
-  } catch {
-    notify('error', 'コピーできませんでした');
-  }
 }
