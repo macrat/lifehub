@@ -76,7 +76,7 @@ const NO_HOURLY: readonly HourlyWeather[] = [];
 
 /**
  * その日の 3 時間ごとの天気（同じ天気が続く区間。時刻順）。
- * まだ届いていないか取れなかったとき、予報の無い日（昨日まで・明後日から）は空（何も出さない）。
+ * まだ届いていないか取れなかったとき、予報の無い日（取り始める前の日・明後日から）は空（何も出さない）。
  */
 export function useHourlyWeather(date: DateString): readonly HourlyWeather[] {
   return (

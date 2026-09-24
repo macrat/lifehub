@@ -1,7 +1,7 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { addDays, startOfDate, startOfDay, toDateString, today } from '../../../shared/date.ts';
+import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import * as repository from './repository.ts';
@@ -178,28 +178,27 @@ function parseHourlyForecast(json: unknown): repository.HourlyWeatherRow[] {
 }
 
 /**
- * 気象庁から 3 時間ごとの天気を取り直して上書きし、昨日までの行を消す（1 日 3 回の Cron）。上書きした行を返す。
+ * 気象庁から 3 時間ごとの天気を取り直して、予報のある区間を上書きする（1 日 3 回の Cron）。上書きした行を返す。
  * 取得や解析に失敗したら何も書かずに投げる（手元の天気は前回のまま残る）。
  */
-export async function refreshHourlyWeather(
-  now: Date = new Date(),
-): Promise<repository.HourlyWeatherRow[]> {
+export async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRow[]> {
   const res = await fetch(HOURLY_URL);
   if (!res.ok) throw new Error(`weather: ${HOURLY_URL} returned ${res.status}`);
   const rows = parseHourlyForecast(await res.json());
-  await repository.upsertHourly(rows, startOfDay(now));
+  await repository.upsertHourly(rows);
   return rows;
 }
 
 /**
- * 今日（JST）から先の 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
+ * 手元にある 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
+ * 過ぎた日は取っておいたすべて（その区間の最後の予報）、先の日は予報のある明日の終わりまで。
  * 続けてまとめるのは、間の空かない同じ日の同じ天気だけ（日をまたぐと分ける。`HourlyWeather`）。
  * まだ 1 つも無ければ（デプロイ直後など）その場で取ってから返す。
  * 表に無い天気の区間は、アイコンを決められないので返さない（前後の区間とはつなげない）。
  */
-export async function listHourlyWeather(now: Date = new Date()): Promise<HourlyWeather[]> {
-  const stored = await repository.findHourlyFrom(startOfDay(now));
-  const rows = stored.length > 0 ? stored : await refreshHourlyWeather(now);
+export async function listHourlyWeather(): Promise<HourlyWeather[]> {
+  const stored = await repository.findAllHourly();
+  const rows = stored.length > 0 ? stored : await refreshHourlyWeather();
   const spans: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows) {
     const symbol = HOURLY_SYMBOLS[weather];

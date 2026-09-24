@@ -179,12 +179,9 @@ describe('weather service', () => {
   });
 
   describe('3 時間ごとの天気', () => {
-    // 2026-09-24 18:00 JST（17 時の発表を取った後）
-    const now = new Date('2026-09-24T09:00:00Z');
-
     it('同じ日に続く同じ天気を 1 つの区間にまとめ、日をまたぐと分ける', async () => {
       serve(hourly('2026-09-24T18:00:00+09:00', ['くもり', '雨', '雨', '雨', '雨', '晴れ']));
-      expect(await listHourlyWeather(now)).toEqual([
+      expect(await listHourlyWeather()).toEqual([
         { date: '2026-09-24', startMin: 1080, endMin: 1260, label: 'くもり', symbol: 'cloud' },
         { date: '2026-09-24', startMin: 1260, endMin: 1440, label: '雨', symbol: 'rain' },
         { date: '2026-09-25', startMin: 0, endMin: 540, label: '雨', symbol: 'rain' },
@@ -194,27 +191,23 @@ describe('weather service', () => {
 
     it('表に無い天気の区間は返さず、前後をつなげない', async () => {
       serve(hourly('2026-09-24T18:00:00+09:00', ['晴れ', '霧', '晴れ']));
-      expect((await listHourlyWeather(now)).map((w) => [w.startMin, w.endMin])).toEqual([
+      expect((await listHourlyWeather()).map((w) => [w.startMin, w.endMin])).toEqual([
         [1080, 1260],
         [0, 180],
       ]);
     });
 
-    it('取り直すと予報のある区間を上書きし、今日の過ぎた区間は残して昨日までを消す', async () => {
+    it('取り直すと予報のある区間を上書きし、過ぎた区間は前の日の分も残す', async () => {
       serve(hourly('2026-09-23T18:00:00+09:00', ['晴れ', '晴れ', '晴れ', '晴れ', '晴れ', '晴れ']));
-      await refreshHourlyWeather(new Date('2026-09-23T09:00:00Z'));
+      await refreshHourlyWeather();
       // 翌朝 5 時の発表。6 時から先だけが載る
       serve(hourly('2026-09-24T06:00:00+09:00', ['雨', 'くもり']));
-      await refreshHourlyWeather(new Date('2026-09-23T21:00:00Z'));
+      await refreshHourlyWeather();
       offline();
       expect(
-        (await listHourlyWeather(new Date('2026-09-23T21:00:00Z'))).map((w) => [
-          w.date,
-          w.startMin,
-          w.endMin,
-          w.label,
-        ]),
+        (await listHourlyWeather()).map((w) => [w.date, w.startMin, w.endMin, w.label]),
       ).toEqual([
+        ['2026-09-23', 1080, 1440, '晴れ'],
         ['2026-09-24', 0, 360, '晴れ'],
         ['2026-09-24', 360, 540, '雨'],
         ['2026-09-24', 540, 720, 'くもり'],
@@ -223,7 +216,7 @@ describe('weather service', () => {
 
     it('区間が 3 時間でない報は読まずに投げ、手元の天気を残す', async () => {
       serve(hourly('2026-09-24T18:00:00+09:00', ['晴れ']));
-      await refreshHourlyWeather(now);
+      await refreshHourlyWeather();
       const broken = hourly('2026-09-24T18:00:00+09:00', ['雨']);
       serve({
         areaTimeSeries: {
@@ -231,8 +224,8 @@ describe('weather service', () => {
           timeDefines: broken.areaTimeSeries.timeDefines.map((t) => ({ ...t, duration: 'PT1H' })),
         },
       });
-      await expect(refreshHourlyWeather(now)).rejects.toThrow();
-      expect((await listHourlyWeather(now)).map((w) => w.label)).toEqual(['晴れ']);
+      await expect(refreshHourlyWeather()).rejects.toThrow();
+      expect((await listHourlyWeather()).map((w) => w.label)).toEqual(['晴れ']);
     });
   });
 });
