@@ -2,9 +2,9 @@ import type { DateString } from './types.ts';
 
 /**
  * 天気アイコンの部品。気象庁の予報に出る天気を、アイコンで見分ける単位に分けたもの。
- * sleet は「雨か雪」「みぞれ」、thunder は雷雨、fog は霧。
+ * snow は「雨か雪」「みぞれ」も含む。thunder は雷（雷雨）、fog は霧。
  */
-export type WeatherSymbol = 'sun' | 'cloud' | 'rain' | 'snow' | 'sleet' | 'thunder' | 'fog';
+export type WeatherSymbol = 'sun' | 'cloud' | 'rain' | 'snow' | 'thunder' | 'fog';
 
 /**
  * 1 日の天気のアイコン。気象庁の予報のアイコンと同じく、天気が変わる日は 2 つの部品を並べる。
