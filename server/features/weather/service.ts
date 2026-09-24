@@ -1,7 +1,14 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { addDays, startOfDate, toDateString, today } from '../../../shared/date.ts';
+import {
+  addDays,
+  diffDays,
+  minutesOfDay,
+  startOfDate,
+  toDateString,
+  today,
+} from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import * as repository from './repository.ts';
@@ -195,28 +202,33 @@ export async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRo
  * 前後 1 日も返すのは、日表示で隣の日へスワイプしたとき、その日の分がもう手元にあるようにするため
  * （クライアントは受け取った 3 日分をそれぞれの日の分として持つ。`queries.ts` の `useHourlyWeather`）。
  * 続けてまとめるのは、間の空かない同じ日の同じ天気だけ（日をまたぐと分ける。`HourlyWeather`）。
- * 範囲に無く、テーブルにもまだ 1 つも無ければ（デプロイ直後など）その場で取ってから返す。
+ * 範囲に今日が入るのに 1 つも無ければ（デプロイ直後など）、その場で取ってから返す。
+ * WHY 今日が入るときだけ: 取り直しの Cron が動いていれば、今日の区間は前の日の報から必ず残っている。
+ * 過ぎた日や先の日は無いのが普通なので、そのたびに気象庁へ行ったりテーブルの有無を問い合わせたりしない。
  * 表に無い天気の区間は、アイコンを決められないので返さない（前後の区間とはつなげない）。
  */
-export async function listHourlyWeather(date: DateString): Promise<HourlyWeather[]> {
+export async function listHourlyWeather(
+  date: DateString,
+  now: Date = new Date(),
+): Promise<HourlyWeather[]> {
   const from = startOfDate(addDays(date, -1));
   const to = startOfDate(addDays(date, 2));
-  const stored = await repository.findHourlyBetween(from, to);
-  const rows =
-    stored.length > 0 || (await repository.hasHourly())
-      ? stored
-      : (await refreshHourlyWeather()).filter((r) => r.startsAt >= from && r.startsAt < to);
+  let rows = await repository.findHourlyBetween(from, to);
+  if (rows.length === 0 && Math.abs(diffDays(today(now), date)) <= 1) {
+    await refreshHourlyWeather();
+    rows = await repository.findHourlyBetween(from, to);
+  }
   const spans: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows) {
     const symbol = HOURLY_SYMBOLS[weather];
     if (!symbol) continue;
-    const date = toDateString(startsAt);
-    const startMin = (startsAt.getTime() - startOfDate(date).getTime()) / 60_000;
+    const day = toDateString(startsAt);
+    const startMin = minutesOfDay(startsAt);
     const last = spans.at(-1);
-    if (last?.date === date && last.label === weather && last.endMin === startMin) {
+    if (last?.date === day && last.label === weather && last.endMin === startMin) {
       last.endMin += SLOT_MINUTES;
     } else {
-      spans.push({ date, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
+      spans.push({ date: day, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
     }
   }
   return spans;

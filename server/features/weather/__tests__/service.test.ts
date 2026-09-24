@@ -181,10 +181,12 @@ describe('weather service', () => {
 
   describe('3 時間ごとの天気', () => {
     const DAY = '2026-09-24' as DateString;
+    // 2026-09-24 18:00 JST（17 時の発表を取った後）
+    const NOW = new Date('2026-09-24T09:00:00Z');
 
     it('同じ日に続く同じ天気を 1 つの区間にまとめ、日をまたぐと分ける', async () => {
       serve(hourly('2026-09-24T18:00:00+09:00', ['くもり', '雨', '雨', '雨', '雨', '晴れ']));
-      expect(await listHourlyWeather(DAY)).toEqual([
+      expect(await listHourlyWeather(DAY, NOW)).toEqual([
         { date: '2026-09-24', startMin: 1080, endMin: 1260, label: 'くもり', symbol: 'cloud' },
         { date: '2026-09-24', startMin: 1260, endMin: 1440, label: '雨', symbol: 'rain' },
         { date: '2026-09-25', startMin: 0, endMin: 540, label: '雨', symbol: 'rain' },
@@ -194,7 +196,7 @@ describe('weather service', () => {
 
     it('表に無い天気の区間は返さず、前後をつなげない', async () => {
       serve(hourly('2026-09-24T18:00:00+09:00', ['晴れ', '霧', '晴れ']));
-      expect((await listHourlyWeather(DAY)).map((w) => [w.startMin, w.endMin])).toEqual([
+      expect((await listHourlyWeather(DAY, NOW)).map((w) => [w.startMin, w.endMin])).toEqual([
         [1080, 1260],
         [0, 180],
       ]);
@@ -208,7 +210,7 @@ describe('weather service', () => {
       await refreshHourlyWeather();
       offline();
       expect(
-        (await listHourlyWeather(DAY)).map((w) => [w.date, w.startMin, w.endMin, w.label]),
+        (await listHourlyWeather(DAY, NOW)).map((w) => [w.date, w.startMin, w.endMin, w.label]),
       ).toEqual([
         ['2026-09-23', 1080, 1440, '晴れ'],
         ['2026-09-24', 0, 360, '晴れ'],
@@ -217,17 +219,19 @@ describe('weather service', () => {
       ]);
     });
 
-    it('前後 1 日の分だけを返し、範囲に無くてもテーブルに行があれば取りに行かない', async () => {
+    it('前後 1 日の分だけを返し、今日が入らない範囲は無くても取りに行かない', async () => {
       // 23 日 0 時から 25 日 21 時まで（22 日と 26 日は入らない）
       serve(hourly('2026-09-22T21:00:00+09:00', ['雪', ...Array(24).fill('くもり'), '晴れ']));
       await refreshHourlyWeather();
       offline();
-      expect((await listHourlyWeather(DAY)).map((w) => [w.date, w.startMin, w.endMin])).toEqual([
+      expect(
+        (await listHourlyWeather(DAY, NOW)).map((w) => [w.date, w.startMin, w.endMin]),
+      ).toEqual([
         ['2026-09-23', 0, 1440],
         ['2026-09-24', 0, 1440],
         ['2026-09-25', 0, 1440],
       ]);
-      expect(await listHourlyWeather('2026-10-10' as DateString)).toEqual([]);
+      expect(await listHourlyWeather('2026-10-10' as DateString, NOW)).toEqual([]);
     });
 
     it('区間が 3 時間でない報は読まずに投げ、手元の天気を残す', async () => {
@@ -241,7 +245,7 @@ describe('weather service', () => {
         },
       });
       await expect(refreshHourlyWeather()).rejects.toThrow();
-      expect((await listHourlyWeather(DAY)).map((w) => w.label)).toEqual(['晴れ']);
+      expect((await listHourlyWeather(DAY, NOW)).map((w) => w.label)).toEqual(['晴れ']);
     });
   });
 });

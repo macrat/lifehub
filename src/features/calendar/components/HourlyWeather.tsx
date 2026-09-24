@@ -4,7 +4,7 @@ import type { HourlyWeather as Span } from '../../../../shared/weather.ts';
 import { useHourlyWeather } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
-import { HOURLY_ICON_SIZE as ICON_SIZE } from './weather-glyphs.ts';
+import { HOURLY_ICON_SIZE, HOURLY_WEATHER_INSET } from './weather-glyphs.ts';
 
 /** アイコンと線のあいだ、線と次のアイコンのあいだの余白（px） */
 const GAP = 2;
@@ -23,14 +23,14 @@ export function HourlyWeather({ date }: { date: DateString }) {
 }
 
 function HourlySpan({ span }: { span: Span }) {
-  const half = ICON_SIZE / 2;
+  const half = HOURLY_ICON_SIZE / 2;
   const top = `max(${atMinute(span.startMin)} - ${half}px, 0px)`;
   return (
     <Box
       sx={{
         position: 'absolute',
-        left: 2,
-        width: ICON_SIZE,
+        left: HOURLY_WEATHER_INSET,
+        width: HOURLY_ICON_SIZE,
         top,
         // 次の変わり目のアイコン（区間の終わりの時刻に中央を揃える）の手前まで
         height: `calc(${atMinute(span.endMin)} - ${top} - ${half + GAP}px)`,
@@ -45,7 +45,7 @@ function HourlySpan({ span }: { span: Span }) {
         icon={{ symbol: span.symbol }}
         layout="square"
         titleAccess={span.label}
-        sx={{ fontSize: ICON_SIZE, flexShrink: 0 }}
+        sx={{ fontSize: HOURLY_ICON_SIZE, flexShrink: 0 }}
       />
       {/* 線はアイコンより長く続くので、アイコンより薄くして目立たせない */}
       <Box sx={{ flex: 1, width: '1px', bgcolor: 'currentColor', opacity: 0.5 }} />

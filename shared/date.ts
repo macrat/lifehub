@@ -37,6 +37,12 @@ export function today(now: Date = new Date()): DateString {
   return toDateString(now);
 }
 
+/** 瞬間（Date / ISO 日時）→ JST のその日の 0:00 からの分 */
+export function minutesOfDay(value: Date | string): number {
+  const z = new TZDate(new Date(value), TIME_ZONE);
+  return z.getHours() * 60 + z.getMinutes();
+}
+
 /** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
 export function fromMinutesOfDay(date: DateString, minutes: number): string {
   return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();

@@ -41,8 +41,11 @@ export const wideRatio = (icon: WeatherIcon): number => ('change' in icon ? WIDE
  */
 export const HOURLY_ICON_SIZE = 12;
 
+/** 3 時間ごとの天気と、欄の左端とのあいだの余白（px） */
+export const HOURLY_WEATHER_INSET = 2;
+
 /**
- * 3 時間ごとの天気のために時刻の欄へ足す幅（px）。アイコンと、時刻の字とのあいだの余白。
- * 欄の幅を決める側（`TimelineView`）と中に置く側（`HourlyWeather`）が同じ値を読むよう、部品のファイルではなくここに置く。
+ * 3 時間ごとの天気のために時刻の欄へ足す幅（px）。左の余白とアイコン。
+ * 欄の幅を決める側（`TimelineView`）と中に置く側（`HourlyWeather`）が同じ寸法を読むよう、部品のファイルではなくここに置く。
  */
-export const HOURLY_WEATHER_WIDTH = HOURLY_ICON_SIZE + 2;
+export const HOURLY_WEATHER_WIDTH = HOURLY_WEATHER_INSET + HOURLY_ICON_SIZE;

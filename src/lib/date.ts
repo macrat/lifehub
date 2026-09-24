@@ -175,12 +175,6 @@ export function addMonths(month: string, n: number): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
-/** 瞬間 → JST のその日の 0:00 からの分 */
-export function minutesOfDay(value: Date | string): number {
-  const z = new TZDate(toDate(value), TIME_ZONE);
-  return z.getHours() * 60 + z.getMinutes();
-}
-
 /**
  * 週（月曜始まり）の見出し。"09月14日〜20日"、月をまたぐなら "08月31日〜09月06日"、
  * 始まりが今年でなければ年から書いて "2030年01月14日〜20日"。

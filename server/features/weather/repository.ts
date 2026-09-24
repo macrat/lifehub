@@ -50,11 +50,6 @@ export async function findHourlyBetween(from: Date, to: Date): Promise<HourlyWea
     .orderBy(asc(weatherHourly.startsAt));
 }
 
-/** 3 時間ごとの天気を 1 行でも持っているか */
-export async function hasHourly(): Promise<boolean> {
-  return (await db.$count(weatherHourly)) > 0;
-}
-
 /** 時間帯ごとに上書きする。渡さなかった時間帯（予報から外れた、過ぎた時間帯）は残す */
 export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
   if (rows.length === 0) return;
