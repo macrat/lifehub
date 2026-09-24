@@ -117,10 +117,6 @@ export async function findCalendarRows(from: Date, to: Date): Promise<EventWithP
     .orderBy(events.startsAt, events.createdAt);
 }
 
-function participantRows(eventId: string, userIds: string[]) {
-  return userIds.map((userId) => ({ eventId, userId }));
-}
-
 /**
  * 行と参加者を原子的に作る。id は呼び出し元（多くはクライアント）が決めたもの。
  * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かない（二重に作らない）。
@@ -151,7 +147,9 @@ export async function update(
   }
   await runBatch((tx) => [
     tx.update(events).set(values).where(eq(events.id, id)),
-    ...(participantIds === undefined ? [] : replaceParticipants(tx, id, participantIds)),
+    ...(participantIds === undefined
+      ? []
+      : replaceParticipantsWhere(tx, eq(events.id, id), participantIds)),
     // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
     // 完了した回は履歴として残す
     ...(dropUncompletedOccurrences
@@ -178,7 +176,6 @@ export async function materializeOccurrence(
     eq(events.seriesId, row.seriesId),
     eq(events.occurrenceStart, row.occurrenceStart),
   );
-  const occurrenceId = (tx: Database) => tx.select({ id: events.id }).from(events).where(isTarget);
   await runBatch((tx) => [
     tx
       .insert(events)
@@ -189,10 +186,7 @@ export async function materializeOccurrence(
       }),
     ...(participantIds === undefined
       ? [copyMasterParticipants(tx, isTarget)]
-      : [
-          tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, occurrenceId(tx))),
-          insertParticipantsWhere(tx, isTarget, participantIds),
-        ]),
+      : replaceParticipantsWhere(tx, isTarget, participantIds)),
   ]);
 }
 
@@ -209,8 +203,9 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
 }
 
 /**
- * where に合う行（1 行）に userIds を参加者として入れる文。行の ID を手元に持たない書き込み（回の実体化）と、
- * 行を作る文と同じ batch で「作れたときだけ」入れる書き込み（where に条件を足す）に使う。
+ * where に合う行（1 行）に userIds を参加者として入れる文。参加者の書き込みはすべてこの形にし、
+ * 行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、ID を手元に持たない条件
+ * （回の実体化の (series_id, occurrence_start)）でも引き当てられ、条件を足せば「作れたときだけ」入れられる。
  */
 function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
   return tx.insert(eventParticipants).select(
@@ -230,11 +225,12 @@ function hasNoParticipants(tx: Database): SQL {
   return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
 }
 
-/** 参加者を置き換える 2 文（消して入れ直す）。行と同じ runBatch に入れて、行と参加者を原子的に書く */
-function replaceParticipants(tx: Database, eventId: string, userIds: string[]) {
+/** where に合う行（1 行）の参加者を userIds に置き換える 2 文（消して入れ直す） */
+function replaceParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
+  const target = tx.select({ id: events.id }).from(events).where(where);
   return [
-    tx.delete(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
-    tx.insert(eventParticipants).values(participantRows(eventId, userIds)),
+    tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, target)),
+    insertParticipantsWhere(tx, where, userIds),
   ] as const;
 }
 
@@ -260,7 +256,7 @@ export async function splitFollowing(input: {
       .delete(events)
       .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
     tx.insert(events).values({ ...input.newRow, id }),
-    tx.insert(eventParticipants).values(participantRows(id, input.participantIds)),
+    insertParticipantsWhere(tx, eq(events.id, id), input.participantIds),
   ]);
   return id;
 }

@@ -1,5 +1,5 @@
-import { and, asc, eq, exists, getTableColumns, sql } from 'drizzle-orm';
-import { db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
+import { and, asc, eq, getTableColumns, inArray, type SQL, sql } from 'drizzle-orm';
+import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -18,8 +18,17 @@ export async function findByUser(userId: string): Promise<CalendarFeedWithPartic
     .orderBy(asc(calendarFeeds.createdAt));
 }
 
-function participantRows(feedId: string, userIds: string[]) {
-  return userIds.map((userId) => ({ feedId, userId }));
+/**
+ * where に合う配信 URL の行（1 行）に userIds を参加者として入れる文。作成（ID で引き当てる）と
+ * 変更（ID と持ち主で引き当てる。他人の URL には入らない）が同じ形を使い、行と同じ runBatch に入れる。
+ */
+function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
+  return tx.insert(calendarFeedParticipants).select(
+    tx
+      .select({ feedId: calendarFeeds.id, userId: unnestIds(userIds, 'user_id') })
+      .from(calendarFeeds)
+      .where(where),
+  );
 }
 
 /** 行と参加者を原子的に作る */
@@ -29,7 +38,7 @@ export async function insert(
 ): Promise<void> {
   await runBatch((tx) => [
     tx.insert(calendarFeeds).values(values),
-    tx.insert(calendarFeedParticipants).values(participantRows(values.id, participantIds)),
+    insertParticipantsWhere(tx, eq(calendarFeeds.id, values.id), participantIds),
   ]);
 }
 
@@ -37,7 +46,7 @@ export async function insert(
  * 名前と参加者を差し替える。持ち主のものだけを変更し、変更できたかどうかを返す。
  *
  * 持ち主の確認は各文の where に入れ、1 回の原子的な操作で済ませる（確認のための読み出しの往復を持たない）。
- * 参加者の文は「持ち主の行がある」ことを条件にするので、他人の URL の参加者は消えも増えもしない。
+ * 参加者の文も持ち主の行を引き当てて書くので、他人の URL の参加者は消えも増えもしない。
  */
 export async function update(
   id: string,
@@ -54,20 +63,12 @@ export async function update(
     tx
       .delete(calendarFeedParticipants)
       .where(
-        and(
-          eq(calendarFeedParticipants.feedId, id),
-          exists(tx.select({ one: sql`1` }).from(calendarFeeds).where(owned)),
+        inArray(
+          calendarFeedParticipants.feedId,
+          tx.select({ id: calendarFeeds.id }).from(calendarFeeds).where(owned),
         ),
       ),
-    tx.insert(calendarFeedParticipants).select(
-      tx
-        .select({
-          feedId: calendarFeeds.id,
-          userId: unnestIds(values.participantIds, 'user_id'),
-        })
-        .from(calendarFeeds)
-        .where(owned),
-    ),
+    insertParticipantsWhere(tx, owned, values.participantIds),
   ]);
   return updated.length > 0;
 }
