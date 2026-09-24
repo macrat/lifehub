@@ -102,6 +102,6 @@ export async function listWeather(): Promise<DailyWeather[]> {
   const rows = stored.length > 0 ? stored : await refreshWeather();
   return rows.flatMap(({ date, code, tempMax }) => {
     const telop = TELOPS[code];
-    return telop ? [{ date, kind: telop[0], label: telop[1], tempMax }] : [];
+    return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
   });
 }
