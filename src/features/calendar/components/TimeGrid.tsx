@@ -11,20 +11,20 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
+import type { CalendarItem } from '../../events/queries.ts';
+import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
-import type { CalendarItem } from '../queries.ts';
+import { itemTransitionName } from '../item-transition.ts';
+import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
-import { useParticipantColors } from '../use-participant-colors.ts';
 import { usePinch } from '../use-pinch.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
-import { itemTransitionName } from './item-transition.ts';
 import { syncScrollProps } from './markers.ts';
-import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
-import { type TimedPlaced, timedSpan } from './timeline-layout.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
 const TIME_LINE = 'time-line';

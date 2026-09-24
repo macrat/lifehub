@@ -7,6 +7,8 @@ const passwordSchema = z
   .min(PASSWORD_MIN_LENGTH, `パスワードは${PASSWORD_MIN_LENGTH}文字以上にしてください`)
   .max(128);
 
+const nameSchema = z.string().trim().min(1, '名前を入力してください').max(50);
+
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
 const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
 
@@ -19,7 +21,7 @@ const allDayNotifyMinutesSchema = z
 
 export const createUserSchema = z.object({
   email: z.email('メールアドレスの形式が正しくありません'),
-  name: z.string().trim().min(1, '名前を入力してください').max(50),
+  name: nameSchema,
   password: passwordSchema,
   /** 省略時は既存ユーザーと離れた色相を割り当てる */
   hue: hueSchema.optional(),
@@ -28,7 +30,7 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const updateUserSchema = z
   .object({
-    name: z.string().trim().min(1, '名前を入力してください').max(50).optional(),
+    name: nameSchema.optional(),
     password: passwordSchema.optional(),
     hue: hueSchema.optional(),
     allDayNotifyMinutes: allDayNotifyMinutesSchema.optional(),

@@ -5,7 +5,6 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
@@ -26,6 +25,8 @@ import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
+import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
+import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   validateSearch: lemonSearchSchema,
@@ -43,28 +44,26 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters } = useFilterSearch(search);
-  const activeFilters = countActiveFilters(search);
+  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const statusQuery = useQuery(lemonStatusQueryOptions);
   const history = useCareLogHistory(listFilter);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [adding, setAdding] = useState<CareType[] | null>(null);
-  // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
-  const [selected, setSelected] = useState<{ log: CareLog; editing: boolean } | null>(null);
-  const filtering = filters.q !== '' || activeFilters > 0;
+  // 追加のフォームと、最初から選んでおく項目（状況のタイルから開くとその項目）
+  const adding = useOpenWith<CareType[]>();
+  const selection = useRecordSelection<CareLog>();
 
-  const openAdd = () => setAdding(DEFAULT_CARE_TYPES);
+  const openAdd = () => adding.open(DEFAULT_CARE_TYPES);
   useAddShortcut(search.add, openAdd);
 
   return (
     <>
       <AppBarContent>
         <SearchField label="メモを検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton
-            open={filtersOpen}
-            count={activeFilters}
-            onToggle={() => setFiltersOpen((v) => !v)}
-          />
+          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
         </SearchField>
       </AppBarContent>
 
@@ -72,11 +71,11 @@ function LemonPage() {
         history={history}
         header={
           <>
-            <CareLogFilterForm open={filtersOpen} filters={filters} onChange={setFilters} />
+            <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
             <Box sx={{ px: 2, pt: 1.5 }}>
               <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
                 {(statuses) => (
-                  <CareStatusGrid statuses={statuses} onSelect={(s) => setAdding([s.careType])} />
+                  <CareStatusGrid statuses={statuses} onSelect={(s) => adding.open([s.careType])} />
                 )}
               </QueryView>
             </Box>
@@ -96,18 +95,18 @@ function LemonPage() {
           </>
         }
         emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
-        onSelect={(log, editing) => setSelected({ log, editing })}
+        onSelect={selection.open}
       />
 
       <Fab color="primary" aria-label="レモンの記録を追加" onClick={openAdd} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && <CareLogForm initialCareTypes={adding} onClose={() => setAdding(null)} />}
-      {selected && (
+      {adding.value && <CareLogForm initialCareTypes={adding.value} onClose={adding.close} />}
+      {selection.selected && (
         <CareLogDetailSheet
-          log={selected.log}
-          initialEditing={selected.editing}
-          onClose={() => setSelected(null)}
+          log={selection.selected.record}
+          initialEditing={selection.selected.editing}
+          onClose={selection.close}
         />
       )}
     </>

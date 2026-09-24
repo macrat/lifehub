@@ -12,7 +12,7 @@ import {
   weekDays,
 } from '../../lib/date.ts';
 import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
-import { useRefreshCalendarItems } from './queries.ts';
+import { useRefreshCalendarItems } from '../events/queries.ts';
 import {
   type CalendarSearch,
   countActiveFilters,

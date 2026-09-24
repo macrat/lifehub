@@ -9,8 +9,9 @@ import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts'
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
+import { type CalendarItem, useCalendarItems } from '../../events/queries.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { type CalendarItem, groupByDate, useCalendarItems } from '../queries.ts';
+import { groupByDate } from '../queries.ts';
 import { type ListFilters, type ListFiltersPatch, matchesListFilters } from '../search.ts';
 import { useListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';

@@ -10,7 +10,7 @@
 - 終日の予定・タスクは、開始日／終了日（期限日）の **各参加者の通知時刻**（`users.all_day_notify_minutes`、既定 7:00）に送る。終日の n は 0（当日）か 1440（前日）だけを許す（`shared/validation/events.ts` の `ALL_DAY_REMIND_OPTIONS` と CHECK 制約）。予定のフォームは終日なら「当日」「前日」だけを出し、時刻のある予定を終日に切り替えたときは 0 分前を当日、それ以外を前日に寄せる（`toAllDayRemind`）。
   - WHY: 終日には「n 分前」の瞬間が無い（0:00 の n 分前では夜中に届く）。何時に知りたいかは人によって違うので、項目ではなくユーザーの設定（`/settings` の「終日の通知」）で選ぶ。
   - 宛先はユーザーごとに時刻が違うので、終日の項目は参加者ごとに予約する（`ref.userId`）。時刻のある項目は `userId: null` で参加者全員に 1 つ。
-  - 通知時刻を変えると、users service が当日〜翌日の分をその場で予約し直す。通知時刻の読み出しは通知の側（`server/lib/notifications/repository.ts`）に置く（users service から読むと、予約し直す呼び出しと合わせて import が一巡する）。古い時刻の予約は配信時の再検証で配信予定時刻が合わずに捨てられる。
+  - 通知時刻を変えると、users service が当日〜翌日の分を予約し直す（下記「仕組み」の 2）。通知時刻の読み出しは通知の側（`server/features/notifications/repository.ts`）に置き、列挙と再検証（`server/features/events/notifications.ts`）には引数で渡す（users service から読むと、予約し直す呼び出しと合わせて import が一巡する）。古い時刻の予約は配信時の再検証で配信予定時刻が合わずに捨てられる。
 - 送信先: 参加者の全端末（終日の項目は `ref.userId` の全端末）。
 - 通知をタップすると該当画面（`/calendar?date=YYYY-MM-DD`）を開く。
 
@@ -27,7 +27,9 @@
 
 1. Vercel Cron（日次 00:00 JST = UTC `0 15 * * *`）が `GET /api/cron/notifications`（`server/lib/cron.ts`）を呼ぶ（`Authorization: Bearer <CRON_SECRET>` で保護。Vercel は `CRON_SECRET` があればこのヘッダを自動で付ける）。`listNotifications` で翌日分（JST の翌日 0:00〜翌々日 0:00）を列挙し、QStash に `notBefore`（配信時刻）付きで予約する。`deduplicationId` = 通知キーで重複を防ぐ。
    - キーは配信予定時刻を含む（`event:<id>:<occurrenceStart ISO | single>:<start|end>:<at>`、終日の項目は末尾に `:<userId>`）。日時や通知設定が変わると別のキーで予約し直され、古い予約は配信時の再検証で捨てられる。
-2. 予定・タスクの作成／変更で当日〜翌日に新たな通知が発生する場合は、その場で同様に予約する（dedupe により重複しない）。service の `create` / `update` から `enqueueUpcoming()` を呼ぶ。
+2. 通知を増やしうる書き込み（予定・タスクの作成・変更・完了の取り消し、終日の通知時刻の変更）の後は、今から翌日の終わりまでの分を同様に予約する（dedupe により重複しない）。各 service がその書き込みの後に `scheduleUpcoming()` を呼ぶ。完了していた間は日次 Cron が列挙しないので、完了を取り消したタスクの当日の通知はここでしか予約されない。通知を減らすだけの書き込み（削除・完了）は呼ばない（古い予約は配信時の再検証で捨てられる）。
+   - 予約は応答を返した後に行う（`server/lib/after-response.ts`。Vercel の `waitUntil` で関数を生かしておく）。予約は予定の読み出し・繰り返しの展開・QStash への送信を伴い、書き込みの応答を待たせる理由が無いため。失敗しても書き込みは取り消さず、ログに残すだけにする。
+   - 予約先の無い環境（ローカル・Preview）では、列挙もせずに終える。
 3. 配信時刻に QStash が `POST /api/qstash/notifications`（`server/lib/qstash-routes.ts`）を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolveNotification(ref)` で対象を再読込する。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら送らない。再読込か送信で失敗したら挿入した key を消して 500 を返し、QStash の再試行で送り直す（残すと再試行が重複と判定され、届かないまま終わる）。
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
@@ -43,7 +45,7 @@ export function listNotifications(range): Promise<{ key; at; ref }[]>;   // 予�
 export function resolveNotification(ref): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```
 
-通知源は予定・タスク（events）だけなので registry は置かず、`server/lib/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash の呼び出しと署名検証は `server/lib/qstash.ts`、Web Push の送信は `server/features/push/service.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
+通知源は予定・タスク（events）だけなので registry は置かず、`server/features/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。通知は送信済み台帳（`sent_notifications`）を持つ 1 つの機能なので、feature として置き、repository の import の制限（他の feature の repository を読まない）も他の機能と同じに掛かる。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash への予約は `server/features/notifications/publisher.ts`、QStash の配信の署名検証は `server/lib/qstash.ts`（QStash が呼ぶ入口 `server/lib/qstash-routes.ts` の全体に掛ける）、Web Push の送信は `server/features/push/service.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
 
 ## 購読
 

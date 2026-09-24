@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
@@ -7,13 +6,14 @@ import { DatePickerDialog } from '../../features/calendar/components/DatePickerD
 import { EventComposer } from '../../features/calendar/components/EventComposer.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { PeriodPager } from '../../features/calendar/components/PeriodPager.tsx';
-import { draftDays } from '../../features/calendar/draft.ts';
-import type { CalendarItem } from '../../features/calendar/queries.ts';
 import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
+import type { CalendarItem } from '../../features/events/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
+import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
@@ -35,16 +35,10 @@ function CalendarPage() {
   const { view } = page;
   const add = useCalendarAdd(page, search.add);
   const { draft } = add.composer;
-
-  // 開いている項目と、どちらの顔（閲覧・編集）で開いたか
-  const [selected, setSelected] = useState<{ item: CalendarItem; editing: boolean } | null>(null);
-  // クイック入力のシートがカレンダーを下から覆っている高さ（px）。グリッドはその分だけ
-  // 下に余白を作り、シートに隠れる夜の時間帯までスクロールして見られるようにする
-  const [sheetInset, setSheetInset] = useState(0);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  // 面に渡す関数は固定する（毎回別の関数だと面が描き直しを省けない。CalendarPane 参照）
-  const viewItem = useCallback((item: CalendarItem) => setSelected({ item, editing: false }), []);
+  const selection = useRecordSelection<CalendarItem>();
+  // 年月・週・日の選択ダイアログと、リスト表示の詳細な絞り込み（どちらも URL に載せない）
+  const picker = useToggle();
+  const filterPanel = useToggle();
 
   return (
     <>
@@ -52,17 +46,14 @@ function CalendarPage() {
         <CalendarToolbar
           view={view}
           title={page.title}
-          onOpenPicker={() => setPickerOpen(true)}
+          onOpenPicker={picker.on}
           onToday={page.goToday}
-          // 入力中の下書きは表示を切り替えても残るので、見失わないようその初日を連れていく
-          onChangeView={(view) =>
-            page.changeView(view, draft ? draftDays(draft.range).from : undefined)
-          }
+          onChangeView={add.changeView}
           list={{
             query: page.filters.q,
             onChangeQuery: page.setQuery,
-            filtersOpen,
-            onToggleFilters: () => setFiltersOpen((v) => !v),
+            filtersOpen: filterPanel.value,
+            onToggleFilters: filterPanel.toggle,
             activeFilters: page.activeFilters,
           }}
         />
@@ -72,9 +63,9 @@ function CalendarPage() {
         <ListView
           date={page.date}
           filters={page.filters}
-          filtersOpen={filtersOpen}
+          filtersOpen={filterPanel.value}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}
-          onSelectItem={(item, editing) => setSelected({ item, editing })}
+          onSelectItem={selection.open}
         />
       ) : (
         <PeriodPager
@@ -82,23 +73,23 @@ function CalendarPage() {
           pages={page.pages}
           onMove={page.move}
           onSelectDate={page.openDay}
-          onSelectItem={viewItem}
+          onSelectItem={selection.open}
           draft={draft}
           onChangeDraft={add.composer.grab}
           hourHeight={page.hourHeight}
           onZoom={page.zoom}
           fitItems={page.fromMonth}
-          bottomInset={sheetInset}
+          bottomInset={add.sheetInset}
         />
       )}
 
-      {pickerOpen && view !== 'list' && (
+      {picker.value && view !== 'list' && (
         <DatePickerDialog
           unit={view}
           date={page.date}
-          onClose={() => setPickerOpen(false)}
+          onClose={picker.off}
           onSelect={(date) => {
-            setPickerOpen(false);
+            picker.off();
             page.selectDate(date);
           }}
         />
@@ -108,18 +99,18 @@ function CalendarPage() {
       {!draft && (
         <AddMenu kinds={['task', 'event']} onSelect={add.openForm} onAddEvent={add.addEvent} />
       )}
-      {selected && (
+      {selection.selected && (
         <ItemDetailSheet
-          item={selected.item}
-          initialEditing={selected.editing}
-          onClose={() => setSelected(null)}
+          item={selection.selected.record}
+          initialEditing={selection.selected.editing}
+          onClose={selection.close}
         />
       )}
       {add.adding && <AddForm kind={add.adding} onClose={add.closeForm} />}
       <EventComposer
         composer={add.composer}
         onClose={add.closeComposer}
-        onChangeInset={setSheetInset}
+        onChangeInset={add.setSheetInset}
       />
     </>
   );

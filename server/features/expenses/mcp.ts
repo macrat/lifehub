@@ -1,6 +1,20 @@
-import { expenseListQuerySchema, expenseSchema } from '../../../shared/validation/expenses.ts';
+import { today } from '../../../shared/date.ts';
+import { dateStringSchema } from '../../../shared/validation/common.ts';
+import {
+  expenseFieldsSchema,
+  expenseListQuerySchema,
+  withExpenseRules,
+} from '../../../shared/validation/expenses.ts';
 import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
+
+/**
+ * 立替の追加の入力。spentOn は省略でき、省くと今日（JST）になる。
+ * WHY: LLM は今日の日付を正確には知らないので、必須にすると推し量った日付が記録される。
+ */
+const addExpenseInputSchema = withExpenseRules(
+  expenseFieldsSchema.extend({ spentOn: dateStringSchema.optional() }),
+);
 
 export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
@@ -30,9 +44,10 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
     {
       title: '立替の追加',
       description:
-        '立替を記録する。fromUserId は払ったユーザーの ID、toUserId は誰のために払ったか（null なら共有 = 折半、ユーザー ID なら全額そのユーザーの負担）、amount は円（正の整数）、spentOn は JST の日付（YYYY-MM-DD）。精算は「払った人を fromUserId、受け取った人を toUserId」にして記録する。',
-      inputSchema: expenseSchema,
+        '立替を記録する。fromUserId は払ったユーザーの ID、toUserId は誰のために払ったか（null なら共有 = 折半、ユーザー ID なら全額そのユーザーの負担）、amount は円（正の整数）、spentOn は JST の日付（YYYY-MM-DD）で、今日のことなら省略する（省略すると今日）。精算は「払った人を fromUserId、受け取った人を toUserId」にして記録する。',
+      inputSchema: addExpenseInputSchema,
     },
-    async (input) => jsonResult(await service.addExpense(input, ctx.userId)),
+    async ({ spentOn, ...input }) =>
+      jsonResult(await service.addExpense({ ...input, spentOn: spentOn ?? today() }, ctx.userId)),
   );
 };

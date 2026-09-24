@@ -2,10 +2,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
+import { useRecordDetail } from '../../../lib/ui/use-record-detail.ts';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
@@ -31,7 +31,12 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
   const colorFor = useUserColor();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
-  const [editing, setEditing] = useState(initialEditing);
+  const detail = useRecordDetail({
+    initialEditing,
+    confirmDelete: 'この立替を削除しますか？',
+    remove: () => deleteExpense.mutate(expense.id),
+    onClose,
+  });
   const { amount, setAmount, errors, submitError, submitted, handleSubmit } = useExpenseForm({
     initial: expense,
     onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),
@@ -43,24 +48,13 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
       title={expense.description}
       open={!submitted}
       onClose={onClose}
-      editing={editing}
-      onEdit={() => setEditing(true)}
-      actions={[
-        {
-          label: '削除',
-          icon: <DeleteIcon />,
-          danger: true,
-          onClick: () => {
-            if (!window.confirm('この立替を削除しますか？')) return;
-            deleteExpense.mutate(expense.id);
-            onClose();
-          },
-        },
-      ]}
+      editing={detail.editing}
+      onEdit={detail.startEdit}
+      actions={[{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }]}
       onSubmit={handleSubmit}
       error={submitError}
     >
-      {editing ? (
+      {detail.editing ? (
         <ExpenseFields
           initial={expense}
           amount={amount}

@@ -1,8 +1,7 @@
 import Checkbox from '@mui/material/Checkbox';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
-import { ParticipantsCheckIcon } from '../../calendar/components/ParticipantsMark.tsx';
-import type { CalendarTaskItem } from '../../calendar/queries.ts';
-import { useToggleCompletion } from '../queries.ts';
+import { type CalendarTaskItem, useToggleCompletion } from '../queries.ts';
+import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
 
 /**
  * タスクの完了・未完了を切り替えるチェックボックス。一覧の行（リスト表示・ホームの「今日」）で使う。

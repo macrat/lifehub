@@ -15,6 +15,8 @@ type KeywordSearch = z.infer<typeof keywordSearchSchema>;
  * 表示する値は手元の状態なので、入力してから画面に出るまでが同じ描画で完結する。
  * navigate だと入力 → URL → 再描画と非同期に往復し、その間の書き戻しで IME の変換が切れる。
  * 履歴には積まない（1 文字ごとに戻る先が増えると、戻る操作が打ち直しの巻き戻しになる）。
+ * router を通さずに書いても、後の移動（絞り込みや表示の切り替え。`usePatchSearch`）で q は消えない。
+ * router は移動のたびに今の URL を読み直してから次の URL を組み立てるため（e2e/search.spec.ts が確かめる）。
  */
 export function useKeywordSearch(initial: string) {
   const [keyword, setKeyword] = useState(initial);
@@ -102,11 +104,16 @@ export type FiltersPatch<S extends KeywordSearch> = {
 /**
  * 絞り込みのある画面（立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
  * 画面はここから受け取った値を描く。キーワードだけは打つたびに反映するので手元に持つ（`useKeywordSearch`）。
+ * countActive は、キーワード以外で効いている絞り込みの数（絞り込みボタンのバッジ）を数える feature ごとの規則。
  */
-export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(search: S) {
+export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
+  search: S,
+  countActive: (search: S) => number,
+) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
   const filters: Filters<S> = { ...search, q: keyword };
+  const activeFilters = countActive(search);
   return {
     filters,
     /** サーバーに渡す絞り込み（取得のキーにもなる。`toListFilter`） */
@@ -114,5 +121,9 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(sea
     setKeyword,
     /** 絞り込みの変更。履歴には積まず置き換える */
     setFilters: (next: FiltersPatch<S>) => patchSearch(next, { replace: true }),
+    /** キーワード以外で効いている絞り込みの数 */
+    activeFilters,
+    /** 何かで絞り込んでいるか（空の一覧の文言を「一致するものが無い」にする） */
+    filtering: keyword !== '' || activeFilters > 0,
   };
 }

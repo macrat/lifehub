@@ -72,6 +72,17 @@ describe('lemon service', () => {
     expect((await listLogs({})).items[0]).toMatchObject({ id, careTypes: ['water'] });
   });
 
+  it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
+    const id = newId();
+    const input = { careTypes: ['water' as const], doneAt: jst('2026-09-10T08:00:00'), note: null };
+    await logCare(input, userId, id);
+    await updateLog(id, { ...input, note: '追肥の予定' });
+    const resent = await logCare(input, userId, id);
+
+    expect(resent).toMatchObject({ id, note: '追肥の予定' });
+    expect((await listLogs({})).items).toMatchObject([{ id, note: '追肥の予定' }]);
+  });
+
   it('記録を編集すると全項目が置き換わり、状態にも反映される', async () => {
     const log = await logCare(
       { careTypes: ['water'], doneAt: jst('2026-09-10T08:00:00'), note: null },

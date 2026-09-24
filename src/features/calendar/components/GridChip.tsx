@@ -5,11 +5,14 @@ import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatTime } from '../../../lib/date.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { useParticipantColors } from '../use-participant-colors.ts';
+import {
+  ParticipantsCheckIcon,
+  ParticipantsMark,
+} from '../../events/components/ParticipantsMark.tsx';
+import { useParticipantColors } from '../../events/use-participant-colors.ts';
+import { itemTransitionName } from '../item-transition.ts';
+import { LANE_ITEM_HEIGHT, type Placed } from '../lane-layout.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
-import { itemTransitionName } from './item-transition.ts';
-import { LANE_ITEM_HEIGHT, type Placed } from './lane-layout.ts';
-import { ParticipantsCheckIcon, ParticipantsMark } from './ParticipantsMark.tsx';
 
 type Props = {
   placed: Placed;

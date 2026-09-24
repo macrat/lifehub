@@ -90,6 +90,19 @@ export function normalizeInstants(
 }
 
 /**
+ * 保存した日時を入力の形に戻す（`normalizeInstants` の逆）。終日の終了は排他的な終端（翌日 0:00）から
+ * 含む最終日の中へ戻す。保存形式のまま入力に渡すと、`normalizeInstants` でもう 1 日延びる。
+ * 今の値に一部の項目だけを重ねて更新する書き込み（MCP の部分更新）が、今の値を入力として使うのに使う。
+ */
+export function toInputInstants(
+  allDay: boolean,
+  startsAt: Date | null,
+  endsAt: Date | null,
+): { startsAt: Date | null; endsAt: Date | null } {
+  return { startsAt, endsAt: allDay && endsAt ? new Date(endsAt.getTime() - 1) : endsAt };
+}
+
+/**
  * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
  * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
  */

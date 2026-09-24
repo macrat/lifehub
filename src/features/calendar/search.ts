@@ -3,7 +3,7 @@ import { isCompletedTask } from '../../../shared/calendar.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
 import { type Filters, type FiltersPatch, matchesKeyword } from '../../lib/search.ts';
-import type { CalendarItem } from './queries.ts';
+import type { CalendarItem } from '../events/queries.ts';
 import { type CalendarView, viewSchema } from './view.ts';
 
 /**

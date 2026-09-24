@@ -21,18 +21,22 @@
 |---|---|
 | `events_list` | 期間内の予定とタスク（繰り返し展開済み、`placementDate` 付き）を列挙する |
 | `events_create` | 予定またはタスクを作成する（`kind`） |
-| `events_update` | 更新する（`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
+| `events_update` | 変える項目だけを指定して更新する（省いた項目は今の値のまま、`null` は消す。`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
 | `events_delete` | 削除する（`scope` と `occurrenceStart` は更新と同じ） |
 | `events_complete` | タスクを完了にする（繰り返しは `occurrenceStart` で回を指定） |
 | `events_uncomplete` | 完了を取り消す |
 | `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
 | `expenses_get_balance` | 立替残高を返す |
 | `expenses_list` | 立替の履歴（精算を含む）の 1 ページ。画面と同じ絞り込みができ、`nextCursor` を `before` に渡すと前のページ |
-| `expenses_add` | 立替（精算を含む）を追加する |
+| `expenses_add` | 立替（精算を含む）を追加する（`spentOn` を省くと今日） |
 | `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
-| `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる） |
+| `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる。`doneAt` を省くと今） |
 
-各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
+各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/lib/mcp/server.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。
+
+予定の更新は、API では全項目の置き換えだが、MCP では部分更新にする。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、置き換えにすると省いた繰り返しや場所が消える。`service.patchEvent` が対象の今の値（回の指定があればその回の値。終日の終了は `toInputInstants` で入力の形に戻す）を組み立て、`mcp.ts` がそこに指定された項目だけを重ねて、作成・更新と同じ組み合わせの規則（`eventRulesSchema`）を掛ける。繰り返し元の読み出しは、今の値の組み立てと更新で 1 回を共有する。部分更新の項目（`eventPatchSchema`）は既定値を持たない項目の型から作る。既定値があると、省いた項目が既定値で埋まってしまうため。
+
+「今」を指す日時（世話の `doneAt`、立替の `spentOn`）は MCP では省略でき、省くと `mcp.ts` が今の日時・今日の日付で埋める。LLM は今の日時を正確には知らず、必須にすると推し量った日時が記録されるため。項目の組み合わせの規則（`withCareLogRules` / `withExpenseRules`）はスキーマの形と切り離してあり、省略できる形に変えた MCP の入力にも同じ規則を掛ける。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 
 ## 接続方法
 

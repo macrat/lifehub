@@ -5,8 +5,11 @@ import {
   uuidSchema,
 } from '../../../shared/validation/common.ts';
 import {
+  type CreateEventInput,
   completeEventSchema,
   createEventSchema,
+  eventPatchSchema,
+  eventRulesSchema,
   type OccurrenceTarget,
   recurrenceScopeSchema,
 } from '../../../shared/validation/events.ts';
@@ -49,6 +52,26 @@ function toTarget({ scope, occurrenceStart }: z.infer<typeof targetSchema>): Occ
   return { scope, occurrenceStart };
 }
 
+/**
+ * 今の値に、LLM が指定した項目だけを重ねる（省いた項目 = undefined は今の値のまま）。
+ * 重ねた結果の組み合わせ（予定の開始と終了がそろっているか など）はここで確かめ、誤りは文で返す。
+ * WHY NOT 全項目の置き換え: 「タイトルだけ変えて」で繰り返しや場所を省くと、それらが消えてしまう。
+ */
+function mergePatch(
+  current: CreateEventInput,
+  patch: z.infer<typeof eventPatchSchema>,
+): CreateEventInput {
+  const defined: Partial<CreateEventInput> = Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined),
+  );
+  const merged = { ...current, ...defined };
+  const result = eventRulesSchema.safeParse(merged);
+  if (!result.success) {
+    throw new ValidationError(result.error.issues.map((issue) => issue.message).join(' / '));
+  }
+  return merged;
+}
+
 export const registerEventTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
     'events_list',
@@ -75,17 +98,14 @@ export const registerEventTools: ToolRegistrar = (server, ctx) => {
     'events_update',
     {
       title: '予定・タスクの更新',
-      description: `予定またはタスクを更新する（全項目を指定する。kind は変更できない）。${SCOPE_HELP} ${FIELDS_HELP}`,
-      inputSchema: createEventSchema.safeExtend({ id: uuidSchema, ...targetFields }),
+      description: `予定またはタスクを更新する。変える項目だけを指定し、省いた項目は今の値のまま（null を指定すると消す）。kind は変更できない。${SCOPE_HELP} ${FIELDS_HELP}`,
+      inputSchema: eventPatchSchema.safeExtend({ id: uuidSchema, ...targetFields }),
     },
-    async ({ id, scope, occurrenceStart, ...values }) =>
-      jsonResult(
-        await service.updateEvent(
-          id,
-          { ...values, ...toTarget({ scope, occurrenceStart }) },
-          ctx.userId,
-        ),
-      ),
+    async ({ id, scope, occurrenceStart, ...patch }) => {
+      const target = toTarget({ scope, occurrenceStart });
+      const fill = (current: CreateEventInput) => mergePatch(current, patch);
+      return jsonResult(await service.patchEvent(id, target, fill, ctx.userId));
+    },
   );
 
   server.registerTool(

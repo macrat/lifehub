@@ -4,7 +4,6 @@ import Fab from '@mui/material/Fab';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import { BalanceSummary } from '../../features/expenses/components/BalanceSummary.tsx';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
@@ -19,6 +18,8 @@ import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
+import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
+import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   validateSearch: expenseSearchSchema,
@@ -36,21 +37,22 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters } = useFilterSearch(search);
-  const activeFilters = countActiveFilters(search);
+  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
+    search,
+    countActiveFilters,
+  );
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const balanceQuery = useBalance();
   const history = useExpenseHistory(listFilter);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  // 開いている記録と、どちらの顔（閲覧・編集）で開いたか
-  const [selected, setSelected] = useState<{ expense: Expense; editing: boolean } | null>(null);
-  const filtering = filters.q !== '' || activeFilters > 0;
+  const adding = useToggle();
+  const selection = useRecordSelection<Expense>();
 
-  useAddShortcut(search.add, () => setAdding(true));
+  useAddShortcut(search.add, adding.on);
 
   const header = (
     <>
-      <ExpenseFilterForm open={filtersOpen} filters={filters} onChange={setFilters} />
+      <ExpenseFilterForm open={panel.value} filters={filters} onChange={setFilters} />
       <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="body2" color="text.secondary">
           残高
@@ -69,11 +71,7 @@ function ExpensesPage() {
     <>
       <AppBarContent>
         <SearchField label="立替を検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton
-            open={filtersOpen}
-            count={activeFilters}
-            onToggle={() => setFiltersOpen((v) => !v)}
-          />
+          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
         </SearchField>
       </AppBarContent>
 
@@ -81,18 +79,18 @@ function ExpensesPage() {
         history={history}
         header={header}
         emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
-        onSelect={(expense, editing) => setSelected({ expense, editing })}
+        onSelect={selection.open}
       />
 
-      <Fab color="primary" aria-label="立替を追加" onClick={() => setAdding(true)} sx={FAB_SX}>
+      <Fab color="primary" aria-label="立替を追加" onClick={adding.on} sx={FAB_SX}>
         <AddIcon />
       </Fab>
-      {adding && <ExpenseForm onClose={() => setAdding(false)} />}
-      {selected && (
+      {adding.value && <ExpenseForm onClose={adding.off} />}
+      {selection.selected && (
         <ExpenseDetailSheet
-          expense={selected.expense}
-          initialEditing={selected.editing}
-          onClose={() => setSelected(null)}
+          expense={selection.selected.record}
+          initialEditing={selection.selected.editing}
+          onClose={selection.close}
         />
       )}
     </>

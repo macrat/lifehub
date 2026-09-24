@@ -1,5 +1,5 @@
-import { occurrenceKey } from '../../../../shared/calendar.ts';
-import type { CalendarItem } from '../queries.ts';
+import { occurrenceKey } from '../../../shared/calendar.ts';
+import type { CalendarItem } from '../events/queries.ts';
 
 /**
  * 月・週・日・リストの表示を切り替えたときと、ホームと予定画面を行き来したときに、同じ項目が

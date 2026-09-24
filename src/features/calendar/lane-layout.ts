@@ -1,6 +1,6 @@
-import { isCompletedTask, occurrenceKey } from '../../../../shared/calendar.ts';
-import type { DateString } from '../../../../shared/types.ts';
-import type { CalendarItem } from '../queries.ts';
+import { isCompletedTask, occurrenceKey } from '../../../shared/calendar.ts';
+import type { DateString } from '../../../shared/types.ts';
+import type { CalendarItem } from '../events/queries.ts';
 
 /**
  * レーンの中の項目の高さ。上下を 1px ずつ空ける。レーンは隙間なく積むので、

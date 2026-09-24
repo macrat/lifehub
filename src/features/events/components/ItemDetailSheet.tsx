@@ -2,7 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlin
 import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import type { CalendarItem } from '../../calendar/queries.ts';
+import type { CalendarItem } from '../queries.ts';
 import { useItemDetail } from '../use-item-detail.ts';
 import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';

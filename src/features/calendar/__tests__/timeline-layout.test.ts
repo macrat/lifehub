@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { layoutTimed, partitionTimeline, timedSpan } from '../components/timeline-layout.ts';
+import { layoutTimed, partitionTimeline, timedSpan } from '../timeline-layout.ts';
 
 const block = (key: string, startMin: number, endMin: number) => ({
   key,

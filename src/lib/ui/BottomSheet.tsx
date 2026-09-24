@@ -5,6 +5,7 @@ import { type ReactNode, type RefObject, useEffect, useState } from 'react';
 import { SLIDE_MS, sheetSx } from './sheet-style.ts';
 import { useSheetDrag } from './use-sheet-drag.ts';
 import { useSheetSize } from './use-sheet-size.ts';
+import { useTimeout } from './use-timeout.ts';
 
 /** 止まる段。閉じる段（画面の外）は状態には持たず、下げきったら onClose で消える */
 export type SheetDetent = 'full' | 'peek';
@@ -87,6 +88,7 @@ export function BottomSheet({
   const [sheet, setSheet] = useState<HTMLElement | null>(null);
   const size = useSheetSize(sheet, peekRef);
   const [closing, setClosing] = useState(false);
+  const later = useTimeout();
 
   /** 段ごとの translateY（px）。上の段が 0 で、下へ行くほど大きい */
   const offsets = { full: 0, peek: Math.max(size.sheet - size.peek, 0), closed: size.sheet };
@@ -106,7 +108,7 @@ export function BottomSheet({
   /** 下がりきるのを見せてから消す（transitionend は中身の要素の分も来るので時間で待つ） */
   const dismiss = () => {
     setClosing(true);
-    setTimeout(onClose, SLIDE_MS);
+    later(onClose, SLIDE_MS);
   };
 
   /** 離したとき、動かした向きへ 1 段進める。上は広げる、下は下の段へ、下の段からは閉じる */

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { isCompletedTask } from '../../../shared/calendar.ts';
-import type { CalendarItem } from '../calendar/queries.ts';
 import type { ItemFormValues } from './form-values.ts';
 import {
+  type CalendarItem,
   eventQueryOptions,
   useDeleteEvent,
   useToggleCompletion,

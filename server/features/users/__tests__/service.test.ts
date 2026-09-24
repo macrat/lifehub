@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
+import { newId } from '../../../../shared/id.ts';
+import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
-import { ConflictError, ForbiddenError } from '../../../lib/errors.ts';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };
-
-async function login(email: string, password: string): Promise<Response> {
-  return app.request('/api/auth/sign-in/email', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-}
 
 describe('users service', () => {
   beforeEach(truncateAll);
@@ -67,6 +61,20 @@ describe('users service', () => {
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
   });
 
+  it('パスワードだけの変更も、変えた後のユーザーを返す', async () => {
+    const created = await createUser(alice);
+    const updated = await updateUser(created.id, { password: 'new-password-123' }, created.id);
+    expect(updated).toEqual(created);
+  });
+
+  it('いないユーザーは変更できない', async () => {
+    const id = newId();
+    await expect(updateUser(id, { name: 'だれか' }, id)).rejects.toThrow(NotFoundError);
+    await expect(updateUser(id, { password: 'new-password-123' }, id)).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
   it('他のユーザーのプロフィールは変更できるが、パスワードは変更できない', async () => {
     const created = await createUser(alice);
     const other = await createUser({
@@ -90,12 +98,7 @@ describe('パスワード変更による失効', () => {
     const user = await createUser(alice);
     const first = await login(alice.email, alice.password);
     const second = await login(alice.email, alice.password);
-    const cookies = [first, second].map((res) =>
-      res.headers
-        .getSetCookie()
-        .map((cookie) => cookie.split(';')[0])
-        .join('; '),
-    );
+    const cookies = [first, second].map(cookieOf);
     for (const cookie of cookies)
       expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(200);
     await updateUser(user.id, { password: 'replacement-password-123' }, user.id);

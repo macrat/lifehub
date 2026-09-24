@@ -67,7 +67,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/features/*/components/**", "src/features/*/cards/**", "src/routes/**"],
+      "includes": ["shared/**"],
       "linter": {
         "rules": {
           "style": {
@@ -76,20 +76,8 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["**/lib/api.ts"],
-                    "message": "API はコンポーネントから直接呼ばず、features/*/queries.ts のフック経由にする"
-                  },
-                  {
-                    "group": ["@mui/material/Dialog"],
-                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
-                  },
-                  {
-                    "group": [
-                      "@mui/material/Modal",
-                      "@mui/material/Popover",
-                      "@mui/material/Drawer"
-                    ],
-                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                    "group": ["**/server/**", "**/src/**"],
+                    "message": "shared はクライアントとサーバーの両方が読む土台なので、どちらのコードも読まない"
                   }
                 ]
               }
@@ -99,17 +87,7 @@
       }
     },
     {
-      "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useComponentExportOnlyModules": "error"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["src/lib/**"],
+      "includes": ["server/**", "api/**"],
       "linter": {
         "rules": {
           "style": {
@@ -118,8 +96,8 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["**/features/**"],
-                    "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
                   }
                 ]
               }
@@ -148,6 +126,10 @@
               "options": {
                 "patterns": [
                   {
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
+                  },
+                  {
                     "group": [
                       "**/lib/db.ts",
                       "./db.ts",
@@ -158,8 +140,8 @@
                     "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
                   },
                   {
-                    "group": ["../*/repository.ts", "**/features/*/repository.ts"],
-                    "message": "他の feature の repository は直接使わず、その feature の service を通す"
+                    "group": ["**/repository.ts", "!./repository.ts"],
+                    "message": "他の feature の repository は直接使わず、その feature の service を通す（自分の ./repository.ts だけを読む）"
                   }
                 ]
               }
@@ -178,8 +160,8 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["./repository.ts", "**/repository.ts"],
-                    "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
                   },
                   {
                     "group": [
@@ -190,10 +172,248 @@
                       "drizzle-orm/**"
                     ],
                     "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                  },
+                  {
+                    "group": ["./repository.ts", "**/repository.ts"],
+                    "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
                   }
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/lib/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/features/**"],
+                    "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/lib/api.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**", "!**/server/app.ts"],
+                    "message": "クライアントはサーバーのコードを読まない。API の型（server/app.ts の AppType）だけを import type で読む"
+                  },
+                  {
+                    "group": ["**/features/**"],
+                    "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/**", "src/routes/**", "!src/features/*/queries.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API は features/*/queries.ts からだけ呼ぶ（画面・部品・フックはクエリのフックを通す）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/*/components/**", "src/features/*/cards/**", "src/routes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API は features/*/queries.ts からだけ呼ぶ（画面・部品・フックはクエリのフックを通す）"
+                  },
+                  {
+                    "group": ["@mui/material/Dialog"],
+                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": [
+                      "@mui/material/Modal",
+                      "@mui/material/Popover",
+                      "@mui/material/Drawer"
+                    ],
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/features/events/**",
+        "!src/features/events/queries.ts",
+        "!src/features/events/components/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API は features/*/queries.ts からだけ呼ぶ（画面・部品・フックはクエリのフックを通す）"
+                  },
+                  {
+                    "group": ["**/calendar/**"],
+                    "message": "予定・タスクのデータは events が持ち、calendar はそれを暦に並べる画面。依存は calendar → events の一方向にする"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/events/components/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/lib/api.ts"],
+                    "message": "API は features/*/queries.ts からだけ呼ぶ（画面・部品・フックはクエリのフックを通す）"
+                  },
+                  {
+                    "group": ["@mui/material/Dialog"],
+                    "message": "ダイアログは lib/ui/Dialog.tsx を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": [
+                      "@mui/material/Modal",
+                      "@mui/material/Popover",
+                      "@mui/material/Drawer"
+                    ],
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                  },
+                  {
+                    "group": ["**/calendar/**"],
+                    "message": "予定・タスクのデータは events が持ち、calendar はそれを暦に並べる画面。依存は calendar → events の一方向にする"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/events/queries.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/server/**"],
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                  },
+                  {
+                    "group": ["**/calendar/**"],
+                    "message": "予定・タスクのデータは events が持ち、calendar はそれを暦に並べる画面。依存は calendar → events の一方向にする"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useComponentExportOnlyModules": "error"
           }
         }
       }

@@ -1,5 +1,6 @@
 import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import type { DateString } from '../../../shared/types.ts';
 import {
   type ExpenseFilter,
   type ExpenseListQuery,
@@ -15,7 +16,7 @@ type ExpenseValues = {
   toUserId: string | null;
   amount: number;
   description: string;
-  spentOn: string;
+  spentOn: DateString;
 };
 
 /** 履歴の 1 ページ（`findHistoryPage`）。日は使った日 */
@@ -63,19 +64,22 @@ export async function sumByDirection(): Promise<ExpenseTotal[]> {
 
 /**
  * 立替を作る。id は呼び出し元（多くはクライアント）が決めたもの。
- * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かず、今の行を返す（二重に作らない）。
+ * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
+ * 再送の目的は二重作成を防ぐことだけなので、既にあれば手を触れない。
  */
 export async function insert(
   row: ExpenseValues & { id: string; createdBy: string },
 ): Promise<ExpenseRow> {
-  const inserted = await db
-    .insert(expenses)
-    .values(row)
-    .onConflictDoUpdate({ target: expenses.id, set: row })
-    .returning();
-  const expense = inserted[0];
+  const inserted = await db.insert(expenses).values(row).onConflictDoNothing().returning();
+  const expense = inserted[0] ?? (await findById(row.id));
   if (!expense) throw new Error('insert returned no row');
   return expense;
+}
+
+async function findById(id: string): Promise<ExpenseRow | undefined> {
+  const rows = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
+  return rows[0];
 }
 
 export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow | undefined> {

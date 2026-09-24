@@ -3,6 +3,7 @@ import {
   defaultShouldDehydrateMutation,
   type MutateOptions,
   type Mutation,
+  type MutationOptions,
   onlineManager,
   partialMatchKey,
   QueryClient,
@@ -131,27 +132,24 @@ async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> 
 }
 
 /**
- * すべての書き込みが共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
- * （下の setMutationDefaults）、復元した書き込みにも同じものが当たる。
+ * 溜める書き込み（既定）が共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
+ * （下の setMutationDefaults）、復元した書き込みにも同じものが当たる。端末に残すのもこのキーの書き込みだけ。
  */
 const WRITE_MUTATION_KEY = ['write'] as const;
 
 /**
- * 書き込みの既定。中身は関数なのでキャッシュに保存されないが、mutationKey で引き当てられるので、
- * 再読み込みで復元した書き込みもここに書いた方法で送られる。
- *
- * - networkMode（既定の `online`）: オフラインでは送らずに保留する。保留中の書き込みは
- *   永続化の対象なので（`persistOptions` の dehydrateOptions）、アプリを閉じても消えず、
- *   オンラインに戻るか次の起動時（main.tsx の `resumeWrites`）に送られる。
- * - scope: 同じ scope の mutation は 1 つずつ順に走る。溜めた書き込みが操作した順に再生されるので、
- *   「追加してから直す」がそのままの順でサーバーに届く。
- * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは upsert する）。
- *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
+ * 溜めない書き込み（`queue: false`）の mutationKey。溜める書き込みと別のキーにして、
+ * 溜める書き込みの順番待ち（scope）にも、端末に残す対象（`persistOptions`）にも入れない。
+ * WHY: 同じキーだと、オフラインで溜めた書き込みがある間はその後ろで順番を待ち、待つ間は
+ * 保留中として端末に残ってしまう。パスワードを含むユーザーの変更が IndexedDB に書かれ、
+ * フォームもオンラインに戻るまで結果が出ない。溜めない書き込みはどれも溜める書き込みと
+ * 独立している（ユーザー、カレンダーの配信 URL）ので、順番を待つ必要も無い。
  */
-queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
+const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
+
+/** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
+const settleWrite = {
   mutationFn: sendAsAuthor,
-  scope: { id: 'write' },
-  retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
   onError: (error, _variables, snapshot) => {
     // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
     for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
@@ -162,7 +160,31 @@ queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_
       void queryClient.invalidateQueries({ queryKey });
     }
   },
+} satisfies MutationOptions<unknown, Error, Write<unknown>, Snapshot>;
+
+/**
+ * 溜める書き込みの既定。中身は関数なのでキャッシュに保存されないが、mutationKey で引き当てられるので、
+ * 再読み込みで復元した書き込みもここに書いた方法で送られる。
+ *
+ * - networkMode（既定の `online`）: オフラインでは送らずに保留する。保留中の書き込みは
+ *   永続化の対象なので（`persistOptions` の dehydrateOptions）、アプリを閉じても消えず、
+ *   オンラインに戻るか次の起動時（main.tsx の `resumeWrites`）に送られる。
+ * - scope: 同じ scope の mutation は 1 つずつ順に走る。溜めた書き込みが操作した順に再生されるので、
+ *   「追加してから直す」がそのままの順でサーバーに届く。
+ * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは同じ id の作成が既にあれば何も書かない）。
+ *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
+ */
+queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
+  ...settleWrite,
+  scope: { id: 'write' },
+  retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
 });
+
+/** 溜めない書き込みの既定。オフラインでも送信を試みてその場で失敗させる（保留にすると結果が出ない） */
+queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(
+  DIRECT_WRITE_MUTATION_KEY,
+  { ...settleWrite, networkMode: 'always', retry: 0 },
+);
 
 /**
  * 復元した書き込みを送る。オフラインなら何もせず、オンラインに戻ったときに自動で送られる。
@@ -200,9 +222,7 @@ export function useOptimisticMutation<TInput>({
 }: OptimisticMutationOptions<TInput>) {
   const queryClient = useQueryClient();
   const mutation = useMutation<unknown, Error, Write<TInput>, Snapshot>({
-    mutationKey: WRITE_MUTATION_KEY,
-    // 溜めないものは、オフラインでも送信を試みてその場で失敗させる（保留にすると結果が出ない）
-    ...(queue ? {} : { networkMode: 'always' as const, retry: 0 }),
+    mutationKey: queue ? WRITE_MUTATION_KEY : DIRECT_WRITE_MUTATION_KEY,
     onMutate: async ({ input }) => {
       // 送信中に届く取得結果で投機的な表示が上書きされないよう、取得を止めてから書き換える
       await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
@@ -248,7 +268,7 @@ export function useOptimisticMutation<TInput>({
  * 記録を追加する mutation。行の id をここで決めて入力に足す（1 回の操作につき 1 つ）。
  * WHY: id を先に決めておくと、オフラインで作った記録もその場で編集・削除でき（仮の id を
  * 後から本物へ差し替えずに済む）、通信が切れて送り直しても二重に作られない
- * （サーバーは同じ id の作成を upsert として扱う）。
+ * （サーバーは同じ id の作成が既にあれば何も書かない）。
  * 追加は必ずフォームからの保存なので、mutateAsync（保存が受け付けられたら閉じる）だけを返す。
  */
 export function useCreateMutation<TInput>(

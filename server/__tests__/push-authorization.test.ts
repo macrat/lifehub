@@ -3,6 +3,7 @@ import { app } from '../app.ts';
 import { isSubscribed, subscribe } from '../features/push/service.ts';
 import { createUser } from '../features/users/service.ts';
 import { truncateAll } from '../lib/test-db.ts';
+import { cookieOf, signIn } from './login.ts';
 
 describe('通知購読の認可', () => {
   beforeEach(truncateAll);
@@ -19,15 +20,7 @@ describe('通知購読の認可', () => {
       ['other@example.com', 'password-other-123', false],
       ['owner@example.com', 'password-owner-123', true],
     ] as const) {
-      const login = await app.request('/api/auth/sign-in/email', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const cookie = login.headers
-        .getSetCookie()
-        .map((value) => value.split(';')[0])
-        .join('; ');
+      const cookie = cookieOf(await signIn(email, password));
       const response = await app.request('/api/push/subscriptions', {
         method: 'DELETE',
         headers: { cookie, 'content-type': 'application/json' },

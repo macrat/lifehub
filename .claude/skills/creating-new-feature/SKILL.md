@@ -18,7 +18,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 4. **`repository.ts` → `service.ts` → `routes.ts`** の順に実装する。
    - repository は Drizzle クエリのみ。service に業務ロジック。routes は `zValidator(target, schema, validationHook)`（`server/lib/validator.ts`）で検証して service を呼ぶだけ。`/:id` のパラメータは `shared/validation/common.ts` の `idParamSchema` を使う。
    - `server/app.ts` の `.route('/<name>', <name>Routes)` チェーンに追加する（型が Hono RPC クライアントへ伝わる）。
-5. **MCP に登録する**: `mcp.ts` → `server/lib/mcp/server.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/lib/notifications/service.ts` から呼ぶ。
+5. **MCP に登録する**: `mcp.ts` → `server/lib/mcp/server.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/features/notifications/service.ts` から呼ぶ。
 6. **クライアント feature** `src/features/<name>/` を作る:
    - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。書き込みは `useOptimisticMutation`（`src/lib/query-client.ts`）で行い、`apply` に「サーバーが返すはずの値」だけを書く。取得の中断・失敗時の巻き戻し・通知・invalidate は共通）
    - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。記録 1 件の追加・閲覧・編集は `RecordSheet`（スマホはボトムシート、PC はダイアログ。閉じる・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類と受ける画面を `src/lib/add-pages.ts` の `ADD_PAGES` に、名前とアイコンを `src/features/add/kinds.ts` に足し、フォームを `AddForm` に足す。追加のフォームは保存先の mutation を自分で持つ）か `FAB_SX`（`src/lib/ui/layout.ts`））

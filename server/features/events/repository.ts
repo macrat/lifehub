@@ -8,13 +8,14 @@ import {
   isNotNull,
   isNull,
   lt,
+  notExists,
   or,
   type SQL,
   sql,
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { db, idArrayAgg, runBatch } from '../../lib/db.ts';
+import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -29,6 +30,12 @@ function selectRows() {
     })
     .from(events)
     .leftJoin(eventParticipants, eq(eventParticipants.eventId, events.id));
+}
+
+/** 条件に合う行を 1 つ、参加者と一緒に読む */
+async function findOne(where: SQL | undefined): Promise<EventWithParticipants | undefined> {
+  const rows = await selectRows().where(where).groupBy(events.id).limit(1);
+  return rows[0];
 }
 
 /**
@@ -75,11 +82,15 @@ function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undef
  * 取り消した回が復活する、といった繰り返し元を通さない書き込みになってしまう。
  */
 export async function findMasterById(id: string): Promise<EventWithParticipants | undefined> {
-  const rows = await selectRows()
-    .where(and(eq(events.id, id), isNull(events.seriesId)))
-    .groupBy(events.id)
-    .limit(1);
-  return rows[0];
+  return findOne(and(eq(events.id, id), isNull(events.seriesId)));
+}
+
+/** 実体化された回の行（無ければ undefined。その回はルールどおりで、繰り返し元をずらした値になる） */
+export async function findOccurrence(
+  seriesId: string,
+  occurrenceStart: Date,
+): Promise<EventWithParticipants | undefined> {
+  return findOne(and(eq(events.seriesId, seriesId), eq(events.occurrenceStart, occurrenceStart)));
 }
 
 /**
@@ -106,21 +117,17 @@ export async function findCalendarRows(from: Date, to: Date): Promise<EventWithP
     .orderBy(events.startsAt, events.createdAt);
 }
 
-function participantRows(eventId: string, userIds: string[]) {
-  return userIds.map((userId) => ({ eventId, userId }));
-}
-
 /**
  * 行と参加者を原子的に作る。id は呼び出し元（多くはクライアント）が決めたもの。
- * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かない（二重に作らない）。
+ * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
+ * 参加者も、行が参加者を持たないとき（この文で作ったばかりの行）だけ入れる。行が既にあるのに
+ * 参加者だけ足すと、編集で外した人が戻ってしまう（参加者は 1 人以上なので 0 人は作る前だけ）。
  */
 export async function insert(row: NewEventRow, participantIds: string[]): Promise<void> {
   await runBatch((tx) => [
-    tx.insert(events).values(row).onConflictDoUpdate({ target: events.id, set: row }),
-    tx
-      .insert(eventParticipants)
-      .values(participantRows(row.id, participantIds))
-      .onConflictDoNothing(),
+    tx.insert(events).values(row).onConflictDoNothing(),
+    insertParticipantsWhere(tx, and(eq(events.id, row.id), hasNoParticipants(tx)), participantIds),
   ]);
 }
 
@@ -142,10 +149,7 @@ export async function update(
     tx.update(events).set(values).where(eq(events.id, id)),
     ...(participantIds === undefined
       ? []
-      : [
-          tx.delete(eventParticipants).where(eq(eventParticipants.eventId, id)),
-          tx.insert(eventParticipants).values(participantRows(id, participantIds)),
-        ]),
+      : replaceParticipantsWhere(tx, eq(events.id, id), participantIds)),
     // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
     // 完了した回は履歴として残す
     ...(dropUncompletedOccurrences
@@ -156,30 +160,78 @@ export async function update(
 
 /**
  * 繰り返しの回を実体化する。無ければ row で作り、あれば patch だけを当てる（同じ回への同時操作でも
- * 一意制約違反にならない）。inserted は新しく作ったかどうか（Postgres の xmax = 0 の慣用句）
+ * 一意制約違反にならない）。参加者は、participantIds があれば置き換え、無ければ回が参加者を
+ * 持たないときだけ繰り返し元から写す（作ったばかりの回。参加者は 1 人以上なので、0 人は写す前だけ）。
+ *
+ * 全文を 1 回の原子的な操作で行う。回の行と参加者を別の往復で書くと、行だけが残ったときに
+ * 参加者 0 人の回になり、通知も配信も届かなくなる。回の ID は呼び出し側が知らないので、
+ * 参加者の文は (series_id, occurrence_start) で回の行を引き当てる。
  */
-export async function upsertOccurrence(
-  row: Omit<NewEventRow, 'id'>,
+export async function materializeOccurrence(
+  row: Omit<NewEventRow, 'id'> & { seriesId: string; occurrenceStart: Date },
   patch: Partial<NewEventRow>,
-): Promise<{ id: string; inserted: boolean }> {
-  const rows = await db
-    .insert(events)
-    .values({ ...row, id: newId() })
-    .onConflictDoUpdate({
-      target: [events.seriesId, events.occurrenceStart],
-      set: { ...patch, updatedAt: new Date() },
-    })
-    .returning({ id: events.id, inserted: sql<boolean>`(xmax = 0)` });
-  const result = rows[0];
-  if (!result) throw new Error('upsert returned no row');
-  return result;
+  participantIds: string[] | undefined,
+): Promise<void> {
+  const isTarget = and(
+    eq(events.seriesId, row.seriesId),
+    eq(events.occurrenceStart, row.occurrenceStart),
+  );
+  await runBatch((tx) => [
+    tx
+      .insert(events)
+      .values({ ...row, id: newId() })
+      .onConflictDoUpdate({
+        target: [events.seriesId, events.occurrenceStart],
+        set: { ...patch, updatedAt: new Date() },
+      }),
+    ...(participantIds === undefined
+      ? [copyMasterParticipants(tx, isTarget)]
+      : replaceParticipantsWhere(tx, isTarget, participantIds)),
+  ]);
 }
 
-export async function setParticipants(eventId: string, userIds: string[]): Promise<void> {
-  await runBatch((tx) => [
-    tx.delete(eventParticipants).where(eq(eventParticipants.eventId, eventId)),
-    tx.insert(eventParticipants).values(participantRows(eventId, userIds)),
-  ]);
+/** 回が参加者を持たなければ、繰り返し元の参加者を写す */
+function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
+  const master = alias(eventParticipants, 'master_participants');
+  return tx.insert(eventParticipants).select(
+    tx
+      .select({ eventId: events.id, userId: master.userId })
+      .from(events)
+      .innerJoin(master, eq(master.eventId, events.seriesId))
+      .where(and(isTarget, hasNoParticipants(tx))),
+  );
+}
+
+/**
+ * where に合う行（1 行）に userIds を参加者として入れる文。参加者の書き込みはすべてこの形にし、
+ * 行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、ID を手元に持たない条件
+ * （回の実体化の (series_id, occurrence_start)）でも引き当てられ、条件を足せば「作れたときだけ」入れられる。
+ */
+function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
+  return tx.insert(eventParticipants).select(
+    tx
+      .select({
+        eventId: events.id,
+        userId: unnestIds(userIds, 'user_id'),
+      })
+      .from(events)
+      .where(where),
+  );
+}
+
+/** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
+function hasNoParticipants(tx: Database): SQL {
+  const own = alias(eventParticipants, 'own_participants');
+  return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
+}
+
+/** where に合う行（1 行）の参加者を userIds に置き換える 2 文（消して入れ直す） */
+function replaceParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
+  const target = tx.select({ id: events.id }).from(events).where(where);
+  return [
+    tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, target)),
+    insertParticipantsWhere(tx, where, userIds),
+  ] as const;
 }
 
 export async function remove(id: string): Promise<void> {
@@ -204,7 +256,7 @@ export async function splitFollowing(input: {
       .delete(events)
       .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
     tx.insert(events).values({ ...input.newRow, id }),
-    tx.insert(eventParticipants).values(participantRows(id, input.participantIds)),
+    insertParticipantsWhere(tx, eq(events.id, id), input.participantIds),
   ]);
   return id;
 }

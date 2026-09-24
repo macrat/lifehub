@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { itemTransitionName } from '../components/item-transition.ts';
-import type { CalendarItem } from '../queries.ts';
+import type { CalendarItem } from '../../events/queries.ts';
+import { itemTransitionName } from '../item-transition.ts';
 
 const day = (d: string) => dateStringSchema.parse(d);
 

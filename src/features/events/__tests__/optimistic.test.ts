@@ -3,9 +3,9 @@ import { expect, test } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import { today } from '../../../../shared/date.ts';
 import { toMonthString } from '../../../lib/date.ts';
-import { CALENDAR_QUERY_KEY } from '../../calendar/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
+import { CALENDAR_QUERY_KEY } from '../query-keys.ts';
 import { writeTarget } from '../recurrence-options.ts';
 
 /** その暦月のクエリを 1 つだけ持つキャッシュ */

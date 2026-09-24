@@ -1,3 +1,5 @@
+import type { DateString } from './types.ts';
+
 /**
  * 立替の行と、そこから導かれる残高。
  * サーバーの一覧・残高と、クライアントの楽観的更新が同じ式を使うため、共通に置く。
@@ -10,7 +12,7 @@ export type Expense = {
   toUserId: string | null;
   amount: number;
   description: string;
-  spentOn: string;
+  spentOn: DateString;
   createdAt: string;
 };
 

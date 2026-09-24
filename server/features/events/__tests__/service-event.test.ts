@@ -82,6 +82,33 @@ describe('events service', () => {
       expect(list[0]).toMatchObject({ id, title: '歯医者', participantIds: [userId] });
     });
 
+    it('編集した後に古い作成が送り直されても、行も参加者も巻き戻らない', async () => {
+      const id = newId();
+      const input = createEventSchema.parse({
+        kind: 'event',
+        title: '歯医者',
+        startsAt: iso('2026-09-10T14:00:00'),
+        endsAt: iso('2026-09-10T15:00:00'),
+        participantIds: [userId],
+      });
+      await createEvent(input, userId, id);
+      await updateEvent(
+        id,
+        updateEventSchema.parse({
+          ...input,
+          startsAt: iso('2026-09-10T14:00:00'),
+          endsAt: iso('2026-09-10T15:00:00'),
+          title: '矯正歯科',
+          participantIds: [partnerId],
+          scope: 'all',
+        }),
+        userId,
+      );
+      await createEvent(input, userId, id);
+
+      expect(await getEvent(id)).toMatchObject({ title: '矯正歯科', participantIds: [partnerId] });
+    });
+
     it('終日の予定は JST の日境界に正規化され、終了日は含む', async () => {
       const created = await createEvent(
         createEventSchema.parse({

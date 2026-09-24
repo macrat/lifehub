@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from '../features/holidays/service.ts';
+import { enqueueTomorrow } from '../features/notifications/service.ts';
 import { refreshWeather } from '../features/weather/service.ts';
 import type { AppEnv } from './app-env.ts';
 import { env } from './env.ts';
-import { enqueueTomorrow } from './notifications/service.ts';
 
 /**
  * Vercel Cron（`vercel.json` の `crons`）が呼ぶ入口をすべてここに集める。

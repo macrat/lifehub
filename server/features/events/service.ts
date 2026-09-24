@@ -1,4 +1,4 @@
-import { normalizeInstants } from '../../../shared/calendar.ts';
+import { normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import type {
   CompleteEventInput,
@@ -7,8 +7,8 @@ import type {
   UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import { enqueueUpcoming } from '../../lib/notifications/service.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
+import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -20,6 +20,54 @@ export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));
 }
 
+/**
+ * 一部の項目だけを変える更新（MCP）。fill は今の値（作成・更新の入力の形）を受け取り、変える項目を
+ * 重ねた入力を返す。繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
+ */
+export async function patchEvent(
+  id: string,
+  target: OccurrenceTarget,
+  fill: (current: CreateEventInput) => CreateEventInput,
+  userId: string,
+): Promise<EventMaster> {
+  const master = await findMaster(id);
+  const current = await currentInput(master, target);
+  const result = await applyUpdate(master, { ...fill(current), ...target }, userId);
+  scheduleUpcoming();
+  return result;
+}
+
+/**
+ * 書き込みの対象の今の値を、作成・更新の入力の形で返す。
+ * all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
+ * 繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう。
+ */
+async function currentInput(
+  master: EventWithParticipants,
+  input: OccurrenceTarget,
+): Promise<CreateEventInput> {
+  const target = resolveTarget(master, input);
+  const row =
+    target.scope === 'all'
+      ? master
+      : ((await repository.findOccurrence(master.id, target.occurrenceStart)) ?? {
+          ...master,
+          ...shiftTo(master, target.occurrenceStart),
+        });
+  return {
+    kind: master.kind,
+    title: row.title,
+    allDay: row.allDay,
+    ...toInputInstants(row.allDay, row.startsAt, row.endsAt),
+    participantIds: row.participantIds,
+    location: row.location,
+    note: row.note,
+    rrule: master.rrule,
+    remindStartMinutes: row.remindStartMinutes,
+    remindEndMinutes: row.remindEndMinutes,
+  };
+}
+
 /** id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function createEvent(
   input: CreateEventInput,
@@ -28,7 +76,7 @@ export async function createEvent(
 ): Promise<EventMaster> {
   const values = normalizeInput(input);
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
-  await enqueueUpcoming();
+  scheduleUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
   return toMaster({ ...values, id, participantIds: input.participantIds, completedAt: null });
 }
@@ -38,18 +86,17 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<EventMaster> {
-  const result = await applyUpdate(id, input, userId);
-  // 当日〜翌日に新たな通知が発生する場合はその場で予約する（重複は dedupe で防ぐ）
-  await enqueueUpcoming();
+  const result = await applyUpdate(await findMaster(id), input, userId);
+  scheduleUpcoming();
   return result;
 }
 
 async function applyUpdate(
-  id: string,
+  master: EventWithParticipants,
   input: UpdateEventInput,
   userId: string,
 ): Promise<EventMaster> {
-  const master = await findMaster(id);
+  const { id } = master;
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
   const target = resolveTarget(master, input);
   const values = normalizeInput(input);
@@ -128,6 +175,8 @@ export async function uncompleteEvent(
   userId: string,
 ): Promise<void> {
   await setCompletedAt(id, input, null, userId);
+  // 完了していた間は日次 Cron が列挙しないので、当日の通知はここで予約し直さないと届かない
+  scheduleUpcoming();
 }
 
 // ---- 内部 ----
@@ -187,7 +236,7 @@ function resolveTarget(
 
 /**
  * 繰り返しの回を実体化する（無ければ繰り返し元の複製に values を重ねて作り、あれば values だけを当てる）。
- * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する。
+ * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する（`repository.materializeOccurrence`）。
  */
 async function materialize(
   master: EventWithParticipants,
@@ -197,20 +246,19 @@ async function materialize(
   userId: string,
 ): Promise<void> {
   const { id: _id, createdAt: _c, updatedAt: _u, participantIds: _p, ...copy } = master;
-  const { id, inserted } = await repository.upsertOccurrence(
+  await repository.materializeOccurrence(
     {
       ...copy,
       ...shiftTo(master, occurrenceStart),
       rrule: null,
-      seriesId: master.id,
-      occurrenceStart,
       createdBy: userId,
       ...values,
+      seriesId: master.id,
+      occurrenceStart,
     },
     values,
+    participantIds,
   );
-  const ids = participantIds ?? (inserted ? master.participantIds : undefined);
-  if (ids) await repository.setParticipants(id, ids);
 }
 
 /**

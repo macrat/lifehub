@@ -61,7 +61,8 @@ export async function findLatestByCareType(
 
 /**
  * 世話の記録を作る。id は呼び出し元（多くはクライアント）が決めたもの。
- * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）同じ値を書き直すだけにして、二重に作らない。
+ * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かず、今の行を返す（二重に作らない）。
+ * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
  */
 export async function insert(row: {
   id: string;
@@ -70,14 +71,15 @@ export async function insert(row: {
   note: string | null;
   createdBy: string;
 }): Promise<LemonCareLogRow> {
-  const inserted = await db
-    .insert(lemonCareLogs)
-    .values(row)
-    .onConflictDoUpdate({ target: lemonCareLogs.id, set: row })
-    .returning();
-  const log = inserted[0];
+  const inserted = await db.insert(lemonCareLogs).values(row).onConflictDoNothing().returning();
+  const log = inserted[0] ?? (await findById(row.id));
   if (!log) throw new Error('insert returned no row');
   return log;
+}
+
+async function findById(id: string): Promise<LemonCareLogRow | undefined> {
+  const rows = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, id)).limit(1);
+  return rows[0];
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */

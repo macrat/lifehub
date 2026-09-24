@@ -33,7 +33,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
 | 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`） | `Temporal` が Safari/Chrome 安定版で使えるようになった時点で移行を検討。 |
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
-| テスト | Vitest（クライアント: jsdom、サーバー: Node）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
+| テスト | Vitest（クライアント: jsdom、共有（shared）とサーバー: Node。3 つを別のプロジェクトにし、DB を使うのはサーバーだけ）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
 | Lint / Format | Biome | 単一ツールで完結し設定量が少ない。 |
 | IaC | Terraform（`vercel/vercel`, `kislerdm/neon`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon の全設定をコードとして確認・編集できるようにする。 |
 | CI/CD | GitHub Actions。main へのプッシュで Terraform apply → DB マイグレーション → Vercel 本番デプロイ | Vercel の Git 連携（自動デプロイ）は使わない。順序を 1 つのワークフローで保証するため。 |
@@ -58,7 +58,12 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
-- 層の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。サーバーのコードは、`repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できず、他の feature の repository も使えない（その feature の service を通す）。例外を file ごとに足さずに済むよう、禁止はサーバー全体に 1 つの規則で掛け、DB に触ってよい file を除く形にしている。`routes.ts` / `mcp.ts` は加えて自分の feature の repository も使えない。Biome の override は同じ規則の options を足し合わせず後の物で置き換えるので、`routes.ts` / `mcp.ts` 用の規則にはサーバー全体の禁止も書き写してある。
+- 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
+  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。
+  - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
+  - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppType` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
+  - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
+  - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/events` が返す `CalendarItem[]` だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
@@ -72,10 +77,11 @@ src/                          # クライアント（Vite + React）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
+      （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
-    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.ts（閲覧と編集の切り替え・削除）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -86,12 +92,13 @@ server/                       # サーバー（Hono）
     routes.ts                 # Hono ルート（Zod 検証 → service）
     mcp.ts                    # MCP ツール定義
     notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
+  features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
     __tests__/
   lib/
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
     middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の truncate）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts  cron.ts（Vercel Cron の入口）
-    recurrence/（RRULE 展開）  notifications/（service = enqueue・deliver、repository = 送信済み台帳）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
+    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts（QStash の署名検証）  cron.ts（Vercel Cron の入口）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
+    recurrence/（RRULE 展開）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -116,7 +123,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/lib/mcp/server.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
 - **ホーム**: 集約 API は持たない。`src/features/dashboard/cards/*` の各カードが自分の機能のクエリ（`useCalendarItems` / `useBalance` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無く、書き込み後の無効化はその機能のキーだけで済む。カードごとに読み込みとエラーを出せる。
-- **通知**: 通知源は events だけなので registry を置かず、`server/lib/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
+- **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 
 ## 認証・認可
@@ -150,16 +157,16 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - **順序**: すべての書き込みが同じ `scope` を持つので 1 つずつ順に走り、「追加してから直す」が操作した順でサーバーに届く。
 - **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す。
 - **送り直し**: 通信断（`NetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
-- **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成を upsert として扱う。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
+- **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成が既にあれば何も書かずに今の行を返す（送られた値で上書きしない。作った後に編集してから古い作成が再送されると、上書きでは編集が巻き戻るため）。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
 - **未ログインになったら捨てる**: ログアウトしたとき、API が 401 を返したときは、溜めた書き込みを捨てる（`src/lib/auth.ts` の `markSignedOut`）。書き込みは送る時点のセッションで送られるので、残すと次にログインした別のユーザーとして送られてしまう。401 のときに残して同じユーザーの再ログインを待つことはしない: 401 はオンラインでしか起きず、オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗するので、残しても通る見込みが無い。
 - **書いた人のものとしてだけ送る**: 書き込みは送る時点のセッションで送られるので、書き込みごとに書いたときのユーザーを持ち、送る試行のたびに今のユーザーと比べる（`sendAsAuthor`）。違えば送らずに諦める。ログアウトは溜めた書き込みを捨てるが、送り直しを待っている書き込みは TanStack Query では止められず、その間に別のユーザーでログインすると、その人の記録として保存されてしまうため。
-- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。
+- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。溜めない書き込みは溜める書き込みと別の mutationKey（`direct-write`）で送り、溜めた書き込みの順番待ち（scope）にも端末に残す対象にも入れない。同じキーだと、溜めた書き込みがある間はその後ろで待ち、待つ間は保留中として端末に残る（パスワードが IndexedDB に書かれる）うえ、オンラインに戻るまで結果が出ない。
 
 ## UI / UX 方針
 
 - **最上位ルールはシンプリシティ**。Material Design 3 をベースにした、装飾の少ない UI。Google カレンダー／Google ToDo リストを手本にする。
 - Material Design 3 の top app bar は primary 色の帯ではなく surface 色（境界線のみ）なので、AppBar・下部ナビも surface 色にする（`src/lib/theme.ts`）。primary は選択状態・FAB・終日バーなど「今の主役」だけに使う。下部ナビの選択項目は tonal な丸みのあるインジケータ、FAB は角丸 16px、ダイアログは角丸 28px、シートは上端だけ角丸 16px、ボタンは pill 形。影（elevation）は既定で 0。追加ボタン（`AddMenu`）を展開したときは Google カレンダーと同じく、背景をスクリムで暗くし（AppBar・下部ナビも覆う）、アイコンとラベルを収めた pill を右揃えで縦に並べ、FAB 自身は円に変わる。
-- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。記録やユーザーを表す表示は、誰のものかをそのユーザーの色（`useUserColor` の `fill`／`mark` など）で示し、複数人のものはそれぞれの色で塗り分け、誰のものでもないものは彩度 0 の無彩色にする（`src/features/calendar/use-participant-colors.ts`、`src/features/users/use-user-color.ts`）。色の上の文字色は色相によらず 1 つ（`shared/color.ts` の `FILL_TEXT`）。どの画面がどこに使うかは [users.md](features/users.md) が持つ。
+- アクセントカラーはログイン中のユーザーの色（OKLCH の色相だけをユーザーが選び、彩度・明度はアプリが決める。`shared/color.ts`、[users.md](features/users.md)）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相）。設定画面で色を選んでいる最中は、まだ保存していない色相がテーマに入る（`src/lib/theme.ts` の `previewHue`）。secondary は使わず、強調はすべて primary で統一する。記録やユーザーを表す表示は、誰のものかをそのユーザーの色（`useUserColor` の `fill`／`mark` など）で示し、複数人のものはそれぞれの色で塗り分け、誰のものでもないものは彩度 0 の無彩色にする（`src/features/events/use-participant-colors.ts`、`src/features/users/use-user-color.ts`）。色の上の文字色は色相によらず 1 つ（`shared/color.ts` の `FILL_TEXT`）。どの画面がどこに使うかは [users.md](features/users.md) が持つ。
 - ダークモード対応（`prefers-color-scheme` 追従、MUI の CSS 変数テーマで切替時のちらつきを避ける）。
 - レスポンシブ: モバイルファースト。スマホでは下部ナビゲーション（BottomNavigation。ホーム／予定／立替／レモンの 4 つ。設定はホームの末尾から開く）、PC ではサイドナビ（permanent Drawer。設定も含む。アプリ名は出さない）に切り替える。ページ自体は共通。今いる画面のタブをもう一度押したときの行き先は項目ごとに決められる（`NavItem` の `reselectSearch`）。カレンダーでは一段広い表示（日→週、週・リスト→月）へ移る（`src/features/calendar/view.ts` の `widerSearch`）。
 - **画面の表示領域は貴重な資産**として扱う。「ホーム」「カレンダー」のような情報を持たないページタイトルは出さない（現在地はナビが示す）。同じ情報を複数箇所に出さない。主役（カレンダーのグリッド、一覧、カード）が最も広い面積を占めるようにする。
@@ -260,9 +267,9 @@ Preview 環境の挙動:
 
 - TypeScript `strict: true`、`any` 禁止、`noUncheckedIndexedAccess: true`。
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
-- import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `lib/notifications/repository.ts`）へ移す。
+- import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `features/notifications/repository.ts`）へ移す。
 - `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
-- 1 file は 400 行、1 関数は 100 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。file の上限はテスト（`__tests__/`・`e2e/`）にも同じ値を掛ける。関数は中央値が 1 桁、99% が 100 行未満に収まるので、それを超える関数は責務を 2 つ以上抱えているとみなす。超えたら上限を上げずに、状態と操作はフック（`use-*.ts`）へ、表示は小さな部品へ、React に依らない仕組みは素の TS へと、関心ごとに分ける。テストが長くなったら、確かめる関心ごと（対象の関数の群れ、画面の操作の種類）で file を分け、共有する準備と略記は隣の補助 file（例: `e2e/calendar-mobile.ts`、`__tests__/draft-fixtures.ts`）に置く。テスト全体で使う物は 1 か所に置いて書き写さない: 日時を JST で書く略記（`jst` / `iso`）は `shared/__tests__/jst.ts`、サーバーのテストのユーザー（自分 A と相手 B）は `server/lib/test-db.ts` の `createTestUser`。テストでは関数の行数を数えない。`describe`・`test` のコールバックは場合を並べる入れ物で、長さが処理の複雑さを表さないため。
+- 1 file は 400 行、1 関数は 100 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。file の上限はテスト（`__tests__/`・`e2e/`）にも同じ値を掛ける。関数は中央値が 1 桁、99% が 100 行未満に収まるので、それを超える関数は責務を 2 つ以上抱えているとみなす。超えたら上限を上げずに、状態と操作はフック（`use-*.ts`）へ、表示は小さな部品へ、React に依らない仕組みは素の TS へと、関心ごとに分ける。テストが長くなったら、確かめる関心ごと（対象の関数の群れ、画面の操作の種類）で file を分け、共有する準備と略記は隣の補助 file（例: `e2e/calendar-mobile.ts`、`__tests__/draft-fixtures.ts`）に置く。テスト全体で使う物は 1 か所に置いて書き写さない: 日時を JST で書く略記（`jst` / `iso`）は `shared/__tests__/jst.ts`、サーバーのテストのユーザー（自分 A と相手 B）は `server/lib/test-db.ts` の `createTestUser`、ログインして Cookie を得る手順は `server/__tests__/login.ts`（`signIn` / `cookieOf` / `loginAs`）。テストでは関数の行数を数えない。`describe`・`test` のコールバックは場合を並べる入れ物で、長さが処理の複雑さを表さないため。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

@@ -5,8 +5,10 @@ import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { formatDateWithYear, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import type { CalendarItem } from '../../events/queries.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
-import { type CalendarItem, useHolidays, useWeather } from '../queries.ts';
+import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
+import { useHolidays, useWeather } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { useMonthGrid } from '../use-month-grid.ts';
@@ -14,7 +16,6 @@ import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather } from './DayWeather.tsx';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
-import { completedLast, foldLanes, freeLane, layoutLanes } from './lane-layout.ts';
 import { syncScrollProps } from './markers.ts';
 
 type Props = {

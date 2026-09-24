@@ -2,18 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 import { createUser } from '../features/users/service.ts';
 import { truncateAll } from '../lib/test-db.ts';
-
-async function login(email: string, password: string): Promise<string> {
-  const response = await app.request('/api/auth/sign-in/email', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return response.headers
-    .getSetCookie()
-    .map((cookie) => cookie.split(';')[0])
-    .join('; ');
-}
+import { cookieOf, signIn } from './login.ts';
 
 describe('ユーザー更新の認可', () => {
   beforeEach(truncateAll);
@@ -25,7 +14,7 @@ describe('ユーザー更新の認可', () => {
       name: 'Bob',
       password: 'password-bob-123',
     });
-    const cookie = await login('alice@example.com', 'password-alice-1');
+    const cookie = cookieOf(await signIn('alice@example.com', 'password-alice-1'));
 
     const response = await app.request(`/api/users/${bob.id}`, {
       method: 'PATCH',
@@ -34,14 +23,6 @@ describe('ユーザー更新の認可', () => {
     });
 
     expect(response.status).toBe(403);
-    expect(
-      (
-        await app.request('/api/auth/sign-in/email', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ email: 'bob@example.com', password: 'password-bob-123' }),
-        })
-      ).status,
-    ).toBe(200);
+    expect((await signIn('bob@example.com', 'password-bob-123')).status).toBe(200);
   });
 });

@@ -5,9 +5,9 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
-import type { CalendarItem } from '../../calendar/queries.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
+import type { CalendarItem } from '../queries.ts';
 import { describeRRule } from '../recurrence-options.ts';
 
 /** 予定・タスクの詳細の、読むだけの中身（日時・参加者・繰り返し・場所・メモ） */

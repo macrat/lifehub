@@ -5,7 +5,8 @@ import { dateStringSchema } from '../../shared/validation/common.ts';
 import { app } from '../app.ts';
 import { addExpense } from '../features/expenses/service.ts';
 import { updateUser } from '../features/users/service.ts';
-import { createTestUser, truncateAll } from '../lib/test-db.ts';
+import { truncateAll } from '../lib/test-db.ts';
+import { loginAs } from './login.ts';
 
 /**
  * 変わっていない応答を再送しないこと（ETag と条件付き要求）。
@@ -17,13 +18,7 @@ describe('条件付き要求', () => {
 
   beforeEach(async () => {
     await truncateAll();
-    userId = await createTestUser('A');
-    const login = await app.request('/api/auth/sign-in/email', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'a@example.com', password: 'password-123456' }),
-    });
-    cookie = login.headers.get('set-cookie') ?? '';
+    ({ userId, cookie } = await loginAs('A'));
   });
 
   const get = (path: string, etag?: string) =>
