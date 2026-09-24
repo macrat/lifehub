@@ -62,6 +62,13 @@ export function startOfDay(date: Date): Date {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * 実在する暦日の YYYY-MM-DD か。形だけでなく、日付として読み直して同じ文字列に戻ることまで確かめる。
+ * WHY: 日付の組み立て（TZDate / Date）は範囲外の月日を繰り上げるので（2 月 31 日 → 3 月 3 日）、
+ * 読めたかどうかだけでは存在しない日付が通り、DB の date 型で拒否されて 500 になる。
+ */
 export function isDateString(value: string): value is DateString {
-  return DATE_RE.test(value) && !Number.isNaN(startOfDate(value as DateString).getTime());
+  if (!DATE_RE.test(value)) return false;
+  const date = startOfDate(value as DateString);
+  return !Number.isNaN(date.getTime()) && toDateString(date) === value;
 }
