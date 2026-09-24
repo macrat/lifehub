@@ -1,16 +1,11 @@
 import type { WeatherIcon, WeatherSymbol } from '../../../shared/weather.ts';
 
 const one = (symbol: WeatherSymbol): WeatherIcon => ({ symbol });
-const sometimes = (symbol: WeatherSymbol, next: WeatherSymbol): WeatherIcon => ({
-  symbol,
-  change: 'sometimes',
-  next,
-});
-const later = (symbol: WeatherSymbol, next: WeatherSymbol): WeatherIcon => ({
-  symbol,
-  change: 'later',
-  next,
-});
+const changing =
+  (change: 'sometimes' | 'later') =>
+  (symbol: WeatherSymbol, next: WeatherSymbol): WeatherIcon => ({ symbol, change, next });
+const sometimes = changing('sometimes');
+const later = changing('later');
 
 /**
  * 気象庁の天気コード（予報の `weatherCodes`）→ [アイコン, 天気の名前]。

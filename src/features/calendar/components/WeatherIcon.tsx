@@ -1,9 +1,12 @@
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
 import { useId } from 'react';
 import type { WeatherIcon as Icon, WeatherSymbol } from '../../../../shared/weather.ts';
-import { GLYPHS, WIDE_RATIO } from './weather-glyphs.ts';
+import { GLYPHS, WIDE_WIDTH } from './weather-glyphs.ts';
 
-/** 部品を左上 (x, y) から一辺 size の正方形に置く（図形は 960 四方で、y が -960〜0 にある） */
+/**
+ * 部品を左上 (x, y) から一辺 size の正方形に置く（図形の座標系は Material Symbols と同じ 960 四方）。
+ * 入れ子の svg は絵の一部なので読み上げない（天気の名前は外側のアイコンが持つ）。
+ */
 function Glyph({
   symbol,
   x,
@@ -16,10 +19,9 @@ function Glyph({
   size: number;
 }) {
   return (
-    <path
-      transform={`translate(${x} ${y}) scale(${size / 960}) translate(0 960)`}
-      d={GLYPHS[symbol]}
-    />
+    <svg aria-hidden x={x} y={y} width={size} height={size} viewBox="0 -960 960 960">
+      <path d={GLYPHS[symbol]} />
+    </svg>
   );
 }
 
@@ -35,7 +37,7 @@ const CHANGE_MARKS = {
 type Props = Omit<SvgIconProps, 'children'> & {
   icon: Icon;
   /**
-   * 2 つの天気の並べ方。wide は気象庁と同じく左から右へ並べて間に印を置く（幅は高さの WIDE_RATIO 倍）。
+   * 2 つの天気の並べ方。wide は気象庁と同じく左から右へ並べて間に印を置く（幅は高さの `wideRatio` 倍）。
    * square は 1 文字分の正方形に左上と右下へ重ねる（変わり方の印は入らないので、名前に任せる）。
    * 天気が 1 つの日は、どちらでも 1 文字分の正方形に 1 つだけ出す。
    */
@@ -54,7 +56,11 @@ export function WeatherIcon({ icon, layout, sx, ...props }: Props) {
   }
   if (layout === 'wide') {
     return (
-      <SvgIcon {...props} viewBox="0 0 46 24" sx={[{ width: `${WIDE_RATIO}em` }, sx ?? {}].flat()}>
+      <SvgIcon
+        {...props}
+        viewBox={`0 0 ${WIDE_WIDTH} 24`}
+        sx={[{ width: `${WIDE_WIDTH / 24}em` }, sx ?? {}].flat()}
+      >
         <Glyph symbol={icon.symbol} x={0} y={2} size={20} />
         <path
           d={CHANGE_MARKS[icon.change]}

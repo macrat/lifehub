@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import type { ReactNode } from 'react';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
-import { WIDE_RATIO } from './weather-glyphs.ts';
+import { wideRatio } from './weather-glyphs.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
@@ -27,10 +27,9 @@ type Props = {
  * 狭い枠で戻るという逆転になるため）。
  */
 export function DayWeather({ weather, size }: Props) {
-  const wide = Math.ceil(size * WIDE_RATIO);
-  const narrow = `@container (width < ${wide}px)`;
-  const changes = 'change' in weather.icon;
-  const iconSx = { fontSize: size };
+  // 横並びが入らない幅。天気が 1 つの日は正方形の幅で、下の「全部隠す」と同じ条件になる
+  const narrow = `@container (width < ${Math.ceil(size * wideRatio(weather.icon))}px)`;
+  const common = { icon: weather.icon, titleAccess: weather.label };
   return (
     <Box
       sx={{
@@ -55,29 +54,16 @@ export function DayWeather({ weather, size }: Props) {
           [`@container (width < ${size}px)`]: { display: 'none' },
         }}
       >
-        {changes ? (
-          <>
-            <WeatherIcon
-              icon={weather.icon}
-              layout="wide"
-              titleAccess={weather.label}
-              sx={{ ...iconSx, [narrow]: { display: 'none' } }}
-            />
-            <WeatherIcon
-              icon={weather.icon}
-              layout="square"
-              titleAccess={weather.label}
-              sx={{ ...iconSx, display: 'none', [narrow]: { display: 'inline-block' } }}
-            />
-          </>
-        ) : (
-          <WeatherIcon
-            icon={weather.icon}
-            layout="square"
-            titleAccess={weather.label}
-            sx={iconSx}
-          />
-        )}
+        <WeatherIcon
+          {...common}
+          layout="wide"
+          sx={{ fontSize: size, [narrow]: { display: 'none' } }}
+        />
+        <WeatherIcon
+          {...common}
+          layout="square"
+          sx={{ fontSize: size, display: 'none', [narrow]: { display: 'inline-block' } }}
+        />
         {weather.tempMax !== null && (
           <Box
             component="span"
@@ -85,7 +71,7 @@ export function DayWeather({ weather, size }: Props) {
             sx={{
               fontSize: Math.round(size * 0.8),
               lineHeight: `${size}px`,
-              ...(changes && { [narrow]: { display: 'none' } }),
+              [narrow]: { display: 'none' },
             }}
           >
             {weather.tempMax}°
