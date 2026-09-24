@@ -8,7 +8,8 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { CalendarFeedSection } from '../../features/calendar-feeds/components/CalendarFeedSection.tsx';
+import { ApiKeyList } from '../../features/api-keys/components/ApiKeyList.tsx';
+import { CalendarFeedList } from '../../features/calendar-feeds/components/CalendarFeedList.tsx';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { AllDayNotifySection } from '../../features/users/components/AllDayNotifySection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
@@ -24,7 +25,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
- * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、カレンダーの配信 URL、
+ * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL と API キー）、
  * ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
@@ -36,7 +37,11 @@ function SettingsPage() {
       <MyColorSection />
       <PushSection />
       <AllDayNotifySection />
-      <CalendarFeedSection />
+      {/* 外の仕組みに渡す秘密（読むための配信 URL と、書くための API キー）を 1 か所にまとめる */}
+      <SettingsSection title="外部連携">
+        <CalendarFeedList />
+        <ApiKeyList />
+      </SettingsSection>
       <SettingsSection title="アカウント">
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/admin/users">

@@ -13,7 +13,7 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
 }) => {
   await login(page);
   await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'カレンダーの配信' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '外部連携' })).toBeVisible();
 
   const issued = page.waitForResponse(
     (res) => res.request().method() === 'POST' && res.url().endsWith('/api/calendar/feeds'),

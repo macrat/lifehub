@@ -30,6 +30,15 @@ export function QueryView<T>({ query, skeleton, children }: Props<T>) {
   return skeleton;
 }
 
+/** 設定画面の行 1 つ分の骨組み（名前と説明の 2 段）。発行した URL やキーの一覧が届くまで出す */
+export function ListItemSkeleton() {
+  return (
+    <ListItem>
+      <ListItemText primary={<Skeleton width="40%" />} secondary={<Skeleton width="60%" />} />
+    </ListItem>
+  );
+}
+
 /** 一覧が届くまでの骨組み。行数は空白を埋めるためだけのものなので、中身と合っている必要はない */
 export function ListSkeleton({ rows = 6 }: { rows?: number }) {
   return (

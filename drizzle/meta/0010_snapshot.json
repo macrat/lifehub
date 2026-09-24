@@ -1,6 +1,6 @@
 {
-  "id": "25ce0d1f-d150-44b4-9d4d-341c0464c74b",
-  "prevId": "f0b519bf-3b21-455e-8688-3a3970471566",
+  "id": "0fccbdae-bf75-4e85-a913-57e7ee124c33",
+  "prevId": "25ce0d1f-d150-44b4-9d4d-341c0464c74b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1216,6 +1216,31 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.weather_hourly": {
+      "name": "weather_hourly",
+      "schema": "",
+      "columns": {
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "weather": {
+          "name": "weather",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},

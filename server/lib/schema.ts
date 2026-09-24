@@ -3,6 +3,7 @@
  * 新しい feature を追加したら `export * from '../features/<name>/schema.ts'` を足す。
  */
 
+export * from '../features/api-keys/schema.ts';
 export * from '../features/calendar-feeds/schema.ts';
 export * from '../features/events/schema.ts';
 export * from '../features/expenses/schema.ts';

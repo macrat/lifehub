@@ -2,12 +2,14 @@ import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
+import { apiKeysRoutes } from './features/api-keys/routes.ts';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
+import { recordsRoutes } from './features/records/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { toMe } from './features/users/service.ts';
 import { weatherRoutes } from './features/weather/routes.ts';
@@ -38,6 +40,8 @@ api.route('/mcp', mcpRoutes);
 // この下の /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
 // 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
+// 記録投入用エンドポイントは API キーで保護する（デバイスや外部のサービスは Cookie を持てない）
+api.route('/records', recordsRoutes);
 // Vercel Cron の入口。Cron secret で保護する（セッションではない）
 api.route('/cron', cronRoutes);
 // QStash の配信コールバック。QStash の署名で保護する（セッションではない）
@@ -65,6 +69,7 @@ const routes = api
   .route('/users', usersRoutes)
   .route('/events', eventsRoutes)
   .route('/calendar/feeds', calendarFeedsRoutes)
+  .route('/api-keys', apiKeysRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
   .route('/holidays', holidaysRoutes)
