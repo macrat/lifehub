@@ -262,6 +262,7 @@ Preview 環境の挙動:
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
 - import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `lib/notifications/repository.ts`）へ移す。
 - `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
+- 1 file は 350 行、1 関数は 180 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。上限は今いちばん大きい file・関数に少しの余裕を足した値で、これ以上膨らませず分けるための歯止め。超えたら上限を上げずに file や関数を分ける。テスト（`__tests__/`・`e2e/`）は file を 750 行まで許し、関数の行数は数えない。テストは `describe`・`test` のコールバックが場合を並べる入れ物で、長さが処理の複雑さを表さないため。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

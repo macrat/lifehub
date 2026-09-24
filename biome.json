@@ -24,7 +24,13 @@
       },
       "style": {
         "noNonNullAssertion": "error",
-        "useConst": "error"
+        "useConst": "error",
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 350
+          }
+        }
       },
       "correctness": {
         "noUnusedImports": "error",
@@ -34,6 +40,14 @@
       },
       "a11y": {
         "useSemanticElements": "error"
+      },
+      "complexity": {
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "maxLines": 180
+          }
+        }
       }
     }
   },
@@ -180,6 +194,24 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/__tests__/**", "e2e/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": {
+              "level": "error",
+              "options": {
+                "maxLines": 750
+              }
+            }
+          },
+          "complexity": {
+            "noExcessiveLinesPerFunction": "off"
           }
         }
       }
