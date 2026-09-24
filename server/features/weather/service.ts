@@ -190,15 +190,22 @@ export async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRo
 }
 
 /**
- * 手元にある 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
+ * `date` と前後 1 日の 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
  * 過ぎた日は取っておいたすべて（その区間の最後の予報）、先の日は予報のある明日の終わりまで。
+ * 前後 1 日も返すのは、日表示で隣の日へスワイプしたとき、その日の分がもう手元にあるようにするため
+ * （クライアントは受け取った 3 日分をそれぞれの日の分として持つ。`queries.ts` の `useHourlyWeather`）。
  * 続けてまとめるのは、間の空かない同じ日の同じ天気だけ（日をまたぐと分ける。`HourlyWeather`）。
- * まだ 1 つも無ければ（デプロイ直後など）その場で取ってから返す。
+ * 範囲に無く、テーブルにもまだ 1 つも無ければ（デプロイ直後など）その場で取ってから返す。
  * 表に無い天気の区間は、アイコンを決められないので返さない（前後の区間とはつなげない）。
  */
-export async function listHourlyWeather(): Promise<HourlyWeather[]> {
-  const stored = await repository.findAllHourly();
-  const rows = stored.length > 0 ? stored : await refreshHourlyWeather();
+export async function listHourlyWeather(date: DateString): Promise<HourlyWeather[]> {
+  const from = startOfDate(addDays(date, -1));
+  const to = startOfDate(addDays(date, 2));
+  const stored = await repository.findHourlyBetween(from, to);
+  const rows =
+    stored.length > 0 || (await repository.hasHourly())
+      ? stored
+      : (await refreshHourlyWeather()).filter((r) => r.startsAt >= from && r.startsAt < to);
   const spans: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows) {
     const symbol = HOURLY_SYMBOLS[weather];

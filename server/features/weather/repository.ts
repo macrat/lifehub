@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { DateString } from '../../../shared/types.ts';
 import { db } from '../../lib/db.ts';
 import { weather, weatherHourly } from './schema.ts';
@@ -41,9 +41,18 @@ export async function updateTempMax(
   return row;
 }
 
-/** 3 時間ごとの天気（時刻順） */
-export async function findAllHourly(): Promise<HourlyWeatherRow[]> {
-  return db.select().from(weatherHourly).orderBy(asc(weatherHourly.startsAt));
+/** `from` 以降 `to` より前に始まる 3 時間ごとの天気（時刻順） */
+export async function findHourlyBetween(from: Date, to: Date): Promise<HourlyWeatherRow[]> {
+  return db
+    .select()
+    .from(weatherHourly)
+    .where(and(gte(weatherHourly.startsAt, from), lt(weatherHourly.startsAt, to)))
+    .orderBy(asc(weatherHourly.startsAt));
+}
+
+/** 3 時間ごとの天気を 1 行でも持っているか */
+export async function hasHourly(): Promise<boolean> {
+  return (await db.$count(weatherHourly)) > 0;
 }
 
 /** 時間帯ごとに上書きする。渡さなかった時間帯（予報から外れた、過ぎた時間帯）は残す */

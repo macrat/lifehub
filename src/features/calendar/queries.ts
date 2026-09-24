@@ -1,5 +1,6 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { CalendarItem } from '../../../shared/calendar.ts';
+import { addDays } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
@@ -62,15 +63,29 @@ export function useWeather(): ReadonlyMap<DateString, DailyWeather> {
   return useQuery({ ...weatherQueryOptions, select: toMap }).data ?? NO_WEATHER;
 }
 
-const hourlyWeatherQueryOptions = queryOptions({
-  queryKey: ['weather', 'hourly'],
-  queryFn: async (): Promise<HourlyWeather[]> => {
-    const res = await ensureOk(await api.weather.hourly.$get());
-    return res.json();
-  },
-  // 日ごとの天気と同じ理由（サーバーの取り直しが 1 日 3 回で、日表示はスワイプのたびにマウントし直す）
-  staleTime: ONE_HOUR,
-});
+const hourlyWeatherKey = (date: DateString) => ['weather', 'hourly', date] as const;
+
+/**
+ * その日の 3 時間ごとの天気。サーバーは前後 1 日の分も一緒に返すので、それを前後の日の分として置いておく。
+ * WHY: 日表示で隣の日へスワイプしたとき、新しく端に来る面（2 日先）の分がもう手元にあり、問い合わせを待たずに出せる。
+ * 隣の日の分は、先に置いてあっても新しく受け取った分で置き直す（どちらも同じ所から取った値で、新しいほうが新しい予報）。
+ */
+function hourlyWeatherQueryOptions(date: DateString) {
+  return queryOptions({
+    queryKey: hourlyWeatherKey(date),
+    queryFn: async ({ client }): Promise<HourlyWeather[]> => {
+      const res = await ensureOk(await api.weather.hourly.$get({ query: { date } }));
+      const spans = await res.json();
+      const on = (day: DateString) => spans.filter((w) => w.date === day);
+      for (const day of [addDays(date, -1), addDays(date, 1)]) {
+        client.setQueryData(hourlyWeatherKey(day), on(day));
+      }
+      return on(date);
+    },
+    // 日ごとの天気と同じ理由（サーバーの取り直しが 1 日 3 回で、日表示はスワイプのたびにマウントし直す）
+    staleTime: ONE_HOUR,
+  });
+}
 
 const NO_HOURLY: readonly HourlyWeather[] = [];
 
@@ -79,10 +94,5 @@ const NO_HOURLY: readonly HourlyWeather[] = [];
  * まだ届いていないか取れなかったとき、予報の無い日（取り始める前の日・明後日から）は空（何も出さない）。
  */
 export function useHourlyWeather(date: DateString): readonly HourlyWeather[] {
-  return (
-    useQuery({
-      ...hourlyWeatherQueryOptions,
-      select: (list) => list.filter((w) => w.date === date),
-    }).data ?? NO_HOURLY
-  );
+  return useQuery(hourlyWeatherQueryOptions(date)).data ?? NO_HOURLY;
 }
