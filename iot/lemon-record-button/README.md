@@ -4,8 +4,10 @@ M5Stack AtomS3R の画面（ボタン）を押すだけで、LifeHub にレモ�
 
 | 操作 | 記録 | 画面 |
 |---|---|---|
-| 1 回押す | 葉水（`["mist"]`） | 葉（緑） |
-| 2 回押す（0.4 秒以内） | 葉水＋水やり（`["mist", "water"]`） | 水滴（青） |
+| 1 回押す | 葉水（`["mist"]`） | 葉 |
+| 2 回押す（0.4 秒以内） | 葉水＋水やり（`["mist", "water"]`） | しずく |
+
+画面のアイコンはアプリのレモンの画面と同じもの（`src/features/lemon/care-type-icons.tsx`）を、黒地に白で出す。`icons.h` は `pnpm icons:generate` がアプリのアイコンから生成するので、アプリのアイコンを変えたら生成し直す。
 
 押すと Wi-Fi に繋いで記録投入用エンドポイント（`POST /api/records`。[docs/features/api-keys.md](../../docs/features/api-keys.md)）に送り、すぐに眠りに戻る。画面は送っている間だけ点く。送れなかったときはアイコンが灰色になって赤い × が 3 秒出る（記録されていないので、アプリから入れ直す）。
 
@@ -71,6 +73,7 @@ LifeHub の証明書（Vercel が Let's Encrypt で発行する）をルート�
 |---|---|
 | `lemon-record-button.ino` | ボタンの読み取り（1 回・2 回の判定）とライトスリープ |
 | `screen.cpp` / `screen.h` | 液晶とバックライトの電源、アイコンの描画 |
+| `icons.h` | 画面に出すアイコン（`pnpm icons:generate` が生成する） |
 | `record.cpp` / `record.h` | Wi-Fi の接続と、記録投入用エンドポイントへの送信 |
 | `root_ca.h` | HTTPS の検証に使うルート証明書 |
 | `config.example.h` | 設定のひな形（`config.h` に写して使う） |

@@ -2,7 +2,16 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2024"],
+    "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["server", "shared", "api", "scripts", "drizzle.config.ts", "vitest.config.ts"]
+  "include": [
+    "server",
+    "shared",
+    "api",
+    "scripts",
+    "drizzle.config.ts",
+    "src/features/lemon/care-type-icons.tsx",
+    "vitest.config.ts"
+  ]
 }
