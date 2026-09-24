@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { truncateAll } from '../../../lib/test-db.ts';
-import { listWeather, parseForecast, refreshWeather } from '../service.ts';
+import { listWeather, parseForecast, recordObservedTempMax, refreshWeather } from '../service.ts';
 
 const SHORT_DAYS = [
   '2026-09-23T17:00:00+09:00',
@@ -54,6 +54,14 @@ const offline = () =>
   vi.stubGlobal('fetch', async () => {
     throw new Error('offline');
   });
+
+/** アメダスの観測値と同じ形。0:00 には前日の最高気温が、0:10 からは今日の最高気温が載る */
+function amedas(maxAtMidnight: number | null, day = '20260924') {
+  return {
+    [`${day}000000`]: { temp: [19.2, 0], maxTemp: [maxAtMidnight, 0] },
+    [`${day}001000`]: { temp: [19.3, 0], maxTemp: [19.3, 0] },
+  };
+}
 
 describe('weather service', () => {
   beforeEach(truncateAll);
@@ -110,5 +118,43 @@ describe('weather service', () => {
   it('表に無い天気コードの日は返さない', async () => {
     serve(forecast(['999', '100', '100'], ['100', '100', '100']));
     expect((await listWeather()).map((w) => w.date)).not.toContain('2026-09-23');
+  });
+
+  it('昨日の最高気温をアメダスの 0:00 の観測値で上書きする（整数に丸める）', async () => {
+    serve(forecast(['302', '202', '200'], ['202', '200', '101']));
+    await refreshWeather();
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      urls.push(url);
+      return Response.json(amedas(24.6));
+    });
+    // 2026-09-24 6:00 JST
+    await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'));
+    expect(urls).toEqual(['https://www.jma.go.jp/bosai/amedas/data/point/44132/20260924_00.json']);
+    expect((await listWeather()).map((w) => [w.date, w.tempMax])).toEqual([
+      ['2026-09-23', 25],
+      ['2026-09-24', 29],
+      ['2026-09-25', 26],
+      ['2026-09-26', 23],
+    ]);
+  });
+
+  it('昨日の行が無ければ何も書かない', async () => {
+    serve(amedas(24.6));
+    expect(await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'))).toBeUndefined();
+    offline();
+    await expect(listWeather()).rejects.toThrow('offline');
+  });
+
+  it('欠測なら何も書かずに投げ、予報の値を残す', async () => {
+    serve(forecast(['302', '202', '200'], ['202', '200', '101']));
+    await refreshWeather();
+    serve(forecast(['302', '202', '200'], ['202', '200', '101'], '31'));
+    await refreshWeather();
+    serve(amedas(null, '20260925'));
+    await expect(recordObservedTempMax(new Date('2026-09-24T21:00:00Z'))).rejects.toThrow(
+      'maxTemp',
+    );
+    expect((await listWeather()).find((w) => w.date === '2026-09-24')?.tempMax).toBe(31);
   });
 });
