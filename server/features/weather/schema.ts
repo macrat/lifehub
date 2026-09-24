@@ -1,4 +1,4 @@
-import { date, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { date, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import type { DateString } from '../../../shared/types.ts';
 
 /**
@@ -17,4 +17,18 @@ export const weather = pgTable('weather', {
   date: date('date').$type<DateString>().primaryKey(),
   code: text('code').notNull(),
   tempMax: integer('temp_max'),
+});
+
+/**
+ * 3 時間ごとの天気（東京地方）。カレンダーの日表示の時刻の左に、天気の変わり目を出すためだけに持つ。
+ *
+ * 気象庁の天気分布予報（`service.ts` の `HOURLY_URL`）を写したもので、取り直すたびに予報のある時間帯の行を上書きし、
+ * 今日（JST）より前の行は消す。今日の過ぎた時間帯は、前に取った予報のまま残る（予報は先の時間帯しか配られない）。
+ * WHY NOT 日ごとの天気と同じく過去の日も残す: 見返すのは今日・明日の予定を決めるときだけで、
+ * 過ぎた日の 3 時間ごとの予報を残しても使われず、行だけが増え続ける。
+ * 天気は気象庁の天気の名前（「晴れ」「くもり」など）のまま持ち、アイコンの種類は読むときに `telops.ts` で引く。
+ */
+export const weatherHourly = pgTable('weather_hourly', {
+  startsAt: timestamp('starts_at', { withTimezone: true }).primaryKey(),
+  weather: text('weather').notNull(),
 });

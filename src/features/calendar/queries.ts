@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { DailyWeather } from '../../../shared/weather.ts';
+import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { ONE_DAY, ONE_HOUR } from '../../lib/query-client.ts';
 
@@ -60,4 +60,29 @@ function toMap(list: DailyWeather[]): ReadonlyMap<DateString, DailyWeather> {
 /** 日ごとの天気。まだ届いていないか取れなかったときは空（どの日にもアイコンを出さない） */
 export function useWeather(): ReadonlyMap<DateString, DailyWeather> {
   return useQuery({ ...weatherQueryOptions, select: toMap }).data ?? NO_WEATHER;
+}
+
+const hourlyWeatherQueryOptions = queryOptions({
+  queryKey: ['weather', 'hourly'],
+  queryFn: async (): Promise<HourlyWeather[]> => {
+    const res = await ensureOk(await api.weather.hourly.$get());
+    return res.json();
+  },
+  // 日ごとの天気と同じ理由（サーバーの取り直しが 1 日 3 回で、日表示はスワイプのたびにマウントし直す）
+  staleTime: ONE_HOUR,
+});
+
+const NO_HOURLY: readonly HourlyWeather[] = [];
+
+/**
+ * その日の 3 時間ごとの天気（同じ天気が続く区間。時刻順）。
+ * まだ届いていないか取れなかったとき、予報の無い日（昨日まで・明後日から）は空（何も出さない）。
+ */
+export function useHourlyWeather(date: DateString): readonly HourlyWeather[] {
+  return (
+    useQuery({
+      ...hourlyWeatherQueryOptions,
+      select: (list) => list.filter((w) => w.date === date),
+    }).data ?? NO_HOURLY
+  );
 }

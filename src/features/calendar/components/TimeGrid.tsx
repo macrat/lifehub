@@ -24,6 +24,7 @@ import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
+import { HourlyWeather } from './HourlyWeather.tsx';
 import { syncScrollProps } from './markers.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
@@ -39,6 +40,8 @@ type Props = {
   /** つまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
   gutterWidth: number;
+  /** 時刻の左に 3 時間ごとの天気を出す日（日表示のとき）。出さないときは null */
+  hourlyWeatherDate: DateString | null;
   onSelectItem: (item: CalendarItem) => void;
   /**
    * 追加・編集しようとしている予定の枠（時間指定のものだけここに出す）。
@@ -73,6 +76,7 @@ export function TimeGrid({
   hourHeight,
   onZoom,
   gutterWidth,
+  hourlyWeatherDate,
   onSelectItem,
   draft,
   onChangeDraft,
@@ -136,6 +140,7 @@ export function TimeGrid({
               {h}:00
             </Typography>
           ))}
+          {hourlyWeatherDate && <HourlyWeather date={hourlyWeatherDate} />}
         </Box>
         {days.map((day, i) => (
           <Box

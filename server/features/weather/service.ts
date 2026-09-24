@@ -1,11 +1,11 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { addDays, toDateString, today } from '../../../shared/date.ts';
+import { addDays, startOfDate, startOfDay, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { DailyWeather } from '../../../shared/weather.ts';
+import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import * as repository from './repository.ts';
-import { TELOPS } from './telops.ts';
+import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
 
 /**
  * 気象庁の天気予報（東京都）。気象庁のサイトが自分の予報ページのために配っている JSON で、
@@ -143,4 +143,75 @@ export async function recordObservedTempMax(
   const max = amedasSchema.parse(await res.json())[`${day}000000`]?.maxTemp?.[0];
   if (max == null) throw new Error(`weather: ${url} has no maxTemp at 00:00`);
   return repository.updateTempMax(addDays(today(now), -1), Math.round(max));
+}
+
+/**
+ * 気象庁の天気分布予報（東京地方）。気象庁のサイトが予報ページの「時系列予報」のために配っている JSON で、
+ * 日ごとの予報と同じく公式の API ではないがキー不要で読める。日ごとの予報と同じ時刻（5・11・17 時）に更新される。
+ * 発表の次の 3 時間から明日の終わりまでの、3 時間ごとの天気と風（予報区ごと）と気温（地点ごと）が載る。
+ * WHY NOT 1 時間ごとの天気: 気象庁が配る予報で一番細かいのが 3 時間ごと。1 時間ごとは数値予報モデル（GPV）の
+ * 生の計算結果にしか無く、予報官の手の入った気象庁の予報と食い違う。
+ */
+const HOURLY_URL = `https://www.jma.go.jp/bosai/jmatile/data/wdist/VPFD/${AREA_CODE}.json`;
+
+/** 区間の長さ（分）。`hourlySchema` が 3 時間の区間しか通さないので、これで足りる */
+const SLOT_MINUTES = 180;
+
+/**
+ * 天気分布予報のうち読むところだけ（予報区の天気）。区間が 3 時間でなくなったら（形が変わったら）読まずに投げ、
+ * 手元の天気を前回のまま残す。
+ */
+const hourlySchema = z.object({
+  areaTimeSeries: z.object({
+    timeDefines: z.array(z.object({ dateTime: z.string(), duration: z.literal('PT3H') })),
+    weather: z.array(z.string()),
+  }),
+});
+
+/** 天気分布予報の JSON から、区間ごとの天気を取り出す（時刻順） */
+function parseHourlyForecast(json: unknown): repository.HourlyWeatherRow[] {
+  const { timeDefines, weather } = hourlySchema.parse(json).areaTimeSeries;
+  return timeDefines.flatMap(({ dateTime }, i) => {
+    const w = weather[i];
+    return w ? [{ startsAt: new Date(dateTime), weather: w }] : [];
+  });
+}
+
+/**
+ * 気象庁から 3 時間ごとの天気を取り直して上書きし、昨日までの行を消す（1 日 3 回の Cron）。上書きした行を返す。
+ * 取得や解析に失敗したら何も書かずに投げる（手元の天気は前回のまま残る）。
+ */
+export async function refreshHourlyWeather(
+  now: Date = new Date(),
+): Promise<repository.HourlyWeatherRow[]> {
+  const res = await fetch(HOURLY_URL);
+  if (!res.ok) throw new Error(`weather: ${HOURLY_URL} returned ${res.status}`);
+  const rows = parseHourlyForecast(await res.json());
+  await repository.upsertHourly(rows, startOfDay(now));
+  return rows;
+}
+
+/**
+ * 今日（JST）から先の 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
+ * 続けてまとめるのは、間の空かない同じ日の同じ天気だけ（日をまたぐと分ける。`HourlyWeather`）。
+ * まだ 1 つも無ければ（デプロイ直後など）その場で取ってから返す。
+ * 表に無い天気の区間は、アイコンを決められないので返さない（前後の区間とはつなげない）。
+ */
+export async function listHourlyWeather(now: Date = new Date()): Promise<HourlyWeather[]> {
+  const stored = await repository.findHourlyFrom(startOfDay(now));
+  const rows = stored.length > 0 ? stored : await refreshHourlyWeather(now);
+  const spans: HourlyWeather[] = [];
+  for (const { startsAt, weather } of rows) {
+    const symbol = HOURLY_SYMBOLS[weather];
+    if (!symbol) continue;
+    const date = toDateString(startsAt);
+    const startMin = (startsAt.getTime() - startOfDate(date).getTime()) / 60_000;
+    const last = spans.at(-1);
+    if (last?.date === date && last.label === weather && last.endMin === startMin) {
+      last.endMin += SLOT_MINUTES;
+    } else {
+      spans.push({ date, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
+    }
+  }
+  return spans;
 }
