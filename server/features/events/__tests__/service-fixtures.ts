@@ -11,18 +11,14 @@ export const iso = (s: string) => jst(s).toISOString();
 export const now = jst('2026-09-14T12:00:00');
 export const september = dateRangeQuerySchema.parse({ from: '2026-09-01', to: '2026-09-30' });
 
-/**
- * 自分と相手のユーザーの ID。`resetUsers` が作り直すたびに書き換わる。
- * ES Modules の export は読み出す側から見ても生きた束縛なので、import した側は常に今の ID を読む。
- */
-export let userId: string;
-export let partnerId: string;
-
-/** DB を空にして、自分と相手のユーザーを作り直す。各テストの前に呼ぶ（`beforeEach(resetUsers)`） */
+/** DB を空にして、自分と相手のユーザーを作り直し、その ID を返す。各テストの前に呼ぶ */
 export async function resetUsers() {
   await truncateAll();
-  userId = (await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' }))
-    .id;
-  partnerId = (await createUser({ email: 'b@example.com', name: 'B', password: 'password-123456' }))
-    .id;
+  const user = await createUser({ email: 'a@example.com', name: 'A', password: 'password-123456' });
+  const partner = await createUser({
+    email: 'b@example.com',
+    name: 'B',
+    password: 'password-123456',
+  });
+  return { userId: user.id, partnerId: partner.id };
 }

@@ -30,35 +30,38 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
     },
   });
   const { editScope } = recurrence;
-  // 「すべて」の編集は繰り返し元（先頭の回の日時）から始めるので取り直す
-  const master = useQuery({
-    ...eventQueryOptions(item.id),
-    enabled: editScope === 'all' && item.isRecurring,
-  });
+  // この回だけ／これ以降は開いている回の値から、すべては繰り返し元（先頭の回の日時）の値から始める
+  const fromMaster = editScope === 'all' && item.isRecurring;
+  const master = useQuery({ ...eventQueryOptions(item.id), enabled: fromMaster });
+  const scope = editScope ?? 'all';
 
   const completed = isCompletedTask(item);
-  // この回だけ／これ以降は開いている回の値から、すべては繰り返し元の値から始める
-  const values: ItemFormValues | null =
-    editScope === 'all' && item.isRecurring ? (master.data ?? null) : item;
-
-  const initial = values ?? item;
+  const initial: ItemFormValues = (fromMaster ? master.data : undefined) ?? item;
   const [allDay, setAllDay] = useAllDay(initial);
   const form = useItemForm({
     kind: item.kind,
     initial,
     allDay,
-    scope: editScope ?? 'all',
-    onSubmit: (input) =>
-      updateEvent.mutateAsync({ ...input, ...writeTarget(item, editScope ?? 'all') }),
+    scope,
+    onSubmit: (input) => updateEvent.mutateAsync({ ...input, ...writeTarget(item, scope) }),
     onSaved: onClose,
   });
+  // 編集で開いているか。繰り返し元を読んでいる間はまだ入力欄に変えない（違う日時のまま出さない）
+  const editing = editScope !== null && (!fromMaster || master.data !== undefined);
 
   return {
-    recurrence,
-    /** 入力欄の初期値。繰り返し元を読んでいる間は null で、まだ入力欄に変えない（違う日時のまま出さない） */
-    values: editScope === null ? null : values,
-    allDay,
-    setAllDay,
+    /** 入力欄に渡すもの。閲覧中は null */
+    fields: editing
+      ? { initial, errors: form.errors, allDay, onChangeAllDay: setAllDay, thisOnly: form.thisOnly }
+      : null,
+    /** 繰り返しのどの範囲を直しているか（範囲の印を出す）。繰り返しでない・閲覧中は null */
+    editScope: editing && item.isRecurring ? editScope : null,
+    /** 範囲の選択を待っている操作（繰り返しのときだけ）。無ければ null */
+    pendingScope: recurrence.pending,
+    selectScope: recurrence.selectScope,
+    cancelScope: recurrence.cancel,
+    startEdit: () => recurrence.start('edit'),
+    startDelete: () => recurrence.start('delete'),
     form,
     completed,
     toggleCompletion: () => {

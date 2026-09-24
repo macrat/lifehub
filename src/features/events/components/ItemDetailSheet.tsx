@@ -23,7 +23,7 @@ type Props = {
  */
 export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props) {
   const detail = useItemDetail(item, initialEditing, onClose);
-  const { recurrence, values, form, completed } = detail;
+  const { form, completed, fields } = detail;
 
   const actions: RecordAction[] = [
     ...(item.kind === 'task'
@@ -35,21 +35,8 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
           },
         ]
       : []),
-    {
-      label: '削除',
-      icon: <DeleteIcon />,
-      danger: true,
-      onClick: () => recurrence.start('delete'),
-    },
+    { label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.startDelete },
   ];
-
-  const fields = values && {
-    initial: values,
-    errors: form.errors,
-    allDay: detail.allDay,
-    onChangeAllDay: detail.setAllDay,
-    thisOnly: form.thisOnly,
-  };
 
   return (
     <>
@@ -59,14 +46,14 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
         open={!form.submitted}
         onClose={onClose}
         editing={fields !== null}
-        onEdit={() => recurrence.start('edit')}
+        onEdit={detail.startEdit}
         actions={actions}
         onSubmit={form.handleSubmit}
         error={form.submitError}
       >
         {fields ? (
           <>
-            {item.isRecurring && recurrence.editScope && <ScopeChip scope={recurrence.editScope} />}
+            {detail.editScope && <ScopeChip scope={detail.editScope} />}
             {item.kind === 'task' ? (
               <TaskFormFields {...fields} autoFocus={false} />
             ) : (
@@ -78,11 +65,11 @@ export function ItemDetailSheet({ item, initialEditing = false, onClose }: Props
         )}
       </RecordSheet>
 
-      {recurrence.pending && (
+      {detail.pendingScope && (
         <RecurrenceScopeDialog
-          action={recurrence.pending}
-          onSelect={recurrence.selectScope}
-          onClose={recurrence.cancel}
+          action={detail.pendingScope}
+          onSelect={detail.selectScope}
+          onClose={detail.cancelScope}
         />
       )}
     </>

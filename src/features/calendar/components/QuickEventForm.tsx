@@ -8,8 +8,8 @@ import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { type ReactNode, useRef } from 'react';
-import { BottomSheet } from '../../../lib/ui/BottomSheet.tsx';
+import { type FormEventHandler, type ReactNode, type RefObject, useRef, useState } from 'react';
+import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
@@ -66,7 +66,7 @@ export function QuickEventForm({ onChangeParticipants, onChangeInset, ...props }
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
   useDialogHistory(props.onClose);
-  const quick = useQuickEventForm({ ...props, isMobile });
+  const quick = useQuickEventForm(props);
   const common = { draft: props.draft, quick, onChangeParticipants, onClose: props.onClose };
   return isMobile ? (
     <QuickSheet {...common} onChangeInset={onChangeInset} />
@@ -85,6 +85,7 @@ type LayoutProps = {
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
+ * 段はこのシートだけのもので、開く段は下書きが決める（グリッドからは下の段、追加ボタンからは上の段）。
  */
 function QuickSheet({
   draft,
@@ -94,28 +95,40 @@ function QuickSheet({
   onChangeInset,
 }: LayoutProps & { onChangeInset: (inset: number) => void }) {
   const peekRef = useRef<HTMLDivElement>(null);
+  const [detent, setDetent] = useState<SheetDetent>(draft.detent);
   const { form, initial } = quick;
+  /** 段の移動。下の段に戻るときは、上の段で直した日時を下書き（見出しとグリッドの枠）へ映す */
+  const changeDetent = (next: SheetDetent) => {
+    if (next === 'peek') quick.syncDraft();
+    setDetent(next);
+  };
   return (
     <BottomSheet
       open={!form.submitted}
-      detent={quick.detent}
-      onChangeDetent={quick.changeDetent}
+      detent={detent}
+      onChangeDetent={changeDetent}
       onClose={onClose}
       peekRef={peekRef}
       onChangeInset={onChangeInset}
     >
-      <QuickFormBox quick={quick} sx={{ flexGrow: 1, minHeight: 0 }}>
-        <Stack data-sheet-peek ref={peekRef}>
+      <QuickFormBox
+        formRef={quick.formRef}
+        onSubmit={form.handleSubmit}
+        sx={{ flexGrow: 1, minHeight: 0 }}
+      >
+        <Stack ref={peekRef}>
           <SheetHeader onClose={onClose}>
             <SubmitButton />
           </SheetHeader>
           <QuickFields
-            draft={draft}
-            quick={quick}
+            form={form}
+            title={initial.title}
+            rangeText={detent === 'peek' ? draftText(draft.range) : null}
+            participantIds={draft.participantIds}
             onChangeParticipants={onChangeParticipants}
             autoFocus={false}
           >
-            <Button onClick={() => quick.changeDetent('full')}>その他のオプション</Button>
+            <Button onClick={() => changeDetent('full')}>その他のオプション</Button>
           </QuickFields>
         </Stack>
         {/* 上の段でだけ見える残りの項目。ここは自分でスクロールする（はみ出していればそちらが優先される） */}
@@ -153,27 +166,30 @@ function QuickSheet({
 /**
  * PC: 選んだ範囲に寄せた吹き出し。外側をクリックすると Google カレンダーと同じく下書きを捨てる。
  * 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる。
- * 保存は Google カレンダーと同じ右下。
+ * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProps) {
+  const { form } = quick;
   return (
     <Popover
-      open={draft.settled && !quick.form.submitted}
+      open={draft.settled && !form.submitted}
       onClose={onClose}
       anchorEl={() => document.querySelector(DRAFT_SELECTOR) ?? document.body}
       anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
       transformOrigin={{ vertical: 'center', horizontal: 'left' }}
       slotProps={{ paper: { sx: { width: 340 } } }}
     >
-      <QuickFormBox quick={quick} sx={{ pt: 1 }}>
+      <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
         <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
           <IconButton aria-label="閉じる" onClick={onClose}>
             <CloseIcon />
           </IconButton>
         </Stack>
         <QuickFields
-          draft={draft}
-          quick={quick}
+          form={form}
+          title={quick.initial.title}
+          rangeText={draftText(draft.range)}
+          participantIds={draft.participantIds}
           onChangeParticipants={onChangeParticipants}
           autoFocus
         >
@@ -187,45 +203,46 @@ function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProp
 
 /** 入力全体を包む form。保存の送信と、入力欄の値を読み出す先（`formRef`）になる */
 function QuickFormBox({
-  quick,
+  formRef,
+  onSubmit,
   sx,
   children,
 }: {
-  quick: Quick;
+  formRef: RefObject<HTMLFormElement | null>;
+  onSubmit: FormEventHandler<HTMLFormElement>;
   sx: SxProps<Theme>;
   children: ReactNode;
 }) {
   return (
-    <Stack
-      component="form"
-      ref={quick.formRef}
-      onSubmit={quick.form.handleSubmit}
-      noValidate
-      sx={sx}
-    >
+    <Stack component="form" ref={formRef} onSubmit={onSubmit} noValidate sx={sx}>
       {children}
     </Stack>
   );
 }
 
 /**
- * 下の段（PC は吹き出しの全体）の中身: タイトル・日時の見出し・参加者。
- * 日時は下の段では見出しだけで、上の段には入力欄そのものが出る。
- * `children` は下の段の最後の行に並べる操作（「その他のオプション」など）
+ * 下の段（PC は吹き出しの全体）の中身: タイトル・日時の見出し・参加者と、最後の行の操作（`children`）。
+ * 日時は下の段では見出しだけで、上の段には入力欄そのものが出る。見出しと操作は下の段でだけ出す
+ * （`rangeText` が null なら上の段）。
  */
 function QuickFields({
-  draft,
-  quick,
+  form,
+  title,
+  rangeText,
+  participantIds,
   onChangeParticipants,
   autoFocus,
   children,
-}: Omit<LayoutProps, 'onClose'> & {
+}: {
+  form: Pick<Quick['form'], 'errors' | 'submitError' | 'thisOnly'>;
+  title: string;
+  rangeText: string | null;
+  participantIds: string[];
+  onChangeParticipants: (participantIds: string[]) => void;
   /** 開いたらタイトルに焦点を置くか。スマホでは開いた途端にキーボードでグリッドを隠さない */
   autoFocus: boolean;
   children: ReactNode;
 }) {
-  const { form, initial } = quick;
-  const peek = quick.detent === 'peek';
   return (
     <Stack spacing={1.5} sx={{ px: 2, pt: 1, pb: 1.5 }}>
       {form.submitError && <Alert severity="error">{form.submitError}</Alert>}
@@ -233,24 +250,24 @@ function QuickFields({
       <TextField
         name="title"
         label="タイトルを追加"
-        defaultValue={initial.title}
+        defaultValue={title}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
         autoFocus={autoFocus}
         fullWidth
       />
-      {peek && (
+      {rangeText !== null && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {draftText(draft.range)}
+          {rangeText}
         </Typography>
       )}
       <ParticipantsField
         name="participantIds"
-        value={draft.participantIds}
+        value={participantIds}
         onChange={onChangeParticipants}
         error={form.errors.participantIds}
       />
-      {peek && (
+      {rangeText !== null && (
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
           {children}
         </Stack>

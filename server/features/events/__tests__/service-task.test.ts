@@ -10,7 +10,9 @@ import {
   uncompleteEvent,
   updateEvent,
 } from '../service.ts';
-import { iso, jst, now, resetUsers, september, userId } from './service-fixtures.ts';
+import { iso, jst, now, resetUsers, september } from './service-fixtures.ts';
+
+let userId: string;
 
 const weeklyTask = () =>
   createEventSchema.parse({
@@ -22,7 +24,9 @@ const weeklyTask = () =>
   });
 
 describe('events service', () => {
-  beforeEach(resetUsers);
+  beforeEach(async () => {
+    ({ userId } = await resetUsers());
+  });
 
   describe('タスク', () => {
     const task = (input: Record<string, unknown>) =>

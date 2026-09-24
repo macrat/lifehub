@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
+import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
 import { useHolidays, useWeather } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -17,6 +18,8 @@ type Props = {
 
 /** 週・日のタイムラインの、日付の見出しの行（曜日・日付・天気） */
 export function TimelineHeader({ days, columns, onSelectDate }: Props) {
+  const holidays = useHolidays();
+  const weather = useWeather();
   const single = days.length === 1;
   return (
     <Box
@@ -45,7 +48,12 @@ export function TimelineHeader({ days, columns, onSelectDate }: Props) {
             borderColor: 'divider',
           }}
         >
-          <DayHeading day={day} single={single} />
+          <DayHeading
+            day={day}
+            single={single}
+            holiday={holidays.has(day)}
+            weather={weather.get(day)}
+          />
         </ButtonBase>
       ))}
     </Box>
@@ -56,11 +64,19 @@ export function TimelineHeader({ days, columns, onSelectDate }: Props) {
  * 1 日分の見出しの中身。天気は見出しの右端に出す。
  * 日表示（single）は数字を左に寄せ、週表示は数字を列の中央に置く
  */
-function DayHeading({ day, single }: { day: DateString; single: boolean }) {
-  const holidays = useHolidays();
-  const weather = useWeather().get(day);
+function DayHeading({
+  day,
+  single,
+  holiday,
+  weather,
+}: {
+  day: DateString;
+  single: boolean;
+  holiday: boolean;
+  weather: DailyWeather | undefined;
+}) {
   const weekday = weekdayIndex(day);
-  const number = <DayNumber date={day} size={28} holiday={holidays.has(day)} />;
+  const number = <DayNumber date={day} size={28} holiday={holiday} />;
   return (
     <>
       <Typography

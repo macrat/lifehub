@@ -30,8 +30,7 @@ type Options = {
   enabled: boolean;
   /** 止まっている位置（translateY の px）。動かし始めるときの起点 */
   resting: number;
-  /** 動かせる範囲（translateY の px） */
-  min: number;
+  /** 動かせる下端（translateY の px）。上端は 0（上の段） */
   max: number;
   /** 動かしてから離したとき。シートに渡した動きの合計（下向きが正）を受け取り、次の段を決める */
   onRelease: (moved: number) => void;
@@ -71,7 +70,7 @@ function startsFollowing(press: Press, event: PointerEvent<HTMLElement>): boolea
  * 端まで行ってからシートが動く。ブラウザに任せる（`touch-action: pan-y`）と、スクロールできない
  * 所でもブラウザがなぞりを取り上げて pointercancel を送るため、シートを動かせなくなる。
  */
-export function useSheetDrag({ enabled, resting, min, max, onRelease }: Options) {
+export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
   const [press, setPress] = useState<Press | null>(null);
   /** 離した瞬間の位置。1 フレームだけ保ってから段へ滑らせる（同じ更新で transition を戻すと効かない） */
   const [released, setReleased] = useState<number | null>(null);
@@ -115,7 +114,7 @@ export function useSheetDrag({ enabled, resting, min, max, onRelease }: Options)
       setPress({ ...press, follow: { ...follow, last: event.clientY } });
       return;
     }
-    const at = clamp(follow.at + dy, min, max);
+    const at = clamp(follow.at + dy, 0, max);
     setPress({ ...press, follow: { last: event.clientY, at, moved: follow.moved + dy } });
   };
 
@@ -136,8 +135,11 @@ export function useSheetDrag({ enabled, resting, min, max, onRelease }: Options)
   };
 
   return {
-    /** 今のシートの位置（translateY の px）。指で動かしている間は指に、離した後は `resting` に従う */
-    position: press?.follow?.at ?? released ?? resting,
+    /**
+     * 今のシートの位置（translateY の px）。指で動かしている間は指に、離した後は `resting` に従う。
+     * 動かせない（止まる位置が決まっていない）間は null
+     */
+    position: enabled ? (press?.follow?.at ?? released ?? resting) : null,
     /** 指に追従している最中か（その間は transition を切る） */
     dragging: press?.follow != null,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel },

@@ -1,26 +1,21 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
+/** 段から段へ滑る時間（ms）。高さが変わるときの伸び縮み（`useSheetSize`）も同じ速さにする */
+export const SLIDE_MS = 250;
+
 type SheetStyle = {
   /** 画面いっぱいの高さにするか。しなければ中身の高さのまま */
   fullHeight: boolean;
-  /** translateY（px）。測る前は null で、画面の外に置く */
+  /** translateY（px）。測る前は null で、画面の外に置く（高さが分かってから止まる段まで滑り込ませる） */
   position: number | null;
   /** 指に追従している最中か（その間は滑らせない） */
   dragging: boolean;
   /** 出しているか。下げた間は読み上げにも残さない */
   open: boolean;
-  /** 段から段へ滑る時間（ms） */
-  slideMs: number;
 };
 
 /** 画面の下から出るシート（`BottomSheet`）の見た目と位置 */
-export function sheetSx({
-  fullHeight,
-  position,
-  dragging,
-  open,
-  slideMs,
-}: SheetStyle): SxProps<Theme> {
+export function sheetSx({ fullHeight, position, dragging, open }: SheetStyle): SxProps<Theme> {
   return {
     position: 'fixed',
     left: 0,
@@ -44,6 +39,6 @@ export function sheetSx({
     visibility: open ? 'visible' : 'hidden',
     transition: dragging
       ? 'none'
-      : `transform ${slideMs}ms ease, visibility 0s ${open ? 0 : slideMs}ms`,
+      : `transform ${SLIDE_MS}ms ease, visibility 0s ${open ? 0 : SLIDE_MS}ms`,
   };
 }

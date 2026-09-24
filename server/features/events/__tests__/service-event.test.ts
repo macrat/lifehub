@@ -14,7 +14,10 @@ import {
   listItems,
   updateEvent,
 } from '../service.ts';
-import { iso, jst, now, partnerId, resetUsers, september, userId } from './service-fixtures.ts';
+import { iso, jst, now, resetUsers, september } from './service-fixtures.ts';
+
+let userId: string;
+let partnerId: string;
 
 const weekly = () =>
   createEventSchema.parse({
@@ -27,7 +30,9 @@ const weekly = () =>
   });
 
 describe('events service', () => {
-  beforeEach(resetUsers);
+  beforeEach(async () => {
+    ({ userId, partnerId } = await resetUsers());
+  });
 
   describe('予定', () => {
     it('単発の予定を作成・取得できる', async () => {

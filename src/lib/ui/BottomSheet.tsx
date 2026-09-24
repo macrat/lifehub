@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import Paper from '@mui/material/Paper';
 import { type ReactNode, type RefObject, useEffect, useState } from 'react';
-import { sheetSx } from './sheet-style.ts';
+import { SLIDE_MS, sheetSx } from './sheet-style.ts';
 import { useSheetDrag } from './use-sheet-drag.ts';
 import { useSheetSize } from './use-sheet-size.ts';
 
@@ -63,8 +63,6 @@ type Props = {
 
 /** 段を 1 つ動かすのに要るドラッグ（px）。これに満たなければ元の段に戻す */
 const STEP_DISTANCE = 40;
-/** 段から段へ滑る時間（ms） */
-const SLIDE_MS = 250;
 
 /**
  * 画面の下から出るシート。下へ下げきると閉じる（Google カレンダー方式）。
@@ -87,10 +85,10 @@ export function BottomSheet({
   children,
 }: Props) {
   const [sheet, setSheet] = useState<HTMLElement | null>(null);
-  const size = useSheetSize(sheet, peekRef, SLIDE_MS);
+  const size = useSheetSize(sheet, peekRef);
   const [closing, setClosing] = useState(false);
 
-  /** 段ごとの translateY（px）。測る前は画面の外に置き、測れた時点で止まる段まで滑り込ませる */
+  /** 段ごとの translateY（px）。上の段が 0 で、下へ行くほど大きい */
   const offsets = { full: 0, peek: Math.max(size.sheet - size.peek, 0), closed: size.sheet };
   const measured = size.sheet > 0 && (!peekRef || size.peek > 0);
   const resting = closing || !open || !measured ? offsets.closed : offsets[detent ?? 'full'];
@@ -124,7 +122,6 @@ export function BottomSheet({
   const drag = useSheetDrag({
     enabled: measured,
     resting,
-    min: offsets.full,
     max: offsets.closed,
     onRelease: step,
   });
@@ -142,11 +139,9 @@ export function BottomSheet({
       sx={sheetSx({
         // 2 段のシートは上の段で後ろを覆いきるよう常に画面いっぱい。段が無ければ中身の高さのまま
         fullHeight: peekRef != null || full,
-        // 測る前は画面の外に置く（高さが分かってから止まる段まで滑り込ませる）
-        position: measured ? drag.position : null,
+        position: drag.position,
         dragging: drag.dragging,
         open,
-        slideMs: SLIDE_MS,
       })}
     >
       {/* つまんで動かせることを示す横棒。帯のどこからでもドラッグできる */}

@@ -1,4 +1,5 @@
 import { type RefObject, useEffect, useState } from 'react';
+import { SLIDE_MS } from './sheet-style.ts';
 
 /** シートの高さと、下の段で見せる部分の高さ（px）。測る前は 0 */
 type SheetSize = { sheet: number; peek: number };
@@ -7,14 +8,13 @@ type SheetSize = { sheet: number; peek: number };
  * シートの高さを測り続ける。段の位置は中身の実測から決めるので、
  * 見出しの高さやキーボードの表示で画面が縮んでも測り直して知らせる。
  *
- * 中身が入れ替わって高さが変わったら、前の高さからその高さへ `slideMs` かけて滑らせる（詳細 → 編集）。
+ * 中身が入れ替わって高さが変わったら、前の高さからその高さへ段の移動と同じ速さ（`SLIDE_MS`）で滑らせる（詳細 → 編集）。
  * height: auto のままでは変化と見なされず transition が効かないので、実測した値で動かす。
  * 滑っている間は測り直さない（途中の高さを段の位置にしない）。
  */
 export function useSheetSize(
   sheet: HTMLElement | null,
   peekRef: RefObject<HTMLElement | null> | undefined,
-  slideMs: number,
 ): SheetSize {
   const [size, setSize] = useState<SheetSize>({ sheet: 0, peek: 0 });
 
@@ -34,7 +34,7 @@ export function useSheetSize(
       if (height > 0 && next.sheet !== height) {
         growing = true;
         const grow = sheet.animate([{ height: `${height}px` }, { height: `${next.sheet}px` }], {
-          duration: slideMs,
+          duration: SLIDE_MS,
           easing: 'ease',
         });
         grow.finished.finally(() => {
@@ -49,7 +49,7 @@ export function useSheetSize(
     observer.observe(sheet);
     if (peek) observer.observe(peek);
     return () => observer.disconnect();
-  }, [sheet, slideMs]);
+  }, [sheet]);
 
   return size;
 }

@@ -44,6 +44,12 @@ export function useRangeDrag<P, G, R>({ grabOf, ...cb }: Options<P, G, R>) {
   // 途中で消えても、長押しの待ちとタッチの取り上げを残さない
   useEffect(() => () => session.stop(), [session]);
 
+  /** 押した所を読み、掴んだ物とつまみ方を添えてドラッグを始める。左ボタン以外・掴めない所では始めない */
+  const down = (event: PointerEvent<HTMLElement>, grab: G | null, options: GrabOptions) => {
+    if (event.button !== 0) return;
+    const from = cb.locate(event);
+    if (from !== null) session.start(event, grab, from, options, cb);
+  };
   const handlers = {
     onPointerMove: (event: PointerEvent<HTMLElement>) => session.move(event, cb),
     onPointerUp: (event: PointerEvent<HTMLElement>) => session.up(event, cb),
@@ -54,14 +60,12 @@ export function useRangeDrag<P, G, R>({ grabOf, ...cb }: Options<P, G, R>) {
     /** グリッドのセル・列に渡す。項目の上で押したときは項目の操作を邪魔しない */
     props: {
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
-        if (event.button !== 0 || event.target !== event.currentTarget) return;
-        const from = cb.locate(event);
-        if (from === null) return;
+        if (event.target !== event.currentTarget) return;
         const grab = grabOf?.(event) ?? null;
         // 既に出ている枠をつまんだのなら長押しを待たない（枠は「今直している物」なので、そこに
         // 触れるのは直すときだけ）。空いている所からの選択だけは、タップや縦スクロール・
         // 横スワイプと分けるために待つ
-        session.start(event, grab, from, { instant: grab !== null }, cb);
+        down(event, grab, { instant: grab !== null });
       },
       ...handlers,
     } satisfies DragHandlers,
@@ -73,8 +77,7 @@ export function useRangeDrag<P, G, R>({ grabOf, ...cb }: Options<P, G, R>) {
       onPointerDown: (event: PointerEvent<HTMLElement>) => {
         if (event.button !== 0) return;
         event.stopPropagation();
-        const from = cb.locate(event);
-        if (from !== null) session.start(event, grab, from, options, cb);
+        down(event, grab, options);
       },
       ...handlers,
     }),

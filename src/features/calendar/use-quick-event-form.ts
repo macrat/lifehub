@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react';
-import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
+import { useRef } from 'react';
 import type { ItemFormValues } from '../events/form-values.ts';
 import type { CreateEventBody } from '../events/queries.ts';
 import { grabbedScope } from '../events/recurrence-options.ts';
@@ -15,7 +14,6 @@ import type { GridDraft } from './use-event-composer.ts';
 
 type Options = {
   draft: GridDraft;
-  isMobile: boolean;
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onChangeDraft: (draft: EventDraft) => void;
   onExpand: (values: ItemFormValues) => void;
@@ -28,18 +26,9 @@ type Options = {
  * いつも同じ下書きから決まるようにする（入力の側にも持つと、開いたままグリッドで別の種類の枠を
  * 選び直したときに食い違う）。
  */
-export function useQuickEventForm({
-  draft,
-  isMobile,
-  onSubmit,
-  onChangeDraft,
-  onExpand,
-  onClose,
-}: Options) {
+export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onExpand, onClose }: Options) {
   const { range, item, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
-  // 段はスマホのシートだけのもの。PC の吹き出しは広がらないので、常に下の段と同じ中身を出す
-  const [detent, setDetent] = useState<SheetDetent>(isMobile ? draft.detent : 'peek');
   const initial = draftValues(range, participantIds, item);
   const form = useItemForm({
     kind: 'event',
@@ -64,12 +53,13 @@ export function useQuickEventForm({
     formRef,
     form,
     initial,
-    detent,
-    /** 段の移動。下の段に戻るときは、上の段で直した日時を下書き（テキストとグリッドの枠）へ映す */
-    changeDetent: (next: SheetDetent) => {
-      const range = next === 'peek' ? draftFromForm() : null;
+    /**
+     * 入力欄で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき。
+     * 枠に出せない範囲（日をまたぐ時間指定など）なら枠はそのままにする
+     */
+    syncDraft: () => {
+      const range = draftFromForm();
       if (range) onChangeDraft(range);
-      setDetent(next);
     },
     /** 終日の切り替え。入力欄で直していた日時を保ったまま、下書きそのものを切り替える */
     changeAllDay: (allDay: boolean) => onChangeDraft(withAllDay(draftFromForm() ?? range, allDay)),
