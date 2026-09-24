@@ -1,8 +1,9 @@
 // レモンの世話を記録するボタン（M5Stack AtomS3R）。
 //
 // 画面のボタンを 1 回押すと葉水、2 回押すと葉水＋水やりを LifeHub に記録する。
+// 3 回以上続けて押すと何も送らない（間違えて押したときに、そのまま連打すれば取り消せる）。
 // 押されるまではライトスリープで待ち、押されたときだけ Wi-Fi に繋いで送り、すぐに眠りに戻る。
-// 送っている間だけ画面に葉（葉水）か水滴（水やり）を出す。
+// 押してから送り終えるまで、画面に今の押し方を出す（1 回は葉、2 回は水滴、3 回以上は消す）。
 //
 // ディープスリープにしないのは、AtomS3R のボタン（G41）が RTC GPIO（G0〜G21）ではなく、
 // ESP32-S3 のディープスリープから起こせないため。ライトスリープなら普通の GPIO の割り込みで起きられる。
@@ -19,8 +20,11 @@ namespace {
 
 constexpr gpio_num_t BUTTON = GPIO_NUM_41;  // 押すと LOW（基板で引き上げてある）
 
-// 2 回目の押下を待つ時間。短いと 2 回押しが 1 回押しに割れ、長いと 1 回押しの反応が遅れる
-constexpr uint32_t DOUBLE_PRESS_WINDOW_MS = 400;
+// 次の押下を待つ時間。これより間が空いたら押し終わりとみなす。
+// 短いと 2 回押しが 1 回押しに割れ、長いと押し終えてから送り始めるまでが遅れる
+constexpr uint32_t PRESS_WINDOW_MS = 400;
+// この回数だけ続けて押したら送らない（間違えて押したときの取り消し）
+constexpr int CANCEL_PRESSES = 3;
 constexpr uint32_t DEBOUNCE_MS = 20;
 // 記録できたことを見せる時間と、送れなかったことを見せる時間
 constexpr uint32_t SUCCESS_HOLD_MS = 500;
@@ -37,21 +41,26 @@ void waitReleased() {
   }
 }
 
-// 押されてから待つ時間内にもう 1 度押されたら 2 回押し。押されていなければ（ノイズで起きたら）None
-enum class Press { None, Single, Double };
-
-Press readPress() {
-  if (!pressed()) return Press::None;
-  waitReleased();
+// 離されてから PRESS_WINDOW_MS 以内にまた押されたら true
+bool waitNextPress() {
   const uint32_t released = millis();
-  while (millis() - released < DOUBLE_PRESS_WINDOW_MS) {
-    if (pressed()) {
-      waitReleased();
-      return Press::Double;
-    }
+  while (millis() - released < PRESS_WINDOW_MS) {
+    if (pressed()) return true;
     delay(1);
   }
-  return Press::Single;
+  return false;
+}
+
+// 押した回数に合わせて画面を変え、取り消しの回数に達したら送るのをやめる
+void onPress(int presses) {
+  if (presses == 1) {
+    screen::show(screen::Icon::Leaf);
+  } else if (presses == 2) {
+    screen::show(screen::Icon::Drop);
+  } else if (presses == CANCEL_PRESSES) {
+    screen::off();
+    record::cancel();
+  }
 }
 
 // ボタンが押されるまでライトスリープする。無線・画面・バックライトは止めてから呼ぶ。
@@ -87,18 +96,22 @@ void loop() {
   waitReleased();
   sleepUntilPressed();
 
-  // 押し方を見分けている間（最大 0.4 秒）に Wi-Fi の接続を進めておく
-  record::connect();
-  const Press press = readPress();
-  if (press == Press::None) {
-    record::cancel();
-    return;
-  }
+  // ノイズで起きたときは何もせずに眠り直す
+  if (!pressed()) return;
 
-  const bool single = press == Press::Single;
-  const screen::Icon icon = single ? screen::Icon::Leaf : screen::Icon::Drop;
-  screen::show(icon);
-  const bool recorded = record::send(single ? record::Care::Mist : record::Care::MistAndWater);
+  // 押し終わりを待っている間（最後に押してから 0.4 秒）に Wi-Fi の接続を進めておく
+  record::connect();
+  int presses = 0;
+  do {
+    onPress(++presses);
+    waitReleased();
+  } while (waitNextPress());
+  // 取り消したときは連打が止まったらすぐに眠る（画面も無線も onPress で止めてある）
+  if (presses >= CANCEL_PRESSES) return;
+
+  const screen::Icon icon = presses == 1 ? screen::Icon::Leaf : screen::Icon::Drop;
+  const bool recorded =
+      record::send(presses == 1 ? record::Care::Mist : record::Care::MistAndWater);
   if (recorded) {
     delay(SUCCESS_HOLD_MS);
   } else {
