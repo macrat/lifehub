@@ -13,6 +13,8 @@
 #include <driver/gpio.h>
 #include <esp_sleep.h>
 
+#include <iterator>
+
 #include "record.h"
 #include "screen.h"
 
@@ -23,12 +25,27 @@ constexpr gpio_num_t BUTTON = GPIO_NUM_41;  // 押すと LOW（基板で引き�
 // 次の押下を待つ時間。これより間が空いたら押し終わりとみなす。
 // 短いと 2 回押しが 1 回押しに割れ、長いと押し終えてから送り始めるまでが遅れる
 constexpr uint32_t PRESS_WINDOW_MS = 400;
-// この回数だけ続けて押したら送らない（間違えて押したときの取り消し）
-constexpr int CANCEL_PRESSES = 3;
 constexpr uint32_t DEBOUNCE_MS = 20;
 // 記録できたことを見せる時間と、送れなかったことを見せる時間
 constexpr uint32_t SUCCESS_HOLD_MS = 500;
 constexpr uint32_t FAILURE_HOLD_MS = 3000;
+
+// 押した回数ごとの記録と画面。1 回目が先頭
+struct Action {
+  record::Care care;
+  screen::Icon icon;
+};
+constexpr Action ACTIONS[] = {
+    {record::Care::Mist, screen::Icon::Leaf},
+    {record::Care::MistAndWater, screen::Icon::Drop},
+};
+// 表より 1 回多く続けて押したら送らない（間違えて押したときの取り消し）
+constexpr int CANCEL_PRESSES = std::size(ACTIONS) + 1;
+
+// 押した回数の記録と画面。取り消す回数なら nullptr
+const Action *actionFor(int presses) {
+  return presses < CANCEL_PRESSES ? &ACTIONS[presses - 1] : nullptr;
+}
 
 bool pressed() { return gpio_get_level(BUTTON) == 0; }
 
@@ -53,10 +70,8 @@ bool waitNextPress() {
 
 // 押した回数に合わせて画面を変え、取り消しの回数に達したら送るのをやめる
 void onPress(int presses) {
-  if (presses == 1) {
-    screen::show(screen::Icon::Leaf);
-  } else if (presses == 2) {
-    screen::show(screen::Icon::Drop);
+  if (const Action *action = actionFor(presses)) {
+    screen::show(action->icon);
   } else if (presses == CANCEL_PRESSES) {
     screen::off();
     record::cancel();
@@ -107,15 +122,13 @@ void loop() {
     waitReleased();
   } while (waitNextPress());
   // 取り消したときは連打が止まったらすぐに眠る（画面も無線も onPress で止めてある）
-  if (presses >= CANCEL_PRESSES) return;
+  const Action *action = actionFor(presses);
+  if (!action) return;
 
-  const screen::Icon icon = presses == 1 ? screen::Icon::Leaf : screen::Icon::Drop;
-  const bool recorded =
-      record::send(presses == 1 ? record::Care::Mist : record::Care::MistAndWater);
-  if (recorded) {
+  if (record::send(action->care)) {
     delay(SUCCESS_HOLD_MS);
   } else {
-    screen::showFailed(icon);
+    screen::showFailed(action->icon);
     delay(FAILURE_HOLD_MS);
   }
   screen::off();
