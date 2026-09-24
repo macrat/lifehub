@@ -121,6 +121,7 @@ void loop() {
     onPress(++presses);
     waitReleased();
   } while (waitNextPress());
+
   // 取り消したときは連打が止まったらすぐに眠る（画面も無線も onPress で止めてある）
   const Action *action = actionFor(presses);
   if (!action) return;

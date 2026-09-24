@@ -81,6 +81,8 @@ String bodyOf(record::Care care, const String &id) {
 int post(const String &body) {
   NetworkClientSecure client;
   client.setCACert(ROOT_CA);
+  client.setTimeout(HTTP_TIMEOUT_MS / 1000);           // I/O タイムアウト（秒）
+  client.setHandshakeTimeout(HTTP_TIMEOUT_MS / 1000);  // TLS ハンドシェイクタイムアウト（秒）
   HTTPClient http;
   http.setConnectTimeout(HTTP_TIMEOUT_MS);
   http.setTimeout(HTTP_TIMEOUT_MS);
