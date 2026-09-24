@@ -215,7 +215,11 @@ function WeekRow({
               '&:hover': { bgcolor: 'action.hover' },
             }}
           >
-            <CenteredWithWeather weather={weather.get(date)} size={compact ? 12 : 14}>
+            <CenteredWithWeather
+              weather={weather.get(date)}
+              size={compact ? 12 : 14}
+              muted={!inMonth}
+            >
               <ButtonBase
                 aria-label={formatDateWithYear(date)}
                 onClick={() => onSelectDate(date)}
