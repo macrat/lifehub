@@ -61,7 +61,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
   - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
-  - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `AppType` を `import type` で読む。Biome の規則は型だけの import を見分けないので、このファイルだけを規則から外している）。
+  - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppType` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。

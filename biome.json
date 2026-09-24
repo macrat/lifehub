@@ -185,7 +185,7 @@
       }
     },
     {
-      "includes": ["src/**", "!src/lib/api.ts"],
+      "includes": ["src/**"],
       "linter": {
         "rules": {
           "style": {
@@ -205,7 +205,7 @@
       }
     },
     {
-      "includes": ["src/lib/**", "!src/lib/api.ts"],
+      "includes": ["src/lib/**"],
       "linter": {
         "rules": {
           "style": {
@@ -237,6 +237,10 @@
               "level": "error",
               "options": {
                 "patterns": [
+                  {
+                    "group": ["**/server/**", "!**/server/app.ts"],
+                    "message": "クライアントはサーバーのコードを読まない。API の型（server/app.ts の AppType）だけを import type で読む"
+                  },
                   {
                     "group": ["**/features/**"],
                     "message": "lib は機能をまたぐ土台なので features を読まない（依存は features → lib の一方向）"
