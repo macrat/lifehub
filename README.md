@@ -5,6 +5,7 @@
 - 公開 URL: https://lifehub.crat.jp
 - 利用者は 2 人。全員が管理者。言語は日本語、タイムゾーンは `Asia/Tokyo` 固定。
 - 設計・規約は [docs/architecture.md](docs/architecture.md)、データは [docs/data-model.md](docs/data-model.md)、各機能は [docs/features/](docs/features/) を参照。
+- レモンの世話を記録するボタン（M5Stack AtomS3R）のファームウェアは [iot/lemon-record-button/](iot/lemon-record-button/README.md)。
 - 開発ルールは [AGENTS.md](AGENTS.md)（`CLAUDE.md` はそのシンボリックリンク）。
 
 ## 技術スタック

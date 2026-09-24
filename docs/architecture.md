@@ -76,12 +76,14 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
+    api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  users/  push/  dashboard/（ホームのカード。各機能のクエリを読む）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.ts（閲覧と編集の切り替え・削除）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
+  lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
 server/                       # サーバー（Hono）
   app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
   dev.ts                      # ローカル起動用（@hono/node-server）
@@ -128,7 +130,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）・記録投入 `/api/records`（API キーだけを資格にする。[features/api-keys.md](features/api-keys.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
@@ -160,7 +162,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成が既にあれば何も書かずに今の行を返す（送られた値で上書きしない。作った後に編集してから古い作成が再送されると、上書きでは編集が巻き戻るため）。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
 - **未ログインになったら捨てる**: ログアウトしたとき、API が 401 を返したときは、溜めた書き込みを捨てる（`src/lib/auth.ts` の `markSignedOut`）。書き込みは送る時点のセッションで送られるので、残すと次にログインした別のユーザーとして送られてしまう。401 のときに残して同じユーザーの再ログインを待つことはしない: 401 はオンラインでしか起きず、オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗するので、残しても通る見込みが無い。
 - **書いた人のものとしてだけ送る**: 書き込みは送る時点のセッションで送られるので、書き込みごとに書いたときのユーザーを持ち、送る試行のたびに今のユーザーと比べる（`sendAsAuthor`）。違えば送らずに諦める。ログアウトは溜めた書き込みを捨てるが、送り直しを待っている書き込みは TanStack Query では止められず、その間に別のユーザーでログインすると、その人の記録として保存されてしまうため。
-- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。溜めない書き込みは溜める書き込みと別の mutationKey（`direct-write`）で送り、溜めた書き込みの順番待ち（scope）にも端末に残す対象にも入れない。同じキーだと、溜めた書き込みがある間はその後ろで待ち、待つ間は保留中として端末に残る（パスワードが IndexedDB に書かれる）うえ、オンラインに戻るまで結果が出ない。
+- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録・変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。API キーの失効も同じ理由で溜めない（発行は応答のキーを画面に出すので、この仕組みを使わずに応答を待つ）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。溜めない書き込みは溜める書き込みと別の mutationKey（`direct-write`）で送り、溜めた書き込みの順番待ち（scope）にも端末に残す対象にも入れない。同じキーだと、溜めた書き込みがある間はその後ろで待ち、待つ間は保留中として端末に残る（パスワードが IndexedDB に書かれる）うえ、オンラインに戻るまで結果が出ない。
 
 ## UI / UX 方針
 

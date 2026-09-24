@@ -1,0 +1,3 @@
+# Wi-Fi のパスワードと API キーを含むのでコミットしない（config.example.h を写して作る）
+config.h
+build/
