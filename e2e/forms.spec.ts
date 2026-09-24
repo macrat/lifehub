@@ -68,6 +68,8 @@ test('カレンダーに追加した予定は通信を待たずに出る', async
   await expect(sheet).toBeVisible();
   await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
+  // 追加ボタンからの予定は終日で始まる
+  await page.getByLabel('終日').uncheck();
   await page.getByLabel('開始').fill('2030-02-04T09:00');
   await page.getByLabel('終了').fill('2030-02-04T10:00');
   // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる

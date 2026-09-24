@@ -1,8 +1,8 @@
 import type { EventMaster } from '../../../shared/calendar.ts';
-import { addDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
+import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
-import { fromDateTimeLocalValue, fromDateValue } from '../../lib/date.ts';
+import { fromDateTimeLocalValue, fromDateValue, toDateTimeLocalValue } from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
 /**
@@ -156,4 +156,22 @@ function toInstant(raw: string, allDay: boolean): string {
 /** 任意の日時の入力欄（タスクの開始・期限）。空欄は未設定 */
 function optionalInstant(raw: string | null, allDay: boolean): string | null {
   return raw ? toInstant(raw, allDay) : null;
+}
+
+/** `<input type="datetime-local">` の値（書きかけの間は空になる） */
+const DATE_TIME_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/**
+ * 開始の入力欄を before から after に動かしたときの、終了の入力欄の新しい値。長さを保って同じだけ動かす
+ * （9:00〜10:00 の開始を 9:30 にすると終了は 10:30。終日なら日数を保つ）。
+ * 値はどれも入力欄の値のままで、終日（日付だけ）か日時かは値の形で分かる。
+ * 形の揃わない値（書きかけで空、終日の切り替えの前後が混ざる）なら null で、終了は触らない。
+ */
+export function shiftedEnd(before: string, after: string, end: string): string | null {
+  if (isDateString(before) && isDateString(after) && isDateString(end))
+    return addDays(end, diffDays(before, after));
+  if (![before, after, end].every((v) => DATE_TIME_LOCAL.test(v))) return null;
+  const shift =
+    Date.parse(fromDateTimeLocalValue(after)) - Date.parse(fromDateTimeLocalValue(before));
+  return toDateTimeLocalValue(new Date(Date.parse(fromDateTimeLocalValue(end)) + shift));
 }

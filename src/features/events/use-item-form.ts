@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { type ChangeEvent, useRef, useState } from 'react';
 import { createEventSchema, type RecurrenceScope } from '../../../shared/validation/events.ts';
 import { useFormSubmit } from '../../lib/form.ts';
 import {
   eventInputFromForm,
   type FormInstants,
   type ItemFormValues,
+  shiftedEnd,
   taskInputFromForm,
 } from './form-values.ts';
 import type { CreateEventBody } from './queries.ts';
@@ -68,4 +69,23 @@ export function useAllDay(initial: ItemFormValues) {
     setAllDay(initial.allDay);
   }
   return [allDay, setAllDay] as const;
+}
+
+/**
+ * 予定の開始の入力欄の変更。終了の入力欄を、長さを保ったまま同じだけ動かす（`shiftedEnd`）。
+ * 入力欄は制御しない（値は DOM が持つ）ので、動かす前の開始の値は入力欄ごとに覚えておく。
+ * 終日の切り替えで入力欄が作り直されたら、新しい入力欄の初期値から数え直す。
+ * 書きかけで空の間は覚え直さないので、書き終えたときに書き始める前の値からの差で動く。
+ */
+export function useEndFollowsStart() {
+  const previous = useRef(new WeakMap<HTMLInputElement, string>());
+  return ({ target: start }: ChangeEvent<HTMLInputElement>) => {
+    const end = start.form?.elements.namedItem('endsAt');
+    const before = previous.current.get(start) ?? start.defaultValue;
+    if (end instanceof HTMLInputElement) {
+      const shifted = shiftedEnd(before, start.value, end.value);
+      if (shifted !== null) end.value = shifted;
+    }
+    if (start.value) previous.current.set(start, start.value);
+  };
 }

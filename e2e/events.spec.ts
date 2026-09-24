@@ -17,6 +17,9 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   await page.getByRole('menuitem', { name: '予定' }).click();
   await page.getByRole('button', { name: 'その他のオプション' }).click();
   await page.getByLabel('タイトル').fill(title);
+  // 追加ボタンからの予定は終日で始まる
+  await expect(page.getByLabel('終日')).toBeChecked();
+  await page.getByLabel('終日').uncheck();
   await page.getByLabel('開始').fill('2030-01-07T09:00');
   await page.getByLabel('終了').fill('2030-01-07T10:00');
   await page.getByLabel('繰り返し', { exact: true }).click();
@@ -75,6 +78,9 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
   await expect(page.getByLabel('タイトル')).toHaveValue(title);
   await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
   await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T10:30');
+  // 開始を動かすと、終了も長さを保ったまま動く
+  await page.getByLabel('開始').fill('2031-06-05T09:30');
+  await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T11:00');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 
