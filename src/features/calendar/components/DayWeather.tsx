@@ -26,16 +26,16 @@ type Props = {
  * 気温より変わり方の印を先に諦めるのは、どの天気が混ざるかは重ねた形でも分かり、変わり方は名前でも
  * 分かる一方、気温はほかで分からないため。
  * - 横並びは、横並びと気温が両方入る幅が無ければ、コンテナクエリで 1 文字分に重ねた形に切り替える。
- *   気温の幅は数字 2 桁と「°」が収まる 3ch と見る（ch は数字 1 字の幅なので、東京の最高気温なら
- *   見積もりでなく上限になる。コンテナの字の大きさを気温と揃え、ch を気温の数字の幅にする）。
+ *   気温の幅は字数分の ch と見る（ch は数字 1 字の幅で、「°」「-」はそれより狭いので上限になる）。
  * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
  * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
  */
 export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
   const wide = Math.ceil(size * wideRatio(weather.icon));
-  const temp = weather.tempMax === null ? '' : ` + ${TEMP_GAP}px + 3ch`;
-  const narrow = `@container (width < calc(${wide}px${temp}))`;
+  const temp = weather.tempMax === null ? null : `${weather.tempMax}°`;
+  const tempWidth = temp === null ? '0px' : `${TEMP_GAP}px + ${temp.length}ch`;
+  const narrow = `@container (width < calc(${wide}px + ${tempWidth}))`;
   const common = { icon: weather.icon, titleAccess: weather.label };
   return (
     <Box
@@ -73,13 +73,13 @@ export function DayWeather({ weather, size }: Props) {
           layout="square"
           sx={{ fontSize: size, display: 'none', [narrow]: { display: 'inline-block' } }}
         />
-        {weather.tempMax !== null && (
+        {temp !== null && (
           <Box
             component="span"
             aria-label={`最高気温 ${weather.tempMax}度`}
             sx={{ lineHeight: `${size}px` }}
           >
-            {weather.tempMax}°
+            {temp}
           </Box>
         )}
       </Box>
