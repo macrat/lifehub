@@ -1,4 +1,4 @@
-import { addDays, today } from '../../../shared/date.ts';
+import { addDays, toDateString, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { resolveBaseUrl } from '../../lib/env.ts';
@@ -84,6 +84,20 @@ export async function renderIcs(token: string, now: Date = new Date()): Promise<
     occurrence.participantIds.some((id) => feed.participantIds.includes(id)),
   );
   return toIcs(included, now);
+}
+
+/**
+ * バックアップ用に、全員の全予定を 1 つの ics にする（`scripts/export-ics.ts`）。
+ * LifeHub が使えなくなったときに、他のカレンダーアプリへ取り込んで予定を見られるようにするためのもの。
+ *
+ * 出す内容と形は配信（`renderIcs`）と同じにする。取り込む側から見て配信と同じ UID になるので、
+ * 購読していたカレンダーと重ねても予定が二重にならない。参加者では絞らない。
+ * 過去は最初の予定からすべて出す（期間の始まりを UNIX 元期にするのは「下限なし」の意味）。
+ * 未来は配信と同じ幅で切る。終わりの無い繰り返しは、どこかで切らないと展開が終わらないため。
+ */
+export async function renderAllIcs(now: Date = new Date()): Promise<string> {
+  const range = { from: toDateString(new Date(0)), to: addDays(today(now), FUTURE_DAYS) };
+  return toIcs(await listOccurrences(range, now, 'event'), now);
 }
 
 /**

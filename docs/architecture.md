@@ -241,6 +241,8 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **PR クローズ／マージ（`preview-cleanup.yml`）**: Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブランチ数上限（10）を超えないよう必ず行う。Preview を作っていない PR（`preview` ラベル無し、初回 apply 前）には消すものが無いので、Neon にブランチがあるかどうかを確かめてから削除し、無ければ何もしない。ラベルの有無では判断しない（デプロイ後にラベルを外した PR のブランチが残ってしまうため）。
 
+**毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。private リポジトリの Artifact はリポジトリを読める人しか取り出せないので暗号化はしない。戻し方は [README](../README.md#バックアップ)。
+
 **main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
 
 Preview 環境の挙動:
@@ -251,7 +253,7 @@ Preview 環境の挙動:
 運用上の注意:
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
 - ロールバックはアプリ側は `vercel rollback`、インフラ側は Terraform の変更を revert してプッシュ。
-- バックアップは Neon の PITR に依存。加えて月次で `pg_dump` を手動取得する運用を検討。
+- バックアップは Neon の PITR（直近 6 時間）と、日次の `backup.yml`（上記のデプロイフロー）の 2 段。PITR は直前の誤操作を戻すため、日次のダンプはそれより前の状態と、Neon そのものが使えなくなったときのため。
 - 無料枠の制約: Vercel Hobby は Cron の式 1 つにつき日次まで（時は最大 59 分ずれる）・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日。
 
 ## 品質基準

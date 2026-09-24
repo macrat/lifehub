@@ -8,7 +8,14 @@ import { NotFoundError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
 import { createUser } from '../../users/service.ts';
-import { createFeed, listFeeds, renderIcs, revokeFeed, updateFeed } from '../service.ts';
+import {
+  createFeed,
+  listFeeds,
+  renderAllIcs,
+  renderIcs,
+  revokeFeed,
+  updateFeed,
+} from '../service.ts';
 
 const jst = (s: string) => new Date(`${s}+09:00`);
 const iso = (s: string) => jst(s).toISOString();
@@ -251,5 +258,23 @@ describe('calendar-feeds service', () => {
     const [unchanged] = await listFeeds(userId);
     expect(unchanged?.name).toBe('スマホ');
     expect(unchanged?.participantIds).toEqual([userId]);
+  });
+
+  it('バックアップ用の ics は、配信の期間より前も含めて全員の予定を出し、タスクは出さない', async () => {
+    const input = (title: string, participantIds: string[], day: string) =>
+      createEventSchema.parse({
+        kind: 'event',
+        title,
+        startsAt: iso(`${day}T09:00:00`),
+        endsAt: iso(`${day}T10:00:00`),
+        participantIds,
+      });
+    await createEvent(input('昔の予定', [userId], '2020-01-01'), userId);
+    await createEvent(input('B だけ', [otherId], '2026-09-15'), userId);
+    await createEvent(
+      createEventSchema.parse({ kind: 'task', title: 'タスク', participantIds: [userId] }),
+      userId,
+    );
+    expect(valuesOf(await renderAllIcs(now), 'SUMMARY').sort()).toEqual(['B だけ', '昔の予定']);
   });
 });

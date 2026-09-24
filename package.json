@@ -81,11 +81,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "db:dump": "tsx --env-file-if-exists=.env.local scripts/db-dump.ts",
+    "db:restore": "tsx --env-file-if-exists=.env.local scripts/db-restore.ts",
     "user:create": "tsx --env-file-if-exists=.env.local scripts/create-user.ts",
     "vapid:generate": "tsx scripts/generate-vapid-keys.ts",
     "tf:plan": "terraform -chdir=infra plan",
     "tf:apply": "terraform -chdir=infra apply",
     "icons:generate": "tsx scripts/generate-icons.ts",
-    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed-dev.ts"
+    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed-dev.ts",
+    "calendar:export": "tsx --env-file-if-exists=.env.local scripts/export-ics.ts"
   }
 }

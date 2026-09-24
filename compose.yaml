@@ -1,7 +1,7 @@
 # ローカル開発・テスト用の Postgres。`pnpm dev` / `pnpm test` / `pnpm e2e` はこのDBを前提とする。
 services:
   postgres:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

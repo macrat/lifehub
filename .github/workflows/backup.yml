@@ -1,0 +1,77 @@
+name: Backup
+
+on:
+  schedule:
+    # 毎日 JST 4:00（UTC 19:00）。使う人が寝ていて書き込みが無い時間帯に取る。
+    # GitHub の schedule は混雑時に遅れることがあるが、明け方のうちに済めばよい。
+    - cron: "0 19 * * *"
+  # 手動でも取れるようにする（マイグレーションの前など）
+  workflow_dispatch:
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# 本番 DB のまるごとのダンプ（`pnpm db:dump`）と、全予定の ics（`pnpm calendar:export`）を
+# Artifact に置く。ダンプは本番を戻すため・手元に本番のクローンを作るため、ics は LifeHub が
+# 使えなくなったときに他のカレンダーアプリで予定を見るため。
+#
+# Artifact はリポジトリを読める人しか取り出せない（private リポジトリ）ので暗号化はしない。
+# ダンプにはパスワードのハッシュやセッション、配信 URL のトークンも含まれる。
+#
+# クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # ランナーに入っている Postgres クライアントは本番（Neon、infra/neon.tf の pg_version）より
+      # 古く、古い pg_dump は新しいサーバーを読めない。PGDG の公式手順で同じ版を入れて PATH の先頭に置く
+      # （/usr/bin/pg_dump は版を選ぶラッパーで、どの版を使うかが環境で変わるため直接指す）。
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - run: terraform -chdir=infra init -input=false
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      - name: Read terraform outputs
+        id: tf
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          database_url=$(terraform -chdir=infra output -raw database_url)
+          echo "::add-mask::$database_url"
+          echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
+      - name: Name the backup
+        id: name
+        run: echo "name=backup-$(TZ=Asia/Tokyo date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - run: mkdir backup
+      - run: pnpm db:dump backup/lifehub.sql
+        env:
+          DATABASE_URL: ${{ steps.tf.outputs.database_url }}
+      - run: pnpm calendar:export backup/lifehub.ics
+        env:
+          DATABASE_URL: ${{ steps.tf.outputs.database_url }}
+          # サーバーの環境変数の検証（server/lib/env.ts）を通すためだけの値。ics の書き出しは認証を使わない
+          BETTER_AUTH_SECRET: unused-for-export-but-required-by-env-validation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: backup
+          if-no-files-found: error
+          retention-days: 30
