@@ -1,4 +1,4 @@
-import { normalizeInstants } from '../../../shared/calendar.ts';
+import { normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import type {
   CompleteEventInput,
@@ -21,19 +21,36 @@ export async function getEvent(id: string): Promise<EventMaster> {
 }
 
 /**
- * 書き込みの対象の今の値を、作成・更新の入力の形で返す。部分更新（MCP）が省いた項目をこれで埋める。
- * - all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
- *   繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう
- * - 終日の終了は保存形式（翌日 0:00 の排他的な終端）ではなく入力の形（含む最終日のどこか）にする。
- *   保存形式のまま入力に戻すと、正規化（`normalizeInstants`）でもう 1 日延びる
+ * 一部の項目だけを変える更新（MCP）。fill は今の値（作成・更新の入力の形）を受け取り、変える項目を
+ * 重ねた入力を返す。繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
  */
-export async function getWriteBase(id: string, input: OccurrenceTarget): Promise<CreateEventInput> {
+export async function patchEvent(
+  id: string,
+  target: OccurrenceTarget,
+  fill: (current: CreateEventInput) => CreateEventInput,
+  userId: string,
+): Promise<EventMaster> {
   const master = await findMaster(id);
+  const current = await currentInput(master, target);
+  const result = await applyUpdate(master, { ...fill(current), ...target }, userId);
+  scheduleUpcoming();
+  return result;
+}
+
+/**
+ * 書き込みの対象の今の値を、作成・更新の入力の形で返す。
+ * all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
+ * 繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう。
+ */
+async function currentInput(
+  master: EventWithParticipants,
+  input: OccurrenceTarget,
+): Promise<CreateEventInput> {
   const target = resolveTarget(master, input);
   const row =
     target.scope === 'all'
       ? master
-      : ((await repository.findOccurrence(id, target.occurrenceStart)) ?? {
+      : ((await repository.findOccurrence(master.id, target.occurrenceStart)) ?? {
           ...master,
           ...shiftTo(master, target.occurrenceStart),
         });
@@ -41,8 +58,7 @@ export async function getWriteBase(id: string, input: OccurrenceTarget): Promise
     kind: master.kind,
     title: row.title,
     allDay: row.allDay,
-    startsAt: row.startsAt,
-    endsAt: row.allDay && row.endsAt ? new Date(row.endsAt.getTime() - 1) : row.endsAt,
+    ...toInputInstants(row.allDay, row.startsAt, row.endsAt),
     participantIds: row.participantIds,
     location: row.location,
     note: row.note,
@@ -70,17 +86,17 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<EventMaster> {
-  const result = await applyUpdate(id, input, userId);
+  const result = await applyUpdate(await findMaster(id), input, userId);
   scheduleUpcoming();
   return result;
 }
 
 async function applyUpdate(
-  id: string,
+  master: EventWithParticipants,
   input: UpdateEventInput,
   userId: string,
 ): Promise<EventMaster> {
-  const master = await findMaster(id);
+  const { id } = master;
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
   const target = resolveTarget(master, input);
   const values = normalizeInput(input);
