@@ -24,6 +24,6 @@ export const cronRoutes = new Hono<AppEnv>()
   // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
   .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
   // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
-  .get('/weather', async (c) => c.json({ count: (await refreshWeather()).length }))
+  .get('/weather', async (c) => c.json(await refreshWeather()))
   // 日次（朝の天気の取り直しと同じ時）: 昨日の最高気温を観測値で上書きする（docs/features/calendar.md の「天気」）
   .get('/weather/observed', async (c) => c.json({ row: (await recordObservedTempMax()) ?? null }));

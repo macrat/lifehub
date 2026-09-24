@@ -37,9 +37,26 @@ export function today(now: Date = new Date()): DateString {
   return toDateString(now);
 }
 
+/** 瞬間（Date / ISO 日時）→ JST のその日の 0:00 からの分 */
+export function minutesOfDay(value: Date | string): number {
+  const z = new TZDate(new Date(value), TIME_ZONE);
+  return z.getHours() * 60 + z.getMinutes();
+}
+
 /** JST の暦日＋その日の 0:00 からの分 → ISO 日時（JST に夏時間は無いので分を足すだけでよい） */
 export function fromMinutesOfDay(date: DateString, minutes: number): string {
   return new Date(startOfDate(date).getTime() + minutes * 60_000).toISOString();
+}
+
+/**
+ * 両端を含む JST 暦日の期間 → 瞬間の期間（from の 0:00 から、to の翌日 0:00 の手前まで。to は排他的）。
+ * 日付で指定された期間を、日時の列（timestamptz）で絞るときに使う。
+ */
+export function instantRange(range: { from: DateString; to: DateString }): {
+  from: Date;
+  to: Date;
+} {
+  return { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
 }
 
 /** 排他的な終了日時（終日の項目の保存形式。翌日 0:00）→ 含む終了日 */

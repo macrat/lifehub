@@ -5,10 +5,11 @@ import {
   allDayDate,
   diffDays,
   fromMinutesOfDay,
+  minutesOfDay,
   toDateString,
 } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { formatDate, formatMinutesOfDay, fromDateValue, minutesOfDay } from '../../lib/date.ts';
+import { formatDate, formatMinutesOfDay, fromDateValue } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,

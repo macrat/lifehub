@@ -141,3 +141,18 @@ export const TELOPS: Record<string, readonly [icon: WeatherIcon, label: string]>
   427: [one('snow'), '雪一時みぞれ'],
   450: [one('snow'), '雪で雷を伴う'],
 };
+
+/**
+ * 気象庁の 3 時間ごとの天気（天気分布予報の `weather`）→ アイコンの部品。
+ *
+ * 天気分布予報の天気は凡例と同じ 5 つ（晴れ・くもり・雨・雨または雪・雪）で、日ごとの予報のような
+ * 変わり方や強さは付かないので、部品 1 つに対応する。「雨または雪」は日ごとの天気と同じく雪にする。
+ * 表に無い名前（気象庁が新しく足したものなど）の時間帯は、アイコンを決められないので出さない。
+ */
+export const HOURLY_SYMBOLS: Record<string, WeatherSymbol> = {
+  晴れ: 'sun',
+  くもり: 'cloud',
+  雨: 'rain',
+  雨または雪: 'snow',
+  雪: 'snow',
+};

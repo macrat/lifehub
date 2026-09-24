@@ -24,3 +24,21 @@ export type DailyWeather = {
   label: string;
   tempMax: number | null;
 };
+
+/**
+ * 3 時間ごとの天気のうち、同じ天気が続く 1 区間。日表示の時刻の左に、変わり目のアイコンと次の変わり目までの線で出す。
+ * 気象庁の区間は 0 時から 3 時間ごとに区切られていて日をまたがないので、区間はどれも 1 日の中に収まる
+ * （日をまたいで同じ天気が続いても日ごとに分かれ、どの日も最初の区間の頭にアイコンが出る）。
+ * startMin / endMin は date の 0:00 からの分で、endMin は含まない（最大 1440）。
+ * label は気象庁の天気の名前（「くもり」など）で、アイコンの説明に出す。
+ */
+export type HourlyWeather = {
+  date: DateString;
+  startMin: number;
+  endMin: number;
+  symbol: WeatherSymbol;
+  label: string;
+};
+
+/** 期間の天気（`GET /api/weather?from=&to=`）。日ごとの天気と 3 時間ごとの天気を 1 回で受け取る */
+export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };

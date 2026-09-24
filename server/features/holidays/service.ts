@@ -1,6 +1,7 @@
 import ICAL from 'ical.js';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { fetchOk } from '../../lib/fetch.ts';
 import * as repository from './repository.ts';
 
 /**
@@ -33,9 +34,7 @@ export function parseHolidays(ics: string): DateString[] {
  * 取得や解析に失敗したら何も書かずに投げる（手元の一覧は前回のまま残る）。
  */
 export async function refreshHolidays(): Promise<DateString[]> {
-  const res = await fetch(HOLIDAYS_URL);
-  if (!res.ok) throw new Error(`holidays: ${HOLIDAYS_URL} returned ${res.status}`);
-  const dates = parseHolidays(await res.text());
+  const dates = parseHolidays(await (await fetchOk(HOLIDAYS_URL)).text());
   await repository.replaceAll(dates);
   return dates;
 }
