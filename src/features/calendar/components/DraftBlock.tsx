@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import type { Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { formatMinutesOfDay } from '../../../lib/date.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
@@ -19,11 +20,17 @@ const TARGET_SIZE = 32;
 
 /** 枠の線の太さ（px） */
 const LINE = 2;
+/** 中の色に残す帯の色（fill）の割合。残りは背景色で、ライトでは明るく・ダークでは暗くなる */
+const FILL_RATIO = '30%';
+/** 中の不透明度。下の予定や日付が透けて見える濃さ */
+const FILL_OPACITY = 0.6;
 
 /**
  * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
- * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）で半透明に塗り、下の予定や日付が透けて見えるようにする。
- * 線は line で不透明に描く。
+ * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）を背景色に大きく寄せた色で半透明に塗り、
+ * 下の予定や日付が透けて見えるようにする。線は line で不透明に描く。
+ * WHY 背景色に寄せる: 帯と同じ濃さだと、透けた下の予定の色と混ざって見分けにくい。背景色に寄せれば
+ * 重なった所は下の予定が淡く（ライトでは明るく・ダークでは暗く）なり、枠の範囲が分かる。
  * 中は不透明な色で塗り分けた疑似要素に opacity をかけて半透明にする。
  * WHY NOT 半透明の色で塗る: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、色ごとに透かすと
  * 重なった所だけ下の層の色が混ざる。opacity は塗り分けた後の面全体にかかるので、何人でも同じ濃さになる。
@@ -48,8 +55,15 @@ const outline = (colors: ItemColors[]) =>
       inset: -LINE,
       zIndex: -1,
       borderRadius: 'inherit',
-      background: wedgeBackground(colors.map((c) => c.fill)),
-      opacity: 0.5,
+      // CSS 変数テーマなので背景色は t.vars から取る（t.palette はライト固定）
+      background: (t: Theme) =>
+        wedgeBackground(
+          colors.map(
+            (c) =>
+              `color-mix(in srgb, ${c.fill} ${FILL_RATIO}, ${(t.vars ?? t).palette.background.default})`,
+          ),
+        ),
+      opacity: FILL_OPACITY,
       pointerEvents: 'none',
     },
     '&::before': {
