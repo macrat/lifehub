@@ -3,6 +3,7 @@ import { newId } from '../../../shared/id.ts';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { resolveBaseUrl } from '../../lib/env.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import { newSecret } from '../../lib/secret.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
 import type { CalendarFeedWithParticipants } from './repository.ts';
@@ -36,7 +37,7 @@ export async function createFeed(input: CalendarFeedInput, userId: string): Prom
     id: newId(),
     userId,
     name: input.name,
-    token: newToken(),
+    token: newSecret(),
     createdAt: new Date(),
   };
   await repository.insert(values, input.participantIds);
@@ -106,11 +107,6 @@ export async function renderAllIcs(now: Date = new Date()): Promise<string> {
  */
 function feedUrl(token: string): string {
   return `${resolveBaseUrl()}/api/calendar/${token}.ics`;
-}
-
-/** 推測できないことだけが防御なので、256 ビットの乱数を base64url で表す */
-function newToken(): string {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
 }
 
 /** 保存されている行（または今しがた保存した値）を画面に出す形にする */

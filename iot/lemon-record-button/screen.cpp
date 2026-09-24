@@ -37,7 +37,8 @@ void backlight(bool on) {
 
 // 葉: 2 つの円が重なるレンズ形を、左下から右上へ向けて斜めに置く。
 // レンズは凸なので、1 行ごとに内側の左端と右端を探して横線で塗る。
-void drawLeaf(uint16_t color) {
+void drawLeaf(bool failed) {
+  const uint16_t color = failed ? FAILED_COLOR : LEAF_COLOR;
   constexpr float R = 70.0f;  // 円の半径
   constexpr float D = 48.0f;  // 軸から円の中心までの距離（大きいほど細く、先が尖る）
   const float k = 1.0f / sqrtf(2.0f);
@@ -59,11 +60,12 @@ void drawLeaf(uint16_t color) {
   // 葉脈と葉柄: 軸に沿った線を、左下の先端から少し外へ伸ばす
   const int half = static_cast<int>(sqrtf(R * R - D * D) * k);
   M5.Display.drawWideLine(CENTER - half - 10, CENTER + half + 10, CENTER + half - 8,
-                          CENTER - half + 8, 3, color == FAILED_COLOR ? color : LEAF_VEIN_COLOR);
+                          CENTER - half + 8, 3, failed ? FAILED_COLOR : LEAF_VEIN_COLOR);
 }
 
 // 水滴: 円と、その円に接する三角（上の尖り）
-void drawDrop(uint16_t color) {
+void drawDrop(bool failed) {
+  const uint16_t color = failed ? FAILED_COLOR : DROP_COLOR;
   constexpr int CY = 78, R = 34, TOP = 12;
   const float d = CY - TOP;
   const float a = acosf(R / d);  // 真上から接点までの角度
@@ -72,16 +74,16 @@ void drawDrop(uint16_t color) {
   M5.Display.fillCircle(CENTER, CY, R, color);
   M5.Display.fillTriangle(CENTER, TOP, CENTER - tx, ty, CENTER + tx, ty, color);
   // 光の照り返し
-  if (color != FAILED_COLOR) M5.Display.fillCircle(CENTER - 13, CY + 4, 7, TFT_WHITE);
+  if (!failed) M5.Display.fillCircle(CENTER - 13, CY + 4, 7, TFT_WHITE);
 }
 
-void drawIcon(screen::Icon icon, uint16_t color) {
+void drawIcon(screen::Icon icon, bool failed) {
   M5.Display.startWrite();
   M5.Display.fillScreen(TFT_BLACK);
   if (icon == screen::Icon::Leaf) {
-    drawLeaf(color);
+    drawLeaf(failed);
   } else {
-    drawDrop(color);
+    drawDrop(failed);
   }
   M5.Display.endWrite();
 }
@@ -94,12 +96,12 @@ void begin() { off(); }
 
 void show(Icon icon) {
   M5.Display.wakeup();
-  drawIcon(icon, icon == Icon::Leaf ? LEAF_COLOR : DROP_COLOR);
+  drawIcon(icon, false);
   backlight(true);
 }
 
 void showFailed(Icon icon) {
-  drawIcon(icon, FAILED_COLOR);
+  drawIcon(icon, true);
   M5.Display.drawWideLine(24, 24, 104, 104, 8, TFT_RED);
   M5.Display.drawWideLine(104, 24, 24, 104, 8, TFT_RED);
 }

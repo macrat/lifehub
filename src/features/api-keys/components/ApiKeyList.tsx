@@ -4,10 +4,9 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
-import { QueryView } from '../../../lib/ui/QueryView.tsx';
+import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
 import {
   type ApiKey,
@@ -36,7 +35,7 @@ export function ApiKeyList() {
       <ListItem>
         <ListItemText primary="API キー" secondary="記録投入用の API（POST /api/records）に使う" />
       </ListItem>
-      <QueryView query={keysQuery} skeleton={<KeySkeleton />}>
+      <QueryView query={keysQuery} skeleton={<ListItemSkeleton />}>
         {(keys) =>
           keys.map((key) => (
             <KeyItem key={key.id} apiKey={key} onRevoke={() => revokeKey.mutate(key.id)} />
@@ -86,14 +85,6 @@ function KeyItem({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: () => void })
             : 'まだ一度も使われていません'
         }
       />
-    </ListItem>
-  );
-}
-
-function KeySkeleton() {
-  return (
-    <ListItem>
-      <ListItemText primary={<Skeleton width="40%" />} secondary={<Skeleton width="60%" />} />
     </ListItem>
   );
 }

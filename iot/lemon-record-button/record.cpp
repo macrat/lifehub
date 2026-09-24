@@ -11,6 +11,9 @@
 namespace {
 
 constexpr uint32_t WIFI_TIMEOUT_MS = 10000;
+// 前回の AP へ直接つなぐときの待ち時間。普段は数百 ms で繋がるので、AP が変わったときに
+// 無線を長く動かしたまま待たず、早めに走査からやり直す
+constexpr uint32_t CACHED_WIFI_TIMEOUT_MS = 3000;
 constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
 constexpr int SEND_ATTEMPTS = 3;
 
@@ -20,31 +23,28 @@ bool cachedAp = false;
 int32_t cachedChannel = 0;
 uint8_t cachedBssid[6];
 
-bool waitConnected() {
-  const uint32_t start = millis();
+// 接続を始めた時刻（connect）。待ち時間はここから数える
+uint32_t connectStartedAt = 0;
+
+bool waitConnected(uint32_t timeoutMs) {
   while (WiFi.status() != WL_CONNECTED) {
-    if (millis() - start > WIFI_TIMEOUT_MS) return false;
+    if (millis() - connectStartedAt > timeoutMs) return false;
     delay(10);
   }
   return true;
 }
 
-bool connectWifi() {
-  WiFi.persistent(false);  // 接続情報をフラッシュに書かない（毎回書くと遅く、寿命も縮む）
-  WiFi.mode(WIFI_STA);
-#ifdef WIFI_STATIC_IP
-  WiFi.config(IPAddress(WIFI_STATIC_IP), IPAddress(WIFI_GATEWAY), IPAddress(WIFI_SUBNET),
-              IPAddress(WIFI_DNS));
-#endif
+// 接続を待つ。前回の AP へ直接つないで繋がらなければ、走査からやり直す
+bool waitWifi() {
   if (cachedAp) {
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, cachedChannel, cachedBssid);
-    if (waitConnected()) return true;
-    // アクセスポイントが変わった（チャンネルの変更など）。走査からやり直す
+    if (waitConnected(CACHED_WIFI_TIMEOUT_MS)) return true;
+    // アクセスポイントが変わった（チャンネルの変更など）
     cachedAp = false;
     WiFi.disconnect();
+    connectStartedAt = millis();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  if (!waitConnected()) return false;
+  if (!waitConnected(WIFI_TIMEOUT_MS)) return false;
   cachedAp = true;
   cachedChannel = WiFi.channel();
   memcpy(cachedBssid, WiFi.BSSID(), sizeof(cachedBssid));
@@ -96,9 +96,26 @@ int post(const String &body) {
 
 namespace record {
 
+void connect() {
+  WiFi.persistent(false);  // 接続情報をフラッシュに書かない（毎回書くと遅く、寿命も縮む）
+  WiFi.mode(WIFI_STA);
+#ifdef WIFI_STATIC_IP
+  WiFi.config(IPAddress(WIFI_STATIC_IP), IPAddress(WIFI_GATEWAY), IPAddress(WIFI_SUBNET),
+              IPAddress(WIFI_DNS));
+#endif
+  connectStartedAt = millis();
+  if (cachedAp) {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, cachedChannel, cachedBssid);
+  } else {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  }
+}
+
+void cancel() { stopWifi(); }
+
 bool send(Care care) {
   bool recorded = false;
-  if (connectWifi()) {
+  if (waitWifi()) {
     const String body = bodyOf(care, newUuid());
     for (int attempt = 0; attempt < SEND_ATTEMPTS; ++attempt) {
       const int status = post(body);

@@ -8,7 +8,13 @@ enum class Care {
   MistAndWater,  // 葉水＋水やり
 };
 
-// Wi-Fi に繋いで送り、切断して無線を止めるまでを行う。記録できたら true
+// Wi-Fi への接続を始める（待たない）。押し方を見分けている間に繋ぎ始めて、起きている時間を縮める
+void connect();
+
+// 接続を待って送り、切断して無線を止める。記録できたら true
 bool send(Care care);
+
+// 送らずに無線を止める（ノイズで起きたとき）
+void cancel();
 
 }  // namespace record

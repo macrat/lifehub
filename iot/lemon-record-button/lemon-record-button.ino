@@ -28,11 +28,11 @@ constexpr uint32_t FAILURE_HOLD_MS = 3000;
 
 bool pressed() { return gpio_get_level(BUTTON) == 0; }
 
-// ボタンが level の状態で DEBOUNCE_MS 続くまで待つ（接点のばたつきを 1 回と数えない）
-void waitStable(bool level) {
+// ボタンが離された状態で DEBOUNCE_MS 続くまで待つ（接点のばたつきを 1 回と数えない）
+void waitReleased() {
   uint32_t since = millis();
   while (millis() - since < DEBOUNCE_MS) {
-    if (pressed() != level) since = millis();
+    if (pressed()) since = millis();
     delay(1);
   }
 }
@@ -42,11 +42,11 @@ enum class Press { None, Single, Double };
 
 Press readPress() {
   if (!pressed()) return Press::None;
-  waitStable(false);
+  waitReleased();
   const uint32_t released = millis();
   while (millis() - released < DOUBLE_PRESS_WINDOW_MS) {
     if (pressed()) {
-      waitStable(false);
+      waitReleased();
       return Press::Double;
     }
     delay(1);
@@ -84,16 +84,21 @@ void setup() {
 
 void loop() {
   // 眠る前に離されているのを待つ（押したままだと LOW のままなので、眠った瞬間に起きてしまう）
-  waitStable(false);
+  waitReleased();
   sleepUntilPressed();
 
+  // 押し方を見分けている間（最大 0.4 秒）に Wi-Fi の接続を進めておく
+  record::connect();
   const Press press = readPress();
-  if (press == Press::None) return;
+  if (press == Press::None) {
+    record::cancel();
+    return;
+  }
 
-  const screen::Icon icon = press == Press::Single ? screen::Icon::Leaf : screen::Icon::Drop;
+  const bool single = press == Press::Single;
+  const screen::Icon icon = single ? screen::Icon::Leaf : screen::Icon::Drop;
   screen::show(icon);
-  const bool recorded =
-      record::send(press == Press::Single ? record::Care::Mist : record::Care::MistAndWater);
+  const bool recorded = record::send(single ? record::Care::Mist : record::Care::MistAndWater);
   if (recorded) {
     delay(SUCCESS_HOLD_MS);
   } else {

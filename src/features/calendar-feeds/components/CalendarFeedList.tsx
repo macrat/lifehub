@@ -6,12 +6,11 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
 import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
-import { QueryView } from '../../../lib/ui/QueryView.tsx';
+import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import {
@@ -43,7 +42,7 @@ export function CalendarFeedList() {
       <ListItem>
         <ListItemText primary="ics の配信 URL" />
       </ListItem>
-      <QueryView query={feedsQuery} skeleton={<FeedSkeleton />}>
+      <QueryView query={feedsQuery} skeleton={<ListItemSkeleton />}>
         {(feeds) =>
           feeds.map((feed) => (
             <FeedItem
@@ -128,14 +127,6 @@ function FeedItem({
         primary={feed.name}
         secondary={participants ? `${participants} の予定・${read}` : read}
       />
-    </ListItem>
-  );
-}
-
-function FeedSkeleton() {
-  return (
-    <ListItem>
-      <ListItemText primary={<Skeleton width="40%" />} secondary={<Skeleton width="60%" />} />
     </ListItem>
   );
 }

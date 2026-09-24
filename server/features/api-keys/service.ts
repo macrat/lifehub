@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { newId } from '../../../shared/id.ts';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import { newSecret } from '../../lib/secret.ts';
 import * as repository from './repository.ts';
 import type { ApiKeyRow } from './schema.ts';
 
@@ -20,9 +22,9 @@ export async function listKeys(userId: string): Promise<ApiKey[]> {
 }
 
 export async function createKey(input: ApiKeyInput, userId: string): Promise<IssuedApiKey> {
-  const key = newKey();
+  const key = newSecret();
   const values = { id: newId(), userId, name: input.name, createdAt: new Date() };
-  await repository.insert({ ...values, keyHash: await hashOf(key) });
+  await repository.insert({ ...values, keyHash: hashOf(key) });
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
   return { ...toApiKey({ ...values, lastUsedAt: null }), key };
 }
@@ -42,17 +44,11 @@ export async function authenticate(
   key: string,
   now: Date = new Date(),
 ): Promise<string | undefined> {
-  return (await repository.touchByHash(await hashOf(key), now))?.userId;
+  return (await repository.touchByHash(hashOf(key), now))?.userId;
 }
 
-/** 推測できないことだけが防御なので、256 ビットの乱数を base64url で表す（配信 URL のトークンと同じ） */
-function newKey(): string {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
-}
-
-async function hashOf(key: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
-  return Buffer.from(digest).toString('base64url');
+function hashOf(key: string): string {
+  return createHash('sha256').update(key).digest('base64url');
 }
 
 function toApiKey(row: Pick<ApiKeyRow, 'id' | 'name' | 'createdAt' | 'lastUsedAt'>): ApiKey {
