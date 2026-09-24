@@ -99,8 +99,6 @@ describe('lemon service', () => {
       careTypes: ['fertilize'],
       doneAt: jst('2026-09-12T08:00:00').toISOString(),
       note: 'まちがえて水やりで記録していた',
-      // 記録した人は編集しても変わらない
-      createdBy: userId,
     });
     expect((await listLogs({})).items).toEqual([updated]);
 

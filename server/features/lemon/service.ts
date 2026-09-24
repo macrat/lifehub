@@ -52,6 +52,5 @@ function toLog(row: LemonCareLogRow): CareLog {
     careTypes: row.careTypes,
     doneAt: row.doneAt.toISOString(),
     note: row.note,
-    createdBy: row.createdBy,
   };
 }

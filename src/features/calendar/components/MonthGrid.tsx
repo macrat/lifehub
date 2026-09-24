@@ -8,7 +8,7 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import type { CalendarItem } from '../../events/queries.ts';
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
-import { useHolidays, useWeather } from '../queries.ts';
+import type { CalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { useMonthGrid } from '../use-month-grid.ts';
@@ -23,6 +23,8 @@ type Props = {
   month: string;
   /** グリッドの 42 日（月曜始まり 6 週）。取得範囲と同じものを渡す */
   days: DateString[];
+  /** 日ごとの祝日と天気 */
+  calendarDays: CalendarDays;
   itemsByDate: Map<DateString, CalendarItem[]>;
   /** 日を選んだとき（日表示へ移る）。スマホは項目の無い所のタップ、PC は日付の数字 */
   onSelectDate: (date: DateString) => void;
@@ -59,6 +61,7 @@ const DAY_NUMBER_HEIGHT = 22;
 export function MonthGrid({
   month,
   days,
+  calendarDays: { holidays, weather },
   itemsByDate,
   onSelectDate,
   onSelectItem,
@@ -68,8 +71,6 @@ export function MonthGrid({
   bottomInset,
 }: Props) {
   const compact = useIsMobile();
-  const holidays = useHolidays();
-  const weather = useWeather();
   const drag = useDayDrag({
     draft,
     onChange: onChangeDraft,

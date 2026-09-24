@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import { type CalendarItem, useCalendarItems } from '../../events/queries.ts';
 import type { Draft } from '../draft.ts';
-import { groupByDate } from '../queries.ts';
+import { groupByDate, useCalendarDays } from '../queries.ts';
 import { type PeriodView, periodOf } from '../use-calendar-page.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { MonthGrid } from './MonthGrid.tsx';
@@ -55,11 +55,13 @@ export const CalendarPane = memo(function CalendarPane({
   const period = useMemo(() => periodOf(view, date), [view, date]);
   const { data: items } = useCalendarItems(period.range);
   const itemsByDate = useMemo(() => groupByDate(items ?? []), [items]);
+  const calendarDays = useCalendarDays(period.range);
 
   return view === 'month' ? (
     <MonthGrid
       month={period.month}
       days={period.days}
+      calendarDays={calendarDays}
       itemsByDate={itemsByDate}
       onSelectDate={onSelectDate}
       onSelectItem={onSelectItem}
@@ -71,6 +73,7 @@ export const CalendarPane = memo(function CalendarPane({
   ) : (
     <TimelineView
       days={period.days}
+      calendarDays={calendarDays}
       itemsByDate={itemsByDate}
       onSelectItem={onSelectItem}
       onSelectDate={view === 'week' ? onSelectDate : undefined}

@@ -15,16 +15,18 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'カレンダーの配信' })).toBeVisible();
 
-  const issued = page.waitForResponse(
-    (res) => res.request().method() === 'POST' && res.url().endsWith('/api/calendar/feeds'),
-  );
   await page.getByRole('button', { name: '配信 URL を発行' }).click();
   await page.getByLabel('名前').fill('E2E のカレンダー');
   // 既定は全員。相手を外して、自分の予定だけを配る URL にする
   await page.getByRole('checkbox', { name: '相手' }).uncheck();
   await page.getByRole('button', { name: '保存' }).click();
-  const { url } = (await (await issued).json()) as { url: string };
   await expect(page.getByText('E2E のカレンダー')).toBeVisible();
+  // 発行の応答は本文を返さないので、画面と同じく一覧から読む
+  const feeds = (await (await page.request.get('/api/calendar/feeds')).json()) as {
+    name: string;
+    url: string;
+  }[];
+  const url = feeds.find((feed) => feed.name === 'E2E のカレンダー')?.url ?? '';
   await expect(page.getByText('E2E の予定・', { exact: false })).toBeVisible();
 
   const anonymous = await playwright.request.newContext();

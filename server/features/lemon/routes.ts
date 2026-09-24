@@ -10,6 +10,7 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
+/** 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で取り直して揃えるので、返しても読まれない */
 export const lemonRoutes = new Hono<AppEnv>()
   .get('/status', async (c) => c.json(await service.getStatus()))
   .get('/logs', zValidator('query', careLogListQuerySchema, validationHook), async (c) =>
@@ -17,14 +18,17 @@ export const lemonRoutes = new Hono<AppEnv>()
   )
   .post('/logs', zValidator('json', createCareLogRequestSchema, validationHook), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    const log = await service.logCare(input, c.get('user').id, id);
-    return c.json(log, 201);
+    await service.logCare(input, c.get('user').id, id);
+    return c.body(null, 204);
   })
   .put(
     '/logs/:id',
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', careLogSchema, validationHook),
-    async (c) => c.json(await service.updateLog(c.req.valid('param').id, c.req.valid('json'))),
+    async (c) => {
+      await service.updateLog(c.req.valid('param').id, c.req.valid('json'));
+      return c.body(null, 204);
+    },
   )
   .delete('/logs/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
     await service.deleteLog(c.req.valid('param').id);

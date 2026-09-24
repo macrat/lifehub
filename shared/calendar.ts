@@ -10,6 +10,7 @@ import {
 } from './date.ts';
 import type { DateString } from './types.ts';
 import type { EventKind } from './validation/events.ts';
+import type { DailyWeather } from './weather.ts';
 
 /**
  * カレンダーに並ぶ項目の形と、発生（1 回分）を暦日に置く規則。
@@ -72,6 +73,16 @@ export function occurrenceKey(item: Pick<Occurrence, 'kind' | 'id' | 'occurrence
 
 /** 両端を含む JST 暦日の期間 */
 export type DateRange = { from: DateString; to: DateString };
+
+/**
+ * カレンダーの 1 期間分（`GET /api/calendar`）: 項目と、その期間の祝日（昇順）・天気（日付順）。
+ * どれも期間の外の日は含まない。
+ */
+export type CalendarPeriod = {
+  items: CalendarItem[];
+  holidays: DateString[];
+  weather: DailyWeather[];
+};
 
 /**
  * 入力の日時を保存形式に合わせる。終日は開始をその日の JST 0:00 に、

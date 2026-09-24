@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { listWeather, parseForecast, recordObservedTempMax, refreshWeather } from '../service.ts';
+
+const range = (from: string, to: string) => ({
+  from: dateStringSchema.parse(from),
+  to: dateStringSchema.parse(to),
+});
+/** テストの予報のすべての日を含む期間 */
+const ALL = range('2026-09-01', '2026-09-30');
 
 const SHORT_DAYS = [
   '2026-09-23T17:00:00+09:00',
@@ -80,7 +88,7 @@ describe('weather service', () => {
 
   it('まだ一度も取っていなければ、一覧を返す前に取ってくる', async () => {
     serve(forecast(['302', '202', '200'], ['202', '200', '101']));
-    expect(await listWeather()).toContainEqual({
+    expect(await listWeather(ALL)).toContainEqual({
       date: '2026-09-24',
       icon: { symbol: 'cloud', change: 'sometimes', next: 'rain' },
       label: '曇一時雨',
@@ -88,7 +96,7 @@ describe('weather service', () => {
     });
     // 2 回目は保存した天気を返す（取りに行かない）
     offline();
-    expect(await listWeather()).toHaveLength(4);
+    expect(await listWeather(ALL)).toHaveLength(4);
   });
 
   it('取り直すと予報のある日を上書きし、予報から外れた日と、報から消えた最高気温は残す', async () => {
@@ -103,7 +111,7 @@ describe('weather service', () => {
       ]),
     );
     await refreshWeather();
-    expect((await listWeather()).map((w) => [w.date, w.label, w.tempMax])).toEqual([
+    expect((await listWeather(ALL)).map((w) => [w.date, w.label, w.tempMax])).toEqual([
       ['2026-09-23', '雨時々止む', null],
       ['2026-09-24', '晴', 29],
       ['2026-09-25', '晴', 26],
@@ -112,12 +120,22 @@ describe('weather service', () => {
 
     offline();
     await expect(refreshWeather()).rejects.toThrow('offline');
-    expect(await listWeather()).toHaveLength(4);
+    expect(await listWeather(ALL)).toHaveLength(4);
+  });
+
+  it('期間の中の日だけを返し、期間に天気が無くても一度取っていれば取りに行かない', async () => {
+    serve(forecast(['302', '202', '200'], ['202', '200', '101']));
+    expect((await listWeather(range('2026-09-24', '2026-09-25'))).map((w) => w.date)).toEqual([
+      '2026-09-24',
+      '2026-09-25',
+    ]);
+    offline();
+    expect(await listWeather(range('2026-08-01', '2026-08-31'))).toEqual([]);
   });
 
   it('表に無い天気コードの日は返さない', async () => {
     serve(forecast(['999', '100', '100'], ['100', '100', '100']));
-    expect((await listWeather()).map((w) => w.date)).not.toContain('2026-09-23');
+    expect((await listWeather(ALL)).map((w) => w.date)).not.toContain('2026-09-23');
   });
 
   it('昨日の最高気温をアメダスの 0:00 の観測値で上書きする（整数に丸める）', async () => {
@@ -131,7 +149,7 @@ describe('weather service', () => {
     // 2026-09-24 6:00 JST
     await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'));
     expect(urls).toEqual(['https://www.jma.go.jp/bosai/amedas/data/point/44132/20260924_00.json']);
-    expect((await listWeather()).map((w) => [w.date, w.tempMax])).toEqual([
+    expect((await listWeather(ALL)).map((w) => [w.date, w.tempMax])).toEqual([
       ['2026-09-23', 25],
       ['2026-09-24', 29],
       ['2026-09-25', 26],
@@ -143,7 +161,7 @@ describe('weather service', () => {
     serve(amedas(24.6));
     expect(await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'))).toBeUndefined();
     offline();
-    await expect(listWeather()).rejects.toThrow('offline');
+    await expect(listWeather(ALL)).rejects.toThrow('offline');
   });
 
   it('欠測なら何も書かずに投げ、予報の値を残す', async () => {
@@ -155,6 +173,6 @@ describe('weather service', () => {
     await expect(recordObservedTempMax(new Date('2026-09-24T21:00:00Z'))).rejects.toThrow(
       'maxTemp',
     );
-    expect((await listWeather()).find((w) => w.date === '2026-09-24')?.tempMax).toBe(31);
+    expect((await listWeather(ALL)).find((w) => w.date === '2026-09-24')?.tempMax).toBe(31);
   });
 });

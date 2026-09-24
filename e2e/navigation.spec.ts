@@ -56,15 +56,14 @@ test('一度見た画面に戻るときは、キャッシュを即座に出し�
 });
 
 /**
- * ユーザー（名前と色）は 1 時間取り直さない（`src/features/users/queries.ts` の `staleTime`）。
- * 色と名前を読む部品は画面中に散らばっているので、staleTime が戻ると画面を移るたびに取り直しが走る。
- * 回数で押さえる。
+ * ユーザー（名前と色）は `/api/me` に載ってきて、5 分は取り直さない（`src/lib/auth.ts` の `meQueryOptions` の
+ * `staleTime`）。色と名前を読む部品は画面中に散らばっているので、staleTime が戻ると画面を移るたびに
+ * 取り直しが走る。回数で押さえる。ログインの前後はログイン状態を確かめるために問い合わせるので、数えるのはその後から。
  */
 test('ユーザーは画面を移っても取り直さない', async ({ page }) => {
-  const fetches = countFetches(page, '/api/users');
-
   await login(page);
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
+  const fetches = countFetches(page, '/api/me');
   // 名前と色を読む画面を一通り開く。移った先が出るまで待つ（部品がマウントされて初めて取り直しが走る）
   const visit = async (name: string, arrived: Locator) => {
     await page.getByRole('link', { name }).click();
@@ -78,5 +77,5 @@ test('ユーザーは画面を移っても取り直さない', async ({ page }) 
   await visit('立替', page.getByLabel('立替を検索'));
   await quiet(page, fetches);
 
-  expect(fetches()).toBe(1);
+  expect(fetches()).toBe(0);
 });

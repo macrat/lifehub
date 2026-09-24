@@ -49,9 +49,10 @@
 
 ## API（`server/features/events/routes.ts`）
 
+カレンダーに並べる一覧（`CalendarItem[]`）は、祝日・天気と一緒にカレンダーの問い合わせ `GET /api/calendar?from&to` が返す（[calendar.md](calendar.md#api)）。書き込み（POST / PUT / DELETE）の応答は本文の無い 204。
+
 | メソッド | パス | 内容 |
 |---|---|---|
-| GET | `/api/events?from&to` | `from`〜`to`（JST 暦日、両端含む）の `CalendarItem[]`（[calendar.md](calendar.md)）。繰り返しは展開済み、実体化された回を反映済み |
 | GET | `/api/events/:id` | 行そのものを返す（繰り返しの「すべて」を編集する起点） |
 | POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |

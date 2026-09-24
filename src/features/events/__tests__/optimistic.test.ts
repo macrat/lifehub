@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { expect, test } from 'vitest';
-import type { CalendarItem } from '../../../../shared/calendar.ts';
+import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
 import { today } from '../../../../shared/date.ts';
 import { toMonthString } from '../../../lib/date.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
@@ -11,12 +11,16 @@ import { writeTarget } from '../recurrence-options.ts';
 /** その暦月のクエリを 1 つだけ持つキャッシュ */
 function clientWith(month: string, items: CalendarItem[] = []) {
   const client = new QueryClient();
-  client.setQueryData([...CALENDAR_QUERY_KEY, month], items);
+  client.setQueryData<CalendarPeriod>([...CALENDAR_QUERY_KEY, month], {
+    items,
+    holidays: [],
+    weather: [],
+  });
   return client;
 }
 
 const itemsOf = (client: QueryClient): CalendarItem[] =>
-  client.getQueriesData<CalendarItem[]>({ queryKey: CALENDAR_QUERY_KEY })[0]?.[1] ?? [];
+  client.getQueriesData<CalendarPeriod>({ queryKey: CALENDAR_QUERY_KEY })[0]?.[1]?.items ?? [];
 
 const EVENT: CreateEventBody & { id: string } = {
   id: 'tmp',

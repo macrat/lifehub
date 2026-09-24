@@ -1,6 +1,6 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { dateRangeQuerySchema, idParamSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema } from '../../../shared/validation/common.ts';
 import {
   completeEventSchema,
   createEventRequestSchema,
@@ -11,29 +11,27 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
+/**
+ * 予定・タスクの読み書き。カレンダーに並べる一覧はカレンダーの問い合わせ（`/api/calendar`）が返す。
+ * 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で一覧を取り直して揃えるので、
+ * 返しても読まれない。
+ */
 export const eventsRoutes = new Hono<AppEnv>()
-  .get('/', zValidator('query', dateRangeQuerySchema, validationHook), async (c) =>
-    c.json(await service.listItems(c.req.valid('query'))),
-  )
   .get('/:id', zValidator('param', idParamSchema, validationHook), async (c) =>
     c.json(await service.getEvent(c.req.valid('param').id)),
   )
   .post('/', zValidator('json', createEventRequestSchema, validationHook), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    const event = await service.createEvent(input, c.get('user').id, id);
-    return c.json(event, 201);
+    await service.createEvent(input, c.get('user').id, id);
+    return c.body(null, 204);
   })
   .put(
     '/:id',
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', updateEventSchema, validationHook),
     async (c) => {
-      const event = await service.updateEvent(
-        c.req.valid('param').id,
-        c.req.valid('json'),
-        c.get('user').id,
-      );
-      return c.json(event);
+      await service.updateEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+      return c.body(null, 204);
     },
   )
   .delete(

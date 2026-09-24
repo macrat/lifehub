@@ -1,4 +1,5 @@
 import ICAL from 'ical.js';
+import type { DateRange } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import * as repository from './repository.ts';
@@ -41,10 +42,12 @@ export async function refreshHolidays(): Promise<DateString[]> {
 }
 
 /**
- * 祝日の一覧（昇順）。まだ一度も取っていなければ（デプロイ直後など）その場で取ってから返す。
+ * [from, to]（両端含む）の祝日（昇順）。まだ一度も取っていなければ（デプロイ直後など）その場で取ってから返す。
  * WHY: 月次の Cron だけに任せると、最初の実行まで祝日が 1 つも出ない。
+ * 祝日の無い月もあるので、空だったときだけ「一度も取っていないのか」を確かめる。
  */
-export async function listHolidays(): Promise<DateString[]> {
-  const dates = await repository.findAll();
-  return dates.length > 0 ? dates : refreshHolidays();
+export async function listHolidays(range: DateRange): Promise<DateString[]> {
+  const dates = await repository.findInRange(range);
+  if (dates.length > 0 || (await repository.hasAny())) return dates;
+  return (await refreshHolidays()).filter((date) => date >= range.from && date <= range.to);
 }

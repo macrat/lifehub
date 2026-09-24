@@ -1,12 +1,23 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import type { DateRange } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db } from '../../lib/db.ts';
 import { weather } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
 
-export async function findAll(): Promise<WeatherRow[]> {
-  return db.select().from(weather).orderBy(asc(weather.date));
+/** [from, to]（両端含む）の天気（日付順） */
+export async function findInRange({ from, to }: DateRange): Promise<WeatherRow[]> {
+  return db
+    .select()
+    .from(weather)
+    .where(and(gte(weather.date, from), lte(weather.date, to)))
+    .orderBy(asc(weather.date));
+}
+
+/** 一度でも取ってきたか（1 行でもあるか） */
+export async function hasAny(): Promise<boolean> {
+  return (await db.select().from(weather).limit(1)).length > 0;
 }
 
 /**

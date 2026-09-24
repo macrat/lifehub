@@ -1,63 +1,40 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { CalendarItem } from '../../../shared/calendar.ts';
+import type { UseQueryResult } from '@tanstack/react-query';
+import type { CalendarItem, CalendarPeriod } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
-import { api, ensureOk } from '../../lib/api.ts';
-import { ONE_DAY, ONE_HOUR } from '../../lib/query-client.ts';
+import { useCalendarPeriods } from '../events/queries.ts';
 
 /** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
 export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
   return Map.groupBy(items, (item) => item.placementDate);
 }
 
-const holidaysQueryOptions = queryOptions({
-  queryKey: ['holidays'],
-  queryFn: async (): Promise<DateString[]> => {
-    const res = await ensureOk(await api.holidays.$get());
-    return res.json();
-  },
-  /**
-   * 1 日は取り直さない。
-   * WHY: サーバーが配布元から取り直すのは月に 1 回で、それ以外に変わることが無い。読むのは
-   * カレンダーの週の行・見出し（日付の数字を出す所）で、スワイプや表示の切り替えのたびにマウントし直すので、
-   * 既定（staleTime: 0）だとそのたびに問い合わせることになる。
-   */
-  staleTime: ONE_DAY,
-});
+/**
+ * 日ごとの祝日（振替休日・国民の休日を含む）と天気。
+ * まだ届いていない月や取れなかった月の日は、祝日でなく天気も無い扱い（どちらも補助の情報で、
+ * カレンダーそのものは止めない）。
+ */
+export type CalendarDays = {
+  holidays: ReadonlySet<DateString>;
+  weather: ReadonlyMap<DateString, DailyWeather>;
+};
 
-const EMPTY: ReadonlySet<DateString> = new Set();
-
-function toSet(dates: DateString[]): ReadonlySet<DateString> {
-  return new Set(dates);
+/**
+ * 月ごとの結果をまとめる。範囲の外の日が混ざっても引かれないだけなので、範囲では絞らない。
+ * 範囲に依らない関数なので、モジュールに 1 つだけ置いて固定する（`useCalendarPeriods`）。
+ */
+function combineDays(results: UseQueryResult<CalendarPeriod>[]): CalendarDays {
+  const periods = results.flatMap((result) => (result.data ? [result.data] : []));
+  return {
+    holidays: new Set(periods.flatMap((period) => period.holidays)),
+    weather: new Map(periods.flatMap((period) => period.weather.map((w) => [w.date, w] as const))),
+  };
 }
 
-/** 祝日（振替休日・国民の休日を含む）の集合。まだ届いていないか取れなかったときは空（どの日も平日の扱い） */
-export function useHolidays(): ReadonlySet<DateString> {
-  return useQuery({ ...holidaysQueryOptions, select: toSet }).data ?? EMPTY;
-}
-
-const weatherQueryOptions = queryOptions({
-  queryKey: ['weather'],
-  queryFn: async (): Promise<DailyWeather[]> => {
-    const res = await ensureOk(await api.weather.$get());
-    return res.json();
-  },
-  /**
-   * 1 時間は取り直さない。
-   * WHY: サーバーが気象庁から取り直すのは 1 日 3 回で、読むのはスワイプや表示の切り替えのたびに
-   * マウントし直す所（月の週の行・日表示の見出し）なので、既定（staleTime: 0）だとそのたびに問い合わせる。
-   * 祝日と違って 1 日持たないのは、朝の予報が夕方には変わっているため。
-   */
-  staleTime: ONE_HOUR,
-});
-
-const NO_WEATHER: ReadonlyMap<DateString, DailyWeather> = new Map();
-
-function toMap(list: DailyWeather[]): ReadonlyMap<DateString, DailyWeather> {
-  return new Map(list.map((w) => [w.date, w]));
-}
-
-/** 日ごとの天気。まだ届いていないか取れなかったときは空（どの日にもアイコンを出さない） */
-export function useWeather(): ReadonlyMap<DateString, DailyWeather> {
-  return useQuery({ ...weatherQueryOptions, select: toMap }).data ?? NO_WEATHER;
+/**
+ * [from, to]（両端含む JST 暦日）の祝日と天気。項目と同じ月のキャッシュ（`useCalendarItems`）から読むので、
+ * 項目を出している面なら問い合わせは増えない。
+ */
+export function useCalendarDays(range: { from: DateString; to: DateString }): CalendarDays {
+  return useCalendarPeriods(range, combineDays);
 }

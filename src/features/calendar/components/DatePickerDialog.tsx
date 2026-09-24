@@ -23,8 +23,8 @@ import {
   weekdayColor,
 } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
-import { useHolidays } from '../queries.ts';
-import type { PeriodView } from '../use-calendar-page.ts';
+import { useCalendarDays } from '../queries.ts';
+import { type PeriodView, periodOf } from '../use-calendar-page.ts';
 import { DayNumber } from './DayNumber.tsx';
 
 /** 何を選ぶダイアログか（読み上げ用の名前）。開くボタンの文言（「年月を選ぶ」）とは言い回しが違う */
@@ -137,7 +137,8 @@ function DayOptions({
   selected: DateString;
   onSelect: (date: DateString) => void;
 }) {
-  const holidays = useHolidays();
+  // 祝日はカレンダーの月表示の面と同じ範囲・同じ月のキャッシュから読む。選んだ先の月を先に読んでおくことにもなる
+  const { holidays } = useCalendarDays(periodOf('month', firstDayOfMonth(month)).range);
   const selectedWeek = weekDays(selected)[0];
   const optionSx = { borderRadius: 1, py: 0.5 };
   return (

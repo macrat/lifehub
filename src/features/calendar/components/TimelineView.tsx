@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../../events/queries.ts';
 import type { Draft } from '../draft.ts';
+import type { CalendarDays } from '../queries.ts';
 import { partitionTimeline } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { AllDayRow } from './AllDayRow.tsx';
@@ -12,6 +13,8 @@ import { TimelineHeader } from './TimelineHeader.tsx';
 type Props = {
   /** 表示する日（週なら 7 日、日なら 1 日） */
   days: DateString[];
+  /** 見出しへそのまま渡す（祝日と天気） */
+  calendarDays: CalendarDays;
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
@@ -40,6 +43,7 @@ const GUTTER_WIDTH = 44;
  */
 export function TimelineView({
   days,
+  calendarDays,
   itemsByDate,
   onSelectItem,
   onSelectDate,
@@ -61,7 +65,12 @@ export function TimelineView({
 
   return (
     <Box sx={{ height, display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
-      <TimelineHeader days={days} columns={columns} onSelectDate={onSelectDate} />
+      <TimelineHeader
+        days={days}
+        calendarDays={calendarDays}
+        columns={columns}
+        onSelectDate={onSelectDate}
+      />
       <AllDayRow
         days={days}
         allDayByDate={allDayByDate}

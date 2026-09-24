@@ -33,7 +33,8 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
   await page.getByLabel('タイトルを追加').fill(title);
-  await stall(page, '**/api/events**', 1500);
+  // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる
+  await stall(page, '**/api/{events,calendar}**', 1500);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.locator('[data-sheet]')).toHaveCount(0, { timeout: 1000 });
   await expect(page.locator('[data-draft]')).toHaveCount(0);
@@ -42,7 +43,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(page).toHaveURL(/view=month&date=2031-06-15/);
 
   // 後片付けは遅らせずに送り、届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
-  await page.unroute('**/api/events**');
+  await page.unroute('**/api/{events,calendar}**');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
   const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');

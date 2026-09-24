@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, createElement, useReducer } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import type { CalendarItem } from '../../../../shared/calendar.ts';
+import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useCalendarItems } from '../queries.ts';
 import { CALENDAR_QUERY_KEY } from '../query-keys.ts';
@@ -18,7 +18,11 @@ import { CALENDAR_QUERY_KEY } from '../query-keys.ts';
 it('キャッシュが変わらなければ、描き直しても繋ぎ直さずに同じ配列を返す', () => {
   const client = new QueryClient();
   const item = { id: 'a', placementDate: '2026-09-10' } as CalendarItem;
-  client.setQueryData([...CALENDAR_QUERY_KEY, '2026-09'], [item]);
+  client.setQueryData<CalendarPeriod>([...CALENDAR_QUERY_KEY, '2026-09'], {
+    items: [item],
+    holidays: [],
+    weather: [],
+  });
   const range = { from: '2026-09-01' as DateString, to: '2026-09-30' as DateString };
 
   const seen: (CalendarItem[] | undefined)[] = [];

@@ -2,15 +2,14 @@ import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
+import { calendarRoutes } from './features/calendar/routes.ts';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
-import { holidaysRoutes } from './features/holidays/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
-import { toMe } from './features/users/service.ts';
-import { weatherRoutes } from './features/weather/routes.ts';
+import { getMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { cronRoutes } from './lib/cron.ts';
@@ -35,7 +34,7 @@ api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
 // ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
-// この下の /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
+// この下の /calendar と /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
 // 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
 // Vercel Cron の入口。Cron secret で保護する（セッションではない）
@@ -60,15 +59,13 @@ api.use('*', async (c, next) => {
 });
 
 const routes = api
-  // セッションの検証で読んだユーザーをそのまま返す（hue と通知時刻も載っている。server/lib/auth.ts）
-  .get('/me', (c) => c.json(toMe(c.get('user'))))
+  .get('/me', async (c) => c.json(await getMe(c.get('user'))))
   .route('/users', usersRoutes)
+  .route('/calendar', calendarRoutes)
   .route('/events', eventsRoutes)
   .route('/calendar/feeds', calendarFeedsRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
-  .route('/holidays', holidaysRoutes)
-  .route('/weather', weatherRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

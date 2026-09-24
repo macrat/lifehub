@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { listHolidays, parseHolidays, refreshHolidays } from '../service.ts';
 
@@ -30,6 +31,13 @@ const ICS = [
   'END:VCALENDAR',
 ].join('\r\n');
 
+const range = (from: string, to: string) => ({
+  from: dateStringSchema.parse(from),
+  to: dateStringSchema.parse(to),
+});
+/** テストの ics のすべての日を含む期間 */
+const ALL = range('2000-01-01', '2099-12-31');
+
 /** 配布元の応答を差し替える（外部のサイトに依存させない） */
 const serve = (ics: string) => vi.stubGlobal('fetch', async () => new Response(ics));
 const offline = () =>
@@ -55,10 +63,25 @@ describe('holidays service', () => {
 
   it('まだ一度も取っていなければ、一覧を返す前に取ってくる', async () => {
     serve(ICS);
-    expect(await listHolidays()).toContain('2026-09-22');
+    expect(await listHolidays(ALL)).toContain('2026-09-22');
     // 2 回目は保存した一覧を返す（取りに行かない）
     offline();
-    expect(await listHolidays()).toContain('2026-09-22');
+    expect(await listHolidays(ALL)).toContain('2026-09-22');
+  });
+
+  it('期間の中の祝日だけを返す', async () => {
+    serve(ICS);
+    expect(await listHolidays(range('2026-05-01', '2026-09-22'))).toEqual([
+      '2026-05-06',
+      '2026-09-22',
+    ]);
+  });
+
+  it('期間に祝日が無くても、一度取っていれば取りに行かない', async () => {
+    serve(ICS);
+    await refreshHolidays();
+    offline();
+    expect(await listHolidays(range('2026-06-01', '2026-06-30'))).toEqual([]);
   });
 
   it('取り直すと全体を入れ替え、失敗したら前の一覧を残す', async () => {
@@ -71,6 +94,6 @@ describe('holidays service', () => {
 
     offline();
     await expect(refreshHolidays()).rejects.toThrow('offline');
-    expect(await listHolidays()).toEqual(dates);
+    expect(await listHolidays(ALL)).toEqual(dates);
   });
 });
