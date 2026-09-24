@@ -64,6 +64,6 @@ describe('カレンダーの 1 期間分', () => {
     const period = (await res.json()) as CalendarPeriod;
     expect(period.items.map((item) => item.title)).toEqual(['5 月']);
     expect(period.holidays).toEqual(['2030-05-06']);
-    expect(period.weather).toEqual([]);
+    expect(period.weather).toEqual({ daily: [], hourly: [] });
   });
 });

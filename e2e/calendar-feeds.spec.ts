@@ -13,7 +13,7 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
 }) => {
   await login(page);
   await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'カレンダーの配信' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '外部連携' })).toBeVisible();
 
   await page.getByRole('button', { name: '配信 URL を発行' }).click();
   await page.getByLabel('名前').fill('E2E のカレンダー');

@@ -3,18 +3,16 @@ import { useMemo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { CalendarItem } from '../../events/queries.ts';
 import type { Draft } from '../draft.ts';
-import type { CalendarDays } from '../queries.ts';
 import { partitionTimeline } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { AllDayRow } from './AllDayRow.tsx';
 import { TimeGrid } from './TimeGrid.tsx';
 import { TimelineHeader } from './TimelineHeader.tsx';
+import { HOURLY_WEATHER_WIDTH } from './weather-glyphs.ts';
 
 type Props = {
   /** 表示する日（週なら 7 日、日なら 1 日） */
   days: DateString[];
-  /** 見出しへそのまま渡す（祝日と天気） */
-  calendarDays: CalendarDays;
   itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectItem: (item: CalendarItem) => void;
   /** 週表示で日付の見出しをタップしたとき（日表示へ） */
@@ -43,7 +41,6 @@ const GUTTER_WIDTH = 44;
  */
 export function TimelineView({
   days,
-  calendarDays,
   itemsByDate,
   onSelectItem,
   onSelectDate,
@@ -61,16 +58,15 @@ export function TimelineView({
     () => partitionTimeline(days, itemsByDate),
     [days, itemsByDate],
   );
-  const columns = `${GUTTER_WIDTH}px repeat(${days.length}, minmax(0, 1fr))`;
+  // 日表示だけ、時刻の左に 3 時間ごとの天気を出す（週表示は列ごとに日が違い、1 本の欄では出し分けられない）。
+  // 欄の幅は天気が届く前から広げておき、届いたときに時間軸が横にずれないようにする
+  const hourlyWeatherDate = days.length === 1 ? (days[0] ?? null) : null;
+  const gutterWidth = GUTTER_WIDTH + (hourlyWeatherDate ? HOURLY_WEATHER_WIDTH : 0);
+  const columns = `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
     <Box sx={{ height, display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
-      <TimelineHeader
-        days={days}
-        calendarDays={calendarDays}
-        columns={columns}
-        onSelectDate={onSelectDate}
-      />
+      <TimelineHeader days={days} columns={columns} onSelectDate={onSelectDate} />
       <AllDayRow
         days={days}
         allDayByDate={allDayByDate}
@@ -84,7 +80,8 @@ export function TimelineView({
         timedByDate={timedByDate}
         hourHeight={hourHeight}
         onZoom={onZoom}
-        gutterWidth={GUTTER_WIDTH}
+        columns={columns}
+        hourlyWeatherDate={hourlyWeatherDate}
         onSelectItem={onSelectItem}
         draft={draft}
         onChangeDraft={onChangeDraft}

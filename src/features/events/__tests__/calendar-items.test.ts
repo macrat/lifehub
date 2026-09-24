@@ -21,7 +21,7 @@ it('キャッシュが変わらなければ、描き直しても繋ぎ直さず�
   client.setQueryData<CalendarPeriod>([...CALENDAR_QUERY_KEY, '2026-09'], {
     items: [item],
     holidays: [],
-    weather: [],
+    weather: { daily: [], hourly: [] },
   });
   const range = { from: '2026-09-01' as DateString, to: '2026-09-30' as DateString };
 

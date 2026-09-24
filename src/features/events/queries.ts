@@ -113,7 +113,7 @@ export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
  * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
  * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
  */
-function calendarMonthQueryOptions(month: string) {
+export function calendarMonthQueryOptions(month: string) {
   return queryOptions({
     queryKey: [...CALENDAR_QUERY_KEY, month],
     /**
@@ -140,10 +140,11 @@ function calendarMonthQueryOptions(month: string) {
  * カレンダーはドラッグの 1 コマごとに描き直すので、そのたびに全項目を繋いで比べることになる。
  */
 export function useCalendarPeriods<T>(
-  { from, to }: DateRange,
+  range: DateRange | null,
   combine: (results: UseQueryResult<CalendarPeriod>[]) => T,
 ): T {
-  return useQueries({ queries: monthsInRange(from, to).map(calendarMonthQueryOptions), combine });
+  const months = range ? monthsInRange(range.from, range.to) : [];
+  return useQueries({ queries: months.map(calendarMonthQueryOptions), combine });
 }
 
 /**

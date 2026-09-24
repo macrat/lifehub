@@ -14,7 +14,7 @@ import { refreshWeather } from '../server/features/weather/service.ts';
  */
 const results = await Promise.allSettled([
   refreshHolidays().then((dates) => `holidays: ${dates.length} 日`),
-  refreshWeather().then((rows) => `weather: ${rows.length} 日`),
+  refreshWeather().then(({ daily, hourly }) => `weather: ${daily} 日・${hourly} 区間`),
 ]);
 for (const result of results) {
   if (result.status === 'fulfilled') console.log(result.value);

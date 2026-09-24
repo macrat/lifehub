@@ -10,7 +10,7 @@ import {
 } from './date.ts';
 import type { DateString } from './types.ts';
 import type { EventKind } from './validation/events.ts';
-import type { DailyWeather } from './weather.ts';
+import type { WeatherInRange } from './weather.ts';
 
 /**
  * カレンダーに並ぶ項目の形と、発生（1 回分）を暦日に置く規則。
@@ -80,13 +80,13 @@ export function inRange(date: DateString, { from, to }: DateRange): boolean {
 }
 
 /**
- * カレンダーの 1 期間分（`GET /api/calendar`）: 項目と、その期間の祝日（昇順）・天気（日付順）。
+ * カレンダーの 1 期間分（`GET /api/calendar`）: 項目と、その期間の祝日（昇順）・天気（日ごとと 3 時間ごと）。
  * どれも期間の外の日は含まない。
  */
 export type CalendarPeriod = {
   items: CalendarItem[];
   holidays: DateString[];
-  weather: DailyWeather[];
+  weather: WeatherInRange;
 };
 
 /**

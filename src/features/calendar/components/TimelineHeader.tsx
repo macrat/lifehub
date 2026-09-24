@@ -4,14 +4,12 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
-import type { CalendarDays } from '../queries.ts';
+import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
 
 type Props = {
   days: DateString[];
-  /** 日ごとの祝日と天気 */
-  calendarDays: CalendarDays;
   /** 時間軸と揃える列（`grid-template-columns`）。左端は時刻の欄 */
   columns: string;
   /** 見出しをタップしたとき（週表示から日表示へ）。渡さなければ押せない */
@@ -19,12 +17,8 @@ type Props = {
 };
 
 /** 週・日のタイムラインの、日付の見出しの行（曜日・日付・天気） */
-export function TimelineHeader({
-  days,
-  calendarDays: { holidays, weather },
-  columns,
-  onSelectDate,
-}: Props) {
+export function TimelineHeader({ days, columns, onSelectDate }: Props) {
+  const { holidays, weather } = useCalendarDays(days);
   const single = days.length === 1;
   return (
     <Box

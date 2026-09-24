@@ -1,0 +1,12 @@
+# arduino-cli のビルド設定。ボードのパッケージとライブラリの版をここで固定する。
+# PSRAM は使わないので初期化しない（Disabled）。CPU は 240MHz のまま（理由は README の「省電力」）。
+profiles:
+  atoms3r:
+    fqbn: m5stack:esp32:m5stack_atoms3r:PSRAM=disabled
+    platforms:
+      - platform: m5stack:esp32 (3.3.9)
+        platform_index_url: https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+    libraries:
+      - M5Unified (0.2.23)
+      - M5GFX (0.2.30)
+default_profile: atoms3r

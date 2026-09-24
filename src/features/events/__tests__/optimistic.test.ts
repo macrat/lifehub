@@ -14,7 +14,7 @@ function clientWith(month: string, items: CalendarItem[] = []) {
   client.setQueryData<CalendarPeriod>([...CALENDAR_QUERY_KEY, month], {
     items,
     holidays: [],
-    weather: [],
+    weather: { daily: [], hourly: [] },
   });
   return client;
 }

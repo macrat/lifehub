@@ -1,0 +1,40 @@
+import { expect, test } from '@playwright/test';
+import { login } from './login.ts';
+
+/**
+ * API キーの発行 → 発行したときだけキーが見える → そのキーで記録投入用エンドポイントに記録でき、
+ * レモンの画面に出る → 失効すると記録できなくなる、を通しで確かめる。
+ * キーを使うのはログインを持たないデバイスなので、Cookie を持たないクライアント
+ * （`playwright.request.newContext`）で送り、ブラウザのセッションに寄りかかっていないことも見る。
+ */
+test('発行した API キーで記録でき、失効すると記録できなくなる', async ({ page, playwright }) => {
+  await login(page);
+  await page.goto('/settings');
+  const section = page.getByRole('region', { name: '外部連携' });
+
+  await section.getByRole('button', { name: 'API キーを発行' }).click();
+  await page.getByLabel('名前').fill('E2E のボタン');
+  await page.getByRole('button', { name: '保存' }).click();
+  const key = await page.getByLabel('API キー', { exact: true }).inputValue();
+  expect(key).toMatch(/^[\w-]{43}$/);
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expect(section.getByText('まだ一度も使われていません')).toBeVisible();
+
+  const device = await playwright.request.newContext();
+  const post = (body: unknown) =>
+    device.post('/api/records', { data: body, headers: { authorization: `Bearer ${key}` } });
+  expect(
+    (await post({ type: 'lemon', careTypes: ['mist', 'water'], note: 'E2E のボタン' })).status(),
+  ).toBe(201);
+
+  await page.goto('/lemon');
+  await expect(page.getByText('E2E のボタン')).toBeVisible();
+
+  await page.goto('/settings');
+  await expect(section.getByText('最後に使われたのは', { exact: false })).toBeVisible();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await section.getByRole('button', { name: 'E2E のボタン を失効' }).click();
+  await expect(section.getByText('E2E のボタン')).toBeHidden();
+  expect((await post({ type: 'lemon', careTypes: ['mist'] })).status()).toBe(401);
+  await device.dispose();
+});

@@ -4,9 +4,9 @@ import Typography from '@mui/material/Typography';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { DAY_MINUTES } from '../../../../shared/constants.ts';
-import { today } from '../../../../shared/date.ts';
+import { minutesOfDay, today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { formatTime, minutesOfDay } from '../../../lib/date.ts';
+import { formatTime } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
@@ -24,6 +24,7 @@ import type { DragHandlers } from '../use-range-drag.ts';
 import { useTimeDrag } from '../use-time-drag.ts';
 import { useTimelineScroll } from '../use-timeline-scroll.ts';
 import { DraftBlock } from './DraftBlock.tsx';
+import { HourlyWeatherColumn } from './HourlyWeatherColumn.tsx';
 import { syncScrollProps } from './markers.ts';
 
 /** ブロックの中の時刻の行。高さが足りるときだけ出す（下の `@container`） */
@@ -38,7 +39,10 @@ type Props = {
   hourHeight: number;
   /** つまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
-  gutterWidth: number;
+  /** 見出し・終日欄と揃える列（`grid-template-columns`）。左端は時刻の欄 */
+  columns: string;
+  /** 時刻の左に 3 時間ごとの天気を出す日（日表示のとき）。出さないときは null */
+  hourlyWeatherDate: DateString | null;
   onSelectItem: (item: CalendarItem) => void;
   /**
    * 追加・編集しようとしている予定の枠（時間指定のものだけここに出す）。
@@ -72,7 +76,8 @@ export function TimeGrid({
   timedByDate,
   hourHeight,
   onZoom,
-  gutterWidth,
+  columns,
+  hourlyWeatherDate,
   onSelectItem,
   draft,
   onChangeDraft,
@@ -113,7 +118,7 @@ export function TimeGrid({
         sx={{
           [HOUR_HEIGHT_VAR]: `${hourHeight}px`,
           display: 'grid',
-          gridTemplateColumns: `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: columns,
           height: atMinute(DAY_MINUTES),
           position: 'relative',
         }}
@@ -136,6 +141,7 @@ export function TimeGrid({
               {h}:00
             </Typography>
           ))}
+          {hourlyWeatherDate && <HourlyWeatherColumn date={hourlyWeatherDate} />}
         </Box>
         {days.map((day, i) => (
           <Box
