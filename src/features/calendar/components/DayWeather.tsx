@@ -14,8 +14,6 @@ type Props = {
   weather: DailyWeather;
   /** アイコンの大きさ（px）。気温の字はこれより一回り小さくする */
   size: number;
-  /** 表示中の月の外など、薄く出すとき。日付の数字（`DayNumber`）と同じ不透明度で薄める */
-  muted?: boolean;
 };
 
 /**
@@ -32,7 +30,7 @@ type Props = {
  * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
  * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
  */
-export function DayWeather({ weather, size, muted = false }: Props) {
+export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
   const wide = Math.ceil(size * wideRatio(weather.icon));
   const temp = weather.tempMax === null ? null : `${weather.tempMax}°`;
@@ -50,7 +48,6 @@ export function DayWeather({ weather, size, muted = false }: Props) {
         containerType: 'inline-size',
         // コンテナクエリの ch を気温の数字の幅にする
         fontSize: Math.round(size * 0.8),
-        opacity: muted ? (t) => t.palette.action.disabledOpacity : undefined,
       }}
     >
       <Box
@@ -99,12 +96,15 @@ export function CenteredWithWeather({
   children,
   weather,
   size,
-  muted,
+  muted = false,
 }: {
   children: ReactNode;
   weather: DailyWeather | undefined;
   size: number;
-  /** 天気を薄く出すか（`DayWeather`）。数字の薄さは数字の側で指定する */
+  /**
+   * 表示中の月の外など、行ごと薄く出すとき。数字と天気は元の色が違う（曜日の色と text.secondary）ので、
+   * 色を替えるのでなく行に同じ不透明度を掛けて、同じ割合で薄める
+   */
   muted?: boolean;
 }) {
   return (
@@ -114,10 +114,11 @@ export function CenteredWithWeather({
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
         width: '100%',
+        opacity: muted ? (t) => t.palette.action.disabledOpacity : undefined,
       }}
     >
       <Box sx={{ gridColumn: 2, display: 'flex' }}>{children}</Box>
-      {weather && <DayWeather weather={weather} size={size} muted={muted} />}
+      {weather && <DayWeather weather={weather} size={size} />}
     </Box>
   );
 }
