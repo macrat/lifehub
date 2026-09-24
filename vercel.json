@@ -59,6 +59,10 @@
         {
           "key": "Referrer-Policy",
           "value": "same-origin"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
         }
       ]
     },
