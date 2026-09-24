@@ -2,11 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from '../features/holidays/service.ts';
 import { enqueueTomorrow } from '../features/notifications/service.ts';
-import {
-  recordObservedTempMax,
-  refreshHourlyWeather,
-  refreshWeather,
-} from '../features/weather/service.ts';
+import { recordObservedTempMax, refreshWeather } from '../features/weather/service.ts';
 import type { AppEnv } from './app-env.ts';
 import { env } from './env.ts';
 
@@ -28,8 +24,6 @@ export const cronRoutes = new Hono<AppEnv>()
   // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
   .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
   // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
-  .get('/weather', async (c) => c.json({ count: (await refreshWeather()).length }))
-  // 1 日 3 回（同上）: 3 時間ごとの天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
-  .get('/weather/hourly', async (c) => c.json({ count: (await refreshHourlyWeather()).length }))
+  .get('/weather', async (c) => c.json(await refreshWeather()))
   // 日次（朝の天気の取り直しと同じ時）: 昨日の最高気温を観測値で上書きする（docs/features/calendar.md の「天気」）
   .get('/weather/observed', async (c) => c.json({ row: (await recordObservedTempMax()) ?? null }));

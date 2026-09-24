@@ -39,3 +39,6 @@ export type HourlyWeather = {
   symbol: WeatherSymbol;
   label: string;
 };
+
+/** 期間の天気（`GET /api/weather?from=&to=`）。日ごとの天気と 3 時間ごとの天気を 1 回で受け取る */
+export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };

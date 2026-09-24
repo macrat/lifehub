@@ -39,7 +39,8 @@ type Props = {
   hourHeight: number;
   /** つまんで拡げ縮めしたとき。直前からの倍率 */
   onZoom: (ratio: number) => void;
-  gutterWidth: number;
+  /** 見出し・終日欄と揃える列（`grid-template-columns`）。左端は時刻の欄 */
+  columns: string;
   /** 時刻の左に 3 時間ごとの天気を出す日（日表示のとき）。出さないときは null */
   hourlyWeatherDate: DateString | null;
   onSelectItem: (item: CalendarItem) => void;
@@ -75,7 +76,7 @@ export function TimeGrid({
   timedByDate,
   hourHeight,
   onZoom,
-  gutterWidth,
+  columns,
   hourlyWeatherDate,
   onSelectItem,
   draft,
@@ -117,7 +118,7 @@ export function TimeGrid({
         sx={{
           [HOUR_HEIGHT_VAR]: `${hourHeight}px`,
           display: 'grid',
-          gridTemplateColumns: `${gutterWidth}px repeat(${days.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: columns,
           height: atMinute(DAY_MINUTES),
           position: 'relative',
         }}

@@ -1,16 +1,10 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import {
-  addDays,
-  diffDays,
-  minutesOfDay,
-  startOfDate,
-  toDateString,
-  today,
-} from '../../../shared/date.ts';
+import { addDays, minutesOfDay, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
+import type { HourlyWeather, WeatherInRange } from '../../../shared/weather.ts';
+import { fetchOk } from '../../lib/fetch.ts';
 import * as repository from './repository.ts';
 import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
 
@@ -103,30 +97,11 @@ export function parseForecast(json: unknown): repository.WeatherRow[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/**
- * 気象庁から取り直して予報のある日を上書きし、上書きした日を返す（1 日 3 回の Cron）。
- * 取得や解析に失敗したら何も書かずに投げる（手元の天気は前回のまま残る）。
- */
-export async function refreshWeather(): Promise<repository.WeatherRow[]> {
-  const res = await fetch(FORECAST_URL);
-  if (!res.ok) throw new Error(`weather: ${FORECAST_URL} returned ${res.status}`);
-  const rows = parseForecast(await res.json());
-  await repository.upsert(rows);
+/** 日ごとの天気を取り直して、予報のある日を上書きする。上書きした行を返す */
+async function refreshDailyWeather(): Promise<repository.WeatherRow[]> {
+  const rows = parseForecast(await (await fetchOk(FORECAST_URL)).json());
+  await repository.upsertDaily(rows);
   return rows;
-}
-
-/**
- * 手元にある日ごとの天気（日付順）。過去の日は取っておいたすべて、先の日は予報のある日（最長 7 日先）まで。
- * まだ一度も取っていなければ（デプロイ直後など）その場で取ってから返す。
- * 表に無い天気コード（気象庁が新しく足したものなど）の日は、アイコンを決められないので返さない。
- */
-export async function listWeather(): Promise<DailyWeather[]> {
-  const stored = await repository.findAll();
-  const rows = stored.length > 0 ? stored : await refreshWeather();
-  return rows.flatMap(({ date, code, tempMax }) => {
-    const telop = TELOPS[code];
-    return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
-  });
 }
 
 /**
@@ -145,9 +120,7 @@ export async function recordObservedTempMax(
 ): Promise<repository.WeatherRow | undefined> {
   const day = today(now).replaceAll('-', '');
   const url = AMEDAS_URL(day);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`weather: ${url} returned ${res.status}`);
-  const max = amedasSchema.parse(await res.json())[`${day}000000`]?.maxTemp?.[0];
+  const max = amedasSchema.parse(await (await fetchOk(url)).json())[`${day}000000`]?.maxTemp?.[0];
   if (max == null) throw new Error(`weather: ${url} has no maxTemp at 00:00`);
   return repository.updateTempMax(addDays(today(now), -1), Math.round(max));
 }
@@ -184,52 +157,52 @@ function parseHourlyForecast(json: unknown): repository.HourlyWeatherRow[] {
   });
 }
 
-/**
- * 気象庁から 3 時間ごとの天気を取り直して、予報のある区間を上書きする（1 日 3 回の Cron）。上書きした行を返す。
- * 取得や解析に失敗したら何も書かずに投げる（手元の天気は前回のまま残る）。
- */
-export async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRow[]> {
-  const res = await fetch(HOURLY_URL);
-  if (!res.ok) throw new Error(`weather: ${HOURLY_URL} returned ${res.status}`);
-  const rows = parseHourlyForecast(await res.json());
+/** 3 時間ごとの天気を取り直して、予報のある区間を上書きする。上書きした行を返す */
+async function refreshHourlyWeather(): Promise<repository.HourlyWeatherRow[]> {
+  const rows = parseHourlyForecast(await (await fetchOk(HOURLY_URL)).json());
   await repository.upsertHourly(rows);
   return rows;
 }
 
 /**
- * `date` と前後 1 日の 3 時間ごとの天気を、同じ天気が続く区間にまとめて返す（時刻順）。
- * 過ぎた日は取っておいたすべて（その区間の最後の予報）、先の日は予報のある明日の終わりまで。
- * 前後 1 日も返すのは、日表示で隣の日へスワイプしたとき、その日の分がもう手元にあるようにするため
- * （クライアントは受け取った 3 日分をそれぞれの日の分として持つ。`queries.ts` の `useHourlyWeather`）。
- * 続けてまとめるのは、間の空かない同じ日の同じ天気だけ（日をまたぐと分ける。`HourlyWeather`）。
- * 範囲に今日が入るのに 1 つも無ければ（デプロイ直後など）、その場で取ってから返す。
- * WHY 今日が入るときだけ: 取り直しの Cron が動いていれば、今日の区間は前の日の報から必ず残っている。
- * 過ぎた日や先の日は無いのが普通なので、そのたびに気象庁へ行ったりテーブルの有無を問い合わせたりしない。
- * 表に無い天気の区間は、アイコンを決められないので返さない（前後の区間とはつなげない）。
+ * 日ごとの天気と 3 時間ごとの天気を気象庁から取り直し、上書きした数を返す（1 日 3 回の Cron）。
+ * 2 つは取得先が別なので、片方が失敗してももう片方は書く。失敗したほうは何も書かず（手元の天気は前回のまま）、
+ * 両方を書き終えてから、失敗をまとめて投げる（Cron の失敗として残す）。
  */
-export async function listHourlyWeather(
-  date: DateString,
-  now: Date = new Date(),
-): Promise<HourlyWeather[]> {
-  const from = startOfDate(addDays(date, -1));
-  const to = startOfDate(addDays(date, 2));
-  let rows = await repository.findHourlyBetween(from, to);
-  if (rows.length === 0 && Math.abs(diffDays(today(now), date)) <= 1) {
-    await refreshHourlyWeather();
-    rows = await repository.findHourlyBetween(from, to);
+export async function refreshWeather(): Promise<{ daily: number; hourly: number }> {
+  const [daily, hourly] = await Promise.allSettled([refreshDailyWeather(), refreshHourlyWeather()]);
+  if (daily.status === 'rejected' || hourly.status === 'rejected') {
+    const errors = [daily, hourly].flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
+    throw new AggregateError(errors, 'weather: refresh failed');
   }
-  const spans: HourlyWeather[] = [];
-  for (const { startsAt, weather } of rows) {
+  return { daily: daily.value.length, hourly: hourly.value.length };
+}
+
+/**
+ * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
+ * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、
+ * 3 時間ごとは明日の終わり）まで。表に無い天気（気象庁が新しく足したものなど）は、アイコンを決められないので返さない。
+ * 3 時間ごとの天気は、同じ日に間を空けずに続く同じ天気を 1 つの区間にまとめる（日をまたぐと分ける。`HourlyWeather`）。
+ * 表に無い天気の区間は前後の区間ともつなげない。
+ */
+export async function listWeather(from: DateString, to: DateString): Promise<WeatherInRange> {
+  const rows = await repository.findBetween(from, to);
+  const daily = rows.daily.flatMap(({ date, code, tempMax }) => {
+    const telop = TELOPS[code];
+    return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
+  });
+  const hourly: HourlyWeather[] = [];
+  for (const { startsAt, weather } of rows.hourly) {
     const symbol = HOURLY_SYMBOLS[weather];
     if (!symbol) continue;
-    const day = toDateString(startsAt);
+    const date = toDateString(startsAt);
     const startMin = minutesOfDay(startsAt);
-    const last = spans.at(-1);
-    if (last?.date === day && last.label === weather && last.endMin === startMin) {
+    const last = hourly.at(-1);
+    if (last?.date === date && last.label === weather && last.endMin === startMin) {
       last.endMin += SLOT_MINUTES;
     } else {
-      spans.push({ date: day, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
+      hourly.push({ date, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
     }
   }
-  return spans;
+  return { daily, hourly };
 }

@@ -80,7 +80,7 @@ export function TimelineView({
         timedByDate={timedByDate}
         hourHeight={hourHeight}
         onZoom={onZoom}
-        gutterWidth={gutterWidth}
+        columns={columns}
         hourlyWeatherDate={hourlyWeatherDate}
         onSelectItem={onSelectItem}
         draft={draft}
