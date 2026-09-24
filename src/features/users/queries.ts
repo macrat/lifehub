@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { api } from '../../lib/api.ts';
@@ -9,16 +9,19 @@ export type User = Me['users'][number];
 
 const NO_USERS: User[] = [];
 
+function usersOf(me: Me | null): User[] {
+  return me?.users ?? NO_USERS;
+}
+
 /**
  * ユーザーの一覧。ログイン中のユーザーと一緒に `/api/me` に載ってくるので、そのキャッシュから読む
- * （取り直しの間隔も `meQueryOptions` に従う）。
+ * （取り直しの間隔も `meQueryOptions` に従う）。書き込みで変えるのも `meQueryOptions` のキャッシュ。
  * WHY: 名前と色を出す所（`use-user-labels.ts` など）は本人と一覧を必ず一緒に読むので、
  * 別々に問い合わせると 2 本になる。
  */
-export const usersQueryOptions = queryOptions({
-  ...meQueryOptions,
-  select: (me: Me | null): User[] => me?.users ?? NO_USERS,
-});
+export function useUsers() {
+  return useQuery({ ...meQueryOptions, select: usersOf });
+}
 
 /**
  * ユーザーの登録。オフラインでは溜めずにその場で失敗させる（queue: false）。
@@ -63,7 +66,7 @@ export function useUpdateUser() {
       client.setQueryData(meQueryOptions.queryKey, (me) => {
         if (!me) return me;
         const users = me.users.map((user) => (user.id === id ? { ...user, ...changes } : user));
-        return me.id === id ? { ...me, ...changes, users } : { ...me, users };
+        return { ...me, ...(me.id === id ? changes : {}), users };
       });
     },
   });

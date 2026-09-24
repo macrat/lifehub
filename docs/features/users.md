@@ -42,7 +42,7 @@
 | メソッド | パス | 内容 |
 |---|---|---|
 | ANY | `/api/auth/*` | better-auth のハンドラ |
-| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes）と、ユーザーの一覧（`users`。id, name, email, hue）。本人は `hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す。一覧を載せるのは、名前と色を出す所（`use-user-labels.ts` など）が本人と一覧を必ず一緒に読むため（別々に問い合わせると起動のたびに 2 本になる）。クライアントは一覧も `meQueryOptions` のキャッシュから読む（`usersQueryOptions` は `select` で一覧を取り出すだけ） |
+| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes）と、ユーザーの一覧（`users`。id, name, email, hue）。本人は `hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す。一覧を載せるのは、名前と色を出す所（`use-user-labels.ts` など）が本人と一覧を必ず一緒に読むため（別々に問い合わせると起動のたびに 2 本になる）。クライアントは一覧も `meQueryOptions` のキャッシュから読む（`useUsers` は `select` で一覧を取り出すだけ） |
 | POST | `/api/users` | ユーザー作成（`hue` は任意）。応答は 204 |
 | PATCH | `/api/users/:id` | 名前・色相・パスワード・終日の通知時刻（`allDayNotifyMinutes`、0:00 からの分）の変更。応答は 204 |
 
@@ -56,7 +56,7 @@
 
 参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
 
-一覧（`usersQueryOptions`）は名前と色を読む全部品の元で、予定の枠から立替の一覧まで画面中に散らばっている。一覧は `/api/me` に載ってくるので、取り直しは `me` と同じく 5 分に 1 度まで（`meQueryOptions` の `staleTime`。既定の 0 のままだと画面を移るたび・カレンダーの表示を切り替えるたびに取り直しが走る）。相手が色や名前を変えても、5 分経てば次に画面を移ったときに映る。自分で変えたときは書き込みが invalidate するので、その時間を待たずに入れ替わる。
+一覧（`useUsers`）は名前と色を読む全部品の元で、予定の枠から立替の一覧まで画面中に散らばっている。一覧は `/api/me` に載ってくるので、取り直しは `me` と同じく 5 分に 1 度まで（`meQueryOptions` の `staleTime`。既定の 0 のままだと画面を移るたび・カレンダーの表示を切り替えるたびに取り直しが走る）。相手が色や名前を変えても、5 分経てば次に画面を移ったときに映る。自分で変えたときは書き込みが invalidate するので、その時間を待たずに入れ替わる。
 
 ## 初期ユーザー
 

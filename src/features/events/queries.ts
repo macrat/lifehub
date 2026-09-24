@@ -6,8 +6,12 @@ import {
 } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { useCallback, useEffect } from 'react';
-import type { CalendarItem, CalendarPeriod } from '../../../shared/calendar.ts';
-import type { DateString } from '../../../shared/types.ts';
+import {
+  type CalendarItem,
+  type CalendarPeriod,
+  type DateRange,
+  inRange,
+} from '../../../shared/calendar.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
@@ -136,7 +140,7 @@ function calendarMonthQueryOptions(month: string) {
  * カレンダーはドラッグの 1 コマごとに描き直すので、そのたびに全項目を繋いで比べることになる。
  */
 export function useCalendarPeriods<T>(
-  { from, to }: { from: DateString; to: DateString },
+  { from, to }: DateRange,
   combine: (results: UseQueryResult<CalendarPeriod>[]) => T,
 ): T {
   return useQueries({ queries: monthsInRange(from, to).map(calendarMonthQueryOptions), combine });
@@ -148,10 +152,9 @@ export function useCalendarPeriods<T>(
  * どの月もまだ手元に無いときだけ data が undefined になる（画面はそれを見て骨組みを出す）。
  * complete は範囲のすべての月が揃っているか（揃ってから位置を決めたい画面が見る）。
  */
-export function useCalendarItems(range: {
-  from: DateString;
-  to: DateString;
-}): QueryState<CalendarItem[]> & { complete: boolean } {
+export function useCalendarItems(
+  range: DateRange,
+): QueryState<CalendarItem[]> & { complete: boolean } {
   const { from, to } = range;
   const combine = useCallback(
     (results: UseQueryResult<CalendarPeriod>[]) => ({
@@ -160,7 +163,7 @@ export function useCalendarItems(range: {
       data: results.some((result) => result.data !== undefined)
         ? results
             .flatMap((result) => result.data?.items ?? [])
-            .filter((item) => item.placementDate >= from && item.placementDate <= to)
+            .filter((item) => inRange(item.placementDate, { from, to }))
         : undefined,
       error: results.find((result) => result.error)?.error ?? null,
       complete: results.every((result) => result.data !== undefined),

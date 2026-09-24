@@ -58,6 +58,11 @@ api.use('*', async (c, next) => {
   if (c.req.method === 'GET') c.header('Cache-Control', 'private, no-cache');
 });
 
+/**
+ * 画面専用の API。互換性や REST としての形より通信の本数と量を優先する（docs/architecture.md）。
+ * 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で取り直して揃えるので、
+ * 返しても読まれない（`src/lib/api.ts` の `sendWrite` は本文を読まない）。
+ */
 const routes = api
   .get('/me', async (c) => c.json(await getMe(c.get('user'))))
   .route('/users', usersRoutes)

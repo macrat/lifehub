@@ -10,7 +10,6 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
-/** 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で取り直して揃えるので、返しても読まれない */
 export const expensesRoutes = new Hono<AppEnv>()
   .get('/', zValidator('query', expenseListQuerySchema, validationHook), async (c) =>
     c.json(await service.listExpenses(c.req.valid('query'))),

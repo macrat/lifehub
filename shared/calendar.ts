@@ -74,6 +74,11 @@ export function occurrenceKey(item: Pick<Occurrence, 'kind' | 'id' | 'occurrence
 /** 両端を含む JST 暦日の期間 */
 export type DateRange = { from: DateString; to: DateString };
 
+/** 暦日が期間（両端を含む）の中か */
+export function inRange(date: DateString, { from, to }: DateRange): boolean {
+  return date >= from && date <= to;
+}
+
 /**
  * カレンダーの 1 期間分（`GET /api/calendar`）: 項目と、その期間の祝日（昇順）・天気（日付順）。
  * どれも期間の外の日は含まない。
@@ -184,7 +189,7 @@ export function placeOccurrence(
 ): CalendarItem[] {
   if (occurrence.kind === 'event') return placeEvent(occurrence, range);
   const task = placeTask(occurrence, now);
-  return task.placementDate >= range.from && task.placementDate <= range.to ? [task] : [];
+  return inRange(task.placementDate, range) ? [task] : [];
 }
 
 /** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 → 時刻の無いタスク */

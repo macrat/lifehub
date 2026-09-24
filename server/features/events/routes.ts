@@ -11,11 +11,7 @@ import type { AppEnv } from '../../lib/app-env.ts';
 import { validationHook } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
-/**
- * 予定・タスクの読み書き。カレンダーに並べる一覧はカレンダーの問い合わせ（`/api/calendar`）が返す。
- * 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で一覧を取り直して揃えるので、
- * 返しても読まれない。
- */
+/** 予定・タスクの読み書き。カレンダーに並べる一覧はカレンダーの問い合わせ（`/api/calendar`）が返す */
 export const eventsRoutes = new Hono<AppEnv>()
   .get('/:id', zValidator('param', idParamSchema, validationHook), async (c) =>
     c.json(await service.getEvent(c.req.valid('param').id)),

@@ -29,7 +29,7 @@ const authClient = createAuthClient({
 export type Me = InferResponseType<typeof api.me.$get, 200>;
 
 /**
- * ログイン中のユーザー（ユーザーの一覧も載る。`features/users/queries.ts` の `usersQueryOptions`）。未認証なら null。
+ * ログイン中のユーザー（ユーザーの一覧も載る。`features/users/queries.ts` の `useUsers`）。未認証なら null。
  * TanStack Query に載せることで永続化キャッシュの対象になり、オフライン起動時も前回のユーザーで描画できる。
  */
 export const meQueryOptions = queryOptions({

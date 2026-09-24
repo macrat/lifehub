@@ -8,7 +8,7 @@ import * as service from './service.ts';
 
 /**
  * 配信 URL の管理（`/api/calendar/feeds`）。ログイン中のユーザー自身の URL だけを扱う。
- * 書き込みは本文を返さない（204）。発行した URL も、画面は書き込み後に取り直す一覧から読む。
+ * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も本文を返さない）。
  */
 export const calendarFeedsRoutes = new Hono<AppEnv>()
   .get('/', async (c) => c.json(await service.listFeeds(c.get('user').id)))

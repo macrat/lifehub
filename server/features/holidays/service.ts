@@ -1,5 +1,5 @@
 import ICAL from 'ical.js';
-import type { DateRange } from '../../../shared/calendar.ts';
+import { type DateRange, inRange } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import * as repository from './repository.ts';
@@ -49,5 +49,5 @@ export async function refreshHolidays(): Promise<DateString[]> {
 export async function listHolidays(range: DateRange): Promise<DateString[]> {
   const dates = await repository.findInRange(range);
   if (dates.length > 0 || (await repository.hasAny())) return dates;
-  return (await refreshHolidays()).filter((date) => date >= range.from && date <= range.to);
+  return (await refreshHolidays()).filter((date) => inRange(date, range));
 }

@@ -1,6 +1,6 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
-import type { DateRange } from '../../../shared/calendar.ts';
+import { type DateRange, inRange } from '../../../shared/calendar.ts';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { addDays, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -121,7 +121,7 @@ export async function listWeather(range: DateRange): Promise<DailyWeather[]> {
   const rows =
     stored.length > 0 || (await repository.hasAny())
       ? stored
-      : (await refreshWeather()).filter((row) => row.date >= range.from && row.date <= range.to);
+      : (await refreshWeather()).filter((row) => inRange(row.date, range));
   return rows.flatMap(({ date, code, tempMax }) => {
     const telop = TELOPS[code];
     return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
