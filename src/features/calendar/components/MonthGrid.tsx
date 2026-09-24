@@ -211,7 +211,6 @@ function WeekRow({
               justifyContent: 'center',
               alignItems: 'flex-start',
               pt: '2px',
-              '&:hover': { bgcolor: 'action.hover' },
             }}
           >
             <CenteredWithWeather
