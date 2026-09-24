@@ -36,6 +36,24 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
   await expect(page).toHaveURL('/');
 });
 
+/**
+ * 検索窓は router を通さずに URL の q を書き換える。そのあとの絞り込みの変更（router を通す）で
+ * q が書き戻されて消えないこと（消えると、開き直したときにキーワードが失われる）。
+ */
+test('キーワードを打ってから絞り込みを変えても、URL のキーワードは残る', async ({ page }) => {
+  await page.goto('/expenses');
+  await page.getByLabel('立替を検索').fill('スーパー');
+  await expect(page).toHaveURL(/q=/);
+
+  await page.getByRole('button', { name: '絞り込み' }).click();
+  await page.getByRole('group', { name: '絞り込み' }).getByLabel('最小金額').fill('1000');
+  await expect(page).toHaveURL(/min=1000/);
+  expect(new URL(page.url()).searchParams.get('q')).toBe('スーパー');
+
+  await page.reload();
+  await expect(page.getByLabel('立替を検索')).toHaveValue('スーパー');
+});
+
 test('URL の検索語は開き直しても残る', async ({ page }) => {
   await page.goto(`/lemon?q=${encodeURIComponent('肥料')}`);
   await expect(page.getByLabel('メモを検索')).toHaveValue('肥料');

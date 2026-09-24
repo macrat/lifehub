@@ -15,6 +15,8 @@ type KeywordSearch = z.infer<typeof keywordSearchSchema>;
  * 表示する値は手元の状態なので、入力してから画面に出るまでが同じ描画で完結する。
  * navigate だと入力 → URL → 再描画と非同期に往復し、その間の書き戻しで IME の変換が切れる。
  * 履歴には積まない（1 文字ごとに戻る先が増えると、戻る操作が打ち直しの巻き戻しになる）。
+ * router を通さずに書いても、後の移動（絞り込みや表示の切り替え。`usePatchSearch`）で q は消えない。
+ * router は移動のたびに今の URL を読み直してから次の URL を組み立てるため（e2e/search.spec.ts が確かめる）。
  */
 export function useKeywordSearch(initial: string) {
   const [keyword, setKeyword] = useState(initial);
