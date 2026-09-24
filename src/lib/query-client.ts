@@ -131,10 +131,20 @@ async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> 
 }
 
 /**
- * すべての書き込みが共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
- * （下の setMutationDefaults）、復元した書き込みにも同じものが当たる。
+ * 溜める書き込み（既定）が共有する mutationKey。送り方・失敗の扱い・再取得はこのキーに紐づけてあり
+ * （下の setMutationDefaults）、復元した書き込みにも同じものが当たる。端末に残すのもこのキーの書き込みだけ。
  */
 const WRITE_MUTATION_KEY = ['write'] as const;
+
+/**
+ * 溜めない書き込み（`queue: false`）の mutationKey。溜める書き込みと別のキーにして、
+ * 溜める書き込みの順番待ち（scope）にも、端末に残す対象（`persistOptions`）にも入れない。
+ * WHY: 同じキーだと、オフラインで溜めた書き込みがある間はその後ろで順番を待ち、待つ間は
+ * 保留中として端末に残ってしまう。パスワードを含むユーザーの変更が IndexedDB に書かれ、
+ * フォームもオンラインに戻るまで結果が出ない。溜めない書き込みはどれも溜める書き込みと
+ * 独立している（ユーザー、カレンダーの配信 URL）ので、順番を待つ必要も無い。
+ */
+const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
 
 /**
  * 書き込みの既定。中身は関数なのでキャッシュに保存されないが、mutationKey で引き当てられるので、
@@ -148,21 +158,32 @@ const WRITE_MUTATION_KEY = ['write'] as const;
  * - retry: 通信断だけ送り直す。同じ id で送り直しても二重に作られない（サーバーは同じ id の作成が既にあれば何も書かない）。
  *   サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦める。
  */
-queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
+/** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
+const settleWrite = {
   mutationFn: sendAsAuthor,
-  scope: { id: 'write' },
-  retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
-  onError: (error, _variables, snapshot) => {
+  onError: (error: Error, _variables: Write<unknown>, snapshot: Snapshot | undefined) => {
     // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
     for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
     notify('error', error.message);
   },
-  onSettled: (_data, _error, { keys }) => {
+  onSettled: (_data: unknown, _error: Error | null, { keys }: Write<unknown>) => {
     for (const queryKey of keys) {
       void queryClient.invalidateQueries({ queryKey });
     }
   },
+};
+
+queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
+  ...settleWrite,
+  scope: { id: 'write' },
+  retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
 });
+
+/** 溜めない書き込みの既定。オフラインでも送信を試みてその場で失敗させる（保留にすると結果が出ない） */
+queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(
+  DIRECT_WRITE_MUTATION_KEY,
+  { ...settleWrite, networkMode: 'always', retry: 0 },
+);
 
 /**
  * 復元した書き込みを送る。オフラインなら何もせず、オンラインに戻ったときに自動で送られる。
@@ -200,9 +221,7 @@ export function useOptimisticMutation<TInput>({
 }: OptimisticMutationOptions<TInput>) {
   const queryClient = useQueryClient();
   const mutation = useMutation<unknown, Error, Write<TInput>, Snapshot>({
-    mutationKey: WRITE_MUTATION_KEY,
-    // 溜めないものは、オフラインでも送信を試みてその場で失敗させる（保留にすると結果が出ない）
-    ...(queue ? {} : { networkMode: 'always' as const, retry: 0 }),
+    mutationKey: queue ? WRITE_MUTATION_KEY : DIRECT_WRITE_MUTATION_KEY,
     onMutate: async ({ input }) => {
       // 送信中に届く取得結果で投機的な表示が上書きされないよう、取得を止めてから書き換える
       await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
