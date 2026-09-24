@@ -1,7 +1,7 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { toDateString } from '../../../shared/date.ts';
+import { addDays, toDateString, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import * as repository from './repository.ts';
@@ -17,7 +17,7 @@ const FORECAST_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/130000.
 /** 天気の地域: 東京地方（伊豆諸島・小笠原諸島を除く）。短期予報と週間予報で同じコードを使う */
 const AREA_CODE = '130010';
 
-/** 気温の地点: 東京（アメダスの地点コード）。短期予報と週間予報で同じコードを使う */
+/** 気温の地点: 東京（アメダスの地点コード）。短期予報・週間予報・アメダスの観測で同じコードを使う */
 const STATION_CODE = '44132';
 
 /** 読むところだけ。系列ごとに持つ値（天気・降水確率・気温）が違うので、どれも省略できる */
@@ -38,6 +38,22 @@ const forecastSchema = z.array(
     ),
   }),
 );
+
+/**
+ * アメダスの観測値（`AMEDAS_URL` のファイル）のうち読むところだけ。キーは観測時刻（JST の YYYYMMDDhhmmss）。
+ * 値は [値, 品質フラグ] で、欠測の時は値が null になる。
+ */
+const amedasSchema = z.record(
+  z.string(),
+  z.object({ maxTemp: z.tuple([z.number().nullable(), z.number()]).optional() }),
+);
+
+/**
+ * アメダス東京の観測値。気象庁のサイトが自分のアメダスのページのために配っている JSON で、予報と同じく
+ * 公式の API ではないがキー不要で読める。3 時間ごとのファイルに 10 分ごとの値が並び、10 日ほど残る。
+ */
+const AMEDAS_URL = (day: string) =>
+  `https://www.jma.go.jp/bosai/amedas/data/point/${STATION_CODE}/${day}_00.json`;
 
 type Day = { code?: string; tempMax?: number };
 
@@ -104,4 +120,27 @@ export async function listWeather(): Promise<DailyWeather[]> {
     const telop = TELOPS[code];
     return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
   });
+}
+
+/**
+ * 昨日（JST）の最高気温をアメダス東京の観測値で上書きし、上書きした行を返す（毎朝の Cron）。
+ * 予報の最高気温は日中を過ぎると報から外れ、外れた日には予報の値が残るので、終わった日は実際の値に直す。
+ * 昨日の行（天気コード）が無ければ何もしない（`repository.updateTempMax`）。
+ * 取得や解析に失敗したり、値が欠測だったりしたら何も書かずに投げる（予報の値が残る）。
+ *
+ * 気象庁の日最高気温は 0:10〜24:00 の値なので、今日の 0:00 の観測（`YYYYMMDD000000`）に載る
+ * 「その時点までの最高気温」を読む。0:10 からは今日の値に切り替わる。
+ * 観測は 0.1℃ 単位だが、予報に合わせて整数に丸める（列は整数で、カレンダーは整数で出す）。
+ * WHY NOT 予報の Cron で毎回読む: 終わった日の値は朝には確定していて、1 日に何度読んでも同じになる。
+ */
+export async function recordObservedTempMax(
+  now: Date = new Date(),
+): Promise<repository.WeatherRow | undefined> {
+  const day = today(now).replaceAll('-', '');
+  const url = AMEDAS_URL(day);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`weather: ${url} returned ${res.status}`);
+  const max = amedasSchema.parse(await res.json())[`${day}000000`]?.maxTemp?.[0];
+  if (max == null) throw new Error(`weather: ${url} has no maxTemp at 00:00`);
+  return repository.updateTempMax(addDays(today(now), -1), Math.round(max));
 }
