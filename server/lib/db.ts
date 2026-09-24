@@ -26,31 +26,37 @@ function createDatabase(): Database {
 export const db: Database = createDatabase();
 
 type BatchQuery = Promise<unknown>;
-type BatchQueries = [BatchQuery, ...BatchQuery[]];
+type BatchQueries = readonly [BatchQuery, ...BatchQuery[]];
+/** 各文の結果（`returning` の行など）。文と同じ並び */
+type BatchResults<T extends BatchQueries> = { -readonly [K in keyof T]: Awaited<T[K]> };
 
-type Batchable = { batch: (queries: BatchQueries) => Promise<unknown> };
+type Batchable = { batch: (queries: BatchQueries) => Promise<unknown[]> };
 
 function supportsBatch(database: Database): database is Database & Batchable {
   return 'batch' in database && typeof database.batch === 'function';
 }
 
 /**
- * 複数の文を原子的に、できるだけ少ない往復で実行する。
+ * 複数の文を原子的に、できるだけ少ない往復で実行し、各文の結果を並びのまま返す。
  *
  * neon-http は対話的トランザクションを持たない代わりに `db.batch()` が全文を 1 回の HTTP 要求で
  * 1 つのトランザクションとして実行する。node-postgres（ローカル・CI・テスト）にはそれが無いので
  * 明示的なトランザクションで包む。どちらでも「全部通るか、何も残らないか」になる。
+ * 結果を返すので、「書けたかどうか」（`returning` の行の有無）を読み直しの往復なしに判定できる。
  *
  * 問い合わせはトランザクションに属するセッションから作らなければならないため、組み立てた配列では
  * なく組み立てる関数を受け取る（Drizzle のクエリビルダは作られたセッションの上で実行される）。
  */
-export async function runBatch(build: (tx: Database) => BatchQueries): Promise<void> {
+export async function runBatch<const T extends BatchQueries>(
+  build: (tx: Database) => T,
+): Promise<BatchResults<T>> {
   if (supportsBatch(db)) {
-    await db.batch(build(db));
-    return;
+    return (await db.batch(build(db))) as BatchResults<T>;
   }
-  await db.transaction(async (tx) => {
-    for (const query of build(tx)) await query;
+  return db.transaction(async (tx) => {
+    const results: unknown[] = [];
+    for (const query of build(tx)) results.push(await query);
+    return results as BatchResults<T>;
   });
 }
 

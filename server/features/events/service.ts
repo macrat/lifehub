@@ -219,7 +219,7 @@ function resolveTarget(
 
 /**
  * 繰り返しの回を実体化する（無ければ繰り返し元の複製に values を重ねて作り、あれば values だけを当てる）。
- * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する。
+ * 参加者は、指定があれば置き換え、新しく作るときは繰り返し元から複製する（`repository.materializeOccurrence`）。
  */
 async function materialize(
   master: EventWithParticipants,
@@ -229,20 +229,19 @@ async function materialize(
   userId: string,
 ): Promise<void> {
   const { id: _id, createdAt: _c, updatedAt: _u, participantIds: _p, ...copy } = master;
-  const { id, inserted } = await repository.upsertOccurrence(
+  await repository.materializeOccurrence(
     {
       ...copy,
       ...shiftTo(master, occurrenceStart),
       rrule: null,
-      seriesId: master.id,
-      occurrenceStart,
       createdBy: userId,
       ...values,
+      seriesId: master.id,
+      occurrenceStart,
     },
     values,
+    participantIds,
   );
-  const ids = participantIds ?? (inserted ? master.participantIds : undefined);
-  if (ids) await repository.setParticipants(id, ids);
 }
 
 /**
