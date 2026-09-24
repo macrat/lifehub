@@ -5,7 +5,9 @@ import { persistOptions, queryClient } from '../query-client.ts';
 
 /** 書き込みの既定（setMutationDefaults）を当てた mutation を作る。溜める書き込みは 'write'、溜めないものは 'direct-write' */
 function buildWrite(key: 'write' | 'direct-write' = 'write') {
-  return queryClient.getMutationCache().build(queryClient, { mutationKey: [key] });
+  return queryClient.getMutationCache().build<unknown, Error, unknown, unknown>(queryClient, {
+    mutationKey: [key],
+  });
 }
 
 /** 書き込みを、送り直しを待っていた書き込みとして走らせる */
