@@ -20,12 +20,6 @@ export function toMe(user: repository.UserRow & { allDayNotifyMinutes: number })
   return { ...toPublicUser(user), allDayNotifyMinutes: user.allDayNotifyMinutes };
 }
 
-async function getUser(id: string) {
-  const user = await repository.findById(id);
-  if (!user) throw new NotFoundError('ユーザーが見つかりません');
-  return user;
-}
-
 /**
  * ユーザーを作る。パスワードのハッシュは better-auth に任せる。
  * 公開のサインアップ経路は閉じているので、この関数と scripts/create-user.ts だけが作成経路になる。
@@ -41,8 +35,9 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
   const existing = await repository.findAll();
   const resolvedHue =
     hue ?? pickDistinctHue(existing.filter((u) => u.id !== result.user.id).map((u) => u.hue));
-  await repository.updateProfile(result.user.id, { hue: resolvedHue });
-  return getUser(result.user.id);
+  const user = await repository.update(result.user.id, { hue: resolvedHue });
+  if (!user) throw new Error('created user not found');
+  return user;
 }
 
 /**
@@ -58,16 +53,15 @@ export async function updateUser(
   if (input.password !== undefined && id !== actorId) {
     throw new ForbiddenError('他のユーザーのパスワードは変更できません');
   }
-  await getUser(id);
   const { password, ...profile } = input;
-  if (Object.values(profile).some((value) => value !== undefined)) {
-    await repository.updateProfile(id, profile);
-  }
-  if (password !== undefined) {
-    await repository.replacePasswordAndRevokeSessions(id, await hashPassword(password));
-  }
+  const user = await repository.update(
+    id,
+    profile,
+    password === undefined ? undefined : await hashPassword(password),
+  );
+  if (!user) throw new NotFoundError('ユーザーが見つかりません');
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）
   if (input.allDayNotifyMinutes !== undefined) scheduleUpcoming();
-  return getUser(id);
+  return user;
 }

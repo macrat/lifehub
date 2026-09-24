@@ -1,4 +1,4 @@
-import { and, asc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, getTableColumns, sql } from 'drizzle-orm';
 import { db, idArrayAgg, runBatch } from '../../lib/db.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
@@ -36,27 +36,40 @@ export async function insert(
 /**
  * 名前と参加者を差し替える。持ち主のものだけを変更し、変更できたかどうかを返す。
  *
- * 持ち主の確認を書き込みと分けるのは、参加者の差し替え（消して入れ直す）が where だけでは
- * 持ち主に絞れないため。持ち主は行が消えるまで変わらないので確認と書き込みの間で覆らず、
- * 確認の後にその行が失効していた場合は参加者の挿入が外部キーで落ちて全文が取り消される。
+ * 持ち主の確認は各文の where に入れ、1 回の原子的な操作で済ませる（確認のための読み出しの往復を持たない）。
+ * 参加者の文は「持ち主の行がある」ことを条件にするので、他人の URL の参加者は消えも増えもしない。
  */
 export async function update(
   id: string,
   userId: string,
   values: { name: string; participantIds: string[] },
 ): Promise<boolean> {
-  const owned = await db
-    .select({ id: calendarFeeds.id })
-    .from(calendarFeeds)
-    .where(and(eq(calendarFeeds.id, id), eq(calendarFeeds.userId, userId)))
-    .limit(1);
-  if (owned.length === 0) return false;
-  await runBatch((tx) => [
-    tx.update(calendarFeeds).set({ name: values.name }).where(eq(calendarFeeds.id, id)),
-    tx.delete(calendarFeedParticipants).where(eq(calendarFeedParticipants.feedId, id)),
-    tx.insert(calendarFeedParticipants).values(participantRows(id, values.participantIds)),
+  const owned = and(eq(calendarFeeds.id, id), eq(calendarFeeds.userId, userId));
+  const [updated] = await runBatch((tx) => [
+    tx
+      .update(calendarFeeds)
+      .set({ name: values.name })
+      .where(owned)
+      .returning({ id: calendarFeeds.id }),
+    tx
+      .delete(calendarFeedParticipants)
+      .where(
+        and(
+          eq(calendarFeedParticipants.feedId, id),
+          exists(tx.select({ one: sql`1` }).from(calendarFeeds).where(owned)),
+        ),
+      ),
+    tx.insert(calendarFeedParticipants).select(
+      tx
+        .select({
+          feedId: calendarFeeds.id,
+          userId: sql<string>`unnest(${sql.param(values.participantIds)}::uuid[])`.as('user_id'),
+        })
+        .from(calendarFeeds)
+        .where(owned),
+    ),
   ]);
-  return true;
+  return updated.length > 0;
 }
 
 /** 失効。持ち主のものだけを消し、消せたかどうかを返す（参加者は CASCADE で一緒に消える） */
@@ -84,7 +97,7 @@ export async function touchByToken(
     .returning({
       participantIds: sql<
         string[]
-      >`coalesce((select array_agg(${calendarFeedParticipants.userId}::text) from ${calendarFeedParticipants} where ${calendarFeedParticipants.feedId} = ${calendarFeeds.id}), '{}')`,
+      >`(select ${idArrayAgg(calendarFeedParticipants.userId)} from ${calendarFeedParticipants} where ${calendarFeedParticipants.feedId} = ${calendarFeeds.id})`,
     });
   return touched[0];
 }

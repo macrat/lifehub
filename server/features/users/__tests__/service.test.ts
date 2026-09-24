@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
+import { newId } from '../../../../shared/id.ts';
 import { app } from '../../../app.ts';
-import { ConflictError, ForbiddenError } from '../../../lib/errors.ts';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
 import { truncateAll } from '../../../lib/test-db.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
@@ -65,6 +66,20 @@ describe('users service', () => {
     expect(updated.name).toBe('Alicia');
     expect((await login(alice.email, alice.password)).status).toBe(401);
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
+  });
+
+  it('パスワードだけの変更も、変えた後のユーザーを返す', async () => {
+    const created = await createUser(alice);
+    const updated = await updateUser(created.id, { password: 'new-password-123' }, created.id);
+    expect(updated).toEqual(created);
+  });
+
+  it('いないユーザーは変更できない', async () => {
+    const id = newId();
+    await expect(updateUser(id, { name: 'だれか' }, id)).rejects.toThrow(NotFoundError);
+    await expect(updateUser(id, { password: 'new-password-123' }, id)).rejects.toThrow(
+      NotFoundError,
+    );
   });
 
   it('他のユーザーのプロフィールは変更できるが、パスワードは変更できない', async () => {
