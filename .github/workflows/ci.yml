@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
+        # 本番（Neon、infra/neon.tf の pg_version）と同じメジャーバージョン
         image: postgres:17
         env:
           POSTGRES_USER: postgres

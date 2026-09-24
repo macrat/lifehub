@@ -15,12 +15,8 @@ concurrency:
 permissions:
   contents: read
 
-# 本番 DB のまるごとのダンプ（`pnpm db:dump`）と、全予定の ics（`pnpm calendar:export`）を
-# Artifact に置く。ダンプは本番を戻すため・手元に本番のクローンを作るため、ics は LifeHub が
-# 使えなくなったときに他のカレンダーアプリで予定を見るため。
-#
-# Artifact はリポジトリを読める人しか取り出せない（private リポジトリ）ので暗号化はしない。
-# ダンプにはパスワードのハッシュやセッション、配信 URL のトークンも含まれる。
+# 本番 DB のまるごとのダンプと全予定の ics を Artifact に置く。何をなぜ残すかと、暗号化しない
+# 理由は docs/architecture.md の「デプロイフロー」を参照。
 #
 # クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
 jobs:
@@ -39,7 +35,6 @@ jobs:
       # （/usr/bin/pg_dump は版を選ぶラッパーで、どの版を使うかが環境で変わるため直接指す）。
       - name: Install PostgreSQL client
         run: |
-          sudo apt-get install -y --no-install-recommends postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y --no-install-recommends postgresql-client-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
@@ -60,11 +55,11 @@ jobs:
       - name: Name the backup
         id: name
         run: echo "name=backup-$(TZ=Asia/Tokyo date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-      - run: mkdir backup
-      - run: pnpm db:dump backup/lifehub.sql
-        env:
-          DATABASE_URL: ${{ steps.tf.outputs.database_url }}
-      - run: pnpm calendar:export backup/lifehub.ics
+      - name: Dump
+        run: |
+          mkdir backup
+          pnpm db:dump backup/lifehub.sql
+          pnpm calendar:export backup/lifehub.ics
         env:
           DATABASE_URL: ${{ steps.tf.outputs.database_url }}
           # サーバーの環境変数の検証（server/lib/env.ts）を通すためだけの値。ics の書き出しは認証を使わない

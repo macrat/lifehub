@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from 'node:util';
 
 /**
  * `DATABASE_URL` の DB を、スキーマもデータもまるごと 1 つの SQL ファイルに書き出す。
@@ -21,8 +20,7 @@ import { parseArgs } from 'node:util';
  * - マイグレーションの記録（`drizzle` スキーマ）も含む。戻した DB はダンプ元と同じところまで
  *   マイグレーション済みとして扱われ、以降の `pnpm db:migrate` が差分だけを当てる。
  */
-const { positionals } = parseArgs({ allowPositionals: true });
-const [file] = positionals;
+const file = process.argv[2];
 const url = process.env.DATABASE_URL;
 if (!file || !url) {
   console.error('usage: DATABASE_URL=<接続文字列> pnpm db:dump <出力ファイル>');

@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from 'node:util';
 
 /**
  * `pnpm db:dump` で書き出した SQL を `DATABASE_URL` の DB に戻す。
@@ -19,8 +18,7 @@ import { parseArgs } from 'node:util';
  * - `--no-psqlrc`: 実行する人の `~/.psqlrc` の設定で結果が変わらないようにする。
  * - `--output /dev/null`: ダンプ中の `SELECT`（シーケンスの値の設定）の結果を捨てる。エラーは標準エラーに出る。
  */
-const { positionals } = parseArgs({ allowPositionals: true });
-const [file] = positionals;
+const file = process.argv[2];
 const url = process.env.DATABASE_URL;
 if (!file || !url) {
   console.error('usage: DATABASE_URL=<接続文字列> pnpm db:restore <ダンプファイル>');
