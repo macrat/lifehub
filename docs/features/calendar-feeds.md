@@ -36,6 +36,13 @@ URL ごとに**載せる参加者**を選ぶ。選んだ人の誰かが入って
 - 終日は `VALUE=DATE`（JST の暦日そのもの）、時刻付きは UTC の `DATE-TIME` で書く。どちらもタイムゾーンの定義を持ち込まずに済む形なので、`VTIMEZONE` を出さない。
 - ics の組み立ては [`ical-generator`](https://github.com/sebbo2002/ical-generator) に任せる（`server/features/calendar-feeds/ics.ts`）。エスケープ・75 オクテットでの折り返し・`DATE` と `DATE-TIME` の書き分けは仕様の細部が多く、自前で持つ価値が無い。
 
+## バックアップ用の書き出し
+
+毎日のバックアップ（[architecture.md](../architecture.md#デプロイフローgithub-actions)）は、全員の全予定を 1 つの ics にして残す（`renderAllIcs`、`pnpm calendar:export`）。LifeHub が使えなくなったときに、他のカレンダーアプリへ取り込んで予定を見るため。
+
+- 出す内容と形は配信と同じ（予定だけ・回ごとに展開・同じ `UID`）。購読していたカレンダーと重ねても予定が二重にならない。
+- 参加者では絞らない。過去は最初の予定からすべて出し、未来は配信と同じ 400 日で切る（終わりの無い繰り返しは、どこかで切らないと展開が終わらない）。
+
 ## API
 
 | メソッド | パス | 認証 | 内容 |

@@ -36,7 +36,9 @@ pnpm dev                          # http://localhost:5173
 | `pnpm format` | Biome でフォーマットと自動修正 |
 | `pnpm db:generate` / `pnpm db:migrate` | drizzle-kit のマイグレーション生成／適用 |
 | `pnpm db:studio` | drizzle-kit studio でローカルの DB を見る |
+| `pnpm db:dump <file>` / `pnpm db:restore <file>` | `DATABASE_URL` の DB をまるごと SQL に書き出す／書き出した SQL を戻す（`pg_dump` / `psql` を使う。[バックアップ](#バックアップ)） |
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
+| `pnpm calendar:export <file>` | `DATABASE_URL` の DB にある全員の全予定を ics に書き出す |
 | `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |
 | `pnpm icons:generate` | `public/icons/` の SVG と MUI のアイコンから PWA アイコン（アプリ・通知・ショートカット）の PNG を生成 |
@@ -58,7 +60,25 @@ pnpm dev                          # http://localhost:5173
 9. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
 10. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
 
-## 環境
+## バックアップ
+
+`.github/workflows/backup.yml` が毎日 JST 4:00 に本番 DB を Artifact（`backup-<JST の日付>`、30 日保持）に置く。手動でも実行できる（Actions の画面から `Run workflow`）。
+
+- `lifehub.sql`: DB まるごとのダンプ（`pnpm db:dump`）。スキーマ・データ・マイグレーションの記録を含む。
+- `lifehub.ics`: 全員の全予定（`pnpm calendar:export`）。LifeHub が使えなくなったときに他のカレンダーアプリへ取り込む用。タスクは含まない。
+
+ダンプを戻すには、Postgres 17 以上のクライアント（`pg_dump` / `psql`。本番の Neon と同じ版以上が要る）を入れて次を実行する。ダンプに含まれるテーブルは中身ごと置き換わり、途中で失敗したら何も変わらない。
+
+```sh
+# 本番データのクローンを手元に作る（.env.local の DATABASE_URL に戻す）
+pnpm db:restore lifehub.sql
+
+# 本番から直接ダンプを取る（接続文字列は terraform output -raw database_url）
+DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
+```
+
+戻した DB では本番のパスワードでログインできる。セッションは `BETTER_AUTH_SECRET` が違うので引き継がれない。
+
 
 | 環境 | ブランチ | DB | 用途 |
 |---|---|---|---|
