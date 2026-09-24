@@ -7,8 +7,8 @@ namespace screen {
 
 // アプリのレモンの画面と同じアイコン（icons.h）
 enum class Icon : uint8_t {
-  Leaf,  // 葉水（葉）
-  Drop,  // 葉水＋水やり（しずく）
+  Mist,   // 葉水（葉）
+  Water,  // 葉水＋水やり（しずく）
 };
 
 // 起動時に 1 度だけ。M5.begin() の後に呼び、画面を消した状態にする

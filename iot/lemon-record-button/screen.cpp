@@ -33,7 +33,7 @@ void backlight(bool on) {
 
 // アプリのレモンの画面と同じアイコンを、黒地に白（送れなかったときは灰色）で画面いっぱいに描く
 void drawIcon(screen::Icon icon, bool failed) {
-  const uint8_t* image = icon == screen::Icon::Leaf ? icons::MIST : icons::WATER;
+  const uint8_t* image = icon == screen::Icon::Mist ? icons::MIST : icons::WATER;
   M5.Display.pushGrayscaleImage(0, 0, icons::SIZE, icons::SIZE, image, lgfx::grayscale_4bit,
                                 failed ? FAILED_COLOR : TFT_WHITE, TFT_BLACK);
 }

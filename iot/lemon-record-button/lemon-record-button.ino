@@ -96,7 +96,7 @@ void loop() {
   }
 
   const bool single = press == Press::Single;
-  const screen::Icon icon = single ? screen::Icon::Leaf : screen::Icon::Drop;
+  const screen::Icon icon = single ? screen::Icon::Mist : screen::Icon::Water;
   screen::show(icon);
   const bool recorded = record::send(single ? record::Care::Mist : record::Care::MistAndWater);
   if (recorded) {

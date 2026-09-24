@@ -79,21 +79,20 @@ const BUTTON_SCREEN_SIZE = 128;
  */
 async function renderButtonIcon(Icon: ComponentType): Promise<Uint8Array> {
   const { viewBox, body } = glyphOf(Icon);
-  const size = BUTTON_SCREEN_SIZE;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${viewBox}" fill="#fff">${body}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${BUTTON_SCREEN_SIZE}" height="${BUTTON_SCREEN_SIZE}" viewBox="${viewBox}" fill="#fff">${body}</svg>`;
   const page = await browser.newPage();
   // ブラウザの中で描いて画素を読む。scripts/ は DOM の型を持たない設定で型検査するので、ここだけ文字列で渡す
   const levels = await page.evaluate<number[]>(`(async () => {
     const image = new Image();
     image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(${JSON.stringify(svg)});
     await image.decode();
-    const context = new OffscreenCanvas(${size}, ${size}).getContext('2d');
+    const context = new OffscreenCanvas(${BUTTON_SCREEN_SIZE}, ${BUTTON_SCREEN_SIZE}).getContext('2d');
     context.fillStyle = '#000';
-    context.fillRect(0, 0, ${size}, ${size});
+    context.fillRect(0, 0, ${BUTTON_SCREEN_SIZE}, ${BUTTON_SCREEN_SIZE});
     context.drawImage(image, 0, 0);
-    const { data } = context.getImageData(0, 0, ${size}, ${size});
+    const { data } = context.getImageData(0, 0, ${BUTTON_SCREEN_SIZE}, ${BUTTON_SCREEN_SIZE});
     // 白黒なので R だけ見ればよい。0〜255 を 0〜15 にする
-    return Array.from({ length: ${size * size} }, (_, i) => Math.round(data[i * 4] / 17));
+    return Array.from({ length: ${BUTTON_SCREEN_SIZE ** 2} }, (_, i) => Math.round(data[i * 4] / 17));
   })()`);
   await page.close();
   const packed = new Uint8Array(levels.length / 2);
