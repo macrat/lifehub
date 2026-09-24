@@ -1,7 +1,4 @@
 import Box from '@mui/material/Box';
-import type { Theme } from '@mui/material/styles';
-import Typography from '@mui/material/Typography';
-import { formatMinutesOfDay } from '../../../lib/date.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
@@ -20,30 +17,42 @@ const TARGET_SIZE = 32;
 
 /** 枠の線の太さ（px） */
 const LINE = 2;
+/** 中の不透明度。下の予定や日付が透けて見える濃さ */
+const FILL_OPACITY = 0.6;
 
 /**
  * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
- * 選んだ参加者を変えると枠も変わる。中は帯の色（fill）を背景色に混ぜた不透明な色で塗り、線は line で描く。
- * WHY NOT 半透明: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、半透明だと下の色が透ける。
- * 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
- * WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
- * WHY NOT 背景を 2 枚重ねる（中を padding-box、線を border-box）: 塗り分けは色の数で層の数が変わり、
- * 層ごとに切り抜く範囲を並べ直すことになる。
+ * 選んだ参加者を変えると枠も変わる。中は背景色に近い薄い色（tint）で半透明に塗り、
+ * 下の予定や日付が透けて見えるようにする。線は line で不透明に描く。
+ * WHY 薄い色: 帯と同じ濃さ（fill）だと、透けた下の予定の色と混ざって見分けにくい。背景色に近い色なら
+ * 重なった所は下の予定が淡く（ライトでは明るく・ダークでは暗く）なり、枠の範囲が分かる。
  */
 const outline = (colors: ItemColors[]) =>
   ({
     boxSizing: 'border-box',
     position: 'relative',
+    isolation: 'isolate',
     borderRadius: '4px',
     border: `${LINE}px solid transparent`,
-    // CSS 変数テーマなので背景色は t.vars から取る（t.palette はライト固定）
-    background: (t: Theme) =>
-      wedgeBackground(
-        colors.map(
-          (c) => `color-mix(in srgb, ${c.fill} 50%, ${(t.vars ?? t).palette.background.default})`,
-        ),
-      ),
-    backgroundClip: 'padding-box',
+    // 中は不透明な色で塗り分けた疑似要素に opacity をかける。
+    // WHY NOT 半透明の色で塗る: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、色ごとに透かすと
+    // 重なった所だけ下の層の色が混ざる。opacity は塗り分けた後の面全体にかかるので、何人でも同じ濃さになる。
+    // WHY 疑似要素: 枠そのものに opacity をかけると、線やつまむ丸まで薄くなる。
+    // z-index: -1 でつまむ丸の下に置き、isolation で枠の外へは潜らせない。
+    // 線の下まで広げて（線は不透明なので見えない）、角の丸めを線の外側と揃える。
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      inset: -LINE,
+      zIndex: -1,
+      borderRadius: 'inherit',
+      background: wedgeBackground(colors.map((c) => c.tint)),
+      opacity: FILL_OPACITY,
+    },
+    // 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
+    // WHY 疑似要素: 塗り分けた線は border の色では描けず、border-image では角が丸まらない。
+    // WHY NOT 背景を 2 枚重ねる（中を padding-box、線を border-box）: 塗り分けは色の数で層の数が変わり、
+    // 層ごとに切り抜く範囲を並べ直すことになる。
     '&::before': {
       content: '""',
       position: 'absolute',
@@ -84,17 +93,22 @@ export function DraftBlock({
     <Box
       {...draftProps}
       {...grab?.move}
+      // ドラッグで変わる場所と大きさは sx ではなく style で渡す。
+      // WHY: sx は値の組ごとに CSS の規則を作って文書に足し、消さない。15 分・1 日ずれるたびに組が変わるので、
+      // なぞるほど使い捨ての規則が溜まり、そのたびに見た目の規則（塗り分けの背景など）も丸ごと作り直す。
+      // style なら属性を書き換えるだけで、sx の規則は参加者の組ごとに 1 つで済む。
+      style={{
+        gridColumn: column + 1,
+        marginTop: `calc(${atMinute(startMin)} + 1px)`,
+        height: `calc(${atMinute(endMin - startMin)} - 2px)`,
+      }}
       sx={{
         ...outline(colors),
-        gridColumn: column + 1,
         gridRow: 1,
         // 行の上端から開始の分だけ下げる（列と同じ高さに伸びないよう start 揃え）
         alignSelf: 'start',
-        mt: `calc(${atMinute(startMin)} + 1px)`,
-        height: `calc(${atMinute(endMin - startMin)} - 2px)`,
         ml: '1px',
         mr: '2px',
-        px: 0.5,
         // つまめないときは見せるだけ。押した先は下の列に届かせ、そこから選び直せるようにする
         pointerEvents: grab ? 'auto' : 'none',
         // 押した時点から動かすので、ブラウザのスクロール・スワイプには渡さない
@@ -102,8 +116,7 @@ export function DraftBlock({
         cursor: 'move',
       }}
     >
-      {/* 時刻は丸と重なるので、つまむ丸を出さない PC でだけ（ドラッグ中の目印として）添える */}
-      {grab ? (
+      {grab && (
         <>
           <Handle
             end="start"
@@ -118,10 +131,6 @@ export function DraftBlock({
             handlers={grab.end}
           />
         </>
-      ) : (
-        <Typography component="div" sx={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1.25 }}>
-          {formatMinutesOfDay(startMin)}〜{formatMinutesOfDay(endMin)}
-        </Typography>
       )}
     </Box>
   );
@@ -148,12 +157,12 @@ export function DraftBar({
   return (
     <Box
       {...draftProps}
+      // ドラッグで変わる場所は `DraftBlock` と同じく style で渡す（角の丸めと余白は続き方の 4 通りなので sx）
+      style={{ gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 2 }}
       sx={{
         ...outline(colors),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
-        gridColumn: `${col + 1} / span ${span}`,
-        gridRow: lane + 2,
         alignSelf: 'center',
         height: LANE_ITEM_HEIGHT,
         // 続きの端は角を丸めず、帯の外にも出さない（前後の週とつながって見えるように）
