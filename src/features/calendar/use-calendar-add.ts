@@ -3,14 +3,17 @@ import type { DateString } from '../../../shared/types.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import type { AddFormKind } from '../add/kinds.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
+import { draftDays } from './draft.ts';
 import type { CalendarSearch } from './search.ts';
 import { useEventComposer } from './use-event-composer.ts';
+import type { CalendarView } from './view.ts';
 
-/** 追加の間だけ日表示を出す仕掛け（`useCalendarPage` の一部） */
-type DayPreview = {
+/** 追加の間だけ日表示を出す仕掛けと表示の切り替え（`useCalendarPage` の一部） */
+type CalendarPageControls = {
   date: DateString;
   previewDay: () => void;
   endPreview: () => void;
+  changeView: (view: CalendarView, keepVisible?: DateString) => void;
 };
 
 /**
@@ -22,7 +25,7 @@ type DayPreview = {
  * ほかの画面の追加ボタンから来たとき（`add=event` など）は、閉じたらその画面へ戻る
  * （`useAddShortcut` が返す関数）。
  */
-export function useCalendarAdd(page: DayPreview, add: CalendarSearch['add']) {
+export function useCalendarAdd(page: CalendarPageControls, add: CalendarSearch['add']) {
   const { meId } = useUserLabels();
   // 予定の入力（下書き・クイック入力・全項目のフォーム）。状態と移り変わりはフックが 1 つで持つ
   const composer = useEventComposer(meId);
@@ -43,6 +46,9 @@ export function useCalendarAdd(page: DayPreview, add: CalendarSearch['add']) {
     adding,
     addEvent,
     openForm: setAdding,
+    /** 表示の切り替え。入力中の下書きは表示を切り替えても残るので、見失わないようその初日を連れていく */
+    changeView: (view: CalendarView) =>
+      page.changeView(view, composer.draft ? draftDays(composer.draft.range).from : undefined),
     closeForm: () => setAdding(null),
     /**
      * 予定の入力（クイック入力・全項目のフォーム。同時に開くのはどちらか 1 つ）を閉じた。

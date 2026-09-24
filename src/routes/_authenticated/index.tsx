@@ -7,7 +7,6 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { today } from '../../../shared/date.ts';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
@@ -19,6 +18,7 @@ import { useAddEventOnCalendar } from '../../lib/add-search.ts';
 import { formatDateWithYear } from '../../lib/date.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
+import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 import { settingsNavItem } from '../../navigation.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
@@ -28,7 +28,7 @@ export const Route = createFileRoute('/_authenticated/')({
 /** ホーム。各機能のカードを並べる（それぞれが自分の機能のクエリを読む）。スマホでは末尾に設定への入口を置く。 */
 function HomePage() {
   const isDesktop = useIsDesktop();
-  const [adding, setAdding] = useState<AddFormKind | null>(null);
+  const adding = useOpenWith<AddFormKind>();
   const addEventOnCalendar = useAddEventOnCalendar();
   return (
     <>
@@ -56,10 +56,10 @@ function HomePage() {
       </Stack>
       <AddMenu
         kinds={['lemon', 'expense', 'task', 'event']}
-        onSelect={setAdding}
+        onSelect={adding.open}
         onAddEvent={addEventOnCalendar}
       />
-      {adding && <AddForm kind={adding} onClose={() => setAdding(null)} />}
+      {adding.value && <AddForm kind={adding.value} onClose={adding.close} />}
     </>
   );
 }

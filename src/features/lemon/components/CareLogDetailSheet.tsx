@@ -1,9 +1,9 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import { careLogTitle } from '../../../../shared/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
+import { useRecordDetail } from '../../../lib/ui/use-record-detail.ts';
 import { type CareLog, useDeleteCareLog, useUpdateCareLog } from '../queries.ts';
 import { useCareLogForm } from '../use-care-log-form.ts';
 import { CareLogFields } from './CareLogFields.tsx';
@@ -22,7 +22,12 @@ type Props = {
 export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Props) {
   const updateLog = useUpdateCareLog();
   const deleteLog = useDeleteCareLog();
-  const [editing, setEditing] = useState(initialEditing);
+  const detail = useRecordDetail({
+    initialEditing,
+    confirmDelete: 'この記録を削除しますか？',
+    remove: () => deleteLog.mutate(log.id),
+    onClose,
+  });
   const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
     useCareLogForm({
       initialCareTypes: log.careTypes,
@@ -35,24 +40,13 @@ export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Pro
       title={careLogTitle(careTypes)}
       open={!submitted}
       onClose={onClose}
-      editing={editing}
-      onEdit={() => setEditing(true)}
-      actions={[
-        {
-          label: '削除',
-          icon: <DeleteIcon />,
-          danger: true,
-          onClick: () => {
-            if (!window.confirm('この記録を削除しますか？')) return;
-            deleteLog.mutate(log.id);
-            onClose();
-          },
-        },
-      ]}
+      editing={detail.editing}
+      onEdit={detail.startEdit}
+      actions={[{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }]}
       onSubmit={handleSubmit}
       error={submitError}
     >
-      {editing ? (
+      {detail.editing ? (
         <CareLogFields
           careTypes={careTypes}
           onToggleCareType={toggleCareType}

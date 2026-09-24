@@ -1,10 +1,10 @@
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import { isCompletedTask, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
 import { today } from '../../../../shared/date.ts';
 import { formatTime } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
+import { useRecordSelection } from '../../../lib/ui/use-record-selection.ts';
 import { itemTransitionName } from '../../calendar/item-transition.ts';
 import { itemKey } from '../../calendar/lane-layout.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
@@ -31,7 +31,7 @@ export function TodayCard() {
   useRefreshCalendarItems();
   const query = useCalendarItems({ from: today(), to: today() });
   // 開いている項目と、どちらの顔（閲覧・編集）で開いたか
-  const [selected, setSelected] = useState<{ item: CalendarItem; editing: boolean } | null>(null);
+  const selection = useRecordSelection<CalendarItem>();
   return (
     <DashboardCardFrame
       title="今日"
@@ -46,20 +46,16 @@ export function TodayCard() {
             </Typography>
           ) : (
             items.map((item) => (
-              <TodayRow
-                key={itemKey(item)}
-                item={item}
-                onSelect={(item, editing) => setSelected({ item, editing })}
-              />
+              <TodayRow key={itemKey(item)} item={item} onSelect={selection.open} />
             ))
           )
         }
       </QueryView>
-      {selected && (
+      {selection.selected && (
         <ItemDetailSheet
-          item={selected.item}
-          initialEditing={selected.editing}
-          onClose={() => setSelected(null)}
+          item={selection.selected.record}
+          initialEditing={selection.selected.editing}
+          onClose={selection.close}
         />
       )}
     </DashboardCardFrame>
