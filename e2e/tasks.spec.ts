@@ -13,11 +13,12 @@ test('タスクを追加し、カレンダーのリスト表示から完了に�
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();
   await page.getByLabel('タイトル').fill(title);
-  // 日時は既定で空欄なので、タイトルだけで保存できる
-  await expect(page.getByRole('textbox', { name: '開始日時' })).toHaveValue('');
+  // 既定は終日で日付は空欄なので、タイトルだけで保存できる
+  await expect(page.getByLabel('終日')).toBeChecked();
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('');
   await page.getByRole('button', { name: '保存' }).click();
 
-  // 開始日時なしのタスクは今日の位置に出る
+  // 開始日なしのタスクは今日の位置に出る
   await expect(page.getByText(title)).toBeVisible();
   // チェックボックスはサーバーの結果で制御されるので、click して結果を待つ（check は即時の状態変化を要求する）
   await page.getByRole('checkbox', { name: `${title} を完了にする` }).click();
@@ -37,8 +38,8 @@ test('終日のタスクを追加すると、期限日だけを持つタスク�
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'タスク' }).click();
   await page.getByLabel('タイトル').fill(title);
-  await page.getByLabel('終日').check();
-  // 終日では日付だけを入れる
+  // 既定は終日で、日付だけを入れる
+  await expect(page.getByLabel('終日')).toBeChecked();
   const due = page.getByLabel('期限日', { exact: true });
   await expect(due).toHaveAttribute('type', 'date');
   await due.fill(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }));

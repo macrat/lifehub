@@ -9,7 +9,7 @@ import {
   useUpdateEvent,
 } from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
-import { type Draft, defaultDraft, type EventDraft, sameOccurrence } from './draft.ts';
+import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draft.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
@@ -49,7 +49,7 @@ type ComposerAction =
    * つまむ物が変わったときは、直す予定の参加者（追加なら既定）から始める
    */
   | { type: 'grab'; draft: Draft; done: boolean; participantIds: string[] }
-  /** 追加ボタンからの予定の入力。既定の時間帯の下書きを置き、入力を全項目の段で開く */
+  /** 追加ボタンからの予定の入力。その日の終日の下書きを置き、入力を全項目の段で開く */
   | { type: 'start'; range: EventDraft; participantIds: string[] }
   /** クイック入力で直した日時・終日の切り替えを下書きへ戻す */
   | { type: 'change'; range: EventDraft }
@@ -119,11 +119,14 @@ export function useEventComposer(meId: string | null) {
     /** 全項目のフォームへ移した入力 */
     expanded: state?.mode === 'form' ? state : null,
     grab,
-    /** 追加ボタンからの予定の入力。下書きを置く日は今見ている日 */
+    /**
+     * 追加ボタンからの予定の入力。下書きは今見ている日の終日にする。追加ボタンからは時間帯を選んでいないので、
+     * 決め打ちの時間帯を置くより日だけ決めておくほうが直す手間が少ない（時間帯を選びたいならグリッドをなぞる）
+     */
     start: (date: DateString) =>
       dispatch({
         type: 'start',
-        range: defaultDraft(date),
+        range: allDayDraft(date),
         participantIds: defaultParticipants(meId),
       }),
     changeRange: (range: EventDraft) => dispatch({ type: 'change', range }),

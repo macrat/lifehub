@@ -1,8 +1,14 @@
+import type { ChangeEvent } from 'react';
 import type { EventMaster } from '../../../shared/calendar.ts';
-import { addDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
+import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
-import { fromDateTimeLocalValue, fromDateValue } from '../../lib/date.ts';
+import {
+  fromDateTimeLocalValue,
+  fromDateValue,
+  isDateTimeLocalValue,
+  toDateTimeLocalValue,
+} from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
 /**
@@ -68,11 +74,13 @@ export function allDayEventValues(
 }
 
 /**
- * タスクの既定値: 日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
+ * タスクの既定値: 終日で、日時なし。開始日時の無い未完了タスクは今日の位置に出るので、
  * 「いつかやる」を入れるときは日時に触らずに済む（予定と違って時間の枠を持たない）。
+ * 終日にするのは、タスクの期限はたいてい「この日まで」で、時刻まで決めることは少ないから
+ * （日付だけの欄なら日を選ぶだけで済む。時刻が要るときは「終日」を切る）。
  */
 export function defaultTaskValues(participantIds: string[]): ItemFormValues {
-  return { ...EMPTY, participantIds };
+  return { ...EMPTY, participantIds, allDay: true };
 }
 
 /** 入力欄を通さずに渡す予定の日時（ISO）。終日の終わりは「含む日」のどこか（サーバーが翌日 0:00 に直す） */
@@ -156,4 +164,37 @@ function toInstant(raw: string, allDay: boolean): string {
 /** 任意の日時の入力欄（タスクの開始・期限）。空欄は未設定 */
 function optionalInstant(raw: string | null, allDay: boolean): string | null {
   return raw ? toInstant(raw, allDay) : null;
+}
+
+/**
+ * 開始の入力欄を before から after に動かしたときの、終了の入力欄の新しい値。長さを保って同じだけ動かす
+ * （9:00〜10:00 の開始を 9:30 にすると終了は 10:30。終日なら日数を保つ）。
+ * 値はどれも入力欄の値のままで、終日（日付だけ）か日時かは値の形で分かる。
+ * 形の揃わない値（書きかけで空、終日の切り替えの前後が混ざる）なら null で、終了は触らない。
+ */
+export function shiftedEnd(before: string, after: string, end: string): string | null {
+  if (isDateString(before) && isDateString(after) && isDateString(end))
+    return addDays(end, diffDays(before, after));
+  if (![before, after, end].every(isDateTimeLocalValue)) return null;
+  const ms = (value: string) => Date.parse(fromDateTimeLocalValue(value));
+  return toDateTimeLocalValue(new Date(ms(end) + ms(after) - ms(before)));
+}
+
+/**
+ * 予定の開始の入力欄の変更。終了の入力欄を、長さを保ったまま同じだけ動かす（`shiftedEnd`）。
+ * 入力欄は制御しない（値は DOM が持つ）ので、動かす前の開始の値は入力欄そのものに覚えておく（`data-previous`）。
+ * 終日の切り替えで入力欄が作り直されたら、覚えた値は消えて新しい入力欄の初期値から数え直す。
+ * 書きかけで空の間は覚え直さないので、書き終えたときに書き始める前の値からの差で動く。
+ */
+export function endFollowsStart({ target: start }: ChangeEvent<HTMLInputElement>): void {
+  const end = start.form?.elements.namedItem('endsAt');
+  if (end instanceof HTMLInputElement) {
+    const shifted = shiftedEnd(
+      start.dataset.previous ?? start.defaultValue,
+      start.value,
+      end.value,
+    );
+    if (shifted !== null) end.value = shifted;
+  }
+  if (start.value) start.dataset.previous = start.value;
 }

@@ -108,9 +108,17 @@ export function toDateTimeLocalValue(value: Date | string): string {
   return format(new TZDate(toDate(value), TIME_ZONE), "yyyy-MM-dd'T'HH:mm");
 }
 
+/** `<input type="datetime-local">` の値（"YYYY-MM-DDTHH:mm"）の形 */
+const DATE_TIME_LOCAL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/;
+
+/** `<input type="datetime-local">` の値として読めるか（書きかけの間は空になる） */
+export function isDateTimeLocalValue(value: string): boolean {
+  return DATE_TIME_LOCAL.test(value);
+}
+
 /** `<input type="datetime-local">` の値（JST として解釈）→ ISO 日時 */
 export function fromDateTimeLocalValue(value: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  const m = DATE_TIME_LOCAL.exec(value);
   if (!m) throw new Error(`invalid datetime-local value: ${value}`);
   const [, y, mo, d, h, mi] = m.map(Number) as [number, number, number, number, number, number];
   return new Date(new TZDate(y, mo - 1, d, h, mi, TIME_ZONE).getTime()).toISOString();
