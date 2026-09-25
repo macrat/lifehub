@@ -1,12 +1,19 @@
-import Box from '@mui/material/Box';
 import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
 import { useInitialPosition } from './initial-position.ts';
 import { STICKY_TOP } from './layout.ts';
+import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
 import { useEdgeObserver } from './use-edge-observer.ts';
+import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
-type Props = {
-  /** 一覧の上に貼り付けておく物（絞り込みのフォーム、残高など）。一覧を動かしても隠れない */
+/** 一覧の上に貼り付けておく物とその出し方。一覧を包む部品（`HistoryList` など）はこれをそのまま受けて渡す */
+export type InfiniteScrollHeaderProps = {
+  /** 一覧の上に貼り付けておく物（絞り込みのフォーム、残高など） */
   header?: ReactNode;
+  /** 下へスクロールしている間は header を隠す（`ScrollAwayHeader`）。false なら常に出しておく */
+  headerScrollsAway?: boolean;
+};
+
+type Props = InfiniteScrollHeaderProps & {
   children: ReactNode;
   /** 先頭に近づいたとき。undefined ならそれより前は無い（読み込み中を含む） */
   onReachStart?: (() => void) | undefined;
@@ -33,10 +40,12 @@ type Props = {
  *   （両方が動くと二重にずれる）
  * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
+ * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
  * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
  */
 export function InfiniteScroll({
   header,
+  headerScrollsAway = false,
   children,
   onReachStart,
   onReachEnd,
@@ -124,6 +133,7 @@ export function InfiniteScroll({
       window.scrollBy(0, element.getBoundingClientRect().top - top);
     }
     measure();
+    ignoreScrollSoFar();
   });
 
   useInitialPosition(() => {
@@ -135,12 +145,9 @@ export function InfiniteScroll({
 
   return (
     <>
-      <Box
-        ref={headerRef}
-        sx={{ position: 'sticky', top: STICKY_TOP, zIndex: 1, bgcolor: 'background.default' }}
-      >
+      <ScrollAwayHeader ref={headerRef} pinned={!headerScrollsAway}>
         {header}
-      </Box>
+      </ScrollAwayHeader>
       <div ref={startRef} />
       <div ref={listRef}>{children}</div>
       <div ref={endRef} />

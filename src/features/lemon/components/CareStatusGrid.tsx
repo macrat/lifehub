@@ -1,7 +1,13 @@
-import Box from '@mui/material/Box';
 import { CARE_TYPES } from '../../../../shared/validation/lemon.ts';
+import { StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import type { CareStatus } from '../queries.ts';
 import { CareStatusTile } from './CareStatusTile.tsx';
+
+/**
+ * スマホは 3 列（6 項目が 2 行に収まり、記録フォームのチェックボックスと同じ並びになる）。
+ * 広い画面では 1 行に並ぶ。
+ */
+const COLUMNS = { xs: 3, sm: CARE_TYPES.length };
 
 type Props = {
   statuses: CareStatus[];
@@ -14,21 +20,21 @@ type Props = {
  */
 export function CareStatusGrid({ statuses, onSelect }: Props) {
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        // スマホは 3 列（6 項目が 2 行に収まり、記録フォームのチェックボックスと同じ並びになる）。
-        // 広い画面では自然に 1 行に並ぶ。
-        gridTemplateColumns: {
-          xs: 'repeat(3, minmax(0, 1fr))',
-          sm: `repeat(${CARE_TYPES.length}, minmax(0, 1fr))`,
-        },
-        gap: 1,
-      }}
-    >
+    <TileGrid columns={COLUMNS}>
       {statuses.map((status) => (
         <CareStatusTile key={status.careType} status={status} onSelect={onSelect} />
       ))}
-    </Box>
+    </TileGrid>
+  );
+}
+
+/** 読み込み中の骨組み。項目の数だけ同じ並びにタイルの骨組みを置き、読み込めたときに行の数も高さも変わらない */
+export function CareStatusGridSkeleton() {
+  return (
+    <TileGrid columns={COLUMNS}>
+      {CARE_TYPES.map((careType) => (
+        <StatusTileSkeleton key={careType} />
+      ))}
+    </TileGrid>
   );
 }

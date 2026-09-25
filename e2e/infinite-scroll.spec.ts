@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import {
   addRecord,
   bottomNav,
@@ -71,16 +71,18 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
  */
 const histories = [
   {
-    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いたまま',
+    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いて下へスクロールすると隠れる',
     path: '/expenses',
     ...expenseHistory,
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
+    scrollsAway: true,
   },
   {
     name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
     ...careLogHistory,
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
+    scrollsAway: false,
   },
 ];
 
@@ -120,7 +122,7 @@ for (const history of histories) {
       const next = await page.getByText(future).boundingBox();
       expect(next?.y ?? 0).toBeGreaterThanOrEqual(nav?.y ?? 0);
 
-      // 上へ戻ると古いほうのページを読む。上に貼り付けた物は隠れない
+      // 上へ戻ると古いほうのページを読む。読み足した分を戻すスクロールでは隠れない
       await expect(async () => {
         await page.mouse.wheel(0, -3000);
         await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
@@ -129,6 +131,19 @@ for (const history of histories) {
       const oldestBox = await page.getByText(oldest).boundingBox();
       const stickyBox = await sticky.boundingBox();
       expect(stickyBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
+
+      if (history.scrollsAway) {
+        // 下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる
+        const bottom = async (locator: Locator) => {
+          const box = await locator.boundingBox();
+          return (box?.y ?? 0) + (box?.height ?? 0);
+        };
+        const barBottom = await bottom(page.getByRole('banner'));
+        await page.mouse.wheel(0, 300);
+        await expect.poll(() => bottom(sticky)).toBeLessThanOrEqual(barBottom);
+        await page.mouse.wheel(0, -100);
+        await expect.poll(() => bottom(sticky)).toBeGreaterThan(barBottom);
+      }
     } finally {
       for (const record of created) await deleteRecord(page, record);
     }

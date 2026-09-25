@@ -1,14 +1,13 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import type { ReactNode } from 'react';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import { HistoryList } from '../../../lib/ui/HistoryList.tsx';
+import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
-import type { Expense, useExpenseHistory } from '../queries.ts';
+import type { Expense } from '../queries.ts';
 
 /**
  * 金額の列の幅。カレンダーの時刻の列より少し広く、6 桁の金額（¥100,000）まで折り返さない。
@@ -16,13 +15,7 @@ import type { Expense, useExpenseHistory } from '../queries.ts';
  */
 const AMOUNT_WIDTH = 80;
 
-type Props = {
-  /** 読んだ分の履歴（古い順）と、上の端での読み足しなど（`useExpenseHistory`） */
-  history: ReturnType<typeof useExpenseHistory>;
-  /** 一覧の上に貼り付けておく物（絞り込みのフォームと残高） */
-  header: ReactNode;
-  /** 1 件も無いときの文言（`HistoryList`） */
-  emptyMessage: string;
+type Props = Omit<HistoryListProps<Expense>, 'children'> & {
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (expense: Expense, editing: boolean) => void;
 };
@@ -34,11 +27,11 @@ type Props = {
  * 印は誰から誰へ渡ったかのベン図（`expenseMarkColors`）、主列は金額、本文は内容と名前。
  * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
  */
-export function ExpenseList({ history, header, emptyMessage, onSelect }: Props) {
+export function ExpenseList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   return (
-    <HistoryList history={history} header={header} emptyMessage={emptyMessage}>
+    <HistoryList {...listProps}>
       {(expenses) =>
         [...Map.groupBy(expenses, (e) => e.spentOn)].map(([date, sameDay]) => (
           <Box key={date} sx={{ pb: 1 }}>
