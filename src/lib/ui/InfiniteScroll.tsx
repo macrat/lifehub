@@ -3,11 +3,15 @@ import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
 import { useEdgeObserver } from './use-edge-observer.ts';
 import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
-type Props = {
+/** 一覧の上に貼り付けておく物とその出し方。一覧を包む部品（`HistoryList` など）はこれをそのまま受けて渡す */
+export type InfiniteScrollHeaderProps = {
   /** 一覧の上に貼り付けておく物（絞り込みのフォーム、残高など） */
   header?: ReactNode;
   /** 下へスクロールしている間は header を隠す（`ScrollAwayHeader`）。false なら常に出しておく */
   headerScrollsAway?: boolean;
+};
+
+type Props = InfiniteScrollHeaderProps & {
   children: ReactNode;
   /** 先頭に近づいたとき。undefined ならそれより前は無い（読み込み中を含む） */
   onReachStart?: (() => void) | undefined;
