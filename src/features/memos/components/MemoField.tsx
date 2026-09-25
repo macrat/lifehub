@@ -5,15 +5,18 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   error?: string | undefined;
-  /** 開いた所からそのまま打てるようにするか（追加だけ） */
-  autoFocus?: boolean;
 };
 
 /**
  * メモの本文の入力欄。上限（`MEMO_MAX_LENGTH`）を超えては打てず、下に今の文字数を出す。
  * 追加と編集が同じものを使う。
+ *
+ * 追加でも編集でも、出た所からそのまま打てるように焦点を当てる。この欄は書き始めたとき
+ * （追加のシートを開いた・詳細を編集に切り替えた）にだけマウントされるので、autoFocus で足りる。
+ * 項目がこの欄だけなので、ソフトキーボードが中身を覆っても覆われるのは打っている欄そのものだけで、
+ * 項目の多いタスクの編集（`TaskFormFields`）のように焦点を当てずにおく理由がない。
  */
-export function MemoField({ value, onChange, error, autoFocus = false }: Props) {
+export function MemoField({ value, onChange, error }: Props) {
   return (
     <TextField
       name="body"
@@ -22,7 +25,7 @@ export function MemoField({ value, onChange, error, autoFocus = false }: Props) 
       onChange={(e) => onChange(e.target.value)}
       multiline
       minRows={3}
-      autoFocus={autoFocus}
+      autoFocus
       error={Boolean(error)}
       helperText={error ?? `${value.length} / ${MEMO_MAX_LENGTH}`}
       slotProps={{

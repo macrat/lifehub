@@ -60,6 +60,8 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   // 詳細を開いて直す
   await page.getByText(body, { exact: true }).click();
   await page.getByRole('button', { name: '編集' }).click();
+  // 編集に切り替えたらそのまま打てる
+  await expect(page.getByRole('textbox', { name: 'メモ', exact: true })).toBeFocused();
   await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(`${body} 直した`);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(`${body} 直した`)).toBeVisible();
