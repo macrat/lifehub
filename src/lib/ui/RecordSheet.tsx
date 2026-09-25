@@ -32,7 +32,7 @@ export type RecordAction = {
 
 /**
  * 読むだけの状態を持つシート（既にある記録の詳細）。鉛筆を押すと入力欄に変わる。
- * onEdit が無ければ直せない記録（ほかの人のメモ）で、鉛筆を出さない。
+ * onEdit が無ければ直せない記録で、鉛筆を出さない。
  */
 type Viewable = {
   editing: boolean;

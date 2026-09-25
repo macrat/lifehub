@@ -15,30 +15,24 @@ export async function addMemo(
   await repository.insert({ ...input, id, createdBy: userId });
 }
 
-/**
- * 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない）。
- * 直せるのは書いた本人だけ（`assertOwnMemo`）。
- */
+/** 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない） */
 export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<void> {
-  await assertOwnMemo(id, actorId);
-  if (!(await repository.update(id, input.body))) throw new NotFoundError('メモが見つかりません');
+  if (!(await repository.update(id, actorId, input.body))) await rejectWrite(id);
 }
 
-/** 消せるのも書いた本人だけ（`assertOwnMemo`） */
 export async function deleteMemo(id: string, actorId: string): Promise<void> {
-  await assertOwnMemo(id, actorId);
-  if (!(await repository.remove(id))) throw new NotFoundError('メモが見つかりません');
+  if (!(await repository.remove(id, actorId))) await rejectWrite(id);
 }
 
 /**
- * メモは書いた人の言葉なので、ほかの人が書き換えたり消したりできないようにする
- * （予定・タスク・立替・レモンの記録は家族で管理する共有の記録なので誰でも直せる）。
- * WHY NOT 見つからないことにする（404）: ほかの人のメモもタイムラインで読めるので、在ることは隠せない。
+ * 書き込めなかった理由を返す。メモは書いた人の言葉なので、直す・消すは書いた本人だけができる
+ * （repository の update/remove が書いた人で絞る。予定・タスク・立替・レモンの記録は家族で管理する
+ * 共有の記録なので誰でも直せる）。
+ * WHY NOT ほかの人のメモも見つからないことにする（404）: タイムラインで読めるので、在ることは隠せない。
  */
-async function assertOwnMemo(id: string, actorId: string): Promise<void> {
-  const createdBy = await repository.findCreator(id);
-  if (createdBy === undefined) throw new NotFoundError('メモが見つかりません');
-  if (createdBy !== actorId) throw new ForbiddenError('ほかの人のメモは変更できません');
+async function rejectWrite(id: string): Promise<never> {
+  if (await repository.exists(id)) throw new ForbiddenError('ほかの人のメモは変更できません');
+  throw new NotFoundError('メモが見つかりません');
 }
 
 /** タイムラインのページ分け: before より前の、新しいほうから limit 件の日時 */

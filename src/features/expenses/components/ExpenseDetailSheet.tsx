@@ -1,11 +1,10 @@
-import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useRecordDetail } from '../../../lib/ui/use-record-detail.ts';
+import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
@@ -48,9 +47,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
       title={expense.description}
       open={!submitted}
       onClose={onClose}
-      editing={detail.editing}
-      onEdit={detail.startEdit}
-      actions={[{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }]}
+      {...detail.sheet}
       onSubmit={handleSubmit}
       error={submitError}
     >

@@ -44,23 +44,26 @@ export async function insert(row: { id: string; body: string; createdBy: string 
   await db.insert(memos).values(row).onConflictDoNothing();
 }
 
-/** メモを書いた人。メモが無ければ undefined */
-export async function findCreator(id: string): Promise<string | undefined> {
-  const [row] = await db.select({ createdBy: memos.createdBy }).from(memos).where(eq(memos.id, id));
-  return row?.createdBy;
+export async function exists(id: string): Promise<boolean> {
+  const [row] = await db.select({ id: memos.id }).from(memos).where(eq(memos.id, id));
+  return row !== undefined;
 }
 
-/** 本文を置き換える。書いた人と書いた時刻は変えない */
-export async function update(id: string, body: string): Promise<boolean> {
+/** createdBy が書いたメモの本文を置き換える。書いた人と書いた時刻は変えない */
+export async function update(id: string, createdBy: string, body: string): Promise<boolean> {
   const updated = await db
     .update(memos)
     .set({ body })
-    .where(eq(memos.id, id))
+    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
     .returning({ id: memos.id });
   return updated.length > 0;
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const deleted = await db.delete(memos).where(eq(memos.id, id)).returning({ id: memos.id });
+/** createdBy が書いたメモを消す */
+export async function remove(id: string, createdBy: string): Promise<boolean> {
+  const deleted = await db
+    .delete(memos)
+    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
+    .returning({ id: memos.id });
   return deleted.length > 0;
 }

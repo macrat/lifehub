@@ -1,8 +1,7 @@
-import DeleteIcon from '@mui/icons-material/Delete';
 import Typography from '@mui/material/Typography';
 import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useRecordDetail } from '../../../lib/ui/use-record-detail.ts';
+import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { type Memo, useDeleteMemo, useUpdateMemo } from '../queries.ts';
 import { useMemoForm } from '../use-memo-form.ts';
@@ -18,16 +17,16 @@ type Props = {
 /**
  * メモの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから削除する。
  * 直せるのは本文だけで、書いた人と時刻は変わらない。
- * 直す・消すは書いた本人だけ（サーバーも同じ規則で拒む）。ほかの人のメモは読むだけで、鉛筆も三点リーダーも出さない。
+ * 直す・消すは書いた本人だけで（サーバーも同じ規則で拒む）、ほかの人のメモは読むだけ。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props) {
   const { label, meId } = useUserLabels();
-  const mine = memo.createdBy === meId;
   const updateMemo = useUpdateMemo();
   const deleteMemo = useDeleteMemo();
   const detail = useRecordDetail({
-    initialEditing: initialEditing && mine,
+    initialEditing,
+    readOnly: memo.createdBy !== meId,
     confirmDelete: 'このメモを削除しますか？',
     remove: () => deleteMemo.mutate(memo.id),
     onClose,
@@ -43,11 +42,7 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
       title="メモ"
       open={!submitted}
       onClose={onClose}
-      editing={detail.editing}
-      onEdit={mine ? detail.startEdit : undefined}
-      actions={
-        mine ? [{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }] : []
-      }
+      {...detail.sheet}
       onSubmit={handleSubmit}
       error={submitError}
     >
