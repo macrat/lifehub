@@ -4,6 +4,7 @@ import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
+import GlobalStyles from '@mui/material/GlobalStyles';
 import LinearProgress from '@mui/material/LinearProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -113,6 +114,17 @@ export function AppShell({ navItems, children }: Props) {
 
         <NoticeSnackbar />
 
+        {!isDesktop && (
+          // 画面の下端を下部ナビが覆っていることをブラウザに伝える。scrollIntoView などが
+          // 要素をナビの裏ではなくそのすぐ上に置く（履歴の一覧の最初の位置など）
+          <GlobalStyles
+            styles={{
+              html: {
+                scrollPaddingBottom: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
+              },
+            }}
+          />
+        )}
         {!isDesktop && (
           <Paper
             component="nav"

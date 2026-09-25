@@ -1,4 +1,5 @@
 import { devices, expect, type Page, test } from '@playwright/test';
+import { toDateString } from '../shared/date.ts';
 import { login, myId } from './login.ts';
 
 /**
@@ -70,7 +71,7 @@ const histories = [
       toUserId: null,
       amount: 100,
       description: text,
-      spentOn: toJstDate(at),
+      spentOn: toDateString(at),
     }),
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
   },
@@ -87,11 +88,6 @@ const histories = [
   },
 ];
 
-/** 瞬間 → JST の暦日（YYYY-MM-DD） */
-function toJstDate(at: Date): string {
-  return new Date(at.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
 for (const history of histories) {
   test(history.name, async ({ page }) => {
     const me = await myId(page);
@@ -100,15 +96,14 @@ for (const history of histories) {
     const todayFirst = `E2E 今日 1 ${stamp}`;
     const todayLast = `E2E 今日 2 ${stamp}`;
     const future = `E2E 未来 ${stamp}`;
-    const now = Date.now();
     const records: [Date, string][] = [
       ...Array.from({ length: 58 }, (_, i): [Date, string] => [
         new Date(Date.UTC(2000, 0, 1 + i, 3)),
         i === 0 ? oldest : `E2E ${i} ${stamp}`,
       ]),
       // 今日の 2 件は、並びが追加した順になるよう少しだけ時刻をずらす
-      [new Date(now - 2000), todayFirst],
-      [new Date(now - 1000), todayLast],
+      [new Date(stamp - 2000), todayFirst],
+      [new Date(stamp - 1000), todayLast],
       [new Date(Date.UTC(2099, 0, 1, 3)), future],
     ];
     const ids: string[] = [];
