@@ -49,7 +49,7 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                 }
               >
                 <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
-                <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                <Typography variant="caption" color="text.disabled" component="div" noWrap>
                   {expense.toUserId === null
                     ? label(expense.fromUserId)
                     : `${label(expense.toUserId)} ← ${label(expense.fromUserId)}`}
