@@ -46,7 +46,7 @@ describe('composerReducer', () => {
       item: null,
       participantIds: ME,
       settled: false,
-      detent: 'peek',
+      origin: 'grid',
     });
   });
 
@@ -77,7 +77,7 @@ describe('composerReducer', () => {
       mode: 'grid',
       item: null,
       settled: true,
-      detent: 'full',
+      origin: 'add',
     });
   });
 

@@ -1,6 +1,5 @@
 import { useCallback, useReducer } from 'react';
 import type { DateString } from '../../../shared/types.ts';
-import type { SheetDetent } from '../../lib/ui/BottomSheet.tsx';
 import { defaultParticipants, type ItemFormValues } from '../events/form-values.ts';
 import {
   type CalendarItem,
@@ -23,8 +22,11 @@ export type GridDraft = Draft & {
    * グリッドも枠を追いかけてスクロールしない（指の下でグリッドが動くと狙いがずれる）
    */
   settled: boolean;
-  /** 入力を開く段。グリッドからは下の段、追加ボタンからは全項目の段 */
-  detent: SheetDetent;
+  /**
+   * 入力をどこから始めたか（グリッドをなぞった・追加ボタン）。開く段とタイトルに焦点を当てるかがこれで決まる。
+   * 見た目の結果（段）ではなく入口を持つのは、段と焦点がどちらも入口から決まる別々の事柄だから
+   */
+  origin: 'grid' | 'add';
 };
 
 /**
@@ -72,7 +74,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
           ? state.participantIds
           : (draft.item?.participantIds ?? action.participantIds),
         settled: done,
-        detent: 'peek',
+        origin: 'grid',
       };
     }
     case 'start':
@@ -82,7 +84,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         item: null,
         participantIds: action.participantIds,
         settled: true,
-        detent: 'full',
+        origin: 'add',
       };
     case 'change':
       return state?.mode === 'grid' ? { ...state, range: action.range, settled: true } : state;
