@@ -93,6 +93,16 @@ export function formatTimelineTime(at: string, dateOnly: boolean, now: Date = ne
   return date.slice(0, 4) === todayDate.slice(0, 4) ? text : `${date.slice(0, 4)}/${text}`;
 }
 
+/** タイムラインの終日の期間。1 日なら "今日" / "9/20(日)"、複数日なら "9/20(日)〜今日"（今日・年の扱いは `formatTimelineTime`） */
+export function formatTimelineDays(
+  first: DateString,
+  last: DateString,
+  now: Date = new Date(),
+): string {
+  const day = (date: DateString) => formatTimelineTime(startOfDate(date).toISOString(), true, now);
+  return first === last ? day(first) : `${day(first)}〜${day(last)}`;
+}
+
 /** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
 export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
   return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);

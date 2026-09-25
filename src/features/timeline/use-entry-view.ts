@@ -1,9 +1,10 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
+import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { formatTimelineTime } from '../../lib/date.ts';
+import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
-import type { CalendarTaskItem } from '../events/queries.ts';
+import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { CARE_TYPE_ICONS } from '../lemon/care-type-icons.tsx';
@@ -24,6 +25,8 @@ export type EntryView = {
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
+  /** 上段を赤字にする（期限を過ぎた未完了のタスク。リスト表示・詳細の超過と同じ色） */
+  overdue: boolean;
   /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
@@ -37,18 +40,20 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, task: null, struck: false, careTypes: [] };
+  const view = { time, task: null, struck: false, overdue: false, careTypes: [] };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
       // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       return {
         ...view,
+        time: item.kind === 'event' && item.allDay ? allDayPeriod(item) : time,
         colors: participantColors(item.participantIds, colorFor).map((c) => c.fill),
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
         heading: item.title,
         struck: item.kind === 'task' && item.completedAt !== null,
+        overdue: item.kind === 'task' && item.isOverdue,
         body: item.note,
       };
     }
@@ -86,4 +91,10 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         body: entry.memo.body,
       };
   }
+}
+
+/** 終日の予定は期間の中の日（今日を含めば今日）に置くので、日付は置いた日ではなく期間を出す（「9/24(木)〜今日」） */
+function allDayPeriod(item: CalendarEventItem): string {
+  const first = allDayDate(item.startsAt, 'start');
+  return formatTimelineDays(first, addDays(first, item.dayCount - 1));
 }
