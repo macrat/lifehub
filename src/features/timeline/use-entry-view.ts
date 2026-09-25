@@ -24,6 +24,8 @@ export type EntryView = {
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
+  /** 上段を赤字にする（期限を過ぎた未完了のタスク。リスト表示・詳細の超過と同じ色） */
+  overdue: boolean;
   /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
@@ -37,7 +39,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, task: null, struck: false, careTypes: [] };
+  const view = { time, task: null, struck: false, overdue: false, careTypes: [] };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
@@ -54,6 +56,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         task: item.kind === 'task' ? item : null,
         heading: item.title,
         struck: item.kind === 'task' && item.completedAt !== null,
+        overdue: item.kind === 'task' && item.isOverdue,
         body: item.note,
       };
     }
