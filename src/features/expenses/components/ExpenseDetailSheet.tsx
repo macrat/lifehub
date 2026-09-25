@@ -1,12 +1,9 @@
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
-import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
-import { useUserLabels } from '../../users/use-user-labels.ts';
+import { UserChip } from '../../users/components/UserChip.tsx';
 import { formatYen } from '../format.ts';
 import { type Expense, useDeleteExpense, useUpdateExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
@@ -26,8 +23,6 @@ type Props = {
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }: Props) {
-  const { label } = useUserLabels();
-  const colorFor = useUserColor();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const detail = useRecordDetail({
@@ -60,22 +55,11 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
           </Typography>
           <Typography>{formatDateWithYear(expense.spentOn)}</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-            <UserChip
-              label={`To: ${label(expense.toUserId)}`}
-              colors={colorFor(expense.toUserId)}
-            />
-            <UserChip
-              label={`From: ${label(expense.fromUserId)}`}
-              colors={colorFor(expense.fromUserId)}
-            />
+            <UserChip prefix="To" userId={expense.toUserId} />
+            <UserChip prefix="From" userId={expense.fromUserId} />
           </Stack>
         </>
       )}
     </RecordSheet>
   );
-}
-
-/** To・From の 1 つ。そのユーザーの色で塗る */
-function UserChip({ label, colors }: { label: string; colors: ItemColors }) {
-  return <Chip size="small" label={label} sx={{ bgcolor: colors.fill, color: FILL_TEXT }} />;
 }

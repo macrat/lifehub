@@ -3,7 +3,6 @@ import type { ComponentType } from 'react';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
-import { itemTransitionName } from '../calendar/item-transition.ts';
 import type { CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
@@ -31,8 +30,6 @@ export type EntryView = {
   careTypes: CareType[];
   /** 下段。無ければ上段だけの 1 行で出す */
   body: string | null;
-  /** 予定画面へ移ったとき、同じ予定・タスクがこの行から動く（View Transition） */
-  transitionName: string | undefined;
 };
 
 /** タイムラインの行（`TimelineRow`）の中身を、記録の種類ごとの規則で組み立てる */
@@ -40,7 +37,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, task: null, struck: false, careTypes: [], transitionName: undefined };
+  const view = { time, task: null, struck: false, careTypes: [] };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
@@ -53,7 +50,6 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         heading: item.title,
         struck: item.kind === 'task' && item.completedAt !== null,
         body: item.note,
-        transitionName: itemTransitionName(item),
       };
     }
     case 'expense': {
@@ -69,11 +65,12 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'lemon': {
-      const { careTypes, note } = entry.log;
+      const { careTypes, note, createdBy } = entry.log;
       const leading = leadingCareType(careTypes);
       return {
         ...view,
-        colors: [colorFor(null).fill],
+        // 記録した人の色。API キーで入れた記録は誰のものか分からないので無彩色
+        colors: [colorFor(createdBy).fill],
         icon: leading ? CARE_TYPE_ICONS[leading] : ADD_KINDS.lemon.icon,
         heading: ADD_KINDS.lemon.label,
         careTypes,
