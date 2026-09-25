@@ -1,14 +1,13 @@
 import Typography from '@mui/material/Typography';
 import { type ReactNode, useRef } from 'react';
 import type { useHistory } from '../history.ts';
-import { InfiniteScroll } from './InfiniteScroll.tsx';
+import { InfiniteScroll, type InfiniteScrollHeaderProps } from './InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from './QueryView.tsx';
 
-type Props<T> = {
+/** 画面ごとの一覧（`ExpenseList` など）は、行の描き方（children）以外をこのまま受けて渡す */
+export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
   /** 読んだ分の記録（今日までと未来、どちらも古い順）と、上の端での読み足しなど（`useHistory`） */
   history: ReturnType<typeof useHistory<T, object>>;
-  /** 一覧の上に貼り付けておく物（絞り込みのフォームなど） */
-  header: ReactNode;
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかは画面が判断する */
   emptyMessage: string;
   /** 記録の並び（古い順）の描き方。今日までの記録と未来の記録で 1 回ずつ呼ぶ */
@@ -25,11 +24,16 @@ type Props<T> = {
  * 目印を付けて回らなくて済む）。
  * 読み込み中・失敗・0 件の出し方をここに置き、中身の行の描き方だけを画面ごとに渡す。
  */
-export function HistoryList<T>({ history, header, emptyMessage, children }: Props<T>) {
+export function HistoryList<T>({
+  history,
+  emptyMessage,
+  children,
+  ...headerProps
+}: HistoryListProps<T>) {
   const pastRef = useRef<HTMLDivElement>(null);
   return (
     <InfiniteScroll
-      header={header}
+      {...headerProps}
       onReachStart={history.loadEarlier}
       initial={{ block: 'end', target: () => pastRef.current }}
       resetKey={history.resetKey}
