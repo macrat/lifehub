@@ -1,10 +1,9 @@
-import DeleteIcon from '@mui/icons-material/Delete';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { careLogTitle } from '../../../../shared/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useRecordDetail } from '../../../lib/ui/use-record-detail.ts';
+import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import { type CareLog, useDeleteCareLog, useUpdateCareLog } from '../queries.ts';
 import { useCareLogForm } from '../use-care-log-form.ts';
@@ -42,9 +41,7 @@ export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Pro
       title={careLogTitle(careTypes)}
       open={!submitted}
       onClose={onClose}
-      editing={detail.editing}
-      onEdit={detail.startEdit}
-      actions={[{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }]}
+      {...detail.sheet}
       onSubmit={handleSubmit}
       error={submitError}
     >

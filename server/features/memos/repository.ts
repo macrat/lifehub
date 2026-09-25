@@ -44,17 +44,26 @@ export async function insert(row: { id: string; body: string; createdBy: string 
   await db.insert(memos).values(row).onConflictDoNothing();
 }
 
-/** 本文を置き換える。書いた人と書いた時刻は変えない */
-export async function update(id: string, body: string): Promise<boolean> {
+export async function exists(id: string): Promise<boolean> {
+  const [row] = await db.select({ id: memos.id }).from(memos).where(eq(memos.id, id));
+  return row !== undefined;
+}
+
+/** createdBy が書いたメモの本文を置き換える。書いた人と書いた時刻は変えない */
+export async function update(id: string, createdBy: string, body: string): Promise<boolean> {
   const updated = await db
     .update(memos)
     .set({ body })
-    .where(eq(memos.id, id))
+    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
     .returning({ id: memos.id });
   return updated.length > 0;
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const deleted = await db.delete(memos).where(eq(memos.id, id)).returning({ id: memos.id });
+/** createdBy が書いたメモを消す */
+export async function remove(id: string, createdBy: string): Promise<boolean> {
+  const deleted = await db
+    .delete(memos)
+    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
+    .returning({ id: memos.id });
   return deleted.length > 0;
 }
