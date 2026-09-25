@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import type { ComponentType } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
+import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
@@ -32,7 +33,8 @@ type Props = {
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
  * その下にレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
- * タスクは丸そのものが完了のチェックボックスで、中にチェックの印を出す（押すと完了・未完了が切り替わる）。
+ * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
+ * チェックの印を出す（押すと完了・未完了が切り替わる）。
  * 押せる範囲（ButtonBase）の中にボタンを入れられないので、押せる範囲には同じ大きさの空きを取り、
  * チェックボックスはその上に重ねる（リストの行の `MarkedRow` と同じ考え方）。
  */
@@ -84,9 +86,12 @@ export function TimelineRow({ entry, onSelect }: Props) {
           <TaskCheckbox
             item={view.task}
             icons={{
-              unchecked: <Circle colors={view.colors} icon={CheckBoxOutlineBlankIcon} />,
-              checked: <Circle colors={view.colors} icon={CheckBoxIcon} />,
+              unchecked: <Circle colors={view.colors} icon={CheckBoxOutlineBlankIcon} square />,
+              checked: <Circle colors={view.colors} icon={CheckBoxIcon} square />,
             }}
+            // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
+            // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
+            sx={{ clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
           />
         </Box>
       )}
@@ -98,15 +103,26 @@ function EntryIcon({ view }: { view: EntryView }) {
   return <Circle colors={view.colors} icon={view.icon} />;
 }
 
-/** 左の丸。人の色（複数なら塗り分け）の上に白いアイコンを置く */
-function Circle({ colors, icon: Icon }: { colors: string[]; icon: ComponentType<SvgIconProps> }) {
+/**
+ * 左の丸。人の色（複数なら塗り分け）の上に白いアイコンを置く。
+ * square は角を落とさない四角で、外側で別の形に切り抜くとき（タスクのスクワークル）に使う
+ */
+function Circle({
+  colors,
+  icon: Icon,
+  square = false,
+}: {
+  colors: string[];
+  icon: ComponentType<SvgIconProps>;
+  square?: boolean;
+}) {
   return (
     <Box
       sx={{
         width: ICON_SIZE,
         height: ICON_SIZE,
         flexShrink: 0,
-        borderRadius: '50%',
+        borderRadius: square ? 0 : '50%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
