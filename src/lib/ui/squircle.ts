@@ -84,6 +84,9 @@ const cache = new Map<string, string>();
  * WHY NOT clip-path の polygon: 点を割合で書くと要素の大きさに比例して角が伸び、px で書くと大きさごとに作り直しになる。
  * WHY NOT 角と辺を mask の別々の層で描く: 層の境目が端数の位置に来ると筋や段差が出る。角を縮めて収める作りでは、
  * 小さな枠で角の線だけが細くなる。1 枚の SVG なら 1 度に描かれ、線の太さも px のまま変わらない。
+ * 描く手間は border-radius より重い（要素の大きさごとに SVG を描き直し、切り抜いた面を重ねる）。
+ * WHY 受け入れる: 同じ形を描ける CSS（`corner-shape: squircle`）は Safari が対応していない。切り抜くのは
+ * 画面に百ほどの項目で、大きさが変わり続けるのはつまんでいる下書きの枠 1 つだけ。
  */
 export function smoothCornersMask(
   extent: number,

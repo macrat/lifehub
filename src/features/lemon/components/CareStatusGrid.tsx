@@ -1,5 +1,7 @@
 import Box from '@mui/material/Box';
+import type { ReactNode } from 'react';
 import { CARE_TYPES } from '../../../../shared/validation/lemon.ts';
+import { StatusTileSkeleton } from '../../../lib/ui/StatusTile.tsx';
 import type { CareStatus } from '../queries.ts';
 import { CareStatusTile } from './CareStatusTile.tsx';
 
@@ -14,6 +16,27 @@ type Props = {
  */
 export function CareStatusGrid({ statuses, onSelect }: Props) {
   return (
+    <TileGrid>
+      {statuses.map((status) => (
+        <CareStatusTile key={status.careType} status={status} onSelect={onSelect} />
+      ))}
+    </TileGrid>
+  );
+}
+
+/** 読み込み中の骨組み。項目の数だけ同じ並びにタイルの骨組みを置き、読み込めたときに行の数も高さも変わらない */
+export function CareStatusGridSkeleton() {
+  return (
+    <TileGrid>
+      {CARE_TYPES.map((careType) => (
+        <StatusTileSkeleton key={careType} />
+      ))}
+    </TileGrid>
+  );
+}
+
+function TileGrid({ children }: { children: ReactNode }) {
+  return (
     <Box
       sx={{
         display: 'grid',
@@ -26,9 +49,7 @@ export function CareStatusGrid({ statuses, onSelect }: Props) {
         gap: 1,
       }}
     >
-      {statuses.map((status) => (
-        <CareStatusTile key={status.careType} status={status} onSelect={onSelect} />
-      ))}
+      {children}
     </Box>
   );
 }
