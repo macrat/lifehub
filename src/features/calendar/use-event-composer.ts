@@ -9,10 +9,11 @@ import {
 } from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
 import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draft.ts';
+import type { TaskItem } from './task-draft.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
- * 追加しようとしている予定と、長押しでつまんで直している予定（item）の両方。
+ * 追加しようとしている予定と、長押しでつまんで直している予定・タスク（item）の両方。
  */
 export type GridDraft = Draft & {
   /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
@@ -29,6 +30,32 @@ export type GridDraft = Draft & {
   origin: 'grid' | 'add';
 };
 
+/** クイック入力（`QuickEventForm` / `QuickTaskForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */
+export type QuickProps = {
+  /**
+   * グリッドの下書き。`item` は直している保存済みの予定・タスク（長押しでつまんだもの。追加のときは null）で、
+   * 入力の既定値になり、保存は呼び出し側（`onSubmit`）が上書きに振り分ける。
+   */
+  draft: GridDraft;
+  onChangeParticipants: (participantIds: string[]) => void;
+  /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
+  onSubmit: (input: CreateEventBody) => Promise<unknown>;
+  /** 上の段で直した日時を下書き（グリッドの枠と直している物）へ戻す */
+  onChangeDraft: (draft: Draft) => void;
+  /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
+  onExpand: (values: ItemFormValues) => void;
+  onClose: () => void;
+  /** シートがカレンダーを下から覆っている高さ（px）が変わったとき */
+  onChangeInset: (inset: number) => void;
+};
+
+/** つまんだタスクを直している下書き。タスクのクイック入力（`QuickTaskForm`）はこの形だけを受け取る */
+export type TaskGridDraft = GridDraft & { item: TaskItem };
+
+export function isTaskDraft(draft: GridDraft): draft is TaskGridDraft {
+  return draft.item?.kind === 'task';
+}
+
 /**
  * 予定の入力。無い・グリッドの下書きとクイック入力・全項目のフォーム（「その他のオプション」で移した後）の
  * どれか 1 つで、同時に 2 つは開かない（型がそれを守る）。
@@ -40,7 +67,7 @@ type ComposerState =
       mode: 'form';
       /** クイック入力から持ち越した入力 */
       values: ItemFormValues;
-      /** 直している予定（追加なら null）。保存の宛先がこれで決まる */
+      /** 直している予定・タスク（追加なら null）。保存の宛先とフォームの種類がこれで決まる */
       item: CalendarItem | null;
     };
 
@@ -53,8 +80,11 @@ type ComposerAction =
   | { type: 'grab'; draft: Draft; done: boolean; participantIds: string[] }
   /** 追加ボタンからの予定の入力。その日の終日の下書きを置き、入力を全項目の段で開く */
   | { type: 'start'; range: EventDraft; participantIds: string[] }
-  /** クイック入力で直した日時・終日の切り替えを下書きへ戻す */
-  | { type: 'change'; range: EventDraft }
+  /**
+   * クイック入力で直した日時・終日の切り替えを下書き（枠と直している物）へ戻す。
+   * 予定は枠だけが変わり、タスクは日時を枠から導くので入力した日時を持たせたタスクも変わる（`taskDraftFromInput`）
+   */
+  | { type: 'change'; draft: Draft }
   | { type: 'participants'; participantIds: string[] }
   /** 「その他のオプション」: 入力済みの内容と直している予定を全項目のフォームへ移す */
   | { type: 'expand'; values: ItemFormValues }
@@ -87,7 +117,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         origin: 'add',
       };
     case 'change':
-      return state?.mode === 'grid' ? { ...state, range: action.range, settled: true } : state;
+      return state?.mode === 'grid' ? { ...state, ...action.draft, settled: true } : state;
     case 'participants':
       return state?.mode === 'grid' ? { ...state, participantIds: action.participantIds } : state;
     case 'expand':
@@ -101,6 +131,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
 
 /**
  * カレンダー画面の予定の入力（グリッドの下書き → クイック入力 →「その他のオプション」の全項目のフォーム）。
+ * 長押しでつまんだタスクも同じ流れで直す（入力の中身だけがタスクのものになる。`EventComposer`）。
  * 状態は 1 つ（`ComposerState`）で、変えるのは `composerReducer` だけ。
  * 保存の宛先は直している予定だけで決まる: あれば上書き、無ければ追加（入口では変わらない）。
  */
@@ -131,13 +162,13 @@ export function useEventComposer(meId: string | null) {
         range: allDayDraft(date),
         participantIds: defaultParticipants(meId),
       }),
-    changeRange: (range: EventDraft) => dispatch({ type: 'change', range }),
+    changeDraft: (draft: Draft) => dispatch({ type: 'change', draft }),
     changeParticipants: (participantIds: string[]) =>
       dispatch({ type: 'participants', participantIds }),
     expand: (values: ItemFormValues) => dispatch({ type: 'expand', values }),
     close: () => dispatch({ type: 'close' }),
     /**
-     * 保存。つまんだ予定を直しているときはその予定を上書きし、そうでなければ追加する
+     * 保存。つまんだ予定・タスクを直しているときはそれを上書きし、そうでなければ追加する
      * （クイック入力からでも全項目のフォームからでも同じ）。繰り返しの回はその回だけ（`grabbedScope`）。
      */
     save: (input: CreateEventBody) => {

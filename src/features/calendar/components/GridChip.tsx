@@ -20,7 +20,7 @@ type Props = {
   compact: boolean;
   /** タップ・クリックしたとき（詳細を開く） */
   onClick: () => void;
-  /** 長押しでつまむためのハンドラ。つまめない項目（タスクなど）では undefined */
+  /** 長押しでつまむためのハンドラ。つまめない項目（完了したタスクなど）では undefined */
   grab?: DragHandlers;
   /** 編集中（枠を帯で出している）か。場所は残して隠す */
   hidden: boolean;

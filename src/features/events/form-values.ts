@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import type { EventMaster } from '../../../shared/calendar.ts';
+import { type EventMaster, toInputIsoInstants } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
@@ -83,13 +83,11 @@ export function defaultTaskValues(participantIds: string[]): ItemFormValues {
   return { ...EMPTY, participantIds, allDay: true };
 }
 
-/** 入力欄を通さずに渡す予定の日時（ISO）。終日の終わりは「含む日」のどこか（サーバーが翌日 0:00 に直す） */
-export type FormInstants = { allDay: boolean; startsAt: string; endsAt: string };
-
 /**
  * 予定のフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 全項目のフォームと、スマホのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
- * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は fallback の日時をそのまま使う。
+ * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）や空のときは、既定値の日時をそのまま使う（`savedInstants`）。
+ * 予定の日時は必須なので、空欄は「未設定」ではなく入力の途中とみなす。
  */
 export function eventInputFromForm(
   formData: FormData,
@@ -97,20 +95,14 @@ export function eventInputFromForm(
     initial,
     allDay,
     thisOnly = false,
-    fallback,
-  }: {
-    initial: ItemFormValues;
-    allDay: boolean;
-    thisOnly?: boolean;
-    fallback?: FormInstants | undefined;
-  },
+  }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
   const startsRaw = formText(formData, 'startsAt');
   const endsRaw = formText(formData, 'endsAt');
   const when =
     startsRaw && endsRaw
       ? { allDay, startsAt: toInstant(startsRaw, allDay), endsAt: toInstant(endsRaw, allDay) }
-      : (fallback ?? { allDay, startsAt: initial.startsAt, endsAt: initial.endsAt });
+      : savedInstants(initial);
   return {
     kind: 'event' as const,
     ...when,
@@ -132,6 +124,8 @@ export function eventInputFromForm(
  * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
  * 終日では開始日・期限日（日付だけ）を受け取り、通知はその日の各自の通知時刻になる。
+ * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は既定値の日時をそのまま使う。
+ * 空欄（未設定）と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。
  */
 export function taskInputFromForm(
   formData: FormData,
@@ -141,12 +135,17 @@ export function taskInputFromForm(
     thisOnly = false,
   }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
+  const when = formData.has('startsAt')
+    ? {
+        allDay,
+        startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
+        endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
+      }
+    : savedInstants(initial);
   return {
     kind: 'task' as const,
     title: formText(formData, 'title') ?? '',
-    allDay,
-    startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
-    endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
+    ...when,
     participantIds: formList(formData, 'participantIds'),
     location: formText(formData, 'location'),
     note: formText(formData, 'note'),
@@ -154,6 +153,14 @@ export function taskInputFromForm(
     remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
     remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
   };
+}
+
+/**
+ * 既定値（保存されている形）の日時 → 入力と同じ形。終日の終わりは排他的な終端から「含む日」へ戻す
+ * （そのまま送るとサーバーがもう 1 日延ばす。`toInputIsoInstants`）。
+ */
+function savedInstants({ allDay, startsAt, endsAt }: ItemFormValues) {
+  return { allDay, ...toInputIsoInstants(allDay, startsAt, endsAt) };
 }
 
 /** 日時の入力欄の値 → ISO 日時。終日では日付だけの欄（`type="date"`）から来る */

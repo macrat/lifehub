@@ -1,6 +1,11 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Typography from '@mui/material/Typography';
-import { isCompletedTask, taskTime, taskTimeOnPlacementDate } from '../../../../shared/calendar.ts';
+import {
+  isCompletedTask,
+  TASK_TIME_LABELS,
+  taskTime,
+  taskTimeOnPlacementDate,
+} from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
@@ -106,16 +111,14 @@ function eventTimeLabel(item: CalendarEventItem): TimeLabel {
   return { main: formatTime(item.startsAt), sub: `〜${formatTime(item.endsAt)}` };
 }
 
-const TASK_TIME_CAPTIONS = { done: '完了', due: '期限', start: '開始' } as const;
-
 /**
- * タスクの日時は `taskTime`（完了 → 期限 → 開始の優先）を見出し付きで示す。
+ * タスクの日時は `taskTime`（完了 → 開始 → 期限の優先）を見出し付きで示す。
  * 日付だけ（終日）なら日付（今日なら「今日」）。時刻が表示位置の日と違う（繰り越し・期限が別日）ときは日付も付ける。
  */
 function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
   const time = taskTime(item);
   if (!time) return { main: '' };
-  const caption = TASK_TIME_CAPTIONS[time.kind];
+  const caption = TASK_TIME_LABELS[time.kind];
   if (time.at === null)
     return { caption, main: isToday(time.date) ? '今日' : formatDate(time.date) };
   return taskTimeOnPlacementDate(item)

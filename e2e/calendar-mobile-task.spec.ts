@@ -1,0 +1,107 @@
+import { expect, type Page, test } from '@playwright/test';
+import { dayPoint, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
+import { detailAction } from './detail.ts';
+import { myId } from './login.ts';
+import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
+
+/** スマホでタスクを長押しでつまんで動かす（時間軸・日の並び）と、その入力のシート */
+setupMobileCalendar();
+
+/** タスクを 1 件作る（日時は JST の壁時計の書き方） */
+async function createTask(
+  page: Page,
+  task: { title: string; allDay: boolean; startsAt: string; endsAt: string },
+) {
+  const res = await page.request.post('/api/events', {
+    data: {
+      kind: 'task',
+      ...task,
+      startsAt: `${task.startsAt}+09:00`,
+      endsAt: `${task.endsAt}+09:00`,
+      participantIds: [await myId(page)],
+    },
+  });
+  expect(res.ok()).toBe(true);
+}
+
+async function deleteTask(page: Page, title: string) {
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: title }).click();
+  await detailAction(page, '削除');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+}
+
+test('時間軸のタスクは長押しでつまんで動かし、下半分のシートから保存できる', async ({ page }) => {
+  const title = `E2E タスク移動 ${Date.now()}`;
+  // 開始が未来なのでその日に置かれ、時間軸では開始の 10:00 に出る
+  await createTask(page, {
+    title,
+    allDay: false,
+    startsAt: '2031-06-19T10:00:00',
+    endsAt: '2031-06-19T12:00:00',
+  });
+  await page.goto('/calendar?view=day&date=2031-06-19');
+  const at = (minutes: number) => timePoint(page, '2031-06-19', minutes);
+  const block = page.getByRole('button', { name: title });
+  await expect(block).toBeVisible();
+
+  // 長押しからそのまま 3 時間ぶん下げると、落とした所が開始になり、期限は開始〜期限の長さを保ってずれる
+  await touchDrag(page, await centerOf(block), await at(15 * 60 + 15), {
+    hold: LONG_PRESS_HOLD_MS,
+  });
+  await expect(page.getByText('開始 6/19(木) 15:00 / 期限 6/19(木) 17:00')).toBeVisible();
+  // 下の段ではタイトルと参加者だけで、タスクの端は直せない（長さを持たない）
+  await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
+  await expect(page.locator('[data-handle]')).toHaveCount(0);
+
+  // 上の段まで広げるとタスクの全項目が出る
+  await page.getByRole('button', { name: 'その他のオプション' }).click();
+  await expect(page.getByLabel('開始日時', { exact: true })).toHaveValue('2031-06-19T15:00');
+  await expect(page.getByLabel('期限日時', { exact: true })).toHaveValue('2031-06-19T17:00');
+  await expect(page.getByLabel('期限日時に通知')).toBeVisible();
+
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+  await expect(block).toHaveCount(1);
+  await block.click();
+  await expect(page.getByText('開始: 6/19(木) 15:00')).toBeVisible();
+  await expect(page.getByText('期限: 6/19(木) 17:00')).toBeVisible();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await deleteTask(page, title);
+});
+
+test('終日のタスクは月表示で長押しでつまんで別の日へ動かせる', async ({ page }) => {
+  const title = `E2E 終日タスク移動 ${Date.now()}`;
+  // 6/20 開始・6/21 期限（終日の期限は含む日で渡す）
+  await createTask(page, {
+    title,
+    allDay: true,
+    startsAt: '2031-06-20T00:00:00',
+    endsAt: '2031-06-21T00:00:00',
+  });
+  await page.goto('/calendar?view=month&date=2031-06-01');
+  const chip = page.getByRole('button', { name: title });
+  await expect(chip).toBeVisible();
+
+  await touchDrag(page, await centerOf(chip), await dayPoint(page, '2031-06-24'), {
+    hold: LONG_PRESS_HOLD_MS,
+  });
+  await expect(page.getByText('開始 6/24(火) / 期限 6/25(水)')).toBeVisible();
+
+  // 1 日の帯でも左右の半分で端をつまむことはなく、帯ごと動く
+  await touchDrag(
+    page,
+    await dayPoint(page, '2031-06-24', 'left'),
+    await dayPoint(page, '2031-06-26'),
+  );
+  await expect(page.getByText('開始 6/26(木) / 期限 6/27(金)')).toBeVisible();
+
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
+  await expect(chip).toHaveCount(1);
+  await chip.click();
+  await expect(page.getByText('開始: 6/26(木)')).toBeVisible();
+  await expect(page.getByText('期限: 6/27(金)')).toBeVisible();
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await deleteTask(page, title);
+});

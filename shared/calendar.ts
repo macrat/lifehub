@@ -118,18 +118,64 @@ export function toInputInstants(
   return { startsAt, endsAt: allDay && endsAt ? new Date(endsAt.getTime() - 1) : endsAt };
 }
 
+/** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。未設定は null */
+type IsoInstants = { startsAt: string | null; endsAt: string | null };
+
+/** `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる */
+export function normalizeIsoInstants(
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  return onIso(normalizeInstants, allDay, startsAt, endsAt);
+}
+
+/** `toInputInstants` の ISO 文字列版 */
+export function toInputIsoInstants(
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  return onIso(toInputInstants, allDay, startsAt, endsAt);
+}
+
+function onIso(
+  convert: typeof normalizeInstants,
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  const toDate = (iso: string | null) => (iso === null ? null : new Date(iso));
+  const result = convert(allDay, toDate(startsAt), toDate(endsAt));
+  return {
+    startsAt: result.startsAt?.toISOString() ?? null,
+    endsAt: result.endsAt?.toISOString() ?? null,
+  };
+}
+
 /**
  * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
  * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
  */
 export type TaskTime = { kind: 'done' | 'due' | 'start'; date: DateString; at: string | null };
 
+/** タスクの日時の呼び名。行の見出し・詳細・入力欄・クイック入力の見出しで同じ言葉を使う */
+export const TASK_TIME_LABELS: Record<TaskTime['kind'], string> = {
+  done: '完了',
+  start: '開始',
+  due: '期限',
+};
+
 /**
- * タスクを示す日時: 完了 → 期限 → 開始の優先。どれも無ければ null。
+ * タスクを示す日時（基準日時）: 完了 → 開始 → 期限の優先。どれも無ければ null。
  * 一覧の行・タイムラインのブロック・同日内の並び順が同じ日時を指すよう、規則はここ 1 か所に置く。
  *
  * 完了を先に置くのは、完了したタスクを完了した日に置く `placeTask` と揃えるため。
- * 期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
+ * 開始・期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
+ * 開始を期限より先に置くのは、未完了のタスクを開始の日に置く `placeTask`、繰り返しの基準日時
+ * （`server/features/events/occurrences.ts` の `baseOf`）と揃えるため。予定のブロックも開始の時刻に置くので、
+ * タイムラインでは取りかかる時刻に並ぶ。長押しで動かしたタスクは落とした所が開始になる（カレンダーの `task-draft.ts`）ので、
+ * 動かした所にそのまま現れる。
  * 終日の期限は排他的な終端（期限日の翌日 0:00）で持つので、日付は含む期限日にする（`allDayDate`）。
  */
 export function taskTime(task: TaskTimeSource): TaskTime | null {
@@ -156,8 +202,8 @@ function taskAnchor(
   task: TaskTimeSource,
 ): { kind: TaskTime['kind']; iso: string; allDay: boolean } | null {
   if (task.completedAt) return { kind: 'done', iso: task.completedAt, allDay: false };
-  if (task.endsAt) return { kind: 'due', iso: task.endsAt, allDay: task.allDay };
   if (task.startsAt) return { kind: 'start', iso: task.startsAt, allDay: task.allDay };
+  if (task.endsAt) return { kind: 'due', iso: task.endsAt, allDay: task.allDay };
   return null;
 }
 

@@ -62,3 +62,25 @@ export const event = {
   dayIndex: 1,
   dayCount: 1,
 } satisfies CalendarItem;
+
+/** 保存済みの未完了のタスク（単発。6/5 9:00 開始、6/5 18:00 期限。6/5 に置かれ、時間軸では開始の 9:00） */
+export const task = {
+  kind: 'task',
+  id: 't1',
+  title: '書類を出す',
+  allDay: false,
+  startsAt: '2031-06-05T00:00:00.000Z',
+  endsAt: '2031-06-05T09:00:00.000Z',
+  completedAt: null,
+  location: null,
+  note: null,
+  participantIds: ['u1'],
+  rrule: null,
+  remindStartMinutes: null,
+  remindEndMinutes: 0,
+  occurrenceStart: null,
+  isRecurring: false,
+  isModified: false,
+  placementDate: DAY,
+  isOverdue: false,
+} satisfies CalendarItem;

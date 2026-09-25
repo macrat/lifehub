@@ -4,6 +4,7 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { isDateString } from '../../../shared/date.ts';
 import {
   type Draft,
+  hasEnds,
   itemDraft,
   type TimedDraft,
   type TimeGrab,
@@ -60,17 +61,21 @@ export function useTimeDrag({
     /**
      * 出ている枠（`DraftBlock`）に渡すハンドラ。枠そのもので長さを保ったまま動かし、端（丸・線）で
      * 開始・終了を変える。どれも既に直している枠なので長押しは待たない（縦スクロール・横スワイプは
-     * 枠の外から始める）。
+     * 枠の外から始める）。端の無い枠（タスク。`hasEnds`）では ends が null。
      */
     frameProps: (range: TimedDraft) => ({
       move: drag.grabProps({ kind: 'move', draft: range, item }, { instant: true }),
-      start: drag.grabProps({ kind: 'start', draft: range, item }, { instant: true }),
-      end: drag.grabProps({ kind: 'end', draft: range, item }, { instant: true }),
+      ends: hasEnds(item)
+        ? {
+            start: drag.grabProps({ kind: 'start', draft: range, item }, { instant: true }),
+            end: drag.grabProps({ kind: 'end', draft: range, item }, { instant: true }),
+          }
+        : null,
     }),
     /**
-     * 保存済みの予定を長押しでつまんで編集モードに入り、そのまま動かす。
+     * 保存済みの予定・タスクを長押しでつまんで編集モードに入り、そのまま動かす。
      * 軽いタップは詳細（`ItemDetailSheet`）に譲るので、動かさずに離したときは何も選ばない。
-     * 時間軸に枠で出せない項目（タスク、日をまたぐ時間指定の予定）はつまめないので undefined。
+     * 時間軸に枠で出せない項目（完了したタスク、日をまたぐ時間指定の予定）はつまめないので undefined。
      */
     grabItemProps: (target: CalendarItem): DragHandlers | undefined => {
       const range = itemDraft(target);

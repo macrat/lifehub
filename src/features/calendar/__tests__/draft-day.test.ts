@@ -17,6 +17,7 @@ import {
   event,
   select,
   selectDays,
+  task,
   timed,
 } from './draft-fixtures.ts';
 
@@ -88,6 +89,13 @@ describe('dayGrab', () => {
       draft,
       item: event,
     });
+  });
+
+  it('タスクは長さを持たないので、1 日の帯でも左右どちらを押しても帯そのもの', () => {
+    const single = allDay(DAY, DAY);
+    const move = { kind: 'move', draft: single, item: task };
+    expect(dayGrab({ range: single, item: task }, DAY, 'left')).toEqual(move);
+    expect(dayGrab({ range: single, item: task }, DAY, 'right')).toEqual(move);
   });
 
   it('掛からない日・枠無しは掴まない', () => {

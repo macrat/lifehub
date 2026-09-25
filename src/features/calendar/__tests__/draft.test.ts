@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
-import type { CalendarItem } from '../../../../shared/calendar.ts';
 import {
   draftText,
   draftValues,
@@ -9,7 +8,7 @@ import {
   sameOccurrence,
   withAllDay,
 } from '../draft.ts';
-import { allDay, at, DAY, day, event, select, timed } from './draft-fixtures.ts';
+import { allDay, at, DAY, day, event, select, task, timed } from './draft-fixtures.ts';
 
 describe('draftText', () => {
   it('時間指定は日付と時間帯', () => {
@@ -136,10 +135,27 @@ describe('itemDraft', () => {
     ).toEqual({ allDay: true, from: day('2031-06-05'), to: day('2031-06-08') });
   });
 
-  it('枠に出せない項目（タスク・日をまたぐ時間指定）はつまめない', () => {
+  it('枠に出せない項目（日をまたぐ時間指定の予定・完了したタスク）はつまめない', () => {
     expect(itemDraft({ ...event, dayCount: 2 })).toBeNull();
-    const task = { ...event, kind: 'task', isOverdue: false } as unknown as CalendarItem;
-    expect(itemDraft(task)).toBeNull();
+    expect(itemDraft({ ...task, completedAt: '2031-06-05T10:00:00.000Z' })).toBeNull();
+  });
+
+  it('時刻を持つタスクは、時間軸に置かれた時刻（開始）の最小の長さの枠', () => {
+    expect(itemDraft(task)).toEqual({ allDay: false, date: DAY, startMin: 540, endMin: 570 });
+  });
+
+  it('日の終わり近くのタスクの枠は 24 時で切る', () => {
+    expect(itemDraft({ ...task, startsAt: '2031-06-05T14:50:00.000Z' })).toMatchObject({
+      startMin: 23 * 60 + 50,
+      endMin: 24 * 60,
+    });
+  });
+
+  it('時間軸に置けないタスク（日時なし・別の日の期限だけ）は置かれた日 1 日', () => {
+    expect(itemDraft({ ...task, startsAt: null, endsAt: null })).toEqual(allDay(DAY, DAY));
+    expect(itemDraft({ ...task, startsAt: null, endsAt: '2031-06-07T09:00:00.000Z' })).toEqual(
+      allDay(DAY, DAY),
+    );
   });
 });
 

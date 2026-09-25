@@ -1,25 +1,17 @@
 import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import {
-  addDays,
-  allDayDate,
-  diffDays,
-  fromMinutesOfDay,
-  minutesOfDay,
-  toDateString,
-} from '../../../shared/date.ts';
+import { addDays, allDayDate, diffDays, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { formatDate, formatMinutesOfDay, fromDateValue } from '../../lib/date.ts';
+import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
-  type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
 import type { ItemEnds } from './item-shape.ts';
 import type { Drag } from './range-drag-session.ts';
-import { MIN_BLOCK_MINUTES, timedSlot } from './timeline-layout.ts';
+import { MIN_BLOCK_MINUTES, timedSlot, timelineSlot } from './timeline-layout.ts';
 
 /**
  * グリッドで選んだ、まだ保存していない予定の範囲（Google カレンダーの下書き）。
@@ -60,12 +52,35 @@ export type DayGrab = Grabbed &
 type Grabbed = { item: CalendarItem | null };
 
 /**
- * 保存済みの予定 → グリッドの枠。つまんで直せない項目は null。
+ * 保存済みの項目 → グリッドの枠。つまんで直せない項目は null。
  * 日ごとに 1 件で返る項目からでも、持っている日時（`startsAt` / `endsAt`）だけで期間が決まる。
- * つまめないのは、長さを持たないタスクと、枠に出せない「日をまたぐ時間指定の予定」。
+ * 予定でつまめないのは、枠に出せない「日をまたぐ時間指定の予定」。
+ * タスクは置かれている所（時間軸ならその時刻の最小の長さのブロック、それ以外は置かれた日 1 日）を枠にする。
+ * 長さを持たないので、枠は動かすだけで端は直せない（`hasEnds`）。
+ * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
  */
 export function itemDraft(item: CalendarItem): EventDraft | null {
-  if (item.kind !== 'event') return null;
+  let draft = itemDrafts.get(item);
+  if (draft === undefined) {
+    draft = computeItemDraft(item);
+    itemDrafts.set(item, draft);
+  }
+  return draft;
+}
+
+/**
+ * 項目ごとの枠の覚え書き。面はつまめる項目ごとに枠を描画のたびに求め、ドラッグ中は指が動くたびに
+ * 描き直す（下書きが変わるので面の memo が効かない）。枠は項目だけで決まり、項目はキャッシュの同じ
+ * オブジェクトが渡り続けるので、1 項目 1 回で済ませる（時刻の読み取りはタイムゾーンの計算を伴う）。
+ * WeakMap なので、キャッシュから外れた項目の分は一緒に消える。
+ */
+const itemDrafts = new WeakMap<CalendarItem, EventDraft | null>();
+
+function computeItemDraft(item: CalendarItem): EventDraft | null {
+  if (item.kind === 'task') {
+    if (item.completedAt !== null) return null;
+    return taskFrame(item.placementDate, timelineSlot(item)?.startMin ?? null);
+  }
   if (item.allDay)
     return {
       allDay: true,
@@ -74,6 +89,29 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
     };
   const slot = timedSlot(item);
   return slot && { allDay: false, date: item.placementDate, ...slot };
+}
+
+/**
+ * タスクの枠。時刻（その日の 0:00 からの分）があれば時間軸に置くブロックと同じ最小の長さ（24 時で切る）、
+ * 無ければその日 1 日。置かれているタスクの枠（`itemDraft`）と入力で直した日時の枠（`taskDraftFromInput`）が
+ * 同じ形になるよう、ここ 1 か所で決める。
+ */
+export function taskFrame(date: DateString, startMin: number | null): EventDraft {
+  if (startMin === null) return allDayDraft(date);
+  return {
+    allDay: false,
+    date,
+    startMin,
+    endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES),
+  };
+}
+
+/**
+ * 枠の端（開始・終了）をつまんで直せるか。タスクは長さを持たないので、どこをつまんでも枠ごと動く
+ * （時間軸は端の丸・線を出さず、日の並びは端に当たる所を押しても帯そのもの）。
+ */
+export function hasEnds(item: CalendarItem | null): boolean {
+  return item?.kind !== 'task';
 }
 
 /**
@@ -189,6 +227,7 @@ export function allDayDraft(date: DateString): AllDayDraft {
  * 終日は、最初の日の左半分・最後の日の右半分ならその端、それ以外の中ほどなら帯そのもの
  * （1 日だけの下書きには中ほどが無く、左右の半分がそのまま開始・終了になる）。
  * 時間指定は 1 日ぶんの帯で、日の並びでは時間帯を変えられないので帯そのものだけ。
+ * タスクは長さを持たないので、どこを押しても帯そのもの。
  * 見るのは帯そのものではなく日のセルの左右。帯は指より薄く（月グリッドで 17px）狙って押せないうえ、
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
@@ -201,8 +240,8 @@ export function dayGrab(
   const { range, item } = draft;
   const { from, to } = draftDays(range);
   if (date < from || date > to) return null;
-  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。動かせるのは日だけ
-  if (!range.allDay) return { kind: 'move', draft: range, item };
+  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。端の無い枠（タスク）も動かすだけ
+  if (!range.allDay || !hasEnds(item)) return { kind: 'move', draft: range, item };
   if (date === from && half === 'left') return { kind: 'start', draft: range, item };
   if (date === to && half === 'right') return { kind: 'end', draft: range, item };
   return { kind: 'move', draft: range, item };
@@ -280,17 +319,6 @@ export function draftText(draft: EventDraft): string {
     return `${days} 終日`;
   }
   return `${formatDate(draft.date)} ${formatMinutesOfDay(draft.startMin)}〜${formatMinutesOfDay(draft.endMin)}`;
-}
-
-/** 保存するときの日時。終日の終わりは「含む日」で送る（サーバーが翌日 0:00 に直す） */
-export function draftInstants(draft: EventDraft): FormInstants {
-  return draft.allDay
-    ? { allDay: true, startsAt: fromDateValue(draft.from), endsAt: fromDateValue(draft.to) }
-    : {
-        allDay: false,
-        startsAt: fromMinutesOfDay(draft.date, draft.startMin),
-        endsAt: fromMinutesOfDay(draft.date, draft.endMin),
-      };
 }
 
 /**

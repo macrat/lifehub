@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   type CalendarItem,
+  normalizeIsoInstants,
   occurrenceKey,
   placeOccurrence,
   sortItems,
   taskTime,
+  toInputIsoInstants,
 } from '../calendar.ts';
 import type { DateString } from '../types.ts';
 
@@ -66,6 +68,15 @@ describe('taskTime', () => {
       at: '2026-09-21T00:00:00.000Z',
     });
   });
+
+  it('完了 → 開始 → 期限の優先', () => {
+    const both = task('両方', '2026-09-21T00:00:00.000Z', '2026-09-22T00:00:00.000Z');
+    expect(taskTime(both)).toMatchObject({ kind: 'start', at: '2026-09-21T00:00:00.000Z' });
+    expect(taskTime({ ...both, completedAt: '2026-09-21T05:00:00.000Z' })).toMatchObject({
+      kind: 'done',
+      at: '2026-09-21T05:00:00.000Z',
+    });
+  });
 });
 
 describe('sortItems', () => {
@@ -84,13 +95,13 @@ describe('sortItems', () => {
     ]);
   });
 
-  it('開始と期限の両方を持つタスクは、表示と同じ期限の時刻に並ぶ', () => {
+  it('開始と期限の両方を持つタスクは、表示と同じ開始の時刻に並ぶ', () => {
     const items = [
-      event('11 時の予定', '2026-09-21T02:00:00.000Z', '2026-09-21T03:00:00.000Z'),
-      // 9 時開始・18 時期限。一覧の行もタイムラインのブロックも期限（18 時）を指すので、並びも 18 時
-      task('18 時期限のタスク', '2026-09-21T00:00:00.000Z', '2026-09-21T09:00:00.000Z'),
+      event('13 時の予定', '2026-09-21T04:00:00.000Z', '2026-09-21T05:00:00.000Z'),
+      // 12 時開始・18 時期限。一覧の行もタイムラインのブロックも開始（12 時）を指すので、並びも 12 時
+      task('12 時開始のタスク', '2026-09-21T03:00:00.000Z', '2026-09-21T09:00:00.000Z'),
     ];
-    expect(sortItems(items).map((i) => i.title)).toEqual(['11 時の予定', '18 時期限のタスク']);
+    expect(sortItems(items).map((i) => i.title)).toEqual(['12 時開始のタスク', '13 時の予定']);
   });
 
   it('完了したタスクは、表示と同じ完了の時刻に並ぶ', () => {
@@ -165,5 +176,25 @@ describe('occurrenceKey', () => {
       { ...base, id: 'b' },
     ].map(occurrenceKey);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('normalizeIsoInstants / toInputIsoInstants', () => {
+  it('終日は入力の「含む最終日」と保存の「翌日 0:00」を行き来する。未設定は null のまま', () => {
+    // 9/21〜9/22 の終日（JST）
+    const input = { startsAt: '2026-09-20T15:00:00.000Z', endsAt: '2026-09-21T15:00:00.000Z' };
+    const saved = normalizeIsoInstants(true, input.startsAt, input.endsAt);
+    expect(saved).toEqual({ startsAt: input.startsAt, endsAt: '2026-09-22T15:00:00.000Z' });
+    expect(toInputIsoInstants(true, saved.startsAt, saved.endsAt)).toEqual({
+      startsAt: input.startsAt,
+      endsAt: '2026-09-22T14:59:59.999Z',
+    });
+    expect(normalizeIsoInstants(true, null, null)).toEqual({ startsAt: null, endsAt: null });
+  });
+
+  it('時間指定はそのまま', () => {
+    const at = '2026-09-21T01:23:00.000Z';
+    expect(normalizeIsoInstants(false, at, null)).toEqual({ startsAt: at, endsAt: null });
+    expect(toInputIsoInstants(false, at, at)).toEqual({ startsAt: at, endsAt: at });
   });
 });

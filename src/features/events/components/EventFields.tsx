@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import type { ChangeEvent } from 'react';
+import { TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
@@ -208,7 +209,6 @@ export function TaskFormFields({
   onChangeAllDay: (allDay: boolean) => void;
   autoFocus: boolean;
 }) {
-  const unit = allDay ? '日' : '日時';
   return (
     <>
       <TextField
@@ -220,6 +220,35 @@ export function TaskFormFields({
         autoFocus={autoFocus}
         fullWidth
       />
+      <TaskWhenFields
+        initial={initial}
+        errors={errors}
+        allDay={allDay}
+        onChangeAllDay={onChangeAllDay}
+      />
+      <ParticipantsField
+        name="participantIds"
+        defaultValue={initial.participantIds}
+        error={errors.participantIds}
+      />
+      <TaskExtraFields initial={initial} errors={errors} allDay={allDay} thisOnly={thisOnly} />
+    </>
+  );
+}
+
+/**
+ * タスクの日時（終日の切り替えと開始・期限）。全項目のフォーム（`TaskFormFields`）と、
+ * スマホで上の段まで広げたクイック入力（`QuickTaskForm`）で同じものを使う。
+ */
+export function TaskWhenFields({
+  initial,
+  errors,
+  allDay,
+  onChangeAllDay,
+}: Props & { allDay: boolean; onChangeAllDay: (allDay: boolean) => void }) {
+  const label = taskWhenLabels(allDay);
+  return (
+    <>
       <FormControlLabel
         control={<Switch checked={allDay} onChange={(_, v) => onChangeAllDay(v)} />}
         label="終日"
@@ -227,24 +256,33 @@ export function TaskFormFields({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <WhenField
           name="startsAt"
-          label={`開始${unit}`}
+          label={label.start}
           defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.startsAt}
         />
         <WhenField
           name="endsAt"
-          label={`期限${unit}`}
+          label={label.due}
           defaultValue={inputValue(initial.endsAt, 'end', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.endsAt}
         />
       </Stack>
-      <ParticipantsField
-        name="participantIds"
-        defaultValue={initial.participantIds}
-        error={errors.participantIds}
-      />
+    </>
+  );
+}
+
+/** タスクの残りの項目（場所・メモ・繰り返し・通知）。日時と同じく 2 つのフォームで共通 */
+export function TaskExtraFields({
+  initial,
+  errors,
+  allDay,
+  thisOnly,
+}: ScopedProps & { allDay: boolean }) {
+  const label = taskWhenLabels(allDay);
+  return (
+    <>
       <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
       <TextField
         name="note"
@@ -260,17 +298,23 @@ export function TaskFormFields({
           control={
             <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
           }
-          label={`開始${unit}に通知`}
+          label={`${label.start}に通知`}
         />
         <FormControlLabel
           control={
             <Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />
           }
-          label={`期限${unit}に通知`}
+          label={`${label.due}に通知`}
         />
       </Stack>
     </>
   );
+}
+
+/** タスクの開始・期限の入力欄の名前。終日なら日付だけ（開始日）、そうでなければ日時（開始日時） */
+function taskWhenLabels(allDay: boolean) {
+  const unit = allDay ? '日' : '日時';
+  return { start: `${TASK_TIME_LABELS.start}${unit}`, due: `${TASK_TIME_LABELS.due}${unit}` };
 }
 
 /**

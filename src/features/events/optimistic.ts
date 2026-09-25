@@ -3,7 +3,7 @@ import {
   type CalendarItem,
   type CalendarPeriod,
   type DateRange,
-  normalizeInstants,
+  normalizeIsoInstants,
   type Occurrence,
   placeOccurrence,
   sortItems,
@@ -151,18 +151,17 @@ function matches(item: CalendarItem, target: WriteTarget): boolean {
 
 /** 保存を送った内容から、サーバーが返すはずの発生を組み立てる */
 function toOccurrence(input: NewEvent): Occurrence {
-  const instants = normalizeInstants(
+  const instants = normalizeIsoInstants(
     input.allDay ?? false,
-    input.startsAt ? new Date(input.startsAt) : null,
-    input.endsAt ? new Date(input.endsAt) : null,
+    input.startsAt || null,
+    input.endsAt || null,
   );
   return {
     id: input.id,
     kind: input.kind,
     title: input.title,
     allDay: input.allDay ?? false,
-    startsAt: instants.startsAt?.toISOString() ?? null,
-    endsAt: instants.endsAt?.toISOString() ?? null,
+    ...instants,
     completedAt: null,
     location: input.location ?? null,
     note: input.note ?? null,
