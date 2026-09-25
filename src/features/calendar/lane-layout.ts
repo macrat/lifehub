@@ -1,6 +1,7 @@
 import { isCompletedTask, occurrenceKey } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { CalendarItem } from '../events/queries.ts';
+import type { ItemEnds } from './item-shape.ts';
 
 /**
  * レーンの中の項目の高さ。上下を 1px ずつ空ける。レーンは隙間なく積むので、
@@ -20,11 +21,7 @@ export type Placed = {
   span: number;
   /** 0 始まりの行 */
   lane: number;
-  /** 帯の左端が本当の開始日か（違えば前の週から続いている） */
-  roundStart: boolean;
-  /** 帯の右端が本当の終了日か */
-  roundEnd: boolean;
-};
+} & ItemEnds;
 
 /** 描いた 1 項目の鍵（React の key）。複数日の予定は日ごとに別の項目なので、発生に暦日を足す */
 export function itemKey(item: CalendarItem): string {

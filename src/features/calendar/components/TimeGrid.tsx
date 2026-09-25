@@ -15,6 +15,7 @@ import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.
 import type { CalendarItem } from '../../events/queries.ts';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
+import { itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
@@ -270,7 +271,7 @@ function TimedBlock({
         display: 'block',
         textAlign: 'left',
         overflow: 'hidden',
-        borderRadius: '4px',
+        mask: itemMask(),
         px: 0.5,
         py: '2px',
         background: wedgeBackground(colors.map((c) => (isTask ? c.tint : c.fill))),
