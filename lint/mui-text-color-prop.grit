@@ -4,8 +4,7 @@
 // WHY NOT sx の color も禁じる: sx はテーマのパス（text.secondary）を解決するので正しく効く。
 language js
 
-JsxAttribute(name=$name, initializer=$value) where {
-  $name <: `color`,
+JsxAttribute(name=`color`, initializer=$value) where {
   $value <: r".*[\"']text\.\w+[\"'].*",
   register_diagnostic(span=$value, message="color の prop にドット区切り（text.secondary など）は効かない。textSecondary / textDisabled のように書く")
 }
