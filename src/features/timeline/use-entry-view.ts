@@ -24,7 +24,7 @@ export type EntryView = {
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
-  /** 上段の右に薄く添える日時。今日の一番上にまとめたタスクは null */
+  /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
   careTypes: CareType[];
@@ -41,12 +41,14 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
-      // 複数日の終日の予定は終わる日に置くので、始まりの日も添える（「9/24(木)〜今日」）
+      // 複数日の終日の予定は期間の中のどこかの日に置くので、日付は置いた日ではなく期間を出す（「9/24(木)〜今日」）
       const spans = item.kind === 'event' && item.allDay && item.dayCount > 1;
       // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       return {
         ...view,
-        time: spans ? `${formatTimelineTime(item.startsAt, true)}〜${time}` : time,
+        time: spans
+          ? `${formatTimelineTime(item.startsAt, true)}〜${formatTimelineTime(lastInstant(item.endsAt), true)}`
+          : time,
         colors: participantColors(item.participantIds, colorFor).map((c) => c.fill),
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
@@ -89,4 +91,9 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         body: entry.memo.body,
       };
   }
+}
+
+/** 排他的な終わり（終日の予定の保存形式。最終日の翌日 0:00）の直前。最終日の中の瞬間 */
+function lastInstant(endsAt: string): string {
+  return new Date(new Date(endsAt).getTime() - 1).toISOString();
 }

@@ -40,8 +40,8 @@ const recentInstantSources = [
  * WHY NOT 種類ごとに別々のページを読んで画面で繋ぐ: 種類ごとに読み進んだ位置が違うので、
  * どこまで出してよいかを画面が決めることになり、並びの規則が画面とサーバーに割れる。
  *
- * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを
- * 今日の一番上に置く（日付で絞り込んでいるときは、このタスクは置く日を持たないので出さない）。
+ * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
+ * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
  */
 export async function getTimelinePage(
   query: TimelineQuery,
@@ -72,7 +72,7 @@ export async function getTimelinePage(
     memos.listForTimeline(range, q),
   ]);
   const includeUndated = before === undefined && since === undefined && until === undefined;
-  // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る。終日の予定は終わる日の
+  // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る。終日の予定は置く日の
   // 終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
   // 続きのページは上のページと行の日時で分け合うので、行の日時で見る（同じ行を 2 つのページに出さない）
   const inRange = (entry: TimelineEntry) => {
@@ -89,12 +89,12 @@ export async function getTimelinePage(
   ].filter(inRange);
 
   return {
-    items: sortTimeline(entries, now),
+    items: sortTimeline(entries),
     nextCursor: boundary && lower.getTime() > floor.getTime() ? toDateString(lower) : null,
   };
 }
 
-/** 行の記録が始まる日時（ミリ秒）。予定だけが行の日時 at（終日は終わる日の終わり）と違う */
+/** 行の記録が始まる日時（ミリ秒）。予定だけが行の日時 at（終日は置く日の終わり）と違う */
 function startOf(entry: TimelineEntry, at: number): number {
   return entry.type === 'event' && entry.item.kind === 'event'
     ? new Date(entry.item.startsAt).getTime()

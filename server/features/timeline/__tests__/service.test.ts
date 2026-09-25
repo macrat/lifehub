@@ -87,8 +87,8 @@ describe('timeline service', () => {
 
     const page = await getTimelinePage({}, now);
     expect(labels(page.items)).toEqual([
-      '明日の朝',
       '日時なし',
+      '明日の朝',
       '朝の水やり',
       '昨日の会議',
       'ランチ',
@@ -96,32 +96,48 @@ describe('timeline service', () => {
     expect(page.nextCursor).toBeNull();
   });
 
-  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは今日の一番上にまとめる', async () => {
+  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは一番上にまとめる', async () => {
     const done = await createEvent(
       task({ title: '完了', startsAt: iso('2026-09-01T09:00:00') }),
       userId,
     );
     await completeEvent(done.id, {}, userId, jst('2026-09-13T20:00:00'));
-    await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
     await createEvent(task({ title: '今朝開始', startsAt: iso('2026-09-14T08:00:00') }), userId);
+    await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
+    await createEvent(task({ title: '昨日期限', endsAt: iso('2026-09-13T09:00:00') }), userId);
+    await createEvent(task({ title: '一昨日期限', endsAt: iso('2026-09-12T09:00:00') }), userId);
+    await createEvent(task({ title: '日時なし（先）' }), userId);
+    await createEvent(task({ title: '日時なし（後）' }), userId);
+    // 期限がまだ来ていないものは、日時の無いものと同じに扱う
+    await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
     // 開始がまだ先なら、その位置に置く
     await createEvent(task({ title: '明日開始', startsAt: iso('2026-09-15T08:00:00') }), userId);
-    // 期限は位置に使わない
-    await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
 
     const page = await getTimelinePage({}, now);
-    // まとまりは明日の記録の下。その中は最近始まったものが上、日時の無いものが下
-    expect(labels(page.items)).toEqual(['明日開始', '今朝開始', '開始済み', '期限のみ', '完了']);
+    // 期限を過ぎたもの（期限の古い順）→ 開始を過ぎたもの（開始の古い順）→ 日時の無いもの（登録の古い順）
+    expect(labels(page.items)).toEqual([
+      '一昨日期限',
+      '昨日期限',
+      '開始済み',
+      '今朝開始',
+      '日時なし（先）',
+      '日時なし（後）',
+      '期限のみ',
+      '明日開始',
+      '完了',
+    ]);
     expect(
       page.items.find((e) => e.type === 'event' && e.item.title === '期限のみ')?.at,
     ).toBeNull();
   });
 
-  it('終日の予定は終わる日の終わりに置き、未完了のタスクは明日の記録と今日の終日の予定の間に置く', async () => {
+  it('終日の予定は今日を含めば今日、過ぎていれば終わる日、まだなら始まる日の終わりに置く', async () => {
     const allDay = (title: string, from: string, to: string) =>
       createEvent(event({ title, allDay: true, startsAt: iso(from), endsAt: iso(to) }), userId);
+    await allDay('先週の連休', '2026-09-07T00:00:00', '2026-09-09T00:00:00');
     await allDay('今日の終日', '2026-09-14T00:00:00', '2026-09-14T00:00:00');
-    await allDay('連休', '2026-09-12T00:00:00', '2026-09-16T00:00:00');
+    // 同じ位置の行は、後に作ったもの（id が大きい）が上
+    await allDay('今日と明日', '2026-09-14T00:00:00', '2026-09-15T00:00:00');
     await allDay('明日の終日', '2026-09-15T00:00:00', '2026-09-15T00:00:00');
     await allDay('明後日の終日', '2026-09-16T00:00:00', '2026-09-16T00:00:00');
     await createEvent(
@@ -141,14 +157,6 @@ describe('timeline service', () => {
       userId,
     );
     await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
-    await createEvent(
-      task({
-        title: '期限切れ',
-        startsAt: iso('2026-09-01T09:00:00'),
-        endsAt: iso('2026-09-13T09:00:00'),
-      }),
-      userId,
-    );
     const done = await createEvent(
       task({ title: '今朝完了', startsAt: iso('2026-09-14T07:00:00') }),
       userId,
@@ -156,24 +164,24 @@ describe('timeline service', () => {
     await completeEvent(done.id, {}, userId, jst('2026-09-14T08:00:00'));
 
     const page = await getTimelinePage({}, now);
-    // 未完了のまとまりの中は、期限を過ぎたものが上
     expect(labels(page.items)).toEqual([
-      '連休',
+      '開始済み',
       '明日の終日',
       '明日の朝',
-      '期限切れ',
-      '開始済み',
+      '今日と明日',
       '今日の終日',
       '夕方',
       '今朝完了',
+      '先週の連休',
     ]);
-    expect(page.items.find((e) => label(e) === '今日の終日')?.at).toBe(
+    expect(page.items.find((e) => label(e) === '今日と明日')?.at).toBe(
       iso('2026-09-14T23:59:59.999'),
     );
 
-    // 続きのページには、上のページに置いた終日の予定を出さない
+    // 終わった予定は終わる日に置く。今日に置いた予定は、今日より前のページには出さない
     const earlier = await getTimelinePage({ before: day('2026-09-14') }, now);
-    expect(labels(earlier.items)).toEqual([]);
+    expect(labels(earlier.items)).toEqual(['先週の連休']);
+    expect(earlier.items[0]?.at).toBe(iso('2026-09-09T23:59:59.999'));
   });
 
   it('繰り返す予定は回ごとに並び、記録の無い期間を空のページで読み続けない', async () => {
