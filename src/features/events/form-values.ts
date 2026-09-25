@@ -1,8 +1,14 @@
+import type { ChangeEvent } from 'react';
 import type { EventMaster } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
-import { fromDateTimeLocalValue, fromDateValue, toDateTimeLocalValue } from '../../lib/date.ts';
+import {
+  fromDateTimeLocalValue,
+  fromDateValue,
+  isDateTimeLocalValue,
+  toDateTimeLocalValue,
+} from '../../lib/date.ts';
 import { formList, formSelect, formText } from '../../lib/form.ts';
 
 /**
@@ -160,9 +166,6 @@ function optionalInstant(raw: string | null, allDay: boolean): string | null {
   return raw ? toInstant(raw, allDay) : null;
 }
 
-/** `<input type="datetime-local">` の値（書きかけの間は空になる） */
-const DATE_TIME_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-
 /**
  * 開始の入力欄を before から after に動かしたときの、終了の入力欄の新しい値。長さを保って同じだけ動かす
  * （9:00〜10:00 の開始を 9:30 にすると終了は 10:30。終日なら日数を保つ）。
@@ -172,8 +175,26 @@ const DATE_TIME_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 export function shiftedEnd(before: string, after: string, end: string): string | null {
   if (isDateString(before) && isDateString(after) && isDateString(end))
     return addDays(end, diffDays(before, after));
-  if (![before, after, end].every((v) => DATE_TIME_LOCAL.test(v))) return null;
-  const shift =
-    Date.parse(fromDateTimeLocalValue(after)) - Date.parse(fromDateTimeLocalValue(before));
-  return toDateTimeLocalValue(new Date(Date.parse(fromDateTimeLocalValue(end)) + shift));
+  if (![before, after, end].every(isDateTimeLocalValue)) return null;
+  const ms = (value: string) => Date.parse(fromDateTimeLocalValue(value));
+  return toDateTimeLocalValue(new Date(ms(end) + ms(after) - ms(before)));
+}
+
+/**
+ * 予定の開始の入力欄の変更。終了の入力欄を、長さを保ったまま同じだけ動かす（`shiftedEnd`）。
+ * 入力欄は制御しない（値は DOM が持つ）ので、動かす前の開始の値は入力欄そのものに覚えておく（`data-previous`）。
+ * 終日の切り替えで入力欄が作り直されたら、覚えた値は消えて新しい入力欄の初期値から数え直す。
+ * 書きかけで空の間は覚え直さないので、書き終えたときに書き始める前の値からの差で動く。
+ */
+export function endFollowsStart({ target: start }: ChangeEvent<HTMLInputElement>): void {
+  const end = start.form?.elements.namedItem('endsAt');
+  if (end instanceof HTMLInputElement) {
+    const shifted = shiftedEnd(
+      start.dataset.previous ?? start.defaultValue,
+      start.value,
+      end.value,
+    );
+    if (shifted !== null) end.value = shifted;
+  }
+  if (start.value) start.dataset.previous = start.value;
 }

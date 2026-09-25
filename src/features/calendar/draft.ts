@@ -175,9 +175,12 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
  */
 export function withAllDay(draft: EventDraft, allDay: boolean, now: Date = new Date()): EventDraft {
   if (draft.allDay === allDay) return draft;
-  return draft.allDay
-    ? defaultDraft(draft.from, now)
-    : { allDay: true, from: draft.date, to: draft.date };
+  return draft.allDay ? defaultDraft(draft.from, now) : allDayDraft(draft.date);
+}
+
+/** その日 1 日の終日の下書き */
+export function allDayDraft(date: DateString): AllDayDraft {
+  return { allDay: true, from: date, to: date };
 }
 
 /**

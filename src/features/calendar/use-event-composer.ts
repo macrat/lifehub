@@ -9,7 +9,7 @@ import {
   useUpdateEvent,
 } from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
-import { type Draft, type EventDraft, sameOccurrence } from './draft.ts';
+import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draft.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
@@ -126,7 +126,7 @@ export function useEventComposer(meId: string | null) {
     start: (date: DateString) =>
       dispatch({
         type: 'start',
-        range: { allDay: true, from: date, to: date },
+        range: allDayDraft(date),
         participantIds: defaultParticipants(meId),
       }),
     changeRange: (range: EventDraft) => dispatch({ type: 'change', range }),

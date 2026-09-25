@@ -17,8 +17,7 @@ import {
 import { toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import type { ItemFormValues } from '../form-values.ts';
-import { useEndFollowsStart } from '../use-item-form.ts';
+import { endFollowsStart, type ItemFormValues } from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 type Props = {
@@ -69,7 +68,7 @@ const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
  * 予定の日時（終日の切り替えと開始・終了）。全項目のフォーム（`EventForm`）と、
  * スマホで上の段まで広げたクイック入力（`QuickEventForm`）で同じものを使う。
  * 終日かどうかで日付だけ／日時に入れ替わるので、その状態だけ呼び出し側から受け取る。
- * 開始を動かすと終了も長さを保ったまま動く（`useEndFollowsStart`）。
+ * 開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
  */
 export function EventWhenFields({
   initial,
@@ -79,7 +78,6 @@ export function EventWhenFields({
 }: Props & { allDay: boolean; onChangeAllDay: (allDay: boolean) => void }) {
   const start = initial.startsAt ?? new Date().toISOString();
   const end = initial.endsAt ?? start;
-  const onChangeStart = useEndFollowsStart();
   return (
     <>
       <FormControlLabel
@@ -93,7 +91,7 @@ export function EventWhenFields({
           defaultValue={inputValue(start, 'start', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.startsAt}
-          onChange={onChangeStart}
+          onChange={endFollowsStart}
         />
         <WhenField
           name="endsAt"
