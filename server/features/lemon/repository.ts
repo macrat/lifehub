@@ -129,7 +129,7 @@ export async function insert(row: {
   careTypes: CareType[];
   doneAt: Date;
   note: string | null;
-  createdBy: string;
+  createdBy: string | null;
 }): Promise<LemonCareLogRow> {
   const inserted = await db.insert(lemonCareLogs).values(row).onConflictDoNothing().returning();
   const log = inserted[0] ?? (await findById(row.id));

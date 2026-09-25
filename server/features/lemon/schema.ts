@@ -21,9 +21,11 @@ export const lemonCareLogs = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: uuid('created_by')
-      .notNull()
-      .references(() => users.id),
+    /**
+     * 記録した人。API キー（記録投入用エンドポイント）で入れた記録は null（不明）。
+     * WHY: キーを持つボタンは家の誰が押しても同じキーで送るので、キーの持ち主を記録者にすると誤りになる
+     */
+    createdBy: uuid('created_by').references(() => users.id),
   },
   (table) => [
     // 項目の綴りは CARE_TYPES から組む（値を足したらここも必ず変わる）。

@@ -40,7 +40,7 @@ const MAX_WIDTH = 640;
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
  * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲でタイムラインを絞り込む
- * （タイルは絞り込みに関わらず今の状態を示す）。スマホでは右端の歯車が設定への入口
+ * （タイルは絞り込みに関わらず今の状態を示す）。スマホでは左端の歯車が設定への入口
  * （PC はサイドナビにあるので出さない）。
  */
 function HomePage() {
@@ -64,18 +64,18 @@ function HomePage() {
   return (
     <>
       <AppBarContent>
+        {!isDesktop && (
+          <IconButton
+            component={Link}
+            to={settingsNavItem.to}
+            aria-label={settingsNavItem.label}
+            size="small"
+          >
+            <settingsNavItem.icon />
+          </IconButton>
+        )}
         <SearchField label="記録を検索" value={filters.q} onChange={setKeyword}>
           <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
-          {!isDesktop && (
-            <IconButton
-              component={Link}
-              to={settingsNavItem.to}
-              aria-label={settingsNavItem.label}
-              size="small"
-            >
-              <settingsNavItem.icon />
-            </IconButton>
-          )}
         </SearchField>
       </AppBarContent>
 

@@ -30,10 +30,13 @@ export type RecordAction = {
   danger?: boolean;
 };
 
-/** 読むだけの状態を持つシート（既にある記録の詳細）。鉛筆を押すと入力欄に変わる */
+/**
+ * 読むだけの状態を持つシート（既にある記録の詳細）。鉛筆を押すと入力欄に変わる。
+ * onEdit が無ければ直せない記録で、鉛筆を出さない。
+ */
 type Viewable = {
   editing: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
 };
 
 /** ずっと入力欄のシート（記録の追加） */
@@ -137,9 +140,11 @@ function Body({
           {editing ? (
             <SubmitButton />
           ) : (
-            <IconButton aria-label="編集" onClick={onEdit}>
-              <EditIcon />
-            </IconButton>
+            onEdit && (
+              <IconButton aria-label="編集" onClick={onEdit}>
+                <EditIcon />
+              </IconButton>
+            )
           )}
           {actions.length > 0 && <ActionsMenu actions={actions} />}
         </SheetHeader>

@@ -130,35 +130,14 @@ test('ホームと立替・レモンを行き来すると、残高とタイル�
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
 
-test('ホームと予定を行き来すると、タイムラインの項目が同じ名前で前後の画面に在る', async ({
+test('ホームのタイムラインの予定・タスクには名前が無い（予定画面との間では動かずフェードする）', async ({
   page,
 }) => {
-  // 日時なしのタスクはタイムラインの一番上と、カレンダーの今日の位置に出る
+  // 名前を付けると、スクロールの外にある項目まで画面の外から飛んでくる（`item-transition.ts`）
   await page.request.post('/api/events', {
     data: { kind: 'task', title: 'VT ホーム', participantIds: [await myId(page)] },
   });
   await page.goto('/');
   await expect(page.getByText('VT ホーム')).toBeVisible();
-
-  /** 予定・タスクの名前だけ（残高やレモンのタイルは別の名前で動く） */
-  const items = (all: string[]) => all.filter((name) => name.startsWith('item-')).sort();
-
-  const home = await names(page);
-  expect(new Set(home).size).toBe(home.length);
-  const task = items(home).find((name) => name.includes('task-'));
-  expect(task).toBeDefined();
-
-  // 予定画面へ。同じタスクが同じ名前で予定画面にも在る
-  await page.getByRole('link', { name: '予定' }).click();
-  await expect(page).toHaveURL(/calendar/);
-  await settle(page);
-  expect(await names(page)).toContain(task);
-
-  // 戻りも同じ
-  await page.getByRole('link', { name: 'ホーム' }).click();
-  await expect(page).toHaveURL('/');
-  await settle(page);
-  expect(await names(page)).toContain(task);
-
-  expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
+  expect((await names(page)).filter((name) => name.startsWith('item-'))).toEqual([]);
 });
