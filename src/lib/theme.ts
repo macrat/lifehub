@@ -30,6 +30,32 @@ export function useAppTheme(): Theme {
 }
 
 /**
+ * 日付・時刻の欄の右の印（ブラウザが描く、押すとピッカーが開くもの）を、ドロップダウン（TextField の
+ * select）の ▼ と同じ見た目にする。形・大きさ・色・位置・開いている間の向きは MUI の Select のアイコン
+ * （内部の ArrowDropDown。SvgIcon の medium = 1.5rem、action.active、outlined の枠の右端から 7px、
+ * 開いている間は 180° 回す）の値をそのまま写す。MUI はそれらを import できる形で出していない。
+ * WHY NOT 印を消して ArrowDropDown を横に置く: 印そのものがピッカーを開くボタンなので、
+ * 消すと押す場所が無くなる。印を残して描き方だけ変える。
+ * WHY mask: 色をテーマの CSS 変数で塗れる（background-image の SVG では色を変えられない）。
+ * WHY MuiOutlinedInput: 位置合わせの -7px が outlined の右の余白（14px）を前提にしている。
+ */
+const PICKER_INDICATOR_AS_SELECT_ICON = {
+  '&::-webkit-calendar-picker-indicator': {
+    width: '1.5rem',
+    height: '1.5rem',
+    padding: 0,
+    marginInlineEnd: -7,
+    // 欄の高さを変えない（印は文字の行より少し高い）
+    marginBlock: '-0.5rem',
+    cursor: 'pointer',
+    backgroundImage: 'none',
+    backgroundColor: 'var(--mui-palette-action-active)',
+    mask: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>') center / contain no-repeat`,
+  },
+  '&:open::-webkit-calendar-picker-indicator': { transform: 'rotate(180deg)' },
+};
+
+/**
  * Material Design 3 の見た目に寄せた設定。
  * - アクセントは渡された色相（OKLCH。shared/color.ts）1 色。secondary は使わず、強調はすべて primary で
  *   統一する。色相を渡さなければ既定の色相（ブランドカラー。ログイン前と、ユーザーの色が読めないとき）。
@@ -106,6 +132,7 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
           },
         ],
       },
+      MuiOutlinedInput: { styleOverrides: { input: PICKER_INDICATOR_AS_SELECT_ICON } },
       MuiPaper: {
         defaultProps: { elevation: 0 },
       },
