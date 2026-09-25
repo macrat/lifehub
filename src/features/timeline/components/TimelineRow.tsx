@@ -20,6 +20,12 @@ import { type EntryView, useEntryView } from '../use-entry-view.ts';
 /** 左の丸の直径（MUI の Avatar と同じ） */
 const ICON_SIZE = 40;
 
+/**
+ * タスクのスクワークルの一辺。丸と同じ幅だと、角が張り出すぶん丸より大きく見えるので 5% 小さくする
+ * （中のチェックの印は丸のアイコンと同じ大きさのまま）。丸と同じ幅の枠の中央に置く
+ */
+const TASK_ICON_SIZE = ICON_SIZE * 0.95;
+
 /** 行の上下の余白（px）。左のチェックボックスを押せる範囲の外に重ねるので、同じ値で揃える */
 const ROW_PADDING_Y = 10;
 
@@ -86,8 +92,17 @@ export function TimelineRow({ entry, onSelect }: Props) {
           <TaskCheckbox
             item={view.task}
             icons={{
-              unchecked: <Circle colors={view.colors} icon={CheckBoxOutlineBlankIcon} square />,
-              checked: <Circle colors={view.colors} icon={CheckBoxIcon} square />,
+              unchecked: (
+                <Circle
+                  colors={view.colors}
+                  icon={CheckBoxOutlineBlankIcon}
+                  size={TASK_ICON_SIZE}
+                  square
+                />
+              ),
+              checked: (
+                <Circle colors={view.colors} icon={CheckBoxIcon} size={TASK_ICON_SIZE} square />
+              ),
             }}
             // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
             // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
@@ -105,22 +120,25 @@ function EntryIcon({ view }: { view: EntryView }) {
 
 /**
  * 左の丸。人の色（複数なら塗り分け）の上に白いアイコンを置く。
- * square は角を落とさない四角で、外側で別の形に切り抜くとき（タスクのスクワークル）に使う
+ * square は角を落とさない四角で、外側で別の形に切り抜くとき（タスクのスクワークル）に使う。
+ * size を変えても中のアイコンの大きさは変わらない
  */
 function Circle({
   colors,
   icon: Icon,
+  size = ICON_SIZE,
   square = false,
 }: {
   colors: string[];
   icon: ComponentType<SvgIconProps>;
+  size?: number;
   square?: boolean;
 }) {
   return (
     <Box
       sx={{
-        width: ICON_SIZE,
-        height: ICON_SIZE,
+        width: size,
+        height: size,
         flexShrink: 0,
         borderRadius: square ? 0 : '50%',
         display: 'flex',
