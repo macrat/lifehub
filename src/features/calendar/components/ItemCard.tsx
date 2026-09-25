@@ -109,7 +109,7 @@ function eventTimeLabel(item: CalendarEventItem): TimeLabel {
 const TASK_TIME_CAPTIONS = { done: '完了', due: '期限', start: '開始' } as const;
 
 /**
- * タスクの日時は `taskTime`（完了 → 期限 → 開始の優先）を見出し付きで示す。
+ * タスクの日時は `taskTime`（完了 → 開始 → 期限の優先）を見出し付きで示す。
  * 日付だけ（終日）なら日付（今日なら「今日」）。時刻が表示位置の日と違う（繰り越し・期限が別日）ときは日付も付ける。
  */
 function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
