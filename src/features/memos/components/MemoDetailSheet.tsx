@@ -18,14 +18,16 @@ type Props = {
 /**
  * メモの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから削除する。
  * 直せるのは本文だけで、書いた人と時刻は変わらない。
+ * 直す・消すは書いた本人だけ（サーバーも同じ規則で拒む）。ほかの人のメモは読むだけで、鉛筆も三点リーダーも出さない。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props) {
-  const { label } = useUserLabels();
+  const { label, meId } = useUserLabels();
+  const mine = memo.createdBy === meId;
   const updateMemo = useUpdateMemo();
   const deleteMemo = useDeleteMemo();
   const detail = useRecordDetail({
-    initialEditing,
+    initialEditing: initialEditing && mine,
     confirmDelete: 'このメモを削除しますか？',
     remove: () => deleteMemo.mutate(memo.id),
     onClose,
@@ -42,8 +44,10 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
       open={!submitted}
       onClose={onClose}
       editing={detail.editing}
-      onEdit={detail.startEdit}
-      actions={[{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }]}
+      onEdit={mine ? detail.startEdit : undefined}
+      actions={
+        mine ? [{ label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.remove }] : []
+      }
       onSubmit={handleSubmit}
       error={submitError}
     >

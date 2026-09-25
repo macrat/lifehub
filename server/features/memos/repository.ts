@@ -44,6 +44,12 @@ export async function insert(row: { id: string; body: string; createdBy: string 
   await db.insert(memos).values(row).onConflictDoNothing();
 }
 
+/** メモを書いた人。メモが無ければ undefined */
+export async function findCreator(id: string): Promise<string | undefined> {
+  const [row] = await db.select({ createdBy: memos.createdBy }).from(memos).where(eq(memos.id, id));
+  return row?.createdBy;
+}
+
 /** 本文を置き換える。書いた人と書いた時刻は変えない */
 export async function update(id: string, body: string): Promise<boolean> {
   const updated = await db
