@@ -1,4 +1,6 @@
 import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
+import { useInitialPosition } from './initial-position.ts';
+import { STICKY_TOP } from './layout.ts';
 import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
 import { useEdgeObserver } from './use-edge-observer.ts';
 import { ignoreScrollSoFar } from './use-scrolled-down.ts';
@@ -22,7 +24,7 @@ type Props = InfiniteScrollHeaderProps & {
    * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
    * 省くか要素が見つからなければ末尾を出す
    */
-  initial?: { block: 'start' | 'end'; target: (list: HTMLElement) => Element | null };
+  initial?: { block: 'start' | 'end'; target: (list: HTMLElement) => HTMLElement | null };
   /** 変わったら最初の位置に戻す（絞り込みを変えたときなど、別の一覧になったとき） */
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
@@ -39,6 +41,7 @@ type Props = InfiniteScrollHeaderProps & {
  * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
  * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
+ * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
  */
 export function InfiniteScroll({
   header,
@@ -83,6 +86,36 @@ export function InfiniteScroll({
     };
   }, []);
 
+  /**
+   * 最初の位置へ動かす（目当ての要素が無ければ末尾へ）。位置の計算はブラウザの scrollIntoView に任せる。
+   * - start: 要素の上に、貼り付いた見出しの分（AppBar の下端＋見出しの高さ）の scroll-margin-top を取る。
+   *   見出しは貼り付くまでは流れの中にあって今の位置は当てにならないので、貼り付いた後の位置で決める
+   * - end: 画面の下端は AppShell の scroll-padding-bottom（下部ナビの分）で決まる
+   */
+  const place = (list: HTMLElement, behavior: ScrollBehavior) => {
+    const target = initial?.target(list);
+    if (!initial || !target) {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
+      return;
+    }
+    if (initial.block === 'start') {
+      const header = headerRef.current?.offsetHeight ?? 0;
+      target.style.scrollMarginTop = `calc(${STICKY_TOP} + ${header}px)`;
+    }
+    target.scrollIntoView({ block: initial.block, behavior });
+  };
+
+  /** 最初の位置に置けているか（上か下が足りないと途中で止まる） */
+  const isPlaced = (list: HTMLElement) => {
+    const target = initial?.target(list);
+    if (!initial || !target) return true;
+    const box = target.getBoundingClientRect();
+    if (initial.block === 'start') return Math.abs(box.top - headerBottom()) < 1;
+    const root = document.documentElement;
+    const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
+    return Math.abs(box.bottom - (root.clientHeight - padding)) < 1;
+  };
+
   // 描画のたびに: 別の一覧になったら（留めている間は毎回）最初の位置へ、そうでなければ見ていた所へ
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -93,20 +126,18 @@ export function InfiniteScroll({
       pinned.current = true;
     }
     if (pinned.current) {
-      const target = initial?.target(list);
-      if (target) {
-        pinned.current =
-          initial?.block === 'end' ? !scrollToBottom(target) : !scrollToTop(target, headerBottom);
-      } else {
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        pinned.current = false;
-      }
+      place(list, 'instant');
+      pinned.current = !isPlaced(list);
     } else if (anchor.current?.element.isConnected) {
       const { element, top } = anchor.current;
       window.scrollBy(0, element.getBoundingClientRect().top - top);
     }
     measure();
     ignoreScrollSoFar();
+  });
+
+  useInitialPosition(() => {
+    if (listRef.current) place(listRef.current, 'smooth');
   });
 
   useEdgeObserver(startRef, onReachStart);
@@ -134,25 +165,4 @@ function findAnchor(list: Element, top: number): Element | null {
     found = next;
     children = [...next.children];
   }
-}
-
-/**
- * target を貼り付けた見出しのすぐ下に置き、置けたかを返す（下が足りないと途中で止まる）。
- * 見出しは貼り付くまでは流れの中にあって位置が変わるので、動かした後にもう一度測って合わせる
- */
-function scrollToTop(target: Element, headerBottom: () => number): boolean {
-  const gap = () => target.getBoundingClientRect().top - headerBottom();
-  for (let i = 0; i < 2; i++) window.scrollBy(0, gap());
-  return Math.abs(gap()) < 1;
-}
-
-/**
- * target の下端を画面の下端（scroll-padding-bottom の分だけ上）に置き、置けたかを返す
- * （上が足りないと途中で止まる）。位置の計算はブラウザの scrollIntoView に任せる
- */
-function scrollToBottom(target: Element): boolean {
-  target.scrollIntoView({ block: 'end', behavior: 'instant' });
-  const root = document.documentElement;
-  const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
-  return Math.abs(target.getBoundingClientRect().bottom - (root.clientHeight - padding)) < 1;
 }

@@ -138,7 +138,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
 }
 
 /** date かそれより後で最初の日の要素（無ければ末尾に置く） */
-function firstDayFrom(list: HTMLElement, date: DateString): Element | null {
+function firstDayFrom(list: HTMLElement, date: DateString): HTMLElement | null {
   return (
     [...list.querySelectorAll<HTMLElement>('[data-date]')].find(
       (el) => (el.dataset.date ?? '') >= date,

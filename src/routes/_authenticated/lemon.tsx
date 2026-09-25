@@ -29,6 +29,7 @@ import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   validateSearch: lemonSearchSchema,
+  staticData: { ownsScroll: true },
   component: LemonPage,
 });
 

@@ -18,6 +18,7 @@ import { createLink, useLocation } from '@tanstack/react-router';
 import { type ReactNode, useRef } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
+import { scrollToInitialPosition } from './initial-position.ts';
 import { BOTTOM_NAV_HEIGHT } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
@@ -52,6 +53,14 @@ export function AppShell({ navItems, children }: Props) {
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
+  // 今いる画面のタブをもう一度押したとき。行き先の検索パラメータが無ければ、画面の最初の位置まで
+  // なめらかに戻す。そのときはルーターが移動の後に行うスクロール位置の復元（同じ場所への移動では押した
+  // 時点の位置）を止めて（resetScroll: false）、なめらかなスクロールを遮らせない
+  const reselectProps = (item: NavItem) => {
+    if (!isActive(item.to)) return {};
+    if (item.reselectSearch) return { search: item.reselectSearch };
+    return { resetScroll: false, onClick: scrollToInitialPosition };
+  };
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
 
@@ -81,11 +90,7 @@ export function AppShell({ navItems, children }: Props) {
             <List component="nav">
               {navItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemLink
-                    to={item.to}
-                    search={isActive(item.to) ? item.reselectSearch : undefined}
-                    selected={isActive(item.to)}
-                  >
+                  <ListItemLink to={item.to} {...reselectProps(item)} selected={isActive(item.to)}>
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -148,7 +153,7 @@ export function AppShell({ navItems, children }: Props) {
                   label={item.label}
                   icon={<item.icon />}
                   to={item.to}
-                  search={isActive(item.to) ? item.reselectSearch : undefined}
+                  {...reselectProps(item)}
                 />
               ))}
             </BottomNavigation>
