@@ -1,9 +1,10 @@
 import { devices, expect, type Page, test } from '@playwright/test';
+import { toDateString } from '../shared/date.ts';
 import { login, myId } from './login.ts';
 
 /**
  * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
- * 最初に出す位置（予定は基準の日が一番上、立替・レモンは最新が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
+ * 最初に出す位置（予定は基準の日が一番上、立替・レモンは今日の記録が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -57,29 +58,30 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
 
 /**
  * 立替とレモンの履歴。どちらもサーバーが 1 ページ（50 件）ずつ返すので、それより多く置いて、
- * 最初は読んでいない古い日を残す。日付は他のテストが使わない 2099 年（レモンの未来の記録はタイルを動かさない）
+ * 最初は読んでいない古い日を残す。古い日は他のテストが使わない 2000 年、今日の記録を 2 件、
+ * 未来の記録は他のテストが使わない 2099 年に 1 件置く（レモンの未来の記録はタイルを動かさない）
  */
 const histories = [
   {
-    name: '立替の履歴は最新を一番下に出し、残高は上に貼り付いたまま',
+    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いたまま',
     path: '/expenses',
     api: '/api/expenses',
-    body: (me: string, i: number, text: string) => ({
+    body: (me: string, at: Date, text: string) => ({
       fromUserId: me,
       toUserId: null,
       amount: 100,
       description: text,
-      spentOn: new Date(Date.UTC(2099, 0, 1 + i)).toISOString().slice(0, 10),
+      spentOn: toDateString(at),
     }),
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
   },
   {
-    name: 'レモンの記録は最新を一番下に出し、状況のタイルは上に貼り付いたまま',
+    name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
     api: '/api/lemon/logs',
-    body: (_me: string, i: number, text: string) => ({
+    body: (_me: string, at: Date, text: string) => ({
       careTypes: ['water'],
-      doneAt: new Date(Date.UTC(2099, 0, 1 + i, 3)).toISOString(),
+      doneAt: at.toISOString(),
       note: text,
     }),
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
@@ -91,15 +93,26 @@ for (const history of histories) {
     const me = await myId(page);
     const stamp = Date.now();
     const oldest = `E2E 最古 ${stamp}`;
-    const newest = `E2E 最新 ${stamp}`;
+    const todayFirst = `E2E 今日 1 ${stamp}`;
+    const todayLast = `E2E 今日 2 ${stamp}`;
+    const future = `E2E 未来 ${stamp}`;
+    const records: [Date, string][] = [
+      ...Array.from({ length: 58 }, (_, i): [Date, string] => [
+        new Date(Date.UTC(2000, 0, 1 + i, 3)),
+        i === 0 ? oldest : `E2E ${i} ${stamp}`,
+      ]),
+      // 今日の 2 件は、並びが追加した順になるよう少しだけ時刻をずらす
+      [new Date(stamp - 2000), todayFirst],
+      [new Date(stamp - 1000), todayLast],
+      [new Date(Date.UTC(2099, 0, 1, 3)), future],
+    ];
     const ids: string[] = [];
     try {
-      for (let i = 0; i < 60; i++) {
-        const text = i === 0 ? oldest : i === 59 ? newest : `E2E ${i} ${stamp}`;
+      for (const [at, text] of records) {
         // ID は送る側が決める（書き込みの応答は本文を返さない）
         const id = crypto.randomUUID();
         const res = await page.request.post(history.api, {
-          data: { id, ...history.body(me, i, text) },
+          data: { id, ...history.body(me, at, text) },
         });
         expect(res.ok()).toBe(true);
         ids.push(id);
@@ -107,9 +120,22 @@ for (const history of histories) {
 
       await page.goto(history.path);
       const sticky = history.sticky(page);
-      await expect(page.getByText(newest)).toBeInViewport();
+      // 今日の記録はすべて見え、未来の記録はその下に隠れている
+      await expect(page.getByText(todayFirst)).toBeInViewport();
+      await expect(page.getByText(todayLast)).toBeInViewport();
       await expect(sticky).toBeInViewport();
       await expect(page.getByText(oldest)).toHaveCount(0);
+      // 今日の最後の記録が下部ナビのすぐ上（間に別の行が入る隙間が無い。測るのは行の中の文字で、
+      // 立替はその下に名前と日の区切りの余白があるので、行 1 つ分の高さ未満で見る）。
+      // 未来の記録はその下で、下部ナビに覆われているか画面の外にある
+      const nav = await page.getByRole('navigation').last().boundingBox();
+      const last = await page.getByText(todayLast).boundingBox();
+      const next = await page.getByText(future).boundingBox();
+      const navTop = nav?.y ?? 0;
+      const gap = navTop - ((last?.y ?? 0) + (last?.height ?? 0));
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThan(48);
+      expect(next?.y ?? 0).toBeGreaterThanOrEqual(navTop);
 
       // 上へ戻ると古いほうのページを読む。上に貼り付けた物は隠れない
       await expect(async () => {

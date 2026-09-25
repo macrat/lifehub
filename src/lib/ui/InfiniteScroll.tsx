@@ -23,8 +23,12 @@ type Props = {
   onReachStart?: (() => void) | undefined;
   /** 末尾に近づいたとき。undefined ならそれより後は無い（読み込み中を含む） */
   onReachEnd?: (() => void) | undefined;
-  /** 最初に見出しのすぐ下（画面の一番上）へ置く要素。省くか見つからなければ末尾を出す */
-  initialTarget?: (list: HTMLElement) => Element | null;
+  /**
+   * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
+   * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
+   * 省くか要素が見つからなければ末尾を出す
+   */
+  initial?: { block: 'start' | 'end'; target: (list: HTMLElement) => Element | null };
   /** 変わったら最初の位置に戻す（絞り込みを変えたときなど、別の一覧になったとき） */
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
@@ -38,7 +42,7 @@ type Props = {
  *   スクロールアンカーと同じ選び方）の位置を覚えておき、描き直した後でその分だけ戻す。
  *   ブラウザのスクロールアンカー（`overflow-anchor`）は Safari が対応していないので使わず、止めておく
  *   （両方が動くと二重にずれる）
- * - 最初の位置は、下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
+ * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
  */
 export function InfiniteScroll({
@@ -46,7 +50,7 @@ export function InfiniteScroll({
   children,
   onReachStart,
   onReachEnd,
-  initialTarget,
+  initial,
   resetKey,
   ready = true,
 }: Props) {
@@ -93,9 +97,10 @@ export function InfiniteScroll({
       pinned.current = true;
     }
     if (pinned.current) {
-      const target = initialTarget?.(list);
+      const target = initial?.target(list);
       if (target) {
-        pinned.current = !scrollToTop(target, headerBottom);
+        pinned.current =
+          initial?.block === 'end' ? !scrollToBottom(target) : !scrollToTop(target, headerBottom);
       } else {
         window.scrollTo(0, document.documentElement.scrollHeight);
         pinned.current = false;
@@ -166,4 +171,15 @@ function scrollToTop(target: Element, headerBottom: () => number): boolean {
   const gap = () => target.getBoundingClientRect().top - headerBottom();
   for (let i = 0; i < 2; i++) window.scrollBy(0, gap());
   return Math.abs(gap()) < 1;
+}
+
+/**
+ * target の下端を画面の下端（scroll-padding-bottom の分だけ上）に置き、置けたかを返す
+ * （上が足りないと途中で止まる）。位置の計算はブラウザの scrollIntoView に任せる
+ */
+function scrollToBottom(target: Element): boolean {
+  target.scrollIntoView({ block: 'end', behavior: 'instant' });
+  const root = document.documentElement;
+  const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
+  return Math.abs(target.getBoundingClientRect().bottom - (root.clientHeight - padding)) < 1;
 }

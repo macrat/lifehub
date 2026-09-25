@@ -8,6 +8,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { today } from '../../shared/date.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 
 /**
@@ -45,10 +46,10 @@ function historyQueryOptions<T, F extends object>(source: HistorySource<T, F>, f
 }
 
 /**
- * 画面が読む履歴。読んだページを古い順に繋いで返し、上の端へ近づいたら古いほうのページを読む
- * （`HistoryList` にそのまま渡せる形）。
+ * 画面が読む履歴。読んだページを古い順に繋ぎ、今日までと未来の記録に分けて返す。上の端へ近づいたら
+ * 古いほうのページを読む（`HistoryList` にそのまま渡せる形）。
  * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
- * - resetKey は取得のキーで、変わったら一覧を一番下（最新）へ戻す合図。ready は出している結果が
+ * - resetKey は取得のキーで、変わったら一覧を最初の位置（`HistoryList`）へ戻す合図。ready は出している結果が
  *   そのキーの物か（前の結果を出している間は位置を決めない）
  * - 画面を離れるときは最新のページだけを残す。取り直し（画面に入ったとき・書き込みの後）は
  *   読んだページをすべて順に読み直すので、遡った分を残すと以後ずっとその回数だけ問い合わせる
@@ -70,9 +71,10 @@ export function useHistory<T, F extends object>(source: HistorySource<T, F>, fil
     },
     [queryClient, resetKey],
   );
+  // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
+  const items = data?.pages.toReversed().flatMap((page) => page.items);
   return {
-    // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
-    query: { data: data?.pages.toReversed().flatMap((page) => page.items), error },
+    query: { data: items && splitAtToday(items, source.dayOf), error },
     resetKey,
     ready: data !== undefined && !isPlaceholderData,
     loadEarlier:
@@ -80,6 +82,18 @@ export function useHistory<T, F extends object>(source: HistorySource<T, F>, fil
         ? () => void fetchNextPage()
         : undefined,
   };
+}
+
+/**
+ * 古い順の記録を、今日（JST）までと未来に分ける。未来の記録は末尾にまとまっているので、
+ * 境目を 1 か所探して切る（記録ごとに日を 2 回ずつ求めない）
+ */
+function splitAtToday<T>(items: T[], dayOf: (item: T) => string): { past: T[]; future: T[] } {
+  const until = today();
+  const index = items.findIndex((item) => dayOf(item) > until);
+  return index < 0
+    ? { past: items, future: [] }
+    : { past: items.slice(0, index), future: items.slice(index) };
 }
 
 /** 読んだページのどこかにある記録（編集・削除の前の値） */
