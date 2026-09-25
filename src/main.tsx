@@ -3,7 +3,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { useIsRestoring } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { createRouter, type ParsedLocation, RouterProvider } from '@tanstack/react-router';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
@@ -58,7 +58,7 @@ const router = createRouter({
    * WHY NOT 移動ごとの resetScroll: false: 最初の位置を決めるのは画面なので、ルートに持たせる。リンクごとに
    * 付けると、ナビ以外の入口（戻る・進む、今後増えるリンク）ごとに付け忘れられない決まりになる
    */
-  scrollRestoration: ({ location }) => !ownsScroll(location),
+  scrollRestoration: () => !ownsScroll(),
   defaultErrorComponent: ErrorPage,
   /**
    * 移動は何も待たせない。ページのコードを読み込む間（初回だけ。以降は Service Worker の precache）も
@@ -87,9 +87,9 @@ const router = createRouter({
   },
 });
 
-/** 移動した先が、最初の位置を画面自身が決めるルートか（`staticData.ownsScroll`） */
-function ownsScroll(location: ParsedLocation): boolean {
-  return router.matchRoutes(location).some((match) => match.staticData.ownsScroll);
+/** 描画し終えた画面のルートの照合結果から読む（ルーターが既に照合したものを使い、照合し直さない） */
+function ownsScroll(): boolean {
+  return router.state.matches.some((match) => match.staticData.ownsScroll);
 }
 
 declare module '@tanstack/react-router' {
@@ -99,7 +99,8 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /**
      * 最初の位置を画面自身が決める（ホームは一番上、立替・レモンは今日の記録）。true ならルーターは
-     * スクロール位置に触らない（戻る・進むでも前にいた位置へ戻さず、最初の位置で出す）
+     * スクロール位置に触らず（戻る・進むでも前にいた位置へ戻さず、最初の位置で出す）、今いる画面の
+     * タブをもう一度押すとそこまでなめらかに戻る（`AppShell`、`scrollToInitialPosition`）
      */
     ownsScroll?: boolean;
   }

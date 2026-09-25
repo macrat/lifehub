@@ -1,5 +1,13 @@
 import { devices, expect, type Page, test } from '@playwright/test';
-import { bottomNav, careLogBody, expenseBody, gapAboveBottomNav } from './history.ts';
+import {
+  addRecord,
+  bottomNav,
+  type Created,
+  careLogHistory,
+  deleteRecord,
+  expenseHistory,
+  isJustAboveBottomNav,
+} from './history.ts';
 import { login, myId } from './login.ts';
 
 /**
@@ -65,15 +73,13 @@ const histories = [
   {
     name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いたまま',
     path: '/expenses',
-    api: '/api/expenses',
-    body: expenseBody,
+    ...expenseHistory,
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
   },
   {
     name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
-    api: '/api/lemon/logs',
-    body: careLogBody,
+    ...careLogHistory,
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
   },
 ];
@@ -96,17 +102,9 @@ for (const history of histories) {
       [new Date(stamp - 1000), todayLast],
       [new Date(Date.UTC(2099, 0, 1, 3)), future],
     ];
-    const ids: string[] = [];
+    const created: Created[] = [];
     try {
-      for (const [at, text] of records) {
-        // ID は送る側が決める（書き込みの応答は本文を返さない）
-        const id = crypto.randomUUID();
-        const res = await page.request.post(history.api, {
-          data: { id, ...history.body(me, at, text) },
-        });
-        expect(res.ok()).toBe(true);
-        ids.push(id);
-      }
+      for (const [at, text] of records) created.push(await addRecord(page, history, me, at, text));
 
       await page.goto(history.path);
       const sticky = history.sticky(page);
@@ -117,9 +115,7 @@ for (const history of histories) {
       await expect(page.getByText(oldest)).toHaveCount(0);
       // 今日の最後の記録が下部ナビのすぐ上（間に別の行が入る隙間が無い）。
       // 未来の記録はその下で、下部ナビに覆われているか画面の外にある
-      const gap = await gapAboveBottomNav(page, todayLast);
-      expect(gap).toBeGreaterThanOrEqual(0);
-      expect(gap).toBeLessThan(48);
+      expect(await isJustAboveBottomNav(page, todayLast)).toBe(true);
       const nav = await bottomNav(page).boundingBox();
       const next = await page.getByText(future).boundingBox();
       expect(next?.y ?? 0).toBeGreaterThanOrEqual(nav?.y ?? 0);
@@ -134,7 +130,7 @@ for (const history of histories) {
       const stickyBox = await sticky.boundingBox();
       expect(stickyBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
     } finally {
-      for (const id of ids) await page.request.delete(`${history.api}/${id}`);
+      for (const record of created) await deleteRecord(page, record);
     }
   });
 }

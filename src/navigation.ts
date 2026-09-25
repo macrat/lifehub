@@ -19,7 +19,7 @@ export const calendarNavItem: NavItem = {
   label: '予定',
   to: '/calendar',
   icon: CalendarMonthIcon,
-  reselect: { search: widerSearch },
+  reselectSearch: widerSearch,
 };
 
 /**
@@ -27,9 +27,9 @@ export const calendarNavItem: NavItem = {
  * 並べるのは各機能の画面なので、機能を読めない lib ではなくここ（アプリの組み立て）に置く。
  */
 export const primaryNavItems: NavItem[] = [
-  { label: 'ホーム', to: '/', icon: HomeIcon, reselect: 'initialPosition' },
+  { label: 'ホーム', to: '/', icon: HomeIcon },
   calendarNavItem,
-  { label: '立替', to: '/expenses', icon: PaymentsIcon, reselect: 'initialPosition' },
-  { label: 'レモン', to: '/lemon', icon: SpaIcon, reselect: 'initialPosition' },
+  { label: '立替', to: '/expenses', icon: PaymentsIcon },
+  { label: 'レモン', to: '/lemon', icon: SpaIcon },
   settingsNavItem,
 ];

@@ -14,7 +14,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
-import { createLink, useLocation } from '@tanstack/react-router';
+import { createLink, useLocation, useMatches } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
@@ -47,13 +47,17 @@ type Props = {
 export function AppShell({ navItems, children }: Props) {
   const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
+  // 今の画面が最初の位置を自分で決めるか（ルートの `staticData.ownsScroll`）
+  const ownsScroll = useMatches({
+    select: (matches) => matches.some((m) => m.staticData.ownsScroll),
+  });
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
+  // 今いる画面のタブをもう一度押したとき。最初の位置を画面が決めるなら、そこまでなめらかに戻す
   const reselectProps = (item: NavItem) => {
     if (!isActive(item.to)) return {};
-    if (item.reselect === 'initialPosition') return { onClick: scrollToInitialPosition };
-    return { search: item.reselect?.search };
+    return ownsScroll ? { onClick: scrollToInitialPosition } : { search: item.reselectSearch };
   };
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
