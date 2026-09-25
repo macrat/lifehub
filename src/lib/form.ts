@@ -21,9 +21,14 @@ export function formList(formData: FormData, key: string): string[] {
 }
 
 /** Select の値。SELECT_NONE は null にする */
+export function selectValue(value: string): string | null {
+  return value === SELECT_NONE ? null : value;
+}
+
+/** FormData の Select の値。SELECT_NONE は null にする */
 export function formSelect(formData: FormData, key: string): string | null {
   const value = formText(formData, key);
-  return value === SELECT_NONE ? null : value;
+  return value === null ? null : selectValue(value);
 }
 
 /** `<form>` の FormData を素の値にする。空文字は未入力として undefined にする（optional なフィールドをそのまま扱えるようにするため） */

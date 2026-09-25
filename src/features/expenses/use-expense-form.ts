@@ -4,7 +4,7 @@ import { expenseSchema } from '../../../shared/validation/expenses.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
-import { chooseFrom, type Parties } from './parties.ts';
+import { chooseFrom, type Parties, toCandidates } from './parties.ts';
 import type { Expense, ExpenseBody } from './queries.ts';
 
 /**
@@ -12,6 +12,7 @@ import type { Expense, ExpenseBody } from './queries.ts';
  * 同じ組み立てと検証を使う。金額欄の中身は電卓の式そのもの（"1200+800" など）なので、
  * 入力欄ではなくここで状態として持つ（計算結果の置き場は別に持たない）。
  * To・From も、From を選ぶと To が入れ替わることがあるので、2 つまとめてここで持つ。
+ * 入力欄に渡すものは `fields` にまとめ、`ExpenseFields` へそのまま渡せるようにする。
  */
 export function useExpenseForm({
   initial,
@@ -26,17 +27,19 @@ export function useExpenseForm({
   const { users, meId } = useUserLabels();
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
   // From の null は「まだ選んでいない」。既定のログイン中のユーザーは読み込みを待つので、使う時に決める
-  const [chosen, setChosen] = useState<{ to: string | null; from: string | null }>({
-    to: initial?.toUserId ?? null,
-    from: initial?.fromUserId ?? null,
+  const [chosen, setChosen] = useState<{ toUserId: string | null; fromUserId: string | null }>({
+    toUserId: initial?.toUserId ?? null,
+    fromUserId: initial?.fromUserId ?? null,
   });
-  const parties: Parties = { to: chosen.to, from: chosen.from ?? meId ?? users[0]?.id ?? '' };
+  const parties: Parties = {
+    toUserId: chosen.toUserId,
+    fromUserId: chosen.fromUserId ?? meId ?? users[0]?.id ?? '',
+  };
 
   const form = useFormSubmit({
     schema: expenseSchema,
     values: (fd) => ({
-      fromUserId: parties.from || undefined,
-      toUserId: parties.to,
+      ...parties,
       amount: evaluate(amount) ?? undefined,
       description: formText(fd, 'description') ?? '',
       spentOn: formText(fd, 'spentOn') ?? today(),
@@ -46,10 +49,18 @@ export function useExpenseForm({
   });
   return {
     ...form,
-    amount,
-    setAmount,
-    parties,
-    setTo: (to: string | null) => setChosen({ ...chosen, to }),
-    setFrom: (from: string) => setChosen(chooseFrom(parties, from)),
+    fields: {
+      parties,
+      toUsers: toCandidates(users, parties),
+      fromUsers: users,
+      onChangeTo: (toUserId: string | null) => setChosen((c) => ({ ...c, toUserId })),
+      onChangeFrom: (fromUserId: string) => setChosen(chooseFrom(parties, fromUserId)),
+      amount,
+      onChangeAmount: setAmount,
+      errors: form.errors,
+    },
   };
 }
+
+/** `ExpenseFields` に渡す入力欄の状態 */
+export type ExpenseFieldsState = ReturnType<typeof useExpenseForm>['fields'];

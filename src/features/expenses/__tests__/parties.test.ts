@@ -1,13 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { chooseFrom } from '../parties.ts';
+import { chooseFrom, toCandidates } from '../parties.ts';
+
+describe('toCandidates', () => {
+  it('From の人を外す', () => {
+    const users = [{ id: 'a' }, { id: 'b' }];
+    expect(toCandidates(users, { toUserId: null, fromUserId: 'a' })).toEqual([{ id: 'b' }]);
+  });
+});
 
 describe('chooseFrom', () => {
   it('To と違う人なら From だけを変える', () => {
-    expect(chooseFrom({ to: null, from: 'a' }, 'b')).toEqual({ to: null, from: 'b' });
-    expect(chooseFrom({ to: 'c', from: 'a' }, 'b')).toEqual({ to: 'c', from: 'b' });
+    expect(chooseFrom({ toUserId: null, fromUserId: 'a' }, 'b')).toEqual({
+      toUserId: null,
+      fromUserId: 'b',
+    });
+    expect(chooseFrom({ toUserId: 'c', fromUserId: 'a' }, 'b')).toEqual({
+      toUserId: 'c',
+      fromUserId: 'b',
+    });
   });
 
   it('To にいる人を選んだら To と From を入れ替える', () => {
-    expect(chooseFrom({ to: 'b', from: 'a' }, 'b')).toEqual({ to: 'a', from: 'b' });
+    expect(chooseFrom({ toUserId: 'b', fromUserId: 'a' }, 'b')).toEqual({
+      toUserId: 'a',
+      fromUserId: 'b',
+    });
   });
 });
