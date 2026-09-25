@@ -256,7 +256,6 @@ function TimedBlock({
       {...grab}
       onClick={hidden ? undefined : onClick}
       aria-label={item.title}
-      style={{ mask: itemMask() }}
       sx={{
         position: 'absolute',
         // 隠すのは見た目だけ（場所は残す）。display: none にすると掴んだ指が離れてしまう
@@ -272,6 +271,7 @@ function TimedBlock({
         display: 'block',
         textAlign: 'left',
         overflow: 'hidden',
+        mask: itemMask(),
         px: 0.5,
         py: '2px',
         background: wedgeBackground(colors.map((c) => (isTask ? c.tint : c.fill))),

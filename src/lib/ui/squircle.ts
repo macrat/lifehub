@@ -71,7 +71,17 @@ export type SmoothCornersOptions = {
   line?: number;
 };
 
-const cache = new Map<string, string>();
+/** 作った形を置く文書全体の CSS 変数の名前（引数ごとに 1 つ） */
+const registered = new Set<string>();
+let sheet: CSSStyleSheet | undefined;
+
+/** 形の値を `:root` の CSS 変数として一度だけ文書に足す */
+function register(name: string, value: string) {
+  if (registered.has(name)) return;
+  registered.add(name);
+  sheet ??= document.head.appendChild(document.createElement('style')).sheet ?? undefined;
+  sheet?.insertRule(`:root { ${name}: ${value}; }`);
+}
 
 /**
  * 角だけなめらかな角丸（辺はまっすぐで、角が円弧ではなく超楕円の 1/4 でつながる。iOS のアイコンの角と同じ考え方）を
@@ -79,37 +89,36 @@ const cache = new Map<string, string>();
  * viewBox を持たない 1 枚の SVG で、要素いっぱいの四角から、四隅に px の大きさで置いた「曲線より外」を切り落とす
  * （右と下の角は、`x="100%"`・`y="100%"` の入れ子の svg で端に置いて裏返す）。
  * 枠の線（`line`）は、四角の縁に線を引き、内側の角（線の太さだけ小さい）の「曲線より外」を線の側へ戻して作る。
- * 同じ引数の形は一度だけ作る（項目ごとに描くたびに作り直さない）。
+ * 返すのは `var(--…)` の短い参照で、形そのもの（1〜2KB の data URI）は引数ごとに一度だけ作り、`:root` の CSS 変数として
+ * 文書に置く。sx でも疑似要素でも、項目の数やドラッグの 1 コマごとに長い文字列を CSS や style 属性へ複製しない。
  * WHY NOT border-radius: 角が円弧になり、なめらかにつながらない。
  * WHY NOT clip-path の polygon: 点を割合で書くと要素の大きさに比例して角が伸び、px で書くと大きさごとに作り直しになる。
  * WHY NOT 角と辺を mask の別々の層で描く: 層の境目が端数の位置に来ると筋や段差が出る。角を縮めて収める作りでは、
  * 小さな枠で角の線だけが細くなる。1 枚の SVG なら 1 度に描かれ、線の太さも px のまま変わらない。
  * 描く手間は border-radius より重い（要素の大きさごとに SVG を描き直し、切り抜いた面を重ねる）。
- * WHY 受け入れる: 同じ形を描ける CSS（`corner-shape: squircle`）は Safari が対応していない。切り抜くのは
- * 画面に百ほどの項目で、大きさが変わり続けるのはつまんでいる下書きの枠 1 つだけ。
+ * 特に大きさが変わり続ける間（つまんでいる下書きの枠、時間軸を 2 本の指で伸び縮みさせている間の予定のブロック）は
+ * 1 コマごとに描き直す。WHY 受け入れる: 同じ形を描ける CSS（`corner-shape: squircle`）は Safari が対応していない。
  */
 export function smoothCornersMask(
   extent: number,
   { roundStart = true, roundEnd = true, line = 0 }: SmoothCornersOptions = {},
 ): string {
-  const key = `${extent} ${roundStart} ${roundEnd} ${line}`;
-  const cached = cache.get(key);
-  if (cached) return cached;
+  const name = `--smooth-corners-${extent}-${Number(roundStart)}${Number(roundEnd)}-${line}`;
+  if (registered.has(name)) return `var(${name})`;
 
-  // 角ごとに「曲線より外」を置く。inset は要素の端から内へずらす量、size は角の大きさ
+  // 角ごとに「曲線より外」を置く。x・y は置く端、sx・sy は裏返す向き、inset は端から内へずらす量、size は角の大きさ
   const corners = (size: number, inset: number, color: string) =>
     [
-      [false, false],
-      [true, false],
-      [false, true],
-      [true, true],
+      { x: '0', y: '0', sx: 1, sy: 1, rounded: roundStart },
+      { x: '100%', y: '0', sx: -1, sy: 1, rounded: roundEnd },
+      { x: '0', y: '100%', sx: 1, sy: -1, rounded: roundStart },
+      { x: '100%', y: '100%', sx: -1, sy: -1, rounded: roundEnd },
     ]
-      .filter(([right]) => (right ? roundEnd : roundStart))
-      .map(([right, bottom]) => {
-        const sx = right ? -1 : 1;
-        const sy = bottom ? -1 : 1;
-        return `<svg x="${right ? '100%' : 0}" y="${bottom ? '100%' : 0}" overflow="visible"><use href="#c" fill="${color}" transform="translate(${sx * inset} ${sy * inset}) scale(${sx * size} ${sy * size})"/></svg>`;
-      })
+      .filter((c) => c.rounded)
+      .map(
+        ({ x, y, sx, sy }) =>
+          `<svg x="${x}" y="${y}" overflow="visible"><use href="#c" fill="${color}" transform="translate(${sx * inset} ${sy * inset}) scale(${sx * size} ${sy * size})"/></svg>`,
+      )
       .join('');
   const shape =
     line > 0
@@ -117,9 +126,8 @@ export function smoothCornersMask(
         `<rect width="100%" height="100%" fill="#000" stroke="#fff" stroke-width="${2 * line}"/>${corners(extent - line, line, '#fff')}`
       : '<rect width="100%" height="100%" fill="#fff"/>';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg"><defs><polygon id="c" points="${CORNER_OUTSIDE}"/></defs><mask id="m">${shape}${corners(extent, 0, '#000')}</mask><rect width="100%" height="100%" mask="url(#m)"/></svg>`;
-  const mask = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 0 0 / 100% 100% no-repeat`;
-  cache.set(key, mask);
-  return mask;
+  register(name, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 0 0 / 100% 100% no-repeat`);
+  return `var(${name})`;
 }
 
 /**

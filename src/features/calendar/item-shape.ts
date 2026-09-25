@@ -1,4 +1,10 @@
-import { type SmoothCornersOptions, smoothCornersMask } from '../../lib/ui/squircle.ts';
+import { smoothCornersMask } from '../../lib/ui/squircle.ts';
+
+/**
+ * 帯の両端が本当の端か。週をまたぐ帯は週ごとに 1 本ずつ描き、前後の週へ続く側は false。
+ * 本当の端だけ角を丸めて余白を空け、続きの端は角を立ててセルの端まで伸ばし、隣の週の帯とつながって見せる。
+ */
+export type ItemEnds = { roundStart: boolean; roundEnd: boolean };
 
 /**
  * カレンダーの項目（月・終日欄の帯、時間軸のブロック、下書きの枠）の角の大きさ（px）。
@@ -9,19 +15,13 @@ const ITEM_CORNER = 8;
 
 /**
  * カレンダーの項目の形を切り抜く CSS の `mask`（`smoothCornersMask`。ホームのタイルと同じ形の系統）。
- * 週をまたぐ帯は、前後の週へ続く側（`roundStart` / `roundEnd` が false）の角を丸めず、隣の週の帯とつながって見せる。
- * sx ではなく style で渡す（疑似要素に掛けるときは CSS 変数で）。mask は 2KB ほどの文字列で、
- * 項目ごと・ドラッグの 1 コマごとに別の規則になる sx に入れると、その数だけ同じ文字列が CSS に複製され、
- * 描き直すたびに直列化・ハッシュし直される。
+ * 続きの端は角を丸めない。`line` を与えると枠の線の形になる。
  */
-export function itemMask(options?: SmoothCornersOptions): string {
-  return smoothCornersMask(ITEM_CORNER, options);
+export function itemMask(ends?: ItemEnds, line?: number): string {
+  return smoothCornersMask(ITEM_CORNER, { ...ends, line });
 }
 
-/**
- * 帯の左右の余白（`itemMask` と対）。本当の端は 2px 空けて隣の日の項目と離し、
- * 続きの端（前後の週へ続く側）はセルの端まで伸ばして、隣の週の帯とつながって見せる。
- */
-export function itemMargins({ roundStart, roundEnd }: { roundStart: boolean; roundEnd: boolean }) {
+/** 帯の左右の余白。本当の端は 2px 空けて隣の日の項目と離し、続きの端はセルの端まで伸ばす */
+export function itemMargins({ roundStart, roundEnd }: ItemEnds) {
   return { ml: roundStart ? '2px' : 0, mr: roundEnd ? '2px' : 0 };
 }

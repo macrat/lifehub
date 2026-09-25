@@ -1,8 +1,7 @@
-import Box from '@mui/material/Box';
 import { useQuery } from '@tanstack/react-query';
 import type { CareType } from '../../../../shared/validation/lemon.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
-import { StatusTileSkeleton } from '../../../lib/ui/StatusTile.tsx';
+import { StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { BalanceTile } from '../../expenses/components/BalanceTile.tsx';
 import { useBalance } from '../../expenses/queries.ts';
 import { CareStatusTile } from '../../lemon/components/CareStatusTile.tsx';
@@ -27,26 +26,13 @@ export function StatusCards({ onAddExpense, onAddCare }: Props) {
   const balance = useBalance();
   const status = useQuery(lemonStatusQueryOptions);
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 1,
-        px: 2,
-        py: 1,
-      }}
-    >
+    <TileGrid columns={1 + HOME_CARE_TYPES.length} sx={{ px: 2, py: 1 }}>
       <QueryView query={balance} skeleton={<StatusTileSkeleton />}>
         {(b) => <BalanceTile balance={b} onClick={onAddExpense} />}
       </QueryView>
       <QueryView
         query={status}
-        skeleton={
-          <>
-            <StatusTileSkeleton />
-            <StatusTileSkeleton />
-          </>
-        }
+        skeleton={HOME_CARE_TYPES.map((careType) => <StatusTileSkeleton key={careType} />)}
       >
         {(statuses) =>
           statuses
@@ -60,6 +46,6 @@ export function StatusCards({ onAddExpense, onAddCare }: Props) {
             ))
         }
       </QueryView>
-    </Box>
+    </TileGrid>
   );
 }

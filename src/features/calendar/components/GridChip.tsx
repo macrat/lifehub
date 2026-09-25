@@ -62,7 +62,6 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
             }
       }
       aria-label={item.title}
-      style={{ mask: itemMask(placed) }}
       sx={{
         all: 'unset',
         boxSizing: 'border-box',
@@ -75,6 +74,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         alignSelf: 'center',
         height: LANE_ITEM_HEIGHT,
         ...itemMargins(placed),
+        mask: itemMask(placed),
         px: '3px',
         display: 'flex',
         alignItems: 'center',

@@ -1,10 +1,9 @@
 import Box from '@mui/material/Box';
-import type { CSSProperties } from 'react';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
-import { itemMargins, itemMask } from '../item-shape.ts';
+import { type ItemEnds, itemMargins, itemMask } from '../item-shape.ts';
 import { LANE_ITEM_HEIGHT } from '../lane-layout.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -29,29 +28,15 @@ const LINE = 2;
 /** 中の不透明度。下の予定や日付が透けて見える濃さ */
 const FILL_OPACITY = 0.6;
 
-const FILL_MASK = '--draft-fill-mask';
-const LINE_MASK = '--draft-line-mask';
-
-/**
- * 枠の塗りと線の形（保存した予定と同じ `itemMask`。続きの端は丸めない）を渡す CSS 変数。style に入れる。
- * WHY CSS 変数: 形は疑似要素に掛けるので style では直接渡せず、sx に入れると続き方ごとに 2KB ほどの規則が増え、
- * ドラッグの 1 コマごとに直列化し直される。
- */
-const outlineShape = (ends?: { roundStart: boolean; roundEnd: boolean }) =>
-  ({
-    [FILL_MASK]: itemMask(ends),
-    [LINE_MASK]: itemMask({ ...ends, line: LINE }),
-  }) as CSSProperties;
-
 /**
  * 枠の見た目。保存した予定の帯と同じく参加者の色で塗り分ける（`wedgeBackground`）ので、
  * 選んだ参加者を変えると枠も変わる。中は背景色に近い薄い色（tint）で半透明に塗り、
  * 下の予定や日付が透けて見えるようにする。線は line で不透明に描く。
  * WHY 薄い色: 帯と同じ濃さ（fill）だと、透けた下の予定の色と混ざって見分けにくい。背景色に近い色なら
  * 重なった所は下の予定が淡く（ライトでは明るく・ダークでは暗く）なり、枠の範囲が分かる。
- * 角の形は `outlineShape` から CSS 変数で受け取る。
+ * 角は保存した予定と同じ形（`itemMask`）で、続きの端（ends）は丸めない。
  */
-const outline = (colors: ItemColors[]) =>
+const outline = (colors: ItemColors[], ends?: ItemEnds) =>
   ({
     boxSizing: 'border-box',
     position: 'relative',
@@ -70,7 +55,7 @@ const outline = (colors: ItemColors[]) =>
       inset: -LINE,
       zIndex: -1,
       background: wedgeBackground(colors.map((c) => c.tint)),
-      mask: `var(${FILL_MASK})`,
+      mask: itemMask(ends),
       opacity: FILL_OPACITY,
     },
     // 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
@@ -82,7 +67,7 @@ const outline = (colors: ItemColors[]) =>
       position: 'absolute',
       inset: -LINE,
       background: wedgeBackground(colors.map((c) => c.line)),
-      mask: `var(${LINE_MASK})`,
+      mask: itemMask(ends, LINE),
       pointerEvents: 'none',
     },
   }) as const;
@@ -124,7 +109,6 @@ export function DraftBlock({
       // なぞるほど使い捨ての規則が溜まり、そのたびに見た目の規則（塗り分けの背景など）も丸ごと作り直す。
       // style なら属性を書き換えるだけで、sx の規則は参加者の組ごとに 1 つで済む。
       style={{
-        ...outlineShape(),
         gridColumn: column + 1,
         marginTop: `calc(${atMinute(startMin)} + 1px)`,
         height: `calc(${atMinute(endMin - startMin)} - 2px)`,
@@ -187,14 +171,13 @@ export function DraftBar({
   return (
     <Box
       {...draftProps}
-      // ドラッグで変わる場所と角の形は `DraftBlock` と同じく style で渡す（余白は続き方の 4 通りなので sx）
+      // ドラッグで変わる場所は `DraftBlock` と同じく style で渡す（角の形と余白は続き方の 4 通りなので sx）
       style={{
-        ...outlineShape(columns),
         gridColumn: `${col + 1} / span ${span}`,
         gridRow: lane + 2,
       }}
       sx={{
-        ...outline(colors),
+        ...outline(colors, columns),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
         alignSelf: 'center',

@@ -3,10 +3,14 @@ import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Skeleton from '@mui/material/Skeleton';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
+import type { Breakpoint, SxProps, Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ComponentType, ReactNode } from 'react';
 import { TILE_MASK } from './squircle.ts';
 import { textTransitionSx } from './text-transition.ts';
+
+/** タイルの内側の余白（タイルと骨組みで同じ高さにする） */
+const TILE_PADDING = 1;
 
 type Props = {
   /** 名前の左のアイコン。読み上げではアイコンに名乗らせない（名前がすぐ右にある） */
@@ -38,7 +42,7 @@ export function StatusTile({ icon: Icon, label, value, sub, transitionName, onCl
         viewTransitionName: 'tile' in transitionName ? transitionName.tile : undefined,
       }}
     >
-      <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
+      <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
         <TileLines
           icon={<Icon sx={{ fontSize: '1rem' }} />}
           label={label}
@@ -58,13 +62,13 @@ export function StatusTile({ icon: Icon, label, value, sub, transitionName, onCl
  */
 export function StatusTileSkeleton() {
   return (
-    <Skeleton variant="rectangular" sx={{ mask: TILE_MASK, maxWidth: 'none' }}>
-      <TileLines label="" value="" sub="" />
+    <Skeleton variant="rectangular" sx={{ p: TILE_PADDING, mask: TILE_MASK, maxWidth: 'none' }}>
+      <TileLines label={'\u00a0'} value={'\u00a0'} sub="" />
     </Skeleton>
   );
 }
 
-/** タイルの中身の 3 段。空の段も 1 行分の高さを取り、並んだタイルの高さを揃える */
+/** タイルの中身の 3 段。補足が空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
 function TileLines({
   icon,
   label,
@@ -79,7 +83,7 @@ function TileLines({
   valueTransitionName?: string;
 }) {
   return (
-    <Box sx={{ p: 1 }}>
+    <>
       <Typography
         variant="caption"
         color="text.secondary"
@@ -87,7 +91,7 @@ function TileLines({
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
       >
         {icon}
-        {label || ' '}
+        {label}
       </Typography>
       <Typography
         variant="h6"
@@ -99,11 +103,32 @@ function TileLines({
           ...textTransitionSx(valueTransitionName),
         }}
       >
-        {value || ' '}
+        {value}
       </Typography>
       <Typography variant="caption" color="text.secondary" component="p" noWrap>
         {sub || ' '}
       </Typography>
-    </Box>
+    </>
   );
+}
+
+/**
+ * タイルを同じ幅で並べる格子（ホーム・レモン画面）。columns は列の数で、画面の幅ごとにも指定できる。
+ * タイルとその骨組みを同じ格子に置き、読み込めたときに並びが変わらないようにする。
+ */
+export function TileGrid({
+  columns,
+  sx,
+  children,
+}: {
+  columns: number | Partial<Record<Breakpoint, number>>;
+  sx?: SxProps<Theme>;
+  children: ReactNode;
+}) {
+  const repeat = (n: number) => `repeat(${n}, minmax(0, 1fr))`;
+  const gridTemplateColumns =
+    typeof columns === 'number'
+      ? repeat(columns)
+      : Object.fromEntries(Object.entries(columns).map(([bp, n]) => [bp, repeat(n)]));
+  return <Box sx={{ display: 'grid', gridTemplateColumns, gap: 1, ...sx }}>{children}</Box>;
 }
