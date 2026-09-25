@@ -1,0 +1,12 @@
+// MUI の部品の color の prop には palette のキー（primary、error など）か textPrimary / textSecondary /
+// textDisabled だけを書く。テーマの色のパス（text.secondary、primary.main、grey.500 など）は sx の color に書く。
+// Typography の color はパスを解釈せず、黙って無視して本文の色で描く。prop の型は string も受けるので
+// 型検査では気づけない（型を絞る拡張もできない）。部品によってはパスが効くものもあるが、書き方を
+// 部品ごとに覚えずに済むよう、color の prop ではどの部品でもパスを使わない。
+// WHY NOT sx の color も禁じる: sx はテーマのパスを解決するので正しく効く。
+language js
+
+JsxAttribute(name=`color`, initializer=$value) where {
+  $value <: r".*[\"'][a-zA-Z]+\.\w+[\"'].*",
+  register_diagnostic(span=$value, message="color の prop にテーマの色のパス（text.secondary など）は効かない。palette のキーか textSecondary / textDisabled を書くか、パスは sx の color に書く")
+}

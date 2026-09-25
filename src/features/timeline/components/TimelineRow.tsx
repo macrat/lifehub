@@ -167,7 +167,7 @@ function EntryText({ view }: { view: EntryView }) {
           <Typography
             variant="body2"
             component="span"
-            color="text.secondary"
+            color="textSecondary"
             noWrap
             sx={{ flexShrink: 0 }}
           >

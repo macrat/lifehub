@@ -19,7 +19,7 @@ export function DayList({ date, items, onSelectItem }: Props) {
     <Box>
       <DateHeading date={date} />
       {items.length === 0 ? (
-        <Typography variant="body2" color="text.disabled" sx={{ px: 2, pb: 1 }}>
+        <Typography variant="body2" color="textDisabled" sx={{ px: 2, pb: 1 }}>
           予定なし
         </Typography>
       ) : (

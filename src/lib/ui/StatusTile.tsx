@@ -86,7 +86,7 @@ function TileLines({
     <>
       <Typography
         variant="caption"
-        color="text.secondary"
+        color="textSecondary"
         component="p"
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
       >
@@ -105,7 +105,7 @@ function TileLines({
       >
         {value}
       </Typography>
-      <Typography variant="caption" color="text.secondary" component="p" noWrap>
+      <Typography variant="caption" color="textSecondary" component="p" noWrap>
         {sub || ' '}
       </Typography>
     </>

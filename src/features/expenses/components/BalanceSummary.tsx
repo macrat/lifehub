@@ -14,7 +14,7 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
   return (
     <>
       {balance.amount === 0 ? (
-        <Typography color="text.secondary" sx={AMOUNT_SX}>
+        <Typography color="textSecondary" sx={AMOUNT_SX}>
           精算済み
         </Typography>
       ) : (
@@ -26,7 +26,7 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
           >
             {formatYen(balance.amount)}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {label(balance.fromUserId)} が {label(balance.toUserId)} に支払うと精算
           </Typography>
         </>

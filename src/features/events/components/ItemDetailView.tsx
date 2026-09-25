@@ -20,7 +20,7 @@ export function ItemDetailView({ item }: { item: CalendarItem }) {
           target="_blank"
           rel="noreferrer"
           variant="body2"
-          color="text.secondary"
+          color="textSecondary"
           underline="hover"
           sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
         >
@@ -48,13 +48,13 @@ function ItemWhen({ item }: { item: CalendarItem }) {
         <Typography>開始: {formatEdge(item.startsAt, 'start', item.allDay)}</Typography>
       )}
       {item.endsAt && (
-        <Typography color={item.isOverdue ? 'error' : 'text.primary'}>
+        <Typography color={item.isOverdue ? 'error' : 'textPrimary'}>
           期限: {formatEdge(item.endsAt, 'end', item.allDay)}
           {item.isOverdue && '（超過）'}
         </Typography>
       )}
       {item.completedAt && (
-        <Typography color="text.secondary">完了: {formatDateTime(item.completedAt)}</Typography>
+        <Typography color="textSecondary">完了: {formatDateTime(item.completedAt)}</Typography>
       )}
     </>
   );

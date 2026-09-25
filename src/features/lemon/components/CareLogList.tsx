@@ -66,7 +66,7 @@ export function CareLogList({ onSelect, ...listProps }: Props) {
                   中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
               <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
               <CareTypeIcons careTypes={log.careTypes} />
-              <Typography variant="body2" color="text.secondary" noWrap>
+              <Typography variant="body2" color="textSecondary" noWrap>
                 {log.note}
               </Typography>
             </RecordListRow>
