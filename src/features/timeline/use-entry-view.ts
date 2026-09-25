@@ -18,7 +18,7 @@ export type EntryView = {
   colors: string[];
   /** 左の丸に置くアイコン。予定・立替・メモは追加ボタンと同じもの */
   icon: ComponentType<SvgIconProps>;
-  /** タスクなら左に丸ではなく完了のチェックボックスを置く */
+  /** タスクなら左の丸が完了のチェックボックスになる（中にチェックの印を出す） */
   task: CalendarTaskItem | null;
   /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは「レモン」、メモは書いた人 */
   heading: string;
@@ -43,7 +43,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
-      // 参加者は丸（タスクはチェックボックス）の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
+      // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       const ids = item.participantIds;
       return {
         ...view,

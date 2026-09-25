@@ -1,7 +1,11 @@
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
+import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
+import type { ComponentType } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
 import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
@@ -28,8 +32,9 @@ type Props = {
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
  * その下にレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
- * タスクは左に丸ではなく完了のチェックボックスを置く。押せる範囲（ButtonBase）の中にボタンを入れられないので、
- * 押せる範囲には同じ大きさの空きを取り、チェックボックスはその上に重ねる（リストの行の `MarkedRow` と同じ考え方）。
+ * タスクは丸そのものが完了のチェックボックスで、中にチェックの印を出す（押すと完了・未完了が切り替わる）。
+ * 押せる範囲（ButtonBase）の中にボタンを入れられないので、押せる範囲には同じ大きさの空きを取り、
+ * チェックボックスはその上に重ねる（リストの行の `MarkedRow` と同じ考え方）。
  */
 export function TimelineRow({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
@@ -56,7 +61,11 @@ export function TimelineRow({ entry, onSelect }: Props) {
           textAlign: 'left',
         }}
       >
-        {view.task ? <Box sx={{ width: ICON_SIZE, flexShrink: 0 }} /> : <EntryIcon view={view} />}
+        {view.task ? (
+          <Box sx={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0 }} />
+        ) : (
+          <EntryIcon view={view} />
+        )}
         <EntryText view={view} />
       </ButtonBase>
       {view.task && (
@@ -72,7 +81,13 @@ export function TimelineRow({ entry, onSelect }: Props) {
             ...(multiline ? { top: ROW_PADDING_Y } : { top: '50%', transform: 'translateY(-50%)' }),
           }}
         >
-          <TaskCheckbox item={view.task} />
+          <TaskCheckbox
+            item={view.task}
+            icons={{
+              unchecked: <Circle colors={view.colors} icon={CheckBoxOutlineBlankIcon} />,
+              checked: <Circle colors={view.colors} icon={CheckBoxIcon} />,
+            }}
+          />
         </Box>
       )}
     </Box>
@@ -80,7 +95,11 @@ export function TimelineRow({ entry, onSelect }: Props) {
 }
 
 function EntryIcon({ view }: { view: EntryView }) {
-  const Icon = view.icon;
+  return <Circle colors={view.colors} icon={view.icon} />;
+}
+
+/** 左の丸。人の色（複数なら塗り分け）の上に白いアイコンを置く */
+function Circle({ colors, icon: Icon }: { colors: string[]; icon: ComponentType<SvgIconProps> }) {
   return (
     <Box
       sx={{
@@ -91,7 +110,7 @@ function EntryIcon({ view }: { view: EntryView }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: wedgeBackground(view.colors),
+        background: wedgeBackground(colors),
         color: FILL_TEXT,
       }}
     >
