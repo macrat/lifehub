@@ -74,7 +74,7 @@ export async function renderIcs(token: string, now: Date = new Date()): Promise<
   if (!feed) throw new NotFoundError('配信 URL が無効です');
   const base = today(now);
   const range = { from: addDays(base, -PAST_DAYS), to: addDays(base, FUTURE_DAYS) };
-  const occurrences = await listOccurrences(range, now, 'event');
+  const occurrences = await listOccurrences(range, now, { kind: 'event' });
   const included = occurrences.filter((occurrence) =>
     occurrence.participantIds.some((id) => feed.participantIds.includes(id)),
   );
@@ -92,7 +92,7 @@ export async function renderIcs(token: string, now: Date = new Date()): Promise<
  */
 export async function renderAllIcs(now: Date = new Date()): Promise<string> {
   const range = { from: toDateString(new Date(0)), to: addDays(today(now), FUTURE_DAYS) };
-  return toIcs(await listOccurrences(range, now, 'event'), now);
+  return toIcs(await listOccurrences(range, now, { kind: 'event' }), now);
 }
 
 /**

@@ -6,7 +6,7 @@ import SpaIcon from '@mui/icons-material/Spa';
 import { widerSearch } from './features/calendar/view.ts';
 import type { NavItem } from './lib/ui/nav-item.ts';
 
-/** 設定（PC のサイドナビにだけ出し、スマホではホームの末尾から開く） */
+/** 設定（PC のサイドナビにだけ出し、スマホではホームの AppBar の歯車から開く） */
 export const settingsNavItem: NavItem = {
   label: '設定',
   to: '/settings',

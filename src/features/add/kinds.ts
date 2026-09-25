@@ -1,4 +1,5 @@
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import EditIcon from '@mui/icons-material/Edit';
 import EventIcon from '@mui/icons-material/Event';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import SpaIcon from '@mui/icons-material/Spa';
@@ -15,6 +16,7 @@ export const ADD_KINDS = {
   task: { label: 'タスク', icon: ChecklistIcon },
   expense: { label: '立替', icon: PaymentsIcon },
   lemon: { label: 'レモン', icon: SpaIcon },
+  memo: { label: 'メモ', icon: EditIcon },
 } satisfies Record<AddKind, { label: string; icon: ComponentType }>;
 
 /** その場でフォームが開く種類（`AddForm`）。予定だけはカレンダーに下書きを置く */

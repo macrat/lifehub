@@ -15,6 +15,7 @@ import * as repository from './repository.ts';
 import type { NewEventRow } from './schema.ts';
 
 export { listItems, listOccurrences } from './occurrences.ts';
+export { listTimelineItems, recentTimelineInstants } from './timeline.ts';
 
 export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));

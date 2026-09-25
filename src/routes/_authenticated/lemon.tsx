@@ -1,6 +1,4 @@
-import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
-import Fab from '@mui/material/Fab';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
@@ -20,9 +18,9 @@ import { countActiveFilters, lemonSearchSchema } from '../../features/lemon/sear
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
-import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
@@ -98,9 +96,7 @@ function LemonPage() {
         onSelect={selection.open}
       />
 
-      <Fab color="primary" aria-label="レモンの記録を追加" onClick={openAdd} sx={FAB_SX}>
-        <AddIcon />
-      </Fab>
+      <AddFab label="レモンの記録を追加" onClick={openAdd} />
       {adding.value && <CareLogForm initialCareTypes={adding.value} onClose={adding.close} />}
       {selection.selected && (
         <CareLogDetailSheet

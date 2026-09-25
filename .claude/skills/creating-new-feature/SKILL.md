@@ -9,7 +9,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 
 ## チェックリスト
 
-1. **要件を書く**: `docs/features/<name>.md` に目的・画面・データ・API・MCP ツール・通知・ホームのカードを 1 ページで書く。
+1. **要件を書く**: `docs/features/<name>.md` に目的・画面・データ・API・MCP ツール・通知・ホームでの出し方を 1 ページで書く。
 2. **Zod スキーマ**: `shared/validation/<name>.ts` に入力スキーマを書く。クライアントのフォームと API で同じスキーマを使う。MCP ツールは API の写しにせず LLM が呼びやすい形に作り、項目の定義がそのまま分かりやすいときだけこのスキーマを共有する（`docs/architecture.md` の「レイヤー構成」）。
 3. **サーバー feature** `server/features/<name>/` を作る:
    - `schema.ts`（Drizzle テーブル。共通規約: uuid v7 主キー、`created_at` / `updated_at` / `created_by`、timestamptz）
@@ -23,8 +23,9 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `queries.ts`（`queryOptions` と mutation。`src/lib/api.ts` の Hono RPC クライアント経由。書き込みは `useOptimisticMutation`（`src/lib/query-client.ts`）で行い、`apply` に「サーバーが返すはずの値」だけを書く。取得の中断・失敗時の巻き戻し・通知・invalidate は共通）
    - `components/`（表示に専念。状態とロジックは queries / service / `use-*.ts` のフックに置く。記録 1 件の追加・閲覧・編集は `RecordSheet`（スマホはボトムシート、PC はダイアログ。閉じる・保存ボタンとエラー表示を持つ）+ `useFormSubmit`（`src/lib/form.ts` の `formText` / `formSelect` / `formList` で FormData を読む）で作り、呼び出し側が条件付きでマウントする。参加者の選択は `ParticipantsField`、繰り返しは `RecurrenceFields`。右下の追加ボタンは `AddMenu`（種類と受ける画面を `src/lib/add-pages.ts` の `ADD_PAGES` に、名前とアイコンを `src/features/add/kinds.ts` に足し、フォームを `AddForm` に足す。追加のフォームは保存先の mutation を自分で持つ）か `FAB_SX`（`src/lib/ui/layout.ts`））
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
-   - ホームのカードは `src/features/dashboard/cards/` に追加し（`DashboardCardFrame` の中で自分の機能のクエリを読む）、`src/routes/_authenticated/index.tsx` に置く
-   - ルートに loader は置かない（移動をデータで待たせない）。ページもカードも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
+   - 記録を持つ機能は、ホームのタイムライン（[docs/features/home.md](../../../docs/features/home.md)）に並べる: `shared/timeline.ts` に行の形と日時の規則を足し、service にページ分けと範囲の読み出し（`recentTimelineInstants` / `listForTimeline`）を足して `server/features/timeline/service.ts` から呼ぶ。書き込みの `keys` に `TIMELINE_QUERY_KEY` を入れ、行の詳細を `TimelineEntrySheet` に足す
+   - ホームの状態のタイルは `src/features/dashboard/components/StatusCards.tsx` に足す（自分の機能のクエリを読む）
+   - ルートに loader は置かない（移動をデータで待たせない）。ページもタイルも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
 8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。
 

@@ -81,6 +81,18 @@ export function formatDateTime(value: Date | string): string {
   return `${formatDate(value)} ${formatTime(value)}`;
 }
 
+/**
+ * タイムラインの日時。今日なら時刻だけ（日付だけの記録は「今日」）、今年なら "9/20(日) 09:00"、
+ * 別の年なら年から "2025/9/20(土) 09:00"。行の右に添える薄い字なので、分かる範囲で短くする。
+ */
+export function formatTimelineTime(at: string, dateOnly: boolean, now: Date = new Date()): string {
+  const date = toDateString(new Date(at));
+  const todayDate = today(now);
+  if (date === todayDate) return dateOnly ? '今日' : formatTime(at);
+  const text = dateOnly ? formatDate(at) : formatDateTime(at);
+  return date.slice(0, 4) === todayDate.slice(0, 4) ? text : `${date.slice(0, 4)}/${text}`;
+}
+
 /** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
 export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
   return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);

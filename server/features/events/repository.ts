@@ -1,5 +1,6 @@
 import {
   and,
+  desc,
   eq,
   getTableColumns,
   gt,
@@ -8,6 +9,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  not,
   notExists,
   or,
   type SQL,
@@ -16,6 +18,7 @@ import {
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
 import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
+import { containsKeyword } from '../../lib/history.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -43,13 +46,24 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt',
+  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
-function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undefined {
+/** 検索（ホームのタイムライン）: タイトルかメモの部分一致。空のキーワードは条件にしない */
+function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | undefined) {
+  return or(containsKeyword(table.title, q), containsKeyword(table.note, q));
+}
+
+function isCandidate(
+  table: CandidateColumns,
+  from: Date,
+  to: Date,
+  q: string | undefined,
+): SQL | undefined {
   const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
+    keywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -97,24 +111,89 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
+ * q を渡すと、タイトルかメモが当たる繰り返し元・単発だけを読む（ホームのタイムラインの検索。
+ * 当たらない繰り返しを展開してから捨てずに済む）。
  */
-export async function findCalendarRows(from: Date, to: Date): Promise<EventWithParticipants[]> {
+export async function findCalendarRows(
+  from: Date,
+  to: Date,
+  q?: string,
+): Promise<EventWithParticipants[]> {
   const master = alias(events, 'master');
   return selectRows()
     .where(
       or(
-        isCandidate(events, from, to),
+        isCandidate(events, from, to, q),
         inArray(
           events.seriesId,
           db
             .select({ id: master.id })
             .from(master)
-            .where(isCandidate(master, from, to)),
+            .where(isCandidate(master, from, to, q)),
         ),
       ),
     )
     .groupBy(events.id)
     .orderBy(events.startsAt, events.createdAt);
+}
+
+/**
+ * タイムラインで行を置く日時: 予定は開始、タスクは完了した日時（shared/timeline.ts の `eventEntry`）。
+ * 未完了のタスクは一番上にまとめるか（開始を過ぎた・日時が無い）、24 時間以内の開始の位置にしか出ないので、
+ * ページの区切りを決めるのには数えない（null はどの比較にも当たらない）。
+ * 繰り返し元は回ごとに日時が違うので、この式を使うのは単発の行と実体化された回（どちらも rrule を持たない）だけ。
+ */
+const timelineAt = sql<Date>`case
+  when ${events.kind} = 'event' then ${events.startsAt}
+  else ${events.completedAt}
+end`.mapWith(events.startsAt);
+
+/**
+ * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
+ * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する
+ */
+export async function findRecentTimelineInstants(
+  before: Date,
+  q: string | undefined,
+  limit: number,
+): Promise<Date[]> {
+  const rows = await db
+    .select({ at: timelineAt })
+    .from(events)
+    .where(
+      and(
+        isNull(events.rrule),
+        not(events.cancelled),
+        lt(timelineAt, before),
+        keywordOf(events, q),
+      ),
+    )
+    .orderBy(desc(timelineAt))
+    .limit(limit);
+  return rows.map((row) => row.at);
+}
+
+/**
+ * before より前に回を持つ、繰り返す予定の繰り返し元（タイムラインのページ分けで回を展開する）。
+ * 繰り返すタスクの回は、完了した回が実体化された行として `findRecentTimelineInstants` に入り、
+ * 未完了の回は今に近い 2 つしか出ない（docs/features/events.md）ので、ページ分けには含めない。
+ */
+export async function findRecurringEventsBefore(
+  before: Date,
+  q: string | undefined,
+): Promise<{ rrule: string; startsAt: Date }[]> {
+  const rows = await db
+    .select({ rrule: events.rrule, startsAt: events.startsAt })
+    .from(events)
+    .where(
+      and(
+        isNotNull(events.rrule),
+        eq(events.kind, 'event'),
+        lt(events.startsAt, before),
+        keywordOf(events, q),
+      ),
+    );
+  return rows.flatMap(({ rrule, startsAt }) => (rrule && startsAt ? [{ rrule, startsAt }] : []));
 }
 
 /**

@@ -1,4 +1,5 @@
 import {
+  type QueryClient,
   queryOptions,
   type UseQueryResult,
   useQueries,
@@ -11,7 +12,9 @@ import {
   type CalendarPeriod,
   type DateRange,
   inRange,
+  occurrenceKey,
 } from '../../../shared/calendar.ts';
+import { eventEntry } from '../../../shared/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
@@ -19,6 +22,8 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
+import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
 import { type WriteTarget, writeTarget } from './recurrence-options.ts';
@@ -38,8 +43,11 @@ export function eventQueryOptions(id: string) {
   });
 }
 
-/** 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行） */
-const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
+/**
+ * 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行と、全機能の記録を並べるタイムライン）。
+ * タイムラインには先回りして書かず、取り直しに任せる（`applyToTimeline` の理由）
+ */
+const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 export function useCreateEvent() {
   return useCreateMutation<CreateEventBody>({
@@ -77,7 +85,7 @@ export function useDeleteEvent() {
   });
 }
 
-/** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
+/** タスクの完了・完了取り消し。カレンダーのリスト・ホームのタイムラインの行と詳細から呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
   return useOptimisticMutation({
     request: ({
@@ -94,9 +102,28 @@ export function useToggleCompletion() {
       body: { occurrenceStart: occurrenceStart ?? undefined },
     }),
     keys: WRITE_KEYS,
-    apply: (client, { id, occurrenceStart, completed }) =>
-      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed),
+    apply: (client, { id, occurrenceStart, completed }) => {
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed);
+      toggleOnTimeline(client, id, occurrenceStart, completed);
+    },
   });
+}
+
+/**
+ * タイムラインの行（ホームでチェックを押すと、その場で完了の見た目と位置が変わる）。
+ * 完了は回ごとの 1 項目だけの変化なので、ほかの書き込みと違ってタイムラインにも先回りして書ける
+ */
+function toggleOnTimeline(
+  client: QueryClient,
+  id: string,
+  occurrenceStart: string | null,
+  completed: boolean,
+): void {
+  const entryId = occurrenceKey({ kind: 'task', id, occurrenceStart });
+  const prev = findInTimeline(client, entryId);
+  if (prev?.type !== 'event' || prev.item.kind !== 'task') return;
+  const completedAt = completed ? new Date().toISOString() : null;
+  applyToTimeline(client, entryId, eventEntry({ ...prev.item, completedAt }));
 }
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----
@@ -175,7 +202,7 @@ export function useCalendarItems(
 }
 
 /**
- * カレンダーの項目を出す画面（カレンダー・ホームの「今日」カード）が、入ったときに取り直すためのもの。
+ * カレンダー画面が、入ったときに取り直すためのもの。
  * マウントの 1 回だけ取り直すので、同じ画面に留まる限り（表示や日付の切り替え）取り直しは起きない。
  * 画面を行き来したとき（マウントし直す）と、再読み込みしたとき（読み込み直す）だけサーバーに問い合わせる。
  *

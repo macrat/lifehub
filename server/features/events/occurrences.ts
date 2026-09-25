@@ -32,17 +32,17 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
  * カレンダーは暦日に置いた `listItems` を読み、ics の配信（calendar-feeds）は日ごとに割らない
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
- * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
+ * `kind` を渡すとその種別だけを展開する。`q` を渡すとタイトルかメモが当たる予定・タスクだけを読む。展開は繰り返し 1 つにつき期間の長さぶん走るので、
  * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
  * 捨てるものを展開してから捨てずに済む。
  */
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  kind?: EventKind,
+  { kind, q }: { kind?: EventKind; q?: string | undefined } = {},
 ): Promise<Occurrence[]> {
   const instants = instantRange(range);
-  const rows = await repository.findCalendarRows(instants.from, instants.to);
+  const rows = await repository.findCalendarRows(instants.from, instants.to, q);
 
   // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
   const masters: EventWithParticipants[] = [];

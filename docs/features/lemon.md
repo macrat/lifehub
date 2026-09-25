@@ -36,4 +36,4 @@
 
 ## ホームのカード
 
-「レモン」: 葉水・水やりそれぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む（`src/features/dashboard/cards/LemonCard.tsx`）。タイルをタップするとレモンページと同じくその項目にチェックを入れた状態で記録フォームが開く。どちらの画面も同じ `CareStatusGrid` を出すので、行き来するときは同じ項目のタイルがその場から動き、片方にしかない項目はフェードする（View Transition。名前は `care-<項目>`）。
+葉水・水やりのタイル（`CareStatusTile`。並べるのは `src/features/dashboard/components/StatusCards.tsx`）: それぞれの最終実施日からの経過日数。レモンページと同じ `lemonStatusQueryOptions` を読む。タイルをタップするとレモンページと同じくその項目にチェックを入れた状態で記録フォームが開く。レモンページのタイルと同じ部品なので、行き来するときは同じ項目のタイルがその場から動き、片方にしかない項目はフェードする（View Transition。名前は `care-<項目>`）。記録はホームのタイムライン（[home.md](home.md)）にも並ぶ。

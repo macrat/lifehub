@@ -9,16 +9,16 @@ import { countFetches, quiet, stall } from './network.ts';
  */
 test('タブの切り替えはデータを待たず、届くまで骨組みを出す', async ({ page }) => {
   await login(page);
-  await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
+  await expect(page.getByLabel('記録を検索')).toBeVisible();
 
   // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を 5 秒遅らせる
   await stall(page, '**/api/expenses', 5000);
 
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
-  // 立替の画面（AppBar の検索窓）が出て、ホームのカードは残っていない
+  // 立替の画面（AppBar の検索窓）が出て、ホームの検索窓は残っていない
   await expect(page.getByLabel('立替を検索')).toBeVisible({ timeout: 3000 });
-  await expect(page.getByRole('heading', { name: '今日' })).toHaveCount(0);
+  await expect(page.getByLabel('記録を検索')).toHaveCount(0);
   // 履歴の場所には骨組みが出ていて、届いたら消える
   await expect(page.locator('[aria-busy="true"]')).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 });
@@ -42,7 +42,7 @@ test('一度見た画面に戻るときは、キャッシュを即座に出し�
   await stall(page, '**/api/expenses');
 
   await page.getByRole('link', { name: 'ホーム' }).click();
-  await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
+  await expect(page.getByLabel('記録を検索')).toBeVisible();
   const refetch = page.waitForRequest(
     (request) => new URL(request.url()).pathname === '/api/expenses',
   );
@@ -62,7 +62,7 @@ test('一度見た画面に戻るときは、キャッシュを即座に出し�
  */
 test('ユーザーは画面を移っても取り直さない', async ({ page }) => {
   await login(page);
-  await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
+  await expect(page.getByLabel('記録を検索')).toBeVisible();
   const fetches = countFetches(page, '/api/me');
   // 名前と色を読む画面を一通り開く。移った先が出るまで待つ（部品がマウントされて初めて取り直しが走る）
   const visit = async (name: string, arrived: Locator) => {
@@ -72,7 +72,7 @@ test('ユーザーは画面を移っても取り直さない', async ({ page }) 
   await visit('立替', page.getByLabel('立替を検索'));
   await visit('レモン', page.getByLabel('メモを検索'));
   await visit('予定', page.getByRole('button', { name: '表示の切替' }));
-  await visit('ホーム', page.getByRole('heading', { name: '今日' }));
+  await visit('ホーム', page.getByLabel('記録を検索'));
   // 戻ってきたときも取り直さない
   await visit('立替', page.getByLabel('立替を検索'));
   await quiet(page, fetches);

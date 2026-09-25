@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { type ColorMode, DEFAULT_HUE, hueColor, SURFACE } from '../../shared/color.ts';
 import { meQueryOptions } from './auth.ts';
 import { createStore } from './store.ts';
+import { SQUIRCLE_CLIP_PATH } from './ui/squircle.ts';
 
 /** 表示モード。テーマは prefers-color-scheme に追従するので、色を自前で計算する部品もこれに合わせる */
 export function useColorMode(): ColorMode {
@@ -141,10 +142,12 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
       },
       MuiFab: {
         styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 16,
-            boxShadow: t.shadows[3],
-          }),
+          // 丸い（ラベルを持たない）追加ボタンはスクワークルに切り抜く。切り抜くと影も消えるので、
+          // 影は外側の箱が持つ（`SQUIRCLE_SHADOW`）。ラベル付きの pill（追加ボタンを開いた中の項目）は角丸のまま
+          root: ({ theme: t, ownerState }) =>
+            ownerState.variant === 'extended'
+              ? { borderRadius: 16, boxShadow: t.shadows[3] }
+              : { borderRadius: 0, boxShadow: 'none', clipPath: SQUIRCLE_CLIP_PATH },
         },
       },
       MuiBottomNavigation: {

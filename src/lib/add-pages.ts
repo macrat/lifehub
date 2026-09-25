@@ -5,6 +5,7 @@
  * 読むのはアプリとビルド時（manifest とアイコンの生成）なので、React にも zod にも依存させない。
  */
 export const ADD_PAGES = {
+  '/': ['memo'],
   '/calendar': ['event', 'task'],
   '/expenses': ['expense'],
   '/lemon': ['lemon'],

@@ -192,6 +192,18 @@ export function placeOccurrence(
   return inRange(task.placementDate, range) ? [task] : [];
 }
 
+/**
+ * 発生を暦日の範囲によらず 1 件の項目にする。予定は始まる日（複数日でも 1 日目だけ）、
+ * タスクは表示規則（`placeTask`）の日に置く。日ごとに割らずに 1 回の発生を 1 行で出す所
+ * （ホームのタイムライン）が、カレンダーと同じ形の項目を詳細にそのまま渡せるようにする。
+ */
+export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem | null {
+  if (occurrence.kind === 'task') return placeTask(occurrence, now);
+  if (!occurrence.startsAt) return null;
+  const day = toDateString(new Date(occurrence.startsAt));
+  return placeEvent(occurrence, { from: day, to: day })[0] ?? null;
+}
+
 /** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 → 時刻の無いタスク */
 export function sortItems(items: CalendarItem[]): CalendarItem[] {
   return [...items].sort(compareItems);

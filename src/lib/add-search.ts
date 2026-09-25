@@ -12,7 +12,7 @@ import { traverseTo } from './ui/dialog-history.ts';
  * 追加のフォームを持つ機能（予定・立替・レモン）がそれぞれ読むので、どの機能にも属さない
  * `src/lib` に置く（機能から `features/add` を読むと、機能のフォームを読む `features/add` と輪になる）。
  */
-export const addSearchSchema = (page: AddPage) => z.enum(ADD_PAGES[page]).optional();
+export const addSearchSchema = <P extends AddPage>(page: P) => z.enum(ADD_PAGES[page]).optional();
 
 /**
  * 別の画面の追加ボタンから来た印（履歴の state）。入力を閉じたら、来る前の画面（来たときの 1 つ前の

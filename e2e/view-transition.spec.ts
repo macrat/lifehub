@@ -105,16 +105,16 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
   expect((await transitions(page)).length).toBe(before);
 });
 
-test('ホームと立替・レモンを行き来すると、残高とカードが同じ名前で前後の画面に在る', async ({
+test('ホームと立替・レモンを行き来すると、残高とタイルが同じ名前で前後の画面に在る', async ({
   page,
 }) => {
-  await expect(page.getByRole('heading', { name: '立替残高' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /立替残高/ })).toBeVisible();
   const home = await names(page);
   expect(home).toContain('balance');
   expect(home).toContain('care-water');
   expect(new Set(home).size).toBe(home.length);
 
-  await page.getByRole('button', { name: '立替残高' }).click();
+  await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
   await settle(page);
   expect(await names(page)).toContain('balance');
@@ -122,7 +122,7 @@ test('ホームと立替・レモンを行き来すると、残高とカード�
   await page.getByRole('link', { name: 'ホーム' }).click();
   await expect(page).toHaveURL('/');
   await settle(page);
-  await page.getByRole('button', { name: 'レモン' }).click();
+  await page.getByRole('link', { name: 'レモン' }).click();
   await expect(page).toHaveURL('/lemon');
   await settle(page);
   expect(await names(page)).toContain('care-water');
@@ -130,33 +130,35 @@ test('ホームと立替・レモンを行き来すると、残高とカード�
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
 
-test('ホームと予定を行き来すると、今日の項目が同じ名前で前後の画面に在る', async ({ page }) => {
-  // 日時なしのタスクは今日の位置に出る（ホームの「今日」にも、カレンダーの日表示にも）
+test('ホームと予定を行き来すると、タイムラインの項目が同じ名前で前後の画面に在る', async ({
+  page,
+}) => {
+  // 日時なしのタスクはタイムラインの一番上と、カレンダーの今日の位置に出る
   await page.request.post('/api/events', {
     data: { kind: 'task', title: 'VT ホーム', participantIds: [await myId(page)] },
   });
   await page.goto('/');
   await expect(page.getByText('VT ホーム')).toBeVisible();
 
-  /** 予定・タスクの名前だけ（残高やレモンのカードは別の名前で動く） */
+  /** 予定・タスクの名前だけ（残高やレモンのタイルは別の名前で動く） */
   const items = (all: string[]) => all.filter((name) => name.startsWith('item-')).sort();
 
   const home = await names(page);
   expect(new Set(home).size).toBe(home.length);
-  expect(items(home).length).toBeGreaterThan(0);
+  const task = items(home).find((name) => name.includes('task-'));
+  expect(task).toBeDefined();
 
-  // ホームの「今日」から日表示へ。ホームに在った項目はいずれも同じ名前で日表示にも在る
-  await page.getByRole('heading', { name: '今日' }).click();
-  await expect(page).toHaveURL(/view=day/);
+  // 予定画面へ。同じタスクが同じ名前で予定画面にも在る
+  await page.getByRole('link', { name: '予定' }).click();
+  await expect(page).toHaveURL(/calendar/);
   await settle(page);
-  const day = await names(page);
-  expect(items(home).filter((name) => !day.includes(name))).toEqual([]);
+  expect(await names(page)).toContain(task);
 
   // 戻りも同じ
   await page.getByRole('link', { name: 'ホーム' }).click();
   await expect(page).toHaveURL('/');
   await settle(page);
-  expect(items(await names(page))).toEqual(items(home));
+  expect(await names(page)).toContain(task);
 
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });

@@ -1,4 +1,5 @@
-import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
+import { TIME_ZONE } from '../../../shared/constants.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -7,7 +8,7 @@ import {
   SHARED,
 } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage, type InstantRange } from '../../lib/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -45,6 +46,47 @@ function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
         : undefined,
     f.from !== undefined ? eq(expenses.fromUserId, f.from) : undefined,
   ];
+}
+
+/**
+ * タイムラインで立替を置く日時。使った日に記録したものは記録した時刻、後から記録したものはその日の始まり
+ * （shared/timeline.ts の `expenseEntry` と同じ式。並べる位置とページの区切りが画面の出す位置と一致する）。
+ */
+const timelineAt = sql<Date>`case
+  when (${expenses.createdAt} at time zone ${TIME_ZONE})::date = ${expenses.spentOn} then ${expenses.createdAt}
+  else ${expenses.spentOn}::timestamp at time zone ${TIME_ZONE}
+end`.mapWith(expenses.createdAt);
+
+/** タイムラインの日時が before より前の、新しいほうから limit 件の日時（タイムラインのページ分け） */
+export async function findRecentTimelineInstants(
+  before: Date,
+  q: string | undefined,
+  limit: number,
+): Promise<Date[]> {
+  const rows = await db
+    .select({ at: timelineAt })
+    .from(expenses)
+    .where(and(lt(timelineAt, before), containsKeyword(expenses.description, q)))
+    .orderBy(desc(timelineAt))
+    .limit(limit);
+  return rows.map((row) => row.at);
+}
+
+/** タイムラインの日時が [from, to) の立替 */
+export async function findInTimelineRange(
+  range: InstantRange,
+  q: string | undefined,
+): Promise<ExpenseRow[]> {
+  return db
+    .select()
+    .from(expenses)
+    .where(
+      and(
+        gte(timelineAt, range.from),
+        lt(timelineAt, range.to),
+        containsKeyword(expenses.description, q),
+      ),
+    );
 }
 
 /**

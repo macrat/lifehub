@@ -8,8 +8,10 @@ import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feed
 import { eventsRoutes } from './features/events/routes.ts';
 import { expensesRoutes } from './features/expenses/routes.ts';
 import { lemonRoutes } from './features/lemon/routes.ts';
+import { memosRoutes } from './features/memos/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
+import { timelineRoutes } from './features/timeline/routes.ts';
 import { usersRoutes } from './features/users/routes.ts';
 import { getMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
@@ -77,6 +79,8 @@ const routes = api
   .route('/api-keys', apiKeysRoutes)
   .route('/expenses', expensesRoutes)
   .route('/lemon', lemonRoutes)
+  .route('/memos', memosRoutes)
+  .route('/timeline', timelineRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

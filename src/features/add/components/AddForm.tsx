@@ -4,6 +4,7 @@ import { ItemCreateForm } from '../../events/components/ItemCreateForm.tsx';
 import { defaultParticipants, defaultTaskValues } from '../../events/form-values.ts';
 import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
+import { MemoForm } from '../../memos/components/MemoForm.tsx';
 import type { AddFormKind } from '../kinds.ts';
 
 type Props = {
@@ -14,7 +15,7 @@ type Props = {
 /**
  * 何もない所から 1 件追加するフォーム。追加ボタン（`AddMenu`）からも
  * PWA のショートカット（各画面の `add`）からも、種類を渡すだけで同じ既定値の入力が開く。
- * 立替・レモンはそれぞれの機能のフォームそのもので、各画面の追加ボタンからも同じものを開く。
+ * 立替・レモン・メモはそれぞれの機能のフォームそのもので、各画面の追加ボタンからも同じものを開く。
  */
 export function AddForm({ kind, onClose }: Props) {
   switch (kind) {
@@ -24,6 +25,8 @@ export function AddForm({ kind, onClose }: Props) {
       return <ExpenseForm onClose={onClose} />;
     case 'lemon':
       return <CareLogForm onClose={onClose} />;
+    case 'memo':
+      return <MemoForm onClose={onClose} />;
   }
 }
 
