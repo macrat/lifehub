@@ -88,7 +88,8 @@ type LayoutProps = {
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
  * 段はこのシートだけのもので、開く段は下書きが決める（グリッドからは下の段、追加ボタンからは上の段）。
- * 開いてもタイトルに焦点は置かない（開いた途端にキーボードでグリッドを隠さない）。
+ * 追加ボタンから開いた（上の段で開く）ときは、予定には必ずタイトルを入れるのでタイトルに焦点を当てる。
+ * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
   draft,
@@ -126,6 +127,7 @@ function QuickSheet({
           <QuickFields
             form={form}
             title={initial.title}
+            autoFocus={draft.detent === 'full'}
             rangeText={detent === 'peek' ? draftText(draft.range) : null}
             participantIds={draft.participantIds}
             onChangeParticipants={onChangeParticipants}
@@ -262,6 +264,7 @@ function QuickFields({
   form,
   title,
   titleRef,
+  autoFocus = false,
   rangeText,
   participantIds,
   onChangeParticipants,
@@ -271,6 +274,8 @@ function QuickFields({
   title: string;
   /** タイトルの入力欄。焦点を置くときに使う */
   titleRef?: RefObject<HTMLInputElement | null>;
+  /** 出た所でタイトルに焦点を当てるか */
+  autoFocus?: boolean;
   rangeText: string | null;
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
@@ -285,6 +290,7 @@ function QuickFields({
         label="タイトルを追加"
         defaultValue={title}
         inputRef={titleRef}
+        autoFocus={autoFocus}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
         fullWidth
