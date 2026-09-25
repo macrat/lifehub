@@ -50,15 +50,10 @@ export function AppShell({ navItems, children }: Props) {
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
-  // 最初の位置を画面が決めるタブ（`'initialPosition'`）では、ルーターが移動の後に行うスクロール位置の
-  // 復元を止める（resetScroll: false）。止めないと、画面が置いた最初の位置を一番上（別の画面から来たとき）や
-  // 押した時点の位置（今いる画面で押したとき）へ戻してしまう
-  const linkProps = (item: NavItem) => {
-    const active = isActive(item.to);
-    if (item.reselect === 'initialPosition') {
-      return { resetScroll: false, onClick: active ? scrollToInitialPosition : undefined };
-    }
-    return { search: active ? item.reselect?.search : undefined };
+  const reselectProps = (item: NavItem) => {
+    if (!isActive(item.to)) return {};
+    if (item.reselect === 'initialPosition') return { onClick: scrollToInitialPosition };
+    return { search: item.reselect?.search };
   };
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
@@ -88,7 +83,7 @@ export function AppShell({ navItems, children }: Props) {
             <List component="nav">
               {navItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemLink to={item.to} {...linkProps(item)} selected={isActive(item.to)}>
+                  <ListItemLink to={item.to} {...reselectProps(item)} selected={isActive(item.to)}>
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -151,7 +146,7 @@ export function AppShell({ navItems, children }: Props) {
                   label={item.label}
                   icon={<item.icon />}
                   to={item.to}
-                  {...linkProps(item)}
+                  {...reselectProps(item)}
                 />
               ))}
             </BottomNavigation>

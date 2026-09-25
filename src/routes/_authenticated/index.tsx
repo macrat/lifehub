@@ -25,6 +25,7 @@ import { settingsNavItem } from '../../navigation.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
   validateSearch: timelineSearchSchema,
+  staticData: { ownsScroll: true },
   component: HomePage,
 });
 

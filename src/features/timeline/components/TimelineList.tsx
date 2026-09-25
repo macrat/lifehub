@@ -17,8 +17,8 @@ type Props = {
 /**
  * タイムライン。上が新しく下が古く、下の端へ近づくと古いほうのページを読み足す（`useEdgeObserver`）。
  * 立替・レモンの履歴（`HistoryList`）とは上下が逆で、足すのはいつも下なので、見ている所を保つ仕掛けは要らない。
- * 最初の位置は一番上（最新）。開いたときと絞り込みを変えたときにそこへ置く（戻る・進むで来たときは、
- * この後でルーターが前にいた位置へ戻す）。
+ * 最初の位置は一番上（最新）。開いたときと絞り込みを変えたときにそこへ置く（ルーターは位置に触らない。
+ * ホームのルートの `staticData.ownsScroll`）。
  */
 export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
   const endRef = useRef<HTMLDivElement>(null);

@@ -77,6 +77,21 @@ export function InfiniteScroll({
     };
   }, []);
 
+  /**
+   * 最初の位置へ動かし、置けたかを返す。目当ての要素が無ければ末尾へ動かし、置けたことにする。
+   * なめらかに動かすときは動き終わりを待てないので、返す値に意味は無い
+   */
+  const place = (list: HTMLElement, behavior: ScrollBehavior): boolean => {
+    const target = initial?.target(list);
+    if (!target) {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
+      return true;
+    }
+    return initial?.block === 'end'
+      ? scrollToBottom(target, behavior)
+      : scrollToTop(target, headerBottom, behavior);
+  };
+
   // 描画のたびに: 別の一覧になったら（留めている間は毎回）最初の位置へ、そうでなければ見ていた所へ
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -87,14 +102,7 @@ export function InfiniteScroll({
       pinned.current = true;
     }
     if (pinned.current) {
-      const target = initial?.target(list);
-      if (target) {
-        pinned.current =
-          initial?.block === 'end' ? !scrollToBottom(target) : !scrollToTop(target, headerBottom);
-      } else {
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        pinned.current = false;
-      }
+      pinned.current = !place(list, 'instant');
     } else if (anchor.current?.element.isConnected) {
       const { element, top } = anchor.current;
       window.scrollBy(0, element.getBoundingClientRect().top - top);
@@ -103,11 +111,7 @@ export function InfiniteScroll({
   });
 
   useInitialPosition(() => {
-    const target = listRef.current && initial?.target(listRef.current);
-    if (!target)
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-    else if (initial?.block === 'end') scrollToBottom(target, 'smooth');
-    else scrollToTop(target, headerBottom, 'smooth');
+    if (listRef.current) place(listRef.current, 'smooth');
   });
 
   useEdgeObserver(startRef, onReachStart);
@@ -149,7 +153,7 @@ function findAnchor(list: Element, top: number): Element | null {
 function scrollToTop(
   target: Element,
   headerBottom: () => number,
-  behavior: ScrollBehavior = 'instant',
+  behavior: ScrollBehavior,
 ): boolean {
   const gap = () => target.getBoundingClientRect().top - headerBottom();
   if (behavior === 'smooth') window.scrollBy({ top: gap(), behavior });
@@ -161,7 +165,7 @@ function scrollToTop(
  * target の下端を画面の下端（scroll-padding-bottom の分だけ上）に置き、置けたかを返す
  * （上が足りないと途中で止まる）。位置の計算はブラウザの scrollIntoView に任せる
  */
-function scrollToBottom(target: Element, behavior: ScrollBehavior = 'instant'): boolean {
+function scrollToBottom(target: Element, behavior: ScrollBehavior): boolean {
   target.scrollIntoView({ block: 'end', behavior });
   const root = document.documentElement;
   const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;

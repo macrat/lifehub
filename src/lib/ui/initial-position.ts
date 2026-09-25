@@ -11,8 +11,10 @@ const EVENT = 'lifehub:scroll-to-initial';
  * 受け取らなければ、最初の位置は一番上
  */
 export function scrollToInitialPosition() {
-  const handled = !window.dispatchEvent(new Event(EVENT, { cancelable: true }));
-  if (!handled) window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 取り消されていない＝受け取った一覧が無い
+  if (window.dispatchEvent(new Event(EVENT, { cancelable: true }))) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 /** 最初の位置が一番上ではない一覧が、そこまでなめらかにスクロールする方法を受け持つ */

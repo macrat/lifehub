@@ -1,5 +1,5 @@
 import { devices, expect, type Page, test } from '@playwright/test';
-import { toDateString } from '../shared/date.ts';
+import { bottomNav, careLogBody, expenseBody, gapAboveBottomNav } from './history.ts';
 import { login, myId } from './login.ts';
 
 /**
@@ -66,24 +66,14 @@ const histories = [
     name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いたまま',
     path: '/expenses',
     api: '/api/expenses',
-    body: (me: string, at: Date, text: string) => ({
-      fromUserId: me,
-      toUserId: null,
-      amount: 100,
-      description: text,
-      spentOn: toDateString(at),
-    }),
+    body: expenseBody,
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
   },
   {
     name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
     api: '/api/lemon/logs',
-    body: (_me: string, at: Date, text: string) => ({
-      careTypes: ['water'],
-      doneAt: at.toISOString(),
-      note: text,
-    }),
+    body: careLogBody,
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
   },
 ];
@@ -125,17 +115,14 @@ for (const history of histories) {
       await expect(page.getByText(todayLast)).toBeInViewport();
       await expect(sticky).toBeInViewport();
       await expect(page.getByText(oldest)).toHaveCount(0);
-      // 今日の最後の記録が下部ナビのすぐ上（間に別の行が入る隙間が無い。測るのは行の中の文字で、
-      // 立替はその下に名前と日の区切りの余白があるので、行 1 つ分の高さ未満で見る）。
+      // 今日の最後の記録が下部ナビのすぐ上（間に別の行が入る隙間が無い）。
       // 未来の記録はその下で、下部ナビに覆われているか画面の外にある
-      const nav = await page.getByRole('navigation').last().boundingBox();
-      const last = await page.getByText(todayLast).boundingBox();
-      const next = await page.getByText(future).boundingBox();
-      const navTop = nav?.y ?? 0;
-      const gap = navTop - ((last?.y ?? 0) + (last?.height ?? 0));
+      const gap = await gapAboveBottomNav(page, todayLast);
       expect(gap).toBeGreaterThanOrEqual(0);
       expect(gap).toBeLessThan(48);
-      expect(next?.y ?? 0).toBeGreaterThanOrEqual(navTop);
+      const nav = await bottomNav(page).boundingBox();
+      const next = await page.getByText(future).boundingBox();
+      expect(next?.y ?? 0).toBeGreaterThanOrEqual(nav?.y ?? 0);
 
       // 上へ戻ると古いほうのページを読む。上に貼り付けた物は隠れない
       await expect(async () => {
