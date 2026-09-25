@@ -10,6 +10,7 @@ import {
 import { careLogEntry, timelineEntryId } from '../../../shared/timeline.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
+import { meQueryOptions } from '../../lib/auth.ts';
 import {
   applyToHistories,
   findInHistories,
@@ -71,6 +72,8 @@ export function useLogCare() {
         careTypes: input.careTypes,
         doneAt: input.doneAt,
         note: input.note ?? null,
+        // 画面から記録するのはログイン中の人（サーバーもセッションのユーザーを記録者にする）
+        createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? null,
       };
       applyLog(client, input.id, log);
       client.setQueryData(
