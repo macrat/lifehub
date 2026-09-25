@@ -43,4 +43,4 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 
 ## ホームのカード
 
-「立替残高」のタイル（`src/features/expenses/components/BalanceTile.tsx`。並べるのは `src/features/dashboard/components/StatusCards.tsx`）: 金額（0 なら「精算済み」）と「A → B」（A が B に払うと精算）。立替ページと同じ `useBalance` を読む。押すと立替の入力が開く。立替ページの残高（`BalanceSummary`）と同じ View Transition の名前（`balance`）を持ち、行き来するときは残高がその場から動く。立替はホームのタイムライン（[home.md](home.md)）にも並ぶ。
+「立替残高」のタイル（`src/features/expenses/components/BalanceTile.tsx`。並べるのは `src/features/dashboard/components/StatusCards.tsx`）: 金額（0 なら「精算済み」）と「A → B」（A が B に払うと精算）。立替ページと同じ `useBalance` を読む。押すと立替の入力が開く。行き来するときは立替ページの残高（`BalanceSummary`）との間で金額だけがその場から動く（View Transition。理由は `src/features/expenses/balance-transition.ts`）。立替はホームのタイムライン（[home.md](home.md)）にも並ぶ。

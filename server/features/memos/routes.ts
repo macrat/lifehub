@@ -18,11 +18,11 @@ export const memosRoutes = new Hono<AppEnv>()
     zValidator('param', idParamSchema, validationHook),
     zValidator('json', memoSchema, validationHook),
     async (c) => {
-      await service.updateMemo(c.req.valid('param').id, c.req.valid('json'));
+      await service.updateMemo(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);
     },
   )
   .delete('/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
-    await service.deleteMemo(c.req.valid('param').id);
+    await service.deleteMemo(c.req.valid('param').id, c.get('user').id);
     return c.body(null, 204);
   });
