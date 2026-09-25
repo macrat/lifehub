@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import {
   addRecord,
   bottomNav,
@@ -52,11 +52,24 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** 最初の位置が一番上の画面（top）か、今日の最後の記録が下部ナビのすぐ上の画面（bottom）か */
-type Tab = { name: string; path: string; today: string; initial: 'top' | 'bottom' };
+type Tab = {
+  name: string;
+  path: string;
+  today: string;
+  initial: 'top' | 'bottom';
+  /** 下へスクロールすると隠れる帯の中の文字 */
+  scrollAwayHeader?: string;
+};
 
 const tabs: Tab[] = [
-  { name: 'ホーム', path: '/', today: lemonToday, initial: 'top' },
-  { name: '立替', path: '/expenses', today: expenseToday, initial: 'bottom' },
+  { name: 'ホーム', path: '/', today: lemonToday, initial: 'top', scrollAwayHeader: '葉水' },
+  {
+    name: '立替',
+    path: '/expenses',
+    today: expenseToday,
+    initial: 'bottom',
+    scrollAwayHeader: '残高',
+  },
   { name: 'レモン', path: '/lemon', today: lemonToday, initial: 'bottom' },
 ];
 
@@ -76,6 +89,11 @@ function scrollPositions(page: Page): Promise<number[]> {
         window.addEventListener('scrollend', () => resolve(positions), { once: true });
       }),
   );
+}
+
+async function bottomOf(locator: Locator) {
+  const box = await locator.first().boundingBox();
+  return (box?.y ?? 0) + (box?.height ?? 0);
 }
 
 /** タブを押して開き、最初の位置に落ち着くまで待つ */
@@ -130,5 +148,12 @@ for (const [index, tab] of tabs.entries()) {
     const between = positions.filter((y) => y !== from && y !== positions.at(-1));
     expect(between.length).toBeGreaterThan(2);
     expect(await atInitial(page, tab)).toBe(true);
+    // 下へスクロールすると隠れる帯（ホームのタイル、立替の残高）も、最初に開いたときと同じく出ている
+    if (tab.scrollAwayHeader) {
+      const barBottom = await bottomOf(page.getByRole('banner'));
+      await expect
+        .poll(() => bottomOf(page.getByText(tab.scrollAwayHeader ?? '')))
+        .toBeGreaterThan(barBottom);
+    }
   });
 }

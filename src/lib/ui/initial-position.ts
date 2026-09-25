@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent } from 'react';
+import { showUntilScrollEnd } from './use-scrolled-down.ts';
 
 /**
  * 今いる画面のタブをもう一度押したことを画面の一覧に知らせるイベント。
@@ -11,6 +12,8 @@ const EVENT = 'lifehub:scroll-to-initial';
  * 受け取らなければ、最初の位置は一番上
  */
 export function scrollToInitialPosition() {
+  // 最初の位置では、下へスクロールすると隠れる帯も出ている
+  showUntilScrollEnd();
   // 取り消されていない＝受け取った一覧が無い
   if (window.dispatchEvent(new Event(EVENT, { cancelable: true }))) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
