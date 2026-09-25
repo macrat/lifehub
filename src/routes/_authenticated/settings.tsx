@@ -15,11 +15,12 @@ import { AllDayNotifySection } from '../../features/users/components/AllDayNotif
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
-import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 import { useUpdateApp } from '../../lib/update.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
+  // 上端に指で動かす操作（色のスライダー）が並び、引っ張って更新に化けるとやりかけが消える
+  staticData: { noPullToRefresh: true },
   component: SettingsPage,
 });
 
@@ -33,7 +34,6 @@ function SettingsPage() {
   const logout = useLogout();
   return (
     <>
-      <NoPullToRefresh />
       <MyColorSection />
       <PushSection />
       <AllDayNotifySection />

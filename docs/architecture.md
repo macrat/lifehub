@@ -206,7 +206,9 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
   - なぞっている間だけタッチの既定の動きを取り上げるのは JS 側（`src/lib/ui/touch-block.ts` の `blockTouchMove`）。掴んでいる間しか付けないので、普段のスクロールはブラウザの速い経路（passive）のまま。
   - `-webkit-tap-highlight-color: transparent`: 押したときの灰色の四角を出さない。押した手応えは MUI の ripple が示す。
   - `user-select: none` と `-webkit-touch-callout: none`: 長押ししても文字が選ばれたり、画像・リンクのメニューが出たりしない。選んで写せるのは入力欄（`input, textarea`）だけにする。読むだけの画面の文字も、鉛筆を押せば同じ場所が入力欄に変わるので、写したいときはそこから選べる。
-- 引っ張って更新（Android）は残す。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面が `NoPullToRefresh`（`src/lib/ui/NoPullToRefresh.tsx`）を置き、`html` に `overscroll-behavior-y: contain` を当てる（ブラウザはページ全体のスクロールの設定を `html` から読むが、画面の側からそこを狙う手段は `sx` に無いので `GlobalStyles` を使う）。出している間だけ効くので後片付けが要らない。
+- 引っ張って更新はアプリが自前で持つ（`src/lib/ui/PullToRefresh.tsx` と `use-pull-to-refresh.ts`）。一覧やカレンダーでは「最新にしたい」に素直に応える動きだから。ブラウザのものは使わない。iOS のホーム画面の Web アプリにはそもそも無く、Android では印が AppBar の上に重なるため。`PullToRefresh` が `html` に `overscroll-behavior-y: contain` を当ててブラウザのものを止め（none にしないのは、端で跳ね返る・光る動きは残すため）、代わりにタッチを見て距離を数え、印を AppBar の裏から下へ出す。引き切って離すとページを読み込み直す（ブラウザの引っ張って更新と同じ）。
+  - 引けるのはページの一番上で、指の下に途中までスクロールした所が無いときだけ（カレンダーの時間軸を上へ戻している最中に化けない）。なぞりを自分で扱う所（`touch-action` が下向きの移動を許していない。2 段のシートや予定のつまみ）からも引けない。ブラウザもそこではページを動かさないので、その宣言に揃える。ダイアログや段を持たないシートは body に出てアプリの枠の外なので、これらを下へなぞって閉じる操作は引いたことにならない。誰かが取り上げたなぞり（`blockTouchMove`）と 2 本指も数えない。タッチは passive で見るだけにして、スクロールを遅くしない。
+  - 止めるのは設定とユーザー管理だけで、どちらも上端に指で動かす操作（色のスライダー）や入力があり、再読み込みに化けるとやりかけが消える。止めたい画面はルートの `staticData: { noPullToRefresh: true }` で宣言する（型は `use-pull-to-refresh.ts` の `StaticDataRouteOption`）。画面を移れば自然に外れるので後片付けが要らない。
 
 ## PWA
 

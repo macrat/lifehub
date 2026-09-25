@@ -15,13 +15,14 @@ import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
 import { createLink, useLocation } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { BOTTOM_NAV_HEIGHT } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
+import { PullToRefresh } from './PullToRefresh.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
 const DRAWER_WIDTH = 220;
@@ -46,6 +47,8 @@ type Props = {
 export function AppShell({ navItems, children }: Props) {
   const isDesktop = useIsDesktop();
   const { pathname } = useLocation();
+  /** 引っ張って更新で引ける範囲。ダイアログやシートは body に出るのでこの外 */
+  const shell = useRef<HTMLDivElement>(null);
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
@@ -56,13 +59,14 @@ export function AppShell({ navItems, children }: Props) {
     <AppBarSlotProvider>
       {/* 画面いっぱいの基準は svh（ブラウザの URL バーなどが最大に出ている状態の高さ）。
           dvh はそれらの出入りで値が変わり、再読み込みの直後に画面より高くなってスクロールが要る表示になる */}
-      <Box sx={{ display: 'flex', minHeight: '100svh' }}>
+      <Box ref={shell} sx={{ display: 'flex', minHeight: '100svh' }}>
         <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
             <AppBarSlotOutlet />
           </Toolbar>
           <TopProgress />
         </AppBar>
+        <PullToRefresh area={shell} />
 
         {isDesktop && (
           <Drawer
