@@ -3,7 +3,7 @@ import CardActionArea from '@mui/material/CardActionArea';
 import Typography from '@mui/material/Typography';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
 import { formatDate } from '../../../lib/date.ts';
-import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
+import { TILE_MASK } from '../../../lib/ui/squircle.ts';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareStatus } from '../queries.ts';
 
@@ -24,9 +24,9 @@ export function CareStatusTile({ status, onSelect }: Props) {
     <Card
       sx={{
         bgcolor: 'action.hover',
-        // 追加ボタン・タスクのアイコンと同じスクワークル（押したときの波紋も同じ形に収まる）
+        // 角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）
         borderRadius: 0,
-        clipPath: SQUIRCLE_CLIP_PATH,
+        mask: TILE_MASK,
         viewTransitionName: `care-${status.careType}`,
       }}
     >

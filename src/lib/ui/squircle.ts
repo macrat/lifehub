@@ -34,3 +34,43 @@ export const CIRCLE_CLIP_PATH = superellipse(2);
  */
 export const SQUIRCLE_SHADOW =
   'drop-shadow(0 2px 2px rgb(0 0 0 / 0.2)) drop-shadow(0 1px 6px rgb(0 0 0 / 0.14))';
+
+/** 角の曲線を書く点の数（1 つの角あたり） */
+const CORNER_POINTS = 24;
+
+/**
+ * 角だけなめらかな角丸（辺はまっすぐで、角が円弧ではなく超楕円の 1/4 でつながる。iOS のアイコンの角と同じ考え方）を
+ * 切り抜く CSS の `mask`。角の大きさ（extent px）は要素の大きさによらず一定なので、横長の要素でも角の丸みが揃う。
+ * 4 つの角を SVG で描き、残りの十字形を塗りつぶしで埋める。
+ * WHY NOT clip-path の polygon: 点を割合で書くと要素の大きさに比例して角が伸び、px で書くと大きさごとに作り直しになる。
+ */
+function smoothCornersMask(extent: number): string {
+  const quadrant = Array.from({ length: CORNER_POINTS + 1 }, (_, i) => {
+    const t = (Math.PI / 2) * (i / CORNER_POINTS);
+    // 左上の角: 中心 (1, 1)、半径 1 の超楕円の左上の 1/4
+    return [1 - Math.cos(t) ** (2 / 4), 1 - Math.sin(t) ** (2 / 4)] as const;
+  });
+  const corner = (flipX: boolean, flipY: boolean) => {
+    const points = [...quadrant, [1, 1] as const]
+      .map(([x, y]) => `${flipX ? 1 - x : x},${flipY ? 1 - y : y}`)
+      .join(' ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"><polygon points="${points}"/></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  };
+  const size = `${extent}px ${extent}px`;
+  const fill = 'linear-gradient(#000, #000)';
+  return [
+    `${corner(false, false)} left top / ${size} no-repeat`,
+    `${corner(true, false)} right top / ${size} no-repeat`,
+    `${corner(false, true)} left bottom / ${size} no-repeat`,
+    `${corner(true, true)} right bottom / ${size} no-repeat`,
+    `${fill} center / calc(100% - ${2 * extent}px) 100% no-repeat`,
+    `${fill} center / 100% calc(100% - ${2 * extent}px) no-repeat`,
+  ].join(', ');
+}
+
+/**
+ * 状況のタイル（立替残高・レモン）の形。角 24px の「角だけなめらか」な角丸で、横長のタイルでも角の丸みが揃う
+ * （`SQUIRCLE_CLIP_PATH` は大きさに比例して伸びるので、PC の横長のタイルでは角と辺が膨らみすぎる）
+ */
+export const TILE_MASK = smoothCornersMask(24);
