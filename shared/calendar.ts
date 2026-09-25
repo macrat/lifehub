@@ -239,15 +239,21 @@ export function placeOccurrence(
 }
 
 /**
- * 発生を暦日の範囲によらず 1 件の項目にする。予定は始まる日（複数日でも 1 日目だけ）、
- * タスクは表示規則（`placeTask`）の日に置く。日ごとに割らずに 1 回の発生を 1 行で出す所
+ * 発生を暦日の範囲によらず 1 件の項目にする。日ごとに割らずに 1 回の発生を 1 行で出す所
  * （ホームのタイムライン）が、カレンダーと同じ形の項目を詳細にそのまま渡せるようにする。
+ * - 時刻のある予定: 始まる日（複数日でも 1 日目だけ）
+ * - 終日の予定: 今日が期間に入っていれば今日、終わっていれば終わる日、まだなら始まる日
+ *   （今日を含む予定は、終わるまで今日の予定として出す）
+ * - タスク: 表示規則（`placeTask`）の日
  */
 export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem | null {
   if (occurrence.kind === 'task') return placeTask(occurrence, now);
   if (!occurrence.startsAt) return null;
-  const day = toDateString(new Date(occurrence.startsAt));
-  return placeEvent(occurrence, { from: day, to: day })[0] ?? null;
+  const first = toDateString(new Date(occurrence.startsAt));
+  const todayDate = today(now);
+  // 始まる日から今日までの項目の最後の日。期間の外の日は placeEvent が除くので、終わる日で止まる
+  const to = occurrence.allDay && todayDate > first ? todayDate : first;
+  return placeEvent(occurrence, { from: first, to }).at(-1) ?? null;
 }
 
 /** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 → 時刻の無いタスク */
@@ -325,7 +331,7 @@ function sortKey(item: CalendarItem): string {
  * 時刻の無いタスクの番兵 '~' が ISO 日時より前に来てしまう。並びはサーバーとクライアントで
  * 同じでなければならず、ロケールに左右されてもいけない。
  */
-function compareKeys(a: string, b: string): number {
+export function compareKeys(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 

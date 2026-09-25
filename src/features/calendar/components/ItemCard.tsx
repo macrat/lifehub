@@ -59,7 +59,7 @@ export function ItemCard({ item, onSelect }: Props) {
             <Typography
               variant="caption"
               component="div"
-              color={overdue ? 'error' : 'text.secondary'}
+              color={overdue ? 'error' : 'textSecondary'}
               sx={{ lineHeight: 1.2 }}
             >
               {time.caption}
@@ -68,7 +68,7 @@ export function ItemCard({ item, onSelect }: Props) {
           <Typography
             variant="body2"
             component="div"
-            color={overdue ? 'error' : 'text.primary'}
+            color={overdue ? 'error' : 'textPrimary'}
             sx={{ lineHeight: 1.3 }}
           >
             {time.main}
@@ -77,7 +77,7 @@ export function ItemCard({ item, onSelect }: Props) {
             <Typography
               variant="caption"
               component="div"
-              color={overdue ? 'error' : 'text.secondary'}
+              color={overdue ? 'error' : 'textSecondary'}
               sx={{ lineHeight: 1.2 }}
             >
               {time.sub}
@@ -91,7 +91,7 @@ export function ItemCard({ item, onSelect }: Props) {
       </Typography>
       <Typography
         variant="caption"
-        color="text.secondary"
+        color="textSecondary"
         component="div"
         noWrap
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}

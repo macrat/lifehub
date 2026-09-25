@@ -53,7 +53,7 @@ function ExpensesPage() {
     <>
       <ExpenseFilterForm open={panel.value} filters={filters} onChange={setFilters} />
       <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           残高
         </Typography>
         <QueryView

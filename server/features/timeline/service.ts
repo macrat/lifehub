@@ -1,6 +1,7 @@
 import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/date.ts';
 import {
   careLogEntry,
+  entryStart,
   eventEntry,
   expenseEntry,
   memoEntry,
@@ -40,7 +41,7 @@ const recentInstantSources = [
  * WHY NOT 種類ごとに別々のページを読んで画面で繋ぐ: 種類ごとに読み進んだ位置が違うので、
  * どこまで出してよいかを画面が決めることになり、並びの規則が画面とサーバーに割れる。
  *
- * 最新のページ（before なし）は 24 時間先までを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
+ * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
  * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
  */
 export async function getTimelinePage(
@@ -72,11 +73,14 @@ export async function getTimelinePage(
     memos.listForTimeline(range, q),
   ]);
   const includeUndated = before === undefined && since === undefined && until === undefined;
-  const inRange = (entry: TimelineEntry) =>
-    entry.at === null
-      ? includeUndated
-      : new Date(entry.at).getTime() >= lower.getTime() &&
-        new Date(entry.at).getTime() < upper.getTime();
+  // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る（`entryStart`）。
+  // 終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
+  // 続きのページは上のページと行の日時で分け合うので、行の日時で見る（同じ行を 2 つのページに出さない）
+  const inRange = (entry: TimelineEntry) => {
+    if (entry.at === null) return includeUndated;
+    const reach = (before === undefined ? entryStart(entry) : null) ?? entry.at;
+    return new Date(entry.at) >= lower && new Date(reach) < upper;
+  };
   const entries = [
     ...items.map((item) => eventEntry(item, now)),
     ...expenseRows.map(expenseEntry),

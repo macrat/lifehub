@@ -159,6 +159,7 @@ function EntryText({ view }: { view: EntryView }) {
           variant="subtitle2"
           component="span"
           noWrap
+          color={view.overdue ? 'error' : undefined}
           sx={[{ fontWeight: 600 }, view.struck && COMPLETED_TITLE_SX]}
         >
           {view.heading}
@@ -167,7 +168,7 @@ function EntryText({ view }: { view: EntryView }) {
           <Typography
             variant="body2"
             component="span"
-            color="text.secondary"
+            color="textSecondary"
             noWrap
             sx={{ flexShrink: 0 }}
           >
