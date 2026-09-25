@@ -1,25 +1,25 @@
 import Box from '@mui/material/Box';
-import useScrollTrigger from '@mui/material/useScrollTrigger';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { STICKY_TOP } from './layout.ts';
 
 /**
  * 一覧の上に貼り付け、下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すとまた出てくる帯
- * （MUI の「Hide App Bar」と同じ仕組み。スクロールの向きは `useScrollTrigger` が見る）。
- * 一覧を読み進める間は場所を譲り、上へ戻す指の動きだけで呼び戻せる。
+ * （MUI の「Hide App Bar」と同じ見せ方）。一覧を読み進める間は場所を譲り、上へ戻す指の動きだけで呼び戻せる。
+ * いつ隠すか（スクロールの向きの見方）は一覧ごとに違うので、使う側が決めて hidden で渡す。
  * 隠すのは transform だけで、流れの中の位置は変えない（隠れても一覧が跳ねない）。
  */
 export function ScrollAwayHeader({
-  pinned = false,
+  hidden,
+  ref,
   children,
 }: {
-  /** 隠さずに出したままにする（中で絞り込みのフォームを開いている間など） */
-  pinned?: boolean;
+  hidden: boolean;
+  ref?: Ref<HTMLDivElement>;
   children: ReactNode;
 }) {
-  const hidden = useScrollTrigger() && !pinned;
   return (
     <Box
+      ref={ref}
       sx={{
         position: 'sticky',
         top: STICKY_TOP,

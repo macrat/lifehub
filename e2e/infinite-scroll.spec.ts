@@ -63,7 +63,7 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
  */
 const histories = [
   {
-    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いたまま',
+    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いて下へスクロールすると隠れる',
     path: '/expenses',
     api: '/api/expenses',
     body: (me: string, at: Date, text: string) => ({
@@ -74,6 +74,7 @@ const histories = [
       spentOn: toDateString(at),
     }),
     sticky: (page: Page) => page.getByText('残高', { exact: true }),
+    scrollsAway: true,
   },
   {
     name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
@@ -85,6 +86,7 @@ const histories = [
       note: text,
     }),
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
+    scrollsAway: false,
   },
 ];
 
@@ -137,7 +139,7 @@ for (const history of histories) {
       expect(gap).toBeLessThan(48);
       expect(next?.y ?? 0).toBeGreaterThanOrEqual(navTop);
 
-      // 上へ戻ると古いほうのページを読む。上に貼り付けた物は隠れない
+      // 上へ戻ると古いほうのページを読む。読み足した分を戻すスクロールでは、上に貼り付けた物は隠れない
       await expect(async () => {
         await page.mouse.wheel(0, -3000);
         await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
@@ -146,6 +148,20 @@ for (const history of histories) {
       const oldestBox = await page.getByText(oldest).boundingBox();
       const stickyBox = await sticky.boundingBox();
       expect(stickyBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
+
+      if (history.scrollsAway) {
+        // 下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる
+        const bar = await page.getByRole('banner').boundingBox();
+        const barBottom = (bar?.y ?? 0) + (bar?.height ?? 0);
+        const stickyBottom = async () => {
+          const box = await sticky.boundingBox();
+          return (box?.y ?? 0) + (box?.height ?? 0);
+        };
+        await page.mouse.wheel(0, 300);
+        await expect.poll(stickyBottom).toBeLessThanOrEqual(barBottom);
+        await page.mouse.wheel(0, -100);
+        await expect.poll(stickyBottom).toBeGreaterThan(barBottom);
+      }
     } finally {
       for (const id of ids) await page.request.delete(`${history.api}/${id}`);
     }

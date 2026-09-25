@@ -21,6 +21,8 @@ type Props = {
   history: ReturnType<typeof useExpenseHistory>;
   /** 一覧の上に貼り付けておく物（絞り込みのフォームと残高） */
   header: ReactNode;
+  /** 下へスクロールしている間は header を隠す（`HistoryList`） */
+  headerScrollsAway: boolean;
   /** 1 件も無いときの文言（`HistoryList`） */
   emptyMessage: string;
   /** 行を押したとき。editing は長押し（編集で開く）か */
@@ -34,11 +36,16 @@ type Props = {
  * 印は誰から誰へ渡ったかのベン図（`expenseMarkColors`）、主列は金額、本文は内容と名前。
  * 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」。
  */
-export function ExpenseList({ history, header, emptyMessage, onSelect }: Props) {
+export function ExpenseList({ history, header, headerScrollsAway, emptyMessage, onSelect }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   return (
-    <HistoryList history={history} header={header} emptyMessage={emptyMessage}>
+    <HistoryList
+      history={history}
+      header={header}
+      headerScrollsAway={headerScrollsAway}
+      emptyMessage={emptyMessage}
+    >
       {(expenses) =>
         [...Map.groupBy(expenses, (e) => e.spentOn)].map(([date, sameDay]) => (
           <Box key={date} sx={{ pb: 1 }}>
