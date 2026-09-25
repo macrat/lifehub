@@ -1,0 +1,1 @@
+ALTER TABLE "lemon_care_logs" ALTER COLUMN "created_by" DROP NOT NULL;

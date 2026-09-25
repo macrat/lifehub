@@ -69,11 +69,12 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'lemon': {
-      const { careTypes, note } = entry.log;
+      const { careTypes, note, createdBy } = entry.log;
       const leading = leadingCareType(careTypes);
       return {
         ...view,
-        colors: [colorFor(null).fill],
+        // 記録した人の色。API キーで入れた記録は誰のものか分からないので無彩色
+        colors: [colorFor(createdBy).fill],
         icon: leading ? CARE_TYPE_ICONS[leading] : ADD_KINDS.lemon.icon,
         heading: ADD_KINDS.lemon.label,
         careTypes,

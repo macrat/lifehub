@@ -72,6 +72,21 @@ describe('lemon service', () => {
     expect((await listLogs({})).items[0]).toMatchObject({ id, careTypes: ['water'] });
   });
 
+  it('記録した人を持ち、分からない記録（API キーで入れたもの）は null のまま残る', async () => {
+    const doneAt = jst('2026-09-10T08:00:00');
+    const known = await logCare({ careTypes: ['water'], doneAt, note: null }, userId);
+    const unknown = await logCare({ careTypes: ['mist'], doneAt, note: null }, null);
+
+    expect(known.createdBy).toBe(userId);
+    expect(unknown.createdBy).toBeNull();
+    expect((await listLogs({})).items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: known.id, createdBy: userId }),
+        expect.objectContaining({ id: unknown.id, createdBy: null }),
+      ]),
+    );
+  });
+
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
     const id = newId();
     const input = { careTypes: ['water' as const], doneAt: jst('2026-09-10T08:00:00'), note: null };
@@ -100,6 +115,8 @@ describe('lemon service', () => {
         careTypes: ['fertilize'],
         doneAt: jst('2026-09-12T08:00:00').toISOString(),
         note: 'まちがえて水やりで記録していた',
+        // 記録した人は編集しても変わらない
+        createdBy: userId,
       },
     ]);
 

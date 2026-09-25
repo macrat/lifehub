@@ -44,10 +44,13 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
   );
 }
 
-/** id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * userId は記録した人。API キーで入れた記録は誰が記録したか分からないので null
+ */
 export async function logCare(
   input: CareLogInput,
-  userId: string,
+  userId: string | null,
   id: string = newId(),
 ): Promise<CareLog> {
   return toLog(await repository.insert({ ...input, id, createdBy: userId }));
@@ -68,5 +71,6 @@ function toLog(row: LemonCareLogRow): CareLog {
     careTypes: row.careTypes,
     doneAt: row.doneAt.toISOString(),
     note: row.note,
+    createdBy: row.createdBy,
   };
 }

@@ -3,10 +3,8 @@ import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
-import { useUserColor } from '../../users/use-user-color.ts';
-import { useUserLabels } from '../../users/use-user-labels.ts';
+import { UserChip } from '../../users/components/UserChip.tsx';
 import type { CalendarItem } from '../queries.ts';
 import { describeRRule } from '../recurrence-options.ts';
 
@@ -64,17 +62,10 @@ function ItemWhen({ item }: { item: CalendarItem }) {
 
 /** 参加者（その人の色で塗る）と、繰り返し・この回だけの変更の印 */
 function ItemChips({ item }: { item: CalendarItem }) {
-  const { label } = useUserLabels();
-  const colorFor = useUserColor();
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
       {item.participantIds.map((id) => (
-        <Chip
-          key={id}
-          size="small"
-          label={label(id)}
-          sx={{ bgcolor: colorFor(id).fill, color: FILL_TEXT }}
-        />
+        <UserChip key={id} userId={id} />
       ))}
       {item.isRecurring && (
         <Chip size="small" variant="outlined" label={describeRRule(item.rrule)} />

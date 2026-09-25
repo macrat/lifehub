@@ -1,11 +1,9 @@
-import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
+import type { CareLog } from '../../shared/lemon.ts';
 import { app } from '../app.ts';
 import { createKey } from '../features/api-keys/service.ts';
-import { lemonCareLogs } from '../features/lemon/schema.ts';
 import { listLogs } from '../features/lemon/service.ts';
-import { db } from '../lib/db.ts';
 import { createTestUser, truncateAll } from '../lib/test-db.ts';
 
 /**
@@ -25,18 +23,17 @@ describe('記録投入のルート', () => {
       body: JSON.stringify(body),
     });
 
-  it('API キーで記録でき、キーの持ち主が記録したことになる', async () => {
+  it('API キーで記録でき、記録した人は不明になる', async () => {
     const userId = await createTestUser('A');
     const { key } = await createKey({ name: 'ボタン' }, userId);
 
     const before = Date.now();
     const res = await post({ type: 'lemon', careTypes: ['water', 'mist'] }, key);
     expect(res.status).toBe(201);
-    const log = (await res.json()) as { id: string; careTypes: string[]; doneAt: string };
+    const log = (await res.json()) as CareLog;
     expect(log.careTypes).toEqual(['mist', 'water']);
-    // 記録した人は応答に載らない（画面にも MCP にも出す所が無い）ので、保存した行で確かめる
-    const [row] = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, log.id));
-    expect(row?.createdBy).toBe(userId);
+    // ボタンは誰が押しても同じキーで送るので、キーの持ち主を記録者にしない
+    expect(log.createdBy).toBeNull();
     // 日時を省くと受け取った時刻になる
     expect(new Date(log.doneAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
