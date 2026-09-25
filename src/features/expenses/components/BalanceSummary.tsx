@@ -1,23 +1,29 @@
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { textTransitionSx } from '../../../lib/ui/text-transition.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
+import { BALANCE_TRANSITION_NAME } from '../balance-transition.ts';
 import { formatYen } from '../format.ts';
 import type { Balance } from '../queries.ts';
 
-/**
- * 「A→B に n 円」の 1 行表示。0 なら「精算済み」。
- * ホームと立替画面のどちらもこれを出すので、行き来するときは残高がその場から動く
- * （View Transition。名前は画面ごとに 1 つだけなので固定でよい）。
- */
+/** 金額（0 なら「精算済み」）はホームのタイルの金額とその場で動く（`BALANCE_TRANSITION_NAME`） */
+const AMOUNT_SX = textTransitionSx(BALANCE_TRANSITION_NAME);
+
+/** 「A→B に n 円」の 1 行表示。0 なら「精算済み」。 */
 export function BalanceSummary({ balance }: { balance: Balance }) {
   const { label } = useUserLabels();
   return (
-    <Box sx={{ viewTransitionName: 'balance' }}>
+    <>
       {balance.amount === 0 ? (
-        <Typography color="text.secondary">精算済み</Typography>
+        <Typography color="text.secondary" sx={AMOUNT_SX}>
+          精算済み
+        </Typography>
       ) : (
         <>
-          <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Typography
+            variant="h5"
+            component="p"
+            sx={{ ...AMOUNT_SX, fontVariantNumeric: 'tabular-nums' }}
+          >
             {formatYen(balance.amount)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -25,6 +31,6 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
           </Typography>
         </>
       )}
-    </Box>
+    </>
   );
 }

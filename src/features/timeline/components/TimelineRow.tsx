@@ -56,7 +56,6 @@ function TimelineRowView({ entry, onSelect }: Props) {
         pl: 2,
         borderBottom: 1,
         borderColor: 'divider',
-        viewTransitionName: view.transitionName,
       }}
     >
       <Box

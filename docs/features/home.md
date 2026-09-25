@@ -34,7 +34,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 - 上段の名前の右に薄い字で日時を添える（`formatTimelineTime`）。今日は時刻だけ（日付だけの記録は「今日」）、今年は月日から、別の年は年から。
 - 塗り分けは帯・ブロックと同じ `wedgeBackground`、誰のものでもない記録の無彩色は `useUserColor(null)`（[architecture.md](../architecture.md#ui--ux-方針)）。
 - 行を単押しすると、その記録の詳細がホームの上に開く（スマホはシート、PC はダイアログ。ホームからは移らない）。長押しは編集で開く（アプリ全体の「単押しは閲覧、長押しは編集」）。詳細はそれぞれの機能の画面の一覧から開くものと同じ（`TimelineEntrySheet`）。
-- 予定・タスクの行には予定画面と同じ `itemTransitionName` を付け、ホームと予定画面を行き来するとその場から動く（View Transition）。
+- 予定・タスクの行には View Transition の名前（`itemTransitionName`）を付けず、ホームと予定画面の間は画面ごとフェードする（理由は `src/features/calendar/item-transition.ts`）。
 
 ### 行を置く日時（`shared/timeline.ts`）
 
