@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
@@ -70,26 +69,13 @@ function LemonPage() {
         header={
           <>
             <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
-            <Box sx={{ px: 2, pt: 1.5 }}>
+            <Box sx={{ px: 2, py: 1.5 }}>
               <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
                 {(statuses) => (
                   <CareStatusGrid statuses={statuses} onSelect={(s) => adding.open([s.careType])} />
                 )}
               </QueryView>
             </Box>
-            <Typography
-              variant="subtitle2"
-              component="h3"
-              color="text.secondary"
-              sx={{
-                px: 2,
-                pt: 2,
-                pb: 0.5,
-                fontWeight: 600,
-              }}
-            >
-              記録
-            </Typography>
           </>
         }
         emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
