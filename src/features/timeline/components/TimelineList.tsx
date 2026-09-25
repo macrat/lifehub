@@ -1,5 +1,5 @@
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useEdgeObserver } from '../../../lib/ui/use-edge-observer.ts';
 import type { TimelineEntry, useTimeline } from '../queries.ts';
@@ -17,12 +17,16 @@ type Props = {
 /**
  * タイムライン。上が新しく下が古く、下の端へ近づくと古いほうのページを読み足す（`useEdgeObserver`）。
  * 立替・レモンの履歴（`HistoryList`）とは上下が逆で、足すのはいつも下なので、見ている所を保つ仕掛けは要らない。
- * 絞り込みを変えたら一番上（最新）へ戻す。
+ * 最初の位置は一番上（最新）。開いたときと絞り込みを変えたときにそこへ置く（戻る・進むで来たときは、
+ * この後でルーターが前にいた位置へ戻す）。
  */
 export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   useEdgeObserver(endRef, timeline.loadEarlier);
-  useScrollToTopOnReset(timeline.resetKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: キーは「別の一覧になった」合図で、値そのものは使わない
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [timeline.resetKey]);
   return (
     <>
       <QueryView query={timeline.query} skeleton={<ListSkeleton />}>
@@ -43,14 +47,4 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
       <div ref={endRef} />
     </>
   );
-}
-
-/** 別の一覧になったら（絞り込みを変えたら）一番上へ。最初に出したときは触らない（戻ってきた位置を保つ） */
-function useScrollToTopOnReset(resetKey: string) {
-  const previous = useRef(resetKey);
-  useEffect(() => {
-    if (previous.current === resetKey) return;
-    previous.current = resetKey;
-    window.scrollTo(0, 0);
-  }, [resetKey]);
 }

@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
+import { useInitialPosition } from './initial-position.ts';
 import { STICKY_TOP } from './layout.ts';
 import { useEdgeObserver } from './use-edge-observer.ts';
 
@@ -32,6 +33,7 @@ type Props = {
  *   （両方が動くと二重にずれる）
  * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
+ * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
  */
 export function InfiniteScroll({
   header,
@@ -100,6 +102,14 @@ export function InfiniteScroll({
     measure();
   });
 
+  useInitialPosition(() => {
+    const target = listRef.current && initial?.target(listRef.current);
+    if (!target)
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    else if (initial?.block === 'end') scrollToBottom(target, 'smooth');
+    else scrollToTop(target, headerBottom, 'smooth');
+  });
+
   useEdgeObserver(startRef, onReachStart);
   useEdgeObserver(endRef, onReachEnd);
 
@@ -132,11 +142,18 @@ function findAnchor(list: Element, top: number): Element | null {
 
 /**
  * target を貼り付けた見出しのすぐ下に置き、置けたかを返す（下が足りないと途中で止まる）。
- * 見出しは貼り付くまでは流れの中にあって位置が変わるので、動かした後にもう一度測って合わせる
+ * 見出しは貼り付くまでは流れの中にあって位置が変わるので、動かした後にもう一度測って合わせる。
+ * なめらかに動かすときは動き終わりを待てないので 1 回で動かす（見出しが貼り付いた後、つまり
+ * 一度最初の位置に置いた後なら、見出しの位置は変わらない）
  */
-function scrollToTop(target: Element, headerBottom: () => number): boolean {
+function scrollToTop(
+  target: Element,
+  headerBottom: () => number,
+  behavior: ScrollBehavior = 'instant',
+): boolean {
   const gap = () => target.getBoundingClientRect().top - headerBottom();
-  for (let i = 0; i < 2; i++) window.scrollBy(0, gap());
+  if (behavior === 'smooth') window.scrollBy({ top: gap(), behavior });
+  else for (let i = 0; i < 2; i++) window.scrollBy(0, gap());
   return Math.abs(gap()) < 1;
 }
 
@@ -144,8 +161,8 @@ function scrollToTop(target: Element, headerBottom: () => number): boolean {
  * target の下端を画面の下端（scroll-padding-bottom の分だけ上）に置き、置けたかを返す
  * （上が足りないと途中で止まる）。位置の計算はブラウザの scrollIntoView に任せる
  */
-function scrollToBottom(target: Element): boolean {
-  target.scrollIntoView({ block: 'end', behavior: 'instant' });
+function scrollToBottom(target: Element, behavior: ScrollBehavior = 'instant'): boolean {
+  target.scrollIntoView({ block: 'end', behavior });
   const root = document.documentElement;
   const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
   return Math.abs(target.getBoundingClientRect().bottom - (root.clientHeight - padding)) < 1;

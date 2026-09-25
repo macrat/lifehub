@@ -9,10 +9,11 @@ export type NavItem = {
   /**
    * その画面を見ているときにもう一度押したときの動き。どちらか 1 つだけ選べる:
    * - `{ search }`: その検索パラメータ（今の物から作る）で開き直す
-   * - `'scrollToTop'`: 一番上までなめらかにスクロールする
+   * - `'initialPosition'`: 画面の最初の位置までなめらかにスクロールする（`scrollToInitialPosition`）。
+   *   最初の位置は画面が自分で決めるので、ほかの画面から来たときもルーターにスクロール位置を触らせない
    * 無いときは検索パラメータを付けずに開き直す（その画面の既定）。ほかの画面から来たときは使わない
    */
-  reselect?: { search: LinkProps['search'] } | 'scrollToTop';
+  reselect?: { search: LinkProps['search'] } | 'initialPosition';
   /** true なら PC のサイドナビにだけ出す（スマホの下部ナビには出さず、ホームの末尾から開く） */
   desktopOnly?: boolean;
 };

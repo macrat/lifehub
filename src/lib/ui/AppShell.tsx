@@ -18,6 +18,7 @@ import { createLink, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
+import { scrollToInitialPosition } from './initial-position.ts';
 import { BOTTOM_NAV_HEIGHT } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
@@ -29,15 +30,6 @@ const DRAWER_WIDTH = 220;
 // MUI の部品を router のリンクにする（`component={Link}` では to と search の型が MUI の props の推論に埋もれる）
 const ListItemLink = createLink(ListItemButton);
 const BottomNavigationLink = createLink(BottomNavigationAction);
-
-/**
- * 今いる画面のタブを押して一番上へ戻すときのリンクの props。ルーターが移動の後に行うスクロール位置の復元
- * （同じ場所への移動では押した時点の位置）を止めて（resetScroll: false）、なめらかなスクロールを遮らせない
- */
-const scrollToTopProps = {
-  resetScroll: false,
-  onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
-};
 
 type Props = {
   /** ナビに並べる主要画面（`src/navigation.ts`） */
@@ -58,10 +50,15 @@ export function AppShell({ navItems, children }: Props) {
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
-  const reselectProps = (item: NavItem) => {
-    if (!isActive(item.to)) return {};
-    if (item.reselect === 'scrollToTop') return scrollToTopProps;
-    return { search: item.reselect?.search };
+  // 最初の位置を画面が決めるタブ（`'initialPosition'`）では、ルーターが移動の後に行うスクロール位置の
+  // 復元を止める（resetScroll: false）。止めないと、画面が置いた最初の位置を一番上（別の画面から来たとき）や
+  // 押した時点の位置（今いる画面で押したとき）へ戻してしまう
+  const linkProps = (item: NavItem) => {
+    const active = isActive(item.to);
+    if (item.reselect === 'initialPosition') {
+      return { resetScroll: false, onClick: active ? scrollToInitialPosition : undefined };
+    }
+    return { search: active ? item.reselect?.search : undefined };
   };
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
@@ -91,7 +88,7 @@ export function AppShell({ navItems, children }: Props) {
             <List component="nav">
               {navItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemLink to={item.to} {...reselectProps(item)} selected={isActive(item.to)}>
+                  <ListItemLink to={item.to} {...linkProps(item)} selected={isActive(item.to)}>
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -154,7 +151,7 @@ export function AppShell({ navItems, children }: Props) {
                   label={item.label}
                   icon={<item.icon />}
                   to={item.to}
-                  {...reselectProps(item)}
+                  {...linkProps(item)}
                 />
               ))}
             </BottomNavigation>

@@ -27,9 +27,9 @@ export const calendarNavItem: NavItem = {
  * 並べるのは各機能の画面なので、機能を読めない lib ではなくここ（アプリの組み立て）に置く。
  */
 export const primaryNavItems: NavItem[] = [
-  { label: 'ホーム', to: '/', icon: HomeIcon, reselect: 'scrollToTop' },
+  { label: 'ホーム', to: '/', icon: HomeIcon, reselect: 'initialPosition' },
   calendarNavItem,
-  { label: '立替', to: '/expenses', icon: PaymentsIcon },
-  { label: 'レモン', to: '/lemon', icon: SpaIcon },
+  { label: '立替', to: '/expenses', icon: PaymentsIcon, reselect: 'initialPosition' },
+  { label: 'レモン', to: '/lemon', icon: SpaIcon, reselect: 'initialPosition' },
   settingsNavItem,
 ];
