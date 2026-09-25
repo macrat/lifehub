@@ -24,7 +24,8 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   // 取り消し: 閉じると月表示に戻る
   await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
-  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+  // 予定には必ずタイトルを入れるので、追加ボタンからはそのまま打てる
+  await expect(page.getByLabel('タイトルを追加')).toBeFocused();
   await expect(shownView(page)).toHaveText('日');
   await page.getByRole('button', { name: '閉じる' }).click();
   await expect(shownView(page)).toHaveText('月');

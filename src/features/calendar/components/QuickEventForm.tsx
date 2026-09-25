@@ -36,7 +36,7 @@ type Props = {
    * 保存は呼び出し側（`onSubmit`）が上書きに振り分ける。参加者はグリッドの枠の色にもなるので呼び出し側が持つ。
    * `settled`（なぞり終えた）までは PC の吹き出しを隠す（枠に重なって選べなくなるため）。
    * スマホのシートは下の段ではグリッドを隠さないので、なぞっている間も出したままにする。
-   * `detent` は開く段（グリッドをなぞったときは下の段、追加ボタンからは上の段）。
+   * `origin` は入力を始めた所で、開く段とタイトルに焦点を当てるかを決める。
    */
   draft: GridDraft;
   onChangeParticipants: (participantIds: string[]) => void;
@@ -87,8 +87,9 @@ type LayoutProps = {
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
- * 段はこのシートだけのもので、開く段は下書きが決める（グリッドからは下の段、追加ボタンからは上の段）。
- * 開いてもタイトルに焦点は置かない（開いた途端にキーボードでグリッドを隠さない）。
+ * 段はこのシートだけのもので、開く段は入口（`draft.origin`）で決まる（グリッドからは下の段、追加ボタンからは上の段）。
+ * 追加ボタンから開いたときは、予定には必ずタイトルを入れるのでタイトルに焦点を当てる。
+ * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
   draft,
@@ -98,7 +99,7 @@ function QuickSheet({
   onChangeInset,
 }: LayoutProps & { onChangeInset: (inset: number) => void }) {
   const peekRef = useRef<HTMLDivElement>(null);
-  const [detent, setDetent] = useState<SheetDetent>(draft.detent);
+  const [detent, setDetent] = useState<SheetDetent>(draft.origin === 'add' ? 'full' : 'peek');
   const { form, initial } = quick;
   /** 段の移動。下の段に戻るときは、上の段で直した日時を下書き（見出しとグリッドの枠）へ映す */
   const changeDetent = (next: SheetDetent) => {
@@ -126,6 +127,7 @@ function QuickSheet({
           <QuickFields
             form={form}
             title={initial.title}
+            autoFocus={draft.origin === 'add'}
             rangeText={detent === 'peek' ? draftText(draft.range) : null}
             participantIds={draft.participantIds}
             onChangeParticipants={onChangeParticipants}
@@ -262,6 +264,7 @@ function QuickFields({
   form,
   title,
   titleRef,
+  autoFocus = false,
   rangeText,
   participantIds,
   onChangeParticipants,
@@ -271,6 +274,8 @@ function QuickFields({
   title: string;
   /** タイトルの入力欄。焦点を置くときに使う */
   titleRef?: RefObject<HTMLInputElement | null>;
+  /** 出た所でタイトルに焦点を当てるか */
+  autoFocus?: boolean;
   rangeText: string | null;
   participantIds: string[];
   onChangeParticipants: (participantIds: string[]) => void;
@@ -285,6 +290,7 @@ function QuickFields({
         label="タイトルを追加"
         defaultValue={title}
         inputRef={titleRef}
+        autoFocus={autoFocus}
         error={Boolean(form.errors.title)}
         helperText={form.errors.title}
         fullWidth

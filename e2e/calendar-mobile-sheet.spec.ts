@@ -51,6 +51,8 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   // タップで下の段に出る。見えるのはタイトルと参加者だけで、残りの項目は画面の外
   await tapColumn(9 * 60 + 10);
   await expect(page.getByText('6/5(木) 09:00〜10:00')).toBeVisible();
+  // まだ日時を選び直すかもしれないので、タイトルに焦点は当てない
+  await expect(page.getByLabel('タイトルを追加')).not.toBeFocused();
   await page.getByLabel('タイトルを追加').fill(title);
   await settledAt('peek');
   await expect(page.getByLabel('メモ')).not.toBeInViewport();
