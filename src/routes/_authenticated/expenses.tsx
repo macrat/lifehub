@@ -1,6 +1,4 @@
-import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
-import Fab from '@mui/material/Fab';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
@@ -13,9 +11,9 @@ import { type Expense, useBalance, useExpenseHistory } from '../../features/expe
 import { countActiveFilters, expenseSearchSchema } from '../../features/expenses/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
-import { FAB_SX } from '../../lib/ui/layout.ts';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
@@ -82,9 +80,7 @@ function ExpensesPage() {
         onSelect={selection.open}
       />
 
-      <Fab color="primary" aria-label="立替を追加" onClick={adding.on} sx={FAB_SX}>
-        <AddIcon />
-      </Fab>
+      <AddFab label="立替を追加" onClick={adding.on} />
       {adding.value && <ExpenseForm onClose={adding.off} />}
       {selection.selected && (
         <ExpenseDetailSheet
