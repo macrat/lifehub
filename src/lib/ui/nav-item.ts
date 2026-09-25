@@ -11,6 +11,8 @@ export type NavItem = {
    * 無いとき・ほかの画面から来たときは付けない（その画面の既定で開く）
    */
   reselectSearch?: LinkProps['search'];
+  /** true なら、その画面を見ているときにもう一度押すと一番上までなめらかにスクロールする */
+  reselectScrollsToTop?: boolean;
   /** true なら PC のサイドナビにだけ出す（スマホの下部ナビには出さず、ホームの末尾から開く） */
   desktopOnly?: boolean;
 };

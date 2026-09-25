@@ -49,6 +49,18 @@ export function AppShell({ navItems, children }: Props) {
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
+  // 今いる画面のタブをもう一度押したときの行き先。一番上へ戻す画面では、ルーターが移動の後に行うスクロール位置の
+  // 復元（同じ場所への移動では押した時点の位置）を止めて（resetScroll: false）、なめらかなスクロールを遮らせない
+  const reselectProps = (item: NavItem) =>
+    isActive(item.to)
+      ? {
+          search: item.reselectSearch,
+          ...(item.reselectScrollsToTop && {
+            resetScroll: false,
+            onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+          }),
+        }
+      : {};
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
 
@@ -77,11 +89,7 @@ export function AppShell({ navItems, children }: Props) {
             <List component="nav">
               {navItems.map((item) => (
                 <ListItem key={item.to} disablePadding>
-                  <ListItemLink
-                    to={item.to}
-                    search={isActive(item.to) ? item.reselectSearch : undefined}
-                    selected={isActive(item.to)}
-                  >
+                  <ListItemLink to={item.to} {...reselectProps(item)} selected={isActive(item.to)}>
                     <ListItemIcon>
                       <item.icon />
                     </ListItemIcon>
@@ -144,7 +152,7 @@ export function AppShell({ navItems, children }: Props) {
                   label={item.label}
                   icon={<item.icon />}
                   to={item.to}
-                  search={isActive(item.to) ? item.reselectSearch : undefined}
+                  {...reselectProps(item)}
                 />
               ))}
             </BottomNavigation>
