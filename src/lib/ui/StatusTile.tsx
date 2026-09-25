@@ -1,5 +1,6 @@
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
+import Skeleton from '@mui/material/Skeleton';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
 import type { ComponentType } from 'react';
@@ -64,4 +65,9 @@ export function StatusTile({ icon: Icon, label, value, sub, transitionName, onCl
       </CardActionArea>
     </Card>
   );
+}
+
+/** 読み込み中に出すタイル 1 つ分の骨組み。タイルと同じ高さ・同じ形で、読み込めたときに形が変わらない */
+export function StatusTileSkeleton() {
+  return <Skeleton variant="rectangular" height={86} sx={{ mask: TILE_MASK }} />;
 }

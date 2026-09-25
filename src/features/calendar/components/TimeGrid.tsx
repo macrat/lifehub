@@ -7,6 +7,7 @@ import { DAY_MINUTES } from '../../../../shared/constants.ts';
 import { minutesOfDay, today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { formatTime } from '../../../lib/date.ts';
+import { smoothCornersMask } from '../../../lib/ui/squircle.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
@@ -15,6 +16,7 @@ import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.
 import type { CalendarItem } from '../../events/queries.ts';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
+import { ITEM_CORNER } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
@@ -270,7 +272,7 @@ function TimedBlock({
         display: 'block',
         textAlign: 'left',
         overflow: 'hidden',
-        borderRadius: '4px',
+        mask: smoothCornersMask(ITEM_CORNER),
         px: 0.5,
         py: '2px',
         background: wedgeBackground(colors.map((c) => (isTask ? c.tint : c.fill))),

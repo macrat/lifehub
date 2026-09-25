@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
@@ -22,6 +21,7 @@ import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
 import { SearchField } from '../../lib/ui/SearchField.tsx';
+import { StatusTileSkeleton } from '../../lib/ui/StatusTile.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
@@ -70,7 +70,7 @@ function LemonPage() {
           <>
             <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
             <Box sx={{ px: 2, py: 1.5 }}>
-              <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
+              <QueryView query={statusQuery} skeleton={<StatusTileSkeleton />}>
                 {(statuses) => (
                   <CareStatusGrid statuses={statuses} onSelect={(s) => adding.open([s.careType])} />
                 )}

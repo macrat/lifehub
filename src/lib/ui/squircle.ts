@@ -39,34 +39,73 @@ export const SQUIRCLE_SHADOW =
 const CORNER_POINTS = 24;
 
 /**
+ * 左上の角で、超楕円の 1/4（中心 (1, 1)、半径 1）より外の部分（1 × 1 の箱の中）。
+ * 四角から切り落とす所で、左右・上下に裏返してほかの角にも使う
+ */
+const CORNER_OUTSIDE = [
+  ...Array.from({ length: CORNER_POINTS + 1 }, (_, i) => {
+    const t = (Math.PI / 2) * (i / CORNER_POINTS);
+    return `${1 - Math.cos(t) ** (2 / 4)},${1 - Math.sin(t) ** (2 / 4)}`;
+  }),
+  '0,0',
+].join(' ');
+
+type Options = {
+  /**
+   * 左端（始まり）・右端（終わり）の角を丸めるか。既定は両端。
+   * 週をまたぐ帯の、前後の週へ続く側は丸めない（隣の週の帯とつながって見えるように）
+   */
+  round?: { start: boolean; end: boolean };
+  /** 与えると、内側をくり抜いてこの太さ（px）の線だけを残す（枠の線） */
+  line?: number;
+};
+
+const cache = new Map<string, string>();
+
+/**
  * 角だけなめらかな角丸（辺はまっすぐで、角が円弧ではなく超楕円の 1/4 でつながる。iOS のアイコンの角と同じ考え方）を
  * 切り抜く CSS の `mask`。角の大きさ（extent px）は要素の大きさによらず一定なので、横長の要素でも角の丸みが揃う。
- * 4 つの角を SVG で描き、残りの十字形を塗りつぶしで埋める。
+ * viewBox を持たない 1 枚の SVG で、要素いっぱいの四角から、四隅に px の大きさで置いた「曲線より外」を切り落とす
+ * （右と下の角は、`x="100%"`・`y="100%"` の入れ子の svg で端に置いて裏返す）。
+ * 枠の線（`line`）は、四角の縁に線を引き、内側の角（線の太さだけ小さい）の「曲線より外」を線の側へ戻して作る。
+ * 同じ引数の形は一度だけ作る（項目ごとに描くたびに作り直さない）。
+ * WHY NOT border-radius: 角が円弧になり、なめらかにつながらない。
  * WHY NOT clip-path の polygon: 点を割合で書くと要素の大きさに比例して角が伸び、px で書くと大きさごとに作り直しになる。
+ * WHY NOT 角と辺を mask の別々の層で描く: 層の境目が端数の位置に来ると筋や段差が出る。角を縮めて収める作りでは、
+ * 小さな枠で角の線だけが細くなる。1 枚の SVG なら 1 度に描かれ、線の太さも px のまま変わらない。
  */
-function smoothCornersMask(extent: number): string {
-  const quadrant = Array.from({ length: CORNER_POINTS + 1 }, (_, i) => {
-    const t = (Math.PI / 2) * (i / CORNER_POINTS);
-    // 左上の角: 中心 (1, 1)、半径 1 の超楕円の左上の 1/4
-    return [1 - Math.cos(t) ** (2 / 4), 1 - Math.sin(t) ** (2 / 4)] as const;
-  });
-  const corner = (flipX: boolean, flipY: boolean) => {
-    const points = [...quadrant, [1, 1] as const]
-      .map(([x, y]) => `${flipX ? 1 - x : x},${flipY ? 1 - y : y}`)
-      .join(' ');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"><polygon points="${points}"/></svg>`;
-    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-  };
-  const size = `${extent}px ${extent}px`;
-  const fill = 'linear-gradient(#000, #000)';
-  return [
-    `${corner(false, false)} left top / ${size} no-repeat`,
-    `${corner(true, false)} right top / ${size} no-repeat`,
-    `${corner(false, true)} left bottom / ${size} no-repeat`,
-    `${corner(true, true)} right bottom / ${size} no-repeat`,
-    `${fill} center / calc(100% - ${2 * extent}px) 100% no-repeat`,
-    `${fill} center / 100% calc(100% - ${2 * extent}px) no-repeat`,
-  ].join(', ');
+export function smoothCornersMask(
+  extent: number,
+  { round = { start: true, end: true }, line = 0 }: Options = {},
+): string {
+  const key = `${extent} ${round.start} ${round.end} ${line}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  // 角ごとに「曲線より外」を置く。inset は要素の端から内へずらす量、size は角の大きさ
+  const corners = (size: number, inset: number, color: string) =>
+    [
+      { right: false, bottom: false, rounded: round.start },
+      { right: true, bottom: false, rounded: round.end },
+      { right: false, bottom: true, rounded: round.start },
+      { right: true, bottom: true, rounded: round.end },
+    ]
+      .filter((c) => c.rounded)
+      .map(({ right, bottom }) => {
+        const sx = right ? -1 : 1;
+        const sy = bottom ? -1 : 1;
+        return `<svg x="${right ? '100%' : 0}" y="${bottom ? '100%' : 0}" overflow="visible"><use href="#c" fill="${color}" transform="translate(${sx * inset} ${sy * inset}) scale(${sx * size} ${sy * size})"/></svg>`;
+      })
+      .join('');
+  const shape =
+    line > 0
+      ? // 内側を黒で塗って縁の線だけ白く残し、内側の角の曲線より外を白で線に足す
+        `<rect width="100%" height="100%" fill="#000" stroke="#fff" stroke-width="${2 * line}"/>${corners(extent - line, line, '#fff')}`
+      : '<rect width="100%" height="100%" fill="#fff"/>';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><defs><polygon id="c" points="${CORNER_OUTSIDE}"/></defs><mask id="m">${shape}${corners(extent, 0, '#000')}</mask><rect width="100%" height="100%" mask="url(#m)"/></svg>`;
+  const mask = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 0 0 / 100% 100% no-repeat`;
+  cache.set(key, mask);
+  return mask;
 }
 
 /**

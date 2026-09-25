@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import { isCompletedTask } from '../../../../shared/calendar.ts';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { formatTime } from '../../../lib/date.ts';
+import { smoothCornersMask } from '../../../lib/ui/squircle.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import {
@@ -10,6 +11,7 @@ import {
   ParticipantsMark,
 } from '../../events/components/ParticipantsMark.tsx';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
+import { ITEM_CORNER } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { LANE_ITEM_HEIGHT, type Placed } from '../lane-layout.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -46,7 +48,6 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
   const colors = useParticipantColors(item.participantIds);
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
-  const radius = 4;
   const markSize = compact ? 10 : 12;
   return (
     <Box
@@ -83,7 +84,8 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         cursor: 'pointer',
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
-        borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
+        // 続きの端（前後の週へつながる側）は角を丸めない
+        mask: smoothCornersMask(ITEM_CORNER, { round: { start: roundStart, end: roundEnd } }),
         background: isBar ? wedgeBackground(colors.map((c) => c.fill)) : undefined,
         color: isBar
           ? FILL_TEXT

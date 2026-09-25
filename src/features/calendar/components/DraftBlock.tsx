@@ -1,8 +1,10 @@
 import Box from '@mui/material/Box';
+import { smoothCornersMask } from '../../../lib/ui/squircle.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
+import { ITEM_CORNER } from '../item-shape.ts';
 import { LANE_ITEM_HEIGHT } from '../lane-layout.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -33,27 +35,28 @@ const FILL_OPACITY = 0.6;
  * 下の予定や日付が透けて見えるようにする。線は line で不透明に描く。
  * WHY 薄い色: 帯と同じ濃さ（fill）だと、透けた下の予定の色と混ざって見分けにくい。背景色に近い色なら
  * 重なった所は下の予定が淡く（ライトでは明るく・ダークでは暗く）なり、枠の範囲が分かる。
+ * 角は保存した予定と同じ形（`ITEM_CORNER`）。続きの端（前後の週へつながる側）は丸めない（`round`）。
  */
-const outline = (colors: ItemColors[]) =>
+const outline = (colors: ItemColors[], round?: { start: boolean; end: boolean }) =>
   ({
     boxSizing: 'border-box',
     position: 'relative',
     isolation: 'isolate',
-    borderRadius: '4px',
     border: `${LINE}px solid transparent`,
     // 中は不透明な色で塗り分けた疑似要素に opacity をかける。
     // WHY NOT 半透明の色で塗る: 3 人の塗り分けは色を重ねて描く（`wedgeBackground`）ので、色ごとに透かすと
     // 重なった所だけ下の層の色が混ざる。opacity は塗り分けた後の面全体にかかるので、何人でも同じ濃さになる。
     // WHY 疑似要素: 枠そのものに opacity をかけると、線やつまむ丸まで薄くなる。
     // z-index: -1 でつまむ丸の下に置き、isolation で枠の外へは潜らせない。
-    // 線の下まで広げて（線は不透明なので見えない）、角の丸めを線の外側と揃える。
+    // 線の下まで広げて（線は不透明なので見えない）、角の形を線の外側と揃える。
+    // WHY 角を疑似要素ごとに切り抜く: 枠そのものを切り抜くと、枠の上下の線に重ねたつまむ丸まで切れる。
     '&::after': {
       content: '""',
       position: 'absolute',
       inset: -LINE,
       zIndex: -1,
-      borderRadius: 'inherit',
       background: wedgeBackground(colors.map((c) => c.tint)),
+      mask: smoothCornersMask(ITEM_CORNER, { round }),
       opacity: FILL_OPACITY,
     },
     // 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
@@ -64,10 +67,8 @@ const outline = (colors: ItemColors[]) =>
       content: '""',
       position: 'absolute',
       inset: -LINE,
-      padding: `${LINE}px`,
-      borderRadius: 'inherit',
       background: wedgeBackground(colors.map((c) => c.line)),
-      mask: 'linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)',
+      mask: smoothCornersMask(ITEM_CORNER, { round, line: LINE }),
       pointerEvents: 'none',
     },
   }) as const;
@@ -171,16 +172,15 @@ export function DraftBar({
   return (
     <Box
       {...draftProps}
-      // ドラッグで変わる場所は `DraftBlock` と同じく style で渡す（角の丸めと余白は続き方の 4 通りなので sx）
+      // ドラッグで変わる場所は `DraftBlock` と同じく style で渡す（角の形と余白は続き方の 4 通りなので sx）
       style={{ gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 2 }}
       sx={{
-        ...outline(colors),
+        ...outline(colors, { start: roundStart, end: roundEnd }),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
         alignSelf: 'center',
         height: LANE_ITEM_HEIGHT,
-        // 続きの端は角を丸めず、帯の外にも出さない（前後の週とつながって見えるように）
-        borderRadius: `${roundStart ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundEnd ? 4 : 0}px ${roundStart ? 4 : 0}px`,
+        // 続きの端は帯の外に出さない（前後の週とつながって見えるように。角を丸めないのは outline）
         ml: roundStart ? '2px' : 0,
         mr: roundEnd ? '2px' : 0,
       }}
