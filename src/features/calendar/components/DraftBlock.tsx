@@ -1,10 +1,9 @@
 import Box from '@mui/material/Box';
-import { smoothCornersMask } from '../../../lib/ui/squircle.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
-import { ITEM_CORNER } from '../item-shape.ts';
+import { itemMask } from '../item-shape.ts';
 import { LANE_ITEM_HEIGHT } from '../lane-layout.ts';
 import { atMinute } from '../use-hour-zoom.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -35,9 +34,9 @@ const FILL_OPACITY = 0.6;
  * 下の予定や日付が透けて見えるようにする。線は line で不透明に描く。
  * WHY 薄い色: 帯と同じ濃さ（fill）だと、透けた下の予定の色と混ざって見分けにくい。背景色に近い色なら
  * 重なった所は下の予定が淡く（ライトでは明るく・ダークでは暗く）なり、枠の範囲が分かる。
- * 角は保存した予定と同じ形（`ITEM_CORNER`）。続きの端（前後の週へつながる側）は丸めない（`round`）。
+ * 角は保存した予定と同じ形（`itemMask`）。続きの端（前後の週へつながる側）は丸めない。
  */
-const outline = (colors: ItemColors[], round?: { start: boolean; end: boolean }) =>
+const outline = (colors: ItemColors[], round?: { roundStart: boolean; roundEnd: boolean }) =>
   ({
     boxSizing: 'border-box',
     position: 'relative',
@@ -56,7 +55,7 @@ const outline = (colors: ItemColors[], round?: { start: boolean; end: boolean })
       inset: -LINE,
       zIndex: -1,
       background: wedgeBackground(colors.map((c) => c.tint)),
-      mask: smoothCornersMask(ITEM_CORNER, { round }),
+      mask: itemMask(round),
       opacity: FILL_OPACITY,
     },
     // 線は透明な border の上に重ねた疑似要素で描き、線の内側を mask でくり抜く。
@@ -68,7 +67,7 @@ const outline = (colors: ItemColors[], round?: { start: boolean; end: boolean })
       position: 'absolute',
       inset: -LINE,
       background: wedgeBackground(colors.map((c) => c.line)),
-      mask: smoothCornersMask(ITEM_CORNER, { round, line: LINE }),
+      mask: itemMask({ ...round, line: LINE }),
       pointerEvents: 'none',
     },
   }) as const;
@@ -175,7 +174,7 @@ export function DraftBar({
       // ドラッグで変わる場所は `DraftBlock` と同じく style で渡す（角の形と余白は続き方の 4 通りなので sx）
       style={{ gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 2 }}
       sx={{
-        ...outline(colors, { start: roundStart, end: roundEnd }),
+        ...outline(colors, columns),
         // 帯は見せるだけ。押した先は下のセルに届かせ、そこから掴んだり選び直したりできるようにする
         pointerEvents: 'none',
         alignSelf: 'center',

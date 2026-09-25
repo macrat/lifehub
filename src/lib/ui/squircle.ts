@@ -6,21 +6,32 @@
  *
  * clip-path は要素の影（box-shadow）も切り取ってしまうので、影が要る物は外側の要素に
  * `SQUIRCLE_SHADOW`（切り抜いた形に沿う drop-shadow）を掛ける。
+ *
+ * 辺はまっすぐで角だけを同じ超楕円でつなぐ「角だけなめらか」な角丸（`smoothCornersMask`）も、ここで作る。
  */
 const POINTS = 64;
 
-/** 超楕円 |x|^n + |y|^n = 1 を POINTS 個の点で書いた polygon。n = 2 は円 */
+/** 形に使う超楕円の指数 */
+const EXPONENT = 4;
+
+/** 超楕円 |x|^n + |y|^n = 1 の上で、角度 t（ラジアン）の向きにある点。n = 2 は円 */
+function superellipsePoint(t: number, exponent: number): readonly [x: number, y: number] {
+  return [
+    Math.sign(Math.cos(t)) * Math.abs(Math.cos(t)) ** (2 / exponent),
+    Math.sign(Math.sin(t)) * Math.abs(Math.sin(t)) ** (2 / exponent),
+  ];
+}
+
+/** 超楕円を POINTS 個の点で書いた polygon */
 function superellipse(exponent: number): string {
   const points = Array.from({ length: POINTS }, (_, i) => {
-    const t = (2 * Math.PI * i) / POINTS;
-    const x = Math.sign(Math.cos(t)) * Math.abs(Math.cos(t)) ** (2 / exponent);
-    const y = Math.sign(Math.sin(t)) * Math.abs(Math.sin(t)) ** (2 / exponent);
+    const [x, y] = superellipsePoint((2 * Math.PI * i) / POINTS, exponent);
     return `${(50 + 50 * x).toFixed(2)}% ${(50 + 50 * y).toFixed(2)}%`;
   });
   return `polygon(${points.join(', ')})`;
 }
 
-export const SQUIRCLE_CLIP_PATH = superellipse(4);
+export const SQUIRCLE_CLIP_PATH = superellipse(EXPONENT);
 
 /**
  * 円を `SQUIRCLE_CLIP_PATH` と同じ数の点で書いたもの。点の数が同じ polygon どうしは clip-path の
@@ -44,18 +55,18 @@ const CORNER_POINTS = 24;
  */
 const CORNER_OUTSIDE = [
   ...Array.from({ length: CORNER_POINTS + 1 }, (_, i) => {
-    const t = (Math.PI / 2) * (i / CORNER_POINTS);
-    return `${1 - Math.cos(t) ** (2 / 4)},${1 - Math.sin(t) ** (2 / 4)}`;
+    const [x, y] = superellipsePoint((Math.PI / 2) * (i / CORNER_POINTS), EXPONENT);
+    // 24px の角でも 0.03px 以下の差なので、3 桁に丸めて mask の文字列を短くする
+    return `${(1 - x).toFixed(3)},${(1 - y).toFixed(3)}`;
   }),
   '0,0',
 ].join(' ');
 
-type Options = {
-  /**
-   * 左端（始まり）・右端（終わり）の角を丸めるか。既定は両端。
-   * 週をまたぐ帯の、前後の週へ続く側は丸めない（隣の週の帯とつながって見えるように）
-   */
-  round?: { start: boolean; end: boolean };
+export type SmoothCornersOptions = {
+  /** 左端の角を丸めるか（既定は丸める） */
+  roundStart?: boolean;
+  /** 右端の角を丸めるか（既定は丸める） */
+  roundEnd?: boolean;
   /** 与えると、内側をくり抜いてこの太さ（px）の線だけを残す（枠の線） */
   line?: number;
 };
@@ -76,22 +87,22 @@ const cache = new Map<string, string>();
  */
 export function smoothCornersMask(
   extent: number,
-  { round = { start: true, end: true }, line = 0 }: Options = {},
+  { roundStart = true, roundEnd = true, line = 0 }: SmoothCornersOptions = {},
 ): string {
-  const key = `${extent} ${round.start} ${round.end} ${line}`;
+  const key = `${extent} ${roundStart} ${roundEnd} ${line}`;
   const cached = cache.get(key);
   if (cached) return cached;
 
   // 角ごとに「曲線より外」を置く。inset は要素の端から内へずらす量、size は角の大きさ
   const corners = (size: number, inset: number, color: string) =>
     [
-      { right: false, bottom: false, rounded: round.start },
-      { right: true, bottom: false, rounded: round.end },
-      { right: false, bottom: true, rounded: round.start },
-      { right: true, bottom: true, rounded: round.end },
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
     ]
-      .filter((c) => c.rounded)
-      .map(({ right, bottom }) => {
+      .filter(([right]) => (right ? roundEnd : roundStart))
+      .map(([right, bottom]) => {
         const sx = right ? -1 : 1;
         const sy = bottom ? -1 : 1;
         return `<svg x="${right ? '100%' : 0}" y="${bottom ? '100%' : 0}" overflow="visible"><use href="#c" fill="${color}" transform="translate(${sx * inset} ${sy * inset}) scale(${sx * size} ${sy * size})"/></svg>`;
