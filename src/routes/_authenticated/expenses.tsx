@@ -21,6 +21,7 @@ import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/expenses')({
   validateSearch: expenseSearchSchema,
+  staticData: { ownsScroll: true },
   component: ExpensesPage,
 });
 

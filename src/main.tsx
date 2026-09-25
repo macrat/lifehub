@@ -50,7 +50,15 @@ const router = createRouter({
   parseSearch,
   stringifySearch,
   defaultPreload: 'intent',
-  scrollRestoration: true,
+  /**
+   * 移動の後に、ルーターが画面のスクロール位置を戻す（新しい移動は一番上、戻る・進むは前にいた位置）。
+   * 最初の位置を画面自身が決めるルート（`staticData.ownsScroll`）では触らない。触ると、画面が描画時に
+   * 置いた位置を、その後の描画完了の知らせ（onRendered）で上書きしてしまう。戻る・進むでも前にいた位置へは
+   * 戻さず、最初の位置で出す。
+   * WHY NOT 移動ごとの resetScroll: false: 最初の位置を決めるのは画面なので、ルートに持たせる。リンクごとに
+   * 付けると、ナビ以外の入口（戻る・進む、今後増えるリンク）ごとに付け忘れられない決まりになる
+   */
+  scrollRestoration: () => !ownsScroll(),
   defaultErrorComponent: ErrorPage,
   /**
    * 移動は何も待たせない。ページのコードを読み込む間（初回だけ。以降は Service Worker の precache）も
@@ -80,9 +88,21 @@ const router = createRouter({
   },
 });
 
+/** 描画し終えた画面のルートの照合結果から読む（ルーターが既に照合したものを使い、照合し直さない） */
+function ownsScroll(): boolean {
+  return router.state.matches.some((match) => match.staticData.ownsScroll);
+}
+
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
+  }
+  interface StaticDataRouteOption {
+    /**
+     * 最初の位置を画面自身が決める（ホームは一番上、立替・レモンは今日の記録）。true ならルーターは
+     * スクロール位置に触らない（戻る・進むでも前にいた位置へ戻さず、最初の位置で出す）
+     */
+    ownsScroll?: boolean;
   }
 }
 
