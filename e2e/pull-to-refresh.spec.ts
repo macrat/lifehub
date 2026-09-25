@@ -26,10 +26,18 @@ function watchReload(page: Page): () => boolean {
   return () => reloaded;
 }
 
-/** 画面の上のほう（AppBar のすぐ下）から下へなぞる */
-async function pull(page: Page, dy: number) {
-  const from = { x: 200, y: 120 };
-  await touchDrag(page, from, { x: from.x, y: from.y + dy }, { steps: 10 });
+/** 指を下ろす所。画面の上のほう（AppBar のすぐ下） */
+const FROM = { x: 200, y: 120 };
+
+/** FROM から下へなぞる */
+async function pull(page: Page, dy: number, options: { afterStart?: () => Promise<unknown> } = {}) {
+  await touchDrag(page, FROM, { x: FROM.x, y: FROM.y + dy }, { steps: 10, ...options });
+}
+
+/** 読み込み直さなかったこと。起きないことを確かめるので、起きるなら起きている程度の間だけ待つ */
+async function expectNoReload(page: Page, reloaded: () => boolean) {
+  await page.waitForTimeout(500);
+  expect(reloaded()).toBe(false);
 }
 
 test('ページの上で下へ引き切って離すと読み込み直す', async ({ page }) => {
@@ -41,26 +49,16 @@ test('ページの上で下へ引き切って離すと読み込み直す', async
 test('引いている途中で指の下の要素が描き直されても、離せば読み込み直す', async ({ page }) => {
   // 骨組みが中身に替わる、取り直した一覧を描き直す、など。指を下ろした要素が DOM から外れる
   const reloaded = watchReload(page);
-  const from = { x: 200, y: 120 };
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
-  await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.remove(), from);
-  for (let i = 1; i <= 10; i++) {
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{ x: from.x, y: from.y + i * 20 }],
-    });
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
+  await pull(page, 200, {
+    afterStart: () => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.remove(), FROM),
+  });
   await expect.poll(reloaded).toBe(true);
 });
 
 test('引き切らずに離すと読み込み直さない', async ({ page }) => {
   const reloaded = watchReload(page);
   await pull(page, 40);
-  await page.waitForTimeout(500);
-  expect(reloaded()).toBe(false);
+  await expectNoReload(page, reloaded);
 });
 
 test('ブラウザの引っ張って更新は止めてある', async ({ page }) => {
@@ -75,6 +73,5 @@ test('設定では引いても読み込み直さない', async ({ page }) => {
   await expect(page.getByText('色', { exact: true })).toBeVisible();
   const reloaded = watchReload(page);
   await pull(page, 200);
-  await page.waitForTimeout(500);
-  expect(reloaded()).toBe(false);
+  await expectNoReload(page, reloaded);
 });

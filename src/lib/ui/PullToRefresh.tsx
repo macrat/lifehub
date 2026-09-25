@@ -2,7 +2,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import CircularProgress from '@mui/material/CircularProgress';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import Paper from '@mui/material/Paper';
-import { useMatches } from '@tanstack/react-router';
 import type { RefObject } from 'react';
 import { STICKY_TOP } from './layout.ts';
 import { PULL_THRESHOLD, usePullToRefresh } from './use-pull-to-refresh.ts';
@@ -35,14 +34,11 @@ type Props = {
  * 光る動き（Android）は残す。
  */
 export function PullToRefresh({ area }: Props) {
-  const enabled = useMatches({
-    select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
-  });
-  const { distance, refreshing } = usePullToRefresh(area, enabled);
-  const progress = refreshing ? 1 : Math.min((distance ?? 0) / PULL_THRESHOLD, 1);
-  const travel = refreshing
-    ? REST
-    : Math.min(((distance ?? 0) / PULL_THRESHOLD) * REST, MAX_TRAVEL);
+  const { distance, refreshing } = usePullToRefresh(area);
+  /** 引き切るまでの割合（引き切ると 1。その先も伸びる） */
+  const ratio = refreshing ? 1 : (distance ?? 0) / PULL_THRESHOLD;
+  const progress = Math.min(ratio, 1);
+  const travel = Math.min(ratio * REST, MAX_TRAVEL);
 
   return (
     <>
@@ -62,6 +58,10 @@ export function PullToRefresh({ area }: Props) {
           display: 'grid',
           placeItems: 'center',
           pointerEvents: 'none',
+        }}
+        // 指の動きのたびに変わる値は sx ではなく style で渡す。sx は値ごとにクラスを作って
+        // スタイルシートに足し続けるので、なぞっている間に規則が溜まっていく
+        style={{
           transform: `translate(-50%, ${travel - SIZE}px)`,
           visibility: travel > 0 ? 'visible' : 'hidden',
           // 指に付いている間は遅れないよう動きを付けない。離した後だけ滑らかに戻す
@@ -73,7 +73,7 @@ export function PullToRefresh({ area }: Props) {
         ) : (
           <RefreshIcon
             color="primary"
-            sx={{ opacity: progress < 1 ? 0.4 : 1, transform: `rotate(${progress * 270}deg)` }}
+            style={{ opacity: progress < 1 ? 0.4 : 1, transform: `rotate(${progress * 270}deg)` }}
           />
         )}
       </Paper>

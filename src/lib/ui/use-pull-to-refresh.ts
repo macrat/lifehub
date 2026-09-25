@@ -1,3 +1,4 @@
+import { useMatches } from '@tanstack/react-router';
 import { type RefObject, useEffect, useState } from 'react';
 
 /** 離したときに再読み込みする、指を下ろした所からの下向きの動き（px） */
@@ -40,7 +41,6 @@ function canStartPull(
 ): target is HTMLElement | SVGElement {
   // 指の下は HTML の要素か、アイコン（SVG）の中
   if (!(target instanceof HTMLElement || target instanceof SVGElement)) return false;
-  if (!area.contains(target)) return false;
   if (window.scrollY > 0) return false;
   for (let el: Element | null = target; el && el !== area; el = el.parentElement) {
     if (el.scrollTop > 0 || !pansDown(el)) return false;
@@ -49,13 +49,11 @@ function canStartPull(
 }
 
 /**
- * 引っ張って更新。ブラウザのもの（`PullToRefresh` が止めている）の代わりに、
- * どの OS でも同じ動きと見た目にする。ブラウザに任せると、iOS のホーム画面の Web アプリには
- * そもそも無く、Android では AppBar の上に印が重なる。
+ * 引っ張って更新（ブラウザのものを止めて代わりに持つ理由は `PullToRefresh`）。
+ * 画面が `staticData.noPullToRefresh` で断っている間は何もしない。
  *
- * `enabled` が false の間（画面が `staticData.noPullToRefresh` で断っている間）は何もしない。
- *
- * `area` は引ける範囲（アプリの枠）。ダイアログや段を持たないシートは body に出るのでこの外になる。
+ * `area` は引ける範囲（アプリの枠）。指を下ろしたことはここで受けるので、body に出るダイアログや
+ * 段を持たないシートの上の操作は届かない。
  * 枠の中に出る 2 段のシート（カレンダーのクイック入力）は、なぞりを自分で扱う（`touch-action: none`）ので
  * `canStartPull` が外す。どちらも、シートを下へなぞって閉じる操作が再読み込みに化けない。
  *
@@ -66,13 +64,17 @@ function canStartPull(
  *
  * 離したときはブラウザの引っ張って更新と同じく、ページを読み込み直す。
  */
-export function usePullToRefresh(area: RefObject<HTMLElement | null>, enabled: boolean) {
+export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
+  const enabled = useMatches({
+    select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
+  });
   /** 下へ引いた距離。引いていない間は null */
   const [distance, setDistance] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!enabled || refreshing) return;
+    const root = area.current;
+    if (!enabled || refreshing || !root) return;
     const controller = new AbortController();
     /** 今のなぞりの見張り。なぞりが終われば外す */
     let gesture: AbortController | null = null;
@@ -87,8 +89,8 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>, enabled: b
       cancel();
       const touch = event.touches[0];
       const target = event.target;
-      if (event.touches.length !== 1 || !touch || !area.current) return;
-      if (!canStartPull(target, area.current)) return;
+      if (event.touches.length !== 1 || !touch) return;
+      if (!canStartPull(target, root)) return;
       const origin = { x: touch.clientX, y: touch.clientY };
       /** 下へ引いていると決まったか。決まるまでは縦横どちらのなぞりか分からない */
       let pulling = false;
@@ -116,7 +118,7 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>, enabled: b
       };
 
       const end = () => {
-        if (pulling && pulled >= PULL_THRESHOLD) {
+        if (pulled >= PULL_THRESHOLD) {
           setRefreshing(true);
           location.reload();
         }
@@ -138,7 +140,7 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>, enabled: b
       touched.addEventListener('touchcancel', cancel, options);
     };
 
-    document.addEventListener('touchstart', start, { passive: true, signal: controller.signal });
+    root.addEventListener('touchstart', start, { passive: true, signal: controller.signal });
 
     return () => {
       controller.abort();
