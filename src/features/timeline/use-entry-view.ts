@@ -24,7 +24,7 @@ export type EntryView = {
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
-  /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
+  /** 上段の右に薄く添える日時。今日の一番上にまとめたタスクは null */
   time: string | null;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
   careTypes: CareType[];

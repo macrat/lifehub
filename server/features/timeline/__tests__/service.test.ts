@@ -87,8 +87,8 @@ describe('timeline service', () => {
 
     const page = await getTimelinePage({}, now);
     expect(labels(page.items)).toEqual([
-      '日時なし',
       '明日の朝',
+      '日時なし',
       '朝の水やり',
       '昨日の会議',
       'ランチ',
@@ -96,7 +96,7 @@ describe('timeline service', () => {
     expect(page.nextCursor).toBeNull();
   });
 
-  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは一番上にまとめる', async () => {
+  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは今日の一番上にまとめる', async () => {
     const done = await createEvent(
       task({ title: '完了', startsAt: iso('2026-09-01T09:00:00') }),
       userId,
@@ -110,14 +110,14 @@ describe('timeline service', () => {
     await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
 
     const page = await getTimelinePage({}, now);
-    // 一番上のまとまりの中は、最近始まったものが上、日時の無いものが下
-    expect(labels(page.items)).toEqual(['今朝開始', '開始済み', '期限のみ', '明日開始', '完了']);
+    // まとまりは明日の記録の下。その中は最近始まったものが上、日時の無いものが下
+    expect(labels(page.items)).toEqual(['明日開始', '今朝開始', '開始済み', '期限のみ', '完了']);
     expect(
       page.items.find((e) => e.type === 'event' && e.item.title === '期限のみ')?.at,
     ).toBeNull();
   });
 
-  it('終日の予定は終わる日の終わりに置き、24 時間先までに始まるものを出す', async () => {
+  it('終日の予定は終わる日の終わりに置き、未完了のタスクは明日の記録と今日の終日の予定の間に置く', async () => {
     const allDay = (title: string, from: string, to: string) =>
       createEvent(event({ title, allDay: true, startsAt: iso(from), endsAt: iso(to) }), userId);
     await allDay('今日の終日', '2026-09-14T00:00:00', '2026-09-14T00:00:00');
@@ -140,19 +140,32 @@ describe('timeline service', () => {
       }),
       userId,
     );
-    await logCare(
-      { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: '朝の水やり' },
+    await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
+    await createEvent(
+      task({
+        title: '期限切れ',
+        startsAt: iso('2026-09-01T09:00:00'),
+        endsAt: iso('2026-09-13T09:00:00'),
+      }),
       userId,
     );
+    const done = await createEvent(
+      task({ title: '今朝完了', startsAt: iso('2026-09-14T07:00:00') }),
+      userId,
+    );
+    await completeEvent(done.id, {}, userId, jst('2026-09-14T08:00:00'));
 
     const page = await getTimelinePage({}, now);
+    // 未完了のまとまりの中は、期限を過ぎたものが上
     expect(labels(page.items)).toEqual([
       '連休',
       '明日の終日',
       '明日の朝',
+      '期限切れ',
+      '開始済み',
       '今日の終日',
       '夕方',
-      '朝の水やり',
+      '今朝完了',
     ]);
     expect(page.items.find((e) => label(e) === '今日の終日')?.at).toBe(
       iso('2026-09-14T23:59:59.999'),
