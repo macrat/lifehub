@@ -1,20 +1,12 @@
 import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import {
-  addDays,
-  allDayDate,
-  diffDays,
-  fromMinutesOfDay,
-  minutesOfDay,
-  toDateString,
-} from '../../../shared/date.ts';
+import { addDays, allDayDate, diffDays, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { formatDate, formatMinutesOfDay, fromDateValue } from '../../lib/date.ts';
+import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';
 import {
   allDayEventValues,
   eventValuesForRange,
-  type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
 import type { ItemEnds } from './item-shape.ts';
@@ -64,21 +56,13 @@ type Grabbed = { item: CalendarItem | null };
  * 日ごとに 1 件で返る項目からでも、持っている日時（`startsAt` / `endsAt`）だけで期間が決まる。
  * 予定でつまめないのは、枠に出せない「日をまたぐ時間指定の予定」。
  * タスクは置かれている所（時間軸ならその時刻の最小の長さのブロック、それ以外は置かれた日 1 日）を枠にする。
- * 長さを持たないので、枠は動かすだけで端は直せない（`dayGrab`・`DraftBlock`）。
+ * 長さを持たないので、枠は動かすだけで端は直せない（`hasEnds`）。
  * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
  */
 export function itemDraft(item: CalendarItem): EventDraft | null {
   if (item.kind === 'task') {
     if (item.completedAt !== null) return null;
-    const slot = timelineSlot(item);
-    return slot
-      ? {
-          allDay: false,
-          date: item.placementDate,
-          startMin: slot.startMin,
-          endMin: Math.min(slot.endMin, DAY_MINUTES),
-        }
-      : allDayDraft(item.placementDate);
+    return taskFrame(item.placementDate, timelineSlot(item)?.startMin ?? null);
   }
   if (item.allDay)
     return {
@@ -88,6 +72,29 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
     };
   const slot = timedSlot(item);
   return slot && { allDay: false, date: item.placementDate, ...slot };
+}
+
+/**
+ * タスクの枠。時刻（その日の 0:00 からの分）があれば時間軸に置くブロックと同じ最小の長さ（24 時で切る）、
+ * 無ければその日 1 日。置かれているタスクの枠（`itemDraft`）と入力で直した日時の枠（`taskDraftFromInput`）が
+ * 同じ形になるよう、ここ 1 か所で決める。
+ */
+export function taskFrame(date: DateString, startMin: number | null): EventDraft {
+  if (startMin === null) return allDayDraft(date);
+  return {
+    allDay: false,
+    date,
+    startMin,
+    endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES),
+  };
+}
+
+/**
+ * 枠の端（開始・終了）をつまんで直せるか。タスクは長さを持たないので、どこをつまんでも枠ごと動く
+ * （時間軸は端の丸・線を出さず、日の並びは端に当たる所を押しても帯そのもの）。
+ */
+export function hasEnds(item: CalendarItem | null): boolean {
+  return item?.kind !== 'task';
 }
 
 /**
@@ -216,8 +223,8 @@ export function dayGrab(
   const { range, item } = draft;
   const { from, to } = draftDays(range);
   if (date < from || date > to) return null;
-  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。タスクは長さを持たない。動かせるのは日だけ
-  if (!range.allDay || item?.kind === 'task') return { kind: 'move', draft: range, item };
+  // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。端の無い枠（タスク）も動かすだけ
+  if (!range.allDay || !hasEnds(item)) return { kind: 'move', draft: range, item };
   if (date === from && half === 'left') return { kind: 'start', draft: range, item };
   if (date === to && half === 'right') return { kind: 'end', draft: range, item };
   return { kind: 'move', draft: range, item };
@@ -295,17 +302,6 @@ export function draftText(draft: EventDraft): string {
     return `${days} 終日`;
   }
   return `${formatDate(draft.date)} ${formatMinutesOfDay(draft.startMin)}〜${formatMinutesOfDay(draft.endMin)}`;
-}
-
-/** 保存するときの日時。終日の終わりは「含む日」で送る（サーバーが翌日 0:00 に直す） */
-export function draftInstants(draft: EventDraft): FormInstants {
-  return draft.allDay
-    ? { allDay: true, startsAt: fromDateValue(draft.from), endsAt: fromDateValue(draft.to) }
-    : {
-        allDay: false,
-        startsAt: fromMinutesOfDay(draft.date, draft.startMin),
-        endsAt: fromMinutesOfDay(draft.date, draft.endMin),
-      };
 }
 
 /**

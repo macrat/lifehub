@@ -9,10 +9,11 @@ type Props = {
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
-  /** 見出し。既定は追加（カレンダーでつまんだタスクを直しているときは呼び出し側が言い換える） */
-  title?: string;
-  /** 開いた所でタイトルに焦点を当てるか。追加だけ（`TaskFormFields`） */
-  autoFocus?: boolean;
+  /**
+   * 既にあるタスクを直しているか（カレンダーでつまんだタスクのクイック入力から来たとき）。
+   * 見出しが「編集」になり、タイトルに焦点を当てない（焦点は追加だけ。`TaskFormFields`）
+   */
+  editing?: boolean;
   onSubmit: (input: CreateEventBody) => Promise<unknown>;
   onClose: () => void;
 };
@@ -22,14 +23,7 @@ type Props = {
  * 既存のタスクの編集は詳細（`ItemDetailSheet`）から行う。カレンダーでつまんだタスクをクイック入力の
  * 「その他のオプション」から直し続けるときもここへ来る（何を保存するかは `onSubmit` を渡す側が決める）。
  */
-export function TaskForm({
-  initial,
-  scope,
-  title = 'タスクを追加',
-  autoFocus = true,
-  onSubmit,
-  onClose,
-}: Props) {
+export function TaskForm({ initial, scope, editing = false, onSubmit, onClose }: Props) {
   const [allDay, setAllDay] = useAllDay(initial);
   const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
     kind: 'task',
@@ -46,7 +40,7 @@ export function TaskForm({
       error={submitError}
       onClose={onClose}
       full
-      title={title}
+      title={editing ? 'タスクを編集' : 'タスクを追加'}
       onSubmit={handleSubmit}
     >
       <TaskFormFields
@@ -55,7 +49,7 @@ export function TaskForm({
         allDay={allDay}
         onChangeAllDay={setAllDay}
         thisOnly={thisOnly}
-        autoFocus={autoFocus}
+        autoFocus={!editing}
       />
     </RecordSheet>
   );

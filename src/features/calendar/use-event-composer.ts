@@ -54,10 +54,10 @@ type ComposerAction =
   /** 追加ボタンからの予定の入力。その日の終日の下書きを置き、入力を全項目の段で開く */
   | { type: 'start'; range: EventDraft; participantIds: string[] }
   /**
-   * クイック入力で直した日時・終日の切り替えを下書きへ戻す。
-   * タスクは日時を枠から導くので、入力した日時を持たせたタスク（item）も一緒に差し替える（`taskDraftFromInput`）
+   * クイック入力で直した日時・終日の切り替えを下書き（枠と直している物）へ戻す。
+   * 予定は枠だけが変わり、タスクは日時を枠から導くので入力した日時を持たせたタスクも変わる（`taskDraftFromInput`）
    */
-  | { type: 'change'; range: EventDraft; item?: CalendarItem }
+  | { type: 'change'; draft: Draft }
   | { type: 'participants'; participantIds: string[] }
   /** 「その他のオプション」: 入力済みの内容と直している予定を全項目のフォームへ移す */
   | { type: 'expand'; values: ItemFormValues }
@@ -90,9 +90,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         origin: 'add',
       };
     case 'change':
-      return state?.mode === 'grid'
-        ? { ...state, range: action.range, item: action.item ?? state.item, settled: true }
-        : state;
+      return state?.mode === 'grid' ? { ...state, ...action.draft, settled: true } : state;
     case 'participants':
       return state?.mode === 'grid' ? { ...state, participantIds: action.participantIds } : state;
     case 'expand':
@@ -137,8 +135,7 @@ export function useEventComposer(meId: string | null) {
         range: allDayDraft(date),
         participantIds: defaultParticipants(meId),
       }),
-    changeRange: (range: EventDraft, item?: CalendarItem) =>
-      dispatch({ type: 'change', range, item }),
+    changeDraft: (draft: Draft) => dispatch({ type: 'change', draft }),
     changeParticipants: (participantIds: string[]) =>
       dispatch({ type: 'participants', participantIds }),
     expand: (values: ItemFormValues) => dispatch({ type: 'expand', values }),

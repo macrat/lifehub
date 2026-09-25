@@ -84,7 +84,9 @@ describe('composerReducer', () => {
 
   it('入力で直した日時は下書きに戻り、入力を出したままにする', () => {
     const state = grab(null, { range, item: event }, false);
-    expect(composerReducer(state, { type: 'change', range: moved })).toMatchObject({
+    expect(
+      composerReducer(state, { type: 'change', draft: { range: moved, item: event } }),
+    ).toMatchObject({
       range: moved,
       item: event,
       settled: true,
@@ -94,7 +96,12 @@ describe('composerReducer', () => {
   it('タスクは入力で直した日時を持たせたタスクごと差し替える', () => {
     const state = grab(null, { range, item: task }, false);
     const edited = { ...task, startsAt: null };
-    expect(composerReducer(state, { type: 'change', range: moved, item: edited })).toMatchObject({
+    expect(
+      composerReducer(state, {
+        type: 'change',
+        draft: { range: moved, item: edited },
+      }),
+    ).toMatchObject({
       range: moved,
       item: edited,
     });
@@ -112,7 +119,7 @@ describe('composerReducer', () => {
 
   it('全項目のフォームの間は下書きへの変更を受け付けない', () => {
     const form: State = { mode: 'form', values: defaultTaskValues(ME), item: null };
-    expect(composerReducer(form, { type: 'change', range })).toBe(form);
+    expect(composerReducer(form, { type: 'change', draft: { range, item: null } })).toBe(form);
     expect(composerReducer(form, { type: 'participants', participantIds: [] })).toBe(form);
   });
 

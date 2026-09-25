@@ -25,14 +25,15 @@ export function EventComposer({ composer, onClose, onChangeInset }: Props) {
       draft,
       onChangeParticipants: composer.changeParticipants,
       onSubmit: composer.save,
+      onChangeDraft: composer.changeDraft,
       onExpand: composer.expand,
       onClose,
       onChangeInset,
     };
     return draft.item?.kind === 'task' ? (
-      <QuickTaskForm {...common} task={draft.item} onChangeDraft={composer.changeRange} />
+      <QuickTaskForm {...common} task={draft.item} />
     ) : (
-      <QuickEventForm {...common} onChangeDraft={composer.changeRange} />
+      <QuickEventForm {...common} />
     );
   }
   if (expanded) {
@@ -40,8 +41,7 @@ export function EventComposer({ composer, onClose, onChangeInset }: Props) {
       <TaskForm
         initial={expanded.values}
         scope={grabbedScope(expanded.item)}
-        title="タスクを編集"
-        autoFocus={false}
+        editing
         onSubmit={composer.save}
         onClose={onClose}
       />

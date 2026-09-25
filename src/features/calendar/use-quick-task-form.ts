@@ -1,20 +1,12 @@
 import { useMemo, useRef } from 'react';
-import type { ItemFormValues } from '../events/form-values.ts';
-import type { CreateEventBody } from '../events/queries.ts';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useAllDay, useItemForm } from '../events/use-item-form.ts';
-import type { EventDraft } from './draft.ts';
+import type { QuickProps } from './components/QuickForm.tsx';
 import { type TaskItem, taskDraftFromInput, taskDraftText, taskDraftValues } from './task-draft.ts';
-import type { GridDraft } from './use-event-composer.ts';
 
-type Options = {
-  draft: GridDraft;
+type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
   /** 直しているタスク（`draft.item` と同じもの。タスクだと分かっている形で受け取る） */
   task: TaskItem;
-  onSubmit: (input: CreateEventBody) => Promise<unknown>;
-  onChangeDraft: (draft: EventDraft, item: TaskItem) => void;
-  onExpand: (values: ItemFormValues) => void;
-  onClose: () => void;
 };
 
 /**
@@ -23,14 +15,7 @@ type Options = {
  * 枠とタスクの両方へ戻す（`taskDraftFromInput`）。見出し・グリッドの枠・保存する日時が同じ所から決まるように。
  * 終日かどうかは予定と違ってフォームが持つ（タスクの終日は置き方ではなく日時の形なので、切り替えても枠は動かない）。
  */
-export function useQuickTaskForm({
-  draft,
-  task,
-  onSubmit,
-  onChangeDraft,
-  onExpand,
-  onClose,
-}: Options) {
+export function useQuickTaskForm({ draft, task, onSubmit, onChangeDraft, onClose }: Options) {
   const { range, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
   // 描画ごとに作り直すと、終日の状態（`useAllDay`）が別の既定値と見て毎回戻してしまう
@@ -55,18 +40,12 @@ export function useQuickTaskForm({
     initial,
     allDay,
     changeAllDay: setAllDay,
-    title: initial.title,
     rangeText: taskDraftText(initial),
     /** 入力欄で直した日時を枠とタスクへ映す。開始が空なら枠に置けないのでそのままにする */
     syncDraft: () => {
       if (!formRef.current) return;
       const next = taskDraftFromInput(task, form.inputFromForm(new FormData(formRef.current)));
-      if (next) onChangeDraft(next.range, next.item);
-    },
-    /** PC だけ: 入力済みの内容を引き継いで全項目のフォームへ */
-    expand: () => {
-      const input = form.inputFromForm(new FormData(formRef.current ?? undefined));
-      onExpand({ ...initial, title: input.title, participantIds: input.participantIds });
+      if (next) onChangeDraft(next);
     },
   };
 }

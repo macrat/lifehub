@@ -17,8 +17,11 @@ import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ScopeChip } from '../../events/components/EventFields.tsx';
+import type { ItemFormValues } from '../../events/form-values.ts';
+import type { CreateEventBody } from '../../events/queries.ts';
 import type { useItemForm } from '../../events/use-item-form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
+import type { Draft } from '../draft.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
 
@@ -30,19 +33,36 @@ type Quick = {
   formRef: RefObject<HTMLFormElement | null>;
   form: Pick<
     ReturnType<typeof useItemForm>,
-    'errors' | 'submitError' | 'thisOnly' | 'submitted' | 'handleSubmit'
+    'errors' | 'submitError' | 'thisOnly' | 'submitted' | 'handleSubmit' | 'inputFromForm'
   >;
-  /** タイトルの既定値 */
-  title: string;
+  /** 入力の既定値（タイトルと、全項目のフォームへ引き継ぐ残りの項目） */
+  initial: ItemFormValues;
   /** 下の段（PC は吹き出し）に出す日時の見出し */
   rangeText: string;
   /** 上の段で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき */
   syncDraft: () => void;
-  /** PC だけ: 入力済みの内容を引き継いで全項目のフォームへ */
-  expand: () => void;
 };
 
-type Props = {
+/** クイック入力（`QuickEventForm` / `QuickTaskForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */
+export type QuickProps = {
+  /**
+   * グリッドの下書き。`item` は直している保存済みの予定・タスク（長押しでつまんだもの。追加のときは null）で、
+   * 入力の既定値になり、保存は呼び出し側（`onSubmit`）が上書きに振り分ける。
+   */
+  draft: GridDraft;
+  onChangeParticipants: (participantIds: string[]) => void;
+  /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
+  onSubmit: (input: CreateEventBody) => Promise<unknown>;
+  /** 上の段で直した日時を下書き（グリッドの枠と直している物）へ戻す */
+  onChangeDraft: (draft: Draft) => void;
+  /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
+  onExpand: (values: ItemFormValues) => void;
+  onClose: () => void;
+  /** シートがカレンダーを下から覆っている高さ（px）が変わったとき */
+  onChangeInset: (inset: number) => void;
+};
+
+type Props = Pick<QuickProps, 'onExpand'> & {
   /**
    * グリッドの下書き。`item` は直している保存済みの予定・タスク（長押しでつまんだもの。追加のときは null）。
    * 参加者はグリッドの枠の色にもなるので呼び出し側が持つ。
@@ -70,24 +90,26 @@ type Props = {
  * - PC: 選んだ範囲に寄せた吹き出し（`QuickBubble`）。タイトルと参加者だけを扱い、残りは
  *   「その他のオプション」で全項目のフォームへ渡す。
  */
-export function QuickForm({ onChangeInset, details, ...props }: Props) {
+export function QuickForm({ onExpand, ...props }: Props) {
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
   useDialogHistory(props.onClose);
-  return isMobile ? (
-    <QuickSheet {...props} details={details} onChangeInset={onChangeInset} />
-  ) : (
-    <QuickBubble {...props} />
-  );
+  const { quick } = props;
+  /** PC だけ: 入力済みのタイトルと参加者を既定値に重ねて、全項目のフォームへ引き継ぐ */
+  const expand = () => {
+    const input = quick.form.inputFromForm(new FormData(quick.formRef.current ?? undefined));
+    onExpand({ ...quick.initial, title: input.title, participantIds: input.participantIds });
+  };
+  return isMobile ? <QuickSheet {...props} /> : <QuickBubble {...props} onExpand={expand} />;
 }
 
-type LayoutProps = Omit<Props, 'details' | 'onChangeInset'>;
+type LayoutProps = Omit<Props, 'details' | 'onChangeInset' | 'onExpand'>;
 
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
  * 下げきると下書きごと取り消す。保存は上端（上の段まで広げても押せるように）。
  * 段はこのシートだけのもので、開く段は入口（`draft.origin`）で決まる（グリッドからは下の段、追加ボタンからは上の段）。
- * 追加ボタンから開いたときは、予定には必ずタイトルを入れるのでタイトルに焦点を当てる。
+ * 追加ボタン（予定だけ）から開いたときは、予定には必ずタイトルを入れるのでタイトルに焦点を当てる。
  * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
@@ -97,7 +119,7 @@ function QuickSheet({
   onChangeParticipants,
   onClose,
   onChangeInset,
-}: LayoutProps & Pick<Props, 'details' | 'onChangeInset'>) {
+}: Omit<Props, 'onExpand'>) {
   const peekRef = useRef<HTMLDivElement>(null);
   const [detent, setDetent] = useState<SheetDetent>(draft.origin === 'add' ? 'full' : 'peek');
   const { form } = quick;
@@ -126,7 +148,7 @@ function QuickSheet({
           </SheetHeader>
           <QuickFields
             form={form}
-            title={quick.title}
+            title={quick.initial.title}
             autoFocus={draft.origin === 'add'}
             rangeText={detent === 'peek' ? quick.rangeText : null}
             participantIds={draft.participantIds}
@@ -173,7 +195,13 @@ const draftAnchor = {
  * 送信したら閉じた見た目にし（入力は残す）、保存できたら呼び出し側がマウントをやめる。
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
-function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProps) {
+function QuickBubble({
+  draft,
+  quick,
+  onChangeParticipants,
+  onClose,
+  onExpand,
+}: LayoutProps & { onExpand: () => void }) {
   const { form } = quick;
   const paperRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -206,13 +234,13 @@ function QuickBubble({ draft, quick, onChangeParticipants, onClose }: LayoutProp
               </Stack>
               <QuickFields
                 form={form}
-                title={quick.title}
+                title={quick.initial.title}
                 titleRef={titleRef}
                 rangeText={quick.rangeText}
                 participantIds={draft.participantIds}
                 onChangeParticipants={onChangeParticipants}
               >
-                <Button onClick={quick.expand}>その他のオプション</Button>
+                <Button onClick={onExpand}>その他のオプション</Button>
                 <SubmitButton />
               </QuickFields>
             </QuickFormBox>

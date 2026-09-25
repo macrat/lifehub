@@ -1,10 +1,8 @@
-import { type CalendarItem, normalizeInstants } from '../../../shared/calendar.ts';
-import { DAY_MINUTES } from '../../../shared/constants.ts';
+import { type CalendarItem, normalizeInstants, taskTime } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
 import type { ItemFormValues } from '../events/form-values.ts';
-import { allDayDraft, type EventDraft, itemDraft } from './draft.ts';
-import { MIN_BLOCK_MINUTES } from './timeline-layout.ts';
+import { type EventDraft, itemDraft, taskFrame } from './draft.ts';
 
 /** カレンダーに置かれたタスク（つまんで動かす対象） */
 export type TaskItem = Extract<CalendarItem, { kind: 'task' }>;
@@ -40,9 +38,11 @@ export function taskDraftValues(
 function dropStart(task: TaskItem, range: EventDraft): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
-  const time = task.startsAt ?? task.endsAt;
-  if (task.allDay || time === null) return { allDay: true, startsAt: fromDateValue(range.from) };
-  return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(time)) };
+  // 時刻はタスクの基準日時のもの（`taskTime`。つまめるのは未完了のタスクだけなので開始 → 期限）。
+  // 終日・日時なしでは時刻が無い
+  const at = taskTime(task)?.at;
+  if (!at) return { allDay: true, startsAt: fromDateValue(range.from) };
+  return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(at)) };
 }
 
 /**
@@ -63,17 +63,8 @@ export function taskDraftFromInput(
     new Date(startsAt),
     input.endsAt === null ? null : new Date(input.endsAt),
   );
-  const date = toDateString(new Date(startsAt));
-  const startMin = minutesOfDay(startsAt);
   return {
-    range: allDay
-      ? allDayDraft(date)
-      : {
-          allDay: false,
-          date,
-          startMin,
-          endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES),
-        },
+    range: taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt)),
     item: {
       ...task,
       allDay,
