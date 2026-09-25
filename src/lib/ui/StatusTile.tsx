@@ -4,6 +4,7 @@ import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
 import type { ComponentType } from 'react';
 import { TILE_MASK } from './squircle.ts';
+import { textTransitionSx } from './text-transition.ts';
 
 type Props = {
   /** 名前の左のアイコン。読み上げではアイコンに名乗らせない（名前がすぐ右にある） */
@@ -52,10 +53,7 @@ export function StatusTile({ icon: Icon, label, value, sub, transitionName, onCl
           sx={{
             lineHeight: 1.3,
             fontVariantNumeric: 'tabular-nums',
-            // 動く絵は要素の幅で撮られるので、文字の幅に縮めておく（行の幅のままだと、行の幅の違う
-            // 相手との間で文字ごと横に引き伸ばされる）
-            width: 'fit-content',
-            viewTransitionName: 'value' in transitionName ? transitionName.value : undefined,
+            ...textTransitionSx('value' in transitionName ? transitionName.value : undefined),
           }}
         >
           {value}
