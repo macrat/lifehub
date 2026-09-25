@@ -24,3 +24,14 @@ export async function quiet(page: Page, fetches: () => number) {
     await page.waitForTimeout(1000);
   }
 }
+
+/**
+ * 取得が落ち着いてから `GET <pathname>` を数え始め、それからの回数を返す。
+ * 開いた直後の取得を、操作したことによる取得と取り違えないようにする
+ */
+export async function fetchesFromNow(page: Page, pathname: string): Promise<() => number> {
+  const fetches = countFetches(page, pathname);
+  await quiet(page, fetches);
+  const before = fetches();
+  return () => fetches() - before;
+}

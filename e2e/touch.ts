@@ -3,26 +3,36 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /** CDP に送る指 1 本。複数本なら id で見分ける */
 type TouchPoint = { id: number; x: number; y: number };
 
+type GestureOptions = {
+  hold?: number;
+  steps?: number;
+  delay?: number;
+  afterStart?: () => Promise<unknown>;
+};
+
 /**
  * 指を触れさせ、`at` が返す位置を 0→1 でたどって離す（`at` は指の本数も決める）。
  * Playwright の touchscreen はタップだけなので、CDP で touchstart〜touchend を送る。
  * hold は動かし始めるまで押さえている時間（ミリ秒。月表示の長押しに使う）。
  * steps / delay は刻みの細かさと間隔。慣性や吸着を見るときだけ細かくゆっくり送る。
+ * afterStart は触れた直後、動かし始める前にする事（指の下の要素を描き直す、など）。
  */
 async function touchGesture(
   page: Page,
   at: (t: number) => TouchPoint[],
-  { hold = 0, steps = 5, delay = 0 } = {},
+  { hold = 0, steps = 5, delay = 0, afterStart }: GestureOptions = {},
 ) {
+  // セッションは閉じない（ページを閉じれば一緒に消える）。閉じると、Playwright がかけた
+  // ネットワークの設定（`context.setOffline`）まで外れてオンラインに戻る
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) });
+  await afterStart?.();
   if (hold > 0) await page.waitForTimeout(hold);
   for (let i = 1; i <= steps; i++) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(i / steps) });
     if (delay > 0) await page.waitForTimeout(delay);
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
 }
 
 /** 長押しと認められるまで押さえる長さ（ms）。アプリの区切り（`use-record-press.ts` の 300ms）を確かに超える */
@@ -33,7 +43,7 @@ export function touchDrag(
   page: Page,
   from: { x: number; y: number },
   to: { x: number; y: number },
-  options: { hold?: number; steps?: number; delay?: number } = {},
+  options: GestureOptions = {},
 ) {
   return touchGesture(
     page,

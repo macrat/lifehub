@@ -89,7 +89,7 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          // Web ページではなくアプリとして触れるようにする（引っ張って更新だけは残す。NoPullToRefresh）
+          // Web ページではなくアプリとして触れるようにする（引っ張って更新はアプリのもの。PullToRefresh）
           body: {
             // ブラウザの拡大縮小はしない。素早く続けて押しても（日を次々に選ぶ、電卓を叩く）、
             // つまんでも画面は動かず、つまむ操作はアプリ側で使う（カレンダーの週・日表示の時間軸）

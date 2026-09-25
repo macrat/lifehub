@@ -1,0 +1,182 @@
+import { isCancelledError, useQueryClient } from '@tanstack/react-query';
+import { useMatches } from '@tanstack/react-router';
+import { type RefObject, useEffect, useState } from 'react';
+import { useOnline } from '../online.ts';
+import { notify } from './notice.ts';
+
+/** 離したときに取り直す、指を下ろした所からの下向きの動き（px） */
+export const PULL_THRESHOLD = 80;
+
+/** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
+const FAILED_NOTICE_MS = 3000;
+
+/** 向きを決めるまでの動き（px）。これに満たない間はタップかもしれないので何もしない */
+const DIRECTION_SLOP = 8;
+
+declare module '@tanstack/react-router' {
+  interface StaticDataRouteOption {
+    /**
+     * この画面では引っ張って更新をしない。引いて取り直したい内容を持たず、上端に指で動かす操作や
+     * 入力が並ぶ画面だけに付ける。それらを触ったつもりの指で取り直しが起きないようにする。
+     */
+    noPullToRefresh?: boolean;
+  }
+}
+
+/**
+ * 縦のなぞりをブラウザに任せている要素か（`touch-action` が下向きの移動を許している）。
+ * 許していない所（シートや予定のつまみなど、なぞりを自分で扱う所）ではブラウザもページを動かさず、
+ * ブラウザの引っ張って更新も起きない。同じ宣言を読んで、それに揃える
+ */
+function pansDown(el: Element): boolean {
+  const touchAction = getComputedStyle(el).touchAction;
+  return (
+    touchAction === 'auto' || touchAction === 'manipulation' || /pan-(y|down)/.test(touchAction)
+  );
+}
+
+/**
+ * ページ全体を下へ引いてよい押し方か。ブラウザの引っ張って更新と同じく、
+ * ページの一番上で、指の下に途中までスクロールした所が無く（カレンダーの時間軸などを上へ戻している
+ * 最中に取り直しに化けない）、縦のなぞりを自分で扱う所でもないときだけ引ける。
+ */
+function canStartPull(
+  target: EventTarget | null,
+  area: HTMLElement,
+): target is HTMLElement | SVGElement {
+  // 指の下は HTML の要素か、アイコン（SVG）の中
+  if (!(target instanceof HTMLElement || target instanceof SVGElement)) return false;
+  if (window.scrollY > 0) return false;
+  for (let el: Element | null = target; el && el !== area; el = el.parentElement) {
+    if (el.scrollTop > 0 || !pansDown(el)) return false;
+  }
+  return true;
+}
+
+/**
+ * 引っ張って更新（ブラウザのものを止めて代わりに持つ理由は `PullToRefresh`）。
+ * 画面が `staticData.noPullToRefresh` で断っている間は何もしない。
+ *
+ * `area` は引ける範囲（アプリの枠）。指を下ろしたことはここで受けるので、body に出るダイアログや
+ * 段を持たないシートの上の操作は届かない。
+ * 枠の中に出る 2 段のシート（カレンダーのクイック入力）は、なぞりを自分で扱う（`touch-action: none`）ので
+ * `canStartPull` が外す。どちらも、シートを下へなぞって閉じる操作が取り直しに化けない。
+ *
+ * タッチは見るだけで取り上げない（passive）。ページのスクロールはブラウザの速い経路のままで、
+ * ここは印を出すための距離を数えるだけ。
+ * 誰かが先に取り上げたなぞり（`blockTouchMove`。予定をつまんで動かすなど）と、
+ * 2 本指（カレンダーのつまむ操作）は引いたことにしない。
+ *
+ * 離したときは、いま画面に出ているデータ（有効なクエリ）を取り直す。ページは読み込み直さない。
+ * WHY: 画面の状態（カレンダーのクイック入力の下書き、開いているダイアログ、入力途中の文字、
+ * スクロール位置）を残したまま、最新の内容だけを持ってくるため。
+ * WHY NOT: ページの読み込み直し（ブラウザの引っ張って更新と同じ動き）は、画面の状態を捨てるうえ、
+ * インストールした PWA では precache から起動し直すだけで版も変わらない（`src/lib/update.ts`）。
+ *
+ * オフラインと分かっている間（`useOnline`。案内の帯が出ている間）は引けない。取れる物が無いうえ、
+ * 取得はオフラインの間は保留される（`networkMode: 'online'`）ので、取り直しを待つと回る印が止まらない。
+ * 引いている途中や取り直している途中でオフラインになったときも、そこで止めて印を戻す
+ * （保留した取得はオンラインに戻ったときに続きが走る）。
+ *
+ * 取り直しが失敗したときは「更新できませんでした」と短く知らせる。オフラインと分からないまま
+ * 繋がっていないとき（Wi-Fi には繋がっているが外に出られない、など）もここに来る。
+ */
+export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
+  const allowed = useMatches({
+    select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
+  });
+  const online = useOnline();
+  const enabled = allowed && online;
+  const queryClient = useQueryClient();
+  /** 下へ引いた距離。引いていない間は null */
+  const [distance, setDistance] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const root = area.current;
+    if (!enabled || refreshing || !root) return;
+    const controller = new AbortController();
+    /** 今のなぞりの見張り。なぞりが終われば外す */
+    let gesture: AbortController | null = null;
+
+    const cancel = () => {
+      gesture?.abort();
+      gesture = null;
+      setDistance(null);
+    };
+
+    const start = (event: TouchEvent) => {
+      cancel();
+      const touch = event.touches[0];
+      const target = event.target;
+      if (event.touches.length !== 1 || !touch) return;
+      if (!canStartPull(target, root)) return;
+      const origin = { x: touch.clientX, y: touch.clientY };
+      /** 下へ引いていると決まったか。決まるまでは縦横どちらのなぞりか分からない */
+      let pulling = false;
+      let pulled = 0;
+
+      const move = (event: TouchEvent) => {
+        const touch = event.touches[0];
+        if (event.touches.length !== 1 || !touch || event.defaultPrevented) {
+          cancel();
+          return;
+        }
+        const dx = touch.clientX - origin.x;
+        const dy = touch.clientY - origin.y;
+        if (!pulling) {
+          if (Math.hypot(dx, dy) < DIRECTION_SLOP) return;
+          // 上へのなぞり（ページのスクロール）と横のなぞり（スワイプ）は引いたことにしない
+          if (dy <= Math.abs(dx)) {
+            cancel();
+            return;
+          }
+          pulling = true;
+        }
+        pulled = Math.max(dy, 0);
+        setDistance(pulled);
+      };
+
+      const end = () => {
+        cancel();
+        if (pulled < PULL_THRESHOLD) return;
+        setRefreshing(true);
+        queryClient
+          .refetchQueries({ type: 'active' }, { throwOnError: true })
+          .catch((error: unknown) => {
+            // 取り直しの途中で別の取得に置き換えられた（画面を移った、など）のは失敗ではない
+            if (!isCancelledError(error)) notify('error', '更新できませんでした', FAILED_NOTICE_MS);
+          })
+          .finally(() => setRefreshing(false));
+      };
+
+      // 続きは指を下ろした要素で受ける。タッチのイベントはその要素に届き続けるが、描き直し
+      // （骨組みが中身に替わる、取り直した一覧を描き直す）でその要素が DOM から外れると、
+      // document には届かなくなる
+      gesture = new AbortController();
+      const options = {
+        passive: true,
+        signal: AbortSignal.any([controller.signal, gesture.signal]),
+      };
+      // HTML と SVG の要素の共通の型（タッチのイベントの型を知っている）で受ける
+      const touched: GlobalEventHandlers = target;
+      touched.addEventListener('touchmove', move, options);
+      touched.addEventListener('touchend', end, options);
+      touched.addEventListener('touchcancel', cancel, options);
+    };
+
+    root.addEventListener('touchstart', start, { passive: true, signal: controller.signal });
+
+    return () => {
+      controller.abort();
+      setDistance(null);
+    };
+  }, [area, enabled, refreshing, queryClient]);
+
+  return {
+    /** 下へ引いた距離（px）。引いていない間は null */
+    distance,
+    /** 引き切って離し、取り直している最中か。オフラインになって取得が保留されている間は含めない */
+    refreshing: refreshing && online,
+  };
+}

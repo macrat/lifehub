@@ -5,11 +5,12 @@ import { UserForm } from '../../features/users/components/UserForm.tsx';
 import { UserList } from '../../features/users/components/UserList.tsx';
 import { type User, useCreateUser, useUpdateUser, useUsers } from '../../features/users/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { NoPullToRefresh } from '../../lib/ui/NoPullToRefresh.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
+  // 引いて取り直したい内容を持たず、入力のシートを開いて使う画面なので、引っ張って更新はしない
+  staticData: { noPullToRefresh: true },
   component: AdminUsersPage,
 });
 
@@ -23,7 +24,6 @@ function AdminUsersPage() {
 
   return (
     <>
-      <NoPullToRefresh />
       <AppBarContent>
         <Button color="inherit" startIcon={<AddIcon />} onClick={creating.on} sx={{ ml: 'auto' }}>
           ユーザーを登録
