@@ -2,6 +2,7 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Typography from '@mui/material/Typography';
+import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
 import type { Balance } from '../queries.ts';
@@ -19,7 +20,15 @@ type Props = {
 export function BalanceTile({ balance, onClick }: Props) {
   const { label } = useUserLabels();
   return (
-    <Card sx={{ bgcolor: 'action.hover', viewTransitionName: 'balance' }}>
+    <Card
+      sx={{
+        bgcolor: 'action.hover',
+        // 追加ボタン・タスクのアイコンと同じスクワークル（押したときの波紋も同じ形に収まる）
+        borderRadius: 0,
+        clipPath: SQUIRCLE_CLIP_PATH,
+        viewTransitionName: 'balance',
+      }}
+    >
       <CardActionArea onClick={onClick} sx={{ p: 1, height: '100%' }}>
         <Typography
           variant="caption"
