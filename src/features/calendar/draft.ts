@@ -161,7 +161,7 @@ const vibrationFor = (min: number) => (min % 60 === 0 ? LONG_VIBRATION_MS : SHOR
  * 終日から時間指定に切り替えたときの下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。
  */
-export function defaultDraft(date: DateString, now: Date = new Date()): TimedDraft {
+export function nextHourDraft(date: DateString, now: Date = new Date()): TimedDraft {
   const nextHour = Math.ceil(minutesOfDay(now) / 60) * 60;
   const startMin = Math.min(nextHour, DAY_MINUTES - TAP_MINUTES);
   return { allDay: false, date, startMin, endMin: startMin + TAP_MINUTES };
@@ -170,12 +170,12 @@ export function defaultDraft(date: DateString, now: Date = new Date()): TimedDra
 /**
  * 終日の切り替え（クイック入力の「終日」）。終日かどうかは下書きだけが持ち、切り替えは下書きそのものを
  * 入れ替える。見出し・グリッドの枠・保存する日時がいつも同じ 1 つの下書きから決まるように。
- * 時間指定 → 終日はその日 1 日。終日 → 時間指定は、最初の日に既定の時間帯（`defaultDraft`）。
+ * 時間指定 → 終日はその日 1 日。終日 → 時間指定は、最初の日の次の正時から 1 時間（`nextHourDraft`）。
  * 時間指定の枠は日をまたげないので、複数日の終日から戻すと最初の日だけになる。
  */
 export function withAllDay(draft: EventDraft, allDay: boolean, now: Date = new Date()): EventDraft {
   if (draft.allDay === allDay) return draft;
-  return draft.allDay ? defaultDraft(draft.from, now) : allDayDraft(draft.date);
+  return draft.allDay ? nextHourDraft(draft.from, now) : allDayDraft(draft.date);
 }
 
 /** その日 1 日の終日の下書き */

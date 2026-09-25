@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import {
-  defaultDraft,
   draftText,
   draftValues,
   itemDraft,
+  nextHourDraft,
   sameOccurrence,
   withAllDay,
 } from '../draft.ts';
@@ -22,9 +22,9 @@ describe('draftText', () => {
   });
 });
 
-describe('defaultDraft', () => {
+describe('nextHourDraft', () => {
   it('現在時刻の分を切り上げた正時から 1 時間', () => {
-    expect(defaultDraft(DAY, jst('2026-09-21T17:11:00'))).toEqual({
+    expect(nextHourDraft(DAY, jst('2026-09-21T17:11:00'))).toEqual({
       allDay: false,
       date: DAY,
       startMin: 18 * 60,
@@ -33,11 +33,11 @@ describe('defaultDraft', () => {
   });
 
   it('ちょうど正時なら切り上げない', () => {
-    expect(defaultDraft(DAY, jst('2026-09-21T17:00:00'))).toMatchObject({ startMin: 17 * 60 });
+    expect(nextHourDraft(DAY, jst('2026-09-21T17:00:00'))).toMatchObject({ startMin: 17 * 60 });
   });
 
   it('切り上げが日をまたぐときは、枠に出せる最後の 1 時間にする', () => {
-    expect(defaultDraft(DAY, jst('2026-09-21T23:30:00'))).toMatchObject({
+    expect(nextHourDraft(DAY, jst('2026-09-21T23:30:00'))).toMatchObject({
       startMin: 23 * 60,
       endMin: 24 * 60,
     });
