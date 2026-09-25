@@ -10,7 +10,7 @@
 `/?q=&since=YYYY-MM-DD&until=YYYY-MM-DD`（`src/routes/_authenticated/index.tsx`）。上から:
 
 - **AppBar**: 左に検索窓（「記録を検索」）、右に絞り込みボタンと、スマホでは設定への歯車（PC はサイドナビに設定があるので出さない。同じ入口を 2 か所に出さない）。立替・レモンと同じ部品（`SearchField` / `FilterButton` / `FilterPanel`）。キーワードは全種類の記録の文字（予定・タスクのタイトルとメモ、立替の内容、レモンのメモと項目の名前、メモの本文）に部分一致で掛かり、絞り込みは記録の日付の範囲（`since` / `until`。`src/features/timeline/components/TimelineFilterForm.tsx`）。条件は `shared/validation/timeline.ts` の `timelineFilterSchema` で、サーバーが掛ける。日付で絞り込んでいる間は、一番上にまとめるタスクは置く日を持たないので出さない。
-- **最新の状態**（`src/features/dashboard/components/StatusCards.tsx`）: 立替残高（`BalanceTile`）・葉水・水やり（`CareStatusTile`）のタイルを横に 3 つ。タイルは角だけなめらかな角丸（角 24px の超楕円でつなぐ。`src/lib/ui/squircle.ts` の `TILE_MASK`）で、大きさによらず角の丸みが揃う（レモン画面のタイルも同じ部品なので同じ形）。立替残高を押すと立替の入力が、葉水・水やりを押すとその項目にチェックを入れたレモンの記録の入力が開く。絞り込みに関わらず今の状態を示す。下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる（`src/lib/ui/ScrollAwayHeader.tsx`。向きは MUI の `useScrollTrigger` が見る）。絞り込みのフォームも同じ帯の中に開き、開いている間は隠れない。
+- **最新の状態**（`src/features/dashboard/components/StatusCards.tsx`）: 立替残高（`BalanceTile`）・葉水・水やり（`CareStatusTile`）のタイルを横に 3 つ。タイルは角だけなめらかな角丸（角 24px の超楕円でつなぐ。`src/lib/ui/squircle.ts` の `TILE_MASK`）で、大きさによらず角の丸みが揃う（レモン画面のタイルも同じ部品なので同じ形）。立替残高を押すと立替の入力が、葉水・水やりを押すとその項目にチェックを入れたレモンの記録の入力が開く。絞り込みに関わらず今の状態を示す。下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる（`src/lib/ui/ScrollAwayHeader.tsx`）。絞り込みのフォームも同じ帯の中に開き、開いている間は隠れない。
 - **タイムライン**（`src/features/timeline/components/TimelineList.tsx`）: 上が新しく下が古い。下の端に近づくと古いほうのページを読み足す（無限スクロール）。最新のページは 24 時間先までの予定を含み、それより先はまだ出さない。
 - **右下の追加ボタン**: 予定・タスク・立替・レモンに加えて、一番下に「メモ」。メモはスマホでも PC でもここから書く。
 

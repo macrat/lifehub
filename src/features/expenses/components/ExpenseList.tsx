@@ -22,7 +22,7 @@ type Props = {
   /** 一覧の上に貼り付けておく物（絞り込みのフォームと残高） */
   header: ReactNode;
   /** 下へスクロールしている間は header を隠す（`HistoryList`） */
-  headerScrollsAway: boolean;
+  headerScrollsAway?: boolean;
   /** 1 件も無いときの文言（`HistoryList`） */
   emptyMessage: string;
   /** 行を押したとき。editing は長押し（編集で開く）か */

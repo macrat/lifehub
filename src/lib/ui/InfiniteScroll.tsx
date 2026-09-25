@@ -1,13 +1,7 @@
-import {
-  type ReactNode,
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
 import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
 import { useEdgeObserver } from './use-edge-observer.ts';
+import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
 type Props = {
   /** 一覧の上に貼り付けておく物（絞り込みのフォーム、残高など） */
@@ -40,9 +34,7 @@ type Props = {
  *   （両方が動くと二重にずれる）
  * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
- * - header を隠すかどうかは、利用者が動かしたスクロールの向きだけで決める。MUI の `useScrollTrigger` は
- *   使わない: 最初の位置へ動かすのも前に足した分を戻すのも下向きのスクロールなので、それだけで隠れてしまう。
- *   ここで動かした分は描画のたびに基準を置き直して、向きに数えない
+ * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
  */
 export function InfiniteScroll({
   header,
@@ -62,9 +54,6 @@ export function InfiniteScroll({
   const anchor = useRef<{ element: Element; top: number } | null>(null);
   const positionedFor = useRef<string | null>(null);
   const pinned = useRef(false);
-  // 最後に見たスクロールの位置と、そこから下へ動いたか
-  const lastScrollY = useRef(0);
-  const [scrolledDown, setScrolledDown] = useState(false);
 
   const headerBottom = () => headerRef.current?.getBoundingClientRect().bottom ?? 0;
   const measure = useEffectEvent(() => {
@@ -75,12 +64,7 @@ export function InfiniteScroll({
   useEffect(() => {
     // body に付けると中の要素がどれも目印に選ばれなくなり、画面のスクロールアンカーが働かない
     const root = document.body;
-    const onScroll = () => {
-      measure();
-      const y = window.scrollY;
-      if (y !== lastScrollY.current) setScrolledDown(y > lastScrollY.current);
-      lastScrollY.current = y;
-    };
+    const onScroll = () => measure();
     const unpin = () => {
       pinned.current = false;
     };
@@ -118,7 +102,7 @@ export function InfiniteScroll({
       window.scrollBy(0, element.getBoundingClientRect().top - top);
     }
     measure();
-    lastScrollY.current = window.scrollY;
+    ignoreScrollSoFar();
   });
 
   useEdgeObserver(startRef, onReachStart);
@@ -126,7 +110,7 @@ export function InfiniteScroll({
 
   return (
     <>
-      <ScrollAwayHeader ref={headerRef} hidden={headerScrollsAway && scrolledDown}>
+      <ScrollAwayHeader ref={headerRef} pinned={!headerScrollsAway}>
         {header}
       </ScrollAwayHeader>
       <div ref={startRef} />

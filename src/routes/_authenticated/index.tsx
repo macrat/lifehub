@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import useScrollTrigger from '@mui/material/useScrollTrigger';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
@@ -38,7 +37,7 @@ const MAX_WIDTH = 640;
 /**
  * ホーム。上から、最新の状態（立替残高・葉水・水やりのタイル）と、
  * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。メモは右下の追加ボタンから書く。
- * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`。スクロールの向きは MUI の `useScrollTrigger` が見る）。
+ * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
  * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲でタイムラインを絞り込む
  * （タイルは絞り込みに関わらず今の状態を示す）。スマホでは右端の歯車が設定への入口
@@ -53,8 +52,6 @@ function HomePage() {
   );
   // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
   const panel = useToggle();
-  // 絞り込みのフォームを開いている間は隠さない
-  const tilesHidden = useScrollTrigger() && !panel.value;
   const timeline = useTimeline(listFilter);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンとタイルから開く入力。世話はタイルの項目にチェックを入れて開く
@@ -83,7 +80,7 @@ function HomePage() {
       </AppBarContent>
 
       <Box sx={{ maxWidth: MAX_WIDTH, mx: 'auto' }}>
-        <ScrollAwayHeader hidden={tilesHidden}>
+        <ScrollAwayHeader pinned={panel.value}>
           <TimelineFilterForm open={panel.value} filters={filters} onChange={setFilters} />
           <StatusCards onAddExpense={() => adding.open('expense')} onAddCare={addingCare.open} />
         </ScrollAwayHeader>
