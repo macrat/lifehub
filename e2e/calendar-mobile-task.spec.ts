@@ -33,7 +33,7 @@ async function deleteTask(page: Page, title: string) {
 
 test('時間軸のタスクは長押しでつまんで動かし、下半分のシートから保存できる', async ({ page }) => {
   const title = `E2E タスク移動 ${Date.now()}`;
-  // 開始が未来なのでその日に置かれ、時間軸では期限の 12:00 に出る
+  // 開始が未来なのでその日に置かれ、時間軸では開始の 10:00 に出る
   await createTask(page, {
     title,
     allDay: false,

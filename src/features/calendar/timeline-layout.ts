@@ -1,6 +1,6 @@
 import { type CalendarItem, taskTimeOnPlacementDate } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import { minutesOfDay } from '../../../shared/date.ts';
+import { minutesOfDay, toDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { itemKey } from './lane-layout.ts';
 
@@ -78,14 +78,25 @@ export function timedSlot(item: CalendarItem): { startMin: number; endMin: numbe
 /**
  * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（日付だけ、または別の日の時刻の）タスクは
  * null（終日欄へ）。タスクはその時刻に最小の長さのブロックで置く。
+ * タスクの時刻は、置かれた日に時刻付きの開始があれば開始（`taskStartAt`）。無ければ一覧と同じ `taskTime`
+ * （完了 → 期限 → 開始の優先）。
+ * WHY 開始を先に: 時間軸は「いつ取りかかるか」を並べる所で、予定のブロックも開始の時刻に置く。
+ * タスクを長押しで動かすと落とした所が開始になる（`task-draft.ts`）ので、動かした所にそのまま現れる。
  * タスクを長押しでつまんだときの枠（`draft.ts` の `itemDraft`）も同じ規則で決まる。
  */
 export function timelineSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind === 'event') return timedSlot(item);
-  const time = taskTimeOnPlacementDate(item);
-  if (!time?.at) return null;
-  const startMin = minutesOfDay(time.at);
+  const at = taskStartAt(item) ?? taskTimeOnPlacementDate(item)?.at;
+  if (!at) return null;
+  const startMin = minutesOfDay(at);
   return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
+}
+
+/** 置かれた日にある、時刻付きのタスクの開始。終日（日付だけ）・別の日・無いときは null */
+function taskStartAt(task: Extract<CalendarItem, { kind: 'task' }>): string | null {
+  const { allDay, startsAt, placementDate } = task;
+  if (allDay || startsAt === null) return null;
+  return toDateString(new Date(startsAt)) === placementDate ? startsAt : null;
 }
 
 /**

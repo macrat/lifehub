@@ -67,13 +67,18 @@ describe('partitionTimeline', () => {
     dayCount: 1,
     ...extra,
   });
-  const task = (id: string, endsAt: string | null, allDay = false): CalendarItem => ({
+  const task = (
+    id: string,
+    endsAt: string | null,
+    allDay = false,
+    startsAt: string | null = null,
+  ): CalendarItem => ({
     ...BASE,
     id,
     kind: 'task',
     title: id,
     allDay,
-    startsAt: null,
+    startsAt,
     endsAt,
     isOverdue: false,
   });
@@ -88,6 +93,10 @@ describe('partitionTimeline', () => {
       dayCount: 2,
     }),
     task('due', '2031-06-05T15:00:00+09:00'),
+    // 開始があれば期限ではなく開始の時刻に置く
+    task('started', '2031-06-05T20:00:00+09:00', false, '2031-06-05T11:00:00+09:00'),
+    // 開始が別の日（繰り越し）なら期限の時刻
+    task('carried', '2031-06-05T17:00:00+09:00', false, '2031-06-01T11:00:00+09:00'),
     task('someday', null),
     task('dated', '2031-06-06T00:00:00+09:00', true),
   ];
@@ -102,7 +111,9 @@ describe('partitionTimeline', () => {
     ]);
     expect(timedByDate.get(DAY)?.map((p) => [p.item.id, p.startMin, p.endMin])).toEqual([
       ['meeting', 9 * 60, 10 * 60 + 30],
+      ['started', 11 * 60, 11 * 60 + 30],
       ['due', 15 * 60, 15 * 60 + 30],
+      ['carried', 17 * 60, 17 * 60 + 30],
       ['late', 23 * 60, 24 * 60],
     ]);
   });

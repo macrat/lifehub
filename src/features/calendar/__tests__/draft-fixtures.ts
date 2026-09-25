@@ -63,7 +63,7 @@ export const event = {
   dayCount: 1,
 } satisfies CalendarItem;
 
-/** 保存済みの未完了のタスク（単発。6/5 9:00 開始、6/5 18:00 期限。6/5 に置かれ、時間軸では期限の 18:00） */
+/** 保存済みの未完了のタスク（単発。6/5 9:00 開始、6/5 18:00 期限。6/5 に置かれ、時間軸では開始の 9:00） */
 export const task = {
   kind: 'task',
   id: 't1',

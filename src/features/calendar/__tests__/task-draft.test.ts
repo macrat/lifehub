@@ -22,7 +22,7 @@ const allDayTask = {
 
 describe('taskDraftValues', () => {
   it('落とした日時を開始にし、期限は開始〜期限の長さを保ってずらす', () => {
-    // 期限の 18:00 に置かれたタスクを翌日の 20:00 へ
+    // 開始の 9:00 に置かれたタスクを翌日の 20:00 へ
     expect(taskDraftValues(task, timedAt('2031-06-06', 20 * 60), ['u1'])).toMatchObject({
       allDay: false,
       startsAt: iso('2031-06-06T20:00:00'),
@@ -30,12 +30,9 @@ describe('taskDraftValues', () => {
     });
   });
 
-  it('動かしていなければ開始は置かれた所になる（期限は長さを保つ）', () => {
+  it('動かしていなければ開始も期限もそのまま', () => {
     const values = taskDraftValues(task, itemDraft(task) ?? allDay(DAY, DAY), ['u1']);
-    expect(values).toMatchObject({
-      startsAt: iso('2031-06-05T18:00:00'),
-      endsAt: iso('2031-06-06T03:00:00'),
-    });
+    expect(values).toMatchObject({ startsAt: task.startsAt, endsAt: task.endsAt });
   });
 
   it('開始の無いタスクは開始が付き、期限は動かした分だけずらす', () => {
