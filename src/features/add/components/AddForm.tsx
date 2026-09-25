@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { meQueryOptions } from '../../../lib/auth.ts';
-import { TaskForm } from '../../events/components/TaskForm.tsx';
+import { ItemCreateForm } from '../../events/components/ItemCreateForm.tsx';
 import { defaultParticipants, defaultTaskValues } from '../../events/form-values.ts';
-import { useCreateEvent } from '../../events/queries.ts';
 import { ExpenseForm } from '../../expenses/components/ExpenseForm.tsx';
 import { CareLogForm } from '../../lemon/components/CareLogForm.tsx';
 import type { AddFormKind } from '../kinds.ts';
@@ -30,13 +29,12 @@ export function AddForm({ kind, onClose }: Props) {
 
 /** 日時なしのタスク。参加者の既定は自分だけ */
 function AddTaskForm({ onClose }: { onClose: () => void }) {
-  const createEvent = useCreateEvent();
   // 要るのは自分の ID だけなので、ユーザー一覧まで読む `useUserLabels` は使わない
   const { data: me } = useQuery(meQueryOptions);
   return (
-    <TaskForm
+    <ItemCreateForm
+      kind="task"
       initial={defaultTaskValues(defaultParticipants(me?.id ?? null))}
-      onSubmit={createEvent.mutateAsync}
       onClose={onClose}
     />
   );

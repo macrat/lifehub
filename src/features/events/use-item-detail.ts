@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { isCompletedTask } from '../../../shared/calendar.ts';
 import type { ItemFormValues } from './form-values.ts';
 import {
   type CalendarItem,
   eventQueryOptions,
-  useCreateEvent,
   useDeleteEvent,
   useToggleCompletion,
   useUpdateEvent,
@@ -16,11 +14,10 @@ import { useRecurrenceEditing } from './use-recurrence-editing.ts';
 
 /**
  * 予定・タスクの詳細（`ItemDetailSheet`）の状態と操作。閲覧から編集への切り替え（繰り返しなら範囲の
- * 選択を挟む）、編集の初期値、保存・削除・完了の切り替え、複製をまとめ、シートには表示するものだけを返す。
+ * 選択を挟む）、編集の初期値、保存・削除・完了の切り替えをまとめ、シートには表示するものだけを返す。
  * どの操作も済んだら詳細を閉じる（`onClose`）。
  */
 export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClose: () => void) {
-  const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
@@ -37,9 +34,6 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
   const fromMaster = editScope === 'all' && item.isRecurring;
   const master = useQuery({ ...eventQueryOptions(item.id), enabled: fromMaster });
   const scope = editScope ?? 'all';
-
-  // 複製の追加フォームを開いているか。詳細はその間は出さず、フォームを閉じれば詳細ごと閉じる
-  const [duplicating, setDuplicating] = useState(false);
 
   const completed = isCompletedTask(item);
   const initial: ItemFormValues = (fromMaster ? master.data : undefined) ?? item;
@@ -70,13 +64,6 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
     startDelete: () => recurrence.start('delete'),
     form,
     completed,
-    /**
-     * 複製の追加フォームの初期値。開いていなければ null。
-     * 開いている回の値（繰り返しなら繰り返しの設定も）をそのまま使い、新しい 1 件として保存する。
-     * 完了は内容ではなく状態なので引き継がない（`ItemFormValues` に含まれない）。
-     */
-    duplicate: duplicating ? { initial: item, save: createEvent.mutateAsync } : null,
-    startDuplicate: () => setDuplicating(true),
     toggleCompletion: () => {
       toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: !completed });
       onClose();
