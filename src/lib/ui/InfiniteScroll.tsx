@@ -23,8 +23,13 @@ type Props = {
   onReachStart?: (() => void) | undefined;
   /** 末尾に近づいたとき。undefined ならそれより後は無い（読み込み中を含む） */
   onReachEnd?: (() => void) | undefined;
-  /** 最初に見出しのすぐ下（画面の一番上）へ置く要素。省くか見つからなければ末尾を出す */
+  /** 最初に見出しのすぐ下（画面の一番上）へ置く要素 */
   initialTarget?: (list: HTMLElement) => Element | null;
+  /**
+   * 最初に画面の一番下へ置く要素。その下端を、要素の scroll-margin-bottom（下部ナビに隠れる分）だけ
+   * 上に揃える。initialTarget とこれのどちらも省くか見つからなければ末尾を出す
+   */
+  initialEnd?: (list: HTMLElement) => Element | null;
   /** 変わったら最初の位置に戻す（絞り込みを変えたときなど、別の一覧になったとき） */
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
@@ -38,7 +43,7 @@ type Props = {
  *   スクロールアンカーと同じ選び方）の位置を覚えておき、描き直した後でその分だけ戻す。
  *   ブラウザのスクロールアンカー（`overflow-anchor`）は Safari が対応していないので使わず、止めておく
  *   （両方が動くと二重にずれる）
- * - 最初の位置は、下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
+ * - 最初の位置は、上か下が足りずに目当ての所まで動かせなければ、続きが読まれるたびに合わせ直す。
  *   利用者が自分で動かし始めたらやめる
  */
 export function InfiniteScroll({
@@ -47,6 +52,7 @@ export function InfiniteScroll({
   onReachStart,
   onReachEnd,
   initialTarget,
+  initialEnd,
   resetKey,
   ready = true,
 }: Props) {
@@ -94,8 +100,11 @@ export function InfiniteScroll({
     }
     if (pinned.current) {
       const target = initialTarget?.(list);
+      const end = initialEnd?.(list);
       if (target) {
         pinned.current = !scrollToTop(target, headerBottom);
+      } else if (end) {
+        pinned.current = !scrollToBottom(end);
       } else {
         window.scrollTo(0, document.documentElement.scrollHeight);
         pinned.current = false;
@@ -166,4 +175,14 @@ function scrollToTop(target: Element, headerBottom: () => number): boolean {
   const gap = () => target.getBoundingClientRect().top - headerBottom();
   for (let i = 0; i < 2; i++) window.scrollBy(0, gap());
   return Math.abs(gap()) < 1;
+}
+
+/**
+ * target の下端を画面の下端（scroll-margin-bottom の分だけ上）に置き、置けたかを返す
+ * （上が足りないと途中で止まる）。位置の計算はブラウザの scrollIntoView に任せる
+ */
+function scrollToBottom(target: Element): boolean {
+  target.scrollIntoView({ block: 'end', behavior: 'instant' });
+  const margin = Number.parseFloat(getComputedStyle(target).scrollMarginBottom) || 0;
+  return Math.abs(target.getBoundingClientRect().bottom - (window.innerHeight - margin)) < 1;
 }

@@ -46,9 +46,9 @@ function historyQueryOptions<T, F extends object>(source: HistorySource<T, F>, f
 
 /**
  * 画面が読む履歴。読んだページを古い順に繋いで返し、上の端へ近づいたら古いほうのページを読む
- * （`HistoryList` にそのまま渡せる形）。
+ * （`HistoryList` にそのまま渡せる形）。dayOf は、一覧が今日までと未来の記録を分けるのに使う。
  * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
- * - resetKey は取得のキーで、変わったら一覧を一番下（最新）へ戻す合図。ready は出している結果が
+ * - resetKey は取得のキーで、変わったら一覧を最初の位置（今日の記録が一番下）へ戻す合図。ready は出している結果が
  *   そのキーの物か（前の結果を出している間は位置を決めない）
  * - 画面を離れるときは最新のページだけを残す。取り直し（画面に入ったとき・書き込みの後）は
  *   読んだページをすべて順に読み直すので、遡った分を残すと以後ずっとその回数だけ問い合わせる
@@ -73,6 +73,7 @@ export function useHistory<T, F extends object>(source: HistorySource<T, F>, fil
   return {
     // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
     query: { data: data?.pages.toReversed().flatMap((page) => page.items), error },
+    dayOf: source.dayOf,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,
     loadEarlier:
