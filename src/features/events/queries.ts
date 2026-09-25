@@ -1,4 +1,5 @@
 import {
+  type QueryClient,
   queryOptions,
   type UseQueryResult,
   useQueries,
@@ -11,7 +12,9 @@ import {
   type CalendarPeriod,
   type DateRange,
   inRange,
+  occurrenceKey,
 } from '../../../shared/calendar.ts';
+import { eventEntry } from '../../../shared/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
@@ -19,6 +22,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
 import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
@@ -98,9 +102,28 @@ export function useToggleCompletion() {
       body: { occurrenceStart: occurrenceStart ?? undefined },
     }),
     keys: WRITE_KEYS,
-    apply: (client, { id, occurrenceStart, completed }) =>
-      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed),
+    apply: (client, { id, occurrenceStart, completed }) => {
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed);
+      toggleOnTimeline(client, id, occurrenceStart, completed);
+    },
   });
+}
+
+/**
+ * タイムラインの行（ホームでチェックを押すと、その場で完了の見た目と位置が変わる）。
+ * 完了は回ごとの 1 項目だけの変化なので、ほかの書き込みと違ってタイムラインにも先回りして書ける
+ */
+function toggleOnTimeline(
+  client: QueryClient,
+  id: string,
+  occurrenceStart: string | null,
+  completed: boolean,
+): void {
+  const entryId = occurrenceKey({ kind: 'task', id, occurrenceStart });
+  const prev = findInTimeline(client, entryId);
+  if (prev?.type !== 'event' || prev.item.kind !== 'task') return;
+  const completedAt = completed ? new Date().toISOString() : null;
+  applyToTimeline(client, entryId, eventEntry({ ...prev.item, completedAt }));
 }
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----

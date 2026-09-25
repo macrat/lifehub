@@ -121,12 +121,14 @@ export async function findCalendarRows(from: Date, to: Date): Promise<EventWithP
 }
 
 /**
- * タイムラインで行を置く日時: 予定は開始、タスクは完了した日時か開始（shared/timeline.ts の `eventEntry`）。
+ * タイムラインで行を置く日時: 予定は開始、タスクは完了した日時（shared/timeline.ts の `eventEntry`）。
+ * 未完了のタスクは一番上にまとめるか（開始を過ぎた・日時が無い）、24 時間以内の開始の位置にしか出ないので、
+ * ページの区切りを決めるのには数えない（null はどの比較にも当たらない）。
  * 繰り返し元は回ごとに日時が違うので、この式を使うのは単発の行と実体化された回（どちらも rrule を持たない）だけ。
  */
 const timelineAt = sql<Date>`case
   when ${events.kind} = 'event' then ${events.startsAt}
-  else coalesce(${events.completedAt}, ${events.startsAt})
+  else ${events.completedAt}
 end`.mapWith(events.startsAt);
 
 /** タイムラインの検索: タイトルかメモの部分一致 */

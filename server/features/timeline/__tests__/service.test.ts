@@ -96,18 +96,22 @@ describe('timeline service', () => {
     expect(page.nextCursor).toBeNull();
   });
 
-  it('タスクは完了した日時、未完了なら開始日時に置き、どちらも無ければ一番上に置く', async () => {
+  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは一番上にまとめる', async () => {
     const done = await createEvent(
       task({ title: '完了', startsAt: iso('2026-09-01T09:00:00') }),
       userId,
     );
     await completeEvent(done.id, {}, userId, jst('2026-09-13T20:00:00'));
-    await createEvent(task({ title: '開始のみ', startsAt: iso('2026-09-10T09:00:00') }), userId);
+    await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
+    await createEvent(task({ title: '今朝開始', startsAt: iso('2026-09-14T08:00:00') }), userId);
+    // 開始がまだ先なら、その位置に置く
+    await createEvent(task({ title: '明日開始', startsAt: iso('2026-09-15T08:00:00') }), userId);
     // 期限は位置に使わない
     await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
 
     const page = await getTimelinePage({}, now);
-    expect(labels(page.items)).toEqual(['期限のみ', '完了', '開始のみ']);
+    // 一番上のまとまりの中は、最近始まったものが上、日時の無いものが下
+    expect(labels(page.items)).toEqual(['今朝開始', '開始済み', '期限のみ', '明日開始', '完了']);
     expect(
       page.items.find((e) => e.type === 'event' && e.item.title === '期限のみ')?.at,
     ).toBeNull();

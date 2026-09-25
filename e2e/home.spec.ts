@@ -25,27 +25,32 @@ test('ホームからタスクとレモンの記録を追加し、タイムラ�
   await expect(page.getByText(`${title} の葉水`)).toBeVisible();
   await expect(page.getByRole('button', { name: /葉水\s*今日/ })).toBeVisible();
 
-  // 行を押すと、ホームのまま詳細が開く。完了にするとタイムラインでも完了の見た目になる
-  await page.getByText(title, { exact: true }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await detailAction(page, '完了にする');
-  await expect(page).toHaveURL('/');
+  // 左のチェックボックスで完了・未完了を切り替えられ、完了すると取り消し線が引かれる
+  await page.getByRole('checkbox', { name: `${title} を完了にする` }).click();
+  await expect(page.getByRole('checkbox', { name: `${title} を未完了に戻す` })).toBeChecked();
   await expect(page.getByText(title, { exact: true })).toHaveCSS(
     'text-decoration-line',
     'line-through',
   );
+  await page.getByRole('checkbox', { name: `${title} を未完了に戻す` }).click();
+  await expect(page.getByRole('checkbox', { name: `${title} を完了にする` })).not.toBeChecked();
+
+  // 行を押すと、ホームのまま詳細が開く
+  await page.getByText(title, { exact: true }).click();
+  await expect(page.getByRole('dialog', { name: title })).toBeVisible();
+  await expect(page).toHaveURL('/');
 });
 
 test('メモを書いて、詳細から直して消せる', async ({ page }) => {
   const body = `E2E メモ ${Date.now()}`;
 
-  // PC ではタイムラインの上の入力欄から書く
-  await page.getByRole('textbox', { name: 'メモを記録' }).fill(body);
-  await page.getByRole('button', { name: '記録', exact: true }).click();
+  // 右下の追加ボタンから書く
+  await page.getByRole('button', { name: '追加' }).hover();
+  await page.getByRole('menuitem', { name: 'メモ' }).click();
+  await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(body);
+  await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(body)).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'メモを記録' })).toHaveValue('');
 
-  // 追加ボタンからも書ける
   await page.getByRole('button', { name: '追加' }).hover();
   await page.getByRole('menuitem', { name: 'メモ' }).click();
   await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(`${body} その2`);

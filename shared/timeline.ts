@@ -14,7 +14,7 @@ import type { DateString } from './types.ts';
 type EntryBase = {
   /** タイムラインの中で一意な鍵（`timelineEntryId`。予定・タスクは回ごと） */
   id: string;
-  /** 並べる日時。null は日時を持たないタスク（タイムラインの一番上に置く） */
+  /** 並べる日時。null はタイムラインの一番上にまとめるタスク（未完了で、開始を過ぎたか日時を持たないもの） */
   at: string | null;
   /** 日付だけを示す記録か（終日の予定・タスク、立替）。時刻は出さない */
   dateOnly: boolean;
@@ -35,15 +35,18 @@ export function timelineEntryId(type: RecordType, id: string): string {
 }
 
 /**
- * 予定・タスクの行。予定は始まる日時。タスクは完了していれば完了した日時、未完了なら開始日時で、
- * どちらも無ければ日時を持たない（タイムラインの一番上に置く）。期限は位置に使わない
- * （まだ来ていない期限の位置に置くと、やるべきことが未来の側に埋もれる）。
+ * 予定・タスクの行。予定は始まる日時。タスクは完了していれば完了した日時に置く。
+ * 未完了のタスクは、開始がまだ先ならその日時に置き、開始を過ぎたか日時を持たなければ
+ * 日時を持たない行としてタイムラインの一番上にまとめる（やるべきことを、過ぎた日時の位置に
+ * 埋もれさせない）。期限は位置に使わない（まだ来ていない期限の位置に置くと、未来の側に埋もれる）。
  */
-export function eventEntry(item: CalendarItem): TimelineEntry {
+export function eventEntry(item: CalendarItem, now: Date = new Date()): TimelineEntry {
   const base = { type: 'event' as const, id: occurrenceKey(item), item };
   if (item.kind === 'event') return { ...base, at: item.startsAt, dateOnly: item.allDay };
   if (item.completedAt) return { ...base, at: item.completedAt, dateOnly: false };
-  if (item.startsAt) return { ...base, at: item.startsAt, dateOnly: item.allDay };
+  if (item.startsAt && new Date(item.startsAt).getTime() > now.getTime()) {
+    return { ...base, at: item.startsAt, dateOnly: item.allDay };
+  }
   return { ...base, at: null, dateOnly: false };
 }
 
@@ -92,11 +95,13 @@ export function entryDay(entry: TimelineEntry, now: Date = new Date()): DateStri
 }
 
 /**
- * 並び: 古い順（アプリの履歴と同じ。タイムラインは画面で逆さに出す）。日時を持たない行はいちばん新しい側、
- * 同じ日時は鍵の順。並びはサーバーとクライアントで同じでなければならないので、文字列は符号位置で比べる。
+ * 並び: 古い順（アプリの履歴と同じ。タイムラインは画面で逆さに出す）。日時を持たない行はいちばん新しい側で、
+ * その中は開始の古い順（画面では最近始まったタスクが上、開始の無いタスクがその下）。同じ日時は鍵の順。
+ * 並びはサーバーとクライアントで同じでなければならないので、文字列は符号位置で比べる。
  */
 export function sortTimeline(entries: TimelineEntry[]): TimelineEntry[] {
-  const key = (entry: TimelineEntry) => entry.at ?? '~';
+  const key = (entry: TimelineEntry) =>
+    entry.at ?? `~${entry.type === 'event' ? (entry.item.startsAt ?? '') : ''}`;
   const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return [...entries].sort((a, b) => compare(key(a), key(b)) || compare(a.id, b.id));
 }

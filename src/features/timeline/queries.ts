@@ -43,7 +43,7 @@ export function findInTimeline(client: QueryClient, id: string): TimelineEntry |
  * 記録 1 件の変化（id の行が next になる。削除は null）を、読んだタイムラインに先回りして書き込む（楽観的更新）。
  * 記録の書き込み（立替・レモン・メモ）が、自分の画面の履歴と一緒に呼ぶ。
  * 予定・タスクは繰り返しの回ごとに行があり、どの回が変わるかは展開してみないと分からないので、
- * 書き込み後の取り直し（invalidate）に任せる。
+ * 書き込み後の取り直し（invalidate）に任せる。回 1 つだけが変わるタスクの完了・取り消しだけは先回りする。
  */
 export function applyToTimeline(client: QueryClient, id: string, next: TimelineEntry | null): void {
   applyToHistories(client, timeline, id, next);

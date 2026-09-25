@@ -7,7 +7,6 @@ import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import type { AddFormKind } from '../../features/add/kinds.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
-import { MemoComposer } from '../../features/memos/components/MemoComposer.tsx';
 import { TimelineEntrySheet } from '../../features/timeline/components/TimelineEntrySheet.tsx';
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
@@ -36,8 +35,8 @@ export const Route = createFileRoute('/_authenticated/')({
 const MAX_WIDTH = 640;
 
 /**
- * ホーム。上から、最新の状態（立替残高・葉水・水やりのタイル）、PC ではメモの入力欄、
- * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。
+ * ホーム。上から、最新の状態（立替残高・葉水・水やりのタイル）と、
+ * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。メモは右下の追加ボタンから書く。
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
  * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲でタイムラインを絞り込む
@@ -85,7 +84,6 @@ function HomePage() {
           <TimelineFilterForm open={panel.value} filters={filters} onChange={setFilters} />
           <StatusCards onAddExpense={() => adding.open('expense')} onAddCare={addingCare.open} />
         </ScrollAwayHeader>
-        {isDesktop && <MemoComposer />}
         <TimelineList
           timeline={timeline}
           emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}

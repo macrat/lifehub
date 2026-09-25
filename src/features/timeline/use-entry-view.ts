@@ -4,6 +4,7 @@ import type { CareType } from '../../../shared/validation/lemon.ts';
 import { formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
 import { itemTransitionName } from '../calendar/item-transition.ts';
+import type { CalendarTaskItem } from '../events/queries.ts';
 import { formatYen } from '../expenses/format.ts';
 import { CARE_TYPE_ICONS } from '../lemon/care-type-icons.tsx';
 import { leadingCareType } from '../lemon/care-type-priority.ts';
@@ -15,17 +16,20 @@ import type { TimelineEntry } from './queries.ts';
 export type EntryView = {
   /** 左の丸の背景。人の色（複数なら塗り分ける）、誰のものでもない記録は無彩色 */
   colors: string[];
-  /** 左の丸に置くアイコン。予定・タスク・立替・メモは追加ボタンと同じもの */
+  /** 左の丸に置くアイコン。予定・立替・メモは追加ボタンと同じもの */
   icon: ComponentType<SvgIconProps>;
-  /** 上段の名前（予定・タスク・立替は参加者、メモは書いた人）。レモンは名前の代わりに項目のアイコンを並べる */
-  names: string | null;
-  careTypes: CareType[] | null;
-  /** 名前の右に薄く添える日時。日時を持たないタスクは null */
-  time: string | null;
-  /** 下段。無ければ 1 行で出す */
-  body: string | null;
-  /** 完了したタスク（下段に取り消し線を引く） */
+  /** タスクなら左に丸ではなく完了のチェックボックスを置く */
+  task: CalendarTaskItem | null;
+  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは「レモン」、メモは書いた人 */
+  heading: string;
+  /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
+  /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
+  time: string | null;
+  /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
+  careTypes: CareType[];
+  /** 下段。無ければ上段だけの 1 行で出す */
+  body: string | null;
   /** 予定画面へ移ったとき、同じ予定・タスクがこの行から動く（View Transition） */
   transitionName: string | undefined;
 };
@@ -35,18 +39,20 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, careTypes: null, struck: false, transitionName: undefined };
+  const view = { time, task: null, struck: false, careTypes: [], transitionName: undefined };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
+      // 参加者は丸（タスクはチェックボックス）の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       const ids = item.participantIds;
       return {
         ...view,
         colors: ids.length > 0 ? ids.map((id) => colorFor(id).fill) : [colorFor(null).fill],
-        icon: ADD_KINDS[item.kind].icon,
-        names: ids.map(label).join('・'),
-        body: item.title,
+        icon: ADD_KINDS.event.icon,
+        task: item.kind === 'task' ? item : null,
+        heading: item.title,
         struck: item.kind === 'task' && item.completedAt !== null,
+        body: item.note,
         transitionName: itemTransitionName(item),
       };
     }
@@ -58,7 +64,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: people.map((id) => colorFor(id).fill),
         icon: ADD_KINDS.expense.icon,
-        names: people.map(label).join(' ← '),
+        heading: people.map(label).join(' ← '),
         body: `${formatYen(amount)} ${description}`,
       };
     }
@@ -69,7 +75,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: [colorFor(null).fill],
         icon: leading ? CARE_TYPE_ICONS[leading] : ADD_KINDS.lemon.icon,
-        names: careTypes.length === 0 ? 'メモ' : null,
+        heading: ADD_KINDS.lemon.label,
         careTypes,
         body: note,
       };
@@ -79,7 +85,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: [colorFor(entry.memo.createdBy).fill],
         icon: ADD_KINDS.memo.icon,
-        names: label(entry.memo.createdBy),
+        heading: label(entry.memo.createdBy),
         body: entry.memo.body,
       };
   }

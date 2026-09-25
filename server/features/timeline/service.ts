@@ -40,8 +40,8 @@ const recentInstantSources = [
  * WHY NOT 種類ごとに別々のページを読んで画面で繋ぐ: 種類ごとに読み進んだ位置が違うので、
  * どこまで出してよいかを画面が決めることになり、並びの規則が画面とサーバーに割れる。
  *
- * 最新のページ（before なし）は 24 時間先までを出し、日時を持たないタスクを一番上に置く
- * （日付で絞り込んでいるときは、日時を持たないタスクはどの日にも当たらないので出さない）。
+ * 最新のページ（before なし）は 24 時間先までを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
+ * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
  */
 export async function getTimelinePage(
   query: TimelineQuery,
@@ -78,7 +78,7 @@ export async function getTimelinePage(
       : new Date(entry.at).getTime() >= lower.getTime() &&
         new Date(entry.at).getTime() < upper.getTime();
   const entries = [
-    ...items.map(eventEntry),
+    ...items.map((item) => eventEntry(item, now)),
     ...expenseRows.map(expenseEntry),
     ...logs.map(careLogEntry),
     ...memoRows.map(memoEntry),

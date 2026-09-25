@@ -4,7 +4,7 @@ import { type CalendarTaskItem, useToggleCompletion } from '../queries.ts';
 import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
 
 /**
- * タスクの完了・未完了を切り替えるチェックボックス。一覧の行（リスト表示・ホームの「今日」）で使う。
+ * タスクの完了・未完了を切り替えるチェックボックス。一覧の行（リスト表示・ホームのタイムライン）で使う。
  * 行の体裁は場所ごとに違ってよいが、操作と読み上げの文言は 1 か所に置く。
  * 参加者の色で塗り分ける（`ParticipantsCheckIcon`）。
  */
