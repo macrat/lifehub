@@ -1,17 +1,16 @@
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import Typography from '@mui/material/Typography';
-import type { ReactNode } from 'react';
 import {
   CARE_TYPE_LABELS,
   CARE_TYPES,
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
 import { formatDatePadded } from '../../../lib/date.ts';
-import { HistoryList } from '../../../lib/ui/HistoryList.tsx';
+import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { RecordListRow } from '../../../lib/ui/RecordListRow.tsx';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
-import type { CareLog, useCareLogHistory } from '../queries.ts';
+import type { CareLog } from '../queries.ts';
 
 /** アイコン 1 つの大きさ。枠の幅と揃えて、枠の中に余白が出ないようにする */
 const ICON_SIZE = '1.25rem';
@@ -45,13 +44,7 @@ const ICON_SX = { fontSize: ICON_SIZE } as const;
 /** やっていない枠に置く点。アイコンと読み違えない大きさに留める */
 const DOT_SX = { width: 2, height: 2, borderRadius: '50%', bgcolor: 'action.disabled' } as const;
 
-type Props = {
-  /** 読んだ分の記録（古い順）と、上の端での読み足しなど（`useCareLogHistory`） */
-  history: ReturnType<typeof useCareLogHistory>;
-  /** 一覧の上に貼り付けておく物（絞り込みのフォームと状況のタイル） */
-  header: ReactNode;
-  /** 1 件も無いときの文言（`HistoryList`） */
-  emptyMessage: string;
+type Props = Omit<HistoryListProps<CareLog>, 'children'> & {
   /** 行を押したとき。editing は長押し（編集で開く）か */
   onSelect: (log: CareLog, editing: boolean) => void;
 };
@@ -62,9 +55,9 @@ type Props = {
  * メモを 3 列に並べる。行は単押しで閲覧（時刻を含む全文）、長押しで編集（`RecordListRow`）。
  * 削除は詳細の三点リーダーに集める。
  */
-export function CareLogList({ history, header, emptyMessage, onSelect }: Props) {
+export function CareLogList({ onSelect, ...listProps }: Props) {
   return (
-    <HistoryList history={history} header={header} emptyMessage={emptyMessage}>
+    <HistoryList {...listProps}>
       {(logs) => (
         <List disablePadding>
           {logs.map((log) => (
