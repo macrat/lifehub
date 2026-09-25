@@ -128,7 +128,7 @@ type CalendarItem =
 
 ## ホーム
 
-予定とタスクはホームのタイムライン（[home.md](home.md)）に、ほかの記録と一緒に並ぶ。行にはカレンダーと同じ `itemTransitionName` を付けるので、ホームと予定画面を行き来するときは両方に在る項目がその場から動く（View Transition）。
+予定とタスクはホームのタイムライン（[home.md](home.md)）に、ほかの記録と一緒に並ぶ。タイムラインの行には `itemTransitionName` を付けないので、ホームと予定画面の間では項目は動かず画面ごとフェードする（理由は [home.md](home.md)）。
 
 ## MCP ツール
 
