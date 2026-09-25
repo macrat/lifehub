@@ -1,6 +1,7 @@
 import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/date.ts';
 import {
   careLogEntry,
+  entryStart,
   eventEntry,
   expenseEntry,
   memoEntry,
@@ -72,14 +73,13 @@ export async function getTimelinePage(
     memos.listForTimeline(range, q),
   ]);
   const includeUndated = before === undefined && since === undefined && until === undefined;
-  // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る。終日の予定は置く日の
-  // 終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
+  // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る（`entryStart`）。
+  // 終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
   // 続きのページは上のページと行の日時で分け合うので、行の日時で見る（同じ行を 2 つのページに出さない）
   const inRange = (entry: TimelineEntry) => {
     if (entry.at === null) return includeUndated;
-    const at = new Date(entry.at).getTime();
-    const reach = before === undefined ? startOf(entry, at) : at;
-    return at >= lower.getTime() && reach < upper.getTime();
+    const reach = (before === undefined ? entryStart(entry) : null) ?? entry.at;
+    return new Date(entry.at) >= lower && new Date(reach) < upper;
   };
   const entries = [
     ...items.map((item) => eventEntry(item, now)),
@@ -92,13 +92,6 @@ export async function getTimelinePage(
     items: sortTimeline(entries),
     nextCursor: boundary && lower.getTime() > floor.getTime() ? toDateString(lower) : null,
   };
-}
-
-/** 行の記録が始まる日時（ミリ秒）。予定だけが行の日時 at（終日は置く日の終わり）と違う */
-function startOf(entry: TimelineEntry, at: number): number {
-  return entry.type === 'event' && entry.item.kind === 'event'
-    ? new Date(entry.item.startsAt).getTime()
-    : at;
 }
 
 function earliest(a: Date, b: Date | null): Date {

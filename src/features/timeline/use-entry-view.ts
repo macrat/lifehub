@@ -1,9 +1,10 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
+import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { formatTimelineTime } from '../../lib/date.ts';
+import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
-import type { CalendarTaskItem } from '../events/queries.ts';
+import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { CARE_TYPE_ICONS } from '../lemon/care-type-icons.tsx';
@@ -43,14 +44,10 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
-      // 複数日の終日の予定は期間の中のどこかの日に置くので、日付は置いた日ではなく期間を出す（「9/24(木)〜今日」）
-      const spans = item.kind === 'event' && item.allDay && item.dayCount > 1;
       // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       return {
         ...view,
-        time: spans
-          ? `${formatTimelineTime(item.startsAt, true)}〜${formatTimelineTime(lastInstant(item.endsAt), true)}`
-          : time,
+        time: item.kind === 'event' && item.allDay ? allDayPeriod(item) : time,
         colors: participantColors(item.participantIds, colorFor).map((c) => c.fill),
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
@@ -96,7 +93,8 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   }
 }
 
-/** 排他的な終わり（終日の予定の保存形式。最終日の翌日 0:00）の直前。最終日の中の瞬間 */
-function lastInstant(endsAt: string): string {
-  return new Date(new Date(endsAt).getTime() - 1).toISOString();
+/** 終日の予定は期間の中の日（今日を含めば今日）に置くので、日付は置いた日ではなく期間を出す（「9/24(木)〜今日」） */
+function allDayPeriod(item: CalendarEventItem): string {
+  const first = allDayDate(item.startsAt, 'start');
+  return formatTimelineDays(first, addDays(first, item.dayCount - 1));
 }
