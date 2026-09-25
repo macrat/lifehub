@@ -10,6 +10,7 @@ import {
   ParticipantsMark,
 } from '../../events/components/ParticipantsMark.tsx';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
+import { itemMargins, itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { LANE_ITEM_HEIGHT, type Placed } from '../lane-layout.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -39,14 +40,13 @@ type Props = {
  * つまんだ要素が消えるとその場でタッチが途切れ、指を離さずに動かせなくなる（横スワイプに化ける）。
  */
 export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !compact }: Props) {
-  const { item, col, span, lane, roundStart, roundEnd } = placed;
+  const { item, col, span, lane } = placed;
   const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useParticipantColors(item.participantIds);
   const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
-  const radius = 4;
   const markSize = compact ? 10 : 12;
   return (
     <Box
@@ -73,8 +73,8 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         gridRow: lane + 2,
         alignSelf: 'center',
         height: LANE_ITEM_HEIGHT,
-        ml: isBar && !roundStart ? 0 : '2px',
-        mr: isBar && !roundEnd ? 0 : '2px',
+        ...itemMargins(placed),
+        mask: itemMask(placed),
         px: '3px',
         display: 'flex',
         alignItems: 'center',
@@ -83,7 +83,6 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         cursor: 'pointer',
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
-        borderRadius: `${roundStart ? radius : 0}px ${roundEnd ? radius : 0}px ${roundEnd ? radius : 0}px ${roundStart ? radius : 0}px`,
         background: isBar ? wedgeBackground(colors.map((c) => c.fill)) : undefined,
         color: isBar
           ? FILL_TEXT

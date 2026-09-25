@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
@@ -7,7 +6,10 @@ import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetai
 import { CareLogFilterForm } from '../../features/lemon/components/CareLogFilterForm.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { CareLogList } from '../../features/lemon/components/CareLogList.tsx';
-import { CareStatusGrid } from '../../features/lemon/components/CareStatusGrid.tsx';
+import {
+  CareStatusGrid,
+  CareStatusGridSkeleton,
+} from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
   type CareLog,
   lemonStatusQueryOptions,
@@ -70,7 +72,7 @@ function LemonPage() {
           <>
             <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
             <Box sx={{ px: 2, py: 1.5 }}>
-              <QueryView query={statusQuery} skeleton={<Skeleton variant="rounded" height={86} />}>
+              <QueryView query={statusQuery} skeleton={<CareStatusGridSkeleton />}>
                 {(statuses) => (
                   <CareStatusGrid statuses={statuses} onSelect={(s) => adding.open([s.careType])} />
                 )}

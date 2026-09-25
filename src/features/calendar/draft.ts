@@ -17,6 +17,7 @@ import {
   type FormInstants,
   type ItemFormValues,
 } from '../events/form-values.ts';
+import type { ItemEnds } from './item-shape.ts';
 import type { Drag } from './range-drag-session.ts';
 import { MIN_BLOCK_MINUTES, timedSlot } from './timeline-layout.ts';
 
@@ -256,7 +257,7 @@ export function draftDays(draft: EventDraft): DateRange {
 export function draftColumns(
   draft: EventDraft,
   days: DateString[],
-): { col: number; span: number; roundStart: boolean; roundEnd: boolean } | null {
+): ({ col: number; span: number } & ItemEnds) | null {
   const { from, to } = draftDays(draft);
   const first = days.findIndex((d) => d >= from);
   const last = days.findLastIndex((d) => d <= to);
