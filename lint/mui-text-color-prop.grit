@@ -1,0 +1,11 @@
+// MUI の color の prop に text.secondary のようなドット区切りを書かせない。
+// Typography の color は palette のキー（primary など）と textPrimary / textSecondary / textDisabled しか
+// 解釈せず、それ以外の文字列は黙って無視して本文の色で描く。prop の型は string なので型検査では気づけない。
+// WHY NOT sx の color も禁じる: sx はテーマのパス（text.secondary）を解決するので正しく効く。
+language js
+
+JsxAttribute(name=$name, initializer=$value) where {
+  $name <: `color`,
+  $value <: r".*[\"']text\.\w+[\"'].*",
+  register_diagnostic(span=$value, message="color の prop にドット区切り（text.secondary など）は効かない。textSecondary / textDisabled のように書く")
+}

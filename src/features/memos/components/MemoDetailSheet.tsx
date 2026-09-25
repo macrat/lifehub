@@ -50,7 +50,7 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
         <MemoField value={body} onChange={setBody} error={errors.body} />
       ) : (
         <>
-          <Typography color="text.secondary">
+          <Typography color="textSecondary">
             {label(memo.createdBy)}・{formatDateTime(memo.createdAt)}
           </Typography>
           <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>

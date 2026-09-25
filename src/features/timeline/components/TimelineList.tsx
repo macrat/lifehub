@@ -33,7 +33,7 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
       <QueryView query={timeline.query} skeleton={<ListSkeleton />}>
         {({ past, future }) =>
           past.length + future.length === 0 ? (
-            <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
+            <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
               {emptyMessage}
             </Typography>
           ) : (
