@@ -2,19 +2,15 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { today } from '../../../../shared/date.ts';
-import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
-import { useUserLabels } from '../../users/use-user-labels.ts';
+import { SELECT_NONE, selectValue } from '../../../lib/form.ts';
 import { normalizeExpression, pressKey } from '../calculator.ts';
 import type { Expense } from '../queries.ts';
+import type { ExpenseFieldsState } from '../use-expense-form.ts';
 import { Calculator } from './Calculator.tsx';
 
-type Props = {
-  /** 編集する立替。省略すると追加の既定値（今日・共有・自分） */
+type Props = ExpenseFieldsState & {
+  /** 編集する立替。省略すると追加の既定値（今日） */
   initial?: Expense;
-  /** 金額欄の中身（電卓の式そのもの） */
-  amount: string;
-  onChangeAmount: (amount: string) => void;
-  errors: FormErrors;
 };
 
 /**
@@ -22,10 +18,17 @@ type Props = {
  * To は誰のために払ったか（既定は共有 = 折半）、From は払った人（既定はログイン中のユーザー）。
  * 追加のフォームと詳細の編集で同じものを使う。
  */
-export function ExpenseFields({ initial, amount, onChangeAmount, errors }: Props) {
-  const { options, meId } = useUserLabels();
-  const people = options.filter((o) => o.value !== null);
-
+export function ExpenseFields({
+  initial,
+  parties,
+  toUsers,
+  fromUsers,
+  onChangeTo,
+  onChangeFrom,
+  amount,
+  onChangeAmount,
+  errors,
+}: Props) {
   return (
     <>
       <TextField
@@ -41,33 +44,33 @@ export function ExpenseFields({ initial, amount, onChangeAmount, errors }: Props
       {/* 簿記に倣い To（貸方）を左、From（借方）を右に横並び */}
       <Stack direction="row" spacing={1}>
         <TextField
-          name="toUserId"
           label="To"
           select
-          defaultValue={initial?.toUserId ?? SELECT_NONE}
+          value={parties.toUserId ?? SELECT_NONE}
+          onChange={(e) => onChangeTo(selectValue(e.target.value))}
           error={Boolean(errors.toUserId)}
           helperText={errors.toUserId}
           fullWidth
         >
           <MenuItem value={SELECT_NONE}>共有</MenuItem>
-          {people.map((o) => (
-            <MenuItem key={o.value} value={o.value ?? ''}>
-              {o.label}
+          {toUsers.map((u) => (
+            <MenuItem key={u.id} value={u.id}>
+              {u.name}
             </MenuItem>
           ))}
         </TextField>
         <TextField
-          name="fromUserId"
           label="From"
           select
-          defaultValue={initial?.fromUserId ?? meId ?? people[0]?.value ?? ''}
+          value={parties.fromUserId}
+          onChange={(e) => onChangeFrom(e.target.value)}
           error={Boolean(errors.fromUserId)}
           helperText={errors.fromUserId}
           fullWidth
         >
-          {people.map((o) => (
-            <MenuItem key={o.value} value={o.value ?? ''}>
-              {o.label}
+          {fromUsers.map((u) => (
+            <MenuItem key={u.id} value={u.id}>
+              {u.name}
             </MenuItem>
           ))}
         </TextField>

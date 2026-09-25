@@ -37,7 +37,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
     remove: () => deleteExpense.mutate(expense.id),
     onClose,
   });
-  const { amount, setAmount, errors, submitError, submitted, handleSubmit } = useExpenseForm({
+  const { fields, submitError, submitted, handleSubmit } = useExpenseForm({
     initial: expense,
     onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),
     onSaved: onClose,
@@ -55,12 +55,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
       error={submitError}
     >
       {detail.editing ? (
-        <ExpenseFields
-          initial={expense}
-          amount={amount}
-          onChangeAmount={setAmount}
-          errors={errors}
-        />
+        <ExpenseFields initial={expense} {...fields} />
       ) : (
         <>
           <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
