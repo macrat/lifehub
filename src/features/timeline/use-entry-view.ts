@@ -41,9 +41,12 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
+      // 複数日の終日の予定は終わる日に置くので、始まりの日も添える（「9/24(木)〜今日」）
+      const spans = item.kind === 'event' && item.allDay && item.dayCount > 1;
       // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
       return {
         ...view,
+        time: spans ? `${formatTimelineTime(item.startsAt, true)}〜${time}` : time,
         colors: participantColors(item.participantIds, colorFor).map((c) => c.fill),
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,

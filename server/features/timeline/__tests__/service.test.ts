@@ -117,6 +117,52 @@ describe('timeline service', () => {
     ).toBeNull();
   });
 
+  it('終日の予定は終わる日の終わりに置き、24 時間先までに始まるものを出す', async () => {
+    const allDay = (title: string, from: string, to: string) =>
+      createEvent(event({ title, allDay: true, startsAt: iso(from), endsAt: iso(to) }), userId);
+    await allDay('今日の終日', '2026-09-14T00:00:00', '2026-09-14T00:00:00');
+    await allDay('連休', '2026-09-12T00:00:00', '2026-09-16T00:00:00');
+    await allDay('明日の終日', '2026-09-15T00:00:00', '2026-09-15T00:00:00');
+    await allDay('明後日の終日', '2026-09-16T00:00:00', '2026-09-16T00:00:00');
+    await createEvent(
+      event({
+        title: '夕方',
+        startsAt: iso('2026-09-14T18:00:00'),
+        endsAt: iso('2026-09-14T19:00:00'),
+      }),
+      userId,
+    );
+    await createEvent(
+      event({
+        title: '明日の朝',
+        startsAt: iso('2026-09-15T09:00:00'),
+        endsAt: iso('2026-09-15T10:00:00'),
+      }),
+      userId,
+    );
+    await logCare(
+      { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: '朝の水やり' },
+      userId,
+    );
+
+    const page = await getTimelinePage({}, now);
+    expect(labels(page.items)).toEqual([
+      '連休',
+      '明日の終日',
+      '明日の朝',
+      '今日の終日',
+      '夕方',
+      '朝の水やり',
+    ]);
+    expect(page.items.find((e) => label(e) === '今日の終日')?.at).toBe(
+      iso('2026-09-14T23:59:59.999'),
+    );
+
+    // 続きのページには、上のページに置いた終日の予定を出さない
+    const earlier = await getTimelinePage({ before: day('2026-09-14') }, now);
+    expect(labels(earlier.items)).toEqual([]);
+  });
+
   it('繰り返す予定は回ごとに並び、記録の無い期間を空のページで読み続けない', async () => {
     // 1 日 1 回の世話を 60 日分（ページの件数より多い）
     for (let i = 0; i < 60; i++) {

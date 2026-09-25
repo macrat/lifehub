@@ -35,14 +35,20 @@ export function timelineEntryId(type: RecordType, id: string): string {
 }
 
 /**
- * 予定・タスクの行。予定は始まる日時。タスクは完了していれば完了した日時に置く。
+ * 予定・タスクの行。時刻のある予定は始まる日時、終日の予定は終わる日の終わり（23:59:59.999）に置く。
+ * 終日の予定は終わるまでその日の記録より上に出し続ける（始まりの 0:00 に置くと、その日の記録に押し流されて
+ * 予定の最中なのに見えなくなる）。タスクは完了していれば完了した日時に置く。
  * 未完了のタスクは、開始がまだ先ならその日時に置き、開始を過ぎたか日時を持たなければ
  * 日時を持たない行としてタイムラインの一番上にまとめる（やるべきことを、過ぎた日時の位置に
  * 埋もれさせない）。期限は位置に使わない（まだ来ていない期限の位置に置くと、未来の側に埋もれる）。
  */
 export function eventEntry(item: CalendarItem, now: Date = new Date()): TimelineEntry {
   const base = { type: 'event' as const, id: occurrenceKey(item), item };
-  if (item.kind === 'event') return { ...base, at: item.startsAt, dateOnly: item.allDay };
+  if (item.kind === 'event') {
+    return item.allDay
+      ? { ...base, at: new Date(new Date(item.endsAt).getTime() - 1).toISOString(), dateOnly: true }
+      : { ...base, at: item.startsAt, dateOnly: false };
+  }
   if (item.completedAt) return { ...base, at: item.completedAt, dateOnly: false };
   if (item.startsAt && new Date(item.startsAt).getTime() > now.getTime()) {
     return { ...base, at: item.startsAt, dateOnly: item.allDay };
