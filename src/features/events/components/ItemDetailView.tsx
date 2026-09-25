@@ -3,6 +3,7 @@ import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import type { CalendarItem } from '../queries.ts';
@@ -45,16 +46,20 @@ function ItemWhen({ item }: { item: CalendarItem }) {
   return (
     <>
       {item.startsAt && (
-        <Typography>開始: {formatEdge(item.startsAt, 'start', item.allDay)}</Typography>
+        <Typography>
+          {TASK_TIME_LABELS.start}: {formatEdge(item.startsAt, 'start', item.allDay)}
+        </Typography>
       )}
       {item.endsAt && (
         <Typography color={item.isOverdue ? 'error' : 'text.primary'}>
-          期限: {formatEdge(item.endsAt, 'end', item.allDay)}
+          {TASK_TIME_LABELS.due}: {formatEdge(item.endsAt, 'end', item.allDay)}
           {item.isOverdue && '（超過）'}
         </Typography>
       )}
       {item.completedAt && (
-        <Typography color="text.secondary">完了: {formatDateTime(item.completedAt)}</Typography>
+        <Typography color="text.secondary">
+          {TASK_TIME_LABELS.done}: {formatDateTime(item.completedAt)}
+        </Typography>
       )}
     </>
   );

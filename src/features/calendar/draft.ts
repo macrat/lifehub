@@ -60,6 +60,23 @@ type Grabbed = { item: CalendarItem | null };
  * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
  */
 export function itemDraft(item: CalendarItem): EventDraft | null {
+  let draft = itemDrafts.get(item);
+  if (draft === undefined) {
+    draft = computeItemDraft(item);
+    itemDrafts.set(item, draft);
+  }
+  return draft;
+}
+
+/**
+ * 項目ごとの枠の覚え書き。面はつまめる項目ごとに枠を描画のたびに求め、ドラッグ中は指が動くたびに
+ * 描き直す（下書きが変わるので面の memo が効かない）。枠は項目だけで決まり、項目はキャッシュの同じ
+ * オブジェクトが渡り続けるので、1 項目 1 回で済ませる（時刻の読み取りはタイムゾーンの計算を伴う）。
+ * WeakMap なので、キャッシュから外れた項目の分は一緒に消える。
+ */
+const itemDrafts = new WeakMap<CalendarItem, EventDraft | null>();
+
+function computeItemDraft(item: CalendarItem): EventDraft | null {
   if (item.kind === 'task') {
     if (item.completedAt !== null) return null;
     return taskFrame(item.placementDate, timelineSlot(item)?.startMin ?? null);

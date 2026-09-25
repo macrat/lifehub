@@ -1,7 +1,7 @@
 import { EventForm } from '../../events/components/EventForm.tsx';
 import { TaskForm } from '../../events/components/TaskForm.tsx';
 import { grabbedScope } from '../../events/recurrence-options.ts';
-import type { useEventComposer } from '../use-event-composer.ts';
+import { isTaskDraft, type useEventComposer } from '../use-event-composer.ts';
 import { QuickEventForm } from './QuickEventForm.tsx';
 import { QuickTaskForm } from './QuickTaskForm.tsx';
 
@@ -30,8 +30,8 @@ export function EventComposer({ composer, onClose, onChangeInset }: Props) {
       onClose,
       onChangeInset,
     };
-    return draft.item?.kind === 'task' ? (
-      <QuickTaskForm {...common} task={draft.item} />
+    return isTaskDraft(draft) ? (
+      <QuickTaskForm {...common} draft={draft} />
     ) : (
       <QuickEventForm {...common} />
     );

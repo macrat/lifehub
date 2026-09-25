@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import { type EventMaster, toInputInstants } from '../../../shared/calendar.ts';
+import { type EventMaster, toInputIsoInstants } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
@@ -157,19 +157,10 @@ export function taskInputFromForm(
 
 /**
  * 既定値（保存されている形）の日時 → 入力と同じ形。終日の終わりは排他的な終端から「含む日」へ戻す
- * （そのまま送るとサーバーがもう 1 日延ばす。`toInputInstants`）。
+ * （そのまま送るとサーバーがもう 1 日延ばす。`toInputIsoInstants`）。
  */
 function savedInstants({ allDay, startsAt, endsAt }: ItemFormValues) {
-  const input = toInputInstants(
-    allDay,
-    startsAt === null ? null : new Date(startsAt),
-    endsAt === null ? null : new Date(endsAt),
-  );
-  return {
-    allDay,
-    startsAt: input.startsAt?.toISOString() ?? null,
-    endsAt: input.endsAt?.toISOString() ?? null,
-  };
+  return { allDay, ...toInputIsoInstants(allDay, startsAt, endsAt) };
 }
 
 /** 日時の入力欄の値 → ISO 日時。終日では日付だけの欄（`type="date"`）から来る */

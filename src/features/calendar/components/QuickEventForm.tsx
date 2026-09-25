@@ -1,6 +1,7 @@
 import { EventExtraFields, EventWhenFields } from '../../events/components/EventFields.tsx';
+import type { QuickProps } from '../use-event-composer.ts';
 import { useQuickEventForm } from '../use-quick-event-form.ts';
-import { QuickForm, type QuickProps } from './QuickForm.tsx';
+import { QuickForm } from './QuickForm.tsx';
 
 /**
  * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。

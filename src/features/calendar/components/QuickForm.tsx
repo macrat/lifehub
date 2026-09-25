@@ -18,11 +18,9 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ScopeChip } from '../../events/components/EventFields.tsx';
 import type { ItemFormValues } from '../../events/form-values.ts';
-import type { CreateEventBody } from '../../events/queries.ts';
 import type { useItemForm } from '../../events/use-item-form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import type { Draft } from '../draft.ts';
-import type { GridDraft } from '../use-event-composer.ts';
+import type { GridDraft, QuickProps } from '../use-event-composer.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
 
 /**
@@ -41,25 +39,6 @@ type Quick = {
   rangeText: string;
   /** 上の段で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき */
   syncDraft: () => void;
-};
-
-/** クイック入力（`QuickEventForm` / `QuickTaskForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */
-export type QuickProps = {
-  /**
-   * グリッドの下書き。`item` は直している保存済みの予定・タスク（長押しでつまんだもの。追加のときは null）で、
-   * 入力の既定値になり、保存は呼び出し側（`onSubmit`）が上書きに振り分ける。
-   */
-  draft: GridDraft;
-  onChangeParticipants: (participantIds: string[]) => void;
-  /** 検証を通った値の保存。結果は待つが、画面には楽観的更新で先に反映されている */
-  onSubmit: (input: CreateEventBody) => Promise<unknown>;
-  /** 上の段で直した日時を下書き（グリッドの枠と直している物）へ戻す */
-  onChangeDraft: (draft: Draft) => void;
-  /** PC の「その他のオプション」: 入力済みの内容を引き継いで全項目のフォームへ */
-  onExpand: (values: ItemFormValues) => void;
-  onClose: () => void;
-  /** シートがカレンダーを下から覆っている高さ（px）が変わったとき */
-  onChangeInset: (inset: number) => void;
 };
 
 type Props = Pick<QuickProps, 'onExpand'> & {

@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import type { ChangeEvent } from 'react';
+import { TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
@@ -245,7 +246,7 @@ export function TaskWhenFields({
   allDay,
   onChangeAllDay,
 }: Props & { allDay: boolean; onChangeAllDay: (allDay: boolean) => void }) {
-  const unit = allDay ? '日' : '日時';
+  const label = taskWhenLabels(allDay);
   return (
     <>
       <FormControlLabel
@@ -255,14 +256,14 @@ export function TaskWhenFields({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <WhenField
           name="startsAt"
-          label={`開始${unit}`}
+          label={label.start}
           defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.startsAt}
         />
         <WhenField
           name="endsAt"
-          label={`期限${unit}`}
+          label={label.due}
           defaultValue={inputValue(initial.endsAt, 'end', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.endsAt}
@@ -279,7 +280,7 @@ export function TaskExtraFields({
   allDay,
   thisOnly,
 }: ScopedProps & { allDay: boolean }) {
-  const unit = allDay ? '日' : '日時';
+  const label = taskWhenLabels(allDay);
   return (
     <>
       <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
@@ -297,17 +298,23 @@ export function TaskExtraFields({
           control={
             <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
           }
-          label={`開始${unit}に通知`}
+          label={`${label.start}に通知`}
         />
         <FormControlLabel
           control={
             <Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />
           }
-          label={`期限${unit}に通知`}
+          label={`${label.due}に通知`}
         />
       </Stack>
     </>
   );
+}
+
+/** タスクの開始・期限の入力欄の名前。終日なら日付だけ（開始日）、そうでなければ日時（開始日時） */
+function taskWhenLabels(allDay: boolean) {
+  const unit = allDay ? '日' : '日時';
+  return { start: `${TASK_TIME_LABELS.start}${unit}`, due: `${TASK_TIME_LABELS.due}${unit}` };
 }
 
 /**

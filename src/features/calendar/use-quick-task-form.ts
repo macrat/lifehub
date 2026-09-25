@@ -1,12 +1,11 @@
 import { useMemo, useRef } from 'react';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useAllDay, useItemForm } from '../events/use-item-form.ts';
-import type { QuickProps } from './components/QuickForm.tsx';
-import { type TaskItem, taskDraftFromInput, taskDraftText, taskDraftValues } from './task-draft.ts';
+import { taskDraftFromInput, taskDraftText, taskDraftValues } from './task-draft.ts';
+import type { QuickProps, TaskGridDraft } from './use-event-composer.ts';
 
-type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
-  /** 直しているタスク（`draft.item` と同じもの。タスクだと分かっている形で受け取る） */
-  task: TaskItem;
+type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
+  draft: TaskGridDraft;
 };
 
 /**
@@ -15,14 +14,14 @@ type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClos
  * 枠とタスクの両方へ戻す（`taskDraftFromInput`）。見出し・グリッドの枠・保存する日時が同じ所から決まるように。
  * 終日かどうかは予定と違ってフォームが持つ（タスクの終日は置き方ではなく日時の形なので、切り替えても枠は動かない）。
  */
-export function useQuickTaskForm({ draft, task, onSubmit, onChangeDraft, onClose }: Options) {
-  const { range, participantIds } = draft;
+export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options) {
+  const { range, item: task, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
   // 描画ごとに作り直すと、終日の状態（`useAllDay`）が別の既定値と見て毎回戻してしまう
-  const initial = useMemo(
-    () => taskDraftValues(task, range, participantIds),
-    [task, range, participantIds],
-  );
+  const { initial, rangeText } = useMemo(() => {
+    const values = taskDraftValues(task, range, participantIds);
+    return { initial: values, rangeText: taskDraftText(values) };
+  }, [task, range, participantIds]);
   const [allDay, setAllDay] = useAllDay(initial);
   const form = useItemForm({
     kind: 'task',
@@ -40,7 +39,7 @@ export function useQuickTaskForm({ draft, task, onSubmit, onChangeDraft, onClose
     initial,
     allDay,
     changeAllDay: setAllDay,
-    rangeText: taskDraftText(initial),
+    rangeText,
     /** 入力欄で直した日時を枠とタスクへ映す。開始が空なら枠に置けないのでそのままにする */
     syncDraft: () => {
       if (!formRef.current) return;

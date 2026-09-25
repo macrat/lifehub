@@ -1,4 +1,9 @@
-import { type CalendarItem, normalizeInstants, taskTime } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  normalizeIsoInstants,
+  TASK_TIME_LABELS,
+  taskTime,
+} from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
 import type { ItemFormValues } from '../events/form-values.ts';
@@ -58,27 +63,17 @@ export function taskDraftFromInput(
 ): { range: EventDraft; item: TaskItem } | null {
   const { allDay, startsAt } = input;
   if (startsAt === null) return null;
-  const saved = normalizeInstants(
-    allDay,
-    new Date(startsAt),
-    input.endsAt === null ? null : new Date(input.endsAt),
-  );
   return {
     range: taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt)),
-    item: {
-      ...task,
-      allDay,
-      startsAt: saved.startsAt?.toISOString() ?? null,
-      endsAt: saved.endsAt?.toISOString() ?? null,
-    },
+    item: { ...task, allDay, ...normalizeIsoInstants(allDay, startsAt, input.endsAt) },
   };
 }
 
 /** クイック入力の見出し（開始と期限）。終日なら日付だけ */
 export function taskDraftText({ allDay, startsAt, endsAt }: ItemFormValues): string {
   const parts = [
-    startsAt && `開始 ${formatEdge(startsAt, 'start', allDay)}`,
-    endsAt && `期限 ${formatEdge(endsAt, 'end', allDay)}`,
+    startsAt && `${TASK_TIME_LABELS.start} ${formatEdge(startsAt, 'start', allDay)}`,
+    endsAt && `${TASK_TIME_LABELS.due} ${formatEdge(endsAt, 'end', allDay)}`,
   ];
   return parts.filter(Boolean).join(' / ') || '日時なし';
 }

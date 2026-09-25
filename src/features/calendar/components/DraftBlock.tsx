@@ -100,6 +100,7 @@ export function DraftBlock({
   const { startMin, endMin } = draft;
   const colors = useParticipantColors(participantIds);
   const lines = colors.map((c) => c.line);
+  const { ends } = grab;
   return (
     <Box
       {...draftProps}
@@ -125,28 +126,28 @@ export function DraftBlock({
         cursor: 'move',
       }}
     >
-      {grab.ends &&
-        (dots ? (
-          <>
-            <Handle
-              end="start"
-              position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-              color={wedgeColorNear(lines, 'top-left')}
-              handlers={grab.ends.start}
-            />
-            <Handle
-              end="end"
-              position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-              color={wedgeColorNear(lines, 'bottom-right')}
-              handlers={grab.ends.end}
-            />
-          </>
-        ) : (
-          <>
-            <Edge end="start" handlers={grab.ends.start} />
-            <Edge end="end" handlers={grab.ends.end} />
-          </>
-        ))}
+      {ends && dots && (
+        <>
+          <Handle
+            end="start"
+            position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
+            color={wedgeColorNear(lines, 'top-left')}
+            handlers={ends.start}
+          />
+          <Handle
+            end="end"
+            position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
+            color={wedgeColorNear(lines, 'bottom-right')}
+            handlers={ends.end}
+          />
+        </>
+      )}
+      {ends && !dots && (
+        <>
+          <Edge end="start" handlers={ends.start} />
+          <Edge end="end" handlers={ends.end} />
+        </>
+      )}
     </Box>
   );
 }

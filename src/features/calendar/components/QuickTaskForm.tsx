@@ -1,7 +1,7 @@
 import { TaskExtraFields, TaskWhenFields } from '../../events/components/EventFields.tsx';
-import type { TaskItem } from '../task-draft.ts';
+import type { QuickProps, TaskGridDraft } from '../use-event-composer.ts';
 import { useQuickTaskForm } from '../use-quick-task-form.ts';
-import { QuickForm, type QuickProps } from './QuickForm.tsx';
+import { QuickForm } from './QuickForm.tsx';
 
 /**
  * 長押しでつまんで動かしたタスクの入力。予定のクイック入力（`QuickEventForm`）と同じ入れ物（`QuickForm`）で、
@@ -14,10 +14,7 @@ export function QuickTaskForm({
   onChangeInset,
   onExpand,
   ...props
-}: QuickProps & {
-  /** 直しているタスク（`draft.item`。タスクだと分かっている形で受け取る） */
-  task: TaskItem;
-}) {
+}: Omit<QuickProps, 'draft'> & { draft: TaskGridDraft }) {
   const quick = useQuickTaskForm(props);
   const { initial, form } = quick;
   return (

@@ -118,11 +118,53 @@ export function toInputInstants(
   return { startsAt, endsAt: allDay && endsAt ? new Date(endsAt.getTime() - 1) : endsAt };
 }
 
+/** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。未設定は null */
+type IsoInstants = { startsAt: string | null; endsAt: string | null };
+
+/** `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる */
+export function normalizeIsoInstants(
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  return onIso(normalizeInstants, allDay, startsAt, endsAt);
+}
+
+/** `toInputInstants` の ISO 文字列版 */
+export function toInputIsoInstants(
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  return onIso(toInputInstants, allDay, startsAt, endsAt);
+}
+
+function onIso(
+  convert: typeof normalizeInstants,
+  allDay: boolean,
+  startsAt: string | null,
+  endsAt: string | null,
+): IsoInstants {
+  const toDate = (iso: string | null) => (iso === null ? null : new Date(iso));
+  const result = convert(allDay, toDate(startsAt), toDate(endsAt));
+  return {
+    startsAt: result.startsAt?.toISOString() ?? null,
+    endsAt: result.endsAt?.toISOString() ?? null,
+  };
+}
+
 /**
  * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
  * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
  */
 export type TaskTime = { kind: 'done' | 'due' | 'start'; date: DateString; at: string | null };
+
+/** タスクの日時の呼び名。行の見出し・詳細・入力欄・クイック入力の見出しで同じ言葉を使う */
+export const TASK_TIME_LABELS: Record<TaskTime['kind'], string> = {
+  done: '完了',
+  start: '開始',
+  due: '期限',
+};
 
 /**
  * タスクを示す日時（基準日時）: 完了 → 開始 → 期限の優先。どれも無ければ null。
