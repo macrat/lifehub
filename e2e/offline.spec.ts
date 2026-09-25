@@ -19,7 +19,7 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText('水やり').first()).toBeVisible();
-  await expect(page.getByText('オフラインです', { exact: false })).toBeVisible();
+  await expect(page.getByText('オフラインモード', { exact: false })).toBeVisible();
 
   // オフラインでも記録でき、その場で一覧に出る
   await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
@@ -48,5 +48,5 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   );
   const { items } = (await listed.json()) as { items: { note: string | null }[] };
   expect(items.map((log) => log.note)).toContain('オフラインで記録した');
-  await expect(page.getByText('オフラインです', { exact: false })).toBeHidden();
+  await expect(page.getByText('オフラインモード', { exact: false })).toBeHidden();
 });

@@ -57,17 +57,25 @@ test('引き切らずに離すと取り直さない', async ({ page }) => {
   expect(fetched()).toBe(0);
 });
 
-test('オフラインでは取り直さず、更新できなかったことを短く知らせる', async ({ page, context }) => {
+test('オフラインと分かっている間は引けない', async ({ page, context }) => {
   await context.setOffline(true);
   // オフラインの案内が出て画面がずれ、一覧が続きを読みに行く分は、引いたことによる取得ではない
-  await expect(page.getByText('オフラインです', { exact: false })).toBeVisible();
+  await expect(page.getByText('オフラインモード', { exact: false })).toBeVisible();
   const fetched = await fetchesFromNow(page, TIMELINE);
+  await pull(page, 200);
+  await quiet(page, fetched);
+  expect(fetched()).toBe(0);
+  await expect(page.getByText('更新できませんでした')).toHaveCount(0);
+});
+
+test('オフラインと分からないまま取り直せなかったときは、短く知らせる', async ({ page }) => {
+  // Wi-Fi には繋がっているが外に出られない、など。ブラウザはオンラインのまま、取得だけが失敗する
+  await page.route(`**${TIMELINE}*`, (route) => route.abort('internetdisconnected'));
   await pull(page, 200);
   const notice = page.getByText('更新できませんでした');
   await expect(notice).toBeVisible();
   // 3 秒ほどで消える（既定の 8 秒ではない）
   await expect(notice).toBeHidden({ timeout: 5000 });
-  expect(fetched()).toBe(0);
 });
 
 test('ブラウザの引っ張って更新は止めてある', async ({ page }) => {

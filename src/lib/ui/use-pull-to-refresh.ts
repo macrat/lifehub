@@ -1,13 +1,14 @@
-import { onlineManager, useQueryClient } from '@tanstack/react-query';
+import { isCancelledError, useQueryClient } from '@tanstack/react-query';
 import { useMatches } from '@tanstack/react-router';
 import { type RefObject, useEffect, useState } from 'react';
+import { useOnline } from '../online.ts';
 import { notify } from './notice.ts';
 
 /** 離したときに取り直す、指を下ろした所からの下向きの動き（px） */
 export const PULL_THRESHOLD = 80;
 
-/** オフラインで取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
-const OFFLINE_NOTICE_MS = 3000;
+/** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
+const FAILED_NOTICE_MS = 3000;
 
 /** 向きを決めるまでの動き（px）。これに満たない間はタップかもしれないので何もしない */
 const DIRECTION_SLOP = 8;
@@ -72,13 +73,20 @@ function canStartPull(
  * WHY NOT: ページの読み込み直し（ブラウザの引っ張って更新と同じ動き）は、画面の状態を捨てるうえ、
  * インストールした PWA では precache から起動し直すだけで版も変わらない（`src/lib/update.ts`）。
  *
- * オフラインのときは取り直さずに「更新できませんでした」と短く知らせる。取得はオフラインの間は
- * 保留される（`networkMode: 'online'`）ので、取り直しを待つと回る印が止まらない。
+ * オフラインと分かっている間（`useOnline`。案内の帯が出ている間）は引けない。取れる物が無いうえ、
+ * 取得はオフラインの間は保留される（`networkMode: 'online'`）ので、取り直しを待つと回る印が止まらない。
+ * 引いている途中や取り直している途中でオフラインになったときも、そこで止めて印を戻す
+ * （保留した取得はオンラインに戻ったときに続きが走る）。
+ *
+ * 取り直しが失敗したときは「更新できませんでした」と短く知らせる。オフラインと分からないまま
+ * 繋がっていないとき（Wi-Fi には繋がっているが外に出られない、など）もここに来る。
  */
 export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
-  const enabled = useMatches({
+  const allowed = useMatches({
     select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
   });
+  const online = useOnline();
+  const enabled = allowed && online;
   const queryClient = useQueryClient();
   /** 下へ引いた距離。引いていない間は null */
   const [distance, setDistance] = useState<number | null>(null);
@@ -132,12 +140,14 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
       const end = () => {
         cancel();
         if (pulled < PULL_THRESHOLD) return;
-        if (!onlineManager.isOnline()) {
-          notify('error', '更新できませんでした', OFFLINE_NOTICE_MS);
-          return;
-        }
         setRefreshing(true);
-        void queryClient.refetchQueries({ type: 'active' }).finally(() => setRefreshing(false));
+        queryClient
+          .refetchQueries({ type: 'active' }, { throwOnError: true })
+          .catch((error: unknown) => {
+            // 取り直しの途中で別の取得に置き換えられた（画面を移った、など）のは失敗ではない
+            if (!isCancelledError(error)) notify('error', '更新できませんでした', FAILED_NOTICE_MS);
+          })
+          .finally(() => setRefreshing(false));
       };
 
       // 続きは指を下ろした要素で受ける。タッチのイベントはその要素に届き続けるが、描き直し
@@ -166,7 +176,7 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
   return {
     /** 下へ引いた距離（px）。引いていない間は null */
     distance,
-    /** 引き切って離し、取り直している最中か */
-    refreshing,
+    /** 引き切って離し、取り直している最中か。オフラインになって取得が保留されている間は含めない */
+    refreshing: refreshing && online,
   };
 }
