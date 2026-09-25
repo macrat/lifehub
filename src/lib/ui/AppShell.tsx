@@ -30,6 +30,15 @@ const DRAWER_WIDTH = 220;
 const ListItemLink = createLink(ListItemButton);
 const BottomNavigationLink = createLink(BottomNavigationAction);
 
+/**
+ * 今いる画面のタブを押して一番上へ戻すときのリンクの props。ルーターが移動の後に行うスクロール位置の復元
+ * （同じ場所への移動では押した時点の位置）を止めて（resetScroll: false）、なめらかなスクロールを遮らせない
+ */
+const scrollToTopProps = {
+  resetScroll: false,
+  onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+};
+
 type Props = {
   /** ナビに並べる主要画面（`src/navigation.ts`） */
   navItems: NavItem[];
@@ -49,18 +58,11 @@ export function AppShell({ navItems, children }: Props) {
 
   const isActive = (to: string | undefined) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to ?? '');
-  // 今いる画面のタブをもう一度押したときの行き先。一番上へ戻す画面では、ルーターが移動の後に行うスクロール位置の
-  // 復元（同じ場所への移動では押した時点の位置）を止めて（resetScroll: false）、なめらかなスクロールを遮らせない
-  const reselectProps = (item: NavItem) =>
-    isActive(item.to)
-      ? {
-          search: item.reselectSearch,
-          ...(item.reselectScrollsToTop && {
-            resetScroll: false,
-            onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
-          }),
-        }
-      : {};
+  const reselectProps = (item: NavItem) => {
+    if (!isActive(item.to)) return {};
+    if (item.reselect === 'scrollToTop') return scrollToTopProps;
+    return { search: item.reselect?.search };
+  };
   const bottomNavItems = navItems.filter((item) => !item.desktopOnly);
   const bottomIndex = bottomNavItems.findIndex((item) => isActive(item.to));
 

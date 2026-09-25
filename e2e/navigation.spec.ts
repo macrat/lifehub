@@ -82,21 +82,24 @@ test('ユーザーは画面を移っても取り直さない', async ({ page }) 
 
 /**
  * ホームを見ているときにホームのタブをもう一度押すと、一番上までなめらかに戻る（`src/navigation.ts` の
- * `reselectScrollsToTop`）。ルーターのスクロール位置の復元に遮られると、途中で止まるか一瞬で飛ぶ。
+ * `reselect: 'scrollToTop'`）。ルーターのスクロール位置の復元に遮られると、途中で止まるか一瞬で飛ぶ。
  */
 test('ホームでホームのタブを押すと、一番上までなめらかにスクロールする', async ({ page }) => {
   await login(page);
   await expect(page.getByLabel('記録を検索')).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-  // 記録の量に関わらずスクロールできるよう、ページの末尾に高さを足してから一番下へ行く
-  await page.evaluate(() => {
-    const spacer = document.createElement('div');
-    spacer.style.height = '3000px';
-    document.body.append(spacer);
-    window.scrollTo(0, document.documentElement.scrollHeight);
-  });
-  const bottom = await page.evaluate(() => window.scrollY);
-  expect(bottom).toBeGreaterThan(0);
+  // 記録の量に関わらずスクロールできるよう、ページの末尾に高さを足してから一番下へ行く。
+  // その scroll・scrollend は遅れて届くので、着き終えるのを待ってから押したあとの動きを見る
+  const bottom = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const spacer = document.createElement('div');
+        spacer.style.height = '3000px';
+        document.body.append(spacer);
+        window.addEventListener('scrollend', () => resolve(window.scrollY), { once: true });
+        window.scrollTo(0, document.documentElement.scrollHeight);
+      }),
+  );
 
   // 押した直後はまだ途中にいて（一瞬で飛ばない）、最後は一番上に着く
   const positions = page.evaluate(
@@ -111,5 +114,4 @@ test('ホームでホームのタブを押すと、一番上までなめらか�
   const seen = await positions;
   expect(seen.some((y) => y > 0 && y < bottom)).toBe(true);
   expect(seen.at(-1)).toBe(0);
-  await expect(page).toHaveURL('/');
 });

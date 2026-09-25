@@ -7,12 +7,12 @@ export type NavItem = {
   to: LinkProps['to'];
   icon: ComponentType;
   /**
-   * その画面を見ているときにもう一度押したときの検索パラメータ（今の物から作る）。
-   * 無いとき・ほかの画面から来たときは付けない（その画面の既定で開く）
+   * その画面を見ているときにもう一度押したときの動き。どちらか 1 つだけ選べる:
+   * - `{ search }`: その検索パラメータ（今の物から作る）で開き直す
+   * - `'scrollToTop'`: 一番上までなめらかにスクロールする
+   * 無いときは検索パラメータを付けずに開き直す（その画面の既定）。ほかの画面から来たときは使わない
    */
-  reselectSearch?: LinkProps['search'];
-  /** true なら、その画面を見ているときにもう一度押すと一番上までなめらかにスクロールする */
-  reselectScrollsToTop?: boolean;
+  reselect?: { search: LinkProps['search'] } | 'scrollToTop';
   /** true なら PC のサイドナビにだけ出す（スマホの下部ナビには出さず、ホームの末尾から開く） */
   desktopOnly?: boolean;
 };
