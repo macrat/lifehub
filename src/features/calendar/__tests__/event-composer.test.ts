@@ -4,6 +4,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import { defaultTaskValues } from '../../events/form-values.ts';
 import type { Draft, EventDraft } from '../draft.ts';
 import { composerReducer } from '../use-event-composer.ts';
+import { task } from './draft-fixtures.ts';
 
 type State = Parameters<typeof composerReducer>[0];
 
@@ -87,6 +88,15 @@ describe('composerReducer', () => {
       range: moved,
       item: event,
       settled: true,
+    });
+  });
+
+  it('タスクは入力で直した日時を持たせたタスクごと差し替える', () => {
+    const state = grab(null, { range, item: task }, false);
+    const edited = { ...task, startsAt: null };
+    expect(composerReducer(state, { type: 'change', range: moved, item: edited })).toMatchObject({
+      range: moved,
+      item: edited,
     });
   });
 

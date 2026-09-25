@@ -12,7 +12,7 @@ import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draf
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
- * 追加しようとしている予定と、長押しでつまんで直している予定（item）の両方。
+ * 追加しようとしている予定と、長押しでつまんで直している予定・タスク（item）の両方。
  */
 export type GridDraft = Draft & {
   /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
@@ -40,7 +40,7 @@ type ComposerState =
       mode: 'form';
       /** クイック入力から持ち越した入力 */
       values: ItemFormValues;
-      /** 直している予定（追加なら null）。保存の宛先がこれで決まる */
+      /** 直している予定・タスク（追加なら null）。保存の宛先とフォームの種類がこれで決まる */
       item: CalendarItem | null;
     };
 
@@ -53,8 +53,11 @@ type ComposerAction =
   | { type: 'grab'; draft: Draft; done: boolean; participantIds: string[] }
   /** 追加ボタンからの予定の入力。その日の終日の下書きを置き、入力を全項目の段で開く */
   | { type: 'start'; range: EventDraft; participantIds: string[] }
-  /** クイック入力で直した日時・終日の切り替えを下書きへ戻す */
-  | { type: 'change'; range: EventDraft }
+  /**
+   * クイック入力で直した日時・終日の切り替えを下書きへ戻す。
+   * タスクは日時を枠から導くので、入力した日時を持たせたタスク（item）も一緒に差し替える（`taskDraftFromInput`）
+   */
+  | { type: 'change'; range: EventDraft; item?: CalendarItem }
   | { type: 'participants'; participantIds: string[] }
   /** 「その他のオプション」: 入力済みの内容と直している予定を全項目のフォームへ移す */
   | { type: 'expand'; values: ItemFormValues }
@@ -87,7 +90,9 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         origin: 'add',
       };
     case 'change':
-      return state?.mode === 'grid' ? { ...state, range: action.range, settled: true } : state;
+      return state?.mode === 'grid'
+        ? { ...state, range: action.range, item: action.item ?? state.item, settled: true }
+        : state;
     case 'participants':
       return state?.mode === 'grid' ? { ...state, participantIds: action.participantIds } : state;
     case 'expand':
@@ -101,6 +106,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
 
 /**
  * カレンダー画面の予定の入力（グリッドの下書き → クイック入力 →「その他のオプション」の全項目のフォーム）。
+ * 長押しでつまんだタスクも同じ流れで直す（入力の中身だけがタスクのものになる。`EventComposer`）。
  * 状態は 1 つ（`ComposerState`）で、変えるのは `composerReducer` だけ。
  * 保存の宛先は直している予定だけで決まる: あれば上書き、無ければ追加（入口では変わらない）。
  */
@@ -131,13 +137,14 @@ export function useEventComposer(meId: string | null) {
         range: allDayDraft(date),
         participantIds: defaultParticipants(meId),
       }),
-    changeRange: (range: EventDraft) => dispatch({ type: 'change', range }),
+    changeRange: (range: EventDraft, item?: CalendarItem) =>
+      dispatch({ type: 'change', range, item }),
     changeParticipants: (participantIds: string[]) =>
       dispatch({ type: 'participants', participantIds }),
     expand: (values: ItemFormValues) => dispatch({ type: 'expand', values }),
     close: () => dispatch({ type: 'close' }),
     /**
-     * 保存。つまんだ予定を直しているときはその予定を上書きし、そうでなければ追加する
+     * 保存。つまんだ予定・タスクを直しているときはそれを上書きし、そうでなければ追加する
      * （クイック入力からでも全項目のフォームからでも同じ）。繰り返しの回はその回だけ（`grabbedScope`）。
      */
     save: (input: CreateEventBody) => {

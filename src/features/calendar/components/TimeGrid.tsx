@@ -243,7 +243,7 @@ function TimedBlock({
   /** 編集中（枠で出している）か */
   hidden: boolean;
   onClick: () => void;
-  /** 長押しでつまむためのハンドラ。つまめないとき（PC・タスク）は undefined */
+  /** 長押しでつまむためのハンドラ。つまめないとき（PC・完了したタスク）は undefined */
   grab: DragHandlers | undefined;
 }) {
   const { item, startMin, endMin, col, cols } = placed;

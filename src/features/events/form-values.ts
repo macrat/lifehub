@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import type { EventMaster } from '../../../shared/calendar.ts';
+import { type EventMaster, toInputInstants } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { toAllDayRemind } from '../../../shared/validation/events.ts';
@@ -132,6 +132,8 @@ export function eventInputFromForm(
  * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 予定と違って開始・期限はどちらも任意で、通知は「その日時に」（= 0 分前）の 2 択。
  * 終日では開始日・期限日（日付だけ）を受け取り、通知はその日の各自の通知時刻になる。
+ * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は既定値の日時をそのまま使う。
+ * 空欄（未設定）と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。
  */
 export function taskInputFromForm(
   formData: FormData,
@@ -141,18 +143,40 @@ export function taskInputFromForm(
     thisOnly = false,
   }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
+  const when = formData.has('startsAt')
+    ? {
+        allDay,
+        startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
+        endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
+      }
+    : savedInstants(initial);
   return {
     kind: 'task' as const,
     title: formText(formData, 'title') ?? '',
-    allDay,
-    startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
-    endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
+    ...when,
     participantIds: formList(formData, 'participantIds'),
     location: formText(formData, 'location'),
     note: formText(formData, 'note'),
     rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
     remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
     remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
+  };
+}
+
+/**
+ * 既定値（保存されている形）の日時 → 入力と同じ形。終日の終わりは排他的な終端から「含む日」へ戻す
+ * （そのまま送るとサーバーがもう 1 日延ばす。`toInputInstants`）。
+ */
+function savedInstants({ allDay, startsAt, endsAt }: ItemFormValues) {
+  const input = toInputInstants(
+    allDay,
+    startsAt === null ? null : new Date(startsAt),
+    endsAt === null ? null : new Date(endsAt),
+  );
+  return {
+    allDay,
+    startsAt: input.startsAt?.toISOString() ?? null,
+    endsAt: input.endsAt?.toISOString() ?? null,
   };
 }
 

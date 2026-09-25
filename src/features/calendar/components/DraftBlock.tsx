@@ -74,7 +74,7 @@ const outline = (colors: ItemColors[], ends?: ItemEnds) =>
 
 /**
  * 追加・編集しようとしている時間帯の枠（週・日の時間軸）。枠そのもので長さを保ったまま動かし
- * （左右に動かせば別の日へ移る）、端で開始・終了を変える。端はスマホでは丸（指で狙える大きさの印が要る）、
+ * （左右に動かせば別の日へ移る）、端で開始・終了を変える（タスクは長さを持たないので端は無い）。端はスマホでは丸（指で狙える大きさの印が要る）、
  * PC では上下の線のどこでも（Google カレンダーと同じく、線に載せるとカーソルが変わる）。
  * 枠は長押しを待たずに動き出すので、縦スクロールと横スワイプは枠の外から始める。
  * 枠がポインタを受けるので、枠の中から選び直すことはできない（選び直しは空いている所から）。
@@ -92,8 +92,8 @@ export function DraftBlock({
   column: number;
   /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
-  /** つまんで直すときのハンドラ（枠そのもの・開始の端・終了の端） */
-  grab: { move: DragHandlers; start: DragHandlers; end: DragHandlers };
+  /** つまんで直すときのハンドラ（枠そのもの・開始と終了の端）。端を直せない枠（タスク）では ends が null */
+  grab: { move: DragHandlers; ends: { start: DragHandlers; end: DragHandlers } | null };
   /** 端を丸でつまむか（スマホ）。false なら上下の線のどこでもつまめる（PC） */
   dots: boolean;
 }) {
@@ -125,27 +125,28 @@ export function DraftBlock({
         cursor: 'move',
       }}
     >
-      {dots ? (
-        <>
-          <Handle
-            end="start"
-            position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
-            color={wedgeColorNear(lines, 'top-left')}
-            handlers={grab.start}
-          />
-          <Handle
-            end="end"
-            position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
-            color={wedgeColorNear(lines, 'bottom-right')}
-            handlers={grab.end}
-          />
-        </>
-      ) : (
-        <>
-          <Edge end="start" handlers={grab.start} />
-          <Edge end="end" handlers={grab.end} />
-        </>
-      )}
+      {grab.ends &&
+        (dots ? (
+          <>
+            <Handle
+              end="start"
+              position={{ top: -DOT_SIZE / 2, left: DOT_INSET }}
+              color={wedgeColorNear(lines, 'top-left')}
+              handlers={grab.ends.start}
+            />
+            <Handle
+              end="end"
+              position={{ bottom: -DOT_SIZE / 2, right: DOT_INSET }}
+              color={wedgeColorNear(lines, 'bottom-right')}
+              handlers={grab.ends.end}
+            />
+          </>
+        ) : (
+          <>
+            <Edge end="start" handlers={grab.ends.start} />
+            <Edge end="end" handlers={grab.ends.end} />
+          </>
+        ))}
     </Box>
   );
 }

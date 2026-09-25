@@ -6,6 +6,7 @@ import { useItemForm } from '../events/use-item-form.ts';
 import {
   draftFromInstants,
   draftInstants,
+  draftText,
   draftValues,
   type EventDraft,
   withAllDay,
@@ -53,6 +54,8 @@ export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onExpand, on
     formRef,
     form,
     initial,
+    title: initial.title,
+    rangeText: draftText(range),
     /**
      * 入力欄で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき。
      * 枠に出せない範囲（日をまたぐ時間指定など）なら枠はそのままにする

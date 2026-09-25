@@ -55,9 +55,9 @@ export function useDayDrag({
     /** 日のセルに渡す。帯はポインタを受けないので、つまむのも選び直すのもここから */
     props: drag.props,
     /**
-     * 保存済みの予定（帯・項目）を長押しでつまんで編集モードに入り、そのまま動かす。
+     * 保存済みの予定・タスク（帯・項目）を長押しでつまんで編集モードに入り、そのまま動かす。
      * 軽いタップは項目自身の click（詳細を開く）に譲る。
-     * 枠に出せない項目（タスク、日をまたぐ時間指定の予定）はつまめないので undefined。
+     * 枠に出せない項目（完了したタスク、日をまたぐ時間指定の予定）はつまめないので undefined。
      */
     grabItemProps: (item: CalendarItem): DragHandlers | undefined => {
       const range = itemDraft(item);
