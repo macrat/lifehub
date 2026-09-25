@@ -30,12 +30,12 @@ export function recentTimelineInstants(
   q: string | undefined,
   limit: number,
 ): Promise<Date[]> {
-  return repository.findRecentInstants(before, q, limit);
+  return repository.findRecentTimelineInstants(before, q, limit);
 }
 
 /** タイムラインに並べるメモ（書いた時刻が範囲の中のもの） */
 export async function listForTimeline(range: InstantRange, q: string | undefined): Promise<Memo[]> {
-  return (await repository.findInRange(range, q)).map(toMemo);
+  return (await repository.findInTimelineRange(range, q)).map(toMemo);
 }
 
 function toMemo(row: MemoRow): Memo {

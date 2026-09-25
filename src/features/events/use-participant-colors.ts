@@ -7,6 +7,13 @@ import { type ItemColors, useUserColor } from '../users/use-user-color.ts';
  * 用途ごとの色（fill・mark など）は呼ぶ側が選ぶ。
  */
 export function useParticipantColors(participantIds: string[]): ItemColors[] {
-  const colorFor = useUserColor();
+  return participantColors(participantIds, useUserColor());
+}
+
+/** `useParticipantColors` の規則そのもの。フックを条件の中で呼べない所（タイムラインの行の組み立て）が使う */
+export function participantColors(
+  participantIds: string[],
+  colorFor: (userId: string | null) => ItemColors,
+): ItemColors[] {
   return participantIds.length > 0 ? participantIds.map((id) => colorFor(id)) : [colorFor(null)];
 }

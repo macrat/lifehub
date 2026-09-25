@@ -1,5 +1,13 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { entryDay, sortTimeline, type TimelineEntry } from '../../../shared/timeline.ts';
+import type { Expense } from '../../../shared/expenses.ts';
+import type { CareLog } from '../../../shared/lemon.ts';
+import type { Memo } from '../../../shared/memos.ts';
+import {
+  entryDay,
+  sortTimeline,
+  type TimelineEntry,
+  timelineEntryId,
+} from '../../../shared/timeline.ts';
 import type { TimelineFilter } from '../../../shared/validation/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import {
@@ -37,6 +45,30 @@ export function useTimeline(filter: TimelineFilter) {
 /** 読んだタイムラインのどこかにある行（編集・削除の前の値。記録の画面の履歴を読んでいないときの控え） */
 export function findInTimeline(client: QueryClient, id: string): TimelineEntry | undefined {
   return findInHistories(client, timeline, id);
+}
+
+/** 1 件が 1 行になる記録（立替・レモン・メモ）の種類と、その行が持つ記録 */
+type TimelineRecords = { expense: Expense; lemon: CareLog; memo: Memo };
+
+const RECORD_OF: {
+  [K in keyof TimelineRecords]: (entry: TimelineEntry) => TimelineRecords[K] | undefined;
+} = {
+  expense: (entry) => (entry.type === 'expense' ? entry.expense : undefined),
+  lemon: (entry) => (entry.type === 'lemon' ? entry.log : undefined),
+  memo: (entry) => (entry.type === 'memo' ? entry.memo : undefined),
+};
+
+/**
+ * 読んだタイムラインにある記録（編集・削除の前の値）。ホームから直すときはその機能の画面の履歴を
+ * 読んでいないことがあるので、各機能はまず自分の履歴を探し、無ければここを見る
+ */
+export function findTimelineRecord<K extends keyof TimelineRecords>(
+  client: QueryClient,
+  type: K,
+  id: string,
+): TimelineRecords[K] | undefined {
+  const entry = findInTimeline(client, timelineEntryId(type, id));
+  return entry && RECORD_OF[type](entry);
 }
 
 /**

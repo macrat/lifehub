@@ -34,16 +34,6 @@ export function useKeywordSearch(initial: string) {
 }
 
 /**
- * キーワードが text のどれかに部分一致するか（大文字小文字は区別しない）。空のキーワードはすべてに一致する。
- * 読んだ分が手元にある一覧（カレンダーのリスト表示）が、打つたびに取り直さずに手元で絞り込むのに使う。
- * 全件を手元に持たない履歴（立替・レモン）はサーバーが同じ規則で絞り込む（server/lib/history.ts の `containsKeyword`）。
- */
-export function matchesKeyword(keyword: string, ...texts: (string | null | undefined)[]): boolean {
-  const q = keyword.trim().toLowerCase();
-  return q === '' || texts.some((text) => text?.toLowerCase().includes(q));
-}
-
-/**
  * 画面の絞り込みから、サーバーに渡す絞り込み（取得のキーにもなる）を作る。入力を開くしるし（add）は
  * 絞り込みではないので除き、空のキーワードは「絞り込まない」と同じキーにする
  */

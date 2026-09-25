@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ALL,
-  dateOrUndefined,
-  matchesKeyword,
-  optionOrUndefined,
-  toListFilter,
-} from '../search.ts';
+import { matchesKeyword } from '../../../shared/search.ts';
+import { ALL, dateOrUndefined, optionOrUndefined, toListFilter } from '../search.ts';
 
 describe('絞り込みの入力値', () => {
   it('選択欄の「すべて」は絞り込まない', () => {

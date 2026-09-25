@@ -4,7 +4,7 @@ import { containsKeyword, type InstantRange } from '../../lib/history.ts';
 import { type MemoRow, memos } from './schema.ts';
 
 /** 書いた時刻が before より前の、新しいほうから limit 件の書いた時刻（タイムラインのページ分け） */
-export async function findRecentInstants(
+export async function findRecentTimelineInstants(
   before: Date,
   q: string | undefined,
   limit: number,
@@ -19,7 +19,10 @@ export async function findRecentInstants(
 }
 
 /** 書いた時刻が [from, to) のメモ */
-export async function findInRange(range: InstantRange, q: string | undefined): Promise<MemoRow[]> {
+export async function findInTimelineRange(
+  range: InstantRange,
+  q: string | undefined,
+): Promise<MemoRow[]> {
   return db
     .select()
     .from(memos)

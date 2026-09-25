@@ -42,7 +42,7 @@ export function TaskCheckbox({
       checkedIcon={
         icons?.checked ?? <ParticipantsCheckIcon participantIds={item.participantIds} checked />
       }
-      sx={[icons ? { p: 0 } : { p: 0.5 }, ...(Array.isArray(sx) ? sx : [sx])]}
+      sx={[{ p: 0.5 }, ...(Array.isArray(sx) ? sx : [sx])]}
     />
   );
 }

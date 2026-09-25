@@ -1,7 +1,7 @@
 import { useState } from 'react';
+import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { memoSchema } from '../../../shared/validation/memos.ts';
 import { useFormSubmit } from '../../lib/form.ts';
-import type { MemoBody } from './queries.ts';
 
 /**
  * メモのフォームの共通処理。追加（`MemoForm`）と詳細からの編集（`MemoDetailSheet`）で
@@ -13,7 +13,7 @@ export function useMemoForm({
   onSaved,
 }: {
   initialBody?: string;
-  onSubmit: (input: MemoBody) => Promise<unknown>;
+  onSubmit: (input: MemoInput) => Promise<unknown>;
   onSaved: () => void;
 }) {
   const [body, setBody] = useState(initialBody);

@@ -14,9 +14,6 @@ const MARK_SX = {
   flexShrink: 0,
 } as const;
 
-/** 詰めた行は高さを揃えて（本文が 1 行なので）、印と本文を中央で合わせる */
-const DENSE_ROW_SX = { alignItems: 'center', minHeight: 36 } as const;
-
 /** 押せる範囲（印より右のすべて）。枠線を持たず、押したときだけ薄く色が付く */
 const BUTTON_SX = {
   flexGrow: 1,
@@ -28,8 +25,6 @@ const BUTTON_SX = {
   gap: 1.5,
   borderRadius: 1,
 } as const;
-
-const DENSE_BUTTON_SX = { ...BUTTON_SX, py: 0.5 } as const;
 
 /**
  * 主列。折り返さず桁を揃えるので、時刻も金額も行をまたいで縦に読める。
@@ -48,14 +43,13 @@ const LEAD_SX = {
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。
  * 印を押せる範囲の外に置くのは、タスクのチェックを行の押し分けに巻き込まないため。
  *
- * カレンダーのリスト表示（`ItemCard`）・ホームの「今日」（`TodayCard`）・立替の履歴（`ExpenseList`）が
+ * カレンダーのリスト表示（`ItemCard`）・立替の履歴（`ExpenseList`）が
  * 同じ形で並ぶよう、行の骨組みはここ 1 か所に置く。中身と主列の幅は呼び出し側が決める。
  */
 export function MarkedRow({
   mark,
   lead,
   leadWidth,
-  dense = false,
   onSelect,
   sx,
   children,
@@ -64,8 +58,6 @@ export function MarkedRow({
   lead: ReactNode;
   /** 主列の幅。揃えたい値が収まる幅を呼び出し側が決める */
   leadWidth: number;
-  /** 本文が 1 行だけの詰めた行（ホームのカード） */
-  dense?: boolean;
   /** 押されたとき。editing は長押し（編集で開く）か */
   onSelect: (editing: boolean) => void;
   /** 行全体の体裁（完了した行を薄くする、View Transition の名前） */
@@ -74,9 +66,9 @@ export function MarkedRow({
 }) {
   const press = useRecordPress(onSelect);
   return (
-    <Stack direction="row" sx={dense ? [DENSE_ROW_SX, sx ?? false].flat() : sx}>
+    <Stack direction="row" sx={sx}>
       <Box sx={MARK_SX}>{mark}</Box>
-      <ButtonBase {...press} sx={dense ? DENSE_BUTTON_SX : BUTTON_SX}>
+      <ButtonBase {...press} sx={BUTTON_SX}>
         <Box sx={{ ...LEAD_SX, width: leadWidth }}>{lead}</Box>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>{children}</Box>
       </ButtonBase>

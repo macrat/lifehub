@@ -22,7 +22,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
+import { applyToTimeline, findTimelineRecord } from '../timeline/queries.ts';
 import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { useUsers } from '../users/queries.ts';
 
@@ -68,7 +68,7 @@ const totalsQueryOptions = queryOptions({
 
 /**
  * 残高。サーバーの合計とユーザー（登録順の先頭 2 人が A, B。サーバーと同じ）から導く。
- * 立替ページとホームのカードが読む。
+ * 立替ページとホームの残高のタイルが読む。
  */
 export function useBalance(): QueryState<Balance> {
   const totals = useQuery(totalsQueryOptions);
@@ -106,7 +106,8 @@ export function useUpdateExpense() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
-      const prev = findExpense(client, id);
+      const prev =
+        findInHistories(client, expenseHistory, id) ?? findTimelineRecord(client, 'expense', id);
       if (prev) applyChange(client, id, prev, { ...prev, ...input });
     },
   });
@@ -120,22 +121,11 @@ export function useDeleteExpense() {
     }),
     keys: WRITE_KEYS,
     apply: (client, id) => {
-      const prev = findExpense(client, id);
+      const prev =
+        findInHistories(client, expenseHistory, id) ?? findTimelineRecord(client, 'expense', id);
       if (prev) applyChange(client, id, prev, null);
     },
   });
-}
-
-/**
- * 読んだ記録のどこかにある立替（編集・削除の前の値）。立替の画面を開かずにホームから直すときは、
- * 立替の履歴を読んでいないので、タイムラインにある控えを使う
- */
-function findExpense(client: QueryClient, id: string): Expense | undefined {
-  const entry = findInTimeline(client, timelineEntryId('expense', id));
-  return (
-    findInHistories(client, expenseHistory, id) ??
-    (entry?.type === 'expense' ? entry.expense : undefined)
-  );
 }
 
 /**

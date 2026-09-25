@@ -1,4 +1,4 @@
-import { addDays, startOfDate, toDateString } from '../../../shared/date.ts';
+import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/date.ts';
 import {
   careLogEntry,
   eventEntry,
@@ -62,7 +62,7 @@ export async function getTimelinePage(
     .sort((a, b) => b.getTime() - a.getTime());
   // 全体で PAGE_SIZE 件目の日の始まりから。それが無ければ残りすべて
   const boundary = instants[PAGE_SIZE - 1];
-  const lower = boundary ? latest(startOfDate(toDateString(boundary)), floor) : floor;
+  const lower = boundary ? latest(startOfDay(boundary), floor) : floor;
   const range = { from: lower, to: upper };
 
   const [items, expenseRows, logs, memoRows] = await Promise.all([

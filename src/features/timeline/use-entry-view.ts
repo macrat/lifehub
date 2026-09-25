@@ -5,6 +5,7 @@ import { formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
 import { itemTransitionName } from '../calendar/item-transition.ts';
 import type { CalendarTaskItem } from '../events/queries.ts';
+import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { CARE_TYPE_ICONS } from '../lemon/care-type-icons.tsx';
 import { leadingCareType } from '../lemon/care-type-priority.ts';
@@ -44,10 +45,9 @@ export function useEntryView(entry: TimelineEntry): EntryView {
     case 'event': {
       const { item } = entry;
       // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
-      const ids = item.participantIds;
       return {
         ...view,
-        colors: ids.length > 0 ? ids.map((id) => colorFor(id).fill) : [colorFor(null).fill],
+        colors: participantColors(item.participantIds, colorFor).map((c) => c.fill),
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
         heading: item.title,

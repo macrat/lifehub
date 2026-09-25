@@ -46,13 +46,24 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt',
+  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
-function isCandidate(table: CandidateColumns, from: Date, to: Date): SQL | undefined {
+/** 検索（ホームのタイムライン）: タイトルかメモの部分一致。空のキーワードは条件にしない */
+function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | undefined) {
+  return or(containsKeyword(table.title, q), containsKeyword(table.note, q));
+}
+
+function isCandidate(
+  table: CandidateColumns,
+  from: Date,
+  to: Date,
+  q: string | undefined,
+): SQL | undefined {
   const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
+    keywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -100,19 +111,25 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
+ * q を渡すと、タイトルかメモが当たる繰り返し元・単発だけを読む（ホームのタイムラインの検索。
+ * 当たらない繰り返しを展開してから捨てずに済む）。
  */
-export async function findCalendarRows(from: Date, to: Date): Promise<EventWithParticipants[]> {
+export async function findCalendarRows(
+  from: Date,
+  to: Date,
+  q?: string,
+): Promise<EventWithParticipants[]> {
   const master = alias(events, 'master');
   return selectRows()
     .where(
       or(
-        isCandidate(events, from, to),
+        isCandidate(events, from, to, q),
         inArray(
           events.seriesId,
           db
             .select({ id: master.id })
             .from(master)
-            .where(isCandidate(master, from, to)),
+            .where(isCandidate(master, from, to, q)),
         ),
       ),
     )
@@ -131,11 +148,6 @@ const timelineAt = sql<Date>`case
   else ${events.completedAt}
 end`.mapWith(events.startsAt);
 
-/** タイムラインの検索: タイトルかメモの部分一致 */
-function timelineKeyword(q: string | undefined): SQL | undefined {
-  return or(containsKeyword(events.title, q), containsKeyword(events.note, q));
-}
-
 /**
  * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
  * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する
@@ -149,7 +161,12 @@ export async function findRecentTimelineInstants(
     .select({ at: timelineAt })
     .from(events)
     .where(
-      and(isNull(events.rrule), not(events.cancelled), lt(timelineAt, before), timelineKeyword(q)),
+      and(
+        isNull(events.rrule),
+        not(events.cancelled),
+        lt(timelineAt, before),
+        keywordOf(events, q),
+      ),
     )
     .orderBy(desc(timelineAt))
     .limit(limit);
@@ -173,7 +190,7 @@ export async function findRecurringEventsBefore(
         isNotNull(events.rrule),
         eq(events.kind, 'event'),
         lt(events.startsAt, before),
-        timelineKeyword(q),
+        keywordOf(events, q),
       ),
     );
   return rows.flatMap(({ rrule, startsAt }) => (rrule && startsAt ? [{ rrule, startsAt }] : []));

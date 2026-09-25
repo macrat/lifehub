@@ -25,7 +25,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `src/routes/_authenticated/<name>.tsx` にページを追加し、`src/navigation.ts` に登録する。ページタイトルは出さない。ページ固有の操作は `AppBarContent` で AppBar に差し込む
    - 記録を持つ機能は、ホームのタイムライン（[docs/features/home.md](../../../docs/features/home.md)）に並べる: `shared/timeline.ts` に行の形と日時の規則を足し、service にページ分けと範囲の読み出し（`recentTimelineInstants` / `listForTimeline`）を足して `server/features/timeline/service.ts` から呼ぶ。書き込みの `keys` に `TIMELINE_QUERY_KEY` を入れ、行の詳細を `TimelineEntrySheet` に足す
    - ホームの状態のタイルは `src/features/dashboard/components/StatusCards.tsx` に足す（自分の機能のクエリを読む）
-   - ルートに loader は置かない（移動をデータで待たせない）。ページもカードも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
+   - ルートに loader は置かない（移動をデータで待たせない）。ページもタイルも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
 8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。
 

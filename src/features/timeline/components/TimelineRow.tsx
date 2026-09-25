@@ -5,7 +5,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
-import type { ComponentType } from 'react';
+import { type ComponentType, memo } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
 import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
@@ -26,7 +26,7 @@ const ICON_SIZE = 40;
  */
 const TASK_ICON_SIZE = ICON_SIZE * 0.95;
 
-/** 行の上下の余白（px）。左のチェックボックスを押せる範囲の外に重ねるので、同じ値で揃える */
+/** 行の上下の余白（px）。左のアイコンの列と押せる範囲の中身を同じ高さに揃える */
 const ROW_PADDING_Y = 10;
 
 type Props = {
@@ -41,54 +41,36 @@ type Props = {
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
  * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
  * チェックの印を出す（押すと完了・未完了が切り替わる）。
- * 押せる範囲（ButtonBase）の中にボタンを入れられないので、押せる範囲には同じ大きさの空きを取り、
- * チェックボックスはその上に重ねる（リストの行の `MarkedRow` と同じ考え方）。
+ * 左のアイコンは押せる範囲（ButtonBase）の外の列に置く（リストの行の `MarkedRow` と同じ組み方）。
+ * 押せる範囲の中にチェックボックス（ボタン）を入れられないため。
  */
-export function TimelineRow({ entry, onSelect }: Props) {
+function TimelineRowView({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
   const press = useRecordPress((editing) => onSelect(entry, editing));
   const multiline = view.body !== null || view.careTypes.length > 0;
   return (
-    <Box
+    <Stack
+      direction="row"
       sx={{
-        position: 'relative',
+        alignItems: multiline ? 'flex-start' : 'center',
+        pl: 2,
         borderBottom: 1,
         borderColor: 'divider',
         viewTransitionName: view.transitionName,
       }}
     >
-      <ButtonBase
-        {...press}
+      <Box
         sx={{
-          width: '100%',
-          justifyContent: 'flex-start',
-          alignItems: multiline ? 'flex-start' : 'center',
-          gap: 1.5,
-          px: 2,
-          py: `${ROW_PADDING_Y}px`,
-          textAlign: 'left',
+          width: ICON_SIZE,
+          height: ICON_SIZE,
+          my: `${ROW_PADDING_Y}px`,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         {view.task ? (
-          <Box sx={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0 }} />
-        ) : (
-          <EntryIcon view={view} />
-        )}
-        <EntryText view={view} />
-      </ButtonBase>
-      {view.task && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 16,
-            width: ICON_SIZE,
-            height: ICON_SIZE,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...(multiline ? { top: ROW_PADDING_Y } : { top: '50%', transform: 'translateY(-50%)' }),
-          }}
-        >
           <TaskCheckbox
             item={view.task}
             icons={{
@@ -106,17 +88,34 @@ export function TimelineRow({ entry, onSelect }: Props) {
             }}
             // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
             // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
-            sx={{ clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
+            sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
           />
-        </Box>
-      )}
-    </Box>
+        ) : (
+          <Circle colors={view.colors} icon={view.icon} />
+        )}
+      </Box>
+      <ButtonBase
+        {...press}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          alignSelf: 'stretch',
+          justifyContent: 'flex-start',
+          alignItems: multiline ? 'flex-start' : 'center',
+          pl: 1.5,
+          pr: 2,
+          py: `${ROW_PADDING_Y}px`,
+          textAlign: 'left',
+        }}
+      >
+        <EntryText view={view} />
+      </ButtonBase>
+    </Stack>
   );
 }
 
-function EntryIcon({ view }: { view: EntryView }) {
-  return <Circle colors={view.colors} icon={view.icon} />;
-}
+/** 行の中身は記録が変わらない限り同じなので、ホームの入力（検索窓・シートの開け閉め）のたびに全行を描き直さない */
+export const TimelineRow = memo(TimelineRowView);
 
 /**
  * 左の丸。人の色（複数なら塗り分け）の上に白いアイコンを置く。

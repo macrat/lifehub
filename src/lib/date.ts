@@ -89,11 +89,8 @@ export function formatTimelineTime(at: string, dateOnly: boolean, now: Date = ne
   const date = toDateString(new Date(at));
   const todayDate = today(now);
   if (date === todayDate) return dateOnly ? '今日' : formatTime(at);
-  const day =
-    date.slice(0, 4) === todayDate.slice(0, 4)
-      ? formatDate(at)
-      : `${date.slice(0, 4)}/${formatDate(at)}`;
-  return dateOnly ? day : `${day} ${formatTime(at)}`;
+  const text = dateOnly ? formatDate(at) : formatDateTime(at);
+  return date.slice(0, 4) === todayDate.slice(0, 4) ? text : `${date.slice(0, 4)}/${text}`;
 }
 
 /** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */

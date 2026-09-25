@@ -85,7 +85,7 @@ export function useDeleteEvent() {
   });
 }
 
-/** タスクの完了・完了取り消し。カレンダー／ホームのカードから直接呼ぶ。繰り返しでは occurrenceStart で回を指定する */
+/** タスクの完了・完了取り消し。カレンダーのリスト・ホームのタイムラインの行と詳細から呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
   return useOptimisticMutation({
     request: ({
@@ -202,7 +202,7 @@ export function useCalendarItems(
 }
 
 /**
- * カレンダーの項目を出す画面（カレンダー・ホームの「今日」カード）が、入ったときに取り直すためのもの。
+ * カレンダー画面が、入ったときに取り直すためのもの。
  * マウントの 1 回だけ取り直すので、同じ画面に留まる限り（表示や日付の切り替え）取り直しは起きない。
  * 画面を行き来したとき（マウントし直す）と、再読み込みしたとき（読み込み直す）だけサーバーに問い合わせる。
  *

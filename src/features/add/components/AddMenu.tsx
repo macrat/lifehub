@@ -7,7 +7,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { useState } from 'react';
 import type { AddKind } from '../../../lib/add-pages.ts';
 import { FAB_SX } from '../../../lib/ui/layout.ts';
-import { CIRCLE_CLIP_PATH, SQUIRCLE_SHADOW } from '../../../lib/ui/squircle.ts';
+import { CIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { ADD_KINDS, type AddFormKind } from '../kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
@@ -19,9 +19,7 @@ const SCRIM_SX: SxProps<Theme> = { zIndex: SCRIM_Z, bgcolor: 'rgba(0, 0, 0, 0.8)
 const MENU_SX: SxProps<Theme> = {
   ...FAB_SX,
   zIndex: (t) => SCRIM_Z(t) + 1,
-  // ボタンはスクワークルに切り抜かれて自分の影を持てないので、影はここ（外側）に掛ける。
-  // 開いた中の pill にも同じ影が付くので、pill 自身の影は消す（PILL_SX）
-  filter: SQUIRCLE_SHADOW,
+  // 影は FAB_SX が根元に掛けるので、開いた中の pill にも同じ影が付く（pill 自身の影は消す。PILL_SX）
   // ラベルの長さが違っても右端は FAB に揃える（既定の中央揃え・幅揃えにしない）
   alignItems: 'flex-end',
   [`& .${speedDialClasses.actions}`]: {

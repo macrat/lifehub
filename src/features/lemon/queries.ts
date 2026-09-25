@@ -17,7 +17,7 @@ import {
   useHistory,
 } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
-import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
+import { applyToTimeline, findTimelineRecord } from '../timeline/queries.ts';
 import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
@@ -90,7 +90,8 @@ export function useUpdateCareLog() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
-      const prev = findCareLog(client, id);
+      const prev =
+        findInHistories(client, careLogHistory, id) ?? findTimelineRecord(client, 'lemon', id);
       if (!prev) return;
       const log = { ...prev, ...input, note: input.note ?? null };
       applyLog(client, id, log);
@@ -116,17 +117,6 @@ export function useDeleteCareLog() {
       // タイルがどこまで戻るかは読んでいない記録を含めて決まるので、書き込み後の取り直しに任せる
     },
   });
-}
-
-/**
- * 読んだ記録のどこかにある記録（編集・削除の前の値）。レモンの画面を開かずにホームから直すときは、
- * 記録の履歴を読んでいないので、タイムラインにある控えを使う
- */
-function findCareLog(client: QueryClient, id: string): CareLog | undefined {
-  const entry = findInTimeline(client, timelineEntryId('lemon', id));
-  return (
-    findInHistories(client, careLogHistory, id) ?? (entry?.type === 'lemon' ? entry.log : undefined)
-  );
 }
 
 /** 記録 1 件の変化（削除は null）を、記録の履歴とタイムラインに同じ規則で書き込む */

@@ -1,5 +1,6 @@
 import { type CalendarItem, placeOnce } from '../../../shared/calendar.ts';
-import { toDateString } from '../../../shared/date.ts';
+import { inclusiveEndDate, toDateString } from '../../../shared/date.ts';
+import { matchesKeyword } from '../../../shared/search.ts';
 import type { InstantRange } from '../../lib/history.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import { listOccurrences } from './occurrences.ts';
@@ -39,13 +40,9 @@ export async function listTimelineItems(
   q: string | undefined,
   now: Date = new Date(),
 ): Promise<CalendarItem[]> {
-  const days = {
-    from: toDateString(range.from),
-    to: toDateString(new Date(range.to.getTime() - 1)),
-  };
-  const keyword = q?.trim().toLowerCase() ?? '';
-  const matches = (text: string | null) => text?.toLowerCase().includes(keyword) ?? false;
-  return (await listOccurrences(days, now))
-    .filter((o) => keyword === '' || matches(o.title) || matches(o.note))
+  const days = { from: toDateString(range.from), to: inclusiveEndDate(range.to.toISOString()) };
+  // DB は繰り返し元のタイトル・メモで絞るので、「この回だけ」で直した回はここで回そのものの値で絞り直す
+  return (await listOccurrences(days, now, { q }))
+    .filter((o) => matchesKeyword(q, o.title, o.note))
     .flatMap((o) => placeOnce(o, now) ?? []);
 }
