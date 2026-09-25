@@ -100,7 +100,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
       header={filterPanel}
       onReachStart={loaded ? extendStart : undefined}
       onReachEnd={loaded ? extendEnd : undefined}
-      initialTarget={(list) => firstDayFrom(list, date)}
+      initial={{ block: 'start', target: (list) => firstDayFrom(list, date) }}
       resetKey={JSON.stringify({ date, filters })}
       // 最初の位置は出している月が揃ってから決める
       ready={loaded}

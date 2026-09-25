@@ -26,13 +26,15 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
   return (
     <>
       <QueryView query={timeline.query} skeleton={<ListSkeleton />}>
-        {(entries) =>
-          entries.length === 0 ? (
+        {({ past, future }) =>
+          past.length + future.length === 0 ? (
             <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
               {emptyMessage}
             </Typography>
           ) : (
-            entries
+            // 履歴は今日までと未来に分けて返る（立替・レモンの最初の位置のため）。タイムラインは
+            // 分けずに 1 本で出すので、繋ぎ直して逆さ（新しい順）にする
+            [...past, ...future]
               .toReversed()
               .map((entry) => <TimelineRow key={entry.id} entry={entry} onSelect={onSelect} />)
           )
