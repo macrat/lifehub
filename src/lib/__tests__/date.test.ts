@@ -3,6 +3,7 @@ import type { DateString } from '../../../shared/types.ts';
 import {
   formatDateWithYear,
   formatMonth,
+  formatTimelineTime,
   formatWeekRange,
   monthRange,
   monthsInRange,
@@ -80,5 +81,21 @@ describe('formatWeekRange', () => {
 
   it('今年から翌年へまたぐ週は始まりの年で書く', () => {
     expect(formatWeekRange(d('2026-12-28'))).toBe('12月28日〜01月03日');
+  });
+});
+
+describe('formatTimelineTime', () => {
+  const now = new Date('2026-09-25T12:00:00+09:00');
+  const at = (s: string) => new Date(`${s}+09:00`).toISOString();
+
+  it('今日は時刻だけ、日付だけの記録は「今日」', () => {
+    expect(formatTimelineTime(at('2026-09-25T08:05:00'), false, now)).toBe('08:05');
+    expect(formatTimelineTime(at('2026-09-25T00:00:00'), true, now)).toBe('今日');
+  });
+
+  it('今年は月日から、別の年は年から', () => {
+    expect(formatTimelineTime(at('2026-09-26T09:30:00'), false, now)).toBe('9/26(土) 09:30');
+    expect(formatTimelineTime(at('2026-09-20T00:00:00'), true, now)).toBe('9/20(日)');
+    expect(formatTimelineTime(at('2025-12-31T23:00:00'), false, now)).toBe('2025/12/31(水) 23:00');
   });
 });

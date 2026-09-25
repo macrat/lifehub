@@ -1,5 +1,6 @@
 import {
   and,
+  desc,
   eq,
   getTableColumns,
   gt,
@@ -8,6 +9,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  not,
   notExists,
   or,
   type SQL,
@@ -16,6 +18,7 @@ import {
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
 import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
+import { containsKeyword } from '../../lib/history.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -115,6 +118,63 @@ export async function findCalendarRows(from: Date, to: Date): Promise<EventWithP
     )
     .groupBy(events.id)
     .orderBy(events.startsAt, events.createdAt);
+}
+
+/**
+ * タイムラインで行を置く日時: 予定は開始、タスクは完了した日時か開始（shared/timeline.ts の `eventEntry`）。
+ * 繰り返し元は回ごとに日時が違うので、この式を使うのは単発の行と実体化された回（どちらも rrule を持たない）だけ。
+ */
+const timelineAt = sql<Date>`case
+  when ${events.kind} = 'event' then ${events.startsAt}
+  else coalesce(${events.completedAt}, ${events.startsAt})
+end`.mapWith(events.startsAt);
+
+/** タイムラインの検索: タイトルかメモの部分一致 */
+function timelineKeyword(q: string | undefined): SQL | undefined {
+  return or(containsKeyword(events.title, q), containsKeyword(events.note, q));
+}
+
+/**
+ * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
+ * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する
+ */
+export async function findRecentTimelineInstants(
+  before: Date,
+  q: string | undefined,
+  limit: number,
+): Promise<Date[]> {
+  const rows = await db
+    .select({ at: timelineAt })
+    .from(events)
+    .where(
+      and(isNull(events.rrule), not(events.cancelled), lt(timelineAt, before), timelineKeyword(q)),
+    )
+    .orderBy(desc(timelineAt))
+    .limit(limit);
+  return rows.map((row) => row.at);
+}
+
+/**
+ * before より前に回を持つ、繰り返す予定の繰り返し元（タイムラインのページ分けで回を展開する）。
+ * 繰り返すタスクの回は、完了した回が実体化された行として `findRecentTimelineInstants` に入り、
+ * 未完了の回は今に近い 2 つしか出ない（docs/features/events.md）ので、ページ分けには含めない。
+ */
+export async function findRecurringEventsBefore(
+  before: Date,
+  q: string | undefined,
+): Promise<{ rrule: string; startsAt: Date }[]> {
+  const rows = await db
+    .select({ rrule: events.rrule, startsAt: events.startsAt })
+    .from(events)
+    .where(
+      and(
+        isNotNull(events.rrule),
+        eq(events.kind, 'event'),
+        lt(events.startsAt, before),
+        timelineKeyword(q),
+      ),
+    );
+  return rows.flatMap(({ rrule, startsAt }) => (rrule && startsAt ? [{ rrule, startsAt }] : []));
 }
 
 /**

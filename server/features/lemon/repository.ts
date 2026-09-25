@@ -1,12 +1,26 @@
-import { arrayContains, desc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  arrayContains,
+  arrayOverlaps,
+  desc,
+  eq,
+  gte,
+  lt,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import type {
-  CareLogFilter,
-  CareLogListQuery,
-  CareType,
+import {
+  CARE_TYPE_LABELS,
+  CARE_TYPES,
+  type CareLogFilter,
+  type CareLogListQuery,
+  type CareType,
 } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage, type InstantRange } from '../../lib/history.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
 /** 実施日時の JST の暦日（date）。ページの区切りと日付の範囲の絞り込みに使う */
@@ -31,6 +45,52 @@ function filterConditions(f: CareLogFilter): (SQL | undefined)[] {
     f.since !== undefined ? gte(doneOn, f.since) : undefined,
     f.until !== undefined ? lte(doneOn, f.until) : undefined,
   ];
+}
+
+/**
+ * タイムラインの検索の条件: メモの部分一致か、名前にキーワードを含む項目（「水」なら葉水・水やり）を含む記録。
+ * タイムラインでは記録の名前が項目なので、項目の名前でも見つかるようにする。空のキーワードは条件にしない
+ */
+function timelineKeyword(q: string | undefined): SQL | undefined {
+  const keyword = q?.trim().toLowerCase();
+  if (!keyword) return undefined;
+  const careTypes = CARE_TYPES.filter((t) => CARE_TYPE_LABELS[t].toLowerCase().includes(keyword));
+  return or(
+    containsKeyword(lemonCareLogs.note, keyword),
+    careTypes.length > 0 ? arrayOverlaps(lemonCareLogs.careTypes, careTypes) : undefined,
+  );
+}
+
+/** 実施日時が before より前の、新しいほうから limit 件の実施日時（タイムラインのページ分け） */
+export async function findRecentTimelineInstants(
+  before: Date,
+  q: string | undefined,
+  limit: number,
+): Promise<Date[]> {
+  const rows = await db
+    .select({ at: lemonCareLogs.doneAt })
+    .from(lemonCareLogs)
+    .where(and(lt(lemonCareLogs.doneAt, before), timelineKeyword(q)))
+    .orderBy(desc(lemonCareLogs.doneAt))
+    .limit(limit);
+  return rows.map((row) => row.at);
+}
+
+/** 実施日時が [from, to) の記録（タイムライン） */
+export async function findInTimelineRange(
+  range: InstantRange,
+  q: string | undefined,
+): Promise<LemonCareLogRow[]> {
+  return db
+    .select()
+    .from(lemonCareLogs)
+    .where(
+      and(
+        gte(lemonCareLogs.doneAt, range.from),
+        lt(lemonCareLogs.doneAt, range.to),
+        timelineKeyword(q),
+      ),
+    );
 }
 
 /**

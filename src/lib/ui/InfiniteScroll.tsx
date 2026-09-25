@@ -1,19 +1,7 @@
 import Box from '@mui/material/Box';
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useRef,
-} from 'react';
-import { APP_BAR_HEIGHT } from './layout.ts';
-
-/** 端がこの距離まで近づいたら続きを読む（見えてから読み始めると、読み終わるまで空白が見える） */
-const PRELOAD_MARGIN = '400px 0px';
-
-/** AppBar の下端。見出しはここに貼り付く */
-const STICKY_TOP = `calc(${APP_BAR_HEIGHT}px + env(safe-area-inset-top))`;
+import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
+import { STICKY_TOP } from './layout.ts';
+import { useEdgeObserver } from './use-edge-observer.ts';
 
 type Props = {
   /** 一覧の上に貼り付けておく物（絞り込みのフォーム、残高など）。一覧を動かしても隠れない */
@@ -123,27 +111,6 @@ export function InfiniteScroll({
       <div ref={endRef} />
     </>
   );
-}
-
-/**
- * 端の見張り。読む物がある（onReach がある）間だけ見張る。見張り始めるとその時点で見えているかを
- * 知らせてくるので、読み終わって読む物が戻るたびに端がまだ見えていれば、続けて次を読む
- */
-function useEdgeObserver(ref: RefObject<HTMLElement | null>, onReach: (() => void) | undefined) {
-  const reach = useEffectEvent(() => onReach?.());
-  const enabled = onReach !== undefined;
-  useEffect(() => {
-    const edge = ref.current;
-    if (!enabled || !edge) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) reach();
-      },
-      { rootMargin: PRELOAD_MARGIN },
-    );
-    observer.observe(edge);
-    return () => observer.disconnect();
-  }, [ref, enabled]);
 }
 
 /** top より下に掛かっている最初の要素を、いちばん奥まで辿る（ブラウザのスクロールアンカーと同じ選び方） */

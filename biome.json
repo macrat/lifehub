@@ -277,7 +277,7 @@
       }
     },
     {
-      "includes": ["src/features/*/components/**", "src/features/*/cards/**", "src/routes/**"],
+      "includes": ["src/features/*/components/**", "src/routes/**"],
       "linter": {
         "rules": {
           "style": {

@@ -7,6 +7,8 @@
 export const BOTTOM_NAV_HEIGHT = 56;
 /** AppBar（dense）の高さ */
 export const APP_BAR_HEIGHT = 48;
+/** AppBar の下端。一覧の上に貼り付ける物（絞り込みのフォーム、状況のタイル）はここに貼り付く */
+export const STICKY_TOP = `calc(${APP_BAR_HEIGHT}px + env(safe-area-inset-top))`;
 /** 右下の追加ボタン（FAB / SpeedDial）の位置。スマホでは下部ナビの上に置く */
 export const FAB_SX = {
   position: 'fixed',

@@ -19,6 +19,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
 import { type WriteTarget, writeTarget } from './recurrence-options.ts';
@@ -38,8 +39,11 @@ export function eventQueryOptions(id: string) {
   });
 }
 
-/** 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行） */
-const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY];
+/**
+ * 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行と、全機能の記録を並べるタイムライン）。
+ * タイムラインには先回りして書かず、取り直しに任せる（`applyToTimeline` の理由）
+ */
+const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 export function useCreateEvent() {
   return useCreateMutation<CreateEventBody>({

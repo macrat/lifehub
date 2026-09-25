@@ -1,6 +1,7 @@
 import * as events from '../server/features/events/service.ts';
 import * as expenses from '../server/features/expenses/service.ts';
 import * as lemon from '../server/features/lemon/service.ts';
+import * as memos from '../server/features/memos/service.ts';
 import * as users from '../server/features/users/service.ts';
 import { truncateAll } from '../server/lib/test-db.ts';
 import { addDays, startOfDate, today } from '../shared/date.ts';
@@ -177,5 +178,9 @@ await lemon.logCare(
   },
   partner.id,
 );
+// メモの日時は書いた時刻（今）になる
+await memos.addMemo({ body: '週末は天気が良さそう。\nベランダの掃除をしたい。' }, partner.id);
+await memos.addMemo({ body: '洗剤の詰め替えが残り少ない' }, me.id);
+
 console.log('seeded: taro@example.com / hanako@example.com (password-123456)');
 process.exit(0);

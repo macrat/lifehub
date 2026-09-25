@@ -8,6 +8,7 @@ import {
   type ExpenseTotal,
   sortExpenses,
 } from '../../../shared/expenses.ts';
+import { expenseEntry, timelineEntryId } from '../../../shared/timeline.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import {
@@ -21,6 +22,8 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
+import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { useUsers } from '../users/queries.ts';
 
 /**
@@ -33,6 +36,9 @@ export type ExpenseBody = ExpenseInput;
 export type { Balance, Expense } from '../../../shared/expenses.ts';
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
+
+/** 書き込みが変えるクエリ（立替の履歴・合計と、全機能の記録を並べるタイムライン） */
+const WRITE_KEYS = [EXPENSES_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 /**
  * 履歴（`src/lib/history.ts`）。絞り込みはサーバーが掛ける
@@ -84,7 +90,7 @@ export function useAddExpense() {
       path: api.expenses.$url().pathname,
       body: input,
     }),
-    keys: [EXPENSES_QUERY_KEY],
+    keys: WRITE_KEYS,
     apply: (client, input) => {
       applyChange(client, input.id, null, { ...input, createdAt: new Date().toISOString() });
     },
@@ -98,9 +104,9 @@ export function useUpdateExpense() {
       path: api.expenses[':id'].$url({ param: { id } }).pathname,
       body: input,
     }),
-    keys: [EXPENSES_QUERY_KEY],
+    keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
-      const prev = findInHistories(client, expenseHistory, id);
+      const prev = findExpense(client, id);
       if (prev) applyChange(client, id, prev, { ...prev, ...input });
     },
   });
@@ -112,18 +118,31 @@ export function useDeleteExpense() {
       method: 'DELETE' as const,
       path: api.expenses[':id'].$url({ param: { id } }).pathname,
     }),
-    keys: [EXPENSES_QUERY_KEY],
+    keys: WRITE_KEYS,
     apply: (client, id) => {
-      const prev = findInHistories(client, expenseHistory, id);
+      const prev = findExpense(client, id);
       if (prev) applyChange(client, id, prev, null);
     },
   });
 }
 
 /**
+ * 読んだ記録のどこかにある立替（編集・削除の前の値）。立替の画面を開かずにホームから直すときは、
+ * 立替の履歴を読んでいないので、タイムラインにある控えを使う
+ */
+function findExpense(client: QueryClient, id: string): Expense | undefined {
+  const entry = findInTimeline(client, timelineEntryId('expense', id));
+  return (
+    findInHistories(client, expenseHistory, id) ??
+    (entry?.type === 'expense' ? entry.expense : undefined)
+  );
+}
+
+/**
  * 1 件の変化（prev → next。追加は prev が null、削除は next が null）を先回りして書き込む。
  * - 合計: prev の分を引き、next の分を足す。残高は合計から導くので、端数を含めてサーバーと一致する
  * - 履歴: `applyToHistories`（消した物はどの履歴からも除き、足した物は絞り込みの無い履歴にだけ入れる）
+ * - タイムライン: 履歴と同じ規則（`applyToTimeline`）
  */
 function applyChange(
   client: QueryClient,
@@ -137,6 +156,7 @@ function applyChange(
     return next ? addTotal(withoutPrev, next, 1) : withoutPrev;
   });
   applyToHistories(client, expenseHistory, id, next);
+  applyToTimeline(client, timelineEntryId('expense', id), next && expenseEntry(next));
 }
 
 function addTotal(totals: ExpenseTotal[], e: Expense, sign: 1 | -1): ExpenseTotal[] {

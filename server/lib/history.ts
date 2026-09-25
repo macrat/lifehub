@@ -73,6 +73,9 @@ export async function findHistoryPage<T extends PgTable>({
   };
 }
 
+/** 瞬間の範囲 [from, to)。タイムライン（`features/timeline`）が各 feature から記録を集めるときの窓 */
+export type InstantRange = { from: Date; to: Date };
+
 /**
  * キーワードの部分一致（大文字小文字を区別しない）。画面の検索窓と同じ規則で、
  * LIKE の記号（% と _）は文字として扱う。空のキーワードは条件にしない

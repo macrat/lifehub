@@ -1,0 +1,199 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { iso, jst } from '../../../../shared/__tests__/jst.ts';
+import { toDateString } from '../../../../shared/date.ts';
+import type { TimelineEntry } from '../../../../shared/timeline.ts';
+import { dateStringSchema } from '../../../../shared/validation/common.ts';
+import { createEventSchema } from '../../../../shared/validation/events.ts';
+import { expenseSchema } from '../../../../shared/validation/expenses.ts';
+import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { completeEvent, createEvent } from '../../events/service.ts';
+import { addExpense } from '../../expenses/service.ts';
+import { logCare } from '../../lemon/service.ts';
+import { addMemo } from '../../memos/service.ts';
+import { getTimelinePage } from '../service.ts';
+
+// 「今」を 2026-09-14（月）の正午に固定する
+const now = jst('2026-09-14T12:00:00');
+
+let userId: string;
+let partnerId: string;
+
+const event = (input: Record<string, unknown>) =>
+  createEventSchema.parse({ kind: 'event', participantIds: [userId], ...input });
+const task = (input: Record<string, unknown>) =>
+  createEventSchema.parse({ kind: 'task', participantIds: [userId], ...input });
+const day = (s: string) => dateStringSchema.parse(s);
+const dayOf = (at: string) => toDateString(new Date(at));
+
+/** 行を新しい順（画面の並び）に、見分けの付く名前で */
+function labels(entries: TimelineEntry[]): string[] {
+  return entries.toReversed().map(label);
+}
+
+function label(entry: TimelineEntry): string {
+  if (entry.type === 'event') return entry.item.title;
+  if (entry.type === 'expense') return entry.expense.description;
+  if (entry.type === 'lemon') return entry.log.note ?? entry.log.careTypes.join('+');
+  return entry.memo.body;
+}
+
+describe('timeline service', () => {
+  beforeEach(async () => {
+    await truncateAll();
+    userId = await createTestUser('A');
+    partnerId = await createTestUser('B');
+  });
+
+  it('予定・タスク・立替・レモンを 1 本に新しい順で並べ、24 時間より先の予定は出さない', async () => {
+    await createEvent(
+      event({
+        title: '明日の朝',
+        startsAt: iso('2026-09-15T09:00:00'),
+        endsAt: iso('2026-09-15T10:00:00'),
+      }),
+      userId,
+    );
+    await createEvent(
+      event({
+        title: '明後日',
+        startsAt: iso('2026-09-16T09:00:00'),
+        endsAt: iso('2026-09-16T10:00:00'),
+      }),
+      userId,
+    );
+    await createEvent(
+      event({
+        title: '昨日の会議',
+        startsAt: iso('2026-09-13T15:00:00'),
+        endsAt: iso('2026-09-13T16:00:00'),
+      }),
+      userId,
+    );
+    await logCare(
+      { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: '朝の水やり' },
+      userId,
+    );
+    await addExpense(
+      expenseSchema.parse({
+        fromUserId: userId,
+        toUserId: partnerId,
+        amount: 800,
+        description: 'ランチ',
+        spentOn: '2026-09-12',
+      }),
+      userId,
+    );
+    await createEvent(task({ title: '日時なし' }), userId);
+
+    const page = await getTimelinePage({}, now);
+    expect(labels(page.items)).toEqual([
+      '日時なし',
+      '明日の朝',
+      '朝の水やり',
+      '昨日の会議',
+      'ランチ',
+    ]);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('タスクは完了した日時、未完了なら開始日時に置き、どちらも無ければ一番上に置く', async () => {
+    const done = await createEvent(
+      task({ title: '完了', startsAt: iso('2026-09-01T09:00:00') }),
+      userId,
+    );
+    await completeEvent(done.id, {}, userId, jst('2026-09-13T20:00:00'));
+    await createEvent(task({ title: '開始のみ', startsAt: iso('2026-09-10T09:00:00') }), userId);
+    // 期限は位置に使わない
+    await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
+
+    const page = await getTimelinePage({}, now);
+    expect(labels(page.items)).toEqual(['期限のみ', '完了', '開始のみ']);
+    expect(
+      page.items.find((e) => e.type === 'event' && e.item.title === '期限のみ')?.at,
+    ).toBeNull();
+  });
+
+  it('繰り返す予定は回ごとに並び、記録の無い期間を空のページで読み続けない', async () => {
+    // 1 日 1 回の世話を 60 日分（ページの件数より多い）
+    for (let i = 0; i < 60; i++) {
+      const doneAt = new Date(jst('2026-09-14T07:00:00').getTime() - i * 86_400_000);
+      await logCare({ careTypes: ['mist'], doneAt, note: null }, userId);
+    }
+    // ずっと前の記録。間には何も無い
+    await logCare({ careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' }, userId);
+
+    const first = await getTimelinePage({}, now);
+    expect(first.nextCursor).not.toBeNull();
+    // 日の途中では切らない: 続きはこのページの最も古い日より前から
+    expect(first.nextCursor).toBe(first.items[0]?.at && dayOf(first.items[0].at));
+    const second = await getTimelinePage({ before: day(first.nextCursor ?? '') }, now);
+    // 2 ページ目で昔の記録まで届き、そこで終わる
+    expect(labels(second.items).at(-1)).toBe('昔のメモ');
+    expect(second.nextCursor).toBeNull();
+    // 重なりも抜けも無い
+    expect(first.items.length + second.items.length).toBe(61);
+  });
+
+  it('繰り返す予定の回はページを分けても 1 回ずつ出る', async () => {
+    await createEvent(
+      event({
+        title: '朝会',
+        startsAt: iso('2026-06-01T09:00:00'),
+        endsAt: iso('2026-06-01T09:30:00'),
+        rrule: 'FREQ=DAILY',
+      }),
+      userId,
+    );
+    const pages: TimelineEntry[][] = [];
+    let before: string | null | undefined;
+    do {
+      const page = await getTimelinePage(before ? { before: day(before) } : {}, now);
+      pages.push(page.items);
+      before = page.nextCursor;
+    } while (before);
+    const starts = pages.flat().map((e) => e.at);
+    // 6/1 から 9/15（24 時間先）まで毎日 1 回
+    expect(starts).toHaveLength(107);
+    expect(new Set(starts).size).toBe(starts.length);
+  });
+
+  it('キーワードはどの種類のタイトル・メモにも当たり、レモンは項目の名前でも見つかる', async () => {
+    await createEvent(
+      event({
+        title: '買い物',
+        startsAt: iso('2026-09-13T15:00:00'),
+        endsAt: iso('2026-09-13T16:00:00'),
+      }),
+      userId,
+    );
+    await createEvent(task({ title: '掃除', note: '買い物のついで' }), userId);
+    await logCare({ careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: null }, userId);
+    await logCare({ careTypes: ['mist'], doneAt: jst('2026-09-14T08:10:00'), note: null }, userId);
+
+    expect(labels((await getTimelinePage({ q: '買い物' }, now)).items)).toEqual(['掃除', '買い物']);
+    expect(labels((await getTimelinePage({ q: '水やり' }, now)).items)).toEqual(['water']);
+  });
+
+  it('日付の範囲で絞り込むと、その範囲の記録だけを出し、日時の無いタスクは出さない', async () => {
+    await createEvent(task({ title: '日時なし' }), userId);
+    for (const [doneAt, note] of [
+      ['2026-09-01T08:00:00', '1日'],
+      ['2026-09-05T08:00:00', '5日'],
+      ['2026-09-10T08:00:00', '10日'],
+    ] as const) {
+      await logCare({ careTypes: [], doneAt: jst(doneAt), note }, userId);
+    }
+    const page = await getTimelinePage({ since: day('2026-09-02'), until: day('2026-09-05') }, now);
+    expect(labels(page.items)).toEqual(['5日']);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('メモは書いた人と一緒に、書いた時刻に並ぶ', async () => {
+    const realNow = new Date();
+    await addMemo({ body: 'ひとこと' }, partnerId);
+    const page = await getTimelinePage({}, realNow);
+    expect(page.items).toMatchObject([
+      { type: 'memo', memo: { body: 'ひとこと', createdBy: partnerId } },
+    ]);
+  });
+});
