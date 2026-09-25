@@ -9,7 +9,7 @@ import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
-  // 入力の途中でシートが開いている画面で、引っ張って更新に化けるとやりかけが消える
+  // 引いて取り直したい内容を持たず、入力のシートを開いて使う画面なので、引っ張って更新はしない
   staticData: { noPullToRefresh: true },
   component: AdminUsersPage,
 });

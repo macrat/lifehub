@@ -1,8 +1,13 @@
+import { onlineManager, useQueryClient } from '@tanstack/react-query';
 import { useMatches } from '@tanstack/react-router';
 import { type RefObject, useEffect, useState } from 'react';
+import { notify } from './notice.ts';
 
-/** 離したときに再読み込みする、指を下ろした所からの下向きの動き（px） */
+/** 離したときに取り直す、指を下ろした所からの下向きの動き（px） */
 export const PULL_THRESHOLD = 80;
+
+/** オフラインで取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
+const OFFLINE_NOTICE_MS = 3000;
 
 /** 向きを決めるまでの動き（px）。これに満たない間はタップかもしれないので何もしない */
 const DIRECTION_SLOP = 8;
@@ -10,9 +15,8 @@ const DIRECTION_SLOP = 8;
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /**
-     * この画面では引っ張って更新をしない。その意味が無いうえに操作を壊す画面だけに付ける
-     * （上端に指で動かす操作が並ぶ、入力の途中でシートが開いている、など）。
-     * 下向きの動きが再読み込みに化けるとやりかけが消える。
+     * この画面では引っ張って更新をしない。引いて取り直したい内容を持たず、上端に指で動かす操作や
+     * 入力が並ぶ画面だけに付ける。それらを触ったつもりの指で取り直しが起きないようにする。
      */
     noPullToRefresh?: boolean;
   }
@@ -62,12 +66,20 @@ function canStartPull(
  * 誰かが先に取り上げたなぞり（`blockTouchMove`。予定をつまんで動かすなど）と、
  * 2 本指（カレンダーのつまむ操作）は引いたことにしない。
  *
- * 離したときはブラウザの引っ張って更新と同じく、ページを読み込み直す。
+ * 離したときは、いま画面に出ているデータ（有効なクエリ）を取り直す。ページは読み込み直さない。
+ * WHY: 画面の状態（カレンダーのクイック入力の下書き、開いているダイアログ、入力途中の文字、
+ * スクロール位置）を残したまま、最新の内容だけを持ってくるため。
+ * WHY NOT: ページの読み込み直し（ブラウザの引っ張って更新と同じ動き）は、画面の状態を捨てるうえ、
+ * インストールした PWA では precache から起動し直すだけで版も変わらない（`src/lib/update.ts`）。
+ *
+ * オフラインのときは取り直さずに「更新できませんでした」と短く知らせる。取得はオフラインの間は
+ * 保留される（`networkMode: 'online'`）ので、取り直しを待つと回る印が止まらない。
  */
 export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
   const enabled = useMatches({
     select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
   });
+  const queryClient = useQueryClient();
   /** 下へ引いた距離。引いていない間は null */
   const [distance, setDistance] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,11 +130,14 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
       };
 
       const end = () => {
-        if (pulled >= PULL_THRESHOLD) {
-          setRefreshing(true);
-          location.reload();
-        }
         cancel();
+        if (pulled < PULL_THRESHOLD) return;
+        if (!onlineManager.isOnline()) {
+          notify('error', '更新できませんでした', OFFLINE_NOTICE_MS);
+          return;
+        }
+        setRefreshing(true);
+        void queryClient.refetchQueries({ type: 'active' }).finally(() => setRefreshing(false));
       };
 
       // 続きは指を下ろした要素で受ける。タッチのイベントはその要素に届き続けるが、描き直し
@@ -146,12 +161,12 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
       controller.abort();
       setDistance(null);
     };
-  }, [area, enabled, refreshing]);
+  }, [area, enabled, refreshing, queryClient]);
 
   return {
     /** 下へ引いた距離（px）。引いていない間は null */
     distance,
-    /** 引き切って離し、読み込み直している最中か */
+    /** 引き切って離し、取り直している最中か */
     refreshing,
   };
 }

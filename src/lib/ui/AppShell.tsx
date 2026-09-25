@@ -187,7 +187,7 @@ function NoticeSnackbar() {
   return (
     <Snackbar
       open={notice.open}
-      autoHideDuration={8000}
+      autoHideDuration={notice.duration}
       onClose={closeNotice}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       // スマホでは下部ナビの上に出す

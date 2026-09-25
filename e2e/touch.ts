@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { type CDPSession, expect, type Locator, type Page } from '@playwright/test';
 
 /** CDP に送る指 1 本。複数本なら id で見分ける */
 type TouchPoint = { id: number; x: number; y: number };
@@ -9,6 +9,22 @@ type GestureOptions = {
   delay?: number;
   afterStart?: () => Promise<unknown>;
 };
+
+/**
+ * 指を送る CDP のセッション。ページごとに 1 つを使い回し、閉じない（ページを閉じれば一緒に消える）。
+ * WHY: セッションを閉じると、Playwright がかけたネットワークの設定（`context.setOffline`）まで
+ * 外れてオンラインに戻る。オフラインのまま指で操作するテストが、指を離した途端にオンラインになる。
+ */
+const sessions = new WeakMap<Page, Promise<CDPSession>>();
+
+function cdpOf(page: Page): Promise<CDPSession> {
+  let session = sessions.get(page);
+  if (!session) {
+    session = page.context().newCDPSession(page);
+    sessions.set(page, session);
+  }
+  return session;
+}
 
 /**
  * 指を触れさせ、`at` が返す位置を 0→1 でたどって離す（`at` は指の本数も決める）。
@@ -22,7 +38,7 @@ async function touchGesture(
   at: (t: number) => TouchPoint[],
   { hold = 0, steps = 5, delay = 0, afterStart }: GestureOptions = {},
 ) {
-  const cdp = await page.context().newCDPSession(page);
+  const cdp = await cdpOf(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) });
   await afterStart?.();
   if (hold > 0) await page.waitForTimeout(hold);
@@ -31,7 +47,6 @@ async function touchGesture(
     if (delay > 0) await page.waitForTimeout(delay);
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
 }
 
 /** 長押しと認められるまで押さえる長さ（ms）。アプリの区切り（`use-record-press.ts` の 300ms）を確かに超える */

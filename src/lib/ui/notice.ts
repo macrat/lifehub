@@ -8,9 +8,14 @@ import { createStore } from '../store.ts';
  */
 type NoticeSeverity = 'info' | 'error';
 
+/** 知らせを出しておく長さの既定（ms）。読んで意味を取れるだけの長さ */
+const DEFAULT_DURATION = 8000;
+
 type Notice = {
   severity: NoticeSeverity;
   message: string;
+  /** 出しておく長さ（ms） */
+  duration: number;
   open: boolean;
 };
 
@@ -21,12 +26,22 @@ type Notice = {
  * 閉じても種類と文言は残す。WHY: 閉じるアニメーションの間も同じ見た目のまま消えるようにするため
  * （消すと、閉じる途中で色や文言が変わって見える）。
  */
-const [useNotice, setNotice] = createStore<Notice>({ severity: 'info', message: '', open: false });
+const [useNotice, setNotice] = createStore<Notice>({
+  severity: 'info',
+  message: '',
+  duration: DEFAULT_DURATION,
+  open: false,
+});
 
 export { useNotice };
 
-export function notify(severity: NoticeSeverity, message: string): void {
-  setNotice({ severity, message, open: true });
+/** 知らせを出す。duration は、一目で分かる短い知らせを早く消したいときだけ渡す */
+export function notify(
+  severity: NoticeSeverity,
+  message: string,
+  duration: number = DEFAULT_DURATION,
+): void {
+  setNotice({ severity, message, duration, open: true });
 }
 
 export function closeNotice(): void {

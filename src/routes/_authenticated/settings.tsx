@@ -19,7 +19,7 @@ import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 import { useUpdateApp } from '../../lib/update.ts';
 
 export const Route = createFileRoute('/_authenticated/settings')({
-  // 上端に指で動かす操作（色のスライダー）が並び、引っ張って更新に化けるとやりかけが消える
+  // 引いて取り直したい内容を持たず、上端に指で動かす操作（色のスライダー）が並ぶので、引っ張って更新はしない
   staticData: { noPullToRefresh: true },
   component: SettingsPage,
 });
