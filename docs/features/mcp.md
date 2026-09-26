@@ -34,7 +34,7 @@
 
 各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。
 
-予定の更新は、API では全項目の置き換えだが、MCP では部分更新にする。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、置き換えにすると省いた繰り返しや場所が消える。`service.patchEvent` が対象の今の値（回の指定があればその回の値。終日の終了は `toInputInstants` で入力の形に戻す）を組み立て、`mcp.ts` がそこに指定された項目だけを重ねて、作成・更新と同じ組み合わせの規則（`eventRulesSchema`）を掛ける。繰り返し元の読み出しは、今の値の組み立てと更新で 1 回を共有する。部分更新の項目（`eventPatchSchema`）は既定値を持たない項目の型から作る。既定値があると、省いた項目が既定値で埋まってしまうため。
+予定の更新は、API では全項目の置き換えだが、MCP では部分更新にする。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、置き換えにすると省いた繰り返しや場所が消える。`service.patchEvent` が対象の今の値（回の指定があればその回の値。終日の終了は `toInputInstants` で入力の形に戻す）を組み立て、指定された項目だけを重ねて、作成・更新と同じ組み合わせの規則（`eventRulesSchema`）を掛ける（`mergePatch`）。`mcp.ts` は LLM の入力を部分更新（`EventPatch`）と回の指定に分けて渡すだけ。繰り返し元の読み出しは、今の値の組み立てと更新で 1 回を共有する。部分更新の項目（`eventPatchSchema`）は既定値を持たない項目の型から作る。既定値があると、省いた項目が既定値で埋まってしまうため。
 
 「今」を指す日時（世話の `doneAt`、立替の `spentOn`）は MCP では省略でき、省くと `mcp.ts` が今の日時・今日の日付で埋める。LLM は今の日時を正確には知らず、必須にすると推し量った日時が記録されるため。項目の組み合わせの規則（`withCareLogRules` / `withExpenseRules`）はスキーマの形と切り離してあり、省略できる形に変えた MCP の入力にも同じ規則を掛ける。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 

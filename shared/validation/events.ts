@@ -123,6 +123,7 @@ export const createEventSchema = withEventRules(z.object(eventFields));
  * 種別は変えられないので含めない。組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
 export const eventPatchSchema = z.object(eventFieldTypes).omit({ kind: true }).partial();
+export type EventPatch = z.infer<typeof eventPatchSchema>;
 
 /** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());
