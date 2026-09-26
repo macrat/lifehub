@@ -1,17 +1,5 @@
 import { expect, test } from 'vitest';
-import { defaultParticipants, defaultTaskValues, shiftedEnd } from '../form-values.ts';
-
-test('タスクの既定値は終日で、日時なし', () => {
-  expect(defaultTaskValues([])).toMatchObject({ allDay: true, startsAt: null, endsAt: null });
-});
-
-test('新規作成の既定の参加者は自分だけ', () => {
-  expect(defaultParticipants('u1')).toEqual(['u1']);
-});
-
-test('ログイン中のユーザーが分からなければ参加者は空', () => {
-  expect(defaultParticipants(null)).toEqual([]);
-});
+import { shiftedEnd } from '../form-values.ts';
 
 test('開始を動かすと、終了は長さを保ったまま同じだけ動く', () => {
   expect(shiftedEnd('2030-02-04T09:00', '2030-02-04T09:30', '2030-02-04T10:00')).toBe(

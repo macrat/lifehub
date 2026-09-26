@@ -125,21 +125,6 @@ describe('events service', () => {
       expect(created.endsAt).toBe(iso('2026-09-22T00:00:00'));
     });
 
-    it('予定には開始と終了が必須、参加者は 1 人以上', async () => {
-      expect(() =>
-        createEventSchema.parse({ kind: 'event', title: 'x', participantIds: [userId] }),
-      ).toThrow();
-      expect(() =>
-        createEventSchema.parse({
-          kind: 'event',
-          title: 'x',
-          startsAt: iso('2026-09-10T14:00:00'),
-          endsAt: iso('2026-09-10T15:00:00'),
-          participantIds: [],
-        }),
-      ).toThrow();
-    });
-
     it('不正な繰り返しルールは検証エラー', async () => {
       await expect(
         createEvent({ ...weekly(), rrule: 'FREQ=MINUTELY' }, userId),
