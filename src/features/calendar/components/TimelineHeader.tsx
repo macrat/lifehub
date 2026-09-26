@@ -3,7 +3,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import { WEEKDAY_LABELS, weekdayColor, weekdayIndex } from '../../../lib/date.ts';
+import { WEEKDAY_LABELS, weekdayIndex, weekdayLabelColor } from '../../../lib/date.ts';
 import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
@@ -83,7 +83,7 @@ function DayHeading({
         sx={{
           fontSize: '0.7rem',
           lineHeight: 1.2,
-          color: weekday < 5 ? 'text.secondary' : weekdayColor(weekday),
+          color: weekdayLabelColor(weekday),
         }}
       >
         {WEEKDAY_LABELS[weekday]}

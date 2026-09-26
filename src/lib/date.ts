@@ -238,6 +238,11 @@ export function weekdayColor(index: number): string {
   return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
 }
 
+/** 曜日の見出し（月〜日の並び）の文字色。平日は日付より控えめにし、土日だけ曜日の色にする */
+export function weekdayLabelColor(index: number): string {
+  return index < 5 ? 'text.secondary' : weekdayColor(index);
+}
+
 /** 日付の文字色。曜日の色で、祝日は日曜と同じ赤 */
 export function dateColor(date: DateString, holiday: boolean): string {
   return weekdayColor(holiday ? 6 : weekdayIndex(date));
