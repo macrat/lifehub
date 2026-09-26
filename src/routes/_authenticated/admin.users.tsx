@@ -3,10 +3,9 @@ import Button from '@mui/material/Button';
 import { createFileRoute } from '@tanstack/react-router';
 import { UserForm } from '../../features/users/components/UserForm.tsx';
 import { UserList } from '../../features/users/components/UserList.tsx';
-import { type User, useCreateUser, useUpdateUser, useUsers } from '../../features/users/queries.ts';
+import { useUserAdmin } from '../../features/users/use-user-admin.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
-import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/admin/users')({
   // 引いて取り直したい内容を持たず、入力のシートを開いて使う画面なので、引っ張って更新はしない
@@ -15,34 +14,25 @@ export const Route = createFileRoute('/_authenticated/admin/users')({
 });
 
 function AdminUsersPage() {
-  const usersQuery = useUsers();
-  const createUser = useCreateUser();
-  const updateUser = useUpdateUser();
-  const creating = useToggle();
-  const editing = useOpenWith<User>();
-  const editingUser = editing.value;
+  const admin = useUserAdmin();
 
   return (
     <>
       <AppBarContent>
-        <Button color="inherit" startIcon={<AddIcon />} onClick={creating.on} sx={{ ml: 'auto' }}>
+        <Button
+          color="inherit"
+          startIcon={<AddIcon />}
+          onClick={admin.startCreate}
+          sx={{ ml: 'auto' }}
+        >
           ユーザーを登録
         </Button>
       </AppBarContent>
-      <QueryView query={usersQuery} skeleton={<ListSkeleton rows={3} />}>
-        {(users) => <UserList users={users} onEdit={editing.open} />}
+      <QueryView query={admin.usersQuery} skeleton={<ListSkeleton rows={3} />}>
+        {(users) => <UserList users={users} onEdit={admin.startEdit} />}
       </QueryView>
-      {creating.value && (
-        <UserForm mode="create" onClose={creating.off} onSubmit={createUser.mutateAsync} />
-      )}
-      {editingUser && (
-        <UserForm
-          mode="edit"
-          user={editingUser}
-          onClose={editing.close}
-          onSubmit={(input) => updateUser.mutateAsync({ id: editingUser.id, ...input })}
-        />
-      )}
+      {admin.createForm && <UserForm {...admin.createForm} />}
+      {admin.editForm && <UserForm {...admin.editForm} />}
     </>
   );
 }
