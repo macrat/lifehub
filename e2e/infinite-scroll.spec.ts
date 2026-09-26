@@ -97,7 +97,7 @@ for (const history of histories) {
     try {
       // 今日の 2 件は 1 件ずつ順に置く。立替は同じ日の中を記録した順（サーバーの記録した時刻）で並べるので、
       // 同時に送ると届いた順で並びが入れ替わる。レモンは実施日時の順なので、少しだけ時刻をずらしておく。
-      // ほかの日の記録は並びに関わらないので、その間に並べて送る
+      // ほかの日の記録は並びに関わらないので、並行して送る
       const addToday = async () => [
         await addRecord(page, history, me, new Date(stamp - 2000), todayFirst),
         await addRecord(page, history, me, new Date(stamp - 1000), todayLast),

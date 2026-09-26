@@ -128,7 +128,7 @@
                   },
                   {
                     "group": [
-                      "**/db/**",
+                      "**/lib/db/**",
                       "!**/db/auth-adapter.ts",
                       "!**/db/health.ts",
                       "drizzle-orm",
@@ -162,7 +162,7 @@
                   },
                   {
                     "group": [
-                      "**/db/**",
+                      "**/lib/db/**",
                       "!**/db/auth-adapter.ts",
                       "!**/db/health.ts",
                       "drizzle-orm",
@@ -200,7 +200,9 @@
                   },
                   {
                     "group": [
-                      "**/db/**",
+                      "**/lib/db/**",
+                      "./db/**",
+                      "../db/**",
                       "!**/db/auth-adapter.ts",
                       "!**/db/health.ts",
                       "drizzle-orm",
