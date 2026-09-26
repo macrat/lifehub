@@ -1,8 +1,7 @@
-import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { recordSchema } from '../../../shared/validation/records.ts';
-import { validationHook } from '../../lib/validator.ts';
+import { validate } from '../../lib/validator.ts';
 import { authenticate } from '../api-keys/service.ts';
 import * as service from './service.ts';
 
@@ -24,6 +23,6 @@ export const recordsRoutes = new Hono<RecordsEnv>()
       },
     }),
   )
-  .post('/', zValidator('json', recordSchema, validationHook), async (c) =>
+  .post('/', validate('json', recordSchema), async (c) =>
     c.json(await service.ingest(c.req.valid('json'), c.get('apiKeyName')), 201),
   );

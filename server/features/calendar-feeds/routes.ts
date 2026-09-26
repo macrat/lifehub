@@ -1,9 +1,8 @@
-import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { calendarFeedSchema } from '../../../shared/validation/calendar-feeds.ts';
 import { idParamSchema } from '../../../shared/validation/common.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
-import { validationHook } from '../../lib/validator.ts';
+import { validate } from '../../lib/validator.ts';
 import * as service from './service.ts';
 
 /**
@@ -12,20 +11,20 @@ import * as service from './service.ts';
  */
 export const calendarFeedsRoutes = new Hono<AppEnv>()
   .get('/', async (c) => c.json(await service.listFeeds(c.get('user').id)))
-  .post('/', zValidator('json', calendarFeedSchema, validationHook), async (c) => {
+  .post('/', validate('json', calendarFeedSchema), async (c) => {
     await service.createFeed(c.req.valid('json'), c.get('user').id);
     return c.body(null, 204);
   })
   .patch(
     '/:id',
-    zValidator('param', idParamSchema, validationHook),
-    zValidator('json', calendarFeedSchema, validationHook),
+    validate('param', idParamSchema),
+    validate('json', calendarFeedSchema),
     async (c) => {
       await service.updateFeed(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
       return c.body(null, 204);
     },
   )
-  .delete('/:id', zValidator('param', idParamSchema, validationHook), async (c) => {
+  .delete('/:id', validate('param', idParamSchema), async (c) => {
     await service.revokeFeed(c.req.valid('param').id, c.get('user').id);
     return c.body(null, 204);
   });

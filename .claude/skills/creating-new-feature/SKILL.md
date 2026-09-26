@@ -16,7 +16,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `server/lib/schema.ts` に `export * from '../features/<name>/schema.ts'` を追加
    - `pnpm db:generate` でマイグレーションを生成し、`drizzle/` をコミットする
 4. **`repository.ts` → `service.ts` → `routes.ts`** の順に実装する。
-   - repository は Drizzle クエリのみ。service に業務ロジック。routes は `zValidator(target, schema, validationHook)`（`server/lib/validator.ts`）で検証して service を呼ぶだけ。`/:id` のパラメータは `shared/validation/common.ts` の `idParamSchema` を使う。
+   - repository は Drizzle クエリのみ。service に業務ロジック。routes は `validate(target, schema)`（`server/lib/validator.ts`）で検証して service を呼ぶだけ。`/:id` のパラメータは `shared/validation/common.ts` の `idParamSchema` を使う。
    - `server/app.ts` の `.route('/<name>', <name>Routes)` チェーンに追加する（型が Hono RPC クライアントへ伝わる）。
 5. **MCP に登録する**: `mcp.ts` → `server/lib/mcp/server.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/features/notifications/service.ts` から呼ぶ。
 6. **クライアント feature** `src/features/<name>/` を作る:

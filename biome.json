@@ -177,6 +177,10 @@
                   {
                     "group": ["./repository.ts", "**/repository.ts"],
                     "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
+                  },
+                  {
+                    "group": ["@hono/zod-validator"],
+                    "message": "入力の検証は server/lib/validator.ts の validate を使う（失敗の応答を 1 つの形にそろえる）"
                   }
                 ]
               }
