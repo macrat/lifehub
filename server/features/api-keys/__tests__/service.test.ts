@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { NotFoundError } from '../../../lib/errors.ts';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { authenticate, createKey, listKeys, revokeKey } from '../service.ts';
 
 const now = new Date('2026-09-24T03:00:00Z');
@@ -10,7 +10,7 @@ let otherId: string;
 
 describe('api-keys service', () => {
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     userId = await createTestUser('A');
     otherId = await createTestUser('B');
   });

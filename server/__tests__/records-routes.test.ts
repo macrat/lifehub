@@ -4,14 +4,14 @@ import type { CareLog } from '../../shared/lemon.ts';
 import { app } from '../app.ts';
 import { createKey } from '../features/api-keys/service.ts';
 import { listLogs } from '../features/lemon/service.ts';
-import { createTestUser, truncateAll } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/test-db.ts';
 
 /**
  * 記録投入用エンドポイント（`POST /api/records`）。セッションより前に登録し、API キーだけを資格にする。
  * 取り違えると誰でも記録を入れられるか、逆にデバイスから入れられなくなるので、入口の扱いをここで確かめる。
  */
 describe('記録投入のルート', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   const post = (body: unknown, key?: string) =>
     app.request('/api/records', {

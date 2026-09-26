@@ -1,7 +1,7 @@
 import { addMinutes } from 'date-fns';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
+import { clearTables } from '../../../lib/test-db.ts';
 import { listWeather, parseForecast, recordObservedTempMax, refreshWeather } from '../service.ts';
 
 const SHORT_DAYS = [
@@ -99,7 +99,7 @@ const daily = async () => (await listWeather(SEP)).daily;
 const SEP = { from: '2026-09-01' as DateString, to: '2026-09-30' as DateString };
 
 describe('weather service', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
   afterEach(() => {
     vi.unstubAllGlobals();
   });

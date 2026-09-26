@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import {
   listNotifications,
   type NotificationRef,
@@ -19,7 +19,7 @@ let userId: string;
 
 describe('notifications', () => {
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     userId = await createTestUser('A');
   });
 

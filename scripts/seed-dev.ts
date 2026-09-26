@@ -3,7 +3,7 @@ import * as expenses from '../server/features/expenses/service.ts';
 import * as lemon from '../server/features/lemon/service.ts';
 import * as memos from '../server/features/memos/service.ts';
 import * as users from '../server/features/users/service.ts';
-import { truncateAll } from '../server/lib/test-db.ts';
+import { clearTables } from '../server/lib/test-db.ts';
 import { addDays, startOfDate, today } from '../shared/date.ts';
 import { createEventSchema } from '../shared/validation/events.ts';
 
@@ -19,7 +19,7 @@ if (process.env.VERCEL_ENV === 'production') {
   process.exit(1);
 }
 
-await truncateAll();
+await clearTables();
 const me = await users.createUser({
   email: 'taro@example.com',
   name: '太郎',

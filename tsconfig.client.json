@@ -3,7 +3,7 @@
   "compilerOptions": {
     "lib": ["ES2024", "DOM", "DOM.Iterable", "WebWorker"],
     "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client", "@testing-library/jest-dom/vitest"]
+    "types": ["vite/client", "vite-plugin-pwa/client"]
   },
   "include": ["src", "shared", "server/app.ts", "server/features/*/routes.ts", "vite.config.ts"]
 }

@@ -27,9 +27,9 @@ export default async function globalSetup() {
   execFileSync('pnpm', ['exec', 'drizzle-kit', 'migrate'], { stdio: 'inherit' });
 
   const { createUser } = await import('../server/features/users/service.ts');
-  const { truncateAll } = await import('../server/lib/test-db.ts');
+  const { clearTables } = await import('../server/lib/test-db.ts');
   const { replaceAll: replaceHolidays } = await import('../server/features/holidays/repository.ts');
-  await truncateAll();
+  await clearTables();
   // 祝日は決まった日を入れておく（祝日の色を確かめるテストが使う。E2E を外部のサイトに依存させない）
   const { dateStringSchema } = await import('../shared/validation/common.ts');
   await replaceHolidays([dateStringSchema.parse(HOLIDAY)]);

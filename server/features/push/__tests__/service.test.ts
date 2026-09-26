@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { isSubscribed, subscribe, unsubscribe } from '../service.ts';
 
 const endpoint = 'https://fcm.googleapis.com/fcm/send/test';
@@ -9,7 +9,7 @@ describe('push service', () => {
   let aliceId: string;
   let bobId: string;
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     aliceId = await createTestUser('A');
     bobId = await createTestUser('B');
   });
