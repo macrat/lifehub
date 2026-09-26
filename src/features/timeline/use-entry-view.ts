@@ -1,5 +1,6 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
+import { isCompletedTask } from '../../../shared/calendar.ts';
 import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
@@ -7,6 +8,7 @@ import { ADD_KINDS } from '../add/kinds.ts';
 import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
+import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -50,7 +52,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
         heading: item.title,
-        struck: item.kind === 'task' && item.completedAt !== null,
+        struck: isCompletedTask(item),
         overdue: item.kind === 'task' && item.isOverdue,
         body: item.note,
       };
@@ -58,12 +60,12 @@ export function useEntryView(entry: TimelineEntry): EntryView {
     case 'expense': {
       const { fromUserId, toUserId, amount, description } = entry.expense;
       // 名前と色の並びは立替の履歴と同じ「To ← From」。共有なら払った人だけ
-      const people = toUserId === null ? [fromUserId] : [toUserId, fromUserId];
+      const people = partiesInOrder({ toUserId, fromUserId });
       return {
         ...view,
         colors: people.map((id) => colorFor(id).fill),
         icon: ADD_KINDS.expense.icon,
-        heading: people.map(label).join(' ← '),
+        heading: people.map(label).join(PARTIES_SEPARATOR),
         body: `${formatYen(amount)} ${description}`,
       };
     }

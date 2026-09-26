@@ -19,3 +19,14 @@ export function chooseFrom(parties: Parties, fromUserId: string): Parties {
     toUserId: parties.toUserId === fromUserId ? parties.fromUserId : parties.toUserId,
   };
 }
+
+/**
+ * 名前と印の色を並べる順の人（ユーザー ID）。簿記に倣って「To ← From」の順で、共有（To が null）なら払った人だけ。
+ * 立替の履歴（`ExpenseList`）とホームのタイムラインの行が同じ並びで出すため、1 か所で決める。
+ */
+export function partiesInOrder({ toUserId, fromUserId }: Parties): string[] {
+  return toUserId === null ? [fromUserId] : [toUserId, fromUserId];
+}
+
+/** 並べた人の名前をつなぐ印（「To ← From」） */
+export const PARTIES_SEPARATOR = ' ← ';
