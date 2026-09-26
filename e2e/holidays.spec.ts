@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { HOLIDAY } from './global-setup.ts';
-import { login } from './login.ts';
 
 test('祝日の日付は日曜と同じ色で出る', async ({ page }) => {
-  await login(page);
   await page.goto(`/calendar?view=month&date=${HOLIDAY}`);
   // 前後の月の面にも同じ日があるので、見えている面（ボタンとして読める方）で探す
   const dayNumber = (label: string) =>

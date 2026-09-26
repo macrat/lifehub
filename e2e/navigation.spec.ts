@@ -1,5 +1,5 @@
 import { expect, type Locator, test } from '@playwright/test';
-import { login } from './login.ts';
+import { openHome } from './auth.ts';
 import { countFetches, quiet, stall } from './network.ts';
 
 /**
@@ -8,8 +8,7 @@ import { countFetches, quiet, stall } from './network.ts';
  * 取得を遅らせたうえで、移った先の画面がすぐ出て、内容の場所には骨組みが出ることを確かめる。
  */
 test('タブの切り替えはデータを待たず、届くまで骨組みを出す', async ({ page }) => {
-  await login(page);
-  await expect(page.getByLabel('記録を検索')).toBeVisible();
+  await openHome(page);
 
   // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を 5 秒遅らせる
   await stall(page, '**/api/expenses', 5000);
@@ -32,7 +31,7 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
 test('一度見た画面に戻るときは、キャッシュを即座に出してインジケータを出さない', async ({
   page,
 }) => {
-  await login(page);
+  await openHome(page);
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page.getByLabel('立替を検索')).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
@@ -58,11 +57,10 @@ test('一度見た画面に戻るときは、キャッシュを即座に出し�
 /**
  * ユーザー（名前と色）は `/api/me` に載ってきて、5 分は取り直さない（`src/lib/auth.ts` の `meQueryOptions` の
  * `staleTime`）。色と名前を読む部品は画面中に散らばっているので、staleTime が戻ると画面を移るたびに
- * 取り直しが走る。回数で押さえる。ログインの前後はログイン状態を確かめるために問い合わせるので、数えるのはその後から。
+ * 取り直しが走る。回数で押さえる。開いた直後はログイン状態を確かめるために問い合わせるので、数えるのはホームが出た後から。
  */
 test('ユーザーは画面を移っても取り直さない', async ({ page }) => {
-  await login(page);
-  await expect(page.getByLabel('記録を検索')).toBeVisible();
+  await openHome(page);
   const fetches = countFetches(page, '/api/me');
   // 名前と色を読む画面を一通り開く。移った先が出るまで待つ（部品がマウントされて初めて取り直しが走る）
   const visit = async (name: string, arrived: Locator) => {

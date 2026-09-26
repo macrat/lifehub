@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openHome } from './auth.ts';
 import { detailAction } from './detail.ts';
-import { login } from './login.ts';
 
 test.beforeEach(async ({ page }) => {
-  await login(page);
+  await openHome(page);
 });
 
 test('ホームからタスクとレモンの記録を追加し、タイムラインとタイルに反映される', async ({

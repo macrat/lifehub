@@ -1,4 +1,6 @@
 import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { myId } from './auth.ts';
+import { addItem } from './events.ts';
 import {
   addRecord,
   bottomNav,
@@ -8,7 +10,6 @@ import {
   expenseHistory,
   isJustAboveBottomNav,
 } from './history.ts';
-import { login, myId } from './login.ts';
 
 /**
  * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
@@ -16,12 +17,7 @@ import { login, myId } from './login.ts';
  */
 test.use({ ...devices['Pixel 7'] });
 
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
-
 test('予定のリストは基準の日を一番上に出し、上へ戻ると前の月を読み足す', async ({ page }) => {
-  const me = await myId(page);
   const stamp = Date.now();
   // 他のテストが使わない年に、前の月・基準の日・後の日の 3 件を置く
   for (const [date, title] of [
@@ -29,16 +25,12 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
     ['2032-06-15', `E2E 当日 ${stamp}`],
     ['2032-06-20', `E2E 後日 ${stamp}`],
   ] as const) {
-    const res = await page.request.post('/api/events', {
-      data: {
-        kind: 'event',
-        title,
-        startsAt: `${date}T01:00:00.000Z`,
-        endsAt: `${date}T02:00:00.000Z`,
-        participantIds: [me],
-      },
+    await addItem(page, {
+      kind: 'event',
+      title,
+      startsAt: `${date}T01:00:00.000Z`,
+      endsAt: `${date}T02:00:00.000Z`,
     });
-    expect(res.ok()).toBe(true);
   }
 
   await page.goto('/calendar?view=list&date=2032-06-15');
@@ -106,7 +98,9 @@ for (const history of histories) {
     ];
     const created: Created[] = [];
     try {
-      for (const [at, text] of records) created.push(await addRecord(page, history, me, at, text));
+      created.push(
+        ...(await Promise.all(records.map(([at, text]) => addRecord(page, history, me, at, text)))),
+      );
 
       await page.goto(history.path);
       const sticky = history.sticky(page);

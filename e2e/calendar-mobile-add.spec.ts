@@ -33,15 +33,25 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   // 保存: 返事を待たずに月表示へ戻り、下書きの枠は残らない
   await openAddMenu(page);
   await page.getByRole('menuitem', { name: '予定' }).click();
+  // 追加ボタンからは全項目の段（画面いっぱい）で開く
+  await expect.poll(async () => (await page.locator('[data-sheet]').boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
   // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる
   await stall(page, '**/api/{events,calendar}**', 1500);
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith('/api/events'),
+  );
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.locator('[data-sheet]')).toHaveCount(0, { timeout: 1000 });
   await expect(page.locator('[data-draft]')).toHaveCount(0);
   await expect(shownView(page)).toHaveText('月');
   await expect(page.getByRole('button', { name: title })).toHaveCount(1);
   await expect(page).toHaveURL(/view=month&date=2031-06-15/);
+
+  // 保存とその後の取り直しが届いても、投機的に出した分と二重にならない
+  await saved;
+  await page.waitForResponse((r) => new URL(r.url()).pathname === '/api/calendar');
+  await expect(page.getByRole('button', { name: title })).toHaveCount(1);
 
   // 後片付けは遅らせずに送り、届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
   await page.unroute('**/api/{events,calendar}**');

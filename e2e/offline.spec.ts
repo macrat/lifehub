@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { login } from './login.ts';
+import { openHome } from './auth.ts';
 
 test('オフラインでも 2 回目以降はキャッシュから起動し、記録はオンラインに戻ったときに送られる', async ({
   page,
   context,
 }) => {
-  await login(page);
-  await expect(page.getByLabel('記録を検索')).toBeVisible();
+  await openHome(page);
 
   // Service Worker の precache と TanStack Query の永続化が終わるのを待つ
   await page.waitForFunction(

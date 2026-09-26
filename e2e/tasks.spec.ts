@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { login } from './login.ts';
-
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
 
 test('タスクを追加し、カレンダーのリスト表示から完了にできる', async ({ page }) => {
   const title = `E2E タスク ${Date.now()}`;

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { scroller, scrollHeightOf, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
-import { myId } from './login.ts';
+import { addItem, deleteItem } from './events.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag, touchPinch } from './touch.ts';
 import { changeView } from './view.ts';
 
@@ -64,14 +64,15 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
 
 test('予定は長押しでつまんで編集モードに入り、そのまま動かして保存できる', async ({ page }) => {
   const title = `E2E 長押し編集 ${Date.now()}`;
+  const id = await addItem(page, {
+    kind: 'event',
+    title,
+    startsAt: '2031-06-12T10:00:00+09:00',
+    endsAt: '2031-06-12T11:00:00+09:00',
+  });
   await page.goto('/calendar?view=day&date=2031-06-12');
 
   const at = (minutes: number) => timePoint(page, '2031-06-12', minutes);
-  // 10:00〜11:00 の予定を 1 件作る
-  const first = await at(10 * 60 + 10);
-  await page.touchscreen.tap(first.x, first.y);
-  await page.getByLabel('タイトルを追加').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
   const block = page.getByRole('button', { name: title });
   await expect(block).toBeVisible();
 
@@ -97,11 +98,9 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(block).toHaveCount(1);
 
-  page.once('dialog', (dialog) => dialog.accept());
   await block.click();
   await expect(page.getByText('6/12(木) 14:00〜15:00')).toBeVisible();
-  await detailAction(page, '削除');
-  await expect(block).toHaveCount(0);
+  await deleteItem(page, id);
 });
 
 test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
@@ -128,7 +127,6 @@ test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みす�
 });
 
 test('月表示から週・日へ移ると、予定がなるべく全部見える縦位置で出る', async ({ page }) => {
-  const me = await myId(page);
   const stamp = Date.now();
   // 他のテストが使わない月に置く。9/14 は 12〜13 時の 1 件だけ、9/21 の週は 6 時台と 22 時台で画面に収まらない
   for (const [date, start, end] of [
@@ -136,16 +134,12 @@ test('月表示から週・日へ移ると、予定がなるべく全部見え�
     ['2033-09-21', 6, 7],
     ['2033-09-22', 22, 23],
   ] as const) {
-    const res = await page.request.post('/api/events', {
-      data: {
-        kind: 'event',
-        title: `E2E 縦位置 ${stamp}`,
-        startsAt: `${date}T${String(start).padStart(2, '0')}:00:00+09:00`,
-        endsAt: `${date}T${String(end).padStart(2, '0')}:00:00+09:00`,
-        participantIds: [me],
-      },
+    await addItem(page, {
+      kind: 'event',
+      title: `E2E 縦位置 ${stamp}`,
+      startsAt: `${date}T${String(start).padStart(2, '0')}:00:00+09:00`,
+      endsAt: `${date}T${String(end).padStart(2, '0')}:00:00+09:00`,
     });
-    expect(res.ok()).toBe(true);
   }
   /** 表示中の面の縦位置と 1 時間の高さ（下に足す余白は無いので、中身の高さの 1/24） */
   const measure = (date: string) =>

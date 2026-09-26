@@ -31,17 +31,22 @@ export const careLogHistory: History = {
 export type Created = { api: string; id: string };
 
 /** 記録を 1 件置く。ID は送る側が決める（書き込みの応答は本文を返さない） */
-export async function addRecord(
+export async function postRecord(page: Page, api: string, body: object): Promise<Created> {
+  const id = crypto.randomUUID();
+  const res = await page.request.post(api, { data: { id, ...body } });
+  expect(res.ok(), await res.text()).toBe(true);
+  return { api, id };
+}
+
+/** history の決まった形の記録を 1 件置く */
+export function addRecord(
   page: Page,
   history: History,
   me: string,
   at: Date,
   text: string,
 ): Promise<Created> {
-  const id = crypto.randomUUID();
-  const res = await page.request.post(history.api, { data: { id, ...history.body(me, at, text) } });
-  expect(res.ok()).toBe(true);
-  return { api: history.api, id };
+  return postRecord(page, history.api, history.body(me, at, text));
 }
 
 export async function deleteRecord(page: Page, { api, id }: Created) {

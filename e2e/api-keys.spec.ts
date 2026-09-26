@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from './login.ts';
+import { SIGNED_OUT } from './auth.ts';
 
 /**
  * API キーの発行 → 発行したときだけキーが見える → そのキーで記録投入用エンドポイントに記録でき、
@@ -8,7 +8,6 @@ import { login } from './login.ts';
  * （`playwright.request.newContext`）で送り、ブラウザのセッションに寄りかかっていないことも見る。
  */
 test('発行した API キーで記録でき、失効すると記録できなくなる', async ({ page, playwright }) => {
-  await login(page);
   await page.goto('/settings');
   const section = page.getByRole('region', { name: '外部連携' });
 
@@ -20,7 +19,7 @@ test('発行した API キーで記録でき、失効すると記録できなく
   await page.getByRole('button', { name: '閉じる' }).click();
   await expect(section.getByText('まだ一度も使われていません')).toBeVisible();
 
-  const device = await playwright.request.newContext();
+  const device = await playwright.request.newContext({ storageState: SIGNED_OUT });
   const post = (body: unknown) =>
     device.post('/api/records', { data: body, headers: { authorization: `Bearer ${key}` } });
   expect(

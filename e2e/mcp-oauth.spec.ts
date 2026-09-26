@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
-import { login } from './login.ts';
 
 const BASE = 'http://localhost:3000';
 
@@ -9,7 +9,12 @@ function base64url(buffer: Buffer): string {
   return buffer.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-/** MCP クライアントと同じ手順: Dynamic Client Registration → 認可（ログイン済み → 同意）→ PKCE でトークン → MCP 呼び出し */
+/**
+ * MCP クライアントと同じ手順: Dynamic Client Registration → 認可（ログイン → 同意）→ PKCE でトークン → MCP 呼び出し。
+ * 認可の途中でログインを求められ、ログインすると認可へ戻るところまで通すので、ログインしていない状態から始める。
+ */
+test.use({ storageState: SIGNED_OUT });
+
 test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({ page, request }) => {
   // http のループバックへのリダイレクトは native クライアント（Claude Desktop 等と同じ）にだけ許される
   const redirectUri = 'http://127.0.0.1:3000/oauth-callback';
@@ -26,8 +31,6 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   expect(registered.ok(), await registered.text()).toBe(true);
   const { client_id: clientId } = (await registered.json()) as { client_id: string };
 
-  await login(page);
-
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());
   const state = base64url(randomBytes(8));
@@ -42,6 +45,10 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   authorize.searchParams.set('resource', `${BASE}/api/mcp`);
 
   await page.goto(authorize.toString());
+  await expect(page).toHaveURL(/\/login\?/);
+  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
+  await page.getByLabel('パスワード').fill(E2E_USER.password);
+  await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL(/\/consent\?/);
   await expect(page.getByRole('heading', { name: 'アクセスの許可' })).toBeVisible();
   await page.getByRole('button', { name: '許可' }).click();

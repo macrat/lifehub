@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
-import { login, myId } from './login.ts';
+import { openHome } from './auth.ts';
+import { addItem } from './events.ts';
 import { changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
@@ -16,7 +17,6 @@ import { changeView, recordViewTransitions, settle, transitions } from './view.t
  */
 test.beforeEach(async ({ page }) => {
   await recordViewTransitions(page);
-  await login(page);
 });
 
 /** 今の画面に付いている view-transition-name（html の root を含む） */
@@ -33,9 +33,7 @@ const captured = async (page: Page): Promise<string[]> =>
 
 test('カレンダーの表示を切り替えると、同じ予定が同じ名前で前後の画面に在る', async ({ page }) => {
   // 画面からの追加は他のテストで確かめているので、ここは API で用意する
-  const participantIds = [await myId(page)];
-  const add = (body: Record<string, unknown>) =>
-    page.request.post('/api/events', { data: { participantIds, ...body } });
+  const add = (item: Parameters<typeof addItem>[1]) => addItem(page, item);
   // 時刻のある予定、週をまたぐ終日の予定（月グリッドでは週の行ごとに帯が分かれる）、
   // 毎週の繰り返し（月グリッドに同じ id が 4 回出る）、タスク
   await add({
@@ -108,6 +106,7 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
 test('ホームと立替・レモンを行き来すると、残高とタイルが同じ名前で前後の画面に在る', async ({
   page,
 }) => {
+  await openHome(page);
   await expect(page.getByRole('button', { name: /立替残高/ })).toBeVisible();
   const home = await names(page);
   expect(home).toContain('balance');
@@ -134,9 +133,7 @@ test('ホームのタイムラインの予定・タスクには名前が無い�
   page,
 }) => {
   // 名前を付けると、スクロールの外にある項目まで画面の外から飛んでくる（`item-transition.ts`）
-  await page.request.post('/api/events', {
-    data: { kind: 'task', title: 'VT ホーム', participantIds: [await myId(page)] },
-  });
+  await addItem(page, { kind: 'task', title: 'VT ホーム' });
   await page.goto('/');
   await expect(page.getByText('VT ホーム')).toBeVisible();
   expect((await names(page)).filter((name) => name.startsWith('item-'))).toEqual([]);

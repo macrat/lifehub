@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { login } from './login.ts';
 import { countFetches, quiet } from './network.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
@@ -13,7 +12,6 @@ test('表示を切り替えても取り直さず、画面に入ったときだ�
   const fetches = countFetches(page, '/api/calendar');
   // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
   await recordViewTransitions(page);
-  await login(page);
 
   // 月表示で入る（前後の月の面も読むので、どの表示に切り替えても必要な月は揃っている）
   await page.goto('/calendar?view=month&date=2030-05-15');

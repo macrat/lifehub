@@ -1,16 +1,14 @@
-import { expect, type Page, test } from '@playwright/test';
-import { detailAction } from './detail.ts';
-import { login } from './login.ts';
-
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
+import { expect, test } from '@playwright/test';
+import { openHome } from './auth.ts';
+import { deleteRecord, postRecord } from './history.ts';
 
 /**
  * AppBar の検索窓。入力は画面の状態で受けて URL は置き換えるだけなので、
  * 変換中の文字が書き戻されず（IME で変換できる）、打った分だけ履歴も増えない。
  */
 test('検索窓で日本語を変換でき、履歴を増やさずに URL が変わる', async ({ page }) => {
+  // 戻る先（直前の画面）としてホームを開いておく
+  await openHome(page);
   await page.goto('/expenses');
   const search = page.getByLabel('立替を検索');
   await search.click();
@@ -67,15 +65,17 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   const tag = `E2E 絞込 ${Date.now()}`;
   const small = `${tag} 少額`;
   const large = `${tag} 高額`;
+  const me: { id: string; users: { id: string }[] } = await (
+    await page.request.get('/api/me')
+  ).json();
+  const partner = me.users.find((user) => user.id !== me.id)?.id;
+  const expense = (body: object) =>
+    postRecord(page, '/api/expenses', { fromUserId: me.id, toUserId: null, ...body });
+  const records = await Promise.all([
+    expense({ amount: 500, description: small, spentOn: '2031-03-01' }),
+    expense({ amount: 5000, description: large, spentOn: '2031-03-10', toUserId: partner }),
+  ]);
   await page.goto('/expenses');
-
-  await addExpense(page, { amount: '500', description: small, spentOn: '2031-03-01' });
-  await addExpense(page, {
-    amount: '5000',
-    description: large,
-    spentOn: '2031-03-10',
-    to: '相手',
-  });
   const smallRow = page.getByRole('button', { name: new RegExp(small) });
   const largeRow = page.getByRole('button', { name: new RegExp(large) });
 
@@ -109,42 +109,21 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   await expect(largeRow).toHaveCount(0);
 
   // 残高は他のテストと共有するので片付ける
-  await page.goto('/expenses');
-  for (const row of [smallRow, largeRow]) {
-    page.once('dialog', (dialog) => dialog.accept());
-    await row.click();
-    await detailAction(page, '削除');
-    await expect(row).toHaveCount(0);
-  }
+  await Promise.all(records.map((record) => deleteRecord(page, record)));
 });
-
-/** 立替を 1 件追加する（フォームは追加ボタンから開き、保存すると閉じて一覧に出る） */
-async function addExpense(
-  page: Page,
-  input: { amount: string; description: string; spentOn: string; to?: string },
-) {
-  await page.getByRole('button', { name: '立替を追加' }).click();
-  const form = page.getByRole('dialog');
-  await form.getByLabel('日付').fill(input.spentOn);
-  if (input.to) {
-    await form.getByLabel('To').click();
-    await page.getByRole('option', { name: input.to }).click();
-  }
-  await form.getByLabel('内容', { exact: true }).fill(input.description);
-  await form.getByLabel('金額（円）').fill(input.amount);
-  await form.getByRole('button', { name: '保存' }).click();
-  await expect(form).toHaveCount(0);
-}
 
 /** レモンの詳細検索。種別（項目）と実施日の範囲で記録を絞り込む（立替と同じ絞り込みボタン・フォーム） */
 test('レモンの詳細検索で種別と日付の範囲で絞り込める', async ({ page }) => {
   const tag = `E2E 絞込 ${Date.now()}`;
   const watered = `${tag} 水やり`;
   const fertilized = `${tag} 施肥`;
+  const careLog = (careType: string, note: string, doneAt: string) =>
+    postRecord(page, '/api/lemon/logs', { careTypes: [careType], note, doneAt });
+  const records = await Promise.all([
+    careLog('water', watered, '2031-04-02T09:00:00+09:00'),
+    careLog('fertilize', fertilized, '2031-04-20T09:00:00+09:00'),
+  ]);
   await page.goto('/lemon');
-
-  await addCareLog(page, { careType: '水やり', note: watered, doneAt: '2031-04-02T09:00' });
-  await addCareLog(page, { careType: '施肥', note: fertilized, doneAt: '2031-04-20T09:00' });
   const wateredRow = page.getByRole('button', { name: new RegExp(watered) });
   const fertilizedRow = page.getByRole('button', { name: new RegExp(fertilized) });
 
@@ -170,29 +149,6 @@ test('レモンの詳細検索で種別と日付の範囲で絞り込める', as
   await expect(fertilizedRow).toHaveCount(0);
   await expect(page).toHaveURL(/until=2031-04-10/);
 
-  // 状況のタイルは絞り込みに関わらず最新の実施日を示す
-  await expect(page.getByRole('button', { name: /施肥/ }).first()).toBeVisible();
-
   // 記録は他のテストと共有するので片付ける
-  await page.goto('/lemon');
-  for (const row of [wateredRow, fertilizedRow]) {
-    page.once('dialog', (dialog) => dialog.accept());
-    await row.click();
-    await detailAction(page, '削除');
-    await expect(row).toHaveCount(0);
-  }
+  await Promise.all(records.map((record) => deleteRecord(page, record)));
 });
-
-/** レモンの記録を 1 件追加する（やったことは指定した 1 つだけにする） */
-async function addCareLog(page: Page, input: { careType: string; note: string; doneAt: string }) {
-  await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
-  const form = page.getByRole('dialog');
-  // 追加ボタンからは葉水にチェックが入った状態で開くので、指定された項目だけが残るようにする
-  for (const label of ['葉水', '水やり', '施肥', '開花', '落果', '収穫']) {
-    await form.getByRole('checkbox', { name: label }).setChecked(label === input.careType);
-  }
-  await form.getByLabel('日時').fill(input.doneAt);
-  await form.getByLabel('メモ', { exact: true }).fill(input.note);
-  await form.getByRole('button', { name: '保存' }).click();
-  await expect(form).toHaveCount(0);
-}

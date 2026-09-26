@@ -1,14 +1,9 @@
 import { devices, expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { login } from './login.ts';
 import { stall } from './network.ts';
 import { touchDrag } from './touch.ts';
 
 test.use({ ...devices['Pixel 7'] });
-
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
 
 test('スマホでは項目の少ないフォームが画面の下のシートで開き、保存すると通信を待たずに閉じて記録が出る', async ({
   page,
@@ -57,33 +52,6 @@ test('スマホでは項目の少ないフォームが画面の下のシート�
   await expect(page.getByText('今日').first()).toBeVisible({ timeout: 3000 });
 });
 
-test('カレンダーに追加した予定は通信を待たずに出る', async ({ page }) => {
-  const title = `楽観的な予定 ${Date.now()}`;
-  await page.goto('/calendar?view=day&date=2030-02-04');
-
-  // 予定の追加は日表示の下書きから始まる。スマホは全項目の段（画面いっぱい）で開く
-  await page.getByRole('button', { name: '追加' }).click();
-  await page.getByRole('menuitem', { name: '予定' }).click();
-  const sheet = page.locator('[data-sheet]');
-  await expect(sheet).toBeVisible();
-  await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(0);
-  await page.getByLabel('タイトルを追加').fill(title);
-  // 追加ボタンからの予定は終日で始まる
-  await page.getByLabel('終日').uncheck();
-  await page.getByLabel('開始').fill('2030-02-04T09:00');
-  await page.getByLabel('終了').fill('2030-02-04T10:00');
-  // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる
-  await stall(page, '**/api/{events,calendar}**', 1500);
-  await page.getByRole('button', { name: '保存' }).click();
-
-  await expect(sheet).toHaveCount(0, { timeout: 3000 });
-  await expect(page.getByRole('button', { name: title })).toBeVisible({ timeout: 3000 });
-
-  // 保存と再取得が終わっても、投機的に出した分と二重にならない
-  await page.waitForTimeout(4000);
-  await expect(page.getByRole('button', { name: title })).toHaveCount(1);
-});
-
 test('保存に失敗したら投機的な表示を取り消し、理由を通知で伝える', async ({ page }) => {
   await page.goto('/expenses');
   await expect(page.getByText('残高')).toBeVisible();
@@ -107,7 +75,8 @@ test('保存に失敗したら投機的な表示を取り消し、理由を通�
   await expect(page.getByText('保存できませんでした（テスト）')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: '失敗する立替' })).toHaveCount(0);
 
-  // 入れ直せば保存できる
+  // 入れ直せば保存できる。通知は追加ボタンに重なるので、閉じてから押す
+  await page.getByRole('alert').getByRole('button', { name: 'Close' }).click();
   await page.unroute('**/api/expenses');
   await page.getByRole('button', { name: '立替を追加' }).click();
   await page.getByLabel('金額（円）').fill('4321');
