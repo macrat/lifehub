@@ -16,13 +16,16 @@ export type WeatherIcon =
 
 /**
  * 1 日の天気。label は気象庁の天気の名前（「晴時々曇」など）で、アイコンの説明に出す。
- * tempMax は最高気温（℃）で、予報に無かった日は null。
+ * tempMax / tempMin は最高・最低気温（℃）、pop は降水確率（%）で、予報に無かった日は null。
+ * 今日・明日の降水確率は 6 時間ごとの予報のうち一番高いもの（今日は、まだ過ぎていない時間帯のうち）。
  */
 export type DailyWeather = {
   date: DateString;
   icon: WeatherIcon;
   label: string;
   tempMax: number | null;
+  tempMin: number | null;
+  pop: number | null;
 };
 
 /**

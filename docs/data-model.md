@@ -29,7 +29,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 | `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。`created_by` は画面・MCP から記録すればその人、API キーで入れれば null（不明）で、代わりに `api_key_name` にそのキーの名前を持つ（どちらか一方だけ。CHECK 制約。[features/lemon.md](features/lemon.md)）。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
 | `memos` | `body`, `created_by`, `created_at` | メモ（[features/memos.md](features/memos.md)）。500 文字までのプレーンテキスト（Zod で守る）。日時は書いた時刻（`created_at`）だけで、編集しても動かない。ホームのタイムラインにだけ出る |
 | `holidays` | `date`(PK) | 日本の祝日・休日（[features/calendar.md](features/calendar.md#祝日)）。外部の ics を月次 Cron で取り直し、全行を入れ替える。使うのは日付だけなので名前は持たない |
-| `weather` | `date`(PK), `code`, `temp_max` | 日ごとの天気と最高気温（東京。[features/calendar.md](features/calendar.md#天気)）。気象庁の予報を 1 日 3 回の Cron で取り直し、予報のある日を上書きする。過去の日は消さない。終わった日の最高気温は毎朝の Cron でアメダスの観測値に上書きする。最高気温は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
+| `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京。[features/calendar.md](features/calendar.md#天気)、[features/weather.md](features/weather.md)）。気象庁の予報を 1 日 3 回の Cron で取り直し、予報のある日を上書きする。過去の日は消さない。終わった日の最高・最低気温は毎朝の Cron でアメダスの観測値に上書きする。気温と降水確率は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
 | `weather_hourly` | `starts_at`(PK), `weather` | 3 時間ごとの天気（東京地方。[features/calendar.md](features/calendar.md#3-時間ごとの天気)）。気象庁の天気分布予報を 1 日 3 回の Cron で取り直し、予報のある区間を上書きする。過ぎた区間は消さない。天気は気象庁の名前（「くもり」など）のまま持ち、アイコンの種類は読むときに引く |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
 

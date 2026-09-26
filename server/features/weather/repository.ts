@@ -35,8 +35,8 @@ export async function findBetween(
 
 /**
  * 日ごとに上書きする。渡さなかった日（予報から外れた過去の日）は残す。
- * 最高気温は null で上書きしない: 気象庁は日中を過ぎると今日の最高気温を報から外すので、
- * そのまま上書きすると、その日の気温が朝の予報ごと消えてしまう。
+ * 気温と降水確率は null で上書きしない: 気象庁は日中を過ぎると今日の最高気温を、夜には今日の降水確率を
+ * 報から外すので、そのまま上書きすると、その日の値が前の予報ごと消えてしまう。
  */
 export async function upsertDaily(rows: WeatherRow[]): Promise<void> {
   if (rows.length === 0) return;
@@ -48,19 +48,21 @@ export async function upsertDaily(rows: WeatherRow[]): Promise<void> {
       set: {
         code: sql`excluded.code`,
         tempMax: sql`coalesce(excluded.temp_max, ${weather.tempMax})`,
+        tempMin: sql`coalesce(excluded.temp_min, ${weather.tempMin})`,
+        pop: sql`coalesce(excluded.pop, ${weather.pop})`,
       },
     });
 }
 
 /**
- * その日の最高気温だけを上書きする（観測値で予報の値を置き換える）。行の無い日は何もしない:
+ * その日の気温だけを上書きする（観測値で予報の値を置き換える）。渡さなかった方は残す。行の無い日は何もしない:
  * 天気コードは観測からは取れず、コードの無い日はアイコンも出せないので、行を作っても使われない。
  */
-export async function updateTempMax(
+export async function updateTemps(
   date: DateString,
-  tempMax: number,
+  temps: { tempMax?: number; tempMin?: number },
 ): Promise<WeatherRow | undefined> {
-  const [row] = await db.update(weather).set({ tempMax }).where(eq(weather.date, date)).returning();
+  const [row] = await db.update(weather).set(temps).where(eq(weather.date, date)).returning();
   return row;
 }
 

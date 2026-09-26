@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
@@ -38,7 +38,7 @@ export const Route = createFileRoute('/_authenticated/')({
 const MAX_WIDTH = 640;
 
 /**
- * ホーム。上から、最新の状態（立替残高・葉水・水やりのタイル）と、
+ * ホーム。上から、最新の状態（天気・葉水・水やりのタイル）と、
  * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。メモは右下の追加ボタンから書く。
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
@@ -56,6 +56,7 @@ function HomePage() {
   const adding = useOpenWith<AddFormKind>();
   const addingCare = useOpenWith<CareType[]>();
   const addEventOnCalendar = useAddEventOnCalendar();
+  const navigate = useNavigate();
 
   useAddShortcut(search.add, adding.open);
 
@@ -82,7 +83,10 @@ function HomePage() {
             filters={filter.filters}
             onChange={filter.setFilters}
           />
-          <StatusCards onAddExpense={() => adding.open('expense')} onAddCare={addingCare.open} />
+          <StatusCards
+            onOpenWeather={() => void navigate({ to: '/weather' })}
+            onAddCare={addingCare.open}
+          />
         </ScrollAwayHeader>
         <TimelineList
           timeline={timeline}

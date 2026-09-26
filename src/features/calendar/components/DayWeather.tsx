@@ -1,14 +1,19 @@
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import { createLink } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import { WeatherIcon } from './WeatherIcon.tsx';
-import { wideRatio } from './weather-glyphs.ts';
+import { WeatherIcon } from '../../weather/components/WeatherIcon.tsx';
+import { wideRatio } from '../../weather/components/weather-glyphs.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
 
 /** アイコンと気温のあいだの余白（px） */
 const TEMP_GAP = 2;
+
+// MUI の部品を router のリンクにする（`AppShell` と同じ）
+const ButtonLink = createLink(ButtonBase);
 
 type Props = {
   weather: DailyWeather;
@@ -18,6 +23,8 @@ type Props = {
 
 /**
  * 日付の横に出す天気のアイコンと最高気温。天気の名前（「晴時々曇」など）はホバーと読み上げで出す。
+ * 押すと週間天気の画面へ移る（アイコンと気温の所だけが押せる。枠の残りは置かれた側の操作のまま）。
+ * 置かれた側が押せる枠（週表示の見出し）でも、リンクをボタンの中に入れ子にしない（`TimelineHeader`）。
  * 線画で文字と同じ控えめな色にするのは、日付の横に毎日並んでも予定より目立たせないため。
  * 置かれた所の残りの幅を自分の枠（コンテナ）にし、右端に寄せて出す。グリッドの中では右の列に、
  * 横並びの中では残りの幅に広がる（`gridColumn` と `flex` は、置かれた側の並べ方のほうだけが効く）。
@@ -48,18 +55,27 @@ export function DayWeather({ weather, size }: Props) {
         containerType: 'inline-size',
         // コンテナクエリの ch を気温の数字の幅にする
         fontSize: Math.round(size * 0.8),
+        display: 'flex',
+        justifyContent: 'flex-end',
       }}
     >
-      <Box
+      <ButtonLink
+        to="/weather"
+        aria-label={`週間天気（${weather.label}${weather.tempMax === null ? '' : `、最高気温 ${weather.tempMax}度`}）`}
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'flex-end',
           alignItems: 'center',
           columnGap: `${TEMP_GAP}px`,
+          minWidth: 0,
           height: size,
           overflow: 'hidden',
+          borderRadius: 1,
+          font: 'inherit',
           color: 'text.secondary',
+          // 押せる枠（見出しのボタン）の上に重ねて置かれても、ここだけは押せる
+          pointerEvents: 'auto',
           [`@container (width < ${size}px)`]: { display: 'none' },
         }}
       >
@@ -74,15 +90,11 @@ export function DayWeather({ weather, size }: Props) {
           sx={{ fontSize: size, display: 'none', [narrow]: { display: 'inline-block' } }}
         />
         {temp !== null && (
-          <Box
-            component="span"
-            aria-label={`最高気温 ${weather.tempMax}度`}
-            sx={{ lineHeight: `${size}px` }}
-          >
+          <Box component="span" sx={{ lineHeight: `${size}px` }}>
             {temp}
           </Box>
         )}
-      </Box>
+      </ButtonLink>
     </Box>
   );
 }

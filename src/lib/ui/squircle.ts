@@ -131,7 +131,7 @@ export function smoothCornersMask(
 }
 
 /**
- * 状況のタイル（立替残高・レモン）の形。角 24px の「角だけなめらか」な角丸で、横長のタイルでも角の丸みが揃う
+ * 状況のタイル（天気・レモン）の形。角 24px の「角だけなめらか」な角丸で、横長のタイルでも角の丸みが揃う
  * （`SQUIRCLE_CLIP_PATH` は大きさに比例して伸びるので、PC の横長のタイルでは角と辺が膨らみすぎる）
  */
 export const TILE_MASK = smoothCornersMask(24);

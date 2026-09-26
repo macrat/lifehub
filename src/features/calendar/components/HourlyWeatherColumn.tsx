@@ -2,10 +2,10 @@ import Box from '@mui/material/Box';
 import { memo } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { HourlyWeather } from '../../../../shared/weather.ts';
+import { WeatherIcon } from '../../weather/components/WeatherIcon.tsx';
 import { useHourlyWeather } from '../queries.ts';
 import { atMinute } from '../use-hour-zoom.ts';
-import { WeatherIcon } from './WeatherIcon.tsx';
-import { HOURLY_ICON_SIZE, HOURLY_WEATHER_INSET } from './weather-glyphs.ts';
+import { HOURLY_ICON_SIZE, HOURLY_WEATHER_INSET } from './hourly-weather-layout.ts';
 
 /** アイコンと線のあいだ、線と次のアイコンのあいだの余白（px） */
 const GAP = 2;

@@ -103,24 +103,13 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
   expect((await transitions(page)).length).toBe(before);
 });
 
-test('ホームと立替・レモンを行き来すると、残高とタイルが同じ名前で前後の画面に在る', async ({
-  page,
-}) => {
+test('ホームとレモンを行き来すると、タイルが同じ名前で前後の画面に在る', async ({ page }) => {
   await openHome(page);
-  await expect(page.getByRole('button', { name: /立替残高/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^水やり/ })).toBeVisible();
   const home = await names(page);
-  expect(home).toContain('balance');
   expect(home).toContain('care-water');
   expect(new Set(home).size).toBe(home.length);
 
-  await page.getByRole('link', { name: '立替' }).click();
-  await expect(page).toHaveURL('/expenses');
-  await settle(page);
-  expect(await names(page)).toContain('balance');
-
-  await page.getByRole('link', { name: 'ホーム' }).click();
-  await expect(page).toHaveURL('/');
-  await settle(page);
   await page.getByRole('link', { name: 'レモン' }).click();
   await expect(page).toHaveURL('/lemon');
   await settle(page);

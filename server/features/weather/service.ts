@@ -9,7 +9,7 @@ import {
   today,
 } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { HourlyWeather, WeatherInRange } from '../../../shared/weather.ts';
+import type { DailyWeather, HourlyWeather, WeatherInRange } from '../../../shared/weather.ts';
 import { fetchOk } from '../../lib/fetch.ts';
 import * as repository from './repository.ts';
 import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
@@ -37,8 +37,10 @@ const forecastSchema = z.array(
           z.object({
             area: z.object({ code: z.string() }),
             weatherCodes: z.array(z.string()).optional(),
+            pops: z.array(z.string()).optional(),
             temps: z.array(z.string()).optional(),
             tempsMax: z.array(z.string()).optional(),
+            tempsMin: z.array(z.string()).optional(),
           }),
         ),
       }),
@@ -46,14 +48,13 @@ const forecastSchema = z.array(
   }),
 );
 
+/** 観測値 1 つ。[値, 品質フラグ] で、欠測の時は値が null になる */
+const observation = z.tuple([z.number().nullable(), z.number()]).optional();
+
 /**
  * アメダスの観測値（`AMEDAS_URL` のファイル）のうち読むところだけ。キーは観測時刻（JST の YYYYMMDDhhmmss）。
- * 値は [値, 品質フラグ] で、欠測の時は値が null になる。
  */
-const amedasSchema = z.record(
-  z.string(),
-  z.object({ maxTemp: z.tuple([z.number().nullable(), z.number()]).optional() }),
-);
+const amedasSchema = z.record(z.string(), z.object({ maxTemp: observation, minTemp: observation }));
 
 /**
  * アメダス東京の観測値。気象庁のサイトが自分のアメダスのページのために配っている JSON で、予報と同じく
@@ -62,43 +63,59 @@ const amedasSchema = z.record(
 const AMEDAS_URL = (day: string) =>
   `https://www.jma.go.jp/bosai/amedas/data/point/${STATION_CODE}/${day}_00.json`;
 
-type Day = { code?: string; tempMax?: number };
+type Day = { code?: string; tempMax?: number; tempMin?: number; pop?: number };
 
-/** 短期予報の気温のうち、最高気温を表す時刻（9 時 JST）か */
-function isMaxTime(time: string): boolean {
-  return new TZDate(time, TIME_ZONE).getHours() === 9;
+/**
+ * 短期予報の気温が表すもの。最低気温は 0 時、最高気温は 9 時（JST）の時刻で並ぶ。
+ * 発表の時間帯によって今日の最低が抜けるなど並びが変わるので、位置では読まない。
+ */
+function shortTempKind(time: string): 'tempMin' | 'tempMax' | undefined {
+  const hour = new TZDate(time, TIME_ZONE).getHours();
+  return hour === 0 ? 'tempMin' : hour === 9 ? 'tempMax' : undefined;
 }
 
 /**
- * 予報の JSON から日ごとの天気コードと最高気温を取り出す（日付順。天気のある日だけ）。
- * 短期予報と週間予報が重なる日は、新しく細かい短期予報を採る。
- * 短期予報の気温は最低（0 時）と最高（9 時）が時刻で分かれて並ぶので、9 時の値だけを最高気温として読む
- * （発表の時間帯によって今日の最低が抜けるなど並びが変わるので、位置では読まない）。
- * 週間予報の最高気温は日ごとに並び、予報の無い日（初日）は空文字になる。
+ * 予報の JSON から日ごとの天気コード・最高／最低気温・降水確率を取り出す（日付順。天気のある日だけ）。
+ * 短期予報と週間予報が重なる日は、新しく細かい短期予報の値を採る（短期予報に無い値は週間予報の値を残す）。
+ * 短期予報の降水確率は 6 時間ごとに並ぶので、その日のうち一番高いものを 1 日の値にする
+ * （傘が要るかを決めるのは一番降りやすい時間帯なので）。
+ * 週間予報の気温と降水確率は日ごとに並び、予報の無い日（初日）は空文字になる。
  */
 export function parseForecast(json: unknown): repository.WeatherRow[] {
   const days = new Map<DateString, Day>();
-  const put = (time: string, value: Day) => {
-    const date = toDateString(new Date(time));
-    days.set(date, { ...days.get(date), ...value });
-  };
   // 週間予報を先に入れ、短期予報で上書きする
   for (const report of forecastSchema.parse(json).toReversed()) {
+    const reported = new Map<DateString, Day>();
     for (const { timeDefines, areas } of report.timeSeries) {
-      const codes = areas.find((a) => a.area.code === AREA_CODE)?.weatherCodes;
+      const area = areas.find((a) => a.area.code === AREA_CODE);
       const station = areas.find((a) => a.area.code === STATION_CODE);
       timeDefines.forEach((time, i) => {
-        const code = codes?.[i];
-        if (code) put(time, { code });
-        const max = isMaxTime(time) ? station?.temps?.[i] : station?.tempsMax?.[i];
-        // 週間予報の初日のように値の無い所は空文字で来る
-        if (max) put(time, { tempMax: Number(max) });
+        const date = toDateString(new Date(time));
+        const day = reported.get(date) ?? {};
+        reported.set(date, day);
+        // 値の無い所は空文字で来る（週間予報の初日など）
+        const read = (values: string[] | undefined) =>
+          values?.[i] ? Number(values[i]) : undefined;
+        const code = area?.weatherCodes?.[i];
+        if (code) day.code = code;
+        const pop = read(area?.pops);
+        if (pop !== undefined) day.pop = Math.max(pop, day.pop ?? 0);
+        const kind = shortTempKind(time);
+        const temp = read(station?.temps);
+        if (kind && temp !== undefined) day[kind] = temp;
+        const max = read(station?.tempsMax);
+        if (max !== undefined) day.tempMax = max;
+        const min = read(station?.tempsMin);
+        if (min !== undefined) day.tempMin = min;
       });
     }
+    for (const [date, day] of reported) days.set(date, { ...days.get(date), ...day });
   }
   return [...days]
-    .flatMap(([date, { code, tempMax }]) =>
-      code ? [{ date, code, tempMax: tempMax ?? null }] : [],
+    .flatMap(([date, { code, tempMax, tempMin, pop }]) =>
+      code
+        ? [{ date, code, tempMax: tempMax ?? null, tempMin: tempMin ?? null, pop: pop ?? null }]
+        : [],
     )
     .sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -111,24 +128,31 @@ async function refreshDailyWeather(): Promise<number> {
 }
 
 /**
- * 昨日（JST）の最高気温をアメダス東京の観測値で上書きし、上書きした行を返す（毎朝の Cron）。
- * 予報の最高気温は日中を過ぎると報から外れ、外れた日には予報の値が残るので、終わった日は実際の値に直す。
- * 昨日の行（天気コード）が無ければ何もしない（`repository.updateTempMax`）。
- * 取得や解析に失敗したり、値が欠測だったりしたら何も書かずに投げる（予報の値が残る）。
+ * 昨日（JST）の最高・最低気温をアメダス東京の観測値で上書きし、上書きした行を返す（毎朝の Cron）。
+ * 予報の気温は日中を過ぎると報から外れ、外れた日には予報の値が残るので、終わった日は実際の値に直す。
+ * 昨日の行（天気コード）が無ければ何もしない（`repository.updateTemps`）。
+ * 片方だけ欠測ならもう片方だけを書く。取得や解析に失敗したり、両方とも欠測だったりしたら何も書かずに投げる
+ * （予報の値が残る）。
  *
- * 気象庁の日最高気温は 0:10〜24:00 の値なので、今日の 0:00 の観測（`YYYYMMDD000000`）に載る
- * 「その時点までの最高気温」を読む。0:10 からは今日の値に切り替わる。
- * 観測は 0.1℃ 単位だが、予報に合わせて整数に丸める（列は整数で、カレンダーは整数で出す）。
+ * 気象庁の日最高・最低気温は 0:10〜24:00 の値なので、今日の 0:00 の観測（`YYYYMMDD000000`）に載る
+ * 「その時点までの最高・最低気温」を読む。0:10 からは今日の値に切り替わる。
+ * 観測は 0.1℃ 単位だが、予報に合わせて整数に丸める（列は整数で、画面は整数で出す）。
  * WHY NOT 予報の Cron で毎回読む: 終わった日の値は朝には確定していて、1 日に何度読んでも同じになる。
  */
-export async function recordObservedTempMax(
+export async function recordObservedTemps(
   now: Date = new Date(),
 ): Promise<repository.WeatherRow | undefined> {
   const day = today(now).replaceAll('-', '');
   const url = AMEDAS_URL(day);
-  const max = amedasSchema.parse(await (await fetchOk(url)).json())[`${day}000000`]?.maxTemp?.[0];
-  if (max == null) throw new Error(`weather: ${url} has no maxTemp at 00:00`);
-  return repository.updateTempMax(addDays(today(now), -1), Math.round(max));
+  const observed = amedasSchema.parse(await (await fetchOk(url)).json())[`${day}000000`];
+  const max = observed?.maxTemp?.[0];
+  const min = observed?.minTemp?.[0];
+  if (max == null && min == null)
+    throw new Error(`weather: ${url} has no maxTemp/minTemp at 00:00`);
+  return repository.updateTemps(addDays(today(now), -1), {
+    ...(max != null && { tempMax: Math.round(max) }),
+    ...(min != null && { tempMin: Math.round(min) }),
+  });
 }
 
 /**
@@ -193,9 +217,9 @@ export async function refreshWeather(): Promise<{ daily: number; hourly: number 
  */
 export async function listWeather(range: DateRange): Promise<WeatherInRange> {
   const rows = await repository.findBetween(range);
-  const daily = rows.daily.flatMap(({ date, code, tempMax }) => {
+  const daily = rows.daily.flatMap(({ code, ...values }) => {
     const telop = TELOPS[code];
-    return telop ? [{ date, icon: telop[0], label: telop[1], tempMax }] : [];
+    return telop ? [{ ...values, icon: telop[0], label: telop[1] }] : [];
   });
   const hourly: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows.hourly) {
@@ -211,4 +235,17 @@ export async function listWeather(range: DateRange): Promise<WeatherInRange> {
     }
   }
   return { daily, hourly };
+}
+
+/** 週間天気で出す日数（今日を含む）。週間予報は明日から 7 日分なので、今日と合わせて 8 日になる */
+const FORECAST_DAYS = 8;
+
+/**
+ * 今日（JST）から週間予報の終わりまでの日ごとの天気（日付順。週間天気の画面とホームのタイル）。
+ * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
+ * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
+ */
+export async function listForecast(now: Date = new Date()): Promise<DailyWeather[]> {
+  const from = today(now);
+  return (await listWeather({ from, to: addDays(from, FORECAST_DAYS - 1) })).daily;
 }

@@ -78,12 +78,6 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByRole('button', { name: /E2E ホーム/ })).toHaveCount(0);
 });
 
-test('残高のタイルを押すと立替の入力が開く', async ({ page }) => {
-  await page.getByRole('button', { name: /立替残高/ }).click();
-  await expect(page.getByLabel('金額（円）')).toBeVisible();
-  await expect(page).toHaveURL('/');
-});
-
 test('共有の立替で残高が出て、相手からの支払いを記録すると精算済みになる', async ({ page }) => {
   const description = `E2E 食材 ${Date.now()}`;
   await page.goto('/expenses');

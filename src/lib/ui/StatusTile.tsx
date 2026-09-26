@@ -14,22 +14,22 @@ const TILE_PADDING = 1;
 
 type Props = {
   /** 名前の左のアイコン。読み上げではアイコンに名乗らせない（名前がすぐ右にある） */
-  icon: ComponentType<SvgIconProps>;
+  icon?: ComponentType<SvgIconProps>;
   label: string;
-  /** 大きく出す今の値（「1日前」「￥3,140」） */
-  value: string;
+  /** 大きく出す今の値（「1日前」、天気のアイコン）。アイコンは字の行の高さ（1.3em）に収める */
+  value: ReactNode;
   /** 値の下の補足。空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
   sub: string;
   /**
    * 別の画面の同じものとその場で動く名前（View Transition）。`tile` はタイルごと、`value` は値だけが動く。
-   * 相手の画面に同じタイルが在るならタイルごと、値だけが在るなら値だけに付ける
+   * 相手の画面に同じタイルが在るならタイルごと、値だけが在るなら値だけに付ける。相手が無ければ付けない
    */
-  transitionName: { tile: string } | { value: string };
+  transitionName?: { tile: string } | { value: string };
   onClick: () => void;
 };
 
 /**
- * 最新の状態のタイル（立替残高、レモンの項目ごとの状況）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
+ * 最新の状態のタイル（天気、レモンの項目ごとの状況）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
  * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く。
  */
 export function StatusTile({ icon: Icon, label, value, sub, transitionName, onClick }: Props) {
@@ -39,16 +39,19 @@ export function StatusTile({ icon: Icon, label, value, sub, transitionName, onCl
         bgcolor: 'action.hover',
         borderRadius: 0,
         mask: TILE_MASK,
-        viewTransitionName: 'tile' in transitionName ? transitionName.tile : undefined,
+        viewTransitionName:
+          transitionName && 'tile' in transitionName ? transitionName.tile : undefined,
       }}
     >
       <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
         <TileLines
-          icon={<Icon sx={{ fontSize: '1rem' }} />}
+          icon={Icon && <Icon sx={{ fontSize: '1rem' }} />}
           label={label}
           value={value}
           sub={sub}
-          valueTransitionName={'value' in transitionName ? transitionName.value : undefined}
+          valueTransitionName={
+            transitionName && 'value' in transitionName ? transitionName.value : undefined
+          }
         />
       </CardActionArea>
     </Card>
@@ -78,9 +81,9 @@ function TileLines({
 }: {
   icon?: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
   sub: string;
-  valueTransitionName?: string;
+  valueTransitionName?: string | undefined;
 }) {
   return (
     <>
