@@ -3,6 +3,7 @@ import {
   asc,
   type Column,
   desc,
+  getTableColumns,
   gte,
   ilike,
   lt,
@@ -37,6 +38,10 @@ type PageQuery<T extends PgTable> = {
 /**
  * 履歴の 1 ページ（shared/types.ts の `HistoryPage`）。before より前の、新しいほうから
  * HISTORY_PAGE_SIZE 件ほどを古い順で返す。最も古い日の途中では切らず、その日の行はすべて入れる。
+ *
+ * 問い合わせは 1 回にする（HTTP のドライバでは往復の回数が応答時間を決める。docs/architecture.md）。
+ * ページの境目の日（新しいほうから数えて HISTORY_PAGE_SIZE 件目の日）と、それより前がまだあるかは
+ * 相関の無い副問い合わせなので、Postgres は行ごとではなく 1 度だけ評価する。
  */
 export async function findHistoryPage<T extends PgTable>({
   table,
@@ -45,33 +50,32 @@ export async function findHistoryPage<T extends PgTable>({
   conditions,
   before,
 }: PageQuery<T>): Promise<HistoryPage<T['$inferSelect']>> {
-  const where = [...conditions, before !== undefined ? lt(day, before) : undefined];
-  // 新しいほうから数えて HISTORY_PAGE_SIZE 件目の日。その日からをこのページにする
-  const [boundary] = await db
-    .select({ day: sql<string>`${day}::text` })
+  const where = and(...conditions, before !== undefined ? lt(day, before) : undefined);
+  const boundary = db
+    .select({ day: sql`${day}` })
     .from(table as PgTable)
-    .where(and(...where))
+    .where(where)
     .orderBy(desc(day), ...order.map((column) => desc(column)))
     .offset(HISTORY_PAGE_SIZE - 1)
     .limit(1);
-  // このページの行と、それより前がまだあるかは互いに依らないので同時に聞く
-  const [items, older] = await Promise.all([
-    db
-      .select()
-      .from(table as PgTable)
-      .where(and(...where, boundary && gte(day, boundary.day)))
-      .orderBy(asc(day), ...order.map((column) => asc(column))),
-    boundary
-      ? db
-          .select({ one: sql`1` })
-          .from(table as PgTable)
-          .where(and(...where, lt(day, boundary.day)))
-          .limit(1)
-      : [],
-  ]);
+  const older = db
+    .select({ one: sql`1` })
+    .from(table as PgTable)
+    .where(and(where, sql`${day} < (${boundary})`));
+  const rows = await db
+    .select({
+      ...getTableColumns(table as PgTable),
+      // 境目の日が無い（残りが HISTORY_PAGE_SIZE 件に満たない）なら、残りすべてがこのページ
+      pageBoundary: sql<string | null>`(${boundary})::text`,
+      hasOlder: sql<boolean>`exists (${older})`,
+    })
+    .from(table as PgTable)
+    .where(and(where, sql`((${boundary}) is null or ${day} >= (${boundary}))`))
+    .orderBy(asc(day), ...order.map((column) => asc(column)));
+  const [first] = rows;
   return {
-    items: items as T['$inferSelect'][],
-    nextCursor: boundary && older.length > 0 ? boundary.day : null,
+    items: rows.map(({ pageBoundary: _, hasOlder: __, ...row }) => row) as T['$inferSelect'][],
+    nextCursor: first?.pageBoundary && first.hasOlder ? first.pageBoundary : null,
   };
 }
 
