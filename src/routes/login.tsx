@@ -1,7 +1,7 @@
 import Typography from '@mui/material/Typography';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { LoginForm } from '../features/users/components/LoginForm.tsx';
-import { resolveMe, useLogin } from '../lib/auth.ts';
+import { afterLogin, resolveMe, useLogin } from '../lib/auth.ts';
 import { loginSearchSchema } from '../lib/login-search.ts';
 import { CenteredPage } from '../lib/ui/CenteredPage.tsx';
 
@@ -10,7 +10,7 @@ export const Route = createFileRoute('/login')({
   beforeLoad: async ({ context, search }) => {
     // ログイン済みならログイン画面を見せない
     if (await resolveMe(context.queryClient, { revalidate: true })) {
-      throw redirect({ to: search.redirect ?? '/' });
+      throw redirect(afterLogin(search.redirect));
     }
   },
   component: LoginPage,
