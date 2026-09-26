@@ -49,19 +49,13 @@ export function useTimelineScroll({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.scrollTop = Math.max(0, initialTop(el.clientHeight - bottomInset));
+    el.scrollTop = initialScrollTop({
+      nowMinutes,
+      itemsSpan,
+      hourHeight,
+      visibleHeight: el.clientHeight - bottomInset,
+    });
   }, []);
-
-  function initialTop(visibleHeight: number) {
-    if (itemsSpan) {
-      const top = topOf(itemsSpan.startMin);
-      const bottom = topOf(itemsSpan.endMin);
-      return bottom - top > visibleHeight
-        ? topOf(itemsSpan.startMin - FIT_LEAD_MINUTES)
-        : (top + bottom - visibleHeight) / 2;
-    }
-    return nowMinutes !== null ? topOf(nowMinutes) - LEAD_IN : topOf(DEFAULT_MINUTES);
-  }
 
   // 伸び縮みしたら、画面の真ん中に見えていた時刻をそのままの位置に残す（描画前に合わせて、
   // 伸びた時間軸が一瞬ずれて見えないようにする）。上端を固定すると、拡げるたびに
@@ -90,4 +84,35 @@ export function useTimelineScroll({
   }, [draftStart, settled, bottomInset]);
 
   return ref;
+}
+
+/**
+ * 最初に出したときの縦位置（px）。予定に合わせるなら、一番早い予定から一番遅い予定までが収まるときは
+ * その真ん中を見えている高さの真ん中に、収まらないときは一番早い予定の 1 時間前を一番上にする。
+ * 合わせないなら、今日を含むときは現在時刻の少し上、含まないときは 7 時を一番上にする。
+ */
+export function initialScrollTop({
+  nowMinutes,
+  itemsSpan,
+  hourHeight,
+  visibleHeight,
+}: {
+  nowMinutes: number | null;
+  itemsSpan: { startMin: number; endMin: number } | null;
+  hourHeight: number;
+  /** 見えている高さ（px。シートに覆われた分を除く） */
+  visibleHeight: number;
+}): number {
+  const topOf = (min: number) => pxAtMinute(min, hourHeight);
+  if (itemsSpan) {
+    const top = topOf(itemsSpan.startMin);
+    const bottom = topOf(itemsSpan.endMin);
+    return Math.max(
+      0,
+      bottom - top > visibleHeight
+        ? topOf(itemsSpan.startMin - FIT_LEAD_MINUTES)
+        : (top + bottom - visibleHeight) / 2,
+    );
+  }
+  return Math.max(0, nowMinutes !== null ? topOf(nowMinutes) - LEAD_IN : topOf(DEFAULT_MINUTES));
 }

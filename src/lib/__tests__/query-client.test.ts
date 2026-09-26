@@ -1,7 +1,32 @@
-import { onlineManager } from '@tanstack/react-query';
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type Me, meQueryOptions } from '../auth.ts';
-import { persistOptions, queryClient } from '../query-client.ts';
+import {
+  persistOptions,
+  queryClient,
+  useIsLoadingWithoutCache,
+  useOptimisticMutation,
+} from '../query-client.ts';
+import { useNotice } from '../ui/notice.ts';
+
+// React の act を使う（テスト用の描画ライブラリは入れていない）
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+/** フックを queryClient の下で描き、描くたびの戻り値を read で読めるようにする */
+function renderHook<T>(hook: () => T) {
+  let value!: T;
+  function Probe() {
+    value = hook();
+    return null;
+  }
+  const root = createRoot(document.createElement('div'));
+  act(() =>
+    root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe))),
+  );
+  return { read: () => value, unmount: () => act(() => root.unmount()) };
+}
 
 /** 書き込みの既定（setMutationDefaults）を当てた mutation を作る。溜める書き込みは 'write'、溜めないものは 'direct-write' */
 function buildWrite(key: 'write' | 'direct-write' = 'write') {
@@ -77,5 +102,66 @@ describe('溜めない書き込み', () => {
     const { shouldDehydrateMutation } = persistOptions.dehydrateOptions;
     expect(shouldDehydrateMutation(direct.mutation)).toBe(false);
     expect(shouldDehydrateMutation(queued.mutation)).toBe(true);
+  });
+});
+
+/**
+ * 画面上部の細いインジケータは、手元に何も出せないまま待っているときだけ出す。
+ * どの画面もマウントのたびに裏で取り直すので、キャッシュを出しながらの取り直しまで数えると
+ * 画面を移るたびに毎回出てしまう。
+ */
+describe('useIsLoadingWithoutCache', () => {
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  it('キャッシュを出しながらの取り直しでは出さず、データの無い取得を待つ間だけ出す', async () => {
+    const pending = () => new Promise<never>(() => {});
+    queryClient.setQueryData(['cached'], 'shown');
+    void queryClient.prefetchQuery({ queryKey: ['cached'], queryFn: pending });
+    expect(queryClient.isFetching({ queryKey: ['cached'] })).toBe(1);
+    // 取り直しの最中に描き始める（描いた時点の値を読むので、通知の遅れに左右されない）
+    const { read, unmount } = renderHook(useIsLoadingWithoutCache);
+    expect(read()).toBe(false);
+
+    void queryClient.prefetchQuery({ queryKey: ['empty'], queryFn: pending });
+    await vi.waitFor(() => expect(read()).toBe(true));
+    unmount();
+  });
+});
+
+describe('書き込みの失敗', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    queryClient.clear();
+  });
+
+  it('投機的に出した値を送信前へ戻して理由を知らせ、次の書き込みは待たされずに送れる', async () => {
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(Response.json({ message: '保存できませんでした' }, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    queryClient.setQueryData(meQueryOptions.queryKey, { id: 'u1' } as Me);
+    queryClient.setQueryData(['items'], ['a']);
+    const { read, unmount } = renderHook(() => ({
+      write: useOptimisticMutation<string>({
+        request: (text) => ({ method: 'POST', path: '/api/items', body: { text } }),
+        keys: [['items']],
+        apply: (client, text) =>
+          client.setQueryData<string[]>(['items'], (old) => [...(old ?? []), text]),
+      }),
+      notice: useNotice(),
+    }));
+    const items = () => queryClient.getQueryData(['items']);
+
+    await act(() => read().write.mutateAsync('b'));
+    await vi.waitFor(() => expect(read().notice).toMatchObject({ open: true }));
+    expect(read().notice).toMatchObject({ severity: 'error', message: '保存できませんでした' });
+    expect(items()).toEqual(['a']);
+
+    await act(() => read().write.mutateAsync('c'));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(items()).toEqual(['a', 'c']);
+    unmount();
   });
 });

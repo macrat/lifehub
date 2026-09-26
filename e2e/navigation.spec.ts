@@ -24,37 +24,6 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
 });
 
 /**
- * 上部の細いインジケータは手元に何も出せないときだけ出す（`src/lib/query-client.ts` の
- * `useIsLoadingWithoutCache`）。どの画面もマウントのたびに裏で取り直すので、取り直しまで数えると
- * 移動のたびに毎回出てしまう。一度見た画面へ戻る場面で、遅らせた取り直しの最中を捕まえて確かめる。
- */
-test('一度見た画面に戻るときは、キャッシュを即座に出してインジケータを出さない', async ({
-  page,
-}) => {
-  await openHome(page);
-  await page.getByRole('link', { name: '立替' }).click();
-  await expect(page.getByLabel('立替を検索')).toBeVisible();
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-  const cached = await page.locator('main').textContent();
-
-  // ここから先の取り直しは返さない（裏で取っている最中を捕まえるため）
-  await stall(page, '**/api/expenses');
-
-  await page.getByRole('link', { name: 'ホーム' }).click();
-  await expect(page.getByLabel('記録を検索')).toBeVisible();
-  const refetch = page.waitForRequest(
-    (request) => new URL(request.url()).pathname === '/api/expenses',
-  );
-  await page.getByRole('link', { name: '立替' }).click();
-  await refetch;
-
-  // 取り直しの最中でも、履歴は最初から出ていて骨組みもインジケータも出ない
-  await expect(page.locator('main')).toHaveText(cached ?? '');
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-  await expect(page.getByRole('progressbar')).toHaveCSS('opacity', '0');
-});
-
-/**
  * ユーザー（名前と色）は `/api/me` に載ってきて、5 分は取り直さない（`src/lib/auth.ts` の `meQueryOptions` の
  * `staleTime`）。色と名前を読む部品は画面中に散らばっているので、staleTime が戻ると画面を移るたびに
  * 取り直しが走る。回数で押さえる。開いた直後はログイン状態を確かめるために問い合わせるので、数えるのはホームが出た後から。

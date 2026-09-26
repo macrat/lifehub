@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../shared/types.ts';
 import {
+  dateColor,
   formatDateWithYear,
   formatMonth,
   formatTimelineTime,
@@ -97,5 +98,15 @@ describe('formatTimelineTime', () => {
     expect(formatTimelineTime(at('2026-09-26T09:30:00'), false, now)).toBe('9/26(土) 09:30');
     expect(formatTimelineTime(at('2026-09-20T00:00:00'), true, now)).toBe('9/20(日)');
     expect(formatTimelineTime(at('2025-12-31T23:00:00'), false, now)).toBe('2025/12/31(水) 23:00');
+  });
+});
+
+describe('dateColor', () => {
+  it('土日は曜日の色、祝日は平日でも日曜と同じ色', () => {
+    const sunday = dateColor(d('2030-05-05'), false);
+    const weekday = dateColor(d('2030-05-07'), false);
+    expect(dateColor(d('2030-05-04'), false)).not.toBe(weekday);
+    expect(sunday).not.toBe(weekday);
+    expect(dateColor(d('2030-05-06'), true)).toBe(sunday);
   });
 });

@@ -1,5 +1,4 @@
 import { devices, expect, test } from '@playwright/test';
-import { detailAction } from './detail.ts';
 import { stall } from './network.ts';
 import { touchDrag } from './touch.ts';
 
@@ -50,44 +49,4 @@ test('スマホでは項目の少ないフォームが画面の下のシート�
   await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 3000 });
   await expect(page.getByText('楽観的更新のテスト')).toBeVisible({ timeout: 3000 });
   await expect(page.getByText('今日').first()).toBeVisible({ timeout: 3000 });
-});
-
-test('保存に失敗したら投機的な表示を取り消し、理由を通知で伝える', async ({ page }) => {
-  await page.goto('/expenses');
-  await expect(page.getByText('残高')).toBeVisible();
-
-  await page.route('**/api/expenses', async (route) => {
-    if (route.request().method() !== 'POST') return route.continue();
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ message: '保存できませんでした（テスト）' }),
-    });
-  });
-
-  await page.getByRole('button', { name: '立替を追加' }).click();
-  await page.getByLabel('金額（円）').fill('4321');
-  await page.getByLabel('内容', { exact: true }).fill('失敗する立替');
-  await page.getByRole('button', { name: '保存' }).click();
-
-  // フォームは返事を待たずに閉じる。投機的に出した行は消え、理由は通知で出る
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByText('保存できませんでした（テスト）')).toBeVisible();
-  await expect(page.getByRole('listitem').filter({ hasText: '失敗する立替' })).toHaveCount(0);
-
-  // 入れ直せば保存できる。通知は追加ボタンに重なるので、閉じてから押す
-  await page.getByRole('alert').getByRole('button', { name: 'Close' }).click();
-  await page.unroute('**/api/expenses');
-  await page.getByRole('button', { name: '立替を追加' }).click();
-  await page.getByLabel('金額（円）').fill('4321');
-  await page.getByLabel('内容', { exact: true }).fill('直した立替');
-  await page.getByRole('button', { name: '保存' }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByText('直した立替')).toBeVisible();
-
-  // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: /直した立替/ }).click();
-  await detailAction(page, '削除');
-  await expect(page.getByText('直した立替')).toHaveCount(0);
 });
