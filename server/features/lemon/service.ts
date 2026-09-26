@@ -1,9 +1,10 @@
 import { newId } from '../../../shared/id.ts';
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
+import { careLogEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import type { InstantRange } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
@@ -18,22 +19,12 @@ export async function listLogs(query: CareLogListQuery): Promise<HistoryPage<Car
   return { items: items.map(toLog), nextCursor };
 }
 
-/** タイムラインのページ分け: before より前の、新しいほうから limit 件の実施日時 */
-export function recentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  return repository.findRecentTimelineInstants(before, q, limit);
-}
-
-/** タイムラインに並べる記録（実施日時が範囲の中のもの。キーワードはメモか項目の名前） */
-export async function listForTimeline(
-  range: InstantRange,
-  q: string | undefined,
-): Promise<CareLog[]> {
-  return (await repository.findInTimelineRange(range, q)).map(toLog);
-}
+/** タイムラインに並べる記録（置く日時は実施日時。キーワードはメモか項目の名前） */
+export const timelineSource: TimelineSource = {
+  recentInstants: repository.timeline.findRecentInstants,
+  entries: async (range, q) =>
+    (await repository.timeline.findInRange(range, q)).map((row) => careLogEntry(toLog(row))),
+};
 
 /** 項目ごとの状態（shared/lemon.ts の規則）。項目ごとの最新の記録だけを読んで導く */
 export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {

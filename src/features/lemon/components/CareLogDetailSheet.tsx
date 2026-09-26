@@ -23,28 +23,21 @@ type Props = {
 export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Props) {
   const updateLog = useUpdateCareLog();
   const deleteLog = useDeleteCareLog();
+  const { careTypes, toggleCareType, errors, sheet } = useCareLogForm({
+    initialCareTypes: log.careTypes,
+    onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
+    onSaved: onClose,
+  });
   const detail = useRecordDetail({
     initialEditing,
+    form: sheet,
     confirmDelete: 'この記録を削除しますか？',
     remove: () => deleteLog.mutate(log.id),
     onClose,
   });
-  const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
-    useCareLogForm({
-      initialCareTypes: log.careTypes,
-      onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
-      onSaved: onClose,
-    });
 
   return (
-    <RecordSheet
-      title={careLogTitle(careTypes)}
-      open={!submitted}
-      onClose={onClose}
-      {...detail.sheet}
-      onSubmit={handleSubmit}
-      error={submitError}
-    >
+    <RecordSheet title={careLogTitle(careTypes)} {...detail.sheet}>
       {detail.editing ? (
         <CareLogFields
           careTypes={careTypes}

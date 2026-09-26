@@ -1,6 +1,9 @@
 import RepeatIcon from '@mui/icons-material/Repeat';
 import Typography from '@mui/material/Typography';
 import {
+  type CalendarEventItem,
+  type CalendarItem,
+  type CalendarTaskItem,
   isCompletedTask,
   TASK_TIME_LABELS,
   taskTime,
@@ -11,7 +14,7 @@ import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { ParticipantsMark } from '../../events/components/ParticipantsMark.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
-import type { CalendarEventItem, CalendarItem, CalendarTaskItem } from '../../events/queries.ts';
+
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { itemTransitionName } from '../item-transition.ts';
 

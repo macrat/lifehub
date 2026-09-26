@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { pickDistinctHue } from '../../../shared/color.ts';
+import { newId } from '../../../shared/id.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { api } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
@@ -41,7 +42,7 @@ export function useCreateUser() {
         if (!me) return me;
         // 色の既定はサーバーと同じ規則（既存のユーザーから最も離れた色相）で決める
         const hue = input.hue ?? pickDistinctHue(me.users.map((user) => user.hue));
-        const user = { id: crypto.randomUUID(), name: input.name, email: input.email, hue };
+        const user = { id: newId(), name: input.name, email: input.email, hue };
         return { ...me, users: [...me.users, user] };
       });
     },

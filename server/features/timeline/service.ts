@@ -1,15 +1,8 @@
 import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/date.ts';
-import {
-  careLogEntry,
-  entryStart,
-  eventEntry,
-  expenseEntry,
-  memoEntry,
-  sortTimeline,
-  type TimelineEntry,
-} from '../../../shared/timeline.ts';
+import { entryStart, sortTimeline, type TimelineEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { TimelineQuery } from '../../../shared/validation/timeline.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
 import * as expenses from '../expenses/service.ts';
 import * as lemon from '../lemon/service.ts';
@@ -24,12 +17,12 @@ const PAGE_SIZE = 50;
 /** 最新のページに出す未来の幅。これより先の予定はまだ出さない */
 const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
 
-/** 各 feature の、日時が before より前の新しいほうから limit 件の日時（ページの区切りを決めるのに使う） */
-const recentInstantSources = [
-  events.recentTimelineInstants,
-  expenses.recentTimelineInstants,
-  lemon.recentTimelineInstants,
-  memos.recentTimelineInstants,
+/** タイムラインに並べる記録の出どころ。新しい種類の記録はここに 1 行足す */
+const sources: TimelineSource[] = [
+  events.timelineSource,
+  expenses.timelineSource,
+  lemon.timelineSource,
+  memos.timelineSource,
 ];
 
 /**
@@ -57,7 +50,7 @@ export async function getTimelinePage(
   if (upper.getTime() <= floor.getTime()) return { items: [], nextCursor: null };
 
   const instants = (
-    await Promise.all(recentInstantSources.map((source) => source(upper, q, PAGE_SIZE)))
+    await Promise.all(sources.map((source) => source.recentInstants(upper, q, PAGE_SIZE)))
   )
     .flat()
     .sort((a, b) => b.getTime() - a.getTime());
@@ -66,12 +59,6 @@ export async function getTimelinePage(
   const lower = boundary ? latest(startOfDay(boundary), floor) : floor;
   const range = { from: lower, to: upper };
 
-  const [items, expenseRows, logs, memoRows] = await Promise.all([
-    events.listTimelineItems(range, q, now),
-    expenses.listForTimeline(range, q),
-    lemon.listForTimeline(range, q),
-    memos.listForTimeline(range, q),
-  ]);
   const includeUndated = before === undefined && since === undefined && until === undefined;
   // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る（`entryStart`）。
   // 終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
@@ -81,12 +68,9 @@ export async function getTimelinePage(
     const reach = (before === undefined ? entryStart(entry) : null) ?? entry.at;
     return new Date(entry.at) >= lower && new Date(reach) < upper;
   };
-  const entries = [
-    ...items.map((item) => eventEntry(item, now)),
-    ...expenseRows.map(expenseEntry),
-    ...logs.map(careLogEntry),
-    ...memoRows.map(memoEntry),
-  ].filter(inRange);
+  const entries = (await Promise.all(sources.map((source) => source.entries(range, q, now))))
+    .flat()
+    .filter(inRange);
 
   return {
     items: sortTimeline(entries),

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { clearTables } from '../../../lib/test-db.ts';
+import { clearTables } from '../../../lib/db/test-db.ts';
 import { listHolidays, parseHolidays, refreshHolidays } from '../service.ts';
 
 /** 配布元と同じ書き方（毎年の祝日を RRULE で、例外を EXDATE で）の ics */

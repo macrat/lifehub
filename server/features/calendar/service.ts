@@ -1,4 +1,5 @@
-import type { CalendarPeriod, DateRange } from '../../../shared/calendar.ts';
+import type { CalendarPeriod } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { listItems } from '../events/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import { listWeather } from '../weather/service.ts';

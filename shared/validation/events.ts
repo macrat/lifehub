@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { newId } from '../id.ts';
-import { instantSchema, participantIdsSchema, uuidSchema } from './common.ts';
+import { clientIdShape, instantSchema, participantIdsSchema } from './common.ts';
 
 const EVENT_KINDS = ['event', 'task'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -124,21 +123,14 @@ export const createEventSchema = withEventRules(z.object(eventFields));
  * 種別は変えられないので含めない。組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
 export const eventPatchSchema = z.object(eventFieldTypes).omit({ kind: true }).partial();
+export type EventPatch = z.infer<typeof eventPatchSchema>;
 
 /** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
-/**
- * API（POST /api/events）が受け取る作成の入力。行の ID をクライアントが決めて送れる。
- * WHY: オフラインで作った項目をオンラインに戻る前に編集・削除でき（ID が仮のものにならない）、
- * 通信が切れて送り直しても同じ行になる（二重に作られない）。
- * WHY NOT createEventSchema そのものに持たせない: MCP は ID を考える必要がなく、持たせると
- * ツールの入力欄が増えて誤った ID を渡す余地ができる。省略時はサーバーが採番する。
- */
-export const createEventRequestSchema = createEventSchema.safeExtend({
-  id: uuidSchema.default(newId),
-});
+/** API（POST /api/events）が受け取る作成の入力（`clientIdShape`） */
+export const createEventRequestSchema = createEventSchema.safeExtend(clientIdShape);
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
 export const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
@@ -169,3 +161,13 @@ export const completeEventSchema = z.object({
   occurrenceStart: instantSchema.optional(),
 });
 export type CompleteEventInput = z.infer<typeof completeEventSchema>;
+
+/**
+ * API（POST /api/events/:id/complete）が受け取る完了の入力。完了日時は押した端末が決めて送る。
+ * WHY: 送れない書き込みは端末に溜めて後で送る（docs/architecture.md「オフラインの書き込み」）ので、
+ * サーバーが受け取った時刻にすると、オフラインで押した完了や送り直した完了が実際より後の日時になる。
+ * 省略はサーバーの今（MCP は今の日時を正確に知らないので渡させない）。
+ */
+export const completeEventRequestSchema = completeEventSchema.extend({
+  completedAt: instantSchema.optional(),
+});

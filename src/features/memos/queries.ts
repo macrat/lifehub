@@ -1,16 +1,17 @@
-import { memoEntry, timelineEntryId } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { api } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
-import { applyToTimeline, findTimelineRecord } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
 /** メモの形はサーバーと共有する（shared/memos.ts） */
 export type { Memo } from '../../../shared/memos.ts';
 
 /** メモを読むのはタイムラインだけなので、書き込みが変えるのもタイムラインだけ */
 const WRITE_KEYS = [TIMELINE_QUERY_KEY];
+
+/** タイムラインへの先回りの読み書き（メモを読む画面の履歴は無い） */
+const memoCache = timelineRecordCache('memo');
 
 export function useAddMemo() {
   return useCreateMutation<MemoInput>({
@@ -21,10 +22,10 @@ export function useAddMemo() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
-      const createdBy = client.getQueryData(meQueryOptions.queryKey)?.id;
-      if (!createdBy) return;
-      const memo = { id, body, createdBy, createdAt: new Date().toISOString() };
-      applyToTimeline(client, timelineEntryId('memo', id), memoEntry(memo));
+      // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
+      // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
+      const createdBy = client.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+      memoCache.apply(client, id, { id, body, createdBy, createdAt: new Date().toISOString() });
     },
   });
 }
@@ -38,8 +39,8 @@ export function useUpdateMemo() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
-      const prev = findTimelineRecord(client, 'memo', id);
-      if (prev) applyToTimeline(client, timelineEntryId('memo', id), memoEntry({ ...prev, body }));
+      const prev = memoCache.find(client, id);
+      if (prev) memoCache.apply(client, id, { ...prev, body });
     },
   });
 }
@@ -51,6 +52,6 @@ export function useDeleteMemo() {
       path: api.memos[':id'].$url({ param: { id } }).pathname,
     }),
     keys: WRITE_KEYS,
-    apply: (client, id) => applyToTimeline(client, timelineEntryId('memo', id), null),
+    apply: (client, id) => memoCache.apply(client, id, null),
   });
 }

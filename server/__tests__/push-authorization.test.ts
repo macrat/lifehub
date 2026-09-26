@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 import { isSubscribed, subscribe } from '../features/push/service.ts';
-import { clearTables } from '../lib/test-db.ts';
+import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
 describe('通知購読の認可', () => {

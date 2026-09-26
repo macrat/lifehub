@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { newId } from '../id.ts';
-import { uuidSchema } from './common.ts';
+import { clientIdShape } from './common.ts';
 
 /** メモの本文の上限（文字数）。一言を書き留めるもので、長文を書く場所ではない */
 export const MEMO_MAX_LENGTH = 500;
@@ -15,7 +14,5 @@ export const memoSchema = z.object({
 });
 export type MemoInput = z.infer<typeof memoSchema>;
 
-/** API（POST /api/memos）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
-export const createMemoRequestSchema = memoSchema.safeExtend({
-  id: uuidSchema.default(newId),
-});
+/** API（POST /api/memos）が受け取る追加の入力（`clientIdShape`） */
+export const createMemoRequestSchema = memoSchema.safeExtend(clientIdShape);

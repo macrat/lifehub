@@ -11,16 +11,18 @@ import { TimelineEntrySheet } from '../../features/timeline/components/TimelineE
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
 import { type TimelineEntry, useTimeline } from '../../features/timeline/queries.ts';
-import { countActiveFilters, timelineSearchSchema } from '../../features/timeline/search.ts';
+import {
+  TIMELINE_FILTER_CONDITIONS,
+  timelineSearchSchema,
+} from '../../features/timeline/search.ts';
 import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { FilterButton } from '../../lib/ui/FilterButton.tsx';
+import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
 import { ScrollAwayHeader } from '../../lib/ui/ScrollAwayHeader.tsx';
-import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
-import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
+import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 import { settingsNavItem } from '../../navigation.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
@@ -47,13 +49,8 @@ const MAX_WIDTH = 640;
 function HomePage() {
   const search = Route.useSearch();
   const isDesktop = useIsDesktop();
-  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
-    search,
-    countActiveFilters,
-  );
-  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
-  const panel = useToggle();
-  const timeline = useTimeline(listFilter);
+  const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
+  const timeline = useTimeline(filter.listFilter);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンとタイルから開く入力。世話はタイルの項目にチェックを入れて開く
   const adding = useOpenWith<AddFormKind>();
@@ -75,19 +72,21 @@ function HomePage() {
             <settingsNavItem.icon />
           </IconButton>
         )}
-        <SearchField label="記録を検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
-        </SearchField>
+        <FilterSearchField label="記録を検索" search={filter} />
       </AppBarContent>
 
       <Box sx={{ maxWidth: MAX_WIDTH, mx: 'auto' }}>
-        <ScrollAwayHeader pinned={panel.value}>
-          <TimelineFilterForm open={panel.value} filters={filters} onChange={setFilters} />
+        <ScrollAwayHeader pinned={filter.panelOpen}>
+          <TimelineFilterForm
+            open={filter.panelOpen}
+            filters={filter.filters}
+            onChange={filter.setFilters}
+          />
           <StatusCards onAddExpense={() => adding.open('expense')} onAddCare={addingCare.open} />
         </ScrollAwayHeader>
         <TimelineList
           timeline={timeline}
-          emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
+          emptyMessage={filter.filtering ? '一致する記録はありません' : 'まだ記録はありません'}
           onSelect={selection.open}
         />
       </Box>

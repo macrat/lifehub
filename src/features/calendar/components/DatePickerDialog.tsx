@@ -21,7 +21,7 @@ import {
   toMonthString,
   WEEKDAY_LABELS,
   weekDays,
-  weekdayColor,
+  weekdayLabelColor,
 } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import { useCalendarDays } from '../queries.ts';
@@ -150,7 +150,7 @@ function DayOptions({
             key={label}
             variant="caption"
             align="center"
-            sx={{ color: i < 5 ? 'text.secondary' : weekdayColor(i) }}
+            sx={{ color: weekdayLabelColor(i) }}
           >
             {label}
           </Typography>

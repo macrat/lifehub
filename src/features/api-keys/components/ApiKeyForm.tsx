@@ -10,7 +10,7 @@ type Props = {
 
 /** API キーの発行。決めるのは名前だけで、キーはサーバーが作る */
 export function ApiKeyForm({ onClose, onSubmit }: Props) {
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
+  const { errors, sheet } = useFormSubmit({
     schema: apiKeySchema,
     values: formValues,
     onSubmit,
@@ -18,13 +18,7 @@ export function ApiKeyForm({ onClose, onSubmit }: Props) {
   });
 
   return (
-    <RecordSheet
-      open={!submitted}
-      error={submitError}
-      onClose={onClose}
-      title="API キーを発行"
-      onSubmit={handleSubmit}
-    >
+    <RecordSheet {...sheet} onClose={onClose} title="API キーを発行">
       <TextField
         name="name"
         label="名前"

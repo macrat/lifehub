@@ -32,7 +32,7 @@ export function UserForm(props: CreateProps | EditProps) {
   // 色は登録時は省略可（サーバーが既存ユーザーと離れた色相を選ぶ）。編集時は今の色から始める
   const [hue, setHue] = useState<number | null>(props.mode === 'edit' ? props.user.hue : null);
 
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
+  const { errors, sheet } = useFormSubmit({
     schema: props.mode === 'create' ? createUserSchema : updateUserSchema,
     values: (fd) => ({ ...formValues(fd), hue: hue ?? undefined }),
     onSubmit: (data) =>
@@ -44,11 +44,9 @@ export function UserForm(props: CreateProps | EditProps) {
 
   return (
     <RecordSheet
-      open={!submitted}
-      error={submitError}
+      {...sheet}
       onClose={props.onClose}
       title={props.mode === 'create' ? 'ユーザーを登録' : 'ユーザーを編集'}
-      onSubmit={handleSubmit}
     >
       {errors._ && <Alert severity="error">{errors._}</Alert>}
       <TextField

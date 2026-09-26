@@ -1,15 +1,10 @@
 import { useCallback, useReducer } from 'react';
+import type { CalendarItem, CalendarTaskItem } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { defaultParticipants, type ItemFormValues } from '../events/form-values.ts';
-import {
-  type CalendarItem,
-  type CreateEventBody,
-  useCreateEvent,
-  useUpdateEvent,
-} from '../events/queries.ts';
+import { type CreateEventBody, useCreateEvent, useUpdateEvent } from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
 import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draft.ts';
-import type { TaskItem } from './task-draft.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
@@ -50,7 +45,7 @@ export type QuickProps = {
 };
 
 /** つまんだタスクを直している下書き。タスクのクイック入力（`QuickTaskForm`）はこの形だけを受け取る */
-export type TaskGridDraft = GridDraft & { item: TaskItem };
+export type TaskGridDraft = GridDraft & { item: CalendarTaskItem };
 
 export function isTaskDraft(draft: GridDraft): draft is TaskGridDraft {
   return draft.item?.kind === 'task';

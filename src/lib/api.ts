@@ -49,7 +49,7 @@ export async function sendWrite({ method, path, body }: WriteRequest): Promise<v
 }
 
 /** 成功（2xx）のレスポンス型だけを残す（Hono の FilterClientResponseByStatusCode 相当。同型は export されていない） */
-export type OkResponse<R> =
+type OkResponse<R> =
   R extends ClientResponse<infer T, infer S, infer F>
     ? S extends 200 | 201 | 204
       ? ClientResponse<T, S, F>

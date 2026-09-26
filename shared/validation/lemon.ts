@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { newId } from '../id.ts';
-import { dateStringSchema, instantSchema, uuidSchema } from './common.ts';
+import { clientIdShape, cursorShape, dateStringSchema, instantSchema } from './common.ts';
 
 /**
  * 世話の項目。並びは記録フォームのチェックボックスの並び（上段: 葉水・水やり・施肥、下段: 開花・落果・収穫）で、
@@ -52,10 +51,8 @@ export function withCareLogRules<
 export const careLogSchema = withCareLogRules(careLogFieldsSchema);
 export type CareLogInput = z.infer<typeof careLogSchema>;
 
-/** API（POST /api/lemon/logs）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
-export const createCareLogRequestSchema = careLogSchema.safeExtend({
-  id: uuidSchema.default(newId),
-});
+/** API（POST /api/lemon/logs）が受け取る追加の入力（`clientIdShape`） */
+export const createCareLogRequestSchema = careLogSchema.safeExtend(clientIdShape);
 
 /**
  * 記録の絞り込み。範囲は両端を含み、省略した端は制限しない（開始日だけ・終了日だけでも絞り込める）。
@@ -72,11 +69,6 @@ export const careLogFilterSchema = z.object({
 });
 export type CareLogFilter = z.infer<typeof careLogFilterSchema>;
 
-/**
- * 記録の 1 ページの取得（GET /api/lemon/logs）。before を省くと最新のページ、
- * 渡すとその日より前のページ（前のページの `nextCursor` をそのまま渡す）。
- */
-export const careLogListQuerySchema = careLogFilterSchema.extend({
-  before: dateStringSchema.optional(),
-});
+/** 記録の 1 ページの取得（GET /api/lemon/logs。`cursorShape`） */
+export const careLogListQuerySchema = careLogFilterSchema.extend(cursorShape);
 export type CareLogListQuery = z.infer<typeof careLogListQuerySchema>;

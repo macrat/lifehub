@@ -1,10 +1,10 @@
 import { hashPassword } from 'better-auth/crypto';
 import { getTableName, is, sql } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
-import { pickDistinctHue } from '../../shared/color.ts';
-import { newId } from '../../shared/id.ts';
-import { accounts, users } from '../features/users/schema.ts';
-import { db } from './db.ts';
+import { pickDistinctHue } from '../../../shared/color.ts';
+import { newId } from '../../../shared/id.ts';
+import { accounts, users } from '../../features/users/schema.ts';
+import { db } from './client.ts';
 import * as schema from './schema.ts';
 
 /**

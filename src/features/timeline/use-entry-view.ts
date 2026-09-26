@@ -1,12 +1,17 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
+import {
+  type CalendarEventItem,
+  type CalendarTaskItem,
+  isCompletedTask,
+} from '../../../shared/calendar.ts';
 import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
-import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
+import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -35,7 +40,7 @@ export type EntryView = {
 
 /** タイムラインの行（`TimelineRow`）の中身を、記録の種類ごとの規則で組み立てる */
 export function useEntryView(entry: TimelineEntry): EntryView {
-  const { label } = useUserLabels();
+  const { label, authorName } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
   const view = { time, task: null, struck: false, overdue: false, careTypes: [] };
@@ -50,7 +55,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         icon: ADD_KINDS.event.icon,
         task: item.kind === 'task' ? item : null,
         heading: item.title,
-        struck: item.kind === 'task' && item.completedAt !== null,
+        struck: isCompletedTask(item),
         overdue: item.kind === 'task' && item.isOverdue,
         body: item.note,
       };
@@ -58,12 +63,12 @@ export function useEntryView(entry: TimelineEntry): EntryView {
     case 'expense': {
       const { fromUserId, toUserId, amount, description } = entry.expense;
       // 名前と色の並びは立替の履歴と同じ「To ← From」。共有なら払った人だけ
-      const people = toUserId === null ? [fromUserId] : [toUserId, fromUserId];
+      const people = partiesInOrder({ toUserId, fromUserId });
       return {
         ...view,
         colors: people.map((id) => colorFor(id).fill),
         icon: ADD_KINDS.expense.icon,
-        heading: people.map(label).join(' ← '),
+        heading: people.map(label).join(PARTIES_SEPARATOR),
         body: `${formatYen(amount)} ${description}`,
       };
     }
@@ -77,7 +82,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         icon: ADD_KINDS.lemon.icon,
         // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す。
         // 人とキーの名前はちょうど一方だけを持つ（lemon_care_logs の CHECK 制約）
-        heading: apiKeyName ?? label(createdBy),
+        heading: apiKeyName ?? authorName(createdBy),
         careTypes,
         body: note,
       };
@@ -87,7 +92,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: [colorFor(entry.memo.createdBy).fill],
         icon: ADD_KINDS.memo.icon,
-        heading: label(entry.memo.createdBy),
+        heading: authorName(entry.memo.createdBy),
         body: entry.memo.body,
       };
   }

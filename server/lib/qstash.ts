@@ -2,7 +2,7 @@ import { Receiver } from '@upstash/qstash';
 import { env } from './env.ts';
 
 /**
- * QStash の配信の署名検証。QStash が呼ぶ入口（server/lib/qstash-routes.ts）がすべての配信に掛ける。
+ * QStash の配信の署名検証。QStash が呼ぶ入口（server/qstash.ts）がすべての配信に掛ける。
  * 予約する側は機能ごとに持つ（通知は server/features/notifications/publisher.ts）。署名検証は Preview でも行う。
  */
 export async function verifyQStashSignature(request: Request, rawBody: string): Promise<boolean> {

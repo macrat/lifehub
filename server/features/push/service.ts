@@ -11,6 +11,11 @@ import * as repository from './repository.ts';
  * repository を直接触ることになり、購読の行を書き換える場所が 2 つに分かれるため。
  */
 
+/** 購読に使う VAPID 公開鍵。設定されていない環境では null（購読しようとすると、画面が鍵が無いことを伝える） */
+export function vapidPublicKey(): string | null {
+  return env.VAPID_PUBLIC_KEY ?? null;
+}
+
 /** 端末の購読を登録する。同じ endpoint が既にあれば、今ログインしている人の購読として上書きする */
 export async function subscribe(
   userId: string,

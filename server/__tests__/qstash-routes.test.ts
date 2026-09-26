@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
 import { app } from '../app.ts';
-import { clearTables } from '../lib/test-db.ts';
+import { clearTables } from '../lib/db/test-db.ts';
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 

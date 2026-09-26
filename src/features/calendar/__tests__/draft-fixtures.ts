@@ -1,14 +1,8 @@
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import {
-  type AllDayDraft,
-  type DayGrab,
-  dayDraft,
-  type TimedDraft,
-  type TimeGrab,
-  type TimePoint,
-  timeDraft,
-} from '../draft.ts';
+import { type DayGrab, dayDraft } from '../day-draft.ts';
+import type { AllDayDraft, TimedDraft } from '../draft.ts';
+import { type TimeGrab, type TimePoint, timeDraft } from '../time-draft.ts';
 
 /** 下書き（`draft.ts`）のテストで共有する日付・下書き・予定と、なぞる操作の略記 */
 

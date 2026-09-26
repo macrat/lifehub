@@ -9,7 +9,7 @@
 
 `/?q=&since=YYYY-MM-DD&until=YYYY-MM-DD`（`src/routes/_authenticated/index.tsx`）。上から:
 
-- **AppBar**: 左端にスマホでは設定への歯車（PC はサイドナビに設定があるので出さない。同じ入口を 2 か所に出さない）、その右に検索窓（「記録を検索」）と絞り込みボタン。立替・レモンと同じ部品（`SearchField` / `FilterButton` / `FilterPanel`）。キーワードは全種類の記録の文字（予定・タスクのタイトルとメモ、立替の内容、レモンのメモと項目の名前、メモの本文）に部分一致で掛かり、絞り込みは記録の日付の範囲（`since` / `until`。`src/features/timeline/components/TimelineFilterForm.tsx`）。条件は `shared/validation/timeline.ts` の `timelineFilterSchema` で、サーバーが掛ける。日付で絞り込んでいる間は、一番上にまとめるタスクは置く日を持たないので出さない。
+- **AppBar**: 左端にスマホでは設定への歯車（PC はサイドナビに設定があるので出さない。同じ入口を 2 か所に出さない）、その右に検索窓（「記録を検索」）と絞り込みボタン。立替・レモンと同じ部品（`FilterSearchField` / `FilterPanel`）と状態（`useFilterSearch`）。キーワードは全種類の記録の文字（予定・タスクのタイトルとメモ、立替の内容、レモンのメモと項目の名前、メモの本文）に部分一致で掛かり、絞り込みは記録の日付の範囲（`since` / `until`。`src/features/timeline/components/TimelineFilterForm.tsx`）。条件は `shared/validation/timeline.ts` の `timelineFilterSchema` で、サーバーが掛ける。日付で絞り込んでいる間は、一番上にまとめるタスクは置く日を持たないので出さない。
 - **最新の状態**（`src/features/dashboard/components/StatusCards.tsx`）: 立替残高（`BalanceTile`）・葉水・水やり（`CareStatusTile`）のタイルを横に 3 つ。タイルは角だけなめらかな角丸（角 24px の超楕円でつなぐ。`src/lib/ui/squircle.ts` の `TILE_MASK`）で、大きさによらず角の丸みが揃う（レモン画面のタイルも同じ部品なので同じ形。読み込み中の骨組みも同じ形の `StatusTileSkeleton`）。立替残高を押すと立替の入力が、葉水・水やりを押すとその項目にチェックを入れたレモンの記録の入力が開く。絞り込みに関わらず今の状態を示す。下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる（`src/lib/ui/ScrollAwayHeader.tsx`）。絞り込みのフォームも同じ帯の中に開き、開いている間は隠れない。
 - **タイムライン**（`src/features/timeline/components/TimelineList.tsx`）: 上が新しく下が古い。下の端に近づくと古いほうのページを読み足す（無限スクロール）。最新のページは 24 時間先までに始まる予定を含み、それより先はまだ出さない。
 - **右下の追加ボタン**: 予定・タスク・立替・レモンに加えて、一番下に「メモ」。メモはスマホでも PC でもここから書く。
@@ -50,7 +50,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ## API
 
-`GET /api/timeline?q&since&until&before`（`server/features/timeline/`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service から記録を集めて並べる（カレンダーの `GET /api/calendar` と同じ位置付け）。
+`GET /api/timeline?q&since&until&before`（`server/features/timeline/`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/timeline-source.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `GET /api/calendar` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`sources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
 
 - ページの分け方は立替・レモンの履歴と同じで、日の途中では切らない。記録の種類ごとに新しいほうから 50 件の日時を集め、全体で 50 件目の日からをそのページにする。日数でなく件数で区切るので、記録の無い期間が続いても空のページを読み続けない。未完了のタスクは一番上か 24 時間以内にしか出ないので数えない。繰り返す予定は繰り返し元ごとに、続きの前の 50 回を展開して数える。
 - 最新のページ（`before` なし）の上端は今から 24 時間後、続きのページは `before` の日の始まり。`until` があればその日の終わりで頭打ち、`since` があればその日の始まりで止める。
@@ -59,6 +59,6 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ## キャッシュと書き込み
 
-- クライアントは立替・レモンの履歴と同じ `useHistory`（`src/lib/history.ts`）で読み、繋いだものを逆さにして出す。キーは `['timeline', 絞り込み]`（`src/features/timeline/query-key.ts`）。
-- タイムラインは全機能の記録を並べるので、どの機能の書き込みもこのキーを invalidate する（各機能の mutation の `keys`）。立替・レモン・メモの書き込みはタイムラインにも先回りして書き込む（`applyToTimeline`。自分の画面の履歴と同じ規則）。予定・タスクは繰り返しの回ごとに行があり、どの回が変わるかは展開してみないと分からないので、取り直しに任せる。例外はタスクの完了・取り消しで、回 1 つだけが変わるので先回りする（チェックを押したその場で見た目と位置が変わる）。
+- クライアントは立替・レモンの履歴と同じ `useHistory`（`src/lib/history.ts`）で読み、繋いだものを逆さにして出す。キーは `['timeline', 絞り込み]`（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）。
+- タイムラインは全機能の記録を並べるので、どの機能の書き込みもこのキーを invalidate する（各機能の mutation の `keys`）。立替・レモン・メモの書き込みはタイムラインにも先回りして書き込む（`src/features/timeline/queries.ts` の `timelineRecordCache`。自分の画面の履歴と同じ規則で、両方へ 1 度に書く）。予定・タスクは繰り返しの回ごとに行があり、どの回が変わるかは展開してみないと分からないので、取り直しに任せる。例外はタスクの完了・取り消しで、回 1 つだけが変わるので先回りする（チェックを押したその場で見た目と位置が変わる）。
 - ホームから立替・レモンの記録を直すときは、その機能の履歴を読んでいないことがあるので、編集前の値はタイムラインの控えから取る（残高や状況のタイルを先回りして直すのに使う）。

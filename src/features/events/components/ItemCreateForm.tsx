@@ -1,7 +1,6 @@
 import type { ItemFormValues } from '../form-values.ts';
 import { useCreateEvent } from '../queries.ts';
-import { EventForm } from './EventForm.tsx';
-import { TaskForm } from './TaskForm.tsx';
+import { ItemForm } from './ItemForm.tsx';
 
 type Props = {
   kind: 'event' | 'task';
@@ -15,6 +14,7 @@ type Props = {
  */
 export function ItemCreateForm({ kind, initial, onClose }: Props) {
   const createEvent = useCreateEvent();
-  const Form = kind === 'task' ? TaskForm : EventForm;
-  return <Form initial={initial} onSubmit={createEvent.mutateAsync} onClose={onClose} />;
+  return (
+    <ItemForm kind={kind} initial={initial} onSubmit={createEvent.mutateAsync} onClose={onClose} />
+  );
 }

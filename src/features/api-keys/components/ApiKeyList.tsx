@@ -4,17 +4,10 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
 import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
-import {
-  type ApiKey,
-  apiKeysQueryOptions,
-  type IssuedApiKey,
-  useCreateApiKey,
-  useRevokeApiKey,
-} from '../queries.ts';
+import type { ApiKey } from '../queries.ts';
+import { useApiKeyList } from '../use-api-key-list.ts';
 import { ApiKeyForm } from './ApiKeyForm.tsx';
 import { IssuedApiKeyDialog } from './IssuedApiKeyDialog.tsx';
 
@@ -23,56 +16,35 @@ import { IssuedApiKeyDialog } from './IssuedApiKeyDialog.tsx';
  * 何本でも発行し、渡した先ごとに失効させる（[docs/features/api-keys.md](../../../../docs/features/api-keys.md)）。
  */
 export function ApiKeyList() {
-  const keysQuery = useQuery(apiKeysQueryOptions);
-  const createKey = useCreateApiKey();
-  const revokeKey = useRevokeApiKey();
-  const creating = useToggle();
-  // 発行したキーは閉じるまでここだけが持つ（サーバーにもキャッシュにも残らない）
-  const issued = useOpenWith<IssuedApiKey>();
+  const list = useApiKeyList();
 
   return (
     <>
       <ListItem>
         <ListItemText primary="API キー" secondary="記録投入用の API（POST /api/records）に使う" />
       </ListItem>
-      <QueryView query={keysQuery} skeleton={<ListItemSkeleton />}>
+      <QueryView query={list.keysQuery} skeleton={<ListItemSkeleton />}>
         {(keys) =>
-          keys.map((key) => (
-            <KeyItem key={key.id} apiKey={key} onRevoke={() => revokeKey.mutate(key.id)} />
-          ))
+          keys.map((key) => <KeyItem key={key.id} apiKey={key} onRevoke={() => list.revoke(key)} />)
         }
       </QueryView>
       <ListItem>
-        <Button startIcon={<AddIcon />} onClick={creating.on}>
+        <Button startIcon={<AddIcon />} onClick={list.startCreate}>
           API キーを発行
         </Button>
       </ListItem>
-      {creating.value && (
-        <ApiKeyForm
-          onClose={creating.off}
-          onSubmit={async (input) => issued.open(await createKey.mutateAsync(input))}
-        />
-      )}
-      {issued.value && <IssuedApiKeyDialog apiKey={issued.value} onClose={issued.close} />}
+      {list.createForm && <ApiKeyForm {...list.createForm} />}
+      {list.issued && <IssuedApiKeyDialog apiKey={list.issued} onClose={list.closeIssued} />}
     </>
   );
 }
 
-/** 1 本の API キー。失効をその場で行う（キーそのものは保存していないので出せない） */
+/** 1 本の API キー。失効をその場で行う（確かめてから送る。キーそのものは保存していないので出せない） */
 function KeyItem({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: () => void }) {
   return (
     <ListItem
       secondaryAction={
-        <IconButton
-          edge="end"
-          aria-label={`${apiKey.name} を失効`}
-          onClick={() => {
-            if (
-              window.confirm(`「${apiKey.name}」を失効しますか？このキーでは記録できなくなります。`)
-            )
-              onRevoke();
-          }}
-        >
+        <IconButton edge="end" aria-label={`${apiKey.name} を失効`} onClick={onRevoke}>
           <DeleteIcon />
         </IconButton>
       }

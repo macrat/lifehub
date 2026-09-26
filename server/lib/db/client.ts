@@ -3,7 +3,7 @@ import { type SQL, sql } from 'drizzle-orm';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { drizzle as drizzleNodePg } from 'drizzle-orm/node-postgres';
 import type { PgColumn, PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
-import { env } from './env.ts';
+import { env } from '../env.ts';
 import * as schema from './schema.ts';
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;

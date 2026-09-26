@@ -17,17 +17,14 @@ type Props = {
  */
 export function CareLogForm({ initialCareTypes = DEFAULT_CARE_TYPES, onClose }: Props) {
   const logCare = useLogCare();
-  const { careTypes, toggleCareType, errors, submitError, submitted, handleSubmit } =
-    useCareLogForm({ initialCareTypes, onSubmit: logCare.mutateAsync, onSaved: onClose });
+  const { careTypes, toggleCareType, errors, sheet } = useCareLogForm({
+    initialCareTypes,
+    onSubmit: logCare.mutateAsync,
+    onSaved: onClose,
+  });
 
   return (
-    <RecordSheet
-      open={!submitted}
-      error={submitError}
-      onClose={onClose}
-      title="レモンの記録を追加"
-      onSubmit={handleSubmit}
-    >
+    <RecordSheet {...sheet} onClose={onClose} title="レモンの記録を追加">
       <CareLogFields careTypes={careTypes} onToggleCareType={toggleCareType} errors={errors} />
     </RecordSheet>
   );

@@ -2,10 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { type User, useUsers } from './queries.ts';
 
-type OwnerOption = { value: string | null; label: string };
-
 /**
- * ユーザーの表示名と選択肢。ユーザーはログイン中の人を先頭に並べる（自分も名前で出す）。
+ * ユーザーの表示名と一覧。ユーザーはログイン中の人を先頭に並べる（自分も名前で出す）。
  * label(null) は「共有」（立替の To）。
  */
 export function useUserLabels() {
@@ -20,10 +18,11 @@ export function useUserLabels() {
     return users.find((u) => u.id === userId)?.name ?? '';
   };
 
-  const options: OwnerOption[] = [
-    { value: null, label: '共有' },
-    ...users.map((u) => ({ value: u.id, label: u.name })),
-  ];
+  /**
+   * 記録を書いた人の名前。null（先回りで出した記録の、まだ分からない書いた人）は空にする
+   * （`label` の null は立替の「共有」で、書いた人には当てはまらない）
+   */
+  const authorName = (userId: string | null): string => (userId === null ? '' : label(userId));
 
-  return { users, label, options, meId: me?.id ?? null };
+  return { users, label, authorName, meId: me?.id ?? null };
 }

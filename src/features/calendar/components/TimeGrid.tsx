@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import { isCompletedTask } from '../../../../shared/calendar.ts';
+import { type CalendarItem, isCompletedTask } from '../../../../shared/calendar.ts';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { DAY_MINUTES } from '../../../../shared/constants.ts';
 import { minutesOfDay, today } from '../../../../shared/date.ts';
@@ -12,7 +12,7 @@ import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { useNow } from '../../../lib/use-now.ts';
 import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import { type Draft, sameOccurrence } from '../draft.ts';
 import { itemMask } from '../item-shape.ts';

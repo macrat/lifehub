@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseFrom, toCandidates } from '../parties.ts';
+import { chooseFrom, partiesInOrder, toCandidates } from '../parties.ts';
 
 describe('toCandidates', () => {
   it('From の人を外す', () => {
@@ -25,5 +25,12 @@ describe('chooseFrom', () => {
       toUserId: 'a',
       fromUserId: 'b',
     });
+  });
+});
+
+describe('partiesInOrder', () => {
+  it('共有なら払った人だけ、相手がいれば To・From の順', () => {
+    expect(partiesInOrder({ toUserId: null, fromUserId: 'a' })).toEqual(['a']);
+    expect(partiesInOrder({ toUserId: 'b', fromUserId: 'a' })).toEqual(['b', 'a']);
   });
 });

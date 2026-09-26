@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
-import { clearTables, createTestUser } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
 /** 名前と色を出す所は本人と一覧を必ず一緒に読むので、`/api/me` が 1 回で両方を返す */

@@ -4,7 +4,7 @@ import { closeNotice } from './ui/notice.ts';
 
 export type FormErrors = Record<string, string>;
 
-export type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
+type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
 
 /** Select の「なし／共有」を表す値。空文字だとラベルが選択済みに見えないため */
 export const SELECT_NONE = 'none';
@@ -62,6 +62,13 @@ type UseFormSubmitOptions<S extends z.ZodType> = {
   onSaved?: () => void;
 };
 
+/** フォームを入れた `RecordSheet` にそのまま渡す props（送信中は閉じた見た目・保存の失敗・送信） */
+export type FormSheetProps = {
+  open: boolean;
+  error: string | null;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+};
+
 /**
  * フォーム送信の共通の流れ: FormData → 検証 → 送信 → 保存できたら知らせる。
  * 送信すると同時に submitted を立ててダイアログを閉じた見た目にし（入力はそのまま残す）、
@@ -69,6 +76,7 @@ type UseFormSubmitOptions<S extends z.ZodType> = {
  * 楽観的に保存する書き込みは送り始めた時点で保存できたことになるので（`useOptimisticMutation`）、
  * onSaved はすぐに呼ばれ、開き直すのはサーバーの返事を待つ書き込み（ログイン、ユーザー、配信 URL）だけ。
  * フォームライブラリを入れない代わりの最小限の共通処理で、各フォームはフィールドの描画に専念する。
+ * シートに入れるフォームは `sheet` をそのまま `RecordSheet` に広げる（開閉・失敗・送信の結び方を 1 か所に置く）。
  */
 export function useFormSubmit<S extends z.ZodType>({
   schema,
@@ -101,5 +109,6 @@ export function useFormSubmit<S extends z.ZodType>({
     }
   };
 
-  return { errors, submitError, submitted, handleSubmit };
+  const sheet: FormSheetProps = { open: !submitted, error: submitError, onSubmit: handleSubmit };
+  return { errors, submitError, submitted, handleSubmit, sheet };
 }

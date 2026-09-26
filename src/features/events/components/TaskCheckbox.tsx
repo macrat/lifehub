@@ -1,8 +1,8 @@
 import Checkbox from '@mui/material/Checkbox';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { isCompletedTask } from '../../../../shared/calendar.ts';
-import { type CalendarTaskItem, useToggleCompletion } from '../queries.ts';
+import { type CalendarTaskItem, isCompletedTask } from '../../../../shared/calendar.ts';
+import { useToggleCompletion } from '../queries.ts';
 import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
 
 /**

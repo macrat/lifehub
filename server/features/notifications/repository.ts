@@ -1,5 +1,5 @@
 import { eq, lt } from 'drizzle-orm';
-import { db } from '../../lib/db.ts';
+import { db } from '../../lib/db/client.ts';
 import { users } from '../users/schema.ts';
 import { sentNotifications } from './schema.ts';
 

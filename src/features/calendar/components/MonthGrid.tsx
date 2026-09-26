@@ -1,11 +1,17 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import { formatDateWithYear, isToday, WEEKDAY_LABELS, weekdayColor } from '../../../lib/date.ts';
+import {
+  formatDateWithYear,
+  isToday,
+  WEEKDAY_LABELS,
+  weekdayLabelColor,
+} from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
@@ -52,7 +58,7 @@ const DAY_NUMBER_HEIGHT = 22;
  * - 項目はタップで詳細、長押しでつまんで編集（アプリ全体の「単押しは閲覧、長押しは編集」）
  * - 日のセルをなぞると終日の予定を追加できる。PC は空いている所をクリック、スマホは長押しから（タップは日表示へ）。
  *   出ている枠（終日・時間指定のどちらも帯で出す）に掛かるセルを押したときは、選び直さずに
- *   その枠をつまむ（長押しは待たない）。つまむ所の決め方と理由は `draft.ts` の `dayGrab`
+ *   その枠をつまむ（長押しは待たない）。つまむ所の決め方と理由は `day-draft.ts` の `dayGrab`
  * - 保存済みの予定は長押しでつまむと編集モードに入り、同じ指のまま日を動かせる。編集中は枠を帯で出し、
  *   元の項目は隠す（同じ予定が二重に出ないように）
  */
@@ -112,7 +118,7 @@ export function MonthGrid({
                 py: 0.25,
                 lineHeight: 1.4,
                 fontSize: '0.7rem',
-                color: i < 5 ? 'text.secondary' : weekdayColor(i),
+                color: weekdayLabelColor(i),
               }}
             >
               {label}

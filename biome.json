@@ -112,11 +112,7 @@
         "server/**/*.ts",
         "!**/repository.ts",
         "!**/schema.ts",
-        "!server/lib/db.ts",
-        "!server/lib/test-db.ts",
-        "!server/lib/history.ts",
-        "!server/lib/auth.ts",
-        "!server/app.ts",
+        "!server/lib/db/**",
         "!server/**/__tests__/**"
       ],
       "linter": {
@@ -132,13 +128,13 @@
                   },
                   {
                     "group": [
-                      "**/lib/db.ts",
-                      "./db.ts",
-                      "../db.ts",
+                      "**/lib/db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
                     "group": ["**/repository.ts", "!./repository.ts"],
@@ -166,17 +162,81 @@
                   },
                   {
                     "group": [
-                      "**/lib/db.ts",
-                      "./db.ts",
-                      "../db.ts",
+                      "**/lib/db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
                     "group": ["./repository.ts", "**/repository.ts"],
                     "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
+                  },
+                  {
+                    "group": ["@hono/zod-validator"],
+                    "message": "入力の検証は server/lib/validator.ts の validate を使う（失敗の応答を 1 つの形にそろえる）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["server/lib/**/*.ts", "!server/lib/db/**", "!server/**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
+                  },
+                  {
+                    "group": [
+                      "**/lib/db/**",
+                      "./db/**",
+                      "../db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
+                  },
+                  {
+                    "group": ["**/features/**", "!**/features/*/schema.ts"],
+                    "message": "lib は feature をまたぐ土台なので features を読まない（DB の表の定義 schema.ts だけは読める）。feature を組み立てるのは server/ 直下（app.ts・cron.ts・qstash.ts・mcp.ts）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["server/lib/db/**/*.ts", "!server/**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
+                  },
+                  {
+                    "group": ["**/features/**", "!**/features/*/schema.ts"],
+                    "message": "lib は feature をまたぐ土台なので features を読まない（DB の表の定義 schema.ts だけは読める）。feature を組み立てるのは server/ 直下（app.ts・cron.ts・qstash.ts・mcp.ts）"
                   }
                 ]
               }

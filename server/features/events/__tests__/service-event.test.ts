@@ -4,7 +4,7 @@ import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { newId } from '../../../../shared/id.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
-import { db } from '../../../lib/db.ts';
+import { db } from '../../../lib/db/client.ts';
 import { NotFoundError, ValidationError } from '../../../lib/errors.ts';
 import { events } from '../schema.ts';
 import {

@@ -62,7 +62,7 @@ const CORNER_OUTSIDE = [
   '0,0',
 ].join(' ');
 
-export type SmoothCornersOptions = {
+type SmoothCornersOptions = {
   /** 左端の角を丸めるか（既定は丸める） */
   roundStart?: boolean;
   /** 右端の角を丸めるか（既定は丸める） */

@@ -1,5 +1,5 @@
 import { app } from '../app.ts';
-import { createTestUser, TEST_PASSWORD, testEmail } from '../lib/test-db.ts';
+import { createTestUser, TEST_PASSWORD, testEmail } from '../lib/db/test-db.ts';
 
 /** サーバーのテストで、ログインして Cookie を得るための共通の手順 */
 

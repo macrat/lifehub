@@ -1,4 +1,4 @@
-import { type QueryClient, queryOptions } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { toDateString } from '../../../shared/date.ts';
 import {
@@ -7,19 +7,12 @@ import {
   careStatuses,
   sortCareLogs,
 } from '../../../shared/lemon.ts';
-import { careLogEntry, timelineEntryId } from '../../../shared/timeline.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
-import {
-  applyToHistories,
-  findInHistories,
-  type HistorySource,
-  useHistory,
-} from '../../lib/history.ts';
+import { type HistorySource, useHistory } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
-import { applyToTimeline, findTimelineRecord } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
 export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
@@ -53,6 +46,9 @@ const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
   sort: sortCareLogs,
 };
 
+/** 記録の履歴とタイムラインへの先回りの読み書き */
+const careLogCache = timelineRecordCache('lemon', careLogHistory);
+
 /** レモン画面の記録（`useHistory`） */
 export function useCareLogHistory(filter: CareLogFilter) {
   return useHistory(careLogHistory, filter);
@@ -72,11 +68,12 @@ export function useLogCare() {
         careTypes: input.careTypes,
         doneAt: input.doneAt,
         note: input.note ?? null,
-        // 画面から記録するのはログイン中の人（サーバーもセッションのユーザーを記録者にする）
+        // 画面から記録するのはログイン中の人（サーバーもセッションのユーザーを記録者にする）。
+        // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる（メモの先回りと同じ）
         createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? null,
         apiKeyName: null,
       };
-      applyLog(client, input.id, log);
+      careLogCache.apply(client, input.id, log);
       client.setQueryData(
         lemonStatusQueryOptions.queryKey,
         (statuses) => statuses && advanceStatus(statuses, log),
@@ -94,11 +91,10 @@ export function useUpdateCareLog() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
-      const prev =
-        findInHistories(client, careLogHistory, id) ?? findTimelineRecord(client, 'lemon', id);
+      const prev = careLogCache.find(client, id);
       if (!prev) return;
       const log = { ...prev, ...input, note: input.note ?? null };
-      applyLog(client, id, log);
+      careLogCache.apply(client, id, log);
       // 新しくなった日時で進むタイルだけを進める。項目を外したり日時を戻したりしたときに
       // どこまで戻るかは、読んでいない記録を含めて決まるので書き込み後の取り直しに任せる
       client.setQueryData(
@@ -117,16 +113,10 @@ export function useDeleteCareLog() {
     }),
     keys: WRITE_KEYS,
     apply: (client, id) => {
-      applyLog(client, id, null);
+      careLogCache.apply(client, id, null);
       // タイルがどこまで戻るかは読んでいない記録を含めて決まるので、書き込み後の取り直しに任せる
     },
   });
-}
-
-/** 記録 1 件の変化（削除は null）を、記録の履歴とタイムラインに同じ規則で書き込む */
-function applyLog(client: QueryClient, id: string, log: CareLog | null): void {
-  applyToHistories(client, careLogHistory, id, log);
-  applyToTimeline(client, timelineEntryId('lemon', id), log && careLogEntry(log));
 }
 
 /**

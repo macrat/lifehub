@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { isCompletedTask } from '../../../shared/calendar.ts';
+import { type CalendarItem, isCompletedTask } from '../../../shared/calendar.ts';
 import type { ItemFormValues } from './form-values.ts';
 import {
-  type CalendarItem,
   eventQueryOptions,
   useDeleteEvent,
   useToggleCompletion,
@@ -37,7 +36,7 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
 
   const completed = isCompletedTask(item);
   const initial: ItemFormValues = (fromMaster ? master.data : undefined) ?? item;
-  const [allDay, setAllDay] = useAllDay(initial);
+  const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const form = useItemForm({
     kind: item.kind,
     initial,

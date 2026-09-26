@@ -1,5 +1,5 @@
 import { addDays } from 'date-fns';
-import { startOfDay } from '../../../shared/date.ts';
+import { type InstantRange, startOfDay } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
@@ -15,7 +15,7 @@ const SENT_RETENTION_DAYS = 30;
 
 /** 指定期間の通知を列挙して QStash に予約する。予約先が無い環境（ローカル・Preview）では何もしない。 */
 export async function enqueueRange(
-  range: { from: Date; to: Date },
+  range: InstantRange,
   publisher: Publisher | null = createPublisher(),
 ): Promise<{ planned: number; published: number }> {
   const planned = await listNotifications(range, await repository.findAllDayNotifyMinutes());

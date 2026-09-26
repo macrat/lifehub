@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { db } from '../../lib/db.ts';
+import { db } from '../../lib/db/client.ts';
 import { type ApiKeyRow, apiKeys } from './schema.ts';
 
 export async function findByUser(userId: string): Promise<ApiKeyRow[]> {

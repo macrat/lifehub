@@ -1,10 +1,12 @@
 import { normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
-import type {
-  CompleteEventInput,
-  CreateEventInput,
-  OccurrenceTarget,
-  UpdateEventInput,
+import {
+  type CompleteEventInput,
+  type CreateEventInput,
+  type EventPatch,
+  eventRulesSchema,
+  type OccurrenceTarget,
+  type UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
@@ -15,27 +17,44 @@ import * as repository from './repository.ts';
 import type { NewEventRow } from './schema.ts';
 
 export { listItems, listOccurrences } from './occurrences.ts';
-export { listTimelineItems, recentTimelineInstants } from './timeline.ts';
+export { timelineSource } from './timeline.ts';
 
 export async function getEvent(id: string): Promise<EventMaster> {
   return toMaster(await findMaster(id));
 }
 
 /**
- * 一部の項目だけを変える更新（MCP）。fill は今の値（作成・更新の入力の形）を受け取り、変える項目を
- * 重ねた入力を返す。繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
+ * 一部の項目だけを変える更新（MCP）。patch で undefined の項目は今の値のまま（`mergePatch`）。
+ * 繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
  */
 export async function patchEvent(
   id: string,
   target: OccurrenceTarget,
-  fill: (current: CreateEventInput) => CreateEventInput,
+  patch: EventPatch,
   userId: string,
 ): Promise<EventMaster> {
   const master = await findMaster(id);
   const current = await currentInput(master, target);
-  const result = await applyUpdate(master, { ...fill(current), ...target }, userId);
+  const result = await applyUpdate(master, { ...mergePatch(current, patch), ...target }, userId);
   scheduleUpcoming();
   return result;
+}
+
+/**
+ * 今の値に、変える項目だけを重ねる（省いた項目 = undefined は今の値のまま）。
+ * 重ねた結果の組み合わせ（予定の開始と終了がそろっているか など）はここで確かめ、誤りは ValidationError の文で返す。
+ * WHY NOT 全項目の置き換え: 「タイトルだけ変えて」で繰り返しや場所を省くと、それらが消えてしまう。
+ */
+function mergePatch(current: CreateEventInput, patch: EventPatch): CreateEventInput {
+  const defined: Partial<CreateEventInput> = Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined),
+  );
+  const merged = { ...current, ...defined };
+  const result = eventRulesSchema.safeParse(merged);
+  if (!result.success) {
+    throw new ValidationError(result.error.issues.map((issue) => issue.message).join(' / '));
+  }
+  return merged;
 }
 
 /**
@@ -159,14 +178,14 @@ export async function deleteEvent(
   await repository.remove(id);
 }
 
-/** タスクの回を完了にする。完了日時は今 */
+/** タスクの回を完了にする。完了日時は押した時刻（画面が送る。`completeEventRequestSchema`）で、無ければ今 */
 export async function completeEvent(
   id: string,
   input: CompleteEventInput,
   userId: string,
-  now: Date = new Date(),
+  completedAt: Date = new Date(),
 ): Promise<void> {
-  await setCompletedAt(id, input, now, userId);
+  await setCompletedAt(id, input, completedAt, userId);
 }
 
 export async function uncompleteEvent(

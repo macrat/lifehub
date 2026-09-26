@@ -1,7 +1,8 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { SHARED } from '../../../../shared/validation/expenses.ts';
-import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
+import { ALL, optionOrUndefined } from '../../../lib/search.ts';
+import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
@@ -15,7 +16,8 @@ type Props = {
 /**
  * 立替の詳細な検索（AppBar の絞り込みボタンで開く）。金額の範囲・日付の範囲・To・From で履歴を絞り込む。
  * 内容のキーワードは AppBar の検索窓が持つのでここには無い。
- * 「検索」ボタンは置かず、入力するたびに絞り込む（一覧は手元にあるので取り直しは起きない）。
+ * 「検索」ボタンは置かず、入力するたびに絞り込む。絞り込みはサーバーが掛けるので（手元にあるのは読んだページだけ）、
+ * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useHistory`）。
  */
 export function ExpenseFilterForm({ open, filters, onChange }: Props) {
   const { users } = useUserLabels();
@@ -37,22 +39,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         onChange={(e) => onChange({ max: amountOrUndefined(e.target.value) })}
         slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' } }}
       />
-      <TextField
-        label="開始日"
-        type="date"
-        size="small"
-        value={filters.since ?? ''}
-        onChange={(e) => onChange({ since: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <TextField
-        label="終了日"
-        type="date"
-        size="small"
-        value={filters.until ?? ''}
-        onChange={(e) => onChange({ until: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+      <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
       {/* フォームと同じく To（貸方）を先、From（借方）を後に並べる */}
       <TextField
         label="To"

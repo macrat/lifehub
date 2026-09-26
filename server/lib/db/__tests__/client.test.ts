@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { users } from '../../features/users/schema.ts';
-import { db, runBatch } from '../db.ts';
+import { users } from '../../../features/users/schema.ts';
+import { db, runBatch } from '../client.ts';
 import { clearTables, createTestUser } from '../test-db.ts';
 
 /**

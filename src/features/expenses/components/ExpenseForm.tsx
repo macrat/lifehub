@@ -9,19 +9,13 @@ import { ExpenseFields } from './ExpenseFields.tsx';
  */
 export function ExpenseForm({ onClose }: { onClose: () => void }) {
   const addExpense = useAddExpense();
-  const { fields, submitError, submitted, handleSubmit } = useExpenseForm({
+  const { fields, sheet } = useExpenseForm({
     onSubmit: addExpense.mutateAsync,
     onSaved: onClose,
   });
 
   return (
-    <RecordSheet
-      open={!submitted}
-      error={submitError}
-      onClose={onClose}
-      title="立替を追加"
-      onSubmit={handleSubmit}
-    >
+    <RecordSheet {...sheet} onClose={onClose} title="立替を追加">
       <ExpenseFields {...fields} />
     </RecordSheet>
   );

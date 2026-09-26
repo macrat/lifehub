@@ -3,10 +3,11 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
 import { useState } from 'react';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import type { CalendarItem } from '../queries.ts';
+
 import { useItemDetail } from '../use-item-detail.ts';
-import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
+import { ItemFields, ScopeChip } from './EventFields.tsx';
 import { ItemCreateForm } from './ItemCreateForm.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
@@ -64,22 +65,16 @@ function ItemDetail({
       <RecordSheet
         title={item.title}
         struck={completed}
-        open={!form.submitted}
+        {...form.sheet}
         onClose={onClose}
         editing={fields !== null}
         onEdit={detail.startEdit}
         actions={actions}
-        onSubmit={form.handleSubmit}
-        error={form.submitError}
       >
         {fields ? (
           <>
             {detail.editScope && <ScopeChip scope={detail.editScope} />}
-            {item.kind === 'task' ? (
-              <TaskFormFields {...fields} autoFocus={false} />
-            ) : (
-              <EventFormFields {...fields} />
-            )}
+            <ItemFields kind={item.kind} {...fields} />
           </>
         ) : (
           <ItemDetailView item={item} />

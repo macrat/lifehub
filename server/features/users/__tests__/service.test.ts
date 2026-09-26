@@ -3,8 +3,8 @@ import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { newId } from '../../../../shared/id.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
+import { clearTables } from '../../../lib/db/test-db.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { clearTables } from '../../../lib/test-db.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };

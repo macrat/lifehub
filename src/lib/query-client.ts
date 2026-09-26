@@ -208,18 +208,50 @@ type OptimisticMutationOptions<TInput> = {
   queue?: boolean;
 };
 
+/** 書き込みの mutation（`useOptimisticMutation`）。TArgs は呼び出しの引数 */
+type OptimisticMutation<TArgs> = {
+  mutate: (args: TArgs, options?: MutateOptions<unknown, Error, Write<unknown>, Snapshot>) => void;
+  /**
+   * 保存が受け付けられるまで待つ（フォームはこれを待って閉じる）。
+   * 溜める書き込みは、送り始めた（オフラインなら端末に溜めた）時点で受け付けたものとして扱い、
+   * サーバーの返事を待たない。結果は楽観的更新で先に画面へ出ているので、待つ間フォームを
+   * 開いたままにすると、保存後の画面に入力の名残（カレンダーの下書きの枠など）が重なって見える。
+   * 失敗は既定の onError が画面を送信前へ戻し、通知で伝える。
+   * WHY NOT 失敗したらフォームを開き直す: そのためには返事が来るまでフォームを（隠して）残す必要があり、
+   * その間は入力の名残が画面に残る。検証はクライアントでも同じスキーマで済ませているので、
+   * サーバーに断られるのは稀で、打ち直しの手間より保存後の見た目が常に正しいことを取る。
+   * 溜めない書き込みはサーバーの結果が無ければ何も出せないので、返事を待ち、失敗はフォームに出す。
+   */
+  mutateAsync: (args: TArgs) => Promise<void>;
+};
+
 /**
  * 書き込みの mutation。送信を待たずに結果を先にキャッシュへ置くので、画面には即座に反映される
  * （フォームは送信と同時に閉じてよい）。失敗したら送信前の値に戻し、理由を通知で伝える。
  * 送信が終わったら keys を無効化してサーバーの値に合わせる（再取得の完了は待たない）。
  * オフラインでは送信せずに端末へ溜め、オンラインに戻ったときに溜めた順で送る。
  */
+export function useOptimisticMutation<TInput, TArgs>(
+  options: OptimisticMutationOptions<TInput> & {
+    /**
+     * 呼び出しの引数 → 入力。押した時にだけ決まる値（新しい行の id、完了日時）をここで 1 度だけ決めて足す。
+     * 決めた値は入力として端末に残るので、溜めた書き込みを後で送っても、送り直しても変わらない。
+     */
+    prepare: (args: TArgs) => TInput;
+  },
+): OptimisticMutation<TArgs>;
+export function useOptimisticMutation<TInput>(
+  options: OptimisticMutationOptions<TInput>,
+): OptimisticMutation<TInput>;
 export function useOptimisticMutation<TInput>({
   request,
   keys,
   apply,
   queue = true,
-}: OptimisticMutationOptions<TInput>) {
+  prepare = (args) => args as TInput,
+}: OptimisticMutationOptions<TInput> & {
+  prepare?: (args: unknown) => TInput;
+}): OptimisticMutation<unknown> {
   const queryClient = useQueryClient();
   const mutation = useMutation<unknown, Error, Write<TInput>, Snapshot>({
     mutationKey: queue ? WRITE_MUTATION_KEY : DIRECT_WRITE_MUTATION_KEY,
@@ -232,34 +264,18 @@ export function useOptimisticMutation<TInput>({
     },
   });
 
-  const write = (input: TInput): Write<TInput> => ({
-    request: request(input),
-    keys,
-    input,
-    author: signedInUserId(),
-  });
+  const write = (args: unknown): Write<TInput> => {
+    const input = prepare(args);
+    return { request: request(input), keys, input, author: signedInUserId() };
+  };
   return {
-    mutate: (
-      input: TInput,
-      options?: MutateOptions<unknown, Error, Write<TInput>, Snapshot>,
-    ): void => mutation.mutate(write(input), options),
-    /**
-     * 保存が受け付けられるまで待つ（フォームはこれを待って閉じる）。
-     * 溜める書き込みは、送り始めた（オフラインなら端末に溜めた）時点で受け付けたものとして扱い、
-     * サーバーの返事を待たない。結果は楽観的更新で先に画面へ出ているので、待つ間フォームを
-     * 開いたままにすると、保存後の画面に入力の名残（カレンダーの下書きの枠など）が重なって見える。
-     * 失敗は既定の onError が画面を送信前へ戻し、通知で伝える。
-     * WHY NOT 失敗したらフォームを開き直す: そのためには返事が来るまでフォームを（隠して）残す必要があり、
-     * その間は入力の名残が画面に残る。検証はクライアントでも同じスキーマで済ませているので、
-     * サーバーに断られるのは稀で、打ち直しの手間より保存後の見た目が常に正しいことを取る。
-     * 溜めない書き込みはサーバーの結果が無ければ何も出せないので、返事を待ち、失敗はフォームに出す。
-     */
-    mutateAsync: async (input: TInput): Promise<void> => {
+    mutate: (args, options) => mutation.mutate(write(args), options),
+    mutateAsync: async (args) => {
       if (queue) {
-        mutation.mutate(write(input));
+        mutation.mutate(write(args));
         return;
       }
-      await mutation.mutateAsync(write(input));
+      await mutation.mutateAsync(write(args));
     },
   };
 }
@@ -273,9 +289,10 @@ export function useOptimisticMutation<TInput>({
  */
 export function useCreateMutation<TInput>(
   options: OptimisticMutationOptions<TInput & { id: string }>,
-) {
-  const create = useOptimisticMutation(options);
-  return {
-    mutateAsync: (input: TInput): Promise<void> => create.mutateAsync({ ...input, id: newId() }),
-  };
+): Pick<OptimisticMutation<TInput>, 'mutateAsync'> {
+  const create = useOptimisticMutation({
+    ...options,
+    prepare: (input: TInput) => ({ ...input, id: newId() }),
+  });
+  return { mutateAsync: create.mutateAsync };
 }

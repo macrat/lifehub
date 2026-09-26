@@ -72,6 +72,16 @@ export async function requireSignedIn(client: QueryClient, href: string): Promis
 }
 
 /**
+ * ログインの後の移動先。戻り先（`redirect`）はガードが渡した location.href（パスと検索パラメータ）で、
+ * 無ければホーム。ルートのパスを受ける `to` ではなく、パスと検索パラメータをそのまま読む `href` で渡す
+ * （`to` に検索パラメータ付きの文字列を渡しても今の router は取り違えないが、それは型にも文書にも無い振る舞い）。
+ * ログイン画面のガード（済んでいれば戻す）とログインの成功の両方が使う。
+ */
+export function afterLogin(redirectTo: string | undefined): { href: string } {
+  return { href: redirectTo ?? '/' };
+}
+
+/**
  * ログイン。成功したら戻り先（無ければホーム）へ移る。失敗は理由を持った Error で投げる
  * （フォームが `useFormSubmit` でその場に出す）。
  */
@@ -101,7 +111,7 @@ export function useLogin(redirectTo: string | undefined) {
     }
     // ルートガードはキャッシュを見るので、遷移前にログイン後のユーザーを取り直しておく
     await resolveMe(queryClient, { revalidate: true });
-    await navigate({ to: redirectTo ?? '/' });
+    await navigate(afterLogin(redirectTo));
   };
 }
 

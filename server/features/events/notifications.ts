@@ -8,6 +8,7 @@ import {
   addDays,
   allDayDate,
   fromMinutesOfDay,
+  type InstantRange,
   startOfDate,
   toDateString,
 } from '../../../shared/date.ts';
@@ -94,7 +95,7 @@ function remindTargets(
  * 範囲の先頭を流用すると、配信時の再検証（範囲を配信予定時刻の前後 1 日に取る）で 1 日前の
  * 状態を見てしまい、リンク先の日付がずれる。
  */
-async function itemsAround(range: { from: Date; to: Date }, now: Date): Promise<CalendarItem[]> {
+async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
     {
@@ -142,7 +143,7 @@ function body(item: CalendarItem, edge: Edge): string {
 
 /** [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ） */
 export async function listNotifications(
-  range: { from: Date; to: Date },
+  range: InstantRange,
   notifyTimes: NotifyTimes,
 ): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];

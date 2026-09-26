@@ -1,5 +1,4 @@
-import TextField from '@mui/material/TextField';
-import { dateOrUndefined } from '../../../lib/search.ts';
+import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import type { TimelineFilters, TimelineFiltersPatch } from '../search.ts';
 
@@ -16,22 +15,7 @@ type Props = {
 export function TimelineFilterForm({ open, filters, onChange }: Props) {
   return (
     <FilterPanel open={open}>
-      <TextField
-        label="開始日"
-        type="date"
-        size="small"
-        value={filters.since ?? ''}
-        onChange={(e) => onChange({ since: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <TextField
-        label="終了日"
-        type="date"
-        size="small"
-        value={filters.until ?? ''}
-        onChange={(e) => onChange({ until: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+      <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
     </FilterPanel>
   );
 }

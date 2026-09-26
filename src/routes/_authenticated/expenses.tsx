@@ -8,14 +8,13 @@ import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFil
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
-import { countActiveFilters, expenseSearchSchema } from '../../features/expenses/search.ts';
+import { EXPENSE_FILTER_CONDITIONS, expenseSearchSchema } from '../../features/expenses/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { FilterButton } from '../../lib/ui/FilterButton.tsx';
+import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
-import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
 
@@ -36,14 +35,9 @@ export const Route = createFileRoute('/_authenticated/expenses')({
  */
 function ExpensesPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
-    search,
-    countActiveFilters,
-  );
-  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
-  const panel = useToggle();
+  const filter = useFilterSearch(search, EXPENSE_FILTER_CONDITIONS);
   const balanceQuery = useBalance();
-  const history = useExpenseHistory(listFilter);
+  const history = useExpenseHistory(filter.listFilter);
   const adding = useToggle();
   const selection = useRecordSelection<Expense>();
 
@@ -51,7 +45,11 @@ function ExpensesPage() {
 
   const header = (
     <>
-      <ExpenseFilterForm open={panel.value} filters={filters} onChange={setFilters} />
+      <ExpenseFilterForm
+        open={filter.panelOpen}
+        filters={filter.filters}
+        onChange={filter.setFilters}
+      />
       <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="body2" color="textSecondary">
           残高
@@ -69,16 +67,14 @@ function ExpensesPage() {
   return (
     <>
       <AppBarContent>
-        <SearchField label="立替を検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
-        </SearchField>
+        <FilterSearchField label="立替を検索" search={filter} />
       </AppBarContent>
 
       <ExpenseList
         history={history}
         header={header}
-        headerScrollsAway={!panel.value}
-        emptyMessage={filtering ? '一致する立替はありません' : 'まだ立替はありません'}
+        headerScrollsAway={!filter.panelOpen}
+        emptyMessage={filter.filtering ? '一致する立替はありません' : 'まだ立替はありません'}
         onSelect={selection.open}
       />
 

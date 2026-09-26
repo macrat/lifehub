@@ -1,9 +1,10 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { layoutLanes } from '../lane-layout.ts';
 import { useDayDrag } from '../use-day-drag.ts';
@@ -27,7 +28,7 @@ type Props = {
 
 /**
  * 週・日のタイムラインの終日欄。なぞると終日の予定を追加できる。
- * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルから（`draft.ts` の `dayGrab`）。
+ * 終日の帯は月表示と同じ見た目（つまむ丸は出さない）で、直すのは下のセルから（`day-draft.ts` の `dayGrab`）。
  * 終日の予定も長押しでつまむと編集モードに入り、そのまま日を動かせる（編集中は元の項目を隠して帯で出す）。
  */
 export function AllDayRow({

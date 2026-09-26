@@ -17,8 +17,8 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
-import { containsKeyword } from '../../lib/history.ts';
+import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db/client.ts';
+import { containsKeyword } from '../../lib/db/history.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */

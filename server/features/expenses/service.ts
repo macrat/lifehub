@@ -7,10 +7,11 @@ import {
   type ExpenseTotal,
 } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
+import { expenseEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import type { InstantRange } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
@@ -26,22 +27,12 @@ export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage
   return { items: items.map(toExpense), nextCursor };
 }
 
-/** タイムラインのページ分け: before より前の、新しいほうから limit 件の日時（shared/timeline.ts の `expenseEntry`） */
-export function recentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  return repository.findRecentTimelineInstants(before, q, limit);
-}
-
-/** タイムラインに並べる立替（置く日時が範囲の中のもの。キーワードは内容の部分一致） */
-export async function listForTimeline(
-  range: InstantRange,
-  q: string | undefined,
-): Promise<Expense[]> {
-  return (await repository.findInTimelineRange(range, q)).map(toExpense);
-}
+/** タイムラインに並べる立替（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */
+export const timelineSource: TimelineSource = {
+  recentInstants: repository.timeline.findRecentInstants,
+  entries: async (range, q) =>
+    (await repository.timeline.findInRange(range, q)).map((row) => expenseEntry(toExpense(row))),
+};
 
 /** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
 export async function getBalance(): Promise<Balance> {

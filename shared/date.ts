@@ -8,6 +8,12 @@ import type { DateString } from './types.ts';
  * 「日付（YYYY-MM-DD）」はすべて JST の暦日を指し、瞬間（Date / ISO 8601）との変換はここを通す。
  */
 
+/** 両端を含む JST 暦日の期間 */
+export type DateRange = { from: DateString; to: DateString };
+
+/** 瞬間の期間 [from, to)（to は含まない） */
+export type InstantRange = { from: Date; to: Date };
+
 /** 瞬間 → JST の暦日 */
 export function toDateString(date: Date): DateString {
   return format(new TZDate(date, TIME_ZONE), 'yyyy-MM-dd') as DateString;
@@ -52,10 +58,7 @@ export function fromMinutesOfDay(date: DateString, minutes: number): string {
  * 両端を含む JST 暦日の期間 → 瞬間の期間（from の 0:00 から、to の翌日 0:00 の手前まで。to は排他的）。
  * 日付で指定された期間を、日時の列（timestamptz）で絞るときに使う。
  */
-export function instantRange(range: { from: DateString; to: DateString }): {
-  from: Date;
-  to: Date;
-} {
+export function instantRange(range: DateRange): InstantRange {
   return { from: startOfDate(range.from), to: startOfDate(addDays(range.to, 1)) };
 }
 

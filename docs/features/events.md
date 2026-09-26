@@ -7,7 +7,7 @@
 ## 画面
 
 - カレンダー `/calendar`（月・週・日・リスト）に予定とタスクを並べて表示する。
-- 予定の全項目のフォームは `src/features/events/components/EventForm.tsx`、タスクは `TaskForm.tsx`。どちらも `RecordSheet` を `full` で出す（スマホは画面いっぱいのシート、PC は中央のダイアログ）。予定の追加はカレンダーの下書きから始まるので、`EventForm` は PC のクイック入力の「その他のオプション」から開く。項目の並び（`EventFields.tsx`）と組み立て（`use-item-form.ts`）は、追加でも詳細からの編集でもカレンダーのクイック入力でも同じものを使う。終日かどうかは `useItemForm` の外で持つ（フォームは `useAllDay`、クイック入力は下書き。[calendar.md](calendar.md)）。
+- 予定・タスクの全項目のフォームは `src/features/events/components/ItemForm.tsx`（種類は `kind`）。`RecordSheet` を `full` で出す（スマホは画面いっぱいのシート、PC は中央のダイアログ）。予定の追加はカレンダーの下書きから始まるので、予定のフォームは PC のクイック入力の「その他のオプション」から開く。項目の並び（`EventFields.tsx` の `ItemFields`。予定とタスクで違うのは日時の `WhenFields` と通知だけ）と組み立て（`use-item-form.ts`）は、追加でも詳細からの編集でもカレンダーのクイック入力でも同じものを使う。終日かどうかは `useItemForm` の外で持つ（フォームは `useAllDay`、クイック入力は下書き。[calendar.md](calendar.md)）。
   - 予定: タイトル、終日、開始日時、終了日時、参加者、場所、メモ、繰り返し（なし／毎日／毎週／毎月／毎年、UNTIL）、通知（なし／0/5/10/15/30/60/120/1440 分前。終日ではなし／当日／前日）。
     開始を動かすと、終了も長さを保ったまま同じだけ動く（9:00〜10:00 の開始を 9:30 にすると 10:30 まで。終日なら日数を保つ。`form-values.ts` の `endFollowsStart`）。Google カレンダーと同じで、時刻をずらすたびに終了を直す手間が無く、開始が終了を越えて保存できなくなることも無い。WHY NOT 終了を動かしたときに開始も動かす: 終了を動かすのは長さを変えたいときなので、開始はそのままにする。タスクの開始と期限は別々に決める物なので連動させない。
   - タスク: タイトル、終日、開始日時、期限日時（どちらも任意。終日では開始日・期限日）、参加者、場所、メモ、繰り返し、開始日時（日）に通知、期限日時（日）に通知。
@@ -58,7 +58,7 @@
 | POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |
 | DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` は更新と同じ |
-| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定 |
+| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定。完了日時（`completedAt`）は押した端末が決めて送る（オフラインで溜めた完了や送り直しでも押した時刻が残る。省略はサーバーの今で、MCP は省略する） |
 | DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
 
 - `this`: 回を実体化する（無ければ複製を作り、あれば更新）。`rrule` は持たない。

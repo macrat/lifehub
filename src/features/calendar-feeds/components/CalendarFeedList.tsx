@@ -7,19 +7,11 @@ import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
-import { useQuery } from '@tanstack/react-query';
 import { formatDateTime } from '../../../lib/date.ts';
 import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
 import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { useOpenWith, useToggle } from '../../../lib/ui/use-toggle.ts';
-import { useUserLabels } from '../../users/use-user-labels.ts';
-import {
-  type CalendarFeed,
-  calendarFeedsQueryOptions,
-  useCreateCalendarFeed,
-  useRevokeCalendarFeed,
-  useUpdateCalendarFeed,
-} from '../queries.ts';
+import type { CalendarFeed } from '../queries.ts';
+import { useCalendarFeedList } from '../use-calendar-feed-list.ts';
 import { CalendarFeedForm } from './CalendarFeedForm.tsx';
 
 /**
@@ -27,58 +19,38 @@ import { CalendarFeedForm } from './CalendarFeedForm.tsx';
  * 何本でも発行し、渡した先ごとに参加者を選んで失効させる（[docs/features/calendar-feeds.md](../../../../docs/features/calendar-feeds.md)）。
  */
 export function CalendarFeedList() {
-  const feedsQuery = useQuery(calendarFeedsQueryOptions);
-  const createFeed = useCreateCalendarFeed();
-  const updateFeed = useUpdateCalendarFeed();
-  const revokeFeed = useRevokeCalendarFeed();
-  const { users } = useUserLabels();
-  // 発行と編集は別の状態にする（ユーザーの管理画面と同じ持ち方）
-  const creating = useToggle();
-  const editing = useOpenWith<CalendarFeed>();
-  const editingFeed = editing.value;
+  const list = useCalendarFeedList();
 
   return (
     <>
       <ListItem>
         <ListItemText primary="ics の配信 URL" />
       </ListItem>
-      <QueryView query={feedsQuery} skeleton={<ListItemSkeleton />}>
+      <QueryView query={list.feedsQuery} skeleton={<ListItemSkeleton />}>
         {(feeds) =>
           feeds.map((feed) => (
             <FeedItem
               key={feed.id}
               feed={feed}
-              // 並びはユーザーの一覧に合わせる（保存の順ではなく、画面のどこでも同じ順で出す）
-              participants={users
-                .filter((user) => feed.participantIds.includes(user.id))
-                .map((user) => user.name)
-                .join('・')}
-              onEdit={() => editing.open(feed)}
-              onRevoke={() => revokeFeed.mutate(feed.id)}
+              participants={list.participantsOf(feed)}
+              onEdit={() => list.startEdit(feed)}
+              onRevoke={() => list.revoke(feed)}
             />
           ))
         }
       </QueryView>
       <ListItem>
-        <Button startIcon={<AddIcon />} onClick={creating.on}>
+        <Button startIcon={<AddIcon />} onClick={list.startCreate}>
           配信 URL を発行
         </Button>
       </ListItem>
-      {creating.value && (
-        <CalendarFeedForm onClose={creating.off} onSubmit={createFeed.mutateAsync} />
-      )}
-      {editingFeed && (
-        <CalendarFeedForm
-          feed={editingFeed}
-          onClose={editing.close}
-          onSubmit={(input) => updateFeed.mutateAsync({ ...input, id: editingFeed.id })}
-        />
-      )}
+      {list.createForm && <CalendarFeedForm {...list.createForm} />}
+      {list.editForm && <CalendarFeedForm {...list.editForm} />}
     </>
   );
 }
 
-/** 1 本の配信 URL。コピー・編集・失効をその場で行う（URL は長いので字面は出さない） */
+/** 1 本の配信 URL。コピー・編集・失効をその場で行う（URL は長いので字面は出さない。失効は確かめてから送る） */
 function FeedItem({
   feed,
   participants,
@@ -108,14 +80,7 @@ function FeedItem({
           <IconButton aria-label={`${feed.name} を編集`} onClick={onEdit}>
             <EditIcon />
           </IconButton>
-          <IconButton
-            edge="end"
-            aria-label={`${feed.name} を失効`}
-            onClick={() => {
-              if (window.confirm(`「${feed.name}」を失効しますか？この URL では読めなくなります。`))
-                onRevoke();
-            }}
-          >
+          <IconButton edge="end" aria-label={`${feed.name} を失効`} onClick={onRevoke}>
             <DeleteIcon />
           </IconButton>
         </Stack>

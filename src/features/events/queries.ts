@@ -10,10 +10,10 @@ import { useCallback, useEffect } from 'react';
 import {
   type CalendarItem,
   type CalendarPeriod,
-  type DateRange,
   inRange,
   occurrenceKey,
 } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
@@ -22,8 +22,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { applyToTimeline, findInTimeline, TIMELINE_QUERY_KEY } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
 import { type WriteTarget, writeTarget } from './recurrence-options.ts';
@@ -88,23 +87,27 @@ export function useDeleteEvent() {
 /** タスクの完了・完了取り消し。カレンダーのリスト・ホームのタイムラインの行と詳細から呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
   return useOptimisticMutation({
-    request: ({
-      id,
-      occurrenceStart,
+    // 完了日時は押した時刻。送る値と先に出す値に同じものを使い、溜めて後で送っても押した時刻が残る
+    prepare: ({
       completed,
+      ...target
     }: {
       id: string;
       occurrenceStart: string | null;
       completed: boolean;
-    }) => ({
-      method: completed ? ('POST' as const) : ('DELETE' as const),
+    }) => ({ ...target, completedAt: completed ? new Date().toISOString() : null }),
+    request: ({ id, occurrenceStart, completedAt }) => ({
+      method: completedAt ? ('POST' as const) : ('DELETE' as const),
       path: api.events[':id'].complete.$url({ param: { id } }).pathname,
-      body: { occurrenceStart: occurrenceStart ?? undefined },
+      body: {
+        occurrenceStart: occurrenceStart ?? undefined,
+        completedAt: completedAt ?? undefined,
+      },
     }),
     keys: WRITE_KEYS,
-    apply: (client, { id, occurrenceStart, completed }) => {
-      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed);
-      toggleOnTimeline(client, id, occurrenceStart, completed);
+    apply: (client, { id, occurrenceStart, completedAt }) => {
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
+      toggleOnTimeline(client, id, occurrenceStart, completedAt);
     },
   });
 }
@@ -117,21 +120,15 @@ function toggleOnTimeline(
   client: QueryClient,
   id: string,
   occurrenceStart: string | null,
-  completed: boolean,
+  completedAt: string | null,
 ): void {
   const entryId = occurrenceKey({ kind: 'task', id, occurrenceStart });
   const prev = findInTimeline(client, entryId);
   if (prev?.type !== 'event' || prev.item.kind !== 'task') return;
-  const completedAt = completed ? new Date().toISOString() : null;
   applyToTimeline(client, entryId, eventEntry({ ...prev.item, completedAt }));
 }
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----
-
-/** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
-export type { CalendarItem } from '../../../shared/calendar.ts';
-export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
-export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 /**
  * 1 か月（JST 暦月）分の項目と、その月の祝日・天気。キャッシュの単位を表示範囲ではなく暦月に固定する。

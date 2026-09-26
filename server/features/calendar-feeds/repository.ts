@@ -1,5 +1,5 @@
 import { and, asc, eq, getTableColumns, inArray, type SQL, sql } from 'drizzle-orm';
-import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db.ts';
+import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db/client.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */

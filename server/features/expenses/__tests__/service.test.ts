@@ -7,7 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;
@@ -160,6 +160,22 @@ describe('expenses service', () => {
       expect(first.nextCursor).toBe('2026-01-10');
       const second = await listExpenses({ before: day(10) });
       expect(second.items.map((e) => e.spentOn)).toEqual(['2026-01-01']);
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('絞り込んでいても、ページに入るのは条件に合う立替だけ', async () => {
+      // 条件に合う立替が 1 ページ（50 件）を超え、ページの範囲の日には合わない立替も混ざる
+      const days = Array.from({ length: 60 }, (_, i) => addDays(day(1), i));
+      for (const spentOn of days) {
+        await add({ spentOn, description: '食材' });
+        await add({ spentOn, description: '日用品' });
+      }
+      const first = await listExpenses({ q: '食材' });
+      expect(first.items).toHaveLength(50);
+      expect(first.items.every((e) => e.description === '食材')).toBe(true);
+      expect(first.nextCursor).toBe(days[10]);
+      const second = await listExpenses({ q: '食材', before: days[10] });
+      expect(second.items).toHaveLength(10);
       expect(second.nextCursor).toBeNull();
     });
 

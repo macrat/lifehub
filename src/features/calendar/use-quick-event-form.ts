@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useItemForm } from '../events/use-item-form.ts';
-import { draftFromInstants, draftText, draftValues, type EventDraft, withAllDay } from './draft.ts';
+import { type EventDraft, withAllDay } from './draft.ts';
+import { draftFromInstants, draftText, draftValues } from './event-draft.ts';
+import { expandValues, type Quick } from './quick-form.ts';
 import type { QuickProps } from './use-event-composer.ts';
 
 type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClose'>;
@@ -12,7 +14,7 @@ type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClos
  * いつも同じ下書きから決まるようにする（入力の側にも持つと、開いたままグリッドで別の種類の枠を
  * 選び直したときに食い違う）。
  */
-export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onClose }: Options) {
+export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onClose }: Options): Quick {
   const { range, item, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
   const initial = draftValues(range, participantIds, item);
@@ -41,6 +43,8 @@ export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onClose }: O
     form,
     initial,
     rangeText: draftText(range),
+    allDay: range.allDay,
+    expandValues: () => expandValues(formRef, form, initial),
     /**
      * 入力欄で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき。
      * 枠に出せない範囲（日をまたぐ時間指定など）なら枠はそのままにする

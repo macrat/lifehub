@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateStringSchema } from './common.ts';
+import { cursorShape, dateStringSchema } from './common.ts';
 
 /**
  * タイムライン（ホーム）の絞り込み。範囲は両端を含み、省略した端は制限しない。
@@ -14,11 +14,6 @@ export const timelineFilterSchema = z.object({
 });
 export type TimelineFilter = z.infer<typeof timelineFilterSchema>;
 
-/**
- * タイムラインの 1 ページの取得（GET /api/timeline）。before を省くと最新のページ（24 時間先まで）、
- * 渡すとその日より前のページ（前のページの `nextCursor` をそのまま渡す）。
- */
-export const timelineQuerySchema = timelineFilterSchema.extend({
-  before: dateStringSchema.optional(),
-});
+/** タイムラインの 1 ページの取得（GET /api/timeline。`cursorShape`。最新のページは 24 時間先まで） */
+export const timelineQuerySchema = timelineFilterSchema.extend(cursorShape);
 export type TimelineQuery = z.infer<typeof timelineQuerySchema>;

@@ -1,12 +1,17 @@
 import {
   type CalendarItem,
-  type DateRange,
   type EventMaster,
   type Occurrence,
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
-import { instantRange, toDateString, today } from '../../../shared/date.ts';
+import {
+  type DateRange,
+  type InstantRange,
+  instantRange,
+  toDateString,
+  today,
+} from '../../../shared/date.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -182,7 +187,7 @@ function differsFromRule(ctx: ExpandContext, row: EventWithParticipants): boolea
   );
 }
 
-function overlaps(startsAt: Date, endsAt: Date, range: { from: Date; to: Date }): boolean {
+function overlaps(startsAt: Date, endsAt: Date, range: InstantRange): boolean {
   if (startsAt.getTime() >= range.to.getTime()) return false;
   if (endsAt.getTime() > range.from.getTime()) return true;
   // 長さ 0 の予定は開始が範囲内なら含める
@@ -190,7 +195,7 @@ function overlaps(startsAt: Date, endsAt: Date, range: { from: Date; to: Date })
 }
 
 /** 予定: [from, to) と重なる発生 */
-function expandEvent(ctx: ExpandContext, range: { from: Date; to: Date }): Occurrence[] {
+function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const { master } = ctx;
   if (!master.startsAt || !master.endsAt) return [];
   const duration = master.endsAt.getTime() - master.startsAt.getTime();

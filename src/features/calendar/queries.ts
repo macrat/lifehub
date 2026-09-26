@@ -1,15 +1,10 @@
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import type { CalendarItem, CalendarPeriod } from '../../../shared/calendar.ts';
+import type { CalendarPeriod } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import { toMonthString } from '../../lib/date.ts';
 import { calendarMonthQueryOptions, useCalendarPeriods } from '../events/queries.ts';
-
-/** 項目を placementDate ごとにまとめる（順序はサーバーの並びを保つ） */
-export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
-  return Map.groupBy(items, (item) => item.placementDate);
-}
 
 /**
  * 日ごとの祝日（振替休日・国民の休日を含む）と天気。

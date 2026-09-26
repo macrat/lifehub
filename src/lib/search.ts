@@ -3,13 +3,34 @@ import { useCallback, useState } from 'react';
 import { z } from 'zod';
 import { isDateString } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
+import { useToggle } from './ui/use-toggle.ts';
 
 /** キーワード検索をする画面の検索パラメータ。空文字は付けない（検索していない状態は URL にも残さない） */
-export const keywordSearchSchema = z.object({ q: z.string().optional() });
+const keywordSearchSchema = z.object({ q: z.string().optional() });
 type KeywordSearch = z.infer<typeof keywordSearchSchema>;
 
 /**
+ * 絞り込みのある画面（ホーム・立替・レモン）の検索パラメータ。キーワード（q）と入力を開くしるし
+ * （`add`。`src/lib/add-search.ts` の `addSearchSchema`）に、API と同じ絞り込みのスキーマ（`filter`）を足す。
+ * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻り、規則を API と共有するので
+ * そのままサーバーに渡して絞り込ませる。q は検索窓が持つ（`useKeywordSearch`）ので、API の物ではなく
+ * ほかの検索する画面と同じ `keywordSearchSchema` の物にする。
+ * しるしは引数で受ける（`add-search.ts` がこの file を読むので、ここから読むと import が一巡する）。
+ */
+export function filterSearchSchema<A extends z.ZodType, S extends { q: z.ZodType } & z.ZodRawShape>(
+  add: A,
+  filter: z.ZodObject<S>,
+) {
+  const { q: _apiKeyword, ...shape } = filter.shape;
+  return keywordSearchSchema.extend({ add, ...shape });
+}
+
+/**
  * 検索キーワードの状態。初期値は URL の q（再読み込みや共有で絞り込みが戻る）。
+ * URL の q を読むのはマウントの 1 度だけで、その後は合わせ直さない。画面を開いている間に q を変えるのは
+ * ここの replaceState だけで（router を通さないので、画面が受け取る search.q は次の移動まで古いまま）、
+ * 絞り込みの変更も置き換えなので同じ画面の中で q の違う履歴は積まれず、別の q の URL から来るのは
+ * 画面を開き直したとき（マウントし直して読み直す）だけのため。
  *
  * 打つたびの反映は router の navigate ではなく history.replaceState で URL を差し替えるだけにする。
  * 表示する値は手元の状態なので、入力してから画面に出るまでが同じ描画で完結する。
@@ -92,18 +113,32 @@ export type FiltersPatch<S extends KeywordSearch> = {
 };
 
 /**
- * 絞り込みのある画面（立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
+ * 絞り込みボタンのバッジに数える条件。1 つの組が 1 つの条件で、範囲の上下のようにまとめて 1 つと数える項目を
+ * 同じ組に入れる（バッジの数字が入力欄の数ではなく条件の数になる）。キーワードは検索窓に見えているので数えない。
+ */
+export type FilterConditions<S> = readonly (readonly Exclude<keyof S, 'q' | 'add'>[])[];
+
+/** 効いている条件（`FilterConditions`）の数。組のどれか 1 つでも値があれば効いている */
+export function countActiveFilters<S>(search: S, conditions: FilterConditions<S>): number {
+  return conditions.filter((keys) => keys.some((key) => search[key] !== undefined)).length;
+}
+
+/**
+ * 絞り込みのある画面（ホーム・立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
  * 画面はここから受け取った値を描く。キーワードだけは打つたびに反映するので手元に持つ（`useKeywordSearch`）。
- * countActive は、キーワード以外で効いている絞り込みの数（絞り込みボタンのバッジ）を数える feature ごとの規則。
+ * AppBar の検索窓と絞り込みボタン（`FilterSearchField`）と、その下に開くフォームが同じものを読む。
+ * conditions は、絞り込みボタンのバッジに数える条件（`FilterConditions`）の feature ごとの規則。
  */
 export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
   search: S,
-  countActive: (search: S) => number,
+  conditions: FilterConditions<S>,
 ) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const filters: Filters<S> = { ...search, q: keyword };
-  const activeFilters = countActive(search);
+  const activeFilters = countActiveFilters(search, conditions);
   return {
     filters,
     /** サーバーに渡す絞り込み（取得のキーにもなる。`toListFilter`） */
@@ -115,5 +150,8 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
     activeFilters,
     /** 何かで絞り込んでいるか（空の一覧の文言を「一致するものが無い」にする） */
     filtering: keyword !== '' || activeFilters > 0,
+    /** 詳細な絞り込みのフォーム（`FilterPanel`）を開いているか。開閉は絞り込みボタン */
+    panelOpen: panel.value,
+    togglePanel: panel.toggle,
   };
 }

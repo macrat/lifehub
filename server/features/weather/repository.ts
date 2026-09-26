@@ -1,8 +1,7 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
-import type { DateRange } from '../../../shared/calendar.ts';
-import { instantRange } from '../../../shared/date.ts';
+import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { db, runBatch } from '../../lib/db.ts';
+import { db, runBatch } from '../../lib/db/client.ts';
 import { weather, weatherHourly } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;

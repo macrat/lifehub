@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useOpenWith } from './use-toggle.ts';
 
 /** 詳細を開いている記録と、どちらの顔（閲覧・編集）で開いたか */
-export type RecordSelection<T> = { record: T; editing: boolean };
+type RecordSelection<T> = { record: T; editing: boolean };
 
 /**
  * 一覧から記録を選んで詳細を開く画面の状態。アプリ全体で「単押しは閲覧、長押しは編集」なので、

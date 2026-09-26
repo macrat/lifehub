@@ -3,10 +3,10 @@ import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
+import { type CalendarItem, TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
-import type { CalendarItem } from '../queries.ts';
+
 import { describeRRule } from '../recurrence-options.ts';
 
 /** 予定・タスクの詳細の、読むだけの中身（日時・参加者・繰り返し・場所・メモ） */
