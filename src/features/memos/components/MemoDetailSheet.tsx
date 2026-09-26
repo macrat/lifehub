@@ -21,7 +21,7 @@ type Props = {
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props) {
-  const { label, meId } = useUserLabels();
+  const { authorName, meId } = useUserLabels();
   const updateMemo = useUpdateMemo();
   const deleteMemo = useDeleteMemo();
   const { body, setBody, errors, sheet } = useMemoForm({
@@ -45,7 +45,9 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
       ) : (
         <>
           <Typography color="textSecondary">
-            {label(memo.createdBy)}・{formatDateTime(memo.createdAt)}
+            {[authorName(memo.createdBy), formatDateTime(memo.createdAt)]
+              .filter(Boolean)
+              .join('・')}
           </Typography>
           <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {memo.body}

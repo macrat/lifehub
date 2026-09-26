@@ -5,7 +5,10 @@
 export type Memo = {
   id: string;
   body: string;
-  /** 書いた人 */
-  createdBy: string;
+  /**
+   * 書いた人。サーバーの値はいつも持つ。null は画面が先回りで出したメモで、ログイン中のユーザーが
+   * まだ手元に無いとき（取り直すと埋まる。レモンの記録の先回りと同じ）
+   */
+  createdBy: string | null;
   createdAt: string;
 };

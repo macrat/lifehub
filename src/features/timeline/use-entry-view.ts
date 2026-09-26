@@ -41,7 +41,7 @@ export type EntryView = {
 
 /** タイムラインの行（`TimelineRow`）の中身を、記録の種類ごとの規則で組み立てる */
 export function useEntryView(entry: TimelineEntry): EntryView {
-  const { label } = useUserLabels();
+  const { label, authorName } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
   const view = { time, task: null, struck: false, overdue: false, careTypes: [] };
@@ -83,7 +83,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         icon: ADD_KINDS.lemon.icon,
         // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す。
         // 人とキーの名前はちょうど一方だけを持つ（lemon_care_logs の CHECK 制約）
-        heading: apiKeyName ?? label(createdBy),
+        heading: apiKeyName ?? authorName(createdBy),
         careTypes,
         body: note,
       };
@@ -93,7 +93,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: [colorFor(entry.memo.createdBy).fill],
         icon: ADD_KINDS.memo.icon,
-        heading: label(entry.memo.createdBy),
+        heading: authorName(entry.memo.createdBy),
         body: entry.memo.body,
       };
   }

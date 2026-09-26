@@ -22,10 +22,10 @@ export function useAddMemo() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
-      const createdBy = client.getQueryData(meQueryOptions.queryKey)?.id;
-      if (!createdBy) return;
-      const memo = { id, body, createdBy, createdAt: new Date().toISOString() };
-      memoCache.apply(client, id, memo);
+      // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
+      // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
+      const createdBy = client.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+      memoCache.apply(client, id, { id, body, createdBy, createdAt: new Date().toISOString() });
     },
   });
 }

@@ -18,5 +18,11 @@ export function useUserLabels() {
     return users.find((u) => u.id === userId)?.name ?? '';
   };
 
-  return { users, label, meId: me?.id ?? null };
+  /**
+   * 記録を書いた人の名前。null（先回りで出した記録の、まだ分からない書いた人）は空にする
+   * （`label` の null は立替の「共有」で、書いた人には当てはまらない）
+   */
+  const authorName = (userId: string | null): string => (userId === null ? '' : label(userId));
+
+  return { users, label, authorName, meId: me?.id ?? null };
 }
