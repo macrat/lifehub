@@ -25,27 +25,21 @@ type Props = {
 export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }: Props) {
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
-  const detail = useRecordDetail({
-    initialEditing,
-    confirmDelete: 'この立替を削除しますか？',
-    remove: () => deleteExpense.mutate(expense.id),
-    onClose,
-  });
-  const { fields, submitError, submitted, handleSubmit } = useExpenseForm({
+  const { fields, sheet } = useExpenseForm({
     initial: expense,
     onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),
     onSaved: onClose,
   });
+  const detail = useRecordDetail({
+    initialEditing,
+    form: sheet,
+    confirmDelete: 'この立替を削除しますか？',
+    remove: () => deleteExpense.mutate(expense.id),
+    onClose,
+  });
 
   return (
-    <RecordSheet
-      title={expense.description}
-      open={!submitted}
-      onClose={onClose}
-      {...detail.sheet}
-      onSubmit={handleSubmit}
-      error={submitError}
-    >
+    <RecordSheet title={expense.description} {...detail.sheet}>
       {detail.editing ? (
         <ExpenseFields initial={expense} {...fields} />
       ) : (

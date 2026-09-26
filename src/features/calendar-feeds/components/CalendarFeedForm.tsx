@@ -25,7 +25,7 @@ type Props = {
  */
 export function CalendarFeedForm({ feed, onClose, onSubmit }: Props) {
   const { users } = useUserLabels();
-  const { errors, submitError, submitted, handleSubmit } = useFormSubmit({
+  const { errors, sheet } = useFormSubmit({
     schema: calendarFeedSchema,
     // チェックボックス群は同じ name の複数値なので、formValues の 1 つだけを上書きする
     values: (formData) => ({
@@ -37,13 +37,7 @@ export function CalendarFeedForm({ feed, onClose, onSubmit }: Props) {
   });
 
   return (
-    <RecordSheet
-      open={!submitted}
-      error={submitError}
-      onClose={onClose}
-      title={feed ? '配信 URL を編集' : '配信 URL を発行'}
-      onSubmit={handleSubmit}
-    >
+    <RecordSheet {...sheet} onClose={onClose} title={feed ? '配信 URL を編集' : '配信 URL を発行'}>
       <TextField
         name="name"
         label="名前"

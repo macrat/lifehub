@@ -25,7 +25,7 @@ type Props = {
  */
 export function TaskForm({ initial, scope, editing = false, onSubmit, onClose }: Props) {
   const [allDay, setAllDay] = useAllDay(initial);
-  const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
+  const { thisOnly, errors, sheet } = useItemForm({
     kind: 'task',
     initial,
     allDay,
@@ -36,12 +36,10 @@ export function TaskForm({ initial, scope, editing = false, onSubmit, onClose }:
 
   return (
     <RecordSheet
-      open={!submitted}
-      error={submitError}
+      {...sheet}
       onClose={onClose}
       full
       title={editing ? 'タスクを編集' : 'タスクを追加'}
-      onSubmit={handleSubmit}
     >
       <TaskFormFields
         initial={initial}

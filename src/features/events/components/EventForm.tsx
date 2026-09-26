@@ -22,7 +22,7 @@ type Props = {
  */
 export function EventForm({ initial, scope, title = '予定を追加', onSubmit, onClose }: Props) {
   const [allDay, setAllDay] = useAllDay(initial);
-  const { thisOnly, errors, submitError, submitted, handleSubmit } = useItemForm({
+  const { thisOnly, errors, sheet } = useItemForm({
     kind: 'event',
     initial,
     allDay,
@@ -32,14 +32,7 @@ export function EventForm({ initial, scope, title = '予定を追加', onSubmit,
   });
 
   return (
-    <RecordSheet
-      open={!submitted}
-      error={submitError}
-      onClose={onClose}
-      full
-      title={title}
-      onSubmit={handleSubmit}
-    >
+    <RecordSheet {...sheet} onClose={onClose} full title={title}>
       <EventFormFields
         initial={initial}
         errors={errors}

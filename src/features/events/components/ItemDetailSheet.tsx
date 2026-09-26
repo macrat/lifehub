@@ -64,13 +64,11 @@ function ItemDetail({
       <RecordSheet
         title={item.title}
         struck={completed}
-        open={!form.submitted}
+        {...form.sheet}
         onClose={onClose}
         editing={fields !== null}
         onEdit={detail.startEdit}
         actions={actions}
-        onSubmit={form.handleSubmit}
-        error={form.submitError}
       >
         {fields ? (
           <>

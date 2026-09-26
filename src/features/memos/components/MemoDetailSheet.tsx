@@ -24,28 +24,22 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
   const { label, meId } = useUserLabels();
   const updateMemo = useUpdateMemo();
   const deleteMemo = useDeleteMemo();
-  const detail = useRecordDetail({
-    initialEditing,
-    readOnly: memo.createdBy !== meId,
-    confirmDelete: 'このメモを削除しますか？',
-    remove: () => deleteMemo.mutate(memo.id),
-    onClose,
-  });
-  const { body, setBody, errors, submitError, submitted, handleSubmit } = useMemoForm({
+  const { body, setBody, errors, sheet } = useMemoForm({
     initialBody: memo.body,
     onSubmit: (input) => updateMemo.mutateAsync({ id: memo.id, ...input }),
     onSaved: onClose,
   });
+  const detail = useRecordDetail({
+    initialEditing,
+    readOnly: memo.createdBy !== meId,
+    form: sheet,
+    confirmDelete: 'このメモを削除しますか？',
+    remove: () => deleteMemo.mutate(memo.id),
+    onClose,
+  });
 
   return (
-    <RecordSheet
-      title="メモ"
-      open={!submitted}
-      onClose={onClose}
-      {...detail.sheet}
-      onSubmit={handleSubmit}
-      error={submitError}
-    >
+    <RecordSheet title="メモ" {...detail.sheet}>
       {detail.editing ? (
         <MemoField value={body} onChange={setBody} error={errors.body} />
       ) : (
