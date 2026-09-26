@@ -97,6 +97,17 @@ test('上が新しい一覧（ホーム）では、上へ引いても取り直�
   expect(fetched()).toBe(0);
 });
 
+test('予定のリストでは上端からも下端からも引いても取り直さない', async ({ page }) => {
+  // 期間を 1 か月に絞り、前後の月を読み足さずに上端と下端のどちらにもいる短い一覧にする
+  await page.goto('/calendar?view=list&date=2032-06-15&from=2032-06-01&to=2032-06-30');
+  await expect(page.getByRole('heading', { name: '6/15' })).toBeVisible();
+  const fetched = await fetchesFromNow(page, '/api/calendar');
+  await pull(page, 200);
+  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await quiet(page, fetched);
+  expect(fetched()).toBe(0);
+});
+
 test('ブラウザの引っ張って更新は止めてある', async ({ page }) => {
   const behavior = await page.evaluate(
     () => getComputedStyle(document.documentElement).overscrollBehaviorY,

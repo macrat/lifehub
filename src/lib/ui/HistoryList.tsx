@@ -23,6 +23,7 @@ export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
  * 今日と未来の境は描いた中身から探さず、`useHistory` がデータで分けた物を別々に描く（画面ごとの描き方に
  * 目印を付けて回らなくて済む）。
  * 読み込み中・失敗・0 件の出し方をここに置き、中身の行の描き方だけを画面ごとに渡す。
+ * 引っ張って更新は上端からに加えて、最新を見ている下端から上へ引いても取り直せる。
  */
 export function HistoryList<T>({
   history,
@@ -38,6 +39,7 @@ export function HistoryList<T>({
       initial={{ block: 'end', target: () => pastRef.current }}
       resetKey={history.resetKey}
       ready={history.ready}
+      pullToRefresh={['top', 'bottom']}
     >
       <QueryView query={history.query} skeleton={<ListSkeleton />}>
         {({ past, future }) =>

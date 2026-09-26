@@ -11,11 +11,13 @@ export const PULL_THRESHOLD = 80;
 export type PullEdge = 'top' | 'bottom';
 
 /**
- * 画面の中にあれば、下端から上へ引いても取り直せる、という印（要素に付ける属性）。
- * 上が古く下が新しい一覧（`InfiniteScroll`）が付ける。そこでは最新が下端にあり、最新を見ている所から
- * そのまま引けるようにする。上が新しい一覧（ホーム）では下端は古いほうの続きを読む所なので付けない
+ * 画面の中で引ける端を宣言する印（要素に付ける属性）。印が無い画面は上端からだけ引ける。
+ * 画面の中身（表示の切り替え）で変わる宣言に使う。ルートごとに決まる宣言は `staticData.noPullToRefresh`。
+ * 端の選び方の理由は付ける側（`HistoryList`、カレンダーの `ListView`）に書く。
  */
-export const PULL_FROM_BOTTOM = { 'data-pull-from-bottom': '' } as const;
+export function pullEdges(edges: readonly PullEdge[]) {
+  return { 'data-pull-edges': edges.join(' ') };
+}
 
 /** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
 const FAILED_NOTICE_MS = 3000;
@@ -78,21 +80,25 @@ function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
 
 /** 指を下ろした所から引ける端。どちらからも引けなければ空 */
 function pullableEdges(target: Element, area: HTMLElement): PullEdge[] {
-  const edges: PullEdge[] = ['top'];
-  if (area.querySelector('[data-pull-from-bottom]')) edges.push('bottom');
+  const declared = area.querySelector<HTMLElement>('[data-pull-edges]')?.dataset.pullEdges;
+  const edges: readonly PullEdge[] =
+    declared === undefined
+      ? ['top']
+      : (['top', 'bottom'] as const).filter((edge) => declared.split(' ').includes(edge));
   return edges.filter((edge) => canPull(target, area, edge));
 }
 
 /**
  * 引っ張って更新（ブラウザのものを止めて代わりに持つ理由は `PullToRefresh`）。
  * 画面が `staticData.noPullToRefresh` で断っている間は何もしない。
- * ページの上端から下へ引く。画面に `PULL_FROM_BOTTOM` の印があれば、下端から上へ引いても取り直す。
+ * ページの上端から下へ引く。画面に `pullEdges` の印があれば、そこで宣言した端から引ける
+ * （下端からなら上へ引く）。
  * ページが短くて上端と下端のどちらにもいるときは、指を動かした向きで決める。
  *
  * `area` は引ける範囲（アプリの枠）。指を下ろしたことはここで受けるので、body に出るダイアログや
  * 段を持たないシートの上の操作は届かない。
  * 枠の中に出る 2 段のシート（カレンダーのクイック入力）は、なぞりを自分で扱う（`touch-action: none`）ので
- * `canStartPull` が外す。どちらも、シートを下へなぞって閉じる操作が取り直しに化けない。
+ * `canPull` が外す。どちらも、シートを下へなぞって閉じる操作が取り直しに化けない。
  *
  * タッチは見るだけで取り上げない（passive）。ページのスクロールはブラウザの速い経路のままで、
  * ここは印を出すための距離を数えるだけ。
