@@ -209,6 +209,16 @@ export async function refreshWeather(): Promise<{ daily: number; hourly: number 
 }
 
 /**
+ * 画面に出す日ごとの天気の名前。気象庁の名前の変わり方の「後」を「のち」に開く（「晴後雨」→「晴のち雨」）。
+ * 前後の漢字に挟まれた「後」は 1 字の漢字に埋もれて読みにくく、天気予報の読み上げや新聞と同じ書き方にする。
+ * 開くのは前後に字のある「後」だけで、「午後」（「晴午後は雷雨」）は時刻なので開かない。
+ * WHY NOT `telops.ts` の表を書き換える: 表は気象庁の表の写しで、写しのままにしておくと突き合わせられる。
+ */
+export function readableLabel(label: string): string {
+  return label.replace(/(?<=[^午])後(?=.)/g, 'のち');
+}
+
+/**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
  * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、
  * 3 時間ごとは明日の終わり）まで。表に無い天気（気象庁が新しく足したものなど）は、アイコンを決められないので返さない。
@@ -219,7 +229,7 @@ export async function listWeather(range: DateRange): Promise<WeatherInRange> {
   const rows = await repository.findBetween(range);
   const daily = rows.daily.flatMap(({ code, ...values }) => {
     const telop = TELOPS[code];
-    return telop ? [{ ...values, icon: telop[0], label: telop[1] }] : [];
+    return telop ? [{ ...values, icon: telop[0], label: readableLabel(telop[1]) }] : [];
   });
   const hourly: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows.hourly) {

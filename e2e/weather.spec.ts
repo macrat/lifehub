@@ -16,7 +16,7 @@ const WEEK: DailyWeather[] = [
   {
     date: TOMORROW,
     icon: { symbol: 'cloud', change: 'later', next: 'rain' },
-    label: '曇後雨',
+    label: '曇のち雨',
     tempMax: 21,
     tempMin: 16,
     pop: 70,
@@ -40,7 +40,7 @@ async function openWeeklyFrom(page: Page, link: ReturnType<Page['getByRole']>) {
   await link.click();
   await expect(page).toHaveURL('/weather');
   // 明日の行に天気の名前と降水確率が並ぶ
-  await expect(page.getByRole('listitem').filter({ hasText: '70%' })).toContainText('曇後雨');
+  await expect(page.getByRole('listitem').filter({ hasText: '70%' })).toContainText('曇のち雨');
 }
 
 test('ホームの天気のタイルに今日か明日の天気が出て、押すと週間天気が開く', async ({ page }) => {
@@ -49,7 +49,7 @@ test('ホームの天気のタイルに今日か明日の天気が出て、押�
   const [label, name, temps] =
     minutesOfDay(new Date()) < 18 * 60
       ? ['今日', '晴', '25° / 14°']
-      : ['明日', '曇後雨', '21° / 16°'];
+      : ['明日', '曇のち雨', '21° / 16°'];
   const tile = page.getByRole('button', { name: new RegExp(`^${label}`) });
   await expect(tile).toContainText(name);
   await expect(tile).toContainText(temps);
@@ -61,7 +61,7 @@ test('予定画面の日付の横の天気を押すと週間天気が開く（�
   await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));
 
   await page.goto(`/calendar?view=month&date=${TODAY}`);
-  await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（曇後雨/ }));
+  await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（曇のち雨/ }));
 });
 
 test('週表示の見出しは、天気の外を押すと日表示へ移る', async ({ page }) => {

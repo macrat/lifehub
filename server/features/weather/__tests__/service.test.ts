@@ -6,6 +6,7 @@ import {
   listForecast,
   listWeather,
   parseForecast,
+  readableLabel,
   recordObservedTemps,
   refreshWeather,
 } from '../service.ts';
@@ -180,6 +181,13 @@ describe('weather service', () => {
     const range = await listWeather(SEP);
     expect(range.daily).toEqual([]);
     expect(range.hourly.map((w) => w.label)).toEqual(['晴れ']);
+  });
+
+  it('天気の名前の変わり方の「後」は「のち」に開き、「午後」は開かない', () => {
+    expect(readableLabel('晴後雨')).toBe('晴のち雨');
+    expect(readableLabel('朝の内雨後時々曇')).toBe('朝の内雨のち時々曇');
+    expect(readableLabel('晴午後は雷雨')).toBe('晴午後は雷雨');
+    expect(readableLabel('曇時々雨')).toBe('曇時々雨');
   });
 
   it('表に無い天気コードの日は返さない', async () => {
