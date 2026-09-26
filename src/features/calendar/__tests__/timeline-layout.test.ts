@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { layoutTimed, partitionTimeline, timedSpan } from '../timeline-layout.ts';
+import { layoutTimed, partitionTimeline, timedSpan, timelineSlot } from '../timeline-layout.ts';
+import { task } from './draft-fixtures.ts';
 
 const block = (key: string, startMin: number, endMin: number) => ({
   key,
@@ -131,5 +132,17 @@ describe('timedSpan', () => {
 
   it('時間軸に項目が無ければ null', () => {
     expect(timedSpan(new Map([['2026-09-21' as DateString, []]]))).toBeNull();
+  });
+});
+
+describe('timelineSlot', () => {
+  it('時刻のあるタスクは最小の長さのブロックにし、日の終わりは越えない', () => {
+    // 開始 9:00 JST（fixtures の task）
+    expect(timelineSlot(task)).toEqual({ startMin: 540, endMin: 570 });
+    // 23:50 JST 開始
+    expect(timelineSlot({ ...task, startsAt: '2031-06-05T14:50:00.000Z' })).toEqual({
+      startMin: 1430,
+      endMin: 1440,
+    });
   });
 });

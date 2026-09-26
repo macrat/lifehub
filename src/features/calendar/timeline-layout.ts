@@ -85,7 +85,8 @@ export function timelineSlot(item: CalendarItem): { startMin: number; endMin: nu
   const time = taskTimeOnPlacementDate(item);
   if (!time?.at) return null;
   const startMin = minutesOfDay(time.at);
-  return { startMin, endMin: startMin + MIN_BLOCK_MINUTES };
+  // 日の終わりを越えて描かない（つまんだときの枠 `taskFrame` と同じ）
+  return { startMin, endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES) };
 }
 
 /**
