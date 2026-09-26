@@ -6,7 +6,8 @@ import { recordViewTransitions, settle } from './view.ts';
 
 /**
  * 引っ張って更新（`src/lib/ui/PullToRefresh.tsx`）。ブラウザのものではなくアプリのものが動き、
- * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す
+ * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す。
+ * 上が古く下が新しい一覧（立替など）では、下端から上へ引いても取り直す
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -27,6 +28,14 @@ const FROM = { x: 200, y: 120 };
 /** FROM から下へなぞる */
 async function pull(page: Page, dy: number, options: { afterStart?: () => Promise<unknown> } = {}) {
   await touchDrag(page, FROM, { x: FROM.x, y: FROM.y + dy }, { steps: 10, ...options });
+}
+
+/** 下端から引くときに指を下ろす所。画面の下のほう（下部ナビのすぐ上） */
+const FROM_BOTTOM = { x: 200, y: 700 };
+
+/** FROM_BOTTOM から上へなぞる */
+async function pullUp(page: Page, dy: number) {
+  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - dy }, { steps: 10 });
 }
 
 test('ページの上で下へ引き切って離すと、読み込み直さずにデータを取り直す', async ({ page }) => {
@@ -76,6 +85,32 @@ test('オフラインと分からないまま取り直せなかったときは�
   await expect(notice).toBeVisible();
   // 3 秒ほどで消える（既定の 8 秒ではない）
   await expect(notice).toBeHidden({ timeout: 5000 });
+});
+
+test('下が新しい一覧では、下端で上へ引き切って離すとデータを取り直す', async ({ page }) => {
+  await page.goto('/expenses');
+  const fetched = await fetchesFromNow(page, '/api/expenses');
+  await pullUp(page, 200);
+  await expect.poll(fetched).toBeGreaterThan(0);
+});
+
+test('上が新しい一覧（ホーム）では、上へ引いても取り直さない', async ({ page }) => {
+  // タイムラインが短くページがスクロールしなくても、上端から引いたことにはならない
+  const fetched = await fetchesFromNow(page, TIMELINE);
+  await pullUp(page, 200);
+  await quiet(page, fetched);
+  expect(fetched()).toBe(0);
+});
+
+test('予定のリストでは上端からも下端からも引いても取り直さない', async ({ page }) => {
+  // 期間を 1 か月に絞り、前後の月を読み足さずに上端と下端のどちらにもいる短い一覧にする
+  await page.goto('/calendar?view=list&date=2032-06-15&from=2032-06-01&to=2032-06-30');
+  await expect(page.getByRole('heading', { name: '6/15' })).toBeVisible();
+  const fetched = await fetchesFromNow(page, '/api/calendar');
+  await pull(page, 200);
+  await pullUp(page, 200);
+  await quiet(page, fetched);
+  expect(fetched()).toBe(0);
 });
 
 test('ブラウザの引っ張って更新は止めてある', async ({ page }) => {

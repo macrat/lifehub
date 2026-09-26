@@ -19,7 +19,7 @@ import { type ReactNode, useRef } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { scrollToInitialPosition } from './initial-position.ts';
-import { BOTTOM_NAV_HEIGHT } from './layout.ts';
+import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
@@ -128,9 +128,7 @@ export function AppShell({ navItems, children }: Props) {
           // 要素をナビの裏ではなくそのすぐ上に置く（履歴の一覧の最初の位置など）
           <GlobalStyles
             styles={{
-              html: {
-                scrollPaddingBottom: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
-              },
+              html: { scrollPaddingBottom: BOTTOM_NAV_TOP },
             }}
           />
         )}

@@ -4,8 +4,20 @@ import { type RefObject, useEffect, useState } from 'react';
 import { useOnline } from '../online.ts';
 import { notify } from './notice.ts';
 
-/** 離したときに取り直す、指を下ろした所からの下向きの動き（px） */
+/** 離したときに取り直す、指を下ろした所からの引いた向きへの動き（px） */
 export const PULL_THRESHOLD = 80;
+
+/** 引く端。上端から下へ引くか、下端から上へ引くか */
+export type PullEdge = 'top' | 'bottom';
+
+/**
+ * 画面の中で引ける端を宣言する印（要素に付ける属性）。印が無い画面は上端からだけ引ける。
+ * 画面の中身（表示の切り替え）で変わる宣言に使う。ルートごとに決まる宣言は `staticData.noPullToRefresh`。
+ * 端の選び方の理由は付ける側（`HistoryList`、カレンダーの `ListView`）に書く。
+ */
+export function pullEdges(edges: readonly PullEdge[]) {
+  return { 'data-pull-edges': edges.join(' ') };
+}
 
 /** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
 const FAILED_NOTICE_MS = 3000;
@@ -23,44 +35,74 @@ declare module '@tanstack/react-router' {
   }
 }
 
+/** 端数の px（高解像度の画面や拡大）で端に届いていないと見誤らないための余裕 */
+const EDGE_SLOP = 1;
+
 /**
- * 縦のなぞりをブラウザに任せている要素か（`touch-action` が下向きの移動を許している）。
+ * 引く向きの縦のなぞりをブラウザに任せている要素か（`touch-action` がその向きの移動を許している）。
+ * 指を下へ動かすのは上端から引くとき（ページを上へ戻す向き）、上へ動かすのは下端から引くとき。
  * 許していない所（シートや予定のつまみなど、なぞりを自分で扱う所）ではブラウザもページを動かさず、
  * ブラウザの引っ張って更新も起きない。同じ宣言を読んで、それに揃える
  */
-function pansDown(el: Element): boolean {
-  const touchAction = getComputedStyle(el).touchAction;
-  return (
-    touchAction === 'auto' || touchAction === 'manipulation' || /pan-(y|down)/.test(touchAction)
-  );
+function pans(style: CSSStyleDeclaration, edge: PullEdge): boolean {
+  const { touchAction } = style;
+  const pan = edge === 'top' ? /pan-(y|down)/ : /pan-(y|up)/;
+  return touchAction === 'auto' || touchAction === 'manipulation' || pan.test(touchAction);
+}
+
+/** 要素がその端までスクロールし切っているか */
+function scrolledTo(el: Element, edge: PullEdge): boolean {
+  if (edge === 'top') return el.scrollTop <= 0;
+  return el.scrollTop + el.clientHeight >= el.scrollHeight - EDGE_SLOP;
 }
 
 /**
- * ページ全体を下へ引いてよい押し方か。ブラウザの引っ張って更新と同じく、
- * ページの一番上で、指の下に途中までスクロールした所が無く（カレンダーの時間軸などを上へ戻している
- * 最中に取り直しに化けない）、縦のなぞりを自分で扱う所でもないときだけ引ける。
+ * 指の下の要素がその端までスクロールし切っているか。スクロールしない要素は常に端にいる
+ * （下端では、はみ出した中身で scrollHeight が大きくなっていても見ない）
  */
-function canStartPull(
-  target: EventTarget | null,
-  area: HTMLElement,
-): target is HTMLElement | SVGElement {
-  // 指の下は HTML の要素か、アイコン（SVG）の中
-  if (!(target instanceof HTMLElement || target instanceof SVGElement)) return false;
-  if (window.scrollY > 0) return false;
+function atEdge(el: Element, style: CSSStyleDeclaration, edge: PullEdge): boolean {
+  return !/auto|scroll/.test(style.overflowY) || scrolledTo(el, edge);
+}
+
+/** ページがその端までスクロールし切っている端 */
+function pageEdges(): PullEdge[] {
+  return (['top', 'bottom'] as const).filter((edge) => scrolledTo(document.documentElement, edge));
+}
+
+/**
+ * ページ全体をその端から引いてよい押し方か。ブラウザの引っ張って更新と同じく、
+ * ページがその端までスクロールし切っていて、指の下に途中までスクロールした所が無く（カレンダーの時間軸などを
+ * 端へ戻している最中に取り直しに化けない）、縦のなぞりを自分で扱う所でもないときだけ引ける。
+ */
+function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
   for (let el: Element | null = target; el && el !== area; el = el.parentElement) {
-    if (el.scrollTop > 0 || !pansDown(el)) return false;
+    const style = getComputedStyle(el);
+    if (!atEdge(el, style, edge) || !pans(style, edge)) return false;
   }
   return true;
+}
+
+/** 指を下ろした所から引ける端。どちらからも引けなければ空 */
+function pullableEdges(target: Element, area: HTMLElement): PullEdge[] {
+  // ページの途中から始めるなぞり（ふつうのスクロール）は、印を探すより先にここで外す
+  const edges = pageEdges();
+  if (edges.length === 0) return edges;
+  const declared = area.querySelector<HTMLElement>('[data-pull-edges]')?.dataset.pullEdges;
+  const allowed = declared === undefined ? ['top'] : declared.split(' ');
+  return edges.filter((edge) => allowed.includes(edge) && canPull(target, area, edge));
 }
 
 /**
  * 引っ張って更新（ブラウザのものを止めて代わりに持つ理由は `PullToRefresh`）。
  * 画面が `staticData.noPullToRefresh` で断っている間は何もしない。
+ * ページの上端から下へ引く。画面に `pullEdges` の印があれば、そこで宣言した端から引ける
+ * （下端からなら上へ引く）。
+ * ページが短くて上端と下端のどちらにもいるときは、指を動かした向きで決める。
  *
  * `area` は引ける範囲（アプリの枠）。指を下ろしたことはここで受けるので、body に出るダイアログや
  * 段を持たないシートの上の操作は届かない。
  * 枠の中に出る 2 段のシート（カレンダーのクイック入力）は、なぞりを自分で扱う（`touch-action: none`）ので
- * `canStartPull` が外す。どちらも、シートを下へなぞって閉じる操作が取り直しに化けない。
+ * `canPull` が外す。どちらも、シートを下へなぞって閉じる操作が取り直しに化けない。
  *
  * タッチは見るだけで取り上げない（passive）。ページのスクロールはブラウザの速い経路のままで、
  * ここは印を出すための距離を数えるだけ。
@@ -88,8 +130,10 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
   const online = useOnline();
   const enabled = allowed && online;
   const queryClient = useQueryClient();
-  /** 下へ引いた距離。引いていない間は null */
+  /** 引いた距離。引いていない間は null */
   const [distance, setDistance] = useState<number | null>(null);
+  /** 最後に引いた端。離した後も、取り直している間の印をその端に出すために残す */
+  const [edge, setEdge] = useState<PullEdge>('top');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -110,10 +154,13 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
       const touch = event.touches[0];
       const target = event.target;
       if (event.touches.length !== 1 || !touch) return;
-      if (!canStartPull(target, root)) return;
+      // 指の下は HTML の要素か、アイコン（SVG）の中
+      if (!(target instanceof HTMLElement || target instanceof SVGElement)) return;
+      const edges = pullableEdges(target, root);
+      if (edges.length === 0) return;
       const origin = { x: touch.clientX, y: touch.clientY };
-      /** 下へ引いていると決まったか。決まるまでは縦横どちらのなぞりか分からない */
-      let pulling = false;
+      /** 引いている端。決まるまでは縦横どちらの、どちら向きのなぞりか分からない */
+      let pulling: PullEdge | null = null;
       let pulled = 0;
 
       const move = (event: TouchEvent) => {
@@ -126,14 +173,17 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
         const dy = touch.clientY - origin.y;
         if (!pulling) {
           if (Math.hypot(dx, dy) < DIRECTION_SLOP) return;
-          // 上へのなぞり（ページのスクロール）と横のなぞり（スワイプ）は引いたことにしない
-          if (dy <= Math.abs(dx)) {
+          // 下へ動かせば上端から、上へ動かせば下端から引いている。引けない端へのなぞり（ページのスクロール）と
+          // 横のなぞり（スワイプ）は引いたことにしない
+          const toward: PullEdge = dy > 0 ? 'top' : 'bottom';
+          if (Math.abs(dy) <= Math.abs(dx) || !edges.includes(toward)) {
             cancel();
             return;
           }
-          pulling = true;
+          pulling = toward;
+          setEdge(toward);
         }
-        pulled = Math.max(dy, 0);
+        pulled = Math.max(pulling === 'top' ? dy : -dy, 0);
         setDistance(pulled);
       };
 
@@ -174,7 +224,9 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
   }, [area, enabled, refreshing, queryClient]);
 
   return {
-    /** 下へ引いた距離（px）。引いていない間は null */
+    /** 引いている（取り直している）端。引いたことが無ければ上端 */
+    edge,
+    /** 引いた距離（px）。引いていない間は null */
     distance,
     /** 引き切って離し、取り直している最中か。オフラインになって取得が保留されている間は含めない */
     refreshing: refreshing && online,
