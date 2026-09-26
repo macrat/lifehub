@@ -14,6 +14,8 @@ export type CareLog = {
   note: string | null;
   /** 記録した人。API キーで入れた記録は誰が記録したか分からないので null */
   createdBy: string | null;
+  /** API キーで入れた記録の、そのキーの名前（記録した時点のもの）。画面・MCP から入れた記録は null */
+  apiKeyName: string | null;
 };
 
 /** 記録の名前。やったことが 1 つも無い記録はメモそのものなので、そう名乗る */

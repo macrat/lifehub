@@ -45,18 +45,29 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
 }
 
 /**
- * id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
- * userId は記録した人。API キーで入れた記録は誰が記録したか分からないので null
+ * 記録がどこから入ったか。画面・MCP からなら記録した人、API キーからならそのキーの名前。
+ * API キーで入れた記録は誰が記録したか分からない（キーを持つボタンは家の誰が押しても同じキーで送る）ので、
+ * 人の代わりにキーの名前を残す
  */
+export type CareLogSource = { userId: string } | { apiKeyName: string };
+
+/** id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function logCare(
   input: CareLogInput,
-  userId: string | null,
+  source: CareLogSource,
   id: string = newId(),
 ): Promise<CareLog> {
-  return toLog(await repository.insert({ ...input, id, createdBy: userId }));
+  return toLog(
+    await repository.insert({
+      ...input,
+      id,
+      createdBy: 'userId' in source ? source.userId : null,
+      apiKeyName: 'apiKeyName' in source ? source.apiKeyName : null,
+    }),
+  );
 }
 
-/** 全項目を置き換える。記録した人（createdBy）は変えない */
+/** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
 export async function updateLog(id: string, input: CareLogInput): Promise<void> {
   if (!(await repository.update(id, input))) throw new NotFoundError('記録が見つかりません');
 }
@@ -72,5 +83,6 @@ function toLog(row: LemonCareLogRow): CareLog {
     doneAt: row.doneAt.toISOString(),
     note: row.note,
     createdBy: row.createdBy,
+    apiKeyName: row.apiKeyName,
   };
 }

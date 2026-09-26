@@ -7,8 +7,6 @@ import { ADD_KINDS } from '../add/kinds.ts';
 import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
-import { CARE_TYPE_ICONS } from '../lemon/care-type-icons.tsx';
-import { leadingCareType } from '../lemon/care-type-priority.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -17,11 +15,11 @@ import type { TimelineEntry } from './queries.ts';
 export type EntryView = {
   /** 左の丸の背景。人の色（複数なら塗り分ける）、誰のものでもない記録は無彩色 */
   colors: string[];
-  /** 左の丸に置くアイコン。予定・立替・メモは追加ボタンと同じもの */
+  /** 左の丸に置くアイコン。追加ボタンと同じもの（レモンは下部ナビとも同じ） */
   icon: ComponentType<SvgIconProps>;
   /** タスクなら左の丸が完了のチェックボックスになる（中にチェックの印を出す） */
   task: CalendarTaskItem | null;
-  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは「レモン」、メモは書いた人 */
+  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人 */
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
@@ -70,14 +68,16 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'lemon': {
-      const { careTypes, note, createdBy } = entry.log;
-      const leading = leadingCareType(careTypes);
+      const { careTypes, note, createdBy, apiKeyName } = entry.log;
       return {
         ...view,
         // 記録した人の色。API キーで入れた記録は誰のものか分からないので無彩色
         colors: [colorFor(createdBy).fill],
-        icon: leading ? CARE_TYPE_ICONS[leading] : ADD_KINDS.lemon.icon,
-        heading: ADD_KINDS.lemon.label,
+        // 何をしたかは下の項目のアイコンの並びで分かるので、丸はレモンの記録であることだけを示す
+        icon: ADD_KINDS.lemon.icon,
+        // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す。
+        // 人とキーの名前はちょうど一方だけを持つ（lemon_care_logs の CHECK 制約）
+        heading: apiKeyName ?? label(createdBy),
         careTypes,
         body: note,
       };

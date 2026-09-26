@@ -26,6 +26,12 @@ export const lemonCareLogs = pgTable(
      * WHY: キーを持つボタンは家の誰が押しても同じキーで送るので、キーの持ち主を記録者にすると誤りになる
      */
     createdBy: uuid('created_by').references(() => users.id),
+    /**
+     * API キーで入れた記録の、そのキーの名前（記録した時点のもの）。画面から・MCP から入れた記録は null。
+     * 記録した人が分からない記録を、どこから入ったか（「玄関のボタン」など）で見分けるために出す。
+     * WHY NOT api_keys への参照: キーを失効すると行ごと消え、過去の記録がどこから入ったかまで失われる
+     */
+    apiKeyName: text('api_key_name'),
   },
   (table) => [
     // 項目の綴りは CARE_TYPES から組む（値を足したらここも必ず変わる）。
@@ -38,6 +44,11 @@ export const lemonCareLogs = pgTable(
     check(
       'lemon_care_logs_memo_has_note_check',
       sql`cardinality(${table.careTypes}) > 0 or (${table.note} is not null and ${table.note} <> '')`,
+    ),
+    // どこから入ったかは、記録した人か API キーの名前のちょうど一方（`CareLogSource`）
+    check(
+      'lemon_care_logs_source_check',
+      sql`num_nonnulls(${table.createdBy}, ${table.apiKeyName}) = 1`,
     ),
   ],
 );

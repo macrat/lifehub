@@ -33,6 +33,8 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
       inputSchema: logCareInputSchema,
     },
     async ({ doneAt, ...input }) =>
-      jsonResult(await service.logCare({ ...input, doneAt: doneAt ?? new Date() }, ctx.userId)),
+      jsonResult(
+        await service.logCare({ ...input, doneAt: doneAt ?? new Date() }, { userId: ctx.userId }),
+      ),
   );
 };

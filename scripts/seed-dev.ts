@@ -158,25 +158,28 @@ await expenses.addExpense(
 
 await lemon.logCare(
   { careTypes: ['harvest'], doneAt: dayAt(-60, 10), note: '黄色くなった実を3個' },
-  me.id,
+  { userId: me.id },
 );
 await lemon.logCare(
   { careTypes: ['mist', 'water', 'fertilize'], doneAt: dayAt(-20, 9), note: '緩効性肥料' },
-  me.id,
+  { userId: me.id },
 );
 await lemon.logCare(
   // やったことを 1 つも選ばない記録はメモそのもの
   { careTypes: [], doneAt: dayAt(-5, 12), note: '新芽が出てきた。葉の裏にアブラムシなし。' },
-  partner.id,
+  { userId: partner.id },
 );
-await lemon.logCare({ careTypes: ['mist', 'water'], doneAt: dayAt(-2, 8), note: null }, me.id);
+await lemon.logCare(
+  { careTypes: ['mist', 'water'], doneAt: dayAt(-2, 8), note: null },
+  { userId: me.id },
+);
 await lemon.logCare(
   {
     careTypes: ['mist', 'bloom', 'drop'],
     doneAt: dayAt(-1, 8),
     note: '花が咲いた。小さい実が2つ落ちていた',
   },
-  partner.id,
+  { userId: partner.id },
 );
 // メモの日時は書いた時刻（今）になる
 await memos.addMemo({ body: '週末は天気が良さそう。\nベランダの掃除をしたい。' }, partner.id);

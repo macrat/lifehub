@@ -74,6 +74,7 @@ export function useLogCare() {
         note: input.note ?? null,
         // 画面から記録するのはログイン中の人（サーバーもセッションのユーザーを記録者にする）
         createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? null,
+        apiKeyName: null,
       };
       applyLog(client, input.id, log);
       client.setQueryData(
