@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 
 const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSchema.parse(d));

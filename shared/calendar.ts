@@ -61,6 +61,8 @@ export type CalendarItem =
       dayCount: number;
     })
   | (Occurrence & { kind: 'task'; placementDate: DateString; isOverdue: boolean });
+export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
+export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 /**
  * 発生（繰り返しの 1 回）を指す鍵: 種別・id（繰り返し元、単発ならその行）・繰り返しの回の基準日時。

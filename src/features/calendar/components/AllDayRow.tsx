@@ -1,9 +1,10 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { layoutLanes } from '../lane-layout.ts';
 import { useDayDrag } from '../use-day-drag.ts';

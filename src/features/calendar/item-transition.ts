@@ -1,5 +1,4 @@
-import { occurrenceKey } from '../../../shared/calendar.ts';
-import type { CalendarItem } from '../events/queries.ts';
+import { type CalendarItem, occurrenceKey } from '../../../shared/calendar.ts';
 
 /**
  * 月・週・日・リストの表示を切り替えたときに、同じ項目がその場から動いて見えるようにする名前

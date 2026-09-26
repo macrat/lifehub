@@ -1,11 +1,15 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
-import { isCompletedTask } from '../../../shared/calendar.ts';
+import {
+  type CalendarEventItem,
+  type CalendarTaskItem,
+  isCompletedTask,
+} from '../../../shared/calendar.ts';
 import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { ADD_KINDS } from '../add/kinds.ts';
-import type { CalendarEventItem, CalendarTaskItem } from '../events/queries.ts';
+
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';

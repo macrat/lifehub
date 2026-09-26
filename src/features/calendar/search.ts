@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { groupByDate, isCompletedTask } from '../../../shared/calendar.ts';
+import { type CalendarItem, groupByDate, isCompletedTask } from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -12,7 +12,7 @@ import {
   type Filters,
   type FiltersPatch,
 } from '../../lib/search.ts';
-import type { CalendarItem } from '../events/queries.ts';
+
 import { type CalendarView, viewSchema } from './view.ts';
 
 /**

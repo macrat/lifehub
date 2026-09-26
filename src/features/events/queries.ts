@@ -127,11 +127,6 @@ function toggleOnTimeline(
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----
 
-/** 項目の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/calendar.ts） */
-export type { CalendarItem } from '../../../shared/calendar.ts';
-export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
-export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
-
 /**
  * 1 か月（JST 暦月）分の項目と、その月の祝日・天気。キャッシュの単位を表示範囲ではなく暦月に固定する。
  * 月・週・日・リストのどの表示も、同じ日を見ているなら同じ月のキャッシュに当たるので、

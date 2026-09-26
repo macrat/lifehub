@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import { AddForm } from '../../features/add/components/AddForm.tsx';
 import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
@@ -10,7 +11,6 @@ import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
-import type { CalendarItem } from '../../features/events/queries.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';

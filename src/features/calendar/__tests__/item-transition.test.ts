@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { itemTransitionName } from '../item-transition.ts';
 
 /** 予定の 1 日分。複数日は dayIndex / dayCount で日ごとに 1 件 */

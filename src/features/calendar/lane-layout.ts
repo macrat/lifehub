@@ -1,6 +1,6 @@
-import { isCompletedTask, occurrenceKey } from '../../../shared/calendar.ts';
+import { type CalendarItem, isCompletedTask, occurrenceKey } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { CalendarItem } from '../events/queries.ts';
+
 import type { ItemEnds } from './item-shape.ts';
 
 /**

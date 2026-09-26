@@ -1,11 +1,12 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { firstDayOfMonth, formatMonth } from '../../../lib/date.ts';
 import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { type CalendarItem, useCalendarItems } from '../../events/queries.ts';
+import { useCalendarItems } from '../../events/queries.ts';
 import { type ListFilters, type ListFiltersPatch, listSections } from '../search.ts';
 import { useListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';

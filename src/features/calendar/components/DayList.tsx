@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { itemKey } from '../lane-layout.ts';
 import { ItemCard } from './ItemCard.tsx';
 

@@ -1,7 +1,8 @@
 import Box from '@mui/material/Box';
 import { useMemo } from 'react';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import type { Draft } from '../draft.ts';
 import { partitionTimeline } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';

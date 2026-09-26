@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import {
@@ -10,7 +11,7 @@ import {
   weekdayLabelColor,
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import type { CalendarItem } from '../../events/queries.ts';
+
 import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
