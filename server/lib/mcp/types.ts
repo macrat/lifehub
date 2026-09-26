@@ -5,7 +5,7 @@ export type McpContext = {
   userId: string;
 };
 
-/** 各 feature の mcp.ts が export する登録関数。server/lib/mcp/server.ts が列挙する。 */
+/** 各 feature の mcp.ts が export する登録関数。server/mcp.ts が列挙する。 */
 export type ToolRegistrar = (server: McpServer, ctx: McpContext) => void;
 
 /** ツールの結果をテキスト（JSON）で返す */

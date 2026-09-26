@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import { notificationRefSchema } from '../features/events/notifications.ts';
-import { deliver } from '../features/notifications/service.ts';
-import type { AppEnv } from './app-env.ts';
-import { verifyQStashSignature } from './qstash.ts';
-import { validate } from './validator.ts';
+import { notificationRefSchema } from './features/events/notifications.ts';
+import { deliver } from './features/notifications/service.ts';
+import type { AppEnv } from './lib/app-env.ts';
+import { verifyQStashSignature } from './lib/qstash.ts';
+import { validate } from './lib/validator.ts';
 
 const deliverBodySchema = z.object({ key: z.string().min(1), ref: notificationRefSchema });
 

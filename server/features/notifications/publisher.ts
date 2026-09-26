@@ -4,7 +4,7 @@ import { env, isProduction, resolveBaseUrl } from '../../lib/env.ts';
 import type { PlannedNotification } from '../events/notifications.ts';
 
 /**
- * 通知の QStash への予約。予約した時刻に呼ばれる入口は server/lib/qstash-routes.ts（署名検証は server/lib/qstash.ts）。
+ * 通知の QStash への予約。予約した時刻に呼ばれる入口は server/qstash.ts（署名検証は server/lib/qstash.ts）。
  * 予約は本番（VERCEL_ENV=production）かつトークンがあるときだけ行う（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。
  */
 export type Publisher = {

@@ -190,6 +190,80 @@
       }
     },
     {
+      "includes": [
+        "server/lib/**/*.ts",
+        "!server/lib/db.ts",
+        "!server/lib/test-db.ts",
+        "!server/lib/history.ts",
+        "!server/lib/auth.ts",
+        "!server/lib/schema.ts",
+        "!server/lib/mcp/schema.ts",
+        "!server/**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
+                  },
+                  {
+                    "group": [
+                      "**/lib/db.ts",
+                      "./db.ts",
+                      "../db.ts",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                  },
+                  {
+                    "group": ["**/features/**", "!**/features/*/schema.ts"],
+                    "message": "lib は feature をまたぐ土台なので features を読まない（DB の表の定義 schema.ts だけは読める）。feature を組み立てるのは server/ 直下（app.ts・cron.ts・qstash.ts・mcp.ts）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "server/lib/db.ts",
+        "server/lib/test-db.ts",
+        "server/lib/history.ts",
+        "server/lib/auth.ts",
+        "server/lib/schema.ts",
+        "server/lib/mcp/schema.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/src/**"],
+                    "message": "サーバーはクライアントのコードを読まない（共有するものは shared/ に置く）"
+                  },
+                  {
+                    "group": ["**/features/**", "!**/features/*/schema.ts"],
+                    "message": "lib は feature をまたぐ土台なので features を読まない（DB の表の定義 schema.ts だけは読める）。feature を組み立てるのは server/ 直下（app.ts・cron.ts・qstash.ts・mcp.ts）"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["src/**"],
       "linter": {
         "rules": {

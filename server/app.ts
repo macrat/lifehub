@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
+import { cronRoutes } from './cron.ts';
 import { apiKeysRoutes } from './features/api-keys/routes.ts';
 import { calendarRoutes } from './features/calendar/routes.ts';
 import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
@@ -16,12 +17,11 @@ import { usersRoutes } from './features/users/routes.ts';
 import { getMe } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
-import { cronRoutes } from './lib/cron.ts';
 import { db } from './lib/db.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
-import { mcpRoutes } from './lib/mcp/routes.ts';
 import { requireSession } from './lib/middleware.ts';
-import { qstashRoutes } from './lib/qstash-routes.ts';
+import { mcpRoutes } from './mcp.ts';
+import { qstashRoutes } from './qstash.ts';
 
 /**
  * `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。

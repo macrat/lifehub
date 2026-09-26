@@ -59,7 +59,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
-  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。
+  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めず、入力の検証は `lib/validator.ts` の `validate` だけを使う。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppType` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
@@ -86,7 +86,10 @@ src/                          # クライアント（Vite + React）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
 server/                       # サーバー（Hono）
-  app.ts                      # ルート登録・ミドルウェア（認証）。Cron と QStash の入口は lib/cron.ts・lib/qstash-routes.ts がそれぞれ検証する
+  app.ts                      # ルート登録・ミドルウェア（認証）。ここと下の 3 つが各 feature を組み立てる所
+  cron.ts                     # Vercel Cron の入口（/api/cron/*。Cron secret を全体に 1 度だけ検査する）
+  qstash.ts                   # QStash の配信コールバックの入口（/api/qstash/*。署名を全体に 1 度だけ検査する）
+  mcp.ts                      # MCP の入口（/api/mcp。OAuth で保護）と、全 feature の mcp.ts の登録
   dev.ts                      # ローカル起動用（@hono/node-server）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
@@ -97,11 +100,11 @@ server/                       # サーバー（Hono）
     notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
     __tests__/
-  lib/
+  lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
     middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の全表の消去とテスト用ユーザー）
-    mcp/（server.ts = 全 feature の mcp.ts を登録）  qstash.ts（QStash の署名検証）  cron.ts（Vercel Cron の入口）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
-    recurrence/（RRULE 展開）  qstash-routes.ts（QStash の配信コールバックの入口）  validator.ts（入力検証の 400 応答）
+    mcp/（types.ts = ツールの登録関数の型と結果の形、schema.ts = OAuth プラグインの表）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
+    recurrence/（RRULE 展開）  history.ts（履歴のページ分け・キーワード・タイムラインの問い合わせ）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -116,7 +119,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
-- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/lib/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/calendar.md](features/calendar.md#祝日)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/calendar.md](features/calendar.md#天気)）と、日次の前日の最高気温の観測値での上書き（`/api/cron/weather/observed`。同）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/calendar.md](features/calendar.md#祝日)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/calendar.md](features/calendar.md#天気)）と、日次の前日の最高気温の観測値での上書き（`/api/cron/weather/observed`。同）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
 - 2 人だけが使う非公開のアプリなので、検索エンジンに載せない。クロールは `public/robots.txt`（全パスを `Disallow`）で断り、索引は `vercel.json` の全パスへの `X-Robots-Tag: noindex, nofollow` ヘッダで断る。ヘッダは HTML 以外（API の JSON やアイコン）にも効き、`<meta name="robots">` と違って `index.html` を経ない応答も覆えるため、meta タグではなくヘッダで付ける。robots.txt を守らないクローラーでもヘッダで索引から外れ、robots.txt を守るクローラーはそもそも取りに来ない。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppType` を型としてだけ参照する。
@@ -124,7 +127,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## 横断機能との接続
 
-- **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/lib/mcp/server.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
+- **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
 - **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（`useBalance` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/query-key.ts`）を invalidate する。
 - **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。

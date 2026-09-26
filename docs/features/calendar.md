@@ -108,7 +108,7 @@ type CalendarItem =
 祝日（振替休日・国民の休日を含む）は、日付の数字（`DayNumber`。月・週・日の表示と年月の選択で共通）を日曜と同じ赤で出す。それ以外（見出し・項目）は変えない。
 
 - 出所は webcal.jp の ics（`https://one.webcal.jp/JapanHolidays/`）。法令・官報に基づいて数年先まで確定した分が載っている。祝日の規則を自前で持たないのは、春分・秋分の日が官報で決まり、法改正や特例での移動もあって追い続ける必要があるため。
-- サーバーが月に 1 回（Vercel Cron、毎月 1 日 15:00 UTC = 2 日 0:00 JST）`GET /api/cron/holidays`（`server/lib/cron.ts`。Cron secret で保護）で取り直し、`holidays` テーブルの全行を入れ替える。配布元は毎年の祝日を RRULE と EXDATE で書いているので、解析と展開は `ical.js` に任せる。取得・解析に失敗したら何も書かず、前回の一覧が残る。
+- サーバーが月に 1 回（Vercel Cron、毎月 1 日 15:00 UTC = 2 日 0:00 JST）`GET /api/cron/holidays`（`server/cron.ts`。Cron secret で保護）で取り直し、`holidays` テーブルの全行を入れ替える。配布元は毎年の祝日を RRULE と EXDATE で書いているので、解析と展開は `ical.js` に任せる。取得・解析に失敗したら何も書かず、前回の一覧が残る。
 - 画面を開くたびに配布元へ行かないのは、他人のサイトを利用者の操作の速さと可用性に巻き込まないため。表を埋めるのは Cron とデプロイだけで、読むとき（`GET /api/calendar`）には取りに行かない。表が空のまま（初めてのデプロイ・作り直した DB）だと月次の Cron まで祝日が出ないので、デプロイのたびに `pnpm data:refresh`（`scripts/refresh-calendar-data.ts`。祝日と天気を取り直す）を実行する（`deploy.yml`。配布元が落ちていてもデプロイは止めない）。ローカルは `pnpm db:seed` の後に同じものが走る。
 - クライアントは項目と同じ `GET /api/calendar` の応答（月のキャッシュ）から表示する期間の祝日を受け取る（`useCalendarDays`。上記「API」）。面（`CalendarPane`）が読んで月の週の行・週／日の見出しへ渡し、年月の選択（`DatePickerDialog`）は選んでいる月の月グリッドの範囲を読む（選んだ先の月の項目を先に読んでおくことにもなる）。集合を引くのは読む側で、`DayNumber` は `holiday` を受け取って色を決めるだけ（日ごとに購読させない）。色の規則は `src/lib/date.ts` の `dateColor`。まだ届いていない月や表に無い日は、どの日も祝日でない扱いで出す。
 
