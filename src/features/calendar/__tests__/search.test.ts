@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { countActiveFilters, type ListFilters, matchesListFilters } from '../search.ts';
+import {
+  countActiveFilters,
+  type ListFilters,
+  listSections,
+  matchesListFilters,
+} from '../search.ts';
 
 const DAY = '2031-06-05' as DateString;
 const NONE: ListFilters = {
@@ -52,5 +57,40 @@ describe('countActiveFilters', () => {
   it('期間は両端で 1 つに数え、キーワードは数えない', () => {
     expect(countActiveFilters(NONE)).toBe(0);
     expect(countActiveFilters({ ...NONE, from: DAY, to: DAY, kind: 'task', q: 'a' })).toBe(2);
+  });
+});
+
+describe('listSections', () => {
+  const on = (placementDate: string, title = '買い物'): CalendarItem => ({
+    ...task(null),
+    id: placementDate,
+    title,
+    placementDate: placementDate as DateString,
+  });
+  const range = { from: '2031-06-01' as DateString, to: '2031-07-31' as DateString };
+
+  it('絞り込みに当たる項目を日ごと・月ごとにまとめ、項目の無い月も見出しだけ並べる', () => {
+    const items = [on('2031-06-20'), on('2031-06-03'), on('2031-06-10', '散歩')];
+    const sections = listSections(
+      items,
+      { ...NONE, q: '買い' },
+      { months: ['2031-06', '2031-07'], date: '2031-06-03' as DateString, range },
+    );
+    expect(sections.map(({ month, days }) => [month, days.map(([day]) => day)])).toEqual([
+      ['2031-06', ['2031-06-03', '2031-06-20']],
+      ['2031-07', []],
+    ]);
+  });
+
+  it('基準の日は期間の中なら項目が無くても空の日として入れる', () => {
+    const date = '2031-06-15' as DateString;
+    const [june] = listSections([], NONE, { months: ['2031-06'], date, range });
+    expect(june?.days).toEqual([[date, []]]);
+    const outside = listSections([], NONE, {
+      months: ['2031-06'],
+      date: '2031-09-01' as DateString,
+      range,
+    });
+    expect(outside[0]?.days).toEqual([]);
   });
 });

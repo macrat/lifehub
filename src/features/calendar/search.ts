@@ -1,8 +1,11 @@
 import { z } from 'zod';
-import { isCompletedTask } from '../../../shared/calendar.ts';
+import { groupByDate, isCompletedTask } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
+import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
+import { toMonthString } from '../../lib/date.ts';
 import type { Filters, FiltersPatch } from '../../lib/search.ts';
 import type { CalendarItem } from '../events/queries.ts';
 import { type CalendarView, viewSchema } from './view.ts';
@@ -91,4 +94,26 @@ export function matchesListFilters(item: CalendarItem, f: ListFilters): boolean 
   if (f.completed === 'open' && isCompletedTask(item)) return false;
   if (f.completed === 'done' && !isCompletedTask(item)) return false;
   return matchesKeyword(f.q, item.title, item.location, item.note);
+}
+
+/** リスト表示の 1 か月の区切り。日は古い順で、日ごとの項目はサーバーの並びのまま */
+export type ListSection = { month: string; days: [DateString, CalendarItem[]][] };
+
+/**
+ * リスト表示に並べるもの: 読んだ期間（range）の項目に絞り込みを掛け、日ごと・月ごとにまとめる。
+ * 月は出している月（months）をすべて並べ、項目の無い月も見出しだけ出す。
+ * 基準の日（date）は期間の中なら項目が無くても空の日として入れ、今どこにいるかを示す。
+ */
+export function listSections(
+  items: CalendarItem[],
+  filters: ListFilters,
+  { months, date, range }: { months: string[]; date: DateString; range: DateRange },
+): ListSection[] {
+  const byDate = groupByDate(items.filter((item) => matchesListFilters(item, filters)));
+  if (date >= range.from && date <= range.to && !byDate.has(date)) byDate.set(date, []);
+  const byMonth = Map.groupBy(
+    [...byDate].sort(([a], [b]) => a.localeCompare(b)),
+    ([day]) => toMonthString(day),
+  );
+  return months.map((month) => ({ month, days: byMonth.get(month) ?? [] }));
 }

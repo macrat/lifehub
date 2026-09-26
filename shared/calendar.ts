@@ -217,6 +217,11 @@ export function taskTimeOnPlacementDate(
   return time?.date === task.placementDate ? time : null;
 }
 
+/** 項目を置く日（placementDate）ごとにまとめる（順序はサーバーの並びを保つ） */
+export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
+  return Map.groupBy(items, (item) => item.placementDate);
+}
+
 /**
  * 完了したタスクか。予定には完了が無いので常に false。
  * 打ち消し線とチェック印、リストの絞り込み、月グリッドの並びが同じ規則を見るよう、ここ 1 か所に置く。
