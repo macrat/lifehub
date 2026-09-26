@@ -75,8 +75,9 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         colors: [colorFor(createdBy).fill],
         // 何をしたかは下の項目のアイコンの並びで分かるので、丸はレモンの記録であることだけを示す
         icon: ADD_KINDS.lemon.icon,
-        // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す
-        heading: createdBy ? label(createdBy) : (apiKeyName ?? ADD_KINDS.lemon.label),
+        // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す。
+        // 人とキーの名前はちょうど一方だけを持つ（lemon_care_logs の CHECK 制約）
+        heading: apiKeyName ?? label(createdBy),
         careTypes,
         body: note,
       };

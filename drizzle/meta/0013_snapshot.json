@@ -1,5 +1,5 @@
 {
-  "id": "5dca35c0-4928-4dae-a262-6348c5c36131",
+  "id": "b225f147-2426-4476-b0c7-7264fcdfed82",
   "prevId": "bbee1e5a-b26b-4b31-913d-a306dc4cc102",
   "version": "7",
   "dialect": "postgresql",
@@ -699,6 +699,10 @@
         "lemon_care_logs_memo_has_note_check": {
           "name": "lemon_care_logs_memo_has_note_check",
           "value": "cardinality(\"lemon_care_logs\".\"care_types\") > 0 or (\"lemon_care_logs\".\"note\" is not null and \"lemon_care_logs\".\"note\" <> '')"
+        },
+        "lemon_care_logs_source_check": {
+          "name": "lemon_care_logs_source_check",
+          "value": "num_nonnulls(\"lemon_care_logs\".\"created_by\", \"lemon_care_logs\".\"api_key_name\") = 1"
         }
       },
       "isRLSEnabled": false
