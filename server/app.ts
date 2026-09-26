@@ -13,8 +13,7 @@ import { memosRoutes } from './features/memos/routes.ts';
 import { pushRoutes } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
 import { timelineRoutes } from './features/timeline/routes.ts';
-import { usersRoutes } from './features/users/routes.ts';
-import { getMe } from './features/users/service.ts';
+import { meRoutes, usersRoutes } from './features/users/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { db } from './lib/db.ts';
@@ -71,7 +70,7 @@ api.use('*', async (c, next) => {
  * キーそのものを見せられるのは発行の応答だけなので本文で返す。
  */
 const routes = api
-  .get('/me', async (c) => c.json(await getMe(c.get('user'))))
+  .route('/me', meRoutes)
   .route('/users', usersRoutes)
   .route('/calendar', calendarRoutes)
   .route('/events', eventsRoutes)
