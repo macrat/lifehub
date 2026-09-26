@@ -27,6 +27,10 @@ export function filterSearchSchema<A extends z.ZodType, S extends { q: z.ZodType
 
 /**
  * 検索キーワードの状態。初期値は URL の q（再読み込みや共有で絞り込みが戻る）。
+ * URL の q を読むのはマウントの 1 度だけで、その後は合わせ直さない。画面を開いている間に q を変えるのは
+ * ここの replaceState だけで（router を通さないので、画面が受け取る search.q は次の移動まで古いまま）、
+ * 絞り込みの変更も置き換えなので同じ画面の中で q の違う履歴は積まれず、別の q の URL から来るのは
+ * 画面を開き直したとき（マウントし直して読み直す）だけのため。
  *
  * 打つたびの反映は router の navigate ではなく history.replaceState で URL を差し替えるだけにする。
  * 表示する値は手元の状態なので、入力してから画面に出るまでが同じ描画で完結する。
