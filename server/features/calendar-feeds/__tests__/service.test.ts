@@ -6,7 +6,7 @@ import {
   updateEventSchema,
 } from '../../../../shared/validation/events.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
 import {
   createFeed,
@@ -45,7 +45,7 @@ let otherId: string;
 
 describe('calendar-feeds service', () => {
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     userId = await createTestUser('A');
     otherId = await createTestUser('B');
   });

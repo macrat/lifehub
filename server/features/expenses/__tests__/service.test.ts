@@ -7,7 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;
@@ -17,7 +17,7 @@ const on = dateStringSchema.parse('2026-09-01');
 
 describe('expenses service', () => {
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     a = await createTestUser('A');
     b = await createTestUser('B');
   });

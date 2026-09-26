@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 import { createFeed, listFeeds } from '../features/calendar-feeds/service.ts';
-import { createTestUser, truncateAll } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/test-db.ts';
 
 /**
  * `/api/calendar` の下には、ログインが要る配信 URL の管理（`feeds`）と、ログインの要らない
@@ -9,7 +9,7 @@ import { createTestUser, truncateAll } from '../lib/test-db.ts';
  * 逆に購読できなくなるので、入口ごとの扱いをここで確かめる。
  */
 describe('カレンダー配信のルート', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   it('ics はログイン無しで読め、配信 URL の管理はログインが要る', async () => {
     const userId = await createTestUser('A');

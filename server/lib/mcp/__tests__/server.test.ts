@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { today } from '../../../../shared/date.ts';
-import { createTestUser, truncateAll } from '../../test-db.ts';
+import { clearTables, createTestUser } from '../../test-db.ts';
 import { createMcpServer } from '../server.ts';
 
 async function connect(userId: string): Promise<Client> {
@@ -22,7 +22,7 @@ function text(result: Awaited<ReturnType<Client['callTool']>>): string {
 describe('MCP server', () => {
   let userId: string;
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     userId = await createTestUser('A');
     await createTestUser('B');
   });
@@ -86,11 +86,12 @@ describe('MCP server', () => {
       ),
     );
     await client.callTool({ name: 'events_complete', arguments: { id: created.id } });
+    // 日時の無いタスクは今日（完了すれば完了した日）に置かれる
     const items = JSON.parse(
       text(
         await client.callTool({
           name: 'events_list',
-          arguments: { from: '2000-01-01', to: '2100-01-01' },
+          arguments: { from: today(), to: today() },
         }),
       ),
     ) as { kind: string; completedAt?: string | null }[];

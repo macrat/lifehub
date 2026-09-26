@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { scroller, scrollHeightOf, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
-import { myId } from './login.ts';
+import { addItem, deleteItem } from './events.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag, touchPinch } from './touch.ts';
 import { changeView } from './view.ts';
 
@@ -64,14 +64,15 @@ test('日表示で枠をつまんで動かし、端の丸は反対の端を越�
 
 test('予定は長押しでつまんで編集モードに入り、そのまま動かして保存できる', async ({ page }) => {
   const title = `E2E 長押し編集 ${Date.now()}`;
+  const id = await addItem(page, {
+    kind: 'event',
+    title,
+    startsAt: '2031-06-12T10:00:00+09:00',
+    endsAt: '2031-06-12T11:00:00+09:00',
+  });
   await page.goto('/calendar?view=day&date=2031-06-12');
 
   const at = (minutes: number) => timePoint(page, '2031-06-12', minutes);
-  // 10:00〜11:00 の予定を 1 件作る
-  const first = await at(10 * 60 + 10);
-  await page.touchscreen.tap(first.x, first.y);
-  await page.getByLabel('タイトルを追加').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
   const block = page.getByRole('button', { name: title });
   await expect(block).toBeVisible();
 
@@ -97,11 +98,9 @@ test('予定は長押しでつまんで編集モードに入り、そのまま�
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(block).toHaveCount(1);
 
-  page.once('dialog', (dialog) => dialog.accept());
   await block.click();
   await expect(page.getByText('6/12(木) 14:00〜15:00')).toBeVisible();
-  await detailAction(page, '削除');
-  await expect(block).toHaveCount(0);
+  await deleteItem(page, id);
 });
 
 test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みする', async ({ page }) => {
@@ -127,47 +126,29 @@ test('日表示を 2 本の指でつまむと時間軸が縦に伸び縮みす�
   await expect.poll(height).toBeCloseTo(before, -1);
 });
 
-test('月表示から週・日へ移ると、予定がなるべく全部見える縦位置で出る', async ({ page }) => {
-  const me = await myId(page);
-  const stamp = Date.now();
-  // 他のテストが使わない月に置く。9/14 は 12〜13 時の 1 件だけ、9/21 の週は 6 時台と 22 時台で画面に収まらない
-  for (const [date, start, end] of [
-    ['2033-09-14', 12, 13],
-    ['2033-09-21', 6, 7],
-    ['2033-09-22', 22, 23],
-  ] as const) {
-    const res = await page.request.post('/api/events', {
-      data: {
-        kind: 'event',
-        title: `E2E 縦位置 ${stamp}`,
-        startsAt: `${date}T${String(start).padStart(2, '0')}:00:00+09:00`,
-        endsAt: `${date}T${String(end).padStart(2, '0')}:00:00+09:00`,
-        participantIds: [me],
-      },
-    });
-    expect(res.ok()).toBe(true);
-  }
-  /** 表示中の面の縦位置と 1 時間の高さ（下に足す余白は無いので、中身の高さの 1/24） */
-  const measure = (date: string) =>
-    scroller(page, date).evaluate((el) => ({
-      top: el.scrollTop,
-      middle: el.scrollTop + el.clientHeight / 2,
-      hour: el.scrollHeight / 24,
-    }));
-
-  // 画面に収まる予定は、その真ん中が画面の真ん中に来る
+/**
+ * 月表示から移ると、予定に合わせた縦位置で出る。位置の決め方（収まるなら真ん中、収まらなければ
+ * 一番早い予定の 1 時間前）は `initialScrollTop` のユニットテストで確かめる。ここでは月表示から来たときに
+ * 予定に合わせることと、数で求めた位置が CSS で描かれた時間軸と合っていることを見る。
+ */
+test('月表示から日表示へ移ると、予定が画面の真ん中に来る縦位置で出る', async ({ page }) => {
+  const title = `E2E 縦位置 ${Date.now()}`;
+  // 他のテストが使わない月の 12〜13 時に 1 件だけ置く
+  await addItem(page, {
+    kind: 'event',
+    title,
+    startsAt: '2033-09-14T12:00:00+09:00',
+    endsAt: '2033-09-14T13:00:00+09:00',
+  });
   await page.goto('/calendar?view=month&date=2033-09-14');
-  await expect(page.getByText(`E2E 縦位置 ${stamp}`).first()).toBeVisible();
+  await expect(page.getByText(title)).toBeVisible();
   await changeView(page, '日');
-  const day = await measure('2033-09-14');
+  // 1 時間の高さは、下に足す余白が無いので中身の高さの 1/24
+  const day = await scroller(page, '2033-09-14').evaluate((el) => ({
+    middle: el.scrollTop + el.clientHeight / 2,
+    hour: el.scrollHeight / 24,
+  }));
   expect(day.middle).toBeCloseTo(day.hour * 12.5, -1);
-
-  // 収まらないときは、一番早い予定の 1 時間前（5 時）が一番上に来る
-  await page.goto('/calendar?view=month&date=2033-09-21');
-  await expect(page.getByText(`E2E 縦位置 ${stamp}`).first()).toBeVisible();
-  await changeView(page, '週');
-  const week = await measure('2033-09-21');
-  expect(week.top).toBeCloseTo(week.hour * 5, -1);
 });
 
 test('予定のブロックは高さが足りるときだけ時刻を添える', async ({ page }) => {

@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
 import { app } from '../app.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { clearTables } from '../lib/test-db.ts';
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 
@@ -41,7 +41,7 @@ function post(body: string, signature?: string) {
 }
 
 describe('QStash の配信コールバック', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   it('署名が無ければどれも 401', async () => {
     for (const path of ['/api/qstash/notifications', '/api/qstash/unknown']) {

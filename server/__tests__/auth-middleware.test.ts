@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { clearTables } from '../lib/test-db.ts';
 import { loginAs } from './login.ts';
 
 describe('認証ミドルウェア', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   it('未認証の API アクセスは 401', async () => {
     const res = await app.request('/api/me');

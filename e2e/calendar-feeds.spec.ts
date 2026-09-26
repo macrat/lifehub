@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from './login.ts';
+import { SIGNED_OUT } from './auth.ts';
 
 /**
  * 配信 URL の発行 → その URL で ics が読める → 名前と参加者を変えても同じ URL のまま
@@ -11,7 +11,6 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   page,
   playwright,
 }) => {
-  await login(page);
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: '外部連携' })).toBeVisible();
 
@@ -29,7 +28,7 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   const url = feeds.find((feed) => feed.name === 'E2E のカレンダー')?.url ?? '';
   await expect(page.getByText('E2E の予定・', { exact: false })).toBeVisible();
 
-  const anonymous = await playwright.request.newContext();
+  const anonymous = await playwright.request.newContext({ storageState: SIGNED_OUT });
   const ics = await anonymous.get(url);
   expect(ics.status()).toBe(200);
   expect(ics.headers()['content-type']).toBe('text/calendar; charset=utf-8');

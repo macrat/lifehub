@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
+import { SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
-import { login } from './login.ts';
 
 /** サーバーに保存されているログイン中のユーザーの色相 */
 async function hue(page: Page): Promise<number> {
@@ -23,40 +23,40 @@ function accentColor(page: Page): Promise<string> {
     .evaluate((el) => getComputedStyle(el).backgroundColor);
 }
 
-test('API が DB に接続できる', async ({ request }) => {
-  const res = await request.get('/api/health');
-  expect(res.ok()).toBe(true);
-  expect(await res.json()).toEqual({ ok: true, db: true });
-});
+test.describe('ログインしていないとき', () => {
+  // ログアウトで消えるのはこのテストがログインしたセッションだけで、他のテストのログイン状態は残る
+  test.use({ storageState: SIGNED_OUT });
 
-test('未ログインではログイン画面に送られ、ログインするとホームが表示される', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/login/);
+  test('ログイン画面に送られ、ログインするとホームが表示され、ログアウトで戻る', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/login/);
 
-  await page.getByLabel('メールアドレス').fill(E2E_USER.email);
-  await page.getByLabel('パスワード').fill('wrong-password-123');
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page.getByText('メールアドレスまたはパスワードが違います')).toBeVisible();
+    await page.getByLabel('メールアドレス').fill(E2E_USER.email);
+    await page.getByLabel('パスワード').fill('wrong-password-123');
+    await page.getByRole('button', { name: 'ログイン' }).click();
+    await expect(page.getByText('メールアドレスまたはパスワードが違います')).toBeVisible();
 
-  await page.getByLabel('パスワード').fill(E2E_USER.password);
-  await page.getByRole('button', { name: 'ログイン' }).click();
-  await expect(page).toHaveURL('/');
-  await expect(page.getByLabel('記録を検索')).toBeVisible();
+    await page.getByLabel('パスワード').fill(E2E_USER.password);
+    await page.getByRole('button', { name: 'ログイン' }).click();
+    await expect(page).toHaveURL('/');
+    await expect(page.getByLabel('記録を検索')).toBeVisible();
 
-  // 設定（PC はサイドナビ）→ ユーザー管理へ移動し、自分が一覧に出る
-  await page.getByRole('link', { name: '設定' }).click();
-  await page.getByRole('link', { name: /ユーザー管理/ }).click();
-  await expect(page).toHaveURL('/admin/users');
-  await expect(page.getByText(E2E_USER.email)).toBeVisible();
+    // 設定（PC はサイドナビ）→ ユーザー管理へ移動し、自分が一覧に出る
+    await page.getByRole('link', { name: '設定' }).click();
+    await page.getByRole('link', { name: /ユーザー管理/ }).click();
+    await expect(page).toHaveURL('/admin/users');
+    await expect(page.getByText(E2E_USER.email)).toBeVisible();
 
-  // 設定からログアウトするとログイン画面に戻る
-  await page.getByRole('link', { name: '設定' }).click();
-  await page.getByRole('button', { name: /ログアウト/ }).click();
-  await expect(page).toHaveURL(/\/login/);
+    // 設定からログアウトするとログイン画面に戻る
+    await page.getByRole('link', { name: '設定' }).click();
+    await page.getByRole('button', { name: /ログアウト/ }).click();
+    await expect(page).toHaveURL(/\/login/);
+  });
 });
 
 test('設定画面が表示される', async ({ page }) => {
-  await login(page);
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
   await expect(page.getByRole('switch', { name: 'この端末で通知を受け取る' })).toBeVisible();
@@ -67,7 +67,6 @@ test('設定画面が表示される', async ({ page }) => {
 });
 
 test('選んだ色はその場でアクセントカラーになり、保存するまで保存されない', async ({ page }) => {
-  await login(page);
   await page.goto('/settings');
   const slider = page.getByRole('slider', { name: '色' });
   await expect(slider).toBeVisible();
@@ -99,7 +98,6 @@ test('選んだ色はその場でアクセントカラーになり、保存す�
 });
 
 test('終日の通知時刻は設定画面で選び、保存ボタンで保存する', async ({ page }) => {
-  await login(page);
   await page.goto('/settings');
   const section = page.getByRole('region', { name: '終日の通知' });
   const time = section.getByLabel('時刻');

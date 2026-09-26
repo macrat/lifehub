@@ -1,10 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
-import { detailAction } from './detail.ts';
-import { login } from './login.ts';
-
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
+import { myId, openHome } from './auth.ts';
+import { addRecord, deleteRecord, expenseHistory } from './history.ts';
 
 /**
  * 閉じたダイアログのぶんの履歴が戻りきるのを待つ（重なったダイアログを一度に閉じると 1 つ余る）。
@@ -21,12 +17,10 @@ function settled(page: Page) {
  */
 test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない', async ({ page }) => {
   const description = `E2E 履歴 ${Date.now()}`;
+  const expense = await addRecord(page, expenseHistory, await myId(page), new Date(), description);
+  // 戻る先（前の画面）としてホームを開いておく
+  await openHome(page);
   await page.goto('/expenses');
-
-  await page.getByRole('button', { name: '立替を追加' }).click();
-  await page.getByLabel('金額（円）').fill('1200');
-  await page.getByLabel('内容', { exact: true }).fill(description);
-  await page.getByRole('button', { name: '保存' }).click();
   const row = page.getByRole('button', { name: new RegExp(description) });
   await expect(row).toBeVisible();
 
@@ -40,7 +34,7 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   // 編集は同じ詳細の中で入力欄に変わるだけなので、戻ると詳細ごと閉じる（履歴は 1 つのまま）
   await row.click();
   await page.getByRole('button', { name: '編集' }).click();
-  await expect(page.getByLabel('金額（円）')).toHaveValue('1200');
+  await expect(page.getByLabel('金額（円）')).toHaveValue('100');
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL('/expenses');
@@ -52,14 +46,11 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   await expect(page).toHaveURL('/');
 
   // 残高は他のテストと共有するので片付ける
-  await page.goto('/expenses');
-  page.once('dialog', (dialog) => dialog.accept());
-  await row.click();
-  await detailAction(page, '削除');
-  await expect(row).toHaveCount(0);
+  await deleteRecord(page, expense);
 });
 
 test('画面の操作で閉じたダイアログは履歴に残らない', async ({ page }) => {
+  await openHome(page);
   await page.goto('/expenses');
 
   // 開いて閉じるを繰り返しても、戻る先は前の画面のまま

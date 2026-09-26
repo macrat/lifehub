@@ -1,8 +1,7 @@
 import { devices, expect, type Page, test } from '@playwright/test';
-import { login } from './login.ts';
+import { openHome } from './auth.ts';
 import { fetchesFromNow, quiet } from './network.ts';
 import { touchDrag } from './touch.ts';
-import { recordViewTransitions, settle } from './view.ts';
 
 /**
  * 引っ張って更新（`src/lib/ui/PullToRefresh.tsx`）。ブラウザのものではなくアプリのものが動き、
@@ -15,11 +14,7 @@ test.use({ ...devices['Pixel 7'] });
 const TIMELINE = '/api/timeline';
 
 test.beforeEach(async ({ page }) => {
-  await recordViewTransitions(page);
-  await login(page);
-  // ログインからホームへの遷移が終わるまで待つ。遷移の最中は撮った絵が前に出ていて、
-  // 指が root に届き、アプリの枠の中から引いたことにならない
-  await settle(page);
+  await openHome(page);
 });
 
 /** 指を下ろす所。画面の上のほう（AppBar のすぐ下） */

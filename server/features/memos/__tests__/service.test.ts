@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { createTestUser, truncateAll } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { addMemo, deleteMemo, listForTimeline, updateMemo } from '../service.ts';
 
 const everything = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };
@@ -9,7 +9,7 @@ const everything = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };
 describe('memos service', () => {
   let userId: string;
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     userId = await createTestUser('A');
   });
 

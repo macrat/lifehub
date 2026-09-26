@@ -1,11 +1,25 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { dayPoint, dragDays, selectDays, setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
+import { addItem, deleteItem } from './events.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
 import { changeView } from './view.ts';
 
 /** スマホの日の並び（月表示と終日欄）: タップ・長押しで選ぶ・帯をつまんで直す */
 setupMobileCalendar();
+
+/**
+ * 6/11〜6/12 の終日の予定を置く（終日の終わりは含む日で渡す）。
+ * 下の行は詳細や入力のシートに隠れるので、確かめるのは上の行の日にする
+ */
+const addAllDay = (page: Page, title: string) =>
+  addItem(page, {
+    kind: 'event',
+    title,
+    allDay: true,
+    startsAt: '2031-06-11T00:00:00+09:00',
+    endsAt: '2031-06-12T00:00:00+09:00',
+  });
 
 test('月表示はタップで日表示、長押しで終日の予定を作れる', async ({ page }) => {
   const title = `E2E 長押し ${Date.now()}`;
@@ -34,12 +48,8 @@ test('月表示はタップで日表示、長押しで終日の予定を作れ�
 
 test('月表示は項目のタップで詳細、項目の無い所のタップで日表示', async ({ page }) => {
   const title = `E2E 月のタップ ${Date.now()}`;
+  const id = await addAllDay(page, title);
   await page.goto('/calendar?view=month&date=2031-06-15');
-
-  // 6/11〜6/12 の終日の予定を作る（下の行はクイック入力のシートに隠れるので上の行で確かめる）
-  await selectDays(page, '2031-06-11', '2031-06-12');
-  await page.getByLabel('タイトルを追加').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
   const bar = page.getByRole('button', { name: title });
   await expect(bar).toHaveCount(1);
 
@@ -56,21 +66,13 @@ test('月表示は項目のタップで詳細、項目の無い所のタップ�
   const cell = await dayPoint(page, '2031-06-11');
   await page.touchscreen.tap(cell.x, cell.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-11/);
-
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: title }).click();
-  await detailAction(page, '削除');
-  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+  await deleteItem(page, id);
 });
 
 test('月表示でも予定を長押しでつまんで別の日へ動かせる', async ({ page }) => {
   const title = `E2E 月の長押し編集 ${Date.now()}`;
+  const id = await addAllDay(page, title);
   await page.goto('/calendar?view=month&date=2031-06-15');
-
-  // 6/11〜6/12 の終日の予定を作る（下の行はクイック入力のシートに隠れるので上の行で確かめる）
-  await selectDays(page, '2031-06-11', '2031-06-12');
-  await page.getByLabel('タイトルを追加').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
   const bar = page.getByLabel(title);
   await expect(bar).toHaveCount(1);
 
@@ -100,11 +102,8 @@ test('月表示でも予定を長押しでつまんで別の日へ動かせる',
   const tap = await dayPoint(page, '2031-06-17');
   await page.touchscreen.tap(tap.x, tap.y);
   await expect(page).toHaveURL(/view=day&date=2031-06-17/);
-
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: title }).click();
-  await detailAction(page, '削除');
-  await expect(page.getByRole('button', { name: title })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: title })).toBeVisible();
+  await deleteItem(page, id);
 });
 
 test('週表示の終日の帯は端を伸ばし、真ん中で日数ごと動かせる', async ({ page }) => {

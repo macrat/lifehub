@@ -4,13 +4,13 @@ import { newId } from '../../../../shared/id.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { truncateAll } from '../../../lib/test-db.ts';
+import { clearTables } from '../../../lib/test-db.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };
 
 describe('users service', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   it('ユーザーを作成して一覧に出る', async () => {
     const created = await createUser(alice);
@@ -90,7 +90,7 @@ describe('users service', () => {
 });
 
 describe('パスワード変更による失効', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
   it('旧セッションをすべて拒否し、新パスワードでログインできる', async () => {
     const user = await createUser(alice);
     const first = await login(alice.email, alice.password);

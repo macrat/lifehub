@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { AUTH_FILE } from './e2e/auth.ts';
 
 /**
  * E2E は `vite build` した成果物と `server/dev.ts` を起動して実行する（Preview URL に依存しない）。
@@ -16,10 +17,14 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
+    // E2E ユーザーで 1 度だけログインし、その状態を各テストの始まりにする（`e2e/auth.setup.ts`）
+    { name: 'setup', testMatch: 'auth.setup.ts' },
     {
       name: 'chromium',
+      dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
+        storageState: AUTH_FILE,
         // 環境に既存の Chromium を使いたいとき（CI 以外）に指定する。未指定なら Playwright 同梱のものを使う。
         launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH },
       },

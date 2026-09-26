@@ -11,6 +11,13 @@ const base = {
 };
 
 describe('createEventSchema', () => {
+  it('予定には開始と終了が必須、参加者は 1 人以上', () => {
+    expect(createEventSchema.safeParse(base).success).toBe(true);
+    expect(createEventSchema.safeParse({ ...base, startsAt: undefined }).success).toBe(false);
+    expect(createEventSchema.safeParse({ ...base, endsAt: undefined }).success).toBe(false);
+    expect(createEventSchema.safeParse({ ...base, participantIds: [] }).success).toBe(false);
+  });
+
   it('終日の通知は当日（0）か前日（1440）だけを受け付ける', () => {
     expect(createEventSchema.safeParse({ ...base, remindStartMinutes: 0 }).success).toBe(true);
     expect(createEventSchema.safeParse({ ...base, remindStartMinutes: 1440 }).success).toBe(true);

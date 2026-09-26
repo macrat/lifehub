@@ -1,4 +1,5 @@
 import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { myId, openHome } from './auth.ts';
 import {
   addRecord,
   bottomNav,
@@ -8,7 +9,6 @@ import {
   expenseHistory,
   isJustAboveBottomNav,
 } from './history.ts';
-import { login, myId } from './login.ts';
 
 /**
  * 下部ナビのタブの画面は、別のタブからでも戻るでも、来たときは最初の位置で出る（ホームは一番上、立替・レモンは
@@ -25,8 +25,8 @@ let created: Created[] = [];
 
 /** スクロールできるだけの記録を、立替とレモンに古い日付で 30 件ずつと、今日の分を 1 件ずつ置く */
 test.beforeAll(async ({ browser }) => {
+  // テストの外で作るページにもログイン状態が載る（`playwright.config.ts` の storageState）
   const page = await browser.newPage();
-  await login(page);
   const me = await myId(page);
   const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2001, 0, 1 + i, 3)));
   const add = (history: typeof expenseHistory, at: Date, text: string) =>
@@ -42,13 +42,12 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
-  await login(page);
   await Promise.all(created.map((record) => deleteRecord(page, record)));
   await page.close();
 });
 
 test.beforeEach(async ({ page }) => {
-  await login(page);
+  await openHome(page);
 });
 
 /** 最初の位置が一番上の画面（top）か、今日の最後の記録が下部ナビのすぐ上の画面（bottom）か */

@@ -2,14 +2,14 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { users } from '../../features/users/schema.ts';
 import { db, runBatch } from '../db.ts';
-import { createTestUser, truncateAll } from '../test-db.ts';
+import { clearTables, createTestUser } from '../test-db.ts';
 
 /**
  * runBatch は全文が通るか何も残らないかのどちらかになること。
  * 本番（neon-http）は db.batch() が、ローカル・CI（node-postgres）はトランザクションがこれを守る。
  */
 describe('runBatch', () => {
-  beforeEach(truncateAll);
+  beforeEach(clearTables);
 
   it('途中で失敗したら前の文も残さない', async () => {
     const userId = await createTestUser('A');

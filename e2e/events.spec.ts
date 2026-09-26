@@ -1,11 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
-import { login } from './login.ts';
 import { centerOf, settledBox } from './touch.ts';
-
-test.beforeEach(async ({ page }) => {
-  await login(page);
-});
 
 test('繰り返し予定を作成し、この回だけ変更し、削除できる', async ({ page }) => {
   const title = `E2E 週次 ${Date.now()}`;

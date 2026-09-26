@@ -5,7 +5,7 @@ import { dateStringSchema } from '../../shared/validation/common.ts';
 import { app } from '../app.ts';
 import { addExpense } from '../features/expenses/service.ts';
 import { updateUser } from '../features/users/service.ts';
-import { truncateAll } from '../lib/test-db.ts';
+import { clearTables } from '../lib/test-db.ts';
 import { loginAs } from './login.ts';
 
 /**
@@ -17,7 +17,7 @@ describe('条件付き要求', () => {
   let userId: string;
 
   beforeEach(async () => {
-    await truncateAll();
+    await clearTables();
     ({ userId, cookie } = await loginAs('A'));
   });
 

@@ -1,5 +1,4 @@
 import { devices, type Locator, type Page, test } from '@playwright/test';
-import { login } from './login.ts';
 import { LONG_PRESS_HOLD_MS, settledBox, touchDrag } from './touch.ts';
 import { recordViewTransitions } from './view.ts';
 
@@ -12,7 +11,6 @@ export function setupMobileCalendar() {
   test.beforeEach(async ({ page }) => {
     // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
     await recordViewTransitions(page);
-    await login(page);
   });
 }
 

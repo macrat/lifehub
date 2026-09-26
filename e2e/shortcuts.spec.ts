@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { login } from './login.ts';
 
 /**
  * 入力を開く PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。
@@ -8,7 +7,6 @@ import { login } from './login.ts';
  * 画面を開くだけのショートカットは URL が正しければよいので、`src/lib/__tests__/shortcuts.test.ts` で見る。
  */
 test('ショートカットの URL がそれぞれの入力を開く', async ({ page }) => {
-  await login(page);
   const manifest = await (await page.request.get('/manifest.webmanifest')).json();
   const shortcuts: { name: string; url: string }[] = manifest.shortcuts;
   const urlOf = (name: string): string => {
