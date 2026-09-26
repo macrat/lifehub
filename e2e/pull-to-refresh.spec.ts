@@ -6,7 +6,8 @@ import { recordViewTransitions, settle } from './view.ts';
 
 /**
  * 引っ張って更新（`src/lib/ui/PullToRefresh.tsx`）。ブラウザのものではなくアプリのものが動き、
- * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す
+ * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す。
+ * 上が古く下が新しい一覧（立替など）では、下端から上へ引いても取り直す
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -76,6 +77,24 @@ test('オフラインと分からないまま取り直せなかったときは�
   await expect(notice).toBeVisible();
   // 3 秒ほどで消える（既定の 8 秒ではない）
   await expect(notice).toBeHidden({ timeout: 5000 });
+});
+
+/** 下端から引くときに指を下ろす所。画面の下のほう（下部ナビのすぐ上） */
+const FROM_BOTTOM = { x: 200, y: 700 };
+
+test('下が新しい一覧では、下端で上へ引き切って離すとデータを取り直す', async ({ page }) => {
+  await page.goto('/expenses');
+  const fetched = await fetchesFromNow(page, '/api/expenses');
+  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await expect.poll(fetched).toBeGreaterThan(0);
+});
+
+test('上が新しい一覧（ホーム）では、上へ引いても取り直さない', async ({ page }) => {
+  // タイムラインが短くページがスクロールしなくても、上端から引いたことにはならない
+  const fetched = await fetchesFromNow(page, TIMELINE);
+  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await quiet(page, fetched);
+  expect(fetched()).toBe(0);
 });
 
 test('ブラウザの引っ張って更新は止めてある', async ({ page }) => {

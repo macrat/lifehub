@@ -3,6 +3,7 @@ import { useInitialPosition } from './initial-position.ts';
 import { STICKY_TOP } from './layout.ts';
 import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
 import { useEdgeObserver } from './use-edge-observer.ts';
+import { PULL_FROM_BOTTOM } from './use-pull-to-refresh.ts';
 import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
 /** 一覧の上に貼り付けておく物とその出し方。一覧を包む部品（`HistoryList` など）はこれをそのまま受けて渡す */
@@ -42,6 +43,7 @@ type Props = InfiniteScrollHeaderProps & {
  *   利用者が自分で動かし始めたらやめる
  * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
  * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
+ * - 上が古く下が新しい一覧なので、下端から上へ引いても取り直せる（`PULL_FROM_BOTTOM`）
  */
 export function InfiniteScroll({
   header,
@@ -150,7 +152,7 @@ export function InfiniteScroll({
       </ScrollAwayHeader>
       <div ref={startRef} />
       <div ref={listRef}>{children}</div>
-      <div ref={endRef} />
+      <div ref={endRef} {...PULL_FROM_BOTTOM} />
     </>
   );
 }
