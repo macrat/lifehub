@@ -58,7 +58,7 @@
 | POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
 | PUT | `/api/events/:id` | 更新（全項目。`kind` は変更できない）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |
 | DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` は更新と同じ |
-| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定 |
+| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定。完了日時（`completedAt`）は押した端末が決めて送る（オフラインで溜めた完了や送り直しでも押した時刻が残る。省略はサーバーの今で、MCP は省略する） |
 | DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
 
 - `this`: 回を実体化する（無ければ複製を作り、あれば更新）。`rrule` は持たない。

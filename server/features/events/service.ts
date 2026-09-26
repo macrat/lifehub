@@ -178,14 +178,14 @@ export async function deleteEvent(
   await repository.remove(id);
 }
 
-/** タスクの回を完了にする。完了日時は今 */
+/** タスクの回を完了にする。完了日時は押した時刻（画面が送る。`completeEventRequestSchema`）で、無ければ今 */
 export async function completeEvent(
   id: string,
   input: CompleteEventInput,
   userId: string,
-  now: Date = new Date(),
+  completedAt: Date = new Date(),
 ): Promise<void> {
-  await setCompletedAt(id, input, now, userId);
+  await setCompletedAt(id, input, completedAt, userId);
 }
 
 export async function uncompleteEvent(

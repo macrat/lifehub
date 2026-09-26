@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { idParamSchema } from '../../../shared/validation/common.ts';
 import {
+  completeEventRequestSchema,
   completeEventSchema,
   createEventRequestSchema,
   occurrenceTargetSchema,
@@ -36,9 +37,10 @@ export const eventsRoutes = new Hono<AppEnv>()
   .post(
     '/:id/complete',
     validate('param', idParamSchema),
-    validate('json', completeEventSchema),
+    validate('json', completeEventRequestSchema),
     async (c) => {
-      await service.completeEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+      const { completedAt, ...input } = c.req.valid('json');
+      await service.completeEvent(c.req.valid('param').id, input, c.get('user').id, completedAt);
       return c.body(null, 204);
     },
   )

@@ -86,26 +86,44 @@ export function useDeleteEvent() {
 
 /** タスクの完了・完了取り消し。カレンダーのリスト・ホームのタイムラインの行と詳細から呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
-  return useOptimisticMutation({
+  const mutation = useOptimisticMutation({
     request: ({
       id,
       occurrenceStart,
+      completedAt,
+    }: {
+      id: string;
+      occurrenceStart: string | null;
+      completedAt: string | null;
+    }) => ({
+      method: completedAt ? ('POST' as const) : ('DELETE' as const),
+      path: api.events[':id'].complete.$url({ param: { id } }).pathname,
+      body: {
+        occurrenceStart: occurrenceStart ?? undefined,
+        completedAt: completedAt ?? undefined,
+      },
+    }),
+    keys: WRITE_KEYS,
+    apply: (client, { id, occurrenceStart, completedAt }) => {
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
+      toggleOnTimeline(client, id, occurrenceStart, completedAt);
+    },
+  });
+  return {
+    ...mutation,
+    /**
+     * 完了・完了の取り消し。完了日時は押した時刻で、送る値と先に出す値に同じものを使う
+     * （オフラインで溜めて後で送っても、送った時刻ではなく押した時刻が残る）
+     */
+    mutate: ({
       completed,
+      ...target
     }: {
       id: string;
       occurrenceStart: string | null;
       completed: boolean;
-    }) => ({
-      method: completed ? ('POST' as const) : ('DELETE' as const),
-      path: api.events[':id'].complete.$url({ param: { id } }).pathname,
-      body: { occurrenceStart: occurrenceStart ?? undefined },
-    }),
-    keys: WRITE_KEYS,
-    apply: (client, { id, occurrenceStart, completed }) => {
-      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completed);
-      toggleOnTimeline(client, id, occurrenceStart, completed);
-    },
-  });
+    }) => mutation.mutate({ ...target, completedAt: completed ? new Date().toISOString() : null }),
+  };
 }
 
 /**
@@ -116,12 +134,11 @@ function toggleOnTimeline(
   client: QueryClient,
   id: string,
   occurrenceStart: string | null,
-  completed: boolean,
+  completedAt: string | null,
 ): void {
   const entryId = occurrenceKey({ kind: 'task', id, occurrenceStart });
   const prev = findInTimeline(client, entryId);
   if (prev?.type !== 'event' || prev.item.kind !== 'task') return;
-  const completedAt = completed ? new Date().toISOString() : null;
   applyToTimeline(client, entryId, eventEntry({ ...prev.item, completedAt }));
 }
 

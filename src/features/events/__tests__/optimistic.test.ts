@@ -63,7 +63,7 @@ test('日時の無いタスクは今日に置かれ、完了にすると完了�
   insertItem(client, { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false });
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 
-  setCompleted(client, { id: 'tmp', scope: 'all' }, true);
+  setCompleted(client, { id: 'tmp', scope: 'all' }, new Date().toISOString());
   expect(itemsOf(client)[0]?.completedAt).not.toBeNull();
 
   removeItem(client, { id: 'tmp', scope: 'all' });

@@ -161,3 +161,13 @@ export const completeEventSchema = z.object({
   occurrenceStart: instantSchema.optional(),
 });
 export type CompleteEventInput = z.infer<typeof completeEventSchema>;
+
+/**
+ * API（POST /api/events/:id/complete）が受け取る完了の入力。完了日時は押した端末が決めて送る。
+ * WHY: 送れない書き込みは端末に溜めて後で送る（docs/architecture.md「オフラインの書き込み」）ので、
+ * サーバーが受け取った時刻にすると、オフラインで押した完了や送り直した完了が実際より後の日時になる。
+ * 省略はサーバーの今（MCP は今の日時を正確に知らないので渡させない）。
+ */
+export const completeEventRequestSchema = completeEventSchema.extend({
+  completedAt: instantSchema.optional(),
+});

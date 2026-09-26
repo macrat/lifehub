@@ -89,8 +89,11 @@ export function removeItem(client: QueryClient, target: WriteTarget): void {
 }
 
 /** 完了・完了取り消しを反映する（完了したタスクは完了日へ移る） */
-export function setCompleted(client: QueryClient, target: WriteTarget, completed: boolean): void {
-  const completedAt = completed ? new Date().toISOString() : null;
+export function setCompleted(
+  client: QueryClient,
+  target: WriteTarget,
+  completedAt: string | null,
+): void {
   updateCalendars(client, (items, range, now) =>
     items.flatMap((item) =>
       matches(item, target) ? placeOccurrence({ ...item, completedAt }, range, now) : [item],
