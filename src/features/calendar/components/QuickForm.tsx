@@ -16,30 +16,11 @@ import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
-import { ScopeChip } from '../../events/components/EventFields.tsx';
-import type { ItemFormValues } from '../../events/form-values.ts';
-import type { useItemForm } from '../../events/use-item-form.ts';
+import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
+import type { Quick } from '../quick-form.ts';
 import type { GridDraft, QuickProps } from '../use-event-composer.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
-
-/**
- * クイック入力の中身（予定は `useQuickEventForm`、タスクは `useQuickTaskForm`）が入れ物に渡すもの。
- * 入れ物（シート・吹き出し）は予定とタスクで同じで、違うのは上の段に出す残りの項目（`details`）だけ。
- */
-type Quick = {
-  formRef: RefObject<HTMLFormElement | null>;
-  form: Pick<
-    ReturnType<typeof useItemForm>,
-    'errors' | 'submitError' | 'thisOnly' | 'submitted' | 'handleSubmit' | 'inputFromForm'
-  >;
-  /** 入力の既定値（タイトルと、全項目のフォームへ引き継ぐ残りの項目） */
-  initial: ItemFormValues;
-  /** 下の段（PC は吹き出し）に出す日時の見出し */
-  rangeText: string;
-  /** 上の段で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき */
-  syncDraft: () => void;
-};
 
 type Props = Pick<QuickProps, 'onExpand'> & {
   /**
@@ -51,8 +32,8 @@ type Props = Pick<QuickProps, 'onExpand'> & {
    */
   draft: GridDraft;
   quick: Quick;
-  /** スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知） */
-  details: ReactNode;
+  /** 予定かタスクか。スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知）が違う */
+  kind: 'event' | 'task';
   onChangeParticipants: (participantIds: string[]) => void;
   onClose: () => void;
   /**
@@ -73,16 +54,14 @@ export function QuickForm({ onExpand, ...props }: Props) {
   const isMobile = useIsMobile();
   // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
   useDialogHistory(props.onClose);
-  const { quick } = props;
-  /** PC だけ: 入力済みのタイトルと参加者を既定値に重ねて、全項目のフォームへ引き継ぐ */
-  const expand = () => {
-    const input = quick.form.inputFromForm(new FormData(quick.formRef.current ?? undefined));
-    onExpand({ ...quick.initial, title: input.title, participantIds: input.participantIds });
-  };
-  return isMobile ? <QuickSheet {...props} /> : <QuickBubble {...props} onExpand={expand} />;
+  return isMobile ? (
+    <QuickSheet {...props} />
+  ) : (
+    <QuickBubble {...props} onExpand={() => onExpand(props.quick.expandValues())} />
+  );
 }
 
-type LayoutProps = Omit<Props, 'details' | 'onChangeInset' | 'onExpand'>;
+type LayoutProps = Omit<Props, 'kind' | 'onChangeInset' | 'onExpand'>;
 
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
@@ -92,9 +71,9 @@ type LayoutProps = Omit<Props, 'details' | 'onChangeInset' | 'onExpand'>;
  * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
+  kind,
   draft,
   quick,
-  details,
   onChangeParticipants,
   onClose,
   onChangeInset,
@@ -148,7 +127,22 @@ function QuickSheet({
             pb: 'calc(16px + env(safe-area-inset-bottom))',
           }}
         >
-          {details}
+          <WhenFields
+            kind={kind}
+            // 枠を動かしたら、入力欄もその日時に入れ直す
+            key={`${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            initial={quick.initial}
+            errors={form.errors}
+            allDay={quick.allDay}
+            onChangeAllDay={quick.changeAllDay}
+          />
+          <ExtraFields
+            kind={kind}
+            initial={quick.initial}
+            errors={form.errors}
+            allDay={quick.allDay}
+            thisOnly={form.thisOnly}
+          />
         </Stack>
       </QuickFormBox>
     </BottomSheet>

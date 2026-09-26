@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useAllDay, useItemForm } from '../events/use-item-form.ts';
+import { expandValues, type Quick } from './quick-form.ts';
 import { taskDraftFromInput, taskDraftText, taskDraftValues } from './task-draft.ts';
 import type { QuickProps, TaskGridDraft } from './use-event-composer.ts';
 
@@ -14,7 +15,7 @@ type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
  * 枠とタスクの両方へ戻す（`taskDraftFromInput`）。見出し・グリッドの枠・保存する日時が同じ所から決まるように。
  * 終日かどうかは予定と違ってフォームが持つ（タスクの終日は置き方ではなく日時の形なので、切り替えても枠は動かない）。
  */
-export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options) {
+export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options): Quick {
   const { range, item: task, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
   // 枠とタスクから導く値。終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す。
@@ -46,6 +47,7 @@ export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Op
     allDay,
     changeAllDay: setAllDay,
     rangeText,
+    expandValues: () => expandValues(formRef, form, initial),
     /** 入力欄で直した日時を枠とタスクへ映す。開始が空なら枠に置けないのでそのままにする */
     syncDraft: () => {
       if (!formRef.current) return;

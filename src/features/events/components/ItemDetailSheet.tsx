@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { CalendarItem } from '../queries.ts';
 import { useItemDetail } from '../use-item-detail.ts';
-import { EventFormFields, ScopeChip, TaskFormFields } from './EventFields.tsx';
+import { ItemFields, ScopeChip } from './EventFields.tsx';
 import { ItemCreateForm } from './ItemCreateForm.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
@@ -73,11 +73,7 @@ function ItemDetail({
         {fields ? (
           <>
             {detail.editScope && <ScopeChip scope={detail.editScope} />}
-            {item.kind === 'task' ? (
-              <TaskFormFields {...fields} autoFocus={false} />
-            ) : (
-              <EventFormFields {...fields} />
-            )}
+            <ItemFields kind={item.kind} {...fields} />
           </>
         ) : (
           <ItemDetailView item={item} />
