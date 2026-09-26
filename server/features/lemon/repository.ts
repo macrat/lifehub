@@ -130,6 +130,7 @@ export async function insert(row: {
   doneAt: Date;
   note: string | null;
   createdBy: string | null;
+  apiKeyName: string | null;
 }): Promise<LemonCareLogRow> {
   const inserted = await db.insert(lemonCareLogs).values(row).onConflictDoNothing().returning();
   const log = inserted[0] ?? (await findById(row.id));
@@ -142,7 +143,7 @@ async function findById(id: string): Promise<LemonCareLogRow | undefined> {
   return rows[0];
 }
 
-/** 全項目を置き換える。記録した人（createdBy）は変えない */
+/** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
 export async function update(
   id: string,
   row: { careTypes: CareType[]; doneAt: Date; note: string | null },

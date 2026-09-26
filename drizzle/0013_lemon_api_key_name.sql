@@ -1,0 +1,1 @@
+ALTER TABLE "lemon_care_logs" ADD COLUMN "api_key_name" text;

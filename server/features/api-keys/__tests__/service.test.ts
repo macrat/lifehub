@@ -15,12 +15,12 @@ describe('api-keys service', () => {
     otherId = await createTestUser('B');
   });
 
-  it('発行したキーで持ち主が分かり、最後に使われた日時を記録する', async () => {
+  it('発行したキーで持ち主と名前が分かり、最後に使われた日時を記録する', async () => {
     const issued = await createKey({ name: 'レモンのボタン' }, userId);
     expect(issued.key).toMatch(/^[\w-]{43}$/);
     expect(issued.lastUsedAt).toBeNull();
 
-    expect(await authenticate(issued.key, now)).toBe(userId);
+    expect(await authenticate(issued.key, now)).toEqual({ userId, name: 'レモンのボタン' });
     const [listed] = await listKeys(userId);
     expect(listed).toEqual({
       id: issued.id,
@@ -44,7 +44,7 @@ describe('api-keys service', () => {
   it('失効したキーは通らず、他人のキーは失効できない', async () => {
     const issued = await createKey({ name: 'ボタン' }, userId);
     await expect(revokeKey(issued.id, otherId)).rejects.toThrow(NotFoundError);
-    expect(await authenticate(issued.key, now)).toBe(userId);
+    expect(await authenticate(issued.key, now)).toMatchObject({ userId });
 
     await revokeKey(issued.id, userId);
     expect(await authenticate(issued.key, now)).toBeUndefined();

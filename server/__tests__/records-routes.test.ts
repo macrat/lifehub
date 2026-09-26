@@ -23,7 +23,7 @@ describe('記録投入のルート', () => {
       body: JSON.stringify(body),
     });
 
-  it('API キーで記録でき、記録した人は不明になる', async () => {
+  it('API キーで記録でき、記録した人は不明になり、キーの名前が残る', async () => {
     const userId = await createTestUser('A');
     const { key } = await createKey({ name: 'ボタン' }, userId);
 
@@ -34,6 +34,7 @@ describe('記録投入のルート', () => {
     expect(log.careTypes).toEqual(['mist', 'water']);
     // ボタンは誰が押しても同じキーで送るので、キーの持ち主を記録者にしない
     expect(log.createdBy).toBeNull();
+    expect(log.apiKeyName).toBe('ボタン');
     // 日時を省くと受け取った時刻になる
     expect(new Date(log.doneAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
