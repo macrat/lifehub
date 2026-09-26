@@ -19,10 +19,15 @@ import {
   type HistorySource,
   useHistory,
 } from '../../lib/history.ts';
-import { TIMELINE_QUERY_KEY } from './query-key.ts';
 
 /** 行の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/timeline.ts） */
 export type { TimelineEntry } from '../../../shared/timeline.ts';
+
+/**
+ * タイムラインのクエリのキー。タイムラインは全機能の記録を並べるので、どの機能の書き込みも
+ * このキーを invalidate する（各機能の mutation の `keys`）。
+ */
+export const TIMELINE_QUERY_KEY = ['timeline'] as const;
 
 /**
  * タイムライン（`src/lib/history.ts`）。ページの分け方は立替・レモンの履歴と同じで、絞り込みはサーバーが掛ける。

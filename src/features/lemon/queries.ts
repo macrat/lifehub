@@ -12,8 +12,7 @@ import { api, ensureOk } from '../../lib/api.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { type HistorySource, useHistory } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
-import { timelineRecordCache } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
 export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];

@@ -16,8 +16,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { timelineRecordCache } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 import { useUsers } from '../users/queries.ts';
 
 /**

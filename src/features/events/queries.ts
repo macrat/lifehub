@@ -22,8 +22,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { applyToTimeline, findInTimeline } from '../timeline/queries.ts';
-import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
+import { applyToTimeline, findInTimeline, TIMELINE_QUERY_KEY } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
 import { type WriteTarget, writeTarget } from './recurrence-options.ts';

@@ -4,8 +4,7 @@ import type { Memo } from '../../../../shared/memos.ts';
 import { memoEntry, type TimelineEntry } from '../../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../../shared/types.ts';
 import type { HistorySource } from '../../../lib/history.ts';
-import { timelineRecordCache } from '../queries.ts';
-import { TIMELINE_QUERY_KEY } from '../query-key.ts';
+import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../queries.ts';
 
 const memo = (id: string, body: string): Memo => ({
   id,
