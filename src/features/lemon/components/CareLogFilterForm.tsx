@@ -5,7 +5,8 @@ import {
   CARE_TYPES,
   type CareType,
 } from '../../../../shared/validation/lemon.ts';
-import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
+import { ALL, optionOrUndefined } from '../../../lib/search.ts';
+import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import type { LemonFilters, LemonFiltersPatch } from '../search.ts';
 
@@ -39,22 +40,7 @@ export function CareLogFilterForm({ open, filters, onChange }: Props) {
           </MenuItem>
         ))}
       </TextField>
-      <TextField
-        label="開始日"
-        type="date"
-        size="small"
-        value={filters.since ?? ''}
-        onChange={(e) => onChange({ since: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <TextField
-        label="終了日"
-        type="date"
-        size="small"
-        value={filters.until ?? ''}
-        onChange={(e) => onChange({ until: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+      <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
     </FilterPanel>
   );
 }

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { z } from 'zod';
 import { isDateString } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
+import { useToggle } from './ui/use-toggle.ts';
 
 /** キーワード検索をする画面の検索パラメータ。空文字は付けない（検索していない状態は URL にも残さない） */
 const keywordSearchSchema = z.object({ q: z.string().optional() });
@@ -121,6 +122,7 @@ export function countActiveFilters<S>(search: S, conditions: FilterConditions<S>
 /**
  * 絞り込みのある画面（ホーム・立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
  * 画面はここから受け取った値を描く。キーワードだけは打つたびに反映するので手元に持つ（`useKeywordSearch`）。
+ * AppBar の検索窓と絞り込みボタン（`FilterSearchField`）と、その下に開くフォームが同じものを読む。
  * conditions は、絞り込みボタンのバッジに数える条件（`FilterConditions`）の feature ごとの規則。
  */
 export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
@@ -129,6 +131,8 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
 ) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
+  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
+  const panel = useToggle();
   const filters: Filters<S> = { ...search, q: keyword };
   const activeFilters = countActiveFilters(search, conditions);
   return {
@@ -142,5 +146,8 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
     activeFilters,
     /** 何かで絞り込んでいるか（空の一覧の文言を「一致するものが無い」にする） */
     filtering: keyword !== '' || activeFilters > 0,
+    /** 詳細な絞り込みのフォーム（`FilterPanel`）を開いているか。開閉は絞り込みボタン */
+    panelOpen: panel.value,
+    togglePanel: panel.toggle,
   };
 }

@@ -21,11 +21,10 @@ import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { FilterButton } from '../../lib/ui/FilterButton.tsx';
+import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
 import { QueryView } from '../../lib/ui/QueryView.tsx';
-import { SearchField } from '../../lib/ui/SearchField.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
-import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
+import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/lemon')({
   validateSearch: lemonSearchSchema,
@@ -44,14 +43,9 @@ export const Route = createFileRoute('/_authenticated/lemon')({
  */
 function LemonPage() {
   const search = Route.useSearch();
-  const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
-    search,
-    LEMON_FILTER_CONDITIONS,
-  );
-  // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
-  const panel = useToggle();
+  const filter = useFilterSearch(search, LEMON_FILTER_CONDITIONS);
   const statusQuery = useQuery(lemonStatusQueryOptions);
-  const history = useCareLogHistory(listFilter);
+  const history = useCareLogHistory(filter.listFilter);
   // 追加のフォームと、最初から選んでおく項目（状況のタイルから開くとその項目）
   const adding = useOpenWith<CareType[]>();
   const selection = useRecordSelection<CareLog>();
@@ -62,16 +56,18 @@ function LemonPage() {
   return (
     <>
       <AppBarContent>
-        <SearchField label="メモを検索" value={filters.q} onChange={setKeyword}>
-          <FilterButton open={panel.value} count={activeFilters} onToggle={panel.toggle} />
-        </SearchField>
+        <FilterSearchField label="メモを検索" search={filter} />
       </AppBarContent>
 
       <CareLogList
         history={history}
         header={
           <>
-            <CareLogFilterForm open={panel.value} filters={filters} onChange={setFilters} />
+            <CareLogFilterForm
+              open={filter.panelOpen}
+              filters={filter.filters}
+              onChange={filter.setFilters}
+            />
             <Box sx={{ px: 2, py: 1.5 }}>
               <QueryView query={statusQuery} skeleton={<CareStatusGridSkeleton />}>
                 {(statuses) => (
@@ -81,7 +77,7 @@ function LemonPage() {
             </Box>
           </>
         }
-        emptyMessage={filtering ? '一致する記録はありません' : 'まだ記録はありません'}
+        emptyMessage={filter.filtering ? '一致する記録はありません' : 'まだ記録はありません'}
         onSelect={selection.open}
       />
 
