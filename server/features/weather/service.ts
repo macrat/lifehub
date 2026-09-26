@@ -8,8 +8,8 @@ import {
   toDateString,
   today,
 } from '../../../shared/date.ts';
-import type { DateString } from '../../../shared/types.ts';
-import type { DailyWeather, HourlyWeather, WeatherInRange } from '../../../shared/weather.ts';
+import type { DateString, HistoryPage } from '../../../shared/types.ts';
+import type { HourlyWeather, WeatherDay, WeatherInRange } from '../../../shared/weather.ts';
 import { fetchOk } from '../../lib/fetch.ts';
 import * as repository from './repository.ts';
 import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
@@ -68,6 +68,8 @@ type Day = { code?: string; tempMax?: number; tempMin?: number; pop?: number };
 /**
  * 短期予報の気温が表すもの。最低気温は 0 時、最高気温は 9 時（JST）の時刻で並ぶ。
  * 発表の時間帯によって今日の最低が抜けるなど並びが変わるので、位置では読まない。
+ * ただし朝・昼の発表（5・11 時）は、今日の最高気温を「今日 9 時」「今日 0 時」の順に 2 度並べる
+ * （今日の最低気温はもう予報しない）。同じ日の 9 時より後に来た 0 時の値は最低気温ではないので読まない（`parseForecast`）。
  */
 function shortTempKind(time: string): 'tempMin' | 'tempMax' | undefined {
   const hour = new TZDate(time, TIME_ZONE).getHours();
@@ -102,7 +104,9 @@ export function parseForecast(json: unknown): repository.WeatherRow[] {
         if (pop !== undefined) day.pop = Math.max(pop, day.pop ?? 0);
         const kind = shortTempKind(time);
         const temp = read(station?.temps);
-        if (kind && temp !== undefined) day[kind] = temp;
+        // 同じ日の最高気温の後に来た 0 時の値は、最高気温の繰り返し（`shortTempKind`）
+        const repeatedMax = kind === 'tempMin' && day.tempMax !== undefined;
+        if (kind && temp !== undefined && !repeatedMax) day[kind] = temp;
         const max = read(station?.tempsMax);
         if (max !== undefined) day.tempMax = max;
         const min = read(station?.tempsMin);
@@ -247,15 +251,35 @@ export async function listWeather(range: DateRange): Promise<WeatherInRange> {
   return { daily, hourly };
 }
 
-/** 週間天気で出す日数（今日を含む）。週間予報は明日から 7 日分なので、今日と合わせて 8 日になる */
+/** 週間天気の最新のページの、今日から先の日数（今日を含む）。週間予報は明日から 7 日分なので、今日と合わせて 8 日 */
 const FORECAST_DAYS = 8;
 
+/** 週間天気の最新のページに入れる過ぎた日の数。開いたとき、今日の上へ少し戻っても読み込みを待たせない */
+const RECENT_DAYS = 7;
+
+/** 週間天気の続きのページ（過ぎた日）の日数 */
+const PAGE_DAYS = 14;
+
 /**
- * 今日（JST）から週間予報の終わりまでの日ごとの天気（日付順。週間天気の画面とホームのタイル）。
- * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
+ * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、その日の 3 時間ごとの天気を添える。
+ * before を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。
+ * ページは日で区切るので、日の途中では切れない。nextCursor は、それより前に取っておいた日があるときの次の before
+ * （取り始めた日より前は無い）。手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
  * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
+ * WHY NOT 件数で区切る（立替・レモンの履歴のように）: 天気は 1 日 1 行で、日数で区切れば件数も決まる。
  */
-export async function listForecast(now: Date = new Date()): Promise<DailyWeather[]> {
-  const from = today(now);
-  return (await listWeather({ from, to: addDays(from, FORECAST_DAYS - 1) })).daily;
+export async function listWeatherDays(
+  before: DateString | undefined,
+  now: Date = new Date(),
+): Promise<HistoryPage<WeatherDay>> {
+  const from = before ? addDays(before, -PAGE_DAYS) : addDays(today(now), -RECENT_DAYS);
+  const to = before ? addDays(before, -1) : addDays(today(now), FORECAST_DAYS - 1);
+  const [{ daily, hourly }, earliest] = await Promise.all([
+    listWeather({ from, to }),
+    repository.findEarliestDate(),
+  ]);
+  return {
+    items: daily.map((day) => ({ ...day, hourly: hourly.filter((h) => h.date === day.date) })),
+    nextCursor: earliest !== null && earliest < from ? from : null,
+  };
 }

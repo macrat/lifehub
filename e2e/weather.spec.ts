@@ -1,18 +1,29 @@
 import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
-import type { DailyWeather } from '../shared/weather.ts';
+import type { DateString, HistoryPage } from '../shared/types.ts';
+import type { DailyWeather, HourlyWeather, WeatherDay } from '../shared/weather.ts';
 
 /**
  * 天気は Cron が気象庁から取ってきた表を読むだけで、E2E の DB には入らない。
- * 週間天気（`/api/weather`）とカレンダーの 1 期間分（`/api/calendar` の `weather.daily`）の応答に、
- * 今日と明日の天気を差し込んで確かめる。
+ * 天気の画面の 1 ページ（`/api/weather`）とカレンダーの 1 期間分（`/api/calendar` の `weather.daily`）の応答に、
+ * 昨日・今日・明日の天気を差し込んで確かめる（天気の画面は、昨日の前にもう 1 ページある）。
  * WHY NOT 時計を止める（`page.clock`）: 偽の Date では JST の暦日の計算（`@date-fns/tz`）が壊れる。
  * 18 時の切り替えはユニットテストで確かめる（`src/features/weather/__tests__/queries.test.ts`）。
  */
 const TODAY = today();
 const TOMORROW = addDays(TODAY, 1);
+const YESTERDAY = addDays(TODAY, -1);
+const EARLIER = addDays(TODAY, -20);
+const SUNNY: DailyWeather = {
+  date: TODAY,
+  icon: { symbol: 'sun' },
+  label: '晴',
+  tempMax: 25,
+  tempMin: 14,
+  pop: 10,
+};
 const WEEK: DailyWeather[] = [
-  { date: TODAY, icon: { symbol: 'sun' }, label: '晴', tempMax: 25, tempMin: 14, pop: 10 },
+  SUNNY,
   {
     date: TOMORROW,
     icon: { symbol: 'cloud', change: 'later', next: 'rain' },
@@ -23,8 +34,31 @@ const WEEK: DailyWeather[] = [
   },
 ];
 
+/** 3 時間ごとの天気（昨日は 1 日じゅう雨、今日・明日は晴れ） */
+const allDay = (date: DateString, symbol: 'sun' | 'rain', label: string): HourlyWeather[] => [
+  { date, startMin: 0, endMin: 1440, symbol, label },
+];
+
+/** before を省いた最新のページ（昨日・今日・明日）と、その前のページ（20 日前） */
+const PAGES: Record<string, HistoryPage<WeatherDay>> = {
+  latest: {
+    items: [
+      { ...SUNNY, date: YESTERDAY, label: '雨', hourly: allDay(YESTERDAY, 'rain', '雨') },
+      ...WEEK.map((day) => ({ ...day, hourly: allDay(day.date, 'sun', '晴れ') })),
+    ],
+    nextCursor: YESTERDAY,
+  },
+  [YESTERDAY]: {
+    items: [{ ...SUNNY, date: EARLIER, label: '雪', hourly: [] }],
+    nextCursor: null,
+  },
+};
+
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/weather', (route) => route.fulfill({ json: WEEK }));
+  await page.route('**/api/weather*', (route) => {
+    const before = new URL(route.request().url()).searchParams.get('before');
+    return route.fulfill({ json: PAGES[before ?? 'latest'] });
+  });
   await page.route('**/api/calendar?*', async (route) => {
     const res = await route.fetch();
     const json = await res.json();
@@ -68,4 +102,46 @@ test('週表示の見出しは、天気の外を押すと日表示へ移る', as
   await page.goto(`/calendar?view=week&date=${TOMORROW}`);
   await page.getByRole('button', { name: dateLabel(TOMORROW) }).click();
   await expect(page).toHaveURL(new RegExp(`view=day.*date=${TOMORROW}|date=${TOMORROW}.*view=day`));
+});
+
+test('天気の画面は今日を一番上に出し、上へ戻ると過ぎた日を読み足す', async ({ page }) => {
+  await page.goto('/weather');
+  const today = page.locator(`li[data-date="${TODAY}"]`);
+  await expect(today).toBeInViewport();
+  // 今日の行の上端は AppBar のすぐ下
+  const appBar = await page.getByRole('banner').boundingBox();
+  const row = await today.boundingBox();
+  expect(Math.abs((row?.y ?? 0) - ((appBar?.y ?? 0) + (appBar?.height ?? 0)))).toBeLessThan(2);
+
+  await page.mouse.wheel(0, -2000);
+  await expect(page.locator(`li[data-date="${EARLIER}"]`)).toContainText('雪');
+});
+
+test('今日と明日は 3 時間ごとの天気が開いていて、行を押すと開け閉めできる', async ({ page }) => {
+  await page.goto('/weather');
+  const row = (date: string) => page.locator(`li[data-date="${date}"]`).getByRole('button');
+  await expect(row(TODAY)).toHaveAttribute('aria-expanded', 'true');
+  await expect(row(TOMORROW)).toHaveAttribute('aria-expanded', 'true');
+  await expect(row(YESTERDAY)).toHaveAttribute('aria-expanded', 'false');
+
+  await row(YESTERDAY).click();
+  await expect(row(YESTERDAY)).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.locator(`li[data-date="${YESTERDAY}"]`).getByRole('img', { name: '雨' }),
+  ).toHaveCount(8);
+  await row(TODAY).click();
+  await expect(row(TODAY)).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('天気の画面の戻るボタンで前の画面へ、直に開いたときはホームへ戻る', async ({ page }) => {
+  await page.goto('/calendar?view=day');
+  await page.getByRole('link', { name: /^週間天気/ }).click();
+  await expect(page).toHaveURL('/weather');
+  await expect(page.getByRole('banner')).toContainText('東京');
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL(/\/calendar/);
+
+  await page.goto('/weather');
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL('/');
 });

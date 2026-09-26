@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, lte, min, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
@@ -76,4 +76,10 @@ export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
       target: weatherHourly.startsAt,
       set: { weather: sql`excluded.weather` },
     });
+}
+
+/** 取っておいた日ごとの天気のうち、いちばん古い日（無ければ null） */
+export async function findEarliestDate(): Promise<DateString | null> {
+  const [row] = await db.select({ date: min(weather.date) }).from(weather);
+  return row?.date ?? null;
 }

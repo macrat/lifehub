@@ -45,3 +45,9 @@ export type HourlyWeather = {
 
 /** 期間の天気（`GET /api/calendar` の `weather`）。日ごとの天気と 3 時間ごとの天気 */
 export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };
+
+/**
+ * 週間天気の画面の 1 日（`GET /api/weather` のページの行）。日ごとの天気と、その日の 3 時間ごとの天気
+ * （時刻順。予報の無い日（明後日から）と取り始める前の日は空）。
+ */
+export type WeatherDay = DailyWeather & { hourly: HourlyWeather[] };

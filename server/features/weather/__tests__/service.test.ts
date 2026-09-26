@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
 import {
-  listForecast,
   listWeather,
+  listWeatherDays,
   parseForecast,
   readableLabel,
   recordObservedTemps,
@@ -183,6 +183,23 @@ describe('weather service', () => {
     expect(range.hourly.map((w) => w.label)).toEqual(['晴れ']);
   });
 
+  it('朝の発表で今日の最高気温が 0 時にも繰り返されても、最低気温として読まない', () => {
+    // 5 時の発表と同じ並び（今日 9 時・今日 0 時・明日 0 時・明日 9 時）
+    const json = forecast(['200', '200', '200'], ['200', '200', '200']);
+    json[0]?.timeSeries.splice(2, 1, {
+      timeDefines: [
+        '2026-09-23T09:00:00+09:00',
+        '2026-09-23T00:00:00+09:00',
+        '2026-09-24T00:00:00+09:00',
+        '2026-09-24T09:00:00+09:00',
+      ],
+      areas: [{ area: { code: '44132' }, temps: ['24', '24', '20', '26'] }],
+    });
+    const days = parseForecast(json);
+    expect(days.find((d) => d.date === '2026-09-23')).toMatchObject({ tempMax: 24, tempMin: null });
+    expect(days.find((d) => d.date === '2026-09-24')).toMatchObject({ tempMax: 26, tempMin: 20 });
+  });
+
   it('天気の名前の変わり方の「後」は「のち」に開き、「午後」は開かない', () => {
     expect(readableLabel('晴後雨')).toBe('晴のち雨');
     expect(readableLabel('朝の内雨後時々曇')).toBe('朝の内雨のち時々曇');
@@ -244,16 +261,41 @@ describe('weather service', () => {
     expect([day?.tempMax, day?.tempMin]).toEqual([31, 19]);
   });
 
-  it('週間天気は今日から 8 日分の日ごとの天気を返す', async () => {
-    serve({ forecast: forecast(['302', '202', '200'], ['202', '200', '101']), hourly: NO_HOURLY });
-    await refreshWeather();
-    // 2026-09-24 12:00 JST。23 日は過ぎた日なので入らない
-    const days = await listForecast(new Date('2026-09-24T03:00:00Z'));
-    expect(days.map((w) => w.date)).toEqual(['2026-09-24', '2026-09-25', '2026-09-26']);
-    expect((await listForecast(new Date('2026-09-17T03:00:00Z'))).map((w) => w.date)).toEqual([
-      '2026-09-23',
-      '2026-09-24',
-    ]);
+  describe('週間天気のページ', () => {
+    beforeEach(async () => {
+      serve({
+        forecast: forecast(['302', '202', '200'], ['202', '200', '101']),
+        hourly: hourly('2026-09-24T18:00:00+09:00', ['くもり', '雨']),
+      });
+      await refreshWeather();
+    });
+
+    it('最新のページは今日の 1 週間前から週間予報の終わりまでで、日ごとに 3 時間ごとの天気を添える', async () => {
+      // 2026-09-24 12:00 JST。9/17〜10/1 のうち、取ってある 23〜26 日
+      const page = await listWeatherDays(undefined, new Date('2026-09-24T03:00:00Z'));
+      expect(page.items.map((d) => [d.date, d.hourly.map((h) => h.label)])).toEqual([
+        ['2026-09-23', []],
+        ['2026-09-24', ['くもり', '雨']],
+        ['2026-09-25', []],
+        ['2026-09-26', []],
+      ]);
+      // 取り始めた日（23 日）より前は無い
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('前に取っておいた日があれば、続きのページで 2 週間ずつ遡る', async () => {
+      // 2026-10-05 12:00 JST。最新のページ（9/28〜）には取ってある日が無く、それより前にある
+      const latest = await listWeatherDays(undefined, new Date('2026-10-05T03:00:00Z'));
+      expect(latest).toEqual({ items: [], nextCursor: '2026-09-28' });
+      const earlier = await listWeatherDays('2026-09-28' as DateString);
+      expect(earlier.items.map((d) => d.date)).toEqual([
+        '2026-09-23',
+        '2026-09-24',
+        '2026-09-25',
+        '2026-09-26',
+      ]);
+      expect(earlier.nextCursor).toBeNull();
+    });
   });
 
   describe('3 時間ごとの天気', () => {
