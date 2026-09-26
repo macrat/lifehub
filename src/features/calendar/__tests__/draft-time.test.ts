@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { type TimedDraft, timeDraft, timeVibration } from '../draft.ts';
+import type { TimedDraft } from '../draft.ts';
+import { timeDraft, timeVibration } from '../time-draft.ts';
 import { at, DAY, grabbed, select } from './draft-fixtures.ts';
 
 describe('timeDraft', () => {

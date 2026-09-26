@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useItemForm } from '../events/use-item-form.ts';
-import { draftFromInstants, draftText, draftValues, type EventDraft, withAllDay } from './draft.ts';
+import { type EventDraft, withAllDay } from './draft.ts';
+import { draftFromInstants, draftText, draftValues } from './event-draft.ts';
 import type { QuickProps } from './use-event-composer.ts';
 
 type Options = Pick<QuickProps, 'draft' | 'onSubmit' | 'onChangeDraft' | 'onClose'>;

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
-import {
-  draftText,
-  draftValues,
-  itemDraft,
-  nextHourDraft,
-  sameOccurrence,
-  withAllDay,
-} from '../draft.ts';
+import { itemDraft, nextHourDraft, sameOccurrence, withAllDay } from '../draft.ts';
+import { draftText, draftValues } from '../event-draft.ts';
 import { allDay, at, DAY, day, event, select, task, timed } from './draft-fixtures.ts';
 
 describe('draftText', () => {
