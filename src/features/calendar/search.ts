@@ -1,18 +1,17 @@
 import { z } from 'zod';
-import { type CalendarItem, groupByDate, isCompletedTask } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  groupByDate,
+  inRange,
+  isCompletedTask,
+} from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
 import { toMonthString } from '../../lib/date.ts';
-import {
-  countActiveFilters,
-  type FilterConditions,
-  type Filters,
-  type FiltersPatch,
-} from '../../lib/search.ts';
-
+import type { FilterConditions, Filters, FiltersPatch } from '../../lib/search.ts';
 import { type CalendarView, viewSchema } from './view.ts';
 
 /**
@@ -82,18 +81,13 @@ export type ListFilters = Pick<Filters<CalendarSearch>, ListFilterKey | 'q'>;
 /** 絞り込みのフォームが更新する項目だけ。undefined は既定に戻す。キーワードは AppBar の検索窓が持つのでここには無い */
 export type ListFiltersPatch = Pick<FiltersPatch<CalendarSearch>, ListFilterKey>;
 
-/** 絞り込みボタンのバッジに数える条件（`FilterConditions`）。期間は両端で 1 つ */
-const LIST_FILTER_CONDITIONS: FilterConditions<ListFilters> = [
+/** 絞り込みボタンのバッジに数える条件（`FilterConditions`）。期間は両端で 1 つ、キーワードは検索窓に見えているので数えない */
+export const LIST_FILTER_CONDITIONS: FilterConditions<ListFilters> = [
   ['kind'],
   ['participant'],
   ['completed'],
   ['from', 'to'],
 ];
-
-/** 効いている絞り込みの数（絞り込みボタンのバッジ）。キーワードは検索窓に見えているので数えない */
-export function countListFilters(filters: ListFilters): number {
-  return countActiveFilters(filters, LIST_FILTER_CONDITIONS);
-}
 
 /** 項目が絞り込みに当たるか。期間はサーバーに投げるので、ここではそれ以外を手元で掛ける */
 export function matchesListFilters(item: CalendarItem, f: ListFilters): boolean {
@@ -118,7 +112,7 @@ export function listSections(
   { months, date, range }: { months: string[]; date: DateString; range: DateRange },
 ): ListSection[] {
   const byDate = groupByDate(items.filter((item) => matchesListFilters(item, filters)));
-  if (date >= range.from && date <= range.to && !byDate.has(date)) byDate.set(date, []);
+  if (inRange(date, range) && !byDate.has(date)) byDate.set(date, []);
   const byMonth = Map.groupBy(
     [...byDate].sort(([a], [b]) => a.localeCompare(b)),
     ([day]) => toMonthString(day),

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { clientIdShape, dateStringSchema, instantSchema, withCursor } from './common.ts';
+import { clientIdShape, cursorShape, dateStringSchema, instantSchema } from './common.ts';
 
 /**
  * 世話の項目。並びは記録フォームのチェックボックスの並び（上段: 葉水・水やり・施肥、下段: 開花・落果・収穫）で、
@@ -69,6 +69,6 @@ export const careLogFilterSchema = z.object({
 });
 export type CareLogFilter = z.infer<typeof careLogFilterSchema>;
 
-/** 記録の 1 ページの取得（GET /api/lemon/logs。`withCursor`） */
-export const careLogListQuerySchema = withCursor(careLogFilterSchema);
+/** 記録の 1 ページの取得（GET /api/lemon/logs。`cursorShape`） */
+export const careLogListQuerySchema = careLogFilterSchema.extend(cursorShape);
 export type CareLogListQuery = z.infer<typeof careLogListQuerySchema>;

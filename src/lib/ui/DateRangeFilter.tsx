@@ -9,7 +9,7 @@ type Props = {
 };
 
 /**
- * 詳細な絞り込み（`FilterPanel`）の日付の範囲（開始日・終了日）。ホーム・立替・レモンで同じ欄を使う。
+ * 詳細な絞り込み（`FilterPanel`）の日付の範囲（開始日・終了日）。ホーム・立替・レモン・カレンダーのリスト表示で同じ欄を使う。
  * 省略した端は制限しないので、片方だけでも絞り込める。欄は `FilterPanel` の格子にそのまま並ぶ。
  */
 export function DateRangeFilter({ since, until, onChange }: Props) {

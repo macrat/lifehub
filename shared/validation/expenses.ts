@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { clientIdShape, dateStringSchema, uuidSchema, withCursor } from './common.ts';
+import { clientIdShape, cursorShape, dateStringSchema, uuidSchema } from './common.ts';
 
 /** 立替の項目（組み合わせの規則を掛ける前）。MCP が一部の項目を省略できる形に変えるのに使う */
 export const expenseFieldsSchema = z.object({
@@ -54,6 +54,6 @@ export const expenseFilterSchema = z.object({
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 
-/** 履歴の 1 ページの取得（GET /api/expenses。`withCursor`） */
-export const expenseListQuerySchema = withCursor(expenseFilterSchema);
+/** 履歴の 1 ページの取得（GET /api/expenses。`cursorShape`） */
+export const expenseListQuerySchema = expenseFilterSchema.extend(cursorShape);
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

@@ -40,8 +40,9 @@ type PageQuery<T extends PgTable> = {
  * HISTORY_PAGE_SIZE 件ほどを古い順で返す。最も古い日の途中では切らず、その日の行はすべて入れる。
  *
  * 問い合わせは 1 回にする（HTTP のドライバでは往復の回数が応答時間を決める。docs/architecture.md）。
- * ページの境目の日（新しいほうから数えて HISTORY_PAGE_SIZE 件目の日）と、それより前がまだあるかは
- * 相関の無い副問い合わせなので、Postgres は行ごとではなく 1 度だけ評価する。
+ * ページの境目の日（新しいほうから数えて HISTORY_PAGE_SIZE 件目の日）は CTE で 1 度だけ求め、
+ * 行の範囲・境目の値・それより前がまだあるかの 3 か所から読む（同じ副問い合わせを 3 回書くと、
+ * Postgres は別々に 3 回評価する。2 回以上読む CTE は 1 度だけ実体化される）。
  */
 export async function findHistoryPage<T extends PgTable>({
   table,
@@ -51,26 +52,29 @@ export async function findHistoryPage<T extends PgTable>({
   before,
 }: PageQuery<T>): Promise<HistoryPage<T['$inferSelect']>> {
   const where = and(...conditions, before !== undefined ? lt(day, before) : undefined);
-  const boundary = db
-    .select({ day: sql`${day}` })
-    .from(table as PgTable)
-    .where(where)
-    .orderBy(desc(day), ...order.map((column) => desc(column)))
-    .offset(HISTORY_PAGE_SIZE - 1)
-    .limit(1);
-  const older = db
-    .select({ one: sql`1` })
-    .from(table as PgTable)
-    .where(and(where, sql`${day} < (${boundary})`));
+  const boundary = db.$with('boundary').as(
+    db
+      .select({ day: sql`${day}`.as('day') })
+      .from(table as PgTable)
+      .where(where)
+      .orderBy(desc(day), ...order.map((column) => desc(column)))
+      .offset(HISTORY_PAGE_SIZE - 1)
+      .limit(1),
+  );
+  const boundaryDay = sql`(select ${boundary.day} from ${boundary})`;
   const rows = await db
+    .with(boundary)
     .select({
       ...getTableColumns(table as PgTable),
-      // 境目の日が無い（残りが HISTORY_PAGE_SIZE 件に満たない）なら、残りすべてがこのページ
-      pageBoundary: sql<string | null>`(${boundary})::text`,
-      hasOlder: sql<boolean>`exists (${older})`,
+      pageBoundary: sql<string | null>`${boundaryDay}::text`,
+      hasOlder: sql<boolean>`exists (${db
+        .select({ one: sql`1` })
+        .from(table as PgTable)
+        .where(and(where, sql`${day} < ${boundaryDay}`))})`,
     })
     .from(table as PgTable)
-    .where(and(where, sql`((${boundary}) is null or ${day} >= (${boundary}))`))
+    // 境目の日が無い（残りが HISTORY_PAGE_SIZE 件に満たない）なら、残りすべてがこのページ
+    .where(and(where, sql`${day} >= coalesce(${boundaryDay}, '-infinity'::date)`))
     .orderBy(asc(day), ...order.map((column) => asc(column)));
   const [first] = rows;
   return {

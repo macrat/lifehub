@@ -50,14 +50,15 @@ export function useItemForm({
 
 /**
  * フォームが持つ「終日かどうか」。日時の入力欄そのものを入れ替えるので、入力欄ではなく状態として持つ。
- * 編集の対象が入れ替わったら（繰り返しの「すべて」で繰り返し元を読み直したとき）その値に合わせ直す。
+ * 編集の対象が入れ替わったら（resetKey が別の値になったら。繰り返しの「すべて」で繰り返し元を読み直した、
+ * クイック入力の枠を動かした）、その既定値（defaultAllDay）に合わせ直す。
  */
-export function useAllDay(initial: ItemFormValues) {
-  const [allDay, setAllDay] = useState(initial.allDay);
-  const [shown, setShown] = useState(initial);
-  if (shown !== initial) {
-    setShown(initial);
-    setAllDay(initial.allDay);
+export function useAllDay(defaultAllDay: boolean, resetKey: unknown) {
+  const [allDay, setAllDay] = useState(defaultAllDay);
+  const [shownKey, setShownKey] = useState(resetKey);
+  if (shownKey !== resetKey) {
+    setShownKey(resetKey);
+    setAllDay(defaultAllDay);
   }
   return [allDay, setAllDay] as const;
 }

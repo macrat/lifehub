@@ -33,14 +33,10 @@ export const nameSchema = z.string().trim().min(1, '名前を入力してくだ�
 export const clientIdShape = { id: uuidSchema.default(newId) };
 
 /**
- * 履歴の 1 ページの問い合わせ（shared/types.ts の `HistoryPage`）: 絞り込みに、続きのページの
- * カーソルを足す。before を省くと最新のページ、渡すとその日より前のページ（前のページの `nextCursor` をそのまま渡す）
+ * 履歴の 1 ページの問い合わせ（shared/types.ts の `HistoryPage`）で絞り込みに足す、続きのページの
+ * カーソル（`filterSchema.extend(cursorShape)`）。before を省くと最新のページ、渡すとその日より前のページ（前のページの `nextCursor` をそのまま渡す）
  */
-export function withCursor<Shape extends z.core.$ZodShape, Config extends z.core.$ZodObjectConfig>(
-  schema: z.ZodObject<Shape, Config>,
-) {
-  return schema.extend({ before: dateStringSchema.optional() });
-}
+export const cursorShape = { before: dateStringSchema.optional() };
 
 /** 記録 1 件を指す URL のパラメータ（`/:id`）。どの feature の ID も UUID なので 1 つを共有する */
 export const idParamSchema = z.object({ id: uuidSchema });

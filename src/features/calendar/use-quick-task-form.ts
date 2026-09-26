@@ -18,18 +18,11 @@ type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
 export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options): Quick {
   const { range, item: task, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
-  // 枠とタスクから導く値。終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す。
-  // 描画ごとや参加者を選び直すたびに作り直すと、別の既定値と見て選んだ終日を戻してしまう
-  const placed = useMemo(() => {
-    const values = taskDraftValues(task, range);
-    return { values, rangeText: taskDraftText(values) };
-  }, [task, range]);
-  const [allDay, setAllDay] = useAllDay(placed.values);
-  const initial = useMemo(
-    () => ({ ...placed.values, participantIds }),
-    [placed.values, participantIds],
-  );
-  const { rangeText } = placed;
+  // 枠とタスクから導く値。終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す
+  // （描画ごとや参加者を選び直すたびに合わせ直すと、選んだ終日が戻ってしまう）
+  const placed = useMemo(() => taskDraftValues(task, range), [task, range]);
+  const [allDay, setAllDay] = useAllDay(placed.allDay, placed);
+  const initial = { ...placed, participantIds };
   const form = useItemForm({
     kind: 'task',
     initial,
@@ -46,7 +39,7 @@ export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Op
     initial,
     allDay,
     changeAllDay: setAllDay,
-    rangeText,
+    rangeText: taskDraftText(placed),
     expandValues: () => expandValues(formRef, form, initial),
     /** 入力欄で直した日時を枠とタスクへ映す。開始が空なら枠に置けないのでそのままにする */
     syncDraft: () => {

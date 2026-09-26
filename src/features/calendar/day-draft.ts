@@ -1,3 +1,4 @@
+import { inRange } from '../../../shared/calendar.ts';
 import { addDays, diffDays } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
@@ -33,8 +34,9 @@ export function dayGrab(
 ): DayGrab | null {
   if (draft === null) return null;
   const { range, item } = draft;
-  const { from, to } = draftDays(range);
-  if (date < from || date > to) return null;
+  const days = draftDays(range);
+  if (!inRange(date, days)) return null;
+  const { from, to } = days;
   // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。端の無い枠（タスク）も動かすだけ
   if (!range.allDay || !hasEnds(item)) return { kind: 'move', draft: range, item };
   if (date === from && half === 'left') return { kind: 'start', draft: range, item };

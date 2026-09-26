@@ -1,6 +1,7 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { ALL, dateOrUndefined, optionOrUndefined } from '../../../lib/search.ts';
+import { ALL, optionOrUndefined } from '../../../lib/search.ts';
+import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ListFilters, ListFiltersPatch } from '../search.ts';
@@ -19,21 +20,10 @@ export function ListFilterForm({ open, filters, onChange }: Props) {
   const { users } = useUserLabels();
   return (
     <FilterPanel open={open}>
-      <TextField
-        label="開始"
-        type="date"
-        size="small"
-        value={filters.from ?? ''}
-        onChange={(e) => onChange({ from: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <TextField
-        label="終了"
-        type="date"
-        size="small"
-        value={filters.to ?? ''}
-        onChange={(e) => onChange({ to: dateOrUndefined(e.target.value) })}
-        slotProps={{ inputLabel: { shrink: true } }}
+      <DateRangeFilter
+        since={filters.from}
+        until={filters.to}
+        onChange={(next) => onChange('since' in next ? { from: next.since } : { to: next.until })}
       />
       <TextField
         label="種別"

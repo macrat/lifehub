@@ -36,7 +36,7 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
 
   const completed = isCompletedTask(item);
   const initial: ItemFormValues = (fromMaster ? master.data : undefined) ?? item;
-  const [allDay, setAllDay] = useAllDay(initial);
+  const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const form = useItemForm({
     kind: item.kind,
     initial,

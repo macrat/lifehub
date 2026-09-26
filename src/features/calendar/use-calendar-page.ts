@@ -11,11 +11,11 @@ import {
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
-import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
+import { countActiveFilters, useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
 import { useRefreshCalendarItems } from '../events/queries.ts';
 import {
   type CalendarSearch,
-  countListFilters,
+  LIST_FILTER_CONDITIONS,
   type ListFilters,
   type SearchPatch,
   storeView,
@@ -126,7 +126,7 @@ export function useCalendarPage(search: CalendarSearch) {
     pages: [dateAt(-1), dateAt(0), dateAt(1)] as const,
     title,
     filters,
-    activeFilters: countListFilters(filters),
+    activeFilters: countActiveFilters(filters, LIST_FILTER_CONDITIONS),
     setQuery,
     hourHeight,
     zoom,

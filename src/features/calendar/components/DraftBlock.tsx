@@ -155,7 +155,7 @@ export function DraftBlock({
 /**
  * 選んでいる期間の帯（月表示は終日・時間指定のどちらも、週・日の終日欄は終日のみ）。
  * GridChip と同じくグリッドの列と行に置く。月・週・日のどこでも同じ見た目で、つまむ丸は出さない
- * （行が低く、丸が日付や項目に重なって窮屈になる）。直すのは下のセルの長押しから（`draft.ts` の `dayGrab`）。
+ * （行が低く、丸が日付や項目に重なって窮屈になる）。直すのは下のセルの長押しから（`day-draft.ts` の `dayGrab`）。
  */
 export function DraftBar({
   columns,

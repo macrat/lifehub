@@ -86,16 +86,17 @@ export function useDeleteEvent() {
 
 /** タスクの完了・完了取り消し。カレンダーのリスト・ホームのタイムラインの行と詳細から呼ぶ。繰り返しでは occurrenceStart で回を指定する */
 export function useToggleCompletion() {
-  const mutation = useOptimisticMutation({
-    request: ({
-      id,
-      occurrenceStart,
-      completedAt,
+  return useOptimisticMutation({
+    // 完了日時は押した時刻。送る値と先に出す値に同じものを使い、溜めて後で送っても押した時刻が残る
+    prepare: ({
+      completed,
+      ...target
     }: {
       id: string;
       occurrenceStart: string | null;
-      completedAt: string | null;
-    }) => ({
+      completed: boolean;
+    }) => ({ ...target, completedAt: completed ? new Date().toISOString() : null }),
+    request: ({ id, occurrenceStart, completedAt }) => ({
       method: completedAt ? ('POST' as const) : ('DELETE' as const),
       path: api.events[':id'].complete.$url({ param: { id } }).pathname,
       body: {
@@ -109,21 +110,6 @@ export function useToggleCompletion() {
       toggleOnTimeline(client, id, occurrenceStart, completedAt);
     },
   });
-  return {
-    ...mutation,
-    /**
-     * 完了・完了の取り消し。完了日時は押した時刻で、送る値と先に出す値に同じものを使う
-     * （オフラインで溜めて後で送っても、送った時刻ではなく押した時刻が残る）
-     */
-    mutate: ({
-      completed,
-      ...target
-    }: {
-      id: string;
-      occurrenceStart: string | null;
-      completed: boolean;
-    }) => mutation.mutate({ ...target, completedAt: completed ? new Date().toISOString() : null }),
-  };
 }
 
 /**
