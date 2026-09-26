@@ -8,21 +8,15 @@ import {
   type ExpenseTotal,
   sortExpenses,
 } from '../../../shared/expenses.ts';
-import { expenseEntry, timelineEntryId } from '../../../shared/timeline.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import {
-  applyToHistories,
-  findInHistories,
-  type HistorySource,
-  useHistory,
-} from '../../lib/history.ts';
+import { type HistorySource, useHistory } from '../../lib/history.ts';
 import {
   type QueryState,
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
-import { applyToTimeline, findTimelineRecord } from '../timeline/queries.ts';
+import { timelineRecordCache } from '../timeline/queries.ts';
 import { TIMELINE_QUERY_KEY } from '../timeline/query-key.ts';
 import { useUsers } from '../users/queries.ts';
 
@@ -53,6 +47,9 @@ const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
   dayOf: (expense) => expense.spentOn,
   sort: sortExpenses,
 };
+
+/** 履歴とタイムラインへの先回りの読み書き */
+const expenseCache = timelineRecordCache('expense', expenseHistory);
 
 /** 立替画面の履歴（`useHistory`） */
 export function useExpenseHistory(filter: ExpenseFilter) {
@@ -106,8 +103,7 @@ export function useUpdateExpense() {
     }),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
-      const prev =
-        findInHistories(client, expenseHistory, id) ?? findTimelineRecord(client, 'expense', id);
+      const prev = expenseCache.find(client, id);
       if (prev) applyChange(client, id, prev, { ...prev, ...input });
     },
   });
@@ -121,8 +117,7 @@ export function useDeleteExpense() {
     }),
     keys: WRITE_KEYS,
     apply: (client, id) => {
-      const prev =
-        findInHistories(client, expenseHistory, id) ?? findTimelineRecord(client, 'expense', id);
+      const prev = expenseCache.find(client, id);
       if (prev) applyChange(client, id, prev, null);
     },
   });
@@ -131,8 +126,7 @@ export function useDeleteExpense() {
 /**
  * 1 件の変化（prev → next。追加は prev が null、削除は next が null）を先回りして書き込む。
  * - 合計: prev の分を引き、next の分を足す。残高は合計から導くので、端数を含めてサーバーと一致する
- * - 履歴: `applyToHistories`（消した物はどの履歴からも除き、足した物は絞り込みの無い履歴にだけ入れる）
- * - タイムライン: 履歴と同じ規則（`applyToTimeline`）
+ * - 履歴とタイムライン: `timelineRecordCache` の apply
  */
 function applyChange(
   client: QueryClient,
@@ -145,8 +139,7 @@ function applyChange(
     const withoutPrev = prev ? addTotal(totals, prev, -1) : totals;
     return next ? addTotal(withoutPrev, next, 1) : withoutPrev;
   });
-  applyToHistories(client, expenseHistory, id, next);
-  applyToTimeline(client, timelineEntryId('expense', id), next && expenseEntry(next));
+  expenseCache.apply(client, id, next);
 }
 
 function addTotal(totals: ExpenseTotal[], e: Expense, sign: 1 | -1): ExpenseTotal[] {

@@ -3,7 +3,10 @@ import type { Expense } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import {
+  careLogEntry,
   entryDay,
+  expenseEntry,
+  memoEntry,
   sortTimeline,
   type TimelineEntry,
   timelineEntryId,
@@ -50,25 +53,53 @@ export function findInTimeline(client: QueryClient, id: string): TimelineEntry |
 /** 1 件が 1 行になる記録（立替・レモン・メモ）の種類と、その行が持つ記録 */
 type TimelineRecords = { expense: Expense; lemon: CareLog; memo: Memo };
 
-const RECORD_OF: {
-  [K in keyof TimelineRecords]: (entry: TimelineEntry) => TimelineRecords[K] | undefined;
+/** 種類ごとの、行から記録を取り出す・記録から行を作る組 */
+const RECORD_ENTRY: {
+  [K in keyof TimelineRecords]: {
+    recordOf: (entry: TimelineEntry) => TimelineRecords[K] | undefined;
+    entryOf: (record: TimelineRecords[K]) => TimelineEntry;
+  };
 } = {
-  expense: (entry) => (entry.type === 'expense' ? entry.expense : undefined),
-  lemon: (entry) => (entry.type === 'lemon' ? entry.log : undefined),
-  memo: (entry) => (entry.type === 'memo' ? entry.memo : undefined),
+  expense: {
+    recordOf: (entry) => (entry.type === 'expense' ? entry.expense : undefined),
+    entryOf: expenseEntry,
+  },
+  lemon: {
+    recordOf: (entry) => (entry.type === 'lemon' ? entry.log : undefined),
+    entryOf: careLogEntry,
+  },
+  memo: {
+    recordOf: (entry) => (entry.type === 'memo' ? entry.memo : undefined),
+    entryOf: memoEntry,
+  },
 };
 
 /**
- * 読んだタイムラインにある記録（編集・削除の前の値）。ホームから直すときはその機能の画面の履歴を
- * 読んでいないことがあるので、各機能はまず自分の履歴を探し、無ければここを見る
+ * 1 件が 1 行になる記録（立替・レモン・メモ）の、読んだキャッシュへの先回りの読み書き（楽観的更新）。
+ * 記録を読む画面の履歴（`history`。メモのように画面を持たなければ省く）とタイムラインの両方を同じ規則で扱う。
+ * - find: 編集・削除の前の値。まず自分の履歴を探し、無ければタイムラインを見る
+ *   （ホームから直すときは、その機能の画面の履歴を読んでいないことがあるため）
+ * - apply: 記録 1 件の変化（id の記録が next になる。削除は null）を、履歴（`applyToHistories`）と
+ *   タイムライン（`applyToTimeline`）に書き込む
+ * 残高の合計や状況のタイルのような、機能ごとの書き込みは各機能が足す。
  */
-export function findTimelineRecord<K extends keyof TimelineRecords>(
-  client: QueryClient,
+export function timelineRecordCache<K extends keyof TimelineRecords, F>(
   type: K,
-  id: string,
-): TimelineRecords[K] | undefined {
-  const entry = findInTimeline(client, timelineEntryId(type, id));
-  return entry && RECORD_OF[type](entry);
+  history?: HistorySource<TimelineRecords[K], F>,
+) {
+  const { recordOf, entryOf } = RECORD_ENTRY[type];
+  return {
+    find: (client: QueryClient, id: string): TimelineRecords[K] | undefined => {
+      const found = history && findInHistories(client, history, id);
+      if (found) return found;
+      const entry = findInTimeline(client, timelineEntryId(type, id));
+      return entry && recordOf(entry);
+    },
+    apply: (client: QueryClient, id: string, next: TimelineRecords[K] | null): void => {
+      if (history) applyToHistories(client, history, id, next);
+      applyToTimeline(client, timelineEntryId(type, id), next && entryOf(next));
+    },
+  };
 }
 
 /**
