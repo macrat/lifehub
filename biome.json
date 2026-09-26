@@ -128,18 +128,13 @@
                   },
                   {
                     "group": [
-                      "**/db/client.ts",
-                      "./db/client.ts",
-                      "**/db/history.ts",
-                      "./db/history.ts",
-                      "**/db/schema.ts",
-                      "./db/schema.ts",
-                      "**/db/test-db.ts",
-                      "./db/test-db.ts",
+                      "**/db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
                     "group": ["**/repository.ts", "!./repository.ts"],
@@ -167,18 +162,13 @@
                   },
                   {
                     "group": [
-                      "**/db/client.ts",
-                      "./db/client.ts",
-                      "**/db/history.ts",
-                      "./db/history.ts",
-                      "**/db/schema.ts",
-                      "./db/schema.ts",
-                      "**/db/test-db.ts",
-                      "./db/test-db.ts",
+                      "**/db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
                     "group": ["./repository.ts", "**/repository.ts"],
@@ -210,18 +200,13 @@
                   },
                   {
                     "group": [
-                      "**/db/client.ts",
-                      "./db/client.ts",
-                      "**/db/history.ts",
-                      "./db/history.ts",
-                      "**/db/schema.ts",
-                      "./db/schema.ts",
-                      "**/db/test-db.ts",
-                      "./db/test-db.ts",
+                      "**/db/**",
+                      "!**/db/auth-adapter.ts",
+                      "!**/db/health.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
                     "group": ["**/features/**", "!**/features/*/schema.ts"],

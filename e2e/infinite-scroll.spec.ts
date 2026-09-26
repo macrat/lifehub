@@ -95,13 +95,18 @@ for (const history of histories) {
     ];
     const created: Created[] = [];
     try {
-      created.push(
-        ...(await Promise.all(records.map(([at, text]) => addRecord(page, history, me, at, text)))),
-      );
       // 今日の 2 件は 1 件ずつ順に置く。立替は同じ日の中を記録した順（サーバーの記録した時刻）で並べるので、
-      // 同時に送ると届いた順で並びが入れ替わる。レモンは実施日時の順なので、少しだけ時刻をずらしておく
-      created.push(await addRecord(page, history, me, new Date(stamp - 2000), todayFirst));
-      created.push(await addRecord(page, history, me, new Date(stamp - 1000), todayLast));
+      // 同時に送ると届いた順で並びが入れ替わる。レモンは実施日時の順なので、少しだけ時刻をずらしておく。
+      // ほかの日の記録は並びに関わらないので、その間に並べて送る
+      const addToday = async () => [
+        await addRecord(page, history, me, new Date(stamp - 2000), todayFirst),
+        await addRecord(page, history, me, new Date(stamp - 1000), todayLast),
+      ];
+      const [others, today] = await Promise.all([
+        Promise.all(records.map(([at, text]) => addRecord(page, history, me, at, text))),
+        addToday(),
+      ]);
+      created.push(...others, ...today);
 
       await page.goto(history.path);
       const sticky = history.sticky(page);
