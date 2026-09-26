@@ -46,9 +46,12 @@ async function openWeeklyFrom(page: Page, link: ReturnType<Page['getByRole']>) {
 test('ホームの天気のタイルに今日か明日の天気が出て、押すと週間天気が開く', async ({ page }) => {
   await page.goto('/');
   // 18 時までは今日、それからは明日
-  const [label, temps] =
-    minutesOfDay(new Date()) < 18 * 60 ? ['今日', '25° / 14°'] : ['明日', '21° / 16°'];
+  const [label, name, temps] =
+    minutesOfDay(new Date()) < 18 * 60
+      ? ['今日', '晴', '25° / 14°']
+      : ['明日', '曇後雨', '21° / 16°'];
   const tile = page.getByRole('button', { name: new RegExp(`^${label}`) });
+  await expect(tile).toContainText(name);
   await expect(tile).toContainText(temps);
   await openWeeklyFrom(page, tile);
 });
