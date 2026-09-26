@@ -15,7 +15,7 @@ import { useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
 import { useRefreshCalendarItems } from '../events/queries.ts';
 import {
   type CalendarSearch,
-  countActiveFilters,
+  countListFilters,
   type ListFilters,
   type SearchPatch,
   storeView,
@@ -126,7 +126,7 @@ export function useCalendarPage(search: CalendarSearch) {
     pages: [dateAt(-1), dateAt(0), dateAt(1)] as const,
     title,
     filters,
-    activeFilters: countActiveFilters(filters),
+    activeFilters: countListFilters(filters),
     setQuery,
     hourHeight,
     zoom,
