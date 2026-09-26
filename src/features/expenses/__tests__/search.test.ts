@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { countActiveFilters, type ExpenseSearch } from '../search.ts';
+import { countActiveFilters as countWith } from '../../../lib/search.ts';
+import { EXPENSE_FILTER_CONDITIONS, type ExpenseSearch } from '../search.ts';
+
+const countActiveFilters = (search: ExpenseSearch) => countWith(search, EXPENSE_FILTER_CONDITIONS);
 
 const ME = '11111111-1111-4111-8111-111111111111';
 /** 何も絞り込んでいない状態 */

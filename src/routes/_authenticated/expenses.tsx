@@ -8,7 +8,7 @@ import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFil
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
 import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
-import { countActiveFilters, expenseSearchSchema } from '../../features/expenses/search.ts';
+import { EXPENSE_FILTER_CONDITIONS, expenseSearchSchema } from '../../features/expenses/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
@@ -38,7 +38,7 @@ function ExpensesPage() {
   const search = Route.useSearch();
   const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
     search,
-    countActiveFilters,
+    EXPENSE_FILTER_CONDITIONS,
   );
   // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
   const panel = useToggle();

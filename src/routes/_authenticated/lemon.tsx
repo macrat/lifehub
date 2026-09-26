@@ -15,7 +15,7 @@ import {
   lemonStatusQueryOptions,
   useCareLogHistory,
 } from '../../features/lemon/queries.ts';
-import { countActiveFilters, lemonSearchSchema } from '../../features/lemon/search.ts';
+import { LEMON_FILTER_CONDITIONS, lemonSearchSchema } from '../../features/lemon/search.ts';
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
@@ -46,7 +46,7 @@ function LemonPage() {
   const search = Route.useSearch();
   const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
     search,
-    countActiveFilters,
+    LEMON_FILTER_CONDITIONS,
   );
   // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
   const panel = useToggle();

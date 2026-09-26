@@ -11,7 +11,10 @@ import { TimelineEntrySheet } from '../../features/timeline/components/TimelineE
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
 import { type TimelineEntry, useTimeline } from '../../features/timeline/queries.ts';
-import { countActiveFilters, timelineSearchSchema } from '../../features/timeline/search.ts';
+import {
+  TIMELINE_FILTER_CONDITIONS,
+  timelineSearchSchema,
+} from '../../features/timeline/search.ts';
 import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -49,7 +52,7 @@ function HomePage() {
   const isDesktop = useIsDesktop();
   const { filters, listFilter, setKeyword, setFilters, activeFilters, filtering } = useFilterSearch(
     search,
-    countActiveFilters,
+    TIMELINE_FILTER_CONDITIONS,
   );
   // 詳細な絞り込みのフォームを開いているか（URL には載せない。開き直したら閉じている）
   const panel = useToggle();
