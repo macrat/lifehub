@@ -9,7 +9,12 @@ import {
   today,
 } from '../../../shared/date.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
-import type { HourlyWeather, WeatherDay, WeatherInRange } from '../../../shared/weather.ts';
+import type {
+  DailyWeather,
+  HourlyWeather,
+  WeatherDay,
+  WeatherInRange,
+} from '../../../shared/weather.ts';
 import { fetchOk } from '../../lib/fetch.ts';
 import * as repository from './repository.ts';
 import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
@@ -124,10 +129,33 @@ export function parseForecast(json: unknown): repository.WeatherRow[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** 日ごとの天気を取り直して、予報のある日を上書きする。上書きした日の数を返す */
+/**
+ * 予報の JSON から 6 時間ごとの降水確率を取り出す（時刻順）。読むのは 1 つ目の報（短期予報）だけで、
+ * 週間予報の降水確率（日ごと）は `parseForecast` が日ごとの天気に入れる。
+ * 区切りは 0・6・12・18 時で、今日の過ぎた区間は載らない（発表の後の区間から）。
+ */
+function parsePops(json: unknown): repository.PopRow[] {
+  const [short] = forecastSchema.parse(json);
+  return (short?.timeSeries ?? []).flatMap(({ timeDefines, areas }) => {
+    const pops = areas.find((a) => a.area.code === AREA_CODE)?.pops;
+    return pops
+      ? timeDefines.flatMap((time, i) =>
+          pops[i] ? [{ startsAt: new Date(time), pop: Number(pops[i]) }] : [],
+        )
+      : [];
+  });
+}
+
+/**
+ * 日ごとの天気と 6 時間ごとの降水確率を取り直して、予報のある日・区間を上書きする。上書きした日の数を返す。
+ * どちらも同じ JSON に載っているので、1 回の取得で両方を書く。
+ */
 async function refreshDailyWeather(): Promise<number> {
-  const rows = parseForecast(await (await fetchOk(FORECAST_URL)).json());
+  const json = await (await fetchOk(FORECAST_URL)).json();
+  const rows = parseForecast(json);
+  const pops = parsePops(json);
   await repository.upsertDaily(rows);
+  await repository.upsertPops(pops);
   return rows.length;
 }
 
@@ -172,22 +200,38 @@ const HOURLY_URL = `https://www.jma.go.jp/bosai/jmatile/data/wdist/VPFD/${AREA_C
 const SLOT_MINUTES = 180;
 
 /**
- * 天気分布予報のうち読むところだけ（予報区の天気）。区間が 3 時間でなくなったら（形が変わったら）読まずに投げ、
- * 手元の天気を前回のまま残す。
+ * 天気分布予報のうち読むところだけ（予報区の天気と、地点（東京）の気温）。区間が 3 時間でなくなったら
+ * （形が変わったら）読まずに投げ、手元の天気を前回のまま残す。気温は無くても天気は読む。
+ * 地点の気温は区間でなく時刻ごと（3 時間おき）に並び、値の無い所は空文字で来ることがある。
  */
 const hourlySchema = z.object({
   areaTimeSeries: z.object({
     timeDefines: z.array(z.object({ dateTime: z.string(), duration: z.literal('PT3H') })),
     weather: z.array(z.string()),
   }),
+  pointTimeSeries: z
+    .object({
+      timeDefines: z.array(z.object({ dateTime: z.string() })),
+      temperature: z.array(z.union([z.number(), z.string()])),
+    })
+    .optional(),
 });
 
-/** 天気分布予報の JSON から、区間ごとの天気を取り出す（時刻順） */
+/**
+ * 天気分布予報の JSON から、区間ごとの天気と気温を取り出す（時刻順）。気温は区間の始まりと同じ時刻の地点の気温
+ * （気象庁の時系列予報の表と同じく、その時刻の予想気温）。
+ */
 function parseHourlyForecast(json: unknown): repository.HourlyWeatherRow[] {
-  const { timeDefines, weather } = hourlySchema.parse(json).areaTimeSeries;
-  return timeDefines.flatMap(({ dateTime }, i) => {
-    const w = weather[i];
-    return w ? [{ startsAt: new Date(dateTime), weather: w }] : [];
+  const { areaTimeSeries, pointTimeSeries } = hourlySchema.parse(json);
+  const temps = new Map<number, number>();
+  pointTimeSeries?.timeDefines.forEach(({ dateTime }, i) => {
+    const temp = pointTimeSeries.temperature[i];
+    if (typeof temp === 'number') temps.set(new Date(dateTime).getTime(), temp);
+  });
+  return areaTimeSeries.timeDefines.flatMap(({ dateTime }, i) => {
+    const w = areaTimeSeries.weather[i];
+    const startsAt = new Date(dateTime);
+    return w ? [{ startsAt, weather: w, temp: temps.get(startsAt.getTime()) ?? null }] : [];
   });
 }
 
@@ -222,6 +266,14 @@ export function readableLabel(label: string): string {
   return label.replace(/(?<=[^午])後(?=.)/g, 'のち');
 }
 
+/** 日ごとの天気の行を、画面に出す形にする。表に無い天気の日は、アイコンを決められないので除く */
+function toDaily(rows: repository.WeatherRow[]): DailyWeather[] {
+  return rows.flatMap(({ code, ...values }) => {
+    const telop = TELOPS[code];
+    return telop ? [{ ...values, icon: telop[0], label: readableLabel(telop[1]) }] : [];
+  });
+}
+
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
  * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、
@@ -231,10 +283,7 @@ export function readableLabel(label: string): string {
  */
 export async function listWeather(range: DateRange): Promise<WeatherInRange> {
   const rows = await repository.findBetween(range);
-  const daily = rows.daily.flatMap(({ code, ...values }) => {
-    const telop = TELOPS[code];
-    return telop ? [{ ...values, icon: telop[0], label: readableLabel(telop[1]) }] : [];
-  });
+  const daily = toDaily(rows.daily);
   const hourly: HourlyWeather[] = [];
   for (const { startsAt, weather } of rows.hourly) {
     const symbol = HOURLY_SYMBOLS[weather];
@@ -261,7 +310,9 @@ const RECENT_DAYS = 7;
 const PAGE_DAYS = 14;
 
 /**
- * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、その日の 3 時間ごとの天気を添える。
+ * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、その日の 3 時間ごとの天気と気温
+ * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
+ * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
  * before を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。
  * ページは日で区切るので、日の途中では切れない。nextCursor は、それより前に取っておいた日があるときの次の before
  * （取り始めた日より前は無い）。手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
@@ -274,12 +325,38 @@ export async function listWeatherDays(
 ): Promise<HistoryPage<WeatherDay>> {
   const from = before ? addDays(before, -PAGE_DAYS) : addDays(today(now), -RECENT_DAYS);
   const to = before ? addDays(before, -1) : addDays(today(now), FORECAST_DAYS - 1);
-  const [{ daily, hourly }, earliest] = await Promise.all([
-    listWeather({ from, to }),
+  const [rows, popRows, earliest] = await Promise.all([
+    repository.findBetween({ from, to }),
+    repository.findPopsBetween({ from, to }),
     repository.findEarliestDate(),
   ]);
+  const slots = rows.hourly.flatMap(({ startsAt, weather, temp }) => {
+    const symbol = HOURLY_SYMBOLS[weather];
+    return symbol
+      ? [
+          {
+            date: toDateString(startsAt),
+            startMin: minutesOfDay(startsAt),
+            symbol,
+            label: weather,
+            temp,
+          },
+        ]
+      : [];
+  });
+  const pops = popRows.map(({ startsAt, pop }) => ({
+    date: toDateString(startsAt),
+    startMin: minutesOfDay(startsAt),
+    pop,
+  }));
+  const onDate = <T extends { date: DateString }>(items: T[], date: DateString) =>
+    items.filter((item) => item.date === date).map(({ date: _, ...rest }) => rest);
   return {
-    items: daily.map((day) => ({ ...day, hourly: hourly.filter((h) => h.date === day.date) })),
+    items: toDaily(rows.daily).map((day) => ({
+      ...day,
+      slots: onDate(slots, day.date),
+      pops: onDate(pops, day.date),
+    })),
     nextCursor: earliest !== null && earliest < from ? from : null,
   };
 }

@@ -29,8 +29,24 @@ export const weather = pgTable('weather', {
  * 予報から外れた過ぎた時間帯は消さずに残すので、過ぎた時間帯にはその時間帯の最後の予報が残る
  * （日ごとの天気と同じく、予報は先の時間帯しか配られない）。
  * 天気は気象庁の天気の名前（「晴れ」「くもり」など）のまま持ち、アイコンの種類は読むときに `telops.ts` で引く。
+ * 気温（℃）は区間の始まりの時刻の東京の予想気温（天気分布予報の地点の気温）。載っていない報もあるので null を許し、
+ * null では上書きしない（`repository.ts`）。
  */
 export const weatherHourly = pgTable('weather_hourly', {
   startsAt: timestamp('starts_at', { withTimezone: true }).primaryKey(),
   weather: text('weather').notNull(),
+  temp: integer('temp'),
+});
+
+/**
+ * 6 時間ごとの降水確率（%。東京地方）。天気の画面で日ごとに開く 3 時間ごとの天気に添える。
+ *
+ * 気象庁の予報（`service.ts` の `FORECAST_URL`）の短期予報の降水確率を写したもの。区切りは 0・6・12・18 時で、
+ * 今日と明日の分が載る。取り直すたびに予報のある区間を上書きし、過ぎた区間は消さずに残す（`weather_hourly` と同じ）。
+ * WHY NOT `weather_hourly` の列にする: 気象庁の降水確率は 6 時間ごとで、3 時間の区間に写すと 2 つの区間に同じ値が
+ * 並び、6 時間の値だと分からなくなる。
+ */
+export const weatherPop = pgTable('weather_pop', {
+  startsAt: timestamp('starts_at', { withTimezone: true }).primaryKey(),
+  pop: integer('pop').notNull(),
 });

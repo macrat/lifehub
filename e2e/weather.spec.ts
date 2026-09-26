@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
-import type { DateString, HistoryPage } from '../shared/types.ts';
-import type { DailyWeather, HourlyWeather, WeatherDay } from '../shared/weather.ts';
+import type { HistoryPage } from '../shared/types.ts';
+import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
 
 /**
  * 天気は Cron が気象庁から取ってきた表を読むだけで、E2E の DB には入らない。
@@ -34,22 +34,26 @@ const WEEK: DailyWeather[] = [
   },
 ];
 
-/** 3 時間ごとの天気（昨日は 1 日じゅう雨、今日・明日は晴れ） */
-const allDay = (date: DateString, symbol: 'sun' | 'rain', label: string): HourlyWeather[] => [
-  { date, startMin: 0, endMin: 1440, symbol, label },
-];
+/**
+ * 1 日ぶんの 3 時間ごとの天気（気温は 0 時の 15 度から 1 度ずつ上がる）と 6 時間ごとの降水確率
+ * （0 時から 10・20・30・40%）。昨日は 1 日じゅう雨、今日・明日は晴れ
+ */
+const allDay = (symbol: 'sun' | 'rain', label: string): Pick<WeatherDay, 'slots' | 'pops'> => ({
+  slots: Array.from({ length: 8 }, (_, i) => ({ startMin: i * 180, symbol, label, temp: 15 + i })),
+  pops: Array.from({ length: 4 }, (_, i) => ({ startMin: i * 360, pop: (i + 1) * 10 })),
+});
 
 /** before を省いた最新のページ（昨日・今日・明日）と、その前のページ（20 日前） */
 const PAGES: Record<string, HistoryPage<WeatherDay>> = {
   latest: {
     items: [
-      { ...SUNNY, date: YESTERDAY, label: '雨', hourly: allDay(YESTERDAY, 'rain', '雨') },
-      ...WEEK.map((day) => ({ ...day, hourly: allDay(day.date, 'sun', '晴れ') })),
+      { ...SUNNY, date: YESTERDAY, label: '雨', ...allDay('rain', '雨') },
+      ...WEEK.map((day) => ({ ...day, ...allDay('sun', '晴れ') })),
     ],
     nextCursor: YESTERDAY,
   },
   [YESTERDAY]: {
-    items: [{ ...SUNNY, date: EARLIER, label: '雪', hourly: [] }],
+    items: [{ ...SUNNY, date: EARLIER, label: '雪', slots: [], pops: [] }],
     nextCursor: null,
   },
 };
@@ -126,9 +130,12 @@ test('今日と明日は 3 時間ごとの天気が開いていて、行を押�
 
   await row(YESTERDAY).click();
   await expect(row(YESTERDAY)).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.locator(`li[data-date="${YESTERDAY}"]`).getByRole('img', { name: '雨' }),
-  ).toHaveCount(8);
+  const yesterday = page.locator(`li[data-date="${YESTERDAY}"]`);
+  await expect(yesterday.getByRole('img', { name: '雨' })).toHaveCount(8);
+  // 3 時間ごとの気温と、6 時間ごとの降水確率
+  await expect(yesterday).toContainText('15°');
+  await expect(yesterday).toContainText('22°');
+  await expect(yesterday).toContainText('40%');
   await row(TODAY).click();
   await expect(row(TODAY)).toHaveAttribute('aria-expanded', 'false');
 });

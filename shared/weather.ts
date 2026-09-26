@@ -47,7 +47,21 @@ export type HourlyWeather = {
 export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };
 
 /**
- * 週間天気の画面の 1 日（`GET /api/weather` のページの行）。日ごとの天気と、その日の 3 時間ごとの天気
- * （時刻順。予報の無い日（明後日から）と取り始める前の日は空）。
+ * 天気の画面の 3 時間ごとの天気の 1 枠。startMin は date の 0:00 からの分（0・180…1260）。
+ * label は気象庁の天気の名前（「くもり」など）、temp は枠の始まりの時刻の気温（℃。予報に無ければ null）。
  */
-export type WeatherDay = DailyWeather & { hourly: HourlyWeather[] };
+export type WeatherSlot = {
+  startMin: number;
+  symbol: WeatherSymbol;
+  label: string;
+  temp: number | null;
+};
+
+/** 6 時間ごとの降水確率（%）。startMin は date の 0:00 からの分で、0・360・720・1080 のどれか */
+export type PopSlot = { startMin: number; pop: number };
+
+/**
+ * 天気の画面の 1 日（`GET /api/weather` のページの行）。日ごとの天気と、その日の 3 時間ごとの天気（時刻順）と
+ * 6 時間ごとの降水確率（時刻順）。予報の無い日（明後日から）と取り始める前の日は、どちらも空。
+ */
+export type WeatherDay = DailyWeather & { slots: WeatherSlot[]; pops: PopSlot[] };

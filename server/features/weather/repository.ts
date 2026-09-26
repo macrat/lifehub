@@ -2,10 +2,11 @@ import { and, asc, eq, gte, lt, lte, min, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
-import { weather, weatherHourly } from './schema.ts';
+import { weather, weatherHourly, weatherPop } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
 export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
+export type PopRow = typeof weatherPop.$inferSelect;
 
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
@@ -66,7 +67,10 @@ export async function updateTemps(
   return row;
 }
 
-/** 時間帯ごとに上書きする。渡さなかった時間帯（予報から外れた、過ぎた時間帯）は残す */
+/**
+ * 時間帯ごとに上書きする。渡さなかった時間帯（予報から外れた、過ぎた時間帯）は残す。
+ * 気温は null で上書きしない（気温の載っていない報で、前の予報の気温を消さない）
+ */
 export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
   if (rows.length === 0) return;
   await db
@@ -74,7 +78,10 @@ export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
     .values(rows)
     .onConflictDoUpdate({
       target: weatherHourly.startsAt,
-      set: { weather: sql`excluded.weather` },
+      set: {
+        weather: sql`excluded.weather`,
+        temp: sql`coalesce(excluded.temp, ${weatherHourly.temp})`,
+      },
     });
 }
 
@@ -82,4 +89,23 @@ export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
 export async function findEarliestDate(): Promise<DateString | null> {
   const [row] = await db.select({ date: min(weather.date) }).from(weather);
   return row?.date ?? null;
+}
+
+/** [from, to]（両端を含む JST 暦日）の 6 時間ごとの降水確率（時刻順） */
+export async function findPopsBetween(range: DateRange): Promise<PopRow[]> {
+  const instants = instantRange(range);
+  return db
+    .select()
+    .from(weatherPop)
+    .where(and(gte(weatherPop.startsAt, instants.from), lt(weatherPop.startsAt, instants.to)))
+    .orderBy(asc(weatherPop.startsAt));
+}
+
+/** 6 時間ごとの降水確率を区間ごとに上書きする。渡さなかった区間（過ぎた区間）は残す */
+export async function upsertPops(rows: PopRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  await db
+    .insert(weatherPop)
+    .values(rows)
+    .onConflictDoUpdate({ target: weatherPop.startsAt, set: { pop: sql`excluded.pop` } });
 }

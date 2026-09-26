@@ -31,7 +31,8 @@ type Props = {
  * 週間天気の一覧（日付順）。1 日 1 行で、日付・天気のアイコンと名前・最高／最低気温・降水確率を横に並べる。
  * 列の幅を行のあいだで揃えるので、上下に日を見比べやすい（気象庁の週間予報の表と同じ見方）。
  * 最高気温は赤、最低気温は青で、どちらが高いかを数の位置に頼らず見分けられるようにする（天気予報の慣習）。
- * 3 時間ごとの天気がある日（取り始めてからの過ぎた日と、明日まで）は、行を押すとその下に開く（`HourlyForecast`）。
+ * 3 時間ごとの天気か 6 時間ごとの降水確率がある日（取り始めてからの過ぎた日と、明日まで）は、行を押すとその下に開く
+ * （`HourlyForecast`）。
  * 無い日（明後日から）の行は押せない。
  * 行には日付（`data-date`）を持たせ、画面が最初に今日を一番上に出すのに使う。
  */
@@ -39,7 +40,7 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
   return (
     <List disablePadding>
       {days.map((day) => {
-        const expandable = day.hourly.length > 0;
+        const expandable = day.slots.length > 0 || day.pops.length > 0;
         const open = expandable && isOpen(day.date);
         return (
           <Box
@@ -108,7 +109,7 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
             </ListItemButton>
             {expandable && (
               <Collapse in={open}>
-                <HourlyForecast hourly={day.hourly} />
+                <HourlyForecast slots={day.slots} pops={day.pops} />
               </Collapse>
             )}
           </Box>
