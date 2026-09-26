@@ -4,9 +4,9 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { mcp } from '@better-auth/mcp';
 import { betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
-import { v7 as uuidv7 } from 'uuid';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
+import { newId } from '../../shared/id.ts';
 import { db } from './db.ts';
 import { env, resolveBaseUrl } from './env.ts';
 import * as schema from './schema.ts';
@@ -96,7 +96,7 @@ export const auth = betterAuth({
   ],
   advanced: {
     database: {
-      generateId: () => uuidv7(),
+      generateId: newId,
     },
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
