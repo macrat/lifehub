@@ -3,14 +3,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import Paper from '@mui/material/Paper';
 import type { RefObject } from 'react';
-import { BOTTOM_NAV_HEIGHT, STICKY_TOP } from './layout.ts';
+import { BOTTOM_NAV_TOP, STICKY_TOP } from './layout.ts';
 import { PULL_THRESHOLD, usePullToRefresh } from './use-pull-to-refresh.ts';
 
 /** 印（丸）の大きさ（px） */
 const SIZE = 40;
 
 /**
- * 引き切ったときに印が隠れ場所（上端から引くときは AppBar、下端から引くときは下部ナビ）から出ている距離（px）。印がすべて出て、下に少し間が空く。
+ * 引き切ったときに印が隠れ場所から出ている距離（px）。印がすべて出て、先に少し間が空く。
  * 取り直している間もここに留める。指より遅く動くので、引いている手応えが出る
  */
 const REST = SIZE + 16;
@@ -28,7 +28,7 @@ type Props = {
  * 下端から引くときは下部ナビの裏（上端。下部ナビの無い PC では画面の下端の外）に隠しておき、引いた分だけ上へ出す。
  * どちらも指の動く向きに出てくる。
  * 矢印は引き切るまで薄く、引き切ると濃くなって「離せば取り直す」ことを示す。
- * 離して取り直している間は回る印に変わり、取り直し終えると AppBar の裏へ戻る。
+ * 離して取り直している間は回る印に変わり、取り直し終えると隠れ場所へ戻る。
  *
  * ブラウザの引っ張って更新はここで止め（`html` の `overscroll-behavior-y: contain`）、この部品が代わりを受け持つ。
  * ブラウザのものは iOS のホーム画面の Web アプリには無く、Android では AppBar の上に印が重なるので、
@@ -55,10 +55,7 @@ export function PullToRefresh({ area }: Props) {
           ...(edge === 'top'
             ? { top: STICKY_TOP }
             : {
-                bottom: {
-                  xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
-                  md: 0,
-                },
+                bottom: { xs: BOTTOM_NAV_TOP, md: 0 },
               }),
           left: '50%',
           // AppBar（drawer + 1）より下、ページの内容（貼り付けた見出しを含む）より上。

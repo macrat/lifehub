@@ -50,18 +50,23 @@ function pans(style: CSSStyleDeclaration, edge: PullEdge): boolean {
   return touchAction === 'auto' || touchAction === 'manipulation' || pan.test(touchAction);
 }
 
-/** 要素がその端までスクロールし切っているか（スクロールしない要素は常に端にいる） */
-function atEdge(el: Element, style: CSSStyleDeclaration, edge: PullEdge): boolean {
+/** 要素がその端までスクロールし切っているか */
+function scrolledTo(el: Element, edge: PullEdge): boolean {
   if (edge === 'top') return el.scrollTop <= 0;
-  if (!/auto|scroll/.test(style.overflowY)) return true;
   return el.scrollTop + el.clientHeight >= el.scrollHeight - EDGE_SLOP;
 }
 
-/** ページ（window）がその端までスクロールし切っているか */
-function pageAtEdge(edge: PullEdge): boolean {
-  if (edge === 'top') return window.scrollY <= 0;
-  const root = document.documentElement;
-  return window.scrollY + root.clientHeight >= root.scrollHeight - EDGE_SLOP;
+/**
+ * 指の下の要素がその端までスクロールし切っているか。スクロールしない要素は常に端にいる
+ * （下端では、はみ出した中身で scrollHeight が大きくなっていても見ない）
+ */
+function atEdge(el: Element, style: CSSStyleDeclaration, edge: PullEdge): boolean {
+  return !/auto|scroll/.test(style.overflowY) || scrolledTo(el, edge);
+}
+
+/** ページがその端までスクロールし切っている端 */
+function pageEdges(): PullEdge[] {
+  return (['top', 'bottom'] as const).filter((edge) => scrolledTo(document.documentElement, edge));
 }
 
 /**
@@ -70,7 +75,6 @@ function pageAtEdge(edge: PullEdge): boolean {
  * 端へ戻している最中に取り直しに化けない）、縦のなぞりを自分で扱う所でもないときだけ引ける。
  */
 function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
-  if (!pageAtEdge(edge)) return false;
   for (let el: Element | null = target; el && el !== area; el = el.parentElement) {
     const style = getComputedStyle(el);
     if (!atEdge(el, style, edge) || !pans(style, edge)) return false;
@@ -80,12 +84,12 @@ function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
 
 /** 指を下ろした所から引ける端。どちらからも引けなければ空 */
 function pullableEdges(target: Element, area: HTMLElement): PullEdge[] {
+  // ページの途中から始めるなぞり（ふつうのスクロール）は、印を探すより先にここで外す
+  const edges = pageEdges();
+  if (edges.length === 0) return edges;
   const declared = area.querySelector<HTMLElement>('[data-pull-edges]')?.dataset.pullEdges;
-  const edges: readonly PullEdge[] =
-    declared === undefined
-      ? ['top']
-      : (['top', 'bottom'] as const).filter((edge) => declared.split(' ').includes(edge));
-  return edges.filter((edge) => canPull(target, area, edge));
+  const allowed = declared === undefined ? ['top'] : declared.split(' ');
+  return edges.filter((edge) => allowed.includes(edge) && canPull(target, area, edge));
 }
 
 /**

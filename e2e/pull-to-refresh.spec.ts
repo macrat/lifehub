@@ -30,6 +30,14 @@ async function pull(page: Page, dy: number, options: { afterStart?: () => Promis
   await touchDrag(page, FROM, { x: FROM.x, y: FROM.y + dy }, { steps: 10, ...options });
 }
 
+/** 下端から引くときに指を下ろす所。画面の下のほう（下部ナビのすぐ上） */
+const FROM_BOTTOM = { x: 200, y: 700 };
+
+/** FROM_BOTTOM から上へなぞる */
+async function pullUp(page: Page, dy: number) {
+  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - dy }, { steps: 10 });
+}
+
 test('ページの上で下へ引き切って離すと、読み込み直さずにデータを取り直す', async ({ page }) => {
   const fetched = await fetchesFromNow(page, TIMELINE);
   // 読み込み直したかは、ページの外（load イベント）で見る
@@ -79,20 +87,17 @@ test('オフラインと分からないまま取り直せなかったときは�
   await expect(notice).toBeHidden({ timeout: 5000 });
 });
 
-/** 下端から引くときに指を下ろす所。画面の下のほう（下部ナビのすぐ上） */
-const FROM_BOTTOM = { x: 200, y: 700 };
-
 test('下が新しい一覧では、下端で上へ引き切って離すとデータを取り直す', async ({ page }) => {
   await page.goto('/expenses');
   const fetched = await fetchesFromNow(page, '/api/expenses');
-  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await pullUp(page, 200);
   await expect.poll(fetched).toBeGreaterThan(0);
 });
 
 test('上が新しい一覧（ホーム）では、上へ引いても取り直さない', async ({ page }) => {
   // タイムラインが短くページがスクロールしなくても、上端から引いたことにはならない
   const fetched = await fetchesFromNow(page, TIMELINE);
-  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await pullUp(page, 200);
   await quiet(page, fetched);
   expect(fetched()).toBe(0);
 });
@@ -103,7 +108,7 @@ test('予定のリストでは上端からも下端からも引いても取り�
   await expect(page.getByRole('heading', { name: '6/15' })).toBeVisible();
   const fetched = await fetchesFromNow(page, '/api/calendar');
   await pull(page, 200);
-  await touchDrag(page, FROM_BOTTOM, { x: FROM_BOTTOM.x, y: FROM_BOTTOM.y - 200 }, { steps: 10 });
+  await pullUp(page, 200);
   await quiet(page, fetched);
   expect(fetched()).toBe(0);
 });
