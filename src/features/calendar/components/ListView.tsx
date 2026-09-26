@@ -31,6 +31,8 @@ type Props = {
  * 上が古く下が新しい。最初は基準の日（既定は今日）を一番上に出し、上下の端へ近づくと前後の月を 1 か月ずつ読み足す
  * （`useListMonths`）。月ごとに見出しを立てるので、項目の無い月も見出しの分だけ一覧が伸び、端が見えたまま
  * 読み続けることがない。基準の日は項目が無くても「予定なし」として出し、今どこにいるかを示す。
+ * 引っ張って更新はしない。前後の月を読み足し続けるので上端にも下端にも留まれず、引ける時がほとんど無い
+ * （たまたま端にいる間だけ引けても、引けたり引けなかったりして分かりにくい）。
  */
 export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { users } = useUserLabels();
@@ -104,6 +106,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
       resetKey={JSON.stringify({ date, filters })}
       // 最初の位置は出している月が揃ってから決める
       ready={loaded}
+      pullToRefresh={[]}
     >
       <QueryView query={itemsQuery} skeleton={<ListSkeleton rows={4} />}>
         {(items) => {

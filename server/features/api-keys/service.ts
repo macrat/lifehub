@@ -37,14 +37,14 @@ export async function revokeKey(id: string, userId: string): Promise<void> {
 }
 
 /**
- * キーを照合し、持ち主のユーザー ID を返す（無効なら undefined）。使われた日時もここで記録する。
+ * キーを照合し、持ち主のユーザー ID とキーの名前を返す（無効なら undefined）。使われた日時もここで記録する。
  * 照合はハッシュの一致を DB に引かせる。ハッシュ同士の比較なので、比較にかかる時間からキーは漏れない。
  */
 export async function authenticate(
   key: string,
   now: Date = new Date(),
-): Promise<string | undefined> {
-  return (await repository.touchByHash(hashOf(key), now))?.userId;
+): Promise<{ userId: string; name: string } | undefined> {
+  return repository.touchByHash(hashOf(key), now);
 }
 
 function hashOf(key: string): string {

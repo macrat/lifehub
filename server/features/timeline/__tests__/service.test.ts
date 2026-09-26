@@ -71,7 +71,7 @@ describe('timeline service', () => {
     );
     await logCare(
       { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: '朝の水やり' },
-      userId,
+      { userId },
     );
     await addExpense(
       expenseSchema.parse({
@@ -188,10 +188,13 @@ describe('timeline service', () => {
     // 1 日 1 回の世話を 60 日分（ページの件数より多い）
     for (let i = 0; i < 60; i++) {
       const doneAt = new Date(jst('2026-09-14T07:00:00').getTime() - i * 86_400_000);
-      await logCare({ careTypes: ['mist'], doneAt, note: null }, userId);
+      await logCare({ careTypes: ['mist'], doneAt, note: null }, { userId });
     }
     // ずっと前の記録。間には何も無い
-    await logCare({ careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' }, userId);
+    await logCare(
+      { careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' },
+      { userId },
+    );
 
     const first = await getTimelinePage({}, now);
     expect(first.nextCursor).not.toBeNull();
@@ -238,8 +241,14 @@ describe('timeline service', () => {
       userId,
     );
     await createEvent(task({ title: '掃除', note: '買い物のついで' }), userId);
-    await logCare({ careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: null }, userId);
-    await logCare({ careTypes: ['mist'], doneAt: jst('2026-09-14T08:10:00'), note: null }, userId);
+    await logCare(
+      { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: null },
+      { userId },
+    );
+    await logCare(
+      { careTypes: ['mist'], doneAt: jst('2026-09-14T08:10:00'), note: null },
+      { userId },
+    );
 
     expect(labels((await getTimelinePage({ q: '買い物' }, now)).items)).toEqual(['掃除', '買い物']);
     expect(labels((await getTimelinePage({ q: '水やり' }, now)).items)).toEqual(['water']);
@@ -252,7 +261,7 @@ describe('timeline service', () => {
       ['2026-09-05T08:00:00', '5日'],
       ['2026-09-10T08:00:00', '10日'],
     ] as const) {
-      await logCare({ careTypes: [], doneAt: jst(doneAt), note }, userId);
+      await logCare({ careTypes: [], doneAt: jst(doneAt), note }, { userId });
     }
     const page = await getTimelinePage({ since: day('2026-09-02'), until: day('2026-09-05') }, now);
     expect(labels(page.items)).toEqual(['5日']);

@@ -30,17 +30,17 @@ export async function remove(id: string, userId: string): Promise<boolean> {
 }
 
 /**
- * ハッシュに対応する行の最終使用日時を更新し、持ち主を返す（無ければ undefined）。
+ * ハッシュに対応する行の最終使用日時を更新し、持ち主と名前を返す（無ければ undefined）。
  * 照合と記録を 1 文にまとめ、受け付け 1 回あたりの往復を増やさない。
  */
 export async function touchByHash(
   keyHash: string,
   now: Date,
-): Promise<{ userId: string } | undefined> {
+): Promise<{ userId: string; name: string } | undefined> {
   const touched = await db
     .update(apiKeys)
     .set({ lastUsedAt: now })
     .where(eq(apiKeys.keyHash, keyHash))
-    .returning({ userId: apiKeys.userId });
+    .returning({ userId: apiKeys.userId, name: apiKeys.name });
   return touched[0];
 }

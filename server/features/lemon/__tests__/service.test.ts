@@ -15,15 +15,18 @@ describe('lemon service', () => {
   });
 
   it('1 件の記録が複数の項目を進め、項目ごとに最終実施日と経過日数（JST の暦日差）を返す', async () => {
-    await logCare({ careTypes: ['water'], doneAt: jst('2026-09-10T23:30:00'), note: null }, userId);
+    await logCare(
+      { careTypes: ['water'], doneAt: jst('2026-09-10T23:30:00'), note: null },
+      { userId },
+    );
     await logCare(
       // 葉水と水やりはまとめてやり、その過程で開花に気づく
       { careTypes: ['mist', 'water', 'bloom'], doneAt: jst('2026-09-12T08:00:00'), note: null },
-      userId,
+      { userId },
     );
     await logCare(
       { careTypes: ['mist'], doneAt: jst('2026-09-13T08:00:00'), note: 'たっぷり' },
-      userId,
+      { userId },
     );
     const status = await getStatus(jst('2026-09-14T00:10:00'));
     expect(status).toEqual([
@@ -37,7 +40,7 @@ describe('lemon service', () => {
   });
 
   it('項目を 1 つも持たない記録（メモ）はどのタイルも動かさない', async () => {
-    await logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: '新芽' }, userId);
+    await logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: '新芽' }, { userId });
     const status = await getStatus(jst('2026-09-14T00:10:00'));
     expect(status.every((s) => s.lastDoneAt === null)).toBe(true);
     expect((await listLogs({})).items).toMatchObject([{ careTypes: [], note: '新芽' }]);
@@ -49,12 +52,12 @@ describe('lemon service', () => {
       doneAt: jst('2026-09-13T08:00:00').toISOString(),
       note: null,
     });
-    expect((await logCare(input, userId)).careTypes).toEqual(['mist', 'bloom', 'harvest']);
+    expect((await logCare(input, { userId })).careTypes).toEqual(['mist', 'bloom', 'harvest']);
   });
 
   it('項目もメモも無い記録は DB が弾く（何も残らない記録は作れない）', async () => {
     await expect(
-      logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: null }, userId),
+      logCare({ careTypes: [], doneAt: jst('2026-09-13T08:00:00'), note: null }, { userId }),
     ).rejects.toThrow();
   });
 
@@ -65,24 +68,27 @@ describe('lemon service', () => {
       doneAt: jst('2026-09-10T08:00:00'),
       note: null,
     };
-    await logCare(input, userId, id);
-    await logCare(input, userId, id);
+    await logCare(input, { userId }, id);
+    await logCare(input, { userId }, id);
 
     expect((await listLogs({})).items).toHaveLength(1);
     expect((await listLogs({})).items[0]).toMatchObject({ id, careTypes: ['water'] });
   });
 
-  it('記録した人を持ち、分からない記録（API キーで入れたもの）は null のまま残る', async () => {
+  it('記録した人を持ち、API キーで入れた記録は人の代わりにキーの名前を持つ', async () => {
     const doneAt = jst('2026-09-10T08:00:00');
-    const known = await logCare({ careTypes: ['water'], doneAt, note: null }, userId);
-    const unknown = await logCare({ careTypes: ['mist'], doneAt, note: null }, null);
+    const known = await logCare({ careTypes: ['water'], doneAt, note: null }, { userId });
+    const viaKey = await logCare(
+      { careTypes: ['mist'], doneAt, note: null },
+      { apiKeyName: '玄関のボタン' },
+    );
 
-    expect(known.createdBy).toBe(userId);
-    expect(unknown.createdBy).toBeNull();
+    expect(known).toMatchObject({ createdBy: userId, apiKeyName: null });
+    expect(viaKey).toMatchObject({ createdBy: null, apiKeyName: '玄関のボタン' });
     expect((await listLogs({})).items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: known.id, createdBy: userId }),
-        expect.objectContaining({ id: unknown.id, createdBy: null }),
+        expect.objectContaining({ id: known.id, createdBy: userId, apiKeyName: null }),
+        expect.objectContaining({ id: viaKey.id, createdBy: null, apiKeyName: '玄関のボタン' }),
       ]),
     );
   });
@@ -90,9 +96,9 @@ describe('lemon service', () => {
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
     const id = newId();
     const input = { careTypes: ['water' as const], doneAt: jst('2026-09-10T08:00:00'), note: null };
-    await logCare(input, userId, id);
+    await logCare(input, { userId }, id);
     await updateLog(id, { ...input, note: '追肥の予定' });
-    const resent = await logCare(input, userId, id);
+    const resent = await logCare(input, { userId }, id);
 
     expect(resent).toMatchObject({ id, note: '追肥の予定' });
     expect((await listLogs({})).items).toMatchObject([{ id, note: '追肥の予定' }]);
@@ -101,7 +107,7 @@ describe('lemon service', () => {
   it('記録を編集すると全項目が置き換わり、状態にも反映される', async () => {
     const log = await logCare(
       { careTypes: ['water'], doneAt: jst('2026-09-10T08:00:00'), note: null },
-      userId,
+      { userId },
     );
     await updateLog(log.id, {
       careTypes: ['fertilize'],
@@ -117,6 +123,7 @@ describe('lemon service', () => {
         note: 'まちがえて水やりで記録していた',
         // 記録した人は編集しても変わらない
         createdBy: userId,
+        apiKeyName: null,
       },
     ]);
 
@@ -137,7 +144,7 @@ describe('lemon service', () => {
   describe('記録のページ', () => {
     const on = dateStringSchema.parse;
     const log = (doneAt: string, values: Partial<Parameters<typeof logCare>[0]> = {}) =>
-      logCare({ careTypes: ['water'], doneAt: jst(doneAt), note: null, ...values }, userId);
+      logCare({ careTypes: ['water'], doneAt: jst(doneAt), note: null, ...values }, { userId });
 
     it('新しいほうから 1 ページを古い順で返し、JST の日の途中では切らない', async () => {
       // JST の 1/1〜2/18 に 1 日 1 件（49 件）。1/2 には 0:30 と 23:30 にもう 2 件（UTC では前日と当日）
