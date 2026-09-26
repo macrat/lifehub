@@ -1,16 +1,4 @@
-import {
-  and,
-  arrayContains,
-  arrayOverlaps,
-  desc,
-  eq,
-  gte,
-  lt,
-  lte,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { arrayContains, arrayOverlaps, desc, eq, gte, lte, or, type SQL, sql } from 'drizzle-orm';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import {
   CARE_TYPE_LABELS,
@@ -20,7 +8,7 @@ import {
   type CareType,
 } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage, type InstantRange } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/history.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
 /** 実施日時の JST の暦日（date）。ページの区切りと日付の範囲の絞り込みに使う */
@@ -61,37 +49,12 @@ function timelineKeyword(q: string | undefined): SQL | undefined {
   );
 }
 
-/** 実施日時が before より前の、新しいほうから limit 件の実施日時（タイムラインのページ分け） */
-export async function findRecentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  const rows = await db
-    .select({ at: lemonCareLogs.doneAt })
-    .from(lemonCareLogs)
-    .where(and(lt(lemonCareLogs.doneAt, before), timelineKeyword(q)))
-    .orderBy(desc(lemonCareLogs.doneAt))
-    .limit(limit);
-  return rows.map((row) => row.at);
-}
-
-/** 実施日時が [from, to) の記録（タイムライン） */
-export async function findInTimelineRange(
-  range: InstantRange,
-  q: string | undefined,
-): Promise<LemonCareLogRow[]> {
-  return db
-    .select()
-    .from(lemonCareLogs)
-    .where(
-      and(
-        gte(lemonCareLogs.doneAt, range.from),
-        lt(lemonCareLogs.doneAt, range.to),
-        timelineKeyword(q),
-      ),
-    );
-}
+/** タイムラインの問い合わせ。置く日時は実施日時 */
+export const timeline = timelineQueries({
+  table: lemonCareLogs,
+  at: lemonCareLogs.doneAt,
+  keyword: timelineKeyword,
+});
 
 /**
  * 項目ごとの、いちばん新しい実施記録（未来の記録は「まだ実施していない」ので除く）。

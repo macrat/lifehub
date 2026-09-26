@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
+import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -8,7 +8,7 @@ import {
   SHARED,
 } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage, type InstantRange } from '../../lib/history.ts';
+import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
@@ -57,37 +57,12 @@ const timelineAt = sql<Date>`case
   else ${expenses.spentOn}::timestamp at time zone ${TIME_ZONE}
 end`.mapWith(expenses.createdAt);
 
-/** タイムラインの日時が before より前の、新しいほうから limit 件の日時（タイムラインのページ分け） */
-export async function findRecentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  const rows = await db
-    .select({ at: timelineAt })
-    .from(expenses)
-    .where(and(lt(timelineAt, before), containsKeyword(expenses.description, q)))
-    .orderBy(desc(timelineAt))
-    .limit(limit);
-  return rows.map((row) => row.at);
-}
-
-/** タイムラインの日時が [from, to) の立替 */
-export async function findInTimelineRange(
-  range: InstantRange,
-  q: string | undefined,
-): Promise<ExpenseRow[]> {
-  return db
-    .select()
-    .from(expenses)
-    .where(
-      and(
-        gte(timelineAt, range.from),
-        lt(timelineAt, range.to),
-        containsKeyword(expenses.description, q),
-      ),
-    );
-}
+/** タイムラインの問い合わせ。キーワードは内容の部分一致 */
+export const timeline = timelineQueries({
+  table: expenses,
+  at: timelineAt,
+  keyword: (q) => containsKeyword(expenses.description, q),
+});
 
 /**
  * 「誰が誰のために払ったか」ごとの合計。残高はこれだけで決まるので、行を全部読まずに DB で畳む

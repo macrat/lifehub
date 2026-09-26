@@ -1,7 +1,8 @@
-import { type CalendarItem, placeOnce } from '../../../shared/calendar.ts';
+import { placeOnce } from '../../../shared/calendar.ts';
 import { inclusiveEndDate, toDateString } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
-import type { InstantRange } from '../../lib/history.ts';
+import { eventEntry, type TimelineEntry } from '../../../shared/timeline.ts';
+import type { InstantRange, TimelineSource } from '../../lib/history.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import { listOccurrences } from './occurrences.ts';
 import * as repository from './repository.ts';
@@ -16,11 +17,7 @@ import * as repository from './repository.ts';
  * 単発の行と実体化された回は DB で絞り、繰り返す予定は繰り返し元ごとに before の直前の limit 回を展開する。
  * 並びは問わない（呼び出し側がほかの記録と合わせて並べる）
  */
-export async function recentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
+async function recentInstants(before: Date, q: string | undefined, limit: number): Promise<Date[]> {
   const [instants, recurring] = await Promise.all([
     repository.findRecentTimelineInstants(before, q, limit),
     repository.findRecurringEventsBefore(before, q),
@@ -32,17 +29,20 @@ export async function recentTimelineInstants(
 }
 
 /**
- * range に掛かる暦日の回を 1 回 1 件の項目にしたもの（`placeOnce`。キーワードはタイトルかメモの部分一致）。
+ * range に掛かる暦日の回を 1 回 1 件の行にしたもの（`placeOnce`。キーワードはタイトルかメモの部分一致）。
  * 範囲より前に始まった予定や、日時を持たないタスクも含むので、どれを出すかは呼び出し側が行の日時で決める
  */
-export async function listTimelineItems(
+async function entries(
   range: InstantRange,
   q: string | undefined,
-  now: Date = new Date(),
-): Promise<CalendarItem[]> {
+  now: Date,
+): Promise<TimelineEntry[]> {
   const days = { from: toDateString(range.from), to: inclusiveEndDate(range.to.toISOString()) };
   // DB は繰り返し元のタイトル・メモで絞るので、「この回だけ」で直した回はここで回そのものの値で絞り直す
   return (await listOccurrences(days, now, { q }))
     .filter((o) => matchesKeyword(q, o.title, o.note))
-    .flatMap((o) => placeOnce(o, now) ?? []);
+    .flatMap((o) => placeOnce(o, now) ?? [])
+    .map((item) => eventEntry(item, now));
 }
+
+export const timelineSource: TimelineSource = { recentInstants, entries };

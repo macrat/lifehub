@@ -1,8 +1,9 @@
 import { newId } from '../../../shared/id.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import type { InstantRange } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/history.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
@@ -35,19 +36,12 @@ async function rejectWrite(id: string): Promise<never> {
   throw new NotFoundError('メモが見つかりません');
 }
 
-/** タイムラインのページ分け: before より前の、新しいほうから limit 件の日時 */
-export function recentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  return repository.findRecentTimelineInstants(before, q, limit);
-}
-
-/** タイムラインに並べるメモ（書いた時刻が範囲の中のもの） */
-export async function listForTimeline(range: InstantRange, q: string | undefined): Promise<Memo[]> {
-  return (await repository.findInTimelineRange(range, q)).map(toMemo);
-}
+/** タイムラインに並べるメモ（置く日時は書いた時刻。キーワードは本文の部分一致） */
+export const timelineSource: TimelineSource = {
+  recentInstants: repository.timeline.findRecentInstants,
+  entries: async (range, q) =>
+    (await repository.timeline.findInRange(range, q)).map((row) => memoEntry(toMemo(row))),
+};
 
 function toMemo(row: MemoRow): Memo {
   return {

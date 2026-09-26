@@ -1,39 +1,14 @@
-import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../lib/db.ts';
-import { containsKeyword, type InstantRange } from '../../lib/history.ts';
-import { type MemoRow, memos } from './schema.ts';
+import { containsKeyword, timelineQueries } from '../../lib/history.ts';
+import { memos } from './schema.ts';
 
-/** 書いた時刻が before より前の、新しいほうから limit 件の書いた時刻（タイムラインのページ分け） */
-export async function findRecentTimelineInstants(
-  before: Date,
-  q: string | undefined,
-  limit: number,
-): Promise<Date[]> {
-  const rows = await db
-    .select({ at: memos.createdAt })
-    .from(memos)
-    .where(and(lt(memos.createdAt, before), containsKeyword(memos.body, q)))
-    .orderBy(desc(memos.createdAt))
-    .limit(limit);
-  return rows.map((row) => row.at);
-}
-
-/** 書いた時刻が [from, to) のメモ */
-export async function findInTimelineRange(
-  range: InstantRange,
-  q: string | undefined,
-): Promise<MemoRow[]> {
-  return db
-    .select()
-    .from(memos)
-    .where(
-      and(
-        gte(memos.createdAt, range.from),
-        lt(memos.createdAt, range.to),
-        containsKeyword(memos.body, q),
-      ),
-    );
-}
+/** タイムラインの問い合わせ。置く日時は書いた時刻、キーワードは本文の部分一致 */
+export const timeline = timelineQueries({
+  table: memos,
+  at: memos.createdAt,
+  keyword: (q) => containsKeyword(memos.body, q),
+});
 
 /**
  * メモを作る。id は呼び出し元（多くはクライアント）が決めたもの。

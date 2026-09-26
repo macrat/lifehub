@@ -50,7 +50,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ## API
 
-`GET /api/timeline?q&since&until&before`（`server/features/timeline/`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service から記録を集めて並べる（カレンダーの `GET /api/calendar` と同じ位置付け）。
+`GET /api/timeline?q&since&until&before`（`server/features/timeline/`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/history.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `GET /api/calendar` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`sources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
 
 - ページの分け方は立替・レモンの履歴と同じで、日の途中では切らない。記録の種類ごとに新しいほうから 50 件の日時を集め、全体で 50 件目の日からをそのページにする。日数でなく件数で区切るので、記録の無い期間が続いても空のページを読み続けない。未完了のタスクは一番上か 24 時間以内にしか出ないので数えない。繰り返す予定は繰り返し元ごとに、続きの前の 50 回を展開して数える。
 - 最新のページ（`before` なし）の上端は今から 24 時間後、続きのページは `before` の日の始まり。`until` があればその日の終わりで頭打ち、`since` があればその日の始まりで止める。

@@ -11,6 +11,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
+import type { TimelineEntry } from '../../shared/timeline.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 import { db } from './db.ts';
 
@@ -75,6 +76,51 @@ export async function findHistoryPage<T extends PgTable>({
 
 /** 瞬間の範囲 [from, to)。タイムライン（`features/timeline`）が各 feature から記録を集めるときの窓 */
 export type InstantRange = { from: Date; to: Date };
+
+/**
+ * タイムライン（`features/timeline`）が 1 つの feature から記録を集める口。各 feature の service が 1 つずつ持ち、
+ * タイムラインはそれを並べるだけにする（どの記録をどの日時に置くかは各 feature と shared/timeline.ts が決める）。
+ */
+export type TimelineSource = {
+  /** 置く日時が before より前の、新しいほうから（少なくとも）limit 件の日時（ページの区切りを決める）。並びは問わない */
+  recentInstants(before: Date, q: string | undefined, limit: number): Promise<Date[]>;
+  /** range に掛かる記録の行。どの行を出すかはタイムラインが行の日時で決める */
+  entries(range: InstantRange, q: string | undefined, now: Date): Promise<TimelineEntry[]>;
+};
+
+/**
+ * 1 件の記録が 1 つの日時に置かれる表の、タイムライン向けの問い合わせ（`TimelineSource` の元）。
+ * at はタイムラインに置く日時の列か式、keyword はキーワードの条件（空のキーワードは undefined を返す）。
+ */
+export function timelineQueries<T extends PgTable>({
+  table,
+  at,
+  keyword,
+}: {
+  table: T;
+  at: SQL<Date> | Column;
+  keyword: (q: string | undefined) => SQL | undefined;
+}) {
+  // 列も式も SQL として同じに扱える（どちらも Date に読み替えられる。式は mapWith で渡される）
+  const instant = at as SQL<Date>;
+  return {
+    async findRecentInstants(before: Date, q: string | undefined, limit: number): Promise<Date[]> {
+      const rows = await db
+        .select({ at: instant })
+        .from(table as PgTable)
+        .where(and(lt(instant, before), keyword(q)))
+        .orderBy(desc(instant))
+        .limit(limit);
+      return rows.map((row) => row.at);
+    },
+    async findInRange(range: InstantRange, q: string | undefined): Promise<T['$inferSelect'][]> {
+      return db
+        .select()
+        .from(table as PgTable)
+        .where(and(gte(instant, range.from), lt(instant, range.to), keyword(q)));
+    },
+  };
+}
 
 /**
  * キーワードの部分一致（大文字小文字を区別しない）。画面の検索窓と同じ規則で、
