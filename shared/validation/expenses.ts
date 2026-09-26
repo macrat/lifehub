@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { newId } from '../id.ts';
-import { dateStringSchema, uuidSchema } from './common.ts';
+import { clientIdShape, dateStringSchema, uuidSchema, withCursor } from './common.ts';
 
 /** 立替の項目（組み合わせの規則を掛ける前）。MCP が一部の項目を省略できる形に変えるのに使う */
 export const expenseFieldsSchema = z.object({
@@ -29,10 +28,8 @@ export function withExpenseRules<
 export const expenseSchema = withExpenseRules(expenseFieldsSchema);
 export type ExpenseInput = z.infer<typeof expenseSchema>;
 
-/** API（POST /api/expenses）が受け取る追加の入力。ID の決め方は createEventRequestSchema と同じ。 */
-export const createExpenseRequestSchema = expenseSchema.safeExtend({
-  id: uuidSchema.default(newId),
-});
+/** API（POST /api/expenses）が受け取る追加の入力（`clientIdShape`） */
+export const createExpenseRequestSchema = expenseSchema.safeExtend(clientIdShape);
 
 /** To の「共有」。ユーザー ID と混ざらないよう、URL や API の値としても語で置く */
 export const SHARED = 'shared';
@@ -57,11 +54,6 @@ export const expenseFilterSchema = z.object({
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 
-/**
- * 履歴の 1 ページの取得（GET /api/expenses）。before を省くと最新のページ、
- * 渡すとその日より前のページ（前のページの `nextCursor` をそのまま渡す）。
- */
-export const expenseListQuerySchema = expenseFilterSchema.extend({
-  before: dateStringSchema.optional(),
-});
+/** 履歴の 1 ページの取得（GET /api/expenses。`withCursor`） */
+export const expenseListQuerySchema = withCursor(expenseFilterSchema);
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

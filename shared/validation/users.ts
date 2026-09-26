@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { HUE_MAX } from '../color.ts';
 import { DAY_MINUTES, PASSWORD_MIN_LENGTH } from '../constants.ts';
+import { nameSchema } from './common.ts';
 
 const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, `パスワードは${PASSWORD_MIN_LENGTH}文字以上にしてください`)
   .max(128);
-
-const nameSchema = z.string().trim().min(1, '名前を入力してください').max(50);
 
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
 const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
