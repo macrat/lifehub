@@ -1,8 +1,8 @@
 import { placeOnce } from '../../../shared/calendar.ts';
-import { inclusiveEndDate, toDateString } from '../../../shared/date.ts';
+import { type InstantRange, inclusiveEndDate, toDateString } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
 import { eventEntry, type TimelineEntry } from '../../../shared/timeline.ts';
-import type { InstantRange, TimelineSource } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/history.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import { listOccurrences } from './occurrences.ts';
 import * as repository from './repository.ts';

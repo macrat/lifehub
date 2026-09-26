@@ -1,5 +1,5 @@
 import ICAL from 'ical.js';
-import type { DateRange } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { fetchOk } from '../../lib/fetch.ts';

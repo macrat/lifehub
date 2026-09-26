@@ -10,10 +10,10 @@ import { useCallback, useEffect } from 'react';
 import {
   type CalendarItem,
   type CalendarPeriod,
-  type DateRange,
   inRange,
   occurrenceKey,
 } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';

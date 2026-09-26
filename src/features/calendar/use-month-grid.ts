@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { DateRange } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { DRAFT_SELECTOR } from './components/markers.ts';
 
 /**

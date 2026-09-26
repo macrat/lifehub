@@ -11,6 +11,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
+import type { InstantRange } from '../../shared/date.ts';
 import type { TimelineEntry } from '../../shared/timeline.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 import { db } from './db.ts';
@@ -73,9 +74,6 @@ export async function findHistoryPage<T extends PgTable>({
     nextCursor: boundary && older.length > 0 ? boundary.day : null,
   };
 }
-
-/** 瞬間の範囲 [from, to)。タイムライン（`features/timeline`）が各 feature から記録を集めるときの窓 */
-export type InstantRange = { from: Date; to: Date };
 
 /**
  * タイムライン（`features/timeline`）が 1 つの feature から記録を集める口。各 feature の service が 1 つずつ持ち、

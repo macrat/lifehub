@@ -1,6 +1,13 @@
-import { type CalendarItem, type DateRange, occurrenceKey } from '../../../shared/calendar.ts';
+import { type CalendarItem, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
-import { addDays, allDayDate, diffDays, minutesOfDay, toDateString } from '../../../shared/date.ts';
+import {
+  addDays,
+  allDayDate,
+  type DateRange,
+  diffDays,
+  minutesOfDay,
+  toDateString,
+} from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import { clamp } from '../../lib/math.ts';

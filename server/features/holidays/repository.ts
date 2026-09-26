@@ -1,5 +1,5 @@
 import { and, asc, gte, lte } from 'drizzle-orm';
-import type { DateRange } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db.ts';
 import { holidays } from './schema.ts';

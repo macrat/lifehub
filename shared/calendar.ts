@@ -2,6 +2,7 @@ import { addDays as addDaysFn } from 'date-fns';
 import {
   addDays,
   allDayDate,
+  type DateRange,
   diffDays,
   inclusiveEndDate,
   startOfDay,
@@ -70,9 +71,6 @@ export type CalendarItem =
 export function occurrenceKey(item: Pick<Occurrence, 'kind' | 'id' | 'occurrenceStart'>): string {
   return `${item.kind}:${item.id}:${item.occurrenceStart ?? ''}`;
 }
-
-/** 両端を含む JST 暦日の期間 */
-export type DateRange = { from: DateString; to: DateString };
 
 /** 暦日が期間（両端を含む）の中か */
 export function inRange(date: DateString, { from, to }: DateRange): boolean {

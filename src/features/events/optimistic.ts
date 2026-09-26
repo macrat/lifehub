@@ -2,12 +2,12 @@ import type { QueryClient } from '@tanstack/react-query';
 import {
   type CalendarItem,
   type CalendarPeriod,
-  type DateRange,
   normalizeIsoInstants,
   type Occurrence,
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { monthRange } from '../../lib/date.ts';
 import type { CreateEventBody, UpdateEventBody } from './queries.ts';
 import { CALENDAR_QUERY_KEY } from './query-keys.ts';

@@ -1,8 +1,13 @@
 import { TZDate } from '@date-fns/tz';
 import { z } from 'zod';
-import type { DateRange } from '../../../shared/calendar.ts';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { addDays, minutesOfDay, toDateString, today } from '../../../shared/date.ts';
+import {
+  addDays,
+  type DateRange,
+  minutesOfDay,
+  toDateString,
+  today,
+} from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { HourlyWeather, WeatherInRange } from '../../../shared/weather.ts';
 import { fetchOk } from '../../lib/fetch.ts';
