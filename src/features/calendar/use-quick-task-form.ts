@@ -17,12 +17,18 @@ type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
 export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options) {
   const { range, item: task, participantIds } = draft;
   const formRef = useRef<HTMLFormElement>(null);
-  // 描画ごとに作り直すと、終日の状態（`useAllDay`）が別の既定値と見て毎回戻してしまう
-  const { initial, rangeText } = useMemo(() => {
-    const values = taskDraftValues(task, range, participantIds);
-    return { initial: values, rangeText: taskDraftText(values) };
-  }, [task, range, participantIds]);
-  const [allDay, setAllDay] = useAllDay(initial);
+  // 枠とタスクから導く値。終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す。
+  // 描画ごとや参加者を選び直すたびに作り直すと、別の既定値と見て選んだ終日を戻してしまう
+  const placed = useMemo(() => {
+    const values = taskDraftValues(task, range);
+    return { values, rangeText: taskDraftText(values) };
+  }, [task, range]);
+  const [allDay, setAllDay] = useAllDay(placed.values);
+  const initial = useMemo(
+    () => ({ ...placed.values, participantIds }),
+    [placed.values, participantIds],
+  );
+  const { rangeText } = placed;
   const form = useItemForm({
     kind: 'task',
     initial,
