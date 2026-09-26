@@ -234,7 +234,7 @@ export function weekdayIndex(date: DateString): number {
 }
 
 /** 曜日の文字色（土は青、日は赤）。MUI のパレット名で返す */
-export function weekdayColor(index: number): string {
+function weekdayColor(index: number): string {
   return index === 5 ? 'info.main' : index === 6 ? 'error.main' : 'text.primary';
 }
 
