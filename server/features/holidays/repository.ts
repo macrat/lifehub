@@ -1,7 +1,7 @@
 import { and, asc, gte, lte } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { db, runBatch } from '../../lib/db.ts';
+import { db, runBatch } from '../../lib/db/client.ts';
 import { holidays } from './schema.ts';
 
 /** [from, to]（両端含む）の祝日（昇順） */

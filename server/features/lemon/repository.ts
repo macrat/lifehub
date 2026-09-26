@@ -7,8 +7,8 @@ import {
   type CareLogListQuery,
   type CareType,
 } from '../../../shared/validation/lemon.ts';
-import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/history.ts';
+import { db } from '../../lib/db/client.ts';
+import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/db/history.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
 /** 実施日時の JST の暦日（date）。ページの区切りと日付の範囲の絞り込みに使う */

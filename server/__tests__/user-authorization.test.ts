@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
-import { clearTables, createTestUser, TEST_PASSWORD, testEmail } from '../lib/test-db.ts';
+import { clearTables, createTestUser, TEST_PASSWORD, testEmail } from '../lib/db/test-db.ts';
 import { loginAs, signIn } from './login.ts';
 
 describe('ユーザー更新の認可', () => {

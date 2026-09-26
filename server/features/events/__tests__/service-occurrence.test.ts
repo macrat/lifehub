@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { newId } from '../../../../shared/id.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
-import { db } from '../../../lib/db.ts';
+import { db } from '../../../lib/db/client.ts';
 import { events } from '../schema.ts';
 import { completeEvent, createEvent, listItems, updateEvent } from '../service.ts';
 import { now, resetUsers, september } from './service-fixtures.ts';

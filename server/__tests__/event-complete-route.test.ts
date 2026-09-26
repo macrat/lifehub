@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
 import { app } from '../app.ts';
 import { getEvent } from '../features/events/service.ts';
-import { clearTables } from '../lib/test-db.ts';
+import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
 /**

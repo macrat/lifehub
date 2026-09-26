@@ -1,6 +1,6 @@
 import { jst } from '../../../../shared/__tests__/jst.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 
 /** events の service のテスト（予定・タスク）で共有する「今日」と、テストごとの DB の準備 */
 

@@ -4,7 +4,7 @@ import type { CareLog } from '../../shared/lemon.ts';
 import { app } from '../app.ts';
 import { createKey } from '../features/api-keys/service.ts';
 import { listLogs } from '../features/lemon/service.ts';
-import { clearTables, createTestUser } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 
 /**
  * 記録投入用エンドポイント（`POST /api/records`）。セッションより前に登録し、API キーだけを資格にする。

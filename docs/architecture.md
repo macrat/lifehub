@@ -20,7 +20,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
 | バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
@@ -59,7 +59,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
-  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db.ts`・`lib/test-db.ts`、repository が使う問い合わせの部品 `lib/history.ts`、better-auth のアダプタ `lib/auth.ts`、ヘルスチェックの `app.ts`）を除いて、`lib/db.ts`・`drizzle-orm` を import できない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めず、入力の検証は `lib/validator.ts` の `validate` だけを使う。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
+  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` の中身（`client.ts`・`history.ts`・`schema.ts`・`test-db.ts`）と `drizzle-orm` を import できない。外から使ってよいのは `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけ。DB の土台はディレクトリで分けてあるので、規則はファイルの一覧ではなく `server/lib/db/**` の 1 つで掛かる。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めず、入力の検証は `lib/validator.ts` の `validate` だけを使う。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppType` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
@@ -101,10 +101,12 @@ server/                       # サーバー（Hono）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
-    db.ts  schema.ts（全 feature の schema を集約）  auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）
-    middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）  test-db.ts（テスト・seed 用の全表の消去とテスト用ユーザー）
-    mcp/（types.ts = ツールの登録関数の型と結果の形、schema.ts = OAuth プラグインの表）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
-    recurrence/（RRULE 展開）  history.ts（履歴のページ分け・キーワード・タイムラインの問い合わせ）  validator.ts（入力検証。`validate`）
+    db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
+        history.ts = 履歴のページ分け・キーワード・タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
+        health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
+    auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
+    mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
+    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -280,7 +282,7 @@ Preview 環境の挙動:
 - Biome で lint/format を、knip で未使用のファイル・export・依存の検出を CI で強制（`pnpm lint`）。警告ゼロを維持。
 - import の循環は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。循環はどれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくいため。止められたら、互いに呼び合う片方の読み出しを依存の少ない側（例: 終日の通知時刻は `features/notifications/repository.ts`）へ移す。
 - `.tsx` はコンポーネントだけを export する（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになるため。ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
-- 1 file は 400 行、1 関数は 100 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。file の上限はテスト（`__tests__/`・`e2e/`）にも同じ値を掛ける。関数は中央値が 1 桁、99% が 100 行未満に収まるので、それを超える関数は責務を 2 つ以上抱えているとみなす。超えたら上限を上げずに、状態と操作はフック（`use-*.ts`）へ、表示は小さな部品へ、React に依らない仕組みは素の TS へと、関心ごとに分ける。テストが長くなったら、確かめる関心ごと（対象の関数の群れ、画面の操作の種類）で file を分け、共有する準備と略記は隣の補助 file（例: `e2e/calendar-mobile.ts`、`__tests__/draft-fixtures.ts`）に置く。テスト全体で使う物は 1 か所に置いて書き写さない: 日時を JST で書く略記（`jst` / `iso`）は `shared/__tests__/jst.ts`、サーバーのテストのユーザー（自分 A と相手 B）は `server/lib/test-db.ts` の `createTestUser`、ログインして Cookie を得る手順は `server/__tests__/login.ts`（`signIn` / `cookieOf` / `loginAs`）。E2E はログイン済みの状態から始まり（`e2e/auth.setup.ts` が 1 度だけログインして保存する）、ログインしていない状態・ホームを開く手順は `e2e/auth.ts`（`SIGNED_OUT` / `openHome`）、確かめる操作の前に予定や記録を置く手順は `e2e/events.ts`（`addItem`）と `e2e/history.ts`（`addRecord` / `postRecord`）。テストでは関数の行数を数えない。`describe`・`test` のコールバックは場合を並べる入れ物で、長さが処理の複雑さを表さないため。
+- 1 file は 400 行、1 関数は 100 行まで（Biome の `noExcessiveLinesPerFile`・`noExcessiveLinesPerFunction`）。file の上限はテスト（`__tests__/`・`e2e/`）にも同じ値を掛ける。関数は中央値が 1 桁、99% が 100 行未満に収まるので、それを超える関数は責務を 2 つ以上抱えているとみなす。超えたら上限を上げずに、状態と操作はフック（`use-*.ts`）へ、表示は小さな部品へ、React に依らない仕組みは素の TS へと、関心ごとに分ける。テストが長くなったら、確かめる関心ごと（対象の関数の群れ、画面の操作の種類）で file を分け、共有する準備と略記は隣の補助 file（例: `e2e/calendar-mobile.ts`、`__tests__/draft-fixtures.ts`）に置く。テスト全体で使う物は 1 か所に置いて書き写さない: 日時を JST で書く略記（`jst` / `iso`）は `shared/__tests__/jst.ts`、サーバーのテストのユーザー（自分 A と相手 B）は `server/lib/db/test-db.ts` の `createTestUser`、ログインして Cookie を得る手順は `server/__tests__/login.ts`（`signIn` / `cookieOf` / `loginAs`）。E2E はログイン済みの状態から始まり（`e2e/auth.setup.ts` が 1 度だけログインして保存する）、ログインしていない状態・ホームを開く手順は `e2e/auth.ts`（`SIGNED_OUT` / `openHome`）、確かめる操作の前に予定や記録を置く手順は `e2e/events.ts`（`addItem`）と `e2e/history.ts`（`addRecord` / `postRecord`）。テストでは関数の行数を数えない。`describe`・`test` のコールバックは場合を並べる入れ物で、長さが処理の複雑さを表さないため。
 - テスト: Service 層（特に繰り返し展開・残高計算・通知列挙）はユニットテスト必須。主要導線（ログイン → 記録追加 → ホーム反映）は E2E。
 - Terraform も品質基準の対象: `terraform fmt -check` と `terraform validate` を CI で強制する。
 - コミットは Conventional Commits。PR 単位で機能を追加する。

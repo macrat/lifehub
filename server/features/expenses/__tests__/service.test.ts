@@ -7,7 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;

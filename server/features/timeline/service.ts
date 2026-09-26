@@ -2,7 +2,7 @@ import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/
 import { entryStart, sortTimeline, type TimelineEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { TimelineQuery } from '../../../shared/validation/timeline.ts';
-import type { TimelineSource } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
 import * as expenses from '../expenses/service.ts';
 import * as lemon from '../lemon/service.ts';

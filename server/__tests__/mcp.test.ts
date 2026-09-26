@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { today } from '../../shared/date.ts';
-import { clearTables, createTestUser } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 import { createMcpServer } from '../mcp.ts';
 
 async function connect(userId: string): Promise<Client> {

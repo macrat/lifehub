@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import {
   listNotifications,
   type NotificationRef,

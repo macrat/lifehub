@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { isSubscribed, subscribe, unsubscribe } from '../service.ts';
 
 const endpoint = 'https://fcm.googleapis.com/fcm/send/test';

@@ -4,7 +4,7 @@ import { careLogEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import type { TimelineSource } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarPeriod } from '../../shared/calendar.ts';
 import { app } from '../app.ts';
 import { refreshHolidays } from '../features/holidays/service.ts';
-import { clearTables } from '../lib/test-db.ts';
+import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
 /** 祝日の配布元の応答（2030-05-06 と、期間の外の 2030-07-15） */

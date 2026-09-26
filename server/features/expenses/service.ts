@@ -11,7 +11,7 @@ import { expenseEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import type { TimelineSource } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';

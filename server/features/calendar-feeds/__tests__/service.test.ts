@@ -5,8 +5,8 @@ import {
   occurrenceTargetSchema,
   updateEventSchema,
 } from '../../../../shared/validation/events.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
 import {
   createFeed,

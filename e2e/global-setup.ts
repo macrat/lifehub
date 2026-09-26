@@ -24,7 +24,7 @@ export default async function globalSetup() {
   execFileSync('pnpm', ['exec', 'drizzle-kit', 'migrate'], { stdio: 'inherit' });
 
   const { createUser } = await import('../server/features/users/service.ts');
-  const { clearTables } = await import('../server/lib/test-db.ts');
+  const { clearTables } = await import('../server/lib/db/test-db.ts');
   await clearTables();
   await createUser(E2E_USER);
   await createUser({ email: 'partner@example.com', name: '相手', password: 'partner-password-1' });

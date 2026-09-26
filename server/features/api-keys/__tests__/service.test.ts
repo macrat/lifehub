@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { authenticate, createKey, listKeys, revokeKey } from '../service.ts';
 
 const now = new Date('2026-09-24T03:00:00Z');

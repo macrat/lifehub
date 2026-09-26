@@ -3,7 +3,7 @@ import type { Memo } from '../../../shared/memos.ts';
 import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import type { TimelineSource } from '../../lib/history.ts';
+import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 

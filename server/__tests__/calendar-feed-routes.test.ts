@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
 import { createFeed, listFeeds } from '../features/calendar-feeds/service.ts';
-import { clearTables, createTestUser } from '../lib/test-db.ts';
+import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 
 /**
  * `/api/calendar` の下には、ログインが要る配信 URL の管理（`feeds`）と、ログインの要らない

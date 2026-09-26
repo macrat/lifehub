@@ -5,7 +5,7 @@ import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { expenseSchema } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent } from '../../events/service.ts';
 import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';

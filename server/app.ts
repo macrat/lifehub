@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
@@ -16,7 +15,7 @@ import { timelineRoutes } from './features/timeline/routes.ts';
 import { meRoutes, usersRoutes } from './features/users/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
-import { db } from './lib/db.ts';
+import { pingDatabase } from './lib/db/health.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { requireSession } from './lib/middleware.ts';
 import { mcpRoutes } from './mcp.ts';
@@ -30,7 +29,7 @@ const api = new Hono<AppEnv>().basePath('/api');
 
 // 認証不要: ヘルスチェックと better-auth 自身のエンドポイント
 api.get('/health', async (c) => {
-  await db.execute(sql`select 1`);
+  await pingDatabase();
   return c.json({ ok: true as const, db: true as const });
 });
 api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));

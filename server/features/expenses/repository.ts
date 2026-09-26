@@ -7,8 +7,8 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../shared/validation/expenses.ts';
-import { db } from '../../lib/db.ts';
-import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/history.ts';
+import { db } from '../../lib/db/client.ts';
+import { containsKeyword, findHistoryPage, timelineQueries } from '../../lib/db/history.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */

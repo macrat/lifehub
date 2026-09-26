@@ -112,11 +112,7 @@
         "server/**/*.ts",
         "!**/repository.ts",
         "!**/schema.ts",
-        "!server/lib/db.ts",
-        "!server/lib/test-db.ts",
-        "!server/lib/history.ts",
-        "!server/lib/auth.ts",
-        "!server/app.ts",
+        "!server/lib/db/**",
         "!server/**/__tests__/**"
       ],
       "linter": {
@@ -132,13 +128,18 @@
                   },
                   {
                     "group": [
-                      "**/lib/db.ts",
-                      "./db.ts",
-                      "../db.ts",
+                      "**/db/client.ts",
+                      "./db/client.ts",
+                      "**/db/history.ts",
+                      "./db/history.ts",
+                      "**/db/schema.ts",
+                      "./db/schema.ts",
+                      "**/db/test-db.ts",
+                      "./db/test-db.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
                   },
                   {
                     "group": ["**/repository.ts", "!./repository.ts"],
@@ -166,13 +167,18 @@
                   },
                   {
                     "group": [
-                      "**/lib/db.ts",
-                      "./db.ts",
-                      "../db.ts",
+                      "**/db/client.ts",
+                      "./db/client.ts",
+                      "**/db/history.ts",
+                      "./db/history.ts",
+                      "**/db/schema.ts",
+                      "./db/schema.ts",
+                      "**/db/test-db.ts",
+                      "./db/test-db.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
                   },
                   {
                     "group": ["./repository.ts", "**/repository.ts"],
@@ -190,16 +196,7 @@
       }
     },
     {
-      "includes": [
-        "server/lib/**/*.ts",
-        "!server/lib/db.ts",
-        "!server/lib/test-db.ts",
-        "!server/lib/history.ts",
-        "!server/lib/auth.ts",
-        "!server/lib/schema.ts",
-        "!server/lib/mcp/schema.ts",
-        "!server/**/__tests__/**"
-      ],
+      "includes": ["server/lib/**/*.ts", "!server/lib/db/**", "!server/**/__tests__/**"],
       "linter": {
         "rules": {
           "style": {
@@ -213,13 +210,18 @@
                   },
                   {
                     "group": [
-                      "**/lib/db.ts",
-                      "./db.ts",
-                      "../db.ts",
+                      "**/db/client.ts",
+                      "./db/client.ts",
+                      "**/db/history.ts",
+                      "./db/history.ts",
+                      "**/db/schema.ts",
+                      "./db/schema.ts",
+                      "**/db/test-db.ts",
+                      "./db/test-db.ts",
                       "drizzle-orm",
                       "drizzle-orm/**"
                     ],
-                    "message": "DB は repository.ts からだけ触る（service や lib の処理は repository を通す）"
+                    "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）"
                   },
                   {
                     "group": ["**/features/**", "!**/features/*/schema.ts"],
@@ -233,14 +235,7 @@
       }
     },
     {
-      "includes": [
-        "server/lib/db.ts",
-        "server/lib/test-db.ts",
-        "server/lib/history.ts",
-        "server/lib/auth.ts",
-        "server/lib/schema.ts",
-        "server/lib/mcp/schema.ts"
-      ],
+      "includes": ["server/lib/db/**/*.ts", "!server/**/__tests__/**"],
       "linter": {
         "rules": {
           "style": {

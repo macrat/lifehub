@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
 import { addMemo, deleteMemo, timelineSource, updateMemo } from '../service.ts';
 
 const everything = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };

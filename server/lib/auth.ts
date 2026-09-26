@@ -1,15 +1,13 @@
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource } from '@better-auth/cimd/node';
-import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { mcp } from '@better-auth/mcp';
 import { betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
 import { newId } from '../../shared/id.ts';
-import { db } from './db.ts';
+import { authDatabase } from './db/auth-adapter.ts';
 import { env, resolveBaseUrl } from './env.ts';
-import * as schema from './schema.ts';
 
 /**
  * better-auth の設定（メール＋パスワード、Drizzle アダプタ）。
@@ -45,23 +43,7 @@ export const auth = betterAuth({
       : baseUrl),
   basePath: '/api/auth',
   secret: env.BETTER_AUTH_SECRET,
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema: {
-      user: schema.users,
-      session: schema.sessions,
-      account: schema.accounts,
-      verification: schema.verifications,
-      jwks: schema.jwks,
-      oauthClient: schema.oauthClients,
-      oauthResource: schema.oauthResources,
-      oauthClientResource: schema.oauthClientResources,
-      oauthRefreshToken: schema.oauthRefreshTokens,
-      oauthAccessToken: schema.oauthAccessTokens,
-      oauthConsent: schema.oauthConsents,
-      oauthClientAssertion: schema.oauthClientAssertions,
-    },
-  }),
+  database: authDatabase,
   user: {
     // hue と終日の通知時刻も better-auth にセットで読ませることで、セッションの検証ついでに手に入る
     // （/me のためだけに users をもう一度読まずに済む）。入力としては受け取らない

@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { UpdateUserInput } from '../../../shared/validation/users.ts';
-import { db, runBatch } from '../../lib/db.ts';
+import { db, runBatch } from '../../lib/db/client.ts';
 import { accounts, sessions, users } from './schema.ts';
 
 export type UserRow = { id: string; name: string; email: string; hue: number };

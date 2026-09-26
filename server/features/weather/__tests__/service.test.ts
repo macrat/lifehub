@@ -1,7 +1,7 @@
 import { addMinutes } from 'date-fns';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
-import { clearTables } from '../../../lib/test-db.ts';
+import { clearTables } from '../../../lib/db/test-db.ts';
 import { listWeather, parseForecast, recordObservedTempMax, refreshWeather } from '../service.ts';
 
 const SHORT_DAYS = [

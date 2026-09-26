@@ -4,7 +4,7 @@ import { addDays } from '../../../../shared/date.ts';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { type CareLogListQuery, careLogSchema } from '../../../../shared/validation/lemon.ts';
-import { clearTables, createTestUser } from '../../../lib/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { getStatus, listLogs, logCare, updateLog } from '../service.ts';
 
 describe('lemon service', () => {
