@@ -4,7 +4,7 @@ import { closeNotice } from './ui/notice.ts';
 
 export type FormErrors = Record<string, string>;
 
-export type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
+type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
 
 /** Select の「なし／共有」を表す値。空文字だとラベルが選択済みに見えないため */
 export const SELECT_NONE = 'none';

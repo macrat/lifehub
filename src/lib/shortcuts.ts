@@ -13,7 +13,7 @@ export const SHORTCUTS = [
   { kind: 'lemon', name: 'レモンの記録', shortName: 'レモン', url: addUrl('/lemon', 'lemon') },
 ] as const;
 
-export type ShortcutKind = (typeof SHORTCUTS)[number]['kind'];
+type ShortcutKind = (typeof SHORTCUTS)[number]['kind'];
 
 /** アイコンの置き場所（`pnpm icons:generate` が `public` の下の同じ道へ書き出す） */
 export function shortcutIconSrc(kind: ShortcutKind): string {
