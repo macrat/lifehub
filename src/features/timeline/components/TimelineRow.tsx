@@ -7,7 +7,6 @@ import Typography from '@mui/material/Typography';
 import { type ComponentType, memo } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
-import { MOVE_TRANSITION_SX } from '../../../lib/move-transition.ts';
 import { PressableRow } from '../../../lib/ui/PressableRow.tsx';
 import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
@@ -105,7 +104,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
       markSx={ICON_SLOT_SX}
       layoutSx={LAYOUT_SX}
       divider
-      sx={MOVE_TRANSITION_SX}
+      moveKey={entry.id}
     >
       <EntryText view={view} />
     </PressableRow>

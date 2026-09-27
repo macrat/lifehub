@@ -105,8 +105,6 @@ export function useToggleCompletion() {
       },
     }),
     keys: WRITE_KEYS,
-    // 完了すると項目は完了した物の並びへ移る
-    moves: true,
     apply: (client, { id, occurrenceStart, completedAt }) => {
       setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
       toggleOnTimeline(client, id, occurrenceStart, completedAt);

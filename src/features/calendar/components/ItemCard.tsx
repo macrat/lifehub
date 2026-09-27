@@ -44,6 +44,8 @@ export function ItemCard({ item, onSelect }: Props) {
   return (
     <MarkedRow
       onSelect={(editing) => onSelect(item, editing)}
+      // 複数日の予定は日ごとに行があるので、表示の切り替えと同じく初日の行だけを動かす
+      moveKey={itemTransitionName(item)}
       sx={{
         ...(completed && COMPLETED_SX),
         // 表示を切り替えたとき、同じ項目がこの行から動く
