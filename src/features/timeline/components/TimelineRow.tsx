@@ -178,11 +178,7 @@ function EntryText({ view }: { view: EntryView }) {
         )}
       </Stack>
       {view.location && (
-        <Stack
-          direction="row"
-          spacing={0.5}
-          sx={{ alignItems: 'center', color: 'text.secondary', minWidth: 0 }}
-        >
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
           <LocationOnIcon fontSize="small" />
           <Typography variant="body2" component="span" noWrap>
             {view.location}
