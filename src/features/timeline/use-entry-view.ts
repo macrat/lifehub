@@ -36,7 +36,9 @@ export type EntryView = {
   careTypes: CareType[];
   /** 上段の下に場所のアイコンを添えて出す場所（予定・タスク）。無ければその行は詰める */
   location: string | null;
-  /** 下段。無ければ上段だけの 1 行で出す */
+  /** 場所の下に、メモのアイコンを添えて出す予定・タスクのメモ。無ければその行は詰める */
+  note: string | null;
+  /** 下段（予定・タスク以外の中身）。無ければ上段だけの 1 行で出す */
   body: string | null;
 };
 
@@ -45,11 +47,20 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label, authorName } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, task: null, struck: false, overdue: false, careTypes: [], location: null };
+  const view = {
+    time,
+    task: null,
+    struck: false,
+    overdue: false,
+    careTypes: [],
+    location: null,
+    note: null,
+    body: null,
+  };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
-      // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、その下に場所、下段にメモを出す
+      // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、その下に場所とメモを出す（詳細と同じアイコンを添える）
       return {
         ...view,
         time: item.kind === 'event' && item.allDay ? allDayPeriod(item) : time,
@@ -60,7 +71,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         struck: isCompletedTask(item),
         overdue: item.kind === 'task' && item.isOverdue,
         location: item.location,
-        body: item.note,
+        note: item.note,
       };
     }
     case 'expense': {

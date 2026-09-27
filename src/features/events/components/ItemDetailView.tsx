@@ -6,7 +6,7 @@ import { type CalendarItem, TASK_TIME_LABELS } from '../../../../shared/calendar
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import { describeRRule } from '../recurrence-options.ts';
-import { LocationLabel } from './LocationLabel.tsx';
+import { LocationLabel, NoteLabel } from './ItemLabels.tsx';
 
 /** 予定・タスクの詳細の、読むだけの中身（日時・参加者・繰り返し・場所・メモ） */
 export function ItemDetailView({ item }: { item: CalendarItem }) {
@@ -25,11 +25,7 @@ export function ItemDetailView({ item }: { item: CalendarItem }) {
           <LocationLabel location={item.location} />
         </Link>
       )}
-      {item.note && (
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {item.note}
-        </Typography>
-      )}
+      {item.note && <NoteLabel note={item.note} />}
     </>
   );
 }

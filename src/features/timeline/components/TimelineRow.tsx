@@ -12,7 +12,7 @@ import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { LocationLabel } from '../../events/components/LocationLabel.tsx';
+import { LocationLabel, NoteLabel } from '../../events/components/ItemLabels.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { CARE_TYPE_ICONS } from '../../lemon/care-type-icons.tsx';
 import type { TimelineEntry } from '../queries.ts';
@@ -38,7 +38,7 @@ type Props = {
 
 /**
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
- * その下に場所（予定・タスク）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
+ * その下に予定・タスクの場所とメモ（詳細と同じアイコン付き）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
  * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
  * チェックの印を出す（押すと完了・未完了が切り替わる）。
@@ -183,6 +183,7 @@ function EntryText({ view }: { view: EntryView }) {
         )}
       </Stack>
       {view.location && <LocationLabel location={view.location} noWrap />}
+      {view.note && <NoteLabel note={view.note} variant="body1" />}
       {view.careTypes.length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ color: 'text.secondary', py: 0.25 }}>
           {view.careTypes.map((careType) => {
