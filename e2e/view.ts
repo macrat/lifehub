@@ -60,6 +60,10 @@ export async function recordViewTransitions(page: Page) {
 export const transitions = (page: Page): Promise<Transition[]> =>
   page.evaluate(() => window.viewTransitions);
 
+/** 直前の遷移で「遷移後」として撮られた view-transition-name */
+export const captured = async (page: Page): Promise<string[]> =>
+  (await transitions(page)).at(-1)?.captured ?? [];
+
 /** 直前の遷移が終わる（＝新しい画面が DOM に出そろう）まで待つ */
 export const settle = (page: Page) =>
   page.waitForFunction(() => window.viewTransitions.at(-1)?.finished === true);

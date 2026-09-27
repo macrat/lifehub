@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { addItem } from './events.ts';
-import { changeView, recordViewTransitions, settle, transitions } from './view.ts';
+import { captured, changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
  * 画面を移るときの View Transition（`src/main.tsx` の defaultViewTransition）。
@@ -26,10 +26,6 @@ const names = (page: Page) =>
       .map((el) => getComputedStyle(el).viewTransitionName)
       .filter((name) => name !== 'none'),
   );
-
-/** 直前の遷移で「遷移後」として撮られた view-transition-name */
-const captured = async (page: Page): Promise<string[]> =>
-  (await transitions(page)).at(-1)?.captured ?? [];
 
 test('カレンダーの表示を切り替えると、同じ予定が同じ名前で前後の画面に在る', async ({ page }) => {
   // 画面からの追加は他のテストで確かめているので、ここは API で用意する

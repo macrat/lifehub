@@ -6,8 +6,8 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
+import { dayTransitionName } from '../day-transition.ts';
 import { formatPop, formatTemp } from '../format.ts';
-import { HOME_WEATHER_TRANSITION } from '../queries.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
 import { WIDE_RATIO } from './weather-glyphs.ts';
@@ -20,7 +20,7 @@ const ICON_COLUMN = Math.ceil(ICON_SIZE * WIDE_RATIO);
 
 type Props = {
   days: WeatherDay[];
-  /** ホームの天気のタイルと名前を合わせる日（View Transition。`HOME_WEATHER_TRANSITION`） */
+  /** ホームの天気のタイルと名前を合わせる日（View Transition。`dayTransitionName`） */
   homeDate: DateString;
   /** 3 時間ごとの天気を開いているか */
   isOpen: (date: DateString) => boolean;
@@ -62,7 +62,7 @@ export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
                 alignItems: 'center',
                 columnGap: 1.5,
                 py: 1.5,
-                viewTransitionName: day.date === homeDate ? HOME_WEATHER_TRANSITION : undefined,
+                viewTransitionName: dayTransitionName(day.date, homeDate),
                 // 押せない行も薄くしない（天気そのものは読めるので）
                 '&.Mui-disabled': { opacity: 1 },
               }}

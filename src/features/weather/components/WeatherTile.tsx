@@ -1,6 +1,7 @@
 import { StatusTile } from '../../../lib/ui/StatusTile.tsx';
+import { HOME_WEATHER_TRANSITION } from '../day-transition.ts';
 import { formatTemp } from '../format.ts';
-import { HOME_WEATHER_TRANSITION, type HomeWeather } from '../queries.ts';
+import type { HomeWeather } from '../queries.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
 
 type Props = {

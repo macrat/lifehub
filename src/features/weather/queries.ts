@@ -1,12 +1,11 @@
 import { type InfiniteData, useInfiniteQuery } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { addDays, minutesOfDay, today } from '../../../shared/date.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { type HistorySource, historyQueryOptions, useHistory } from '../../lib/history.ts';
 import type { QueryState } from '../../lib/query-client.ts';
-import { useNow } from '../../lib/use-now.ts';
 
 /**
  * 天気の画面の日々（`src/lib/history.ts`）。1 ページは `GET /api/weather?before`（before を省くと、今日の 1 週間前から
@@ -29,6 +28,9 @@ export function useWeatherDays() {
   return useHistory(weatherHistory, NO_FILTER);
 }
 
+/** ホームのタイルに出す日と、その呼び方 */
+type HomeWeatherDay = { date: DateString; label: '今日' | '明日' };
+
 /** ホームのタイルが今日から明日の天気へ切り替わる時刻（JST の時） */
 const SWITCH_TO_TOMORROW_HOUR = 18;
 
@@ -36,28 +38,35 @@ const SWITCH_TO_TOMORROW_HOUR = 18;
  * ホームのタイルに出す日。18 時（JST）までは今日、それからは明日。
  * 夕方からは今日の天気はもう済んでいて、知りたいのは明日の支度に要る天気なので切り替える。
  */
-export function homeWeatherDay(now: Date): { date: DateString; label: '今日' | '明日' } {
+export function homeWeatherDay(now: Date): HomeWeatherDay {
   const date = today(now);
   return minutesOfDay(now) < SWITCH_TO_TOMORROW_HOUR * 60
     ? { date, label: '今日' }
     : { date: addDays(date, 1), label: '明日' };
 }
 
-/** ホームのタイルに出す日（`homeWeatherDay`）。18 時を過ぎれば開いたままでも明日に変わるよう、時計に合わせて選び直す */
-export function useHomeWeatherDay() {
-  return homeWeatherDay(useNow());
-}
+/** 時計を見直す間隔（ms） */
+const CLOCK_INTERVAL_MS = 60_000;
 
 /**
- * ホームの天気のタイルと、週間天気の同じ日の行に付ける名前（View Transition）。
- * ホームと週間天気を行き来すると、タイルがその日の行へ（行がタイルへ）その場から動く。
- * 行はタイルに出す日（`useHomeWeatherDay`）の 1 行だけに付ける。ほかの日はホームに無いので、付けても相手がおらず、
- * 名前の付いた要素は画面の外にあっても撮られるので、スクロールの外の行まで画面の外から飛んでくる。
+ * ホームのタイルに出す日（`homeWeatherDay`）。18 時を過ぎれば開いたままでも明日に変わるよう、時計に合わせて選び直す。
+ * 描き直すのは日が変わったときだけにする（1 日 2 回）。
+ * WHY NOT `useNow`: 毎分新しい Date を返すので、天気の画面では一覧全体が毎分描き直される。
  */
-export const HOME_WEATHER_TRANSITION = 'home-weather';
+export function useHomeWeatherDay(): HomeWeatherDay {
+  const [day, setDay] = useState(() => homeWeatherDay(new Date()));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = homeWeatherDay(new Date());
+      setDay((prev) => (prev.date === next.date ? prev : next));
+    }, CLOCK_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return day;
+}
 
 /** ホームのタイルの中身。予報の無い日は weather が無い */
-export type HomeWeather = { label: '今日' | '明日'; weather: WeatherDay | undefined };
+export type HomeWeather = { label: HomeWeatherDay['label']; weather: WeatherDay | undefined };
 
 /**
  * ホームのタイルに出す天気（`useHomeWeatherDay` の日）。天気の画面と同じキャッシュの最新のページ（今日と明日が入る）
