@@ -15,6 +15,7 @@ import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { meQueryOptions } from './auth.ts';
+import { withMoveTransition } from './move-transition.ts';
 import { notify } from './ui/notice.ts';
 
 const ONE_HOUR = 1000 * 60 * 60;
@@ -110,7 +111,15 @@ type Write<TInput> = {
   input: TInput;
   /** 書き込んだときにログインしていたユーザーの ID（`sendAsAuthor`） */
   author: string | null;
+  /** キャッシュの書き換え（楽観的更新と、失敗したときの戻し）で一覧の項目が動くか（`withMoveTransition`） */
+  moves: boolean;
 };
+
+/** キャッシュを書き換える。一覧の項目が動く書き込みなら、動いて見える遷移の中で書き換える */
+function rewriteCache(moves: boolean, rewrite: () => void): void {
+  if (moves) withMoveTransition(rewrite);
+  else rewrite();
+}
 
 /** 今ログインしているユーザーの ID（未ログインなら null） */
 function signedInUserId(): string | null {
@@ -150,9 +159,12 @@ const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
 /** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
 const settleWrite = {
   mutationFn: sendAsAuthor,
-  onError: (error, _variables, snapshot) => {
+  onError: (error, { moves }, snapshot) => {
     // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
-    for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
+    // 戻すときも先に出したときと同じく動かして、項目がどこへ戻ったか追えるようにする
+    rewriteCache(moves, () => {
+      for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
+    });
     notify('error', error.message);
   },
   onSettled: (_data, _error, { keys }) => {
@@ -206,6 +218,11 @@ type OptimisticMutationOptions<TInput> = {
    * 送れるまで結果を出せないもの（カレンダーの配信 URL は、発行されるまで渡す URL が無い）。
    */
   queue?: boolean;
+  /**
+   * 書き換えで一覧の中の項目の位置が変わる（タスクを完了にすると完了した物の並びへ移る）。
+   * 先に出すときも失敗して戻すときも、項目を元の位置から滑らせて、どこへ行ったか追えるようにする
+   */
+  moves?: boolean;
 };
 
 /** 書き込みの mutation（`useOptimisticMutation`）。TArgs は呼び出しの引数 */
@@ -248,6 +265,7 @@ export function useOptimisticMutation<TInput>({
   keys,
   apply,
   queue = true,
+  moves = false,
   prepare = (args) => args as TInput,
 }: OptimisticMutationOptions<TInput> & {
   prepare?: (args: unknown) => TInput;
@@ -259,14 +277,14 @@ export function useOptimisticMutation<TInput>({
       // 送信中に届く取得結果で投機的な表示が上書きされないよう、取得を止めてから書き換える
       await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
       const snapshot = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }));
-      apply?.(queryClient, input);
+      if (apply) rewriteCache(moves, () => apply(queryClient, input));
       return snapshot;
     },
   });
 
   const write = (args: unknown): Write<TInput> => {
     const input = prepare(args);
-    return { request: request(input), keys, input, author: signedInUserId() };
+    return { request: request(input), keys, input, author: signedInUserId(), moves };
   };
   return {
     mutate: (args, options) => mutation.mutate(write(args), options),

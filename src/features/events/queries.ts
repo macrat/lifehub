@@ -17,7 +17,6 @@ import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
-import { withMoveTransition } from '../../lib/move-transition.ts';
 import {
   type QueryState,
   useCreateMutation,
@@ -106,12 +105,12 @@ export function useToggleCompletion() {
       },
     }),
     keys: WRITE_KEYS,
-    // 完了すると項目は完了した物の並びへ移るので、どこへ行ったか追えるように滑らせる
-    apply: (client, { id, occurrenceStart, completedAt }) =>
-      withMoveTransition(() => {
-        setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
-        toggleOnTimeline(client, id, occurrenceStart, completedAt);
-      }),
+    // 完了すると項目は完了した物の並びへ移る
+    moves: true,
+    apply: (client, { id, occurrenceStart, completedAt }) => {
+      setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
+      toggleOnTimeline(client, id, occurrenceStart, completedAt);
+    },
   });
 }
 
