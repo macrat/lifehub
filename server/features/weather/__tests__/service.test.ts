@@ -1,98 +1,14 @@
-import { addMinutes } from 'date-fns';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
-import { listWeather, parseForecast, recordObservedTempMax, refreshWeather } from '../service.ts';
-
-const SHORT_DAYS = [
-  '2026-09-23T17:00:00+09:00',
-  '2026-09-24T00:00:00+09:00',
-  '2026-09-25T00:00:00+09:00',
-];
-const WEEKLY_DAYS = [
-  '2026-09-24T00:00:00+09:00',
-  '2026-09-25T00:00:00+09:00',
-  '2026-09-26T00:00:00+09:00',
-];
-
-/**
- * 気象庁の予報と同じ形（短期予報と週間予報。ほかの地域・ほかの系列も混ざる）。
- * 短期予報の気温は 17 時の発表と同じく、翌日の最低（0 時）と最高（9 時）だけが載る。
- */
-function forecast(short: string[], weekly: string[], shortMax = '29', shortDays = SHORT_DAYS) {
-  const area = (code: string, weatherCodes: string[]) => ({ area: { code }, weatherCodes });
-  return [
-    {
-      timeSeries: [
-        {
-          timeDefines: shortDays,
-          areas: [area('130010', short), area('130040', ['100', '100', '100'])],
-        },
-        {
-          timeDefines: ['2026-09-23T18:00:00+09:00'],
-          areas: [{ area: { code: '130010' }, pops: ['70'] }],
-        },
-        {
-          timeDefines: ['2026-09-24T00:00:00+09:00', '2026-09-24T09:00:00+09:00'],
-          areas: [{ area: { code: '44132' }, temps: ['19', shortMax] }],
-        },
-      ],
-    },
-    {
-      timeSeries: [
-        { timeDefines: WEEKLY_DAYS, areas: [area('130010', weekly)] },
-        {
-          timeDefines: WEEKLY_DAYS,
-          areas: [{ area: { code: '44132' }, tempsMax: ['', '26', '23'] }],
-        },
-      ],
-    },
-  ];
-}
-
-/** 天気分布予報と同じ形。`start`（JST）から 3 時間ごとに天気が並ぶ（地点の気温も混ざる） */
-function hourly(start: string, weather: string[], duration = 'PT3H') {
-  const first = new Date(start);
-  const timeDefines = weather.map((_, i) => ({
-    dateTime: addMinutes(first, i * 180).toISOString(),
-    duration,
-  }));
-  return {
-    areaTimeSeries: { timeDefines, weather, wind: [] },
-    pointTimeSeries: { timeDefines, temperature: weather.map(() => 20) },
-  };
-}
-
-/**
- * 気象庁の応答を差し替える（外部のサイトに依存させない）。URL で日ごとの予報・3 時間ごとの予報・アメダスを出し分け、
- * 渡さなかったものは 404 にする。
- */
-function serve(json: { forecast?: unknown; hourly?: unknown; amedas?: unknown }) {
-  vi.stubGlobal('fetch', async (url: string) => {
-    const key = url.includes('/wdist/')
-      ? 'hourly'
-      : url.includes('/amedas/')
-        ? 'amedas'
-        : 'forecast';
-    const body = json[key];
-    return body === undefined ? new Response(null, { status: 404 }) : Response.json(body);
-  });
-}
-const offline = () =>
-  vi.stubGlobal('fetch', async () => {
-    throw new Error('offline');
-  });
-
-/** アメダスの観測値と同じ形。0:00 には前日の最高気温が、0:10 からは今日の最高気温が載る */
-function amedas(maxAtMidnight: number | null, day = '20260924') {
-  return {
-    [`${day}000000`]: { temp: [19.2, 0], maxTemp: [maxAtMidnight, 0] },
-    [`${day}001000`]: { temp: [19.3, 0], maxTemp: [19.3, 0] },
-  };
-}
-
-/** 3 時間ごとの天気の無い報（日ごとの天気だけを確かめるとき） */
-const NO_HOURLY = hourly('2026-09-24T18:00:00+09:00', []);
+import {
+  listWeather,
+  parseForecast,
+  readableLabel,
+  recordObservedTemps,
+  refreshWeather,
+} from '../service.ts';
+import { amedas, forecast, hourly, NO_HOURLY, offline, serve } from './service-fixtures.ts';
 
 /** 日ごとの天気の一覧（テストの日を含む 9 月） */
 const daily = async () => (await listWeather(SEP)).daily;
@@ -104,12 +20,14 @@ describe('weather service', () => {
     vi.unstubAllGlobals();
   });
 
-  it('東京の天気と最高気温を日ごとに取り出し、重なる日は短期予報を採る', () => {
-    expect(parseForecast(forecast(['302', '202', '200'], ['100', '100', '400']))).toEqual([
-      { date: '2026-09-23', code: '302', tempMax: null },
-      { date: '2026-09-24', code: '202', tempMax: 29 },
-      { date: '2026-09-25', code: '200', tempMax: 26 },
-      { date: '2026-09-26', code: '400', tempMax: 23 },
+  it('東京の天気・気温・降水確率を日ごとに取り出し、重なる日は短期予報を採る', () => {
+    expect(parseForecast(forecast(['302', '202', '200'], ['100', '100', '400'])).days).toEqual([
+      { date: '2026-09-23', code: '302', tempMax: null, tempMin: null, pop: 70 },
+      // 降水確率は 6 時間ごとのうち一番高いもの
+      { date: '2026-09-24', code: '202', tempMax: 29, tempMin: 19, pop: 30 },
+      // 短期予報に無い気温と降水確率は週間予報のもの
+      { date: '2026-09-25', code: '200', tempMax: 26, tempMin: 18, pop: 40 },
+      { date: '2026-09-26', code: '400', tempMax: 23, tempMin: 17, pop: 60 },
     ]);
   });
 
@@ -121,6 +39,8 @@ describe('weather service', () => {
       icon: { symbol: 'cloud', change: 'sometimes', next: 'rain' },
       label: '曇一時雨',
       tempMax: 29,
+      tempMin: 19,
+      pop: 30,
     });
     const range = await listWeather({
       from: '2026-09-24' as DateString,
@@ -162,38 +82,71 @@ describe('weather service', () => {
     expect(range.hourly.map((w) => w.label)).toEqual(['晴れ']);
   });
 
+  it('朝の発表で今日の最高気温が 0 時にも繰り返されても、最低気温として読まない', () => {
+    // 5 時の発表と同じ並び（今日 9 時・今日 0 時・明日 0 時・明日 9 時）
+    const json = forecast(['200', '200', '200'], ['200', '200', '200']);
+    json[0]?.timeSeries.splice(2, 1, {
+      timeDefines: [
+        '2026-09-23T09:00:00+09:00',
+        '2026-09-23T00:00:00+09:00',
+        '2026-09-24T00:00:00+09:00',
+        '2026-09-24T09:00:00+09:00',
+      ],
+      areas: [{ area: { code: '44132' }, temps: ['24', '24', '20', '26'] }],
+    });
+    const { days } = parseForecast(json);
+    expect(days.find((d) => d.date === '2026-09-23')).toMatchObject({ tempMax: 24, tempMin: null });
+    expect(days.find((d) => d.date === '2026-09-24')).toMatchObject({ tempMax: 26, tempMin: 20 });
+  });
+
+  it('天気の名前の変わり方の「後」は「のち」に開き、「午後」は開かない', () => {
+    expect(readableLabel('晴後雨')).toBe('晴のち雨');
+    expect(readableLabel('朝の内雨後時々曇')).toBe('朝の内雨のち時々曇');
+    expect(readableLabel('晴午後は雷雨')).toBe('晴午後は雷雨');
+    expect(readableLabel('曇時々雨')).toBe('曇時々雨');
+  });
+
   it('表に無い天気コードの日は返さない', async () => {
     serve({ forecast: forecast(['999', '100', '100'], ['100', '100', '100']), hourly: NO_HOURLY });
     await refreshWeather();
     expect((await daily()).map((w) => w.date)).not.toContain('2026-09-23');
   });
 
-  it('昨日の最高気温をアメダスの 0:00 の観測値で上書きする（整数に丸める）', async () => {
+  it('昨日の最高・最低気温をアメダスの 0:00 の観測値で上書きする（整数に丸める）', async () => {
     serve({ forecast: forecast(['302', '202', '200'], ['202', '200', '101']), hourly: NO_HOURLY });
     await refreshWeather();
     const urls: string[] = [];
     vi.stubGlobal('fetch', async (url: string) => {
       urls.push(url);
-      return Response.json(amedas(24.6));
+      return Response.json(amedas(24.6, 17.4));
     });
     // 2026-09-24 6:00 JST
-    await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'));
+    await recordObservedTemps(new Date('2026-09-23T21:00:00Z'));
     expect(urls).toEqual(['https://www.jma.go.jp/bosai/amedas/data/point/44132/20260924_00.json']);
-    expect((await daily()).map((w) => [w.date, w.tempMax])).toEqual([
-      ['2026-09-23', 25],
-      ['2026-09-24', 29],
-      ['2026-09-25', 26],
-      ['2026-09-26', 23],
+    expect((await daily()).map((w) => [w.date, w.tempMax, w.tempMin])).toEqual([
+      ['2026-09-23', 25, 17],
+      ['2026-09-24', 29, 19],
+      ['2026-09-25', 26, 18],
+      ['2026-09-26', 23, 17],
     ]);
   });
 
   it('昨日の行が無ければ何も書かない', async () => {
-    serve({ amedas: amedas(24.6) });
-    expect(await recordObservedTempMax(new Date('2026-09-23T21:00:00Z'))).toBeUndefined();
+    serve({ amedas: amedas(24.6, 17.4) });
+    expect(await recordObservedTemps(new Date('2026-09-23T21:00:00Z'))).toBeUndefined();
     expect(await daily()).toEqual([]);
   });
 
-  it('欠測なら何も書かずに投げ、予報の値を残す', async () => {
+  it('片方だけ欠測なら、欠測の側は予報の値を残す', async () => {
+    serve({ forecast: forecast(['302', '202', '200'], ['202', '200', '101']), hourly: NO_HOURLY });
+    await refreshWeather();
+    serve({ amedas: amedas(null, 18.4, '20260925') });
+    await recordObservedTemps(new Date('2026-09-24T21:00:00Z'));
+    const day = (await daily()).find((w) => w.date === '2026-09-24');
+    expect([day?.tempMax, day?.tempMin]).toEqual([29, 18]);
+  });
+
+  it('両方とも欠測なら何も書かずに投げ、予報の値を残す', async () => {
     serve({ forecast: forecast(['302', '202', '200'], ['202', '200', '101']), hourly: NO_HOURLY });
     await refreshWeather();
     serve({
@@ -201,11 +154,10 @@ describe('weather service', () => {
       hourly: NO_HOURLY,
     });
     await refreshWeather();
-    serve({ amedas: amedas(null, '20260925') });
-    await expect(recordObservedTempMax(new Date('2026-09-24T21:00:00Z'))).rejects.toThrow(
-      'maxTemp',
-    );
-    expect((await daily()).find((w) => w.date === '2026-09-24')?.tempMax).toBe(31);
+    serve({ amedas: amedas(null, null, '20260925') });
+    await expect(recordObservedTemps(new Date('2026-09-24T21:00:00Z'))).rejects.toThrow('maxTemp');
+    const day = (await daily()).find((w) => w.date === '2026-09-24');
+    expect([day?.tempMax, day?.tempMin]).toEqual([31, 19]);
   });
 
   describe('3 時間ごとの天気', () => {

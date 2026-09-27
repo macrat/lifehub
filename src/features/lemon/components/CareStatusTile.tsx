@@ -16,9 +16,10 @@ type Props = {
  * 同じ項目のタイルがその場から動き、片方にしかない項目はフェードする（View Transition）。
  */
 export function CareStatusTile({ status, onSelect }: Props) {
+  const Icon = CARE_TYPE_ICONS[status.careType];
   return (
     <StatusTile
-      icon={CARE_TYPE_ICONS[status.careType]}
+      icon={<Icon />}
       label={CARE_TYPE_LABELS[status.careType]}
       value={
         status.daysSince === null
@@ -28,7 +29,7 @@ export function CareStatusTile({ status, onSelect }: Props) {
             : `${status.daysSince}日前`
       }
       sub={status.lastDoneAt ? formatDate(status.lastDoneAt) : '記録なし'}
-      transitionName={{ tile: `care-${status.careType}` }}
+      transitionName={`care-${status.careType}`}
       onClick={() => onSelect?.(status)}
     />
   );

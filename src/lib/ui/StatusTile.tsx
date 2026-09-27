@@ -2,54 +2,48 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Skeleton from '@mui/material/Skeleton';
-import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { Breakpoint, SxProps, Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { TILE_MASK } from './squircle.ts';
-import { textTransitionSx } from './text-transition.ts';
 
 /** タイルの内側の余白（タイルと骨組みで同じ高さにする） */
 const TILE_PADDING = 1;
 
 type Props = {
-  /** 名前の左のアイコン。読み上げではアイコンに名乗らせない（名前がすぐ右にある） */
-  icon: ComponentType<SvgIconProps>;
+  /**
+   * 名前の左のアイコン（MUI の SvgIcon）。大きさはタイルが名前の字に合わせる。
+   * 読み上げではアイコンに名乗らせない（名前がすぐ右にある）
+   */
+  icon?: ReactNode;
   label: string;
-  /** 大きく出す今の値（「1日前」「￥3,140」） */
+  /** 大きく出す今の値（「1日前」「24° / 18°」） */
   value: string;
   /** 値の下の補足。空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
   sub: string;
   /**
-   * 別の画面の同じものとその場で動く名前（View Transition）。`tile` はタイルごと、`value` は値だけが動く。
-   * 相手の画面に同じタイルが在るならタイルごと、値だけが在るなら値だけに付ける
+   * 別の画面の同じタイルとその場で動く名前（View Transition。タイルごと動く）。相手の画面に同じタイルが無ければ付けない
    */
-  transitionName: { tile: string } | { value: string };
+  transitionName?: string;
   onClick: () => void;
 };
 
 /**
- * 最新の状態のタイル（立替残高、レモンの項目ごとの状況）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
+ * 最新の状態のタイル（天気、レモンの項目ごとの状況）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
  * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く。
  */
-export function StatusTile({ icon: Icon, label, value, sub, transitionName, onClick }: Props) {
+export function StatusTile({ icon, label, value, sub, transitionName, onClick }: Props) {
   return (
     <Card
       sx={{
         bgcolor: 'action.hover',
         borderRadius: 0,
         mask: TILE_MASK,
-        viewTransitionName: 'tile' in transitionName ? transitionName.tile : undefined,
+        viewTransitionName: transitionName,
       }}
     >
       <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
-        <TileLines
-          icon={<Icon sx={{ fontSize: '1rem' }} />}
-          label={label}
-          value={value}
-          sub={sub}
-          valueTransitionName={'value' in transitionName ? transitionName.value : undefined}
-        />
+        <TileLines icon={icon} label={label} value={value} sub={sub} />
       </CardActionArea>
     </Card>
   );
@@ -74,13 +68,11 @@ function TileLines({
   label,
   value,
   sub,
-  valueTransitionName,
 }: {
   icon?: ReactNode;
   label: string;
   value: string;
   sub: string;
-  valueTransitionName?: string;
 }) {
   return (
     <>
@@ -88,7 +80,13 @@ function TileLines({
         variant="caption"
         color="textSecondary"
         component="p"
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          // アイコンは名前の字と同じくらいに揃える（渡す側に大きさを持たせない）
+          '& .MuiSvgIcon-root': { fontSize: '1rem' },
+        }}
       >
         {icon}
         {label}
@@ -100,7 +98,6 @@ function TileLines({
         sx={{
           lineHeight: 1.3,
           fontVariantNumeric: 'tabular-nums',
-          ...textTransitionSx(valueTransitionName),
         }}
       >
         {value}

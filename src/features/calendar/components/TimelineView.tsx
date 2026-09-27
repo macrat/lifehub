@@ -7,9 +7,9 @@ import type { Draft } from '../draft.ts';
 import { partitionTimeline } from '../timeline-layout.ts';
 import type { GridDraft } from '../use-event-composer.ts';
 import { AllDayRow } from './AllDayRow.tsx';
+import { HOURLY_WEATHER_WIDTH } from './hourly-weather-layout.ts';
 import { TimeGrid } from './TimeGrid.tsx';
 import { TimelineHeader } from './TimelineHeader.tsx';
-import { HOURLY_WEATHER_WIDTH } from './weather-glyphs.ts';
 
 type Props = {
   /** 表示する日（週なら 7 日、日なら 1 日） */

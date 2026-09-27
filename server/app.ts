@@ -13,6 +13,7 @@ import { pushRoutes } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
 import { timelineRoutes } from './features/timeline/routes.ts';
 import { meRoutes, usersRoutes } from './features/users/routes.ts';
+import { weatherRoutes } from './features/weather/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth } from './lib/auth.ts';
 import { pingDatabase } from './lib/db/health.ts';
@@ -79,6 +80,7 @@ const routes = api
   .route('/lemon', lemonRoutes)
   .route('/memos', memosRoutes)
   .route('/timeline', timelineRoutes)
+  .route('/weather', weatherRoutes)
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;

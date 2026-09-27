@@ -3,7 +3,12 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import { WEEKDAY_LABELS, weekdayIndex, weekdayLabelColor } from '../../../lib/date.ts';
+import {
+  formatDateWithYear,
+  WEEKDAY_LABELS,
+  weekdayIndex,
+  weekdayLabelColor,
+} from '../../../lib/date.ts';
 import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
@@ -30,30 +35,40 @@ export function TimelineHeader({ days, columns, onSelectDate }: Props) {
       }}
     >
       <Box />
+      {/* 見出しを押す所（日表示へ）は枠いっぱいに敷いたボタンで、中身はその上に重ねて押せなくする。
+          中身の天気（週間天気へのリンク）だけは押せるようにする。リンクをボタンの中に入れ子にすると、
+          押したときにどちらが動くかがブラウザ任せになり、読み上げでも 1 つのボタンとして読まれる */}
       {days.map((day) => (
-        <ButtonBase
-          key={day}
-          disabled={!onSelectDate}
-          onClick={() => onSelectDate?.(day)}
-          sx={{
-            display: 'flex',
-            flexDirection: single ? 'row' : 'column',
-            alignItems: 'center',
-            justifyContent: single ? 'flex-start' : 'center',
-            gap: single ? 1 : 0,
-            py: 0.5,
-            px: single ? 1 : 0,
-            borderLeft: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <DayHeading
-            day={day}
-            single={single}
-            holiday={holidays.has(day)}
-            weather={weather.get(day)}
+        <Box key={day} sx={{ position: 'relative', borderLeft: 1, borderColor: 'divider' }}>
+          <ButtonBase
+            disabled={!onSelectDate}
+            onClick={() => onSelectDate?.(day)}
+            aria-label={formatDateWithYear(day)}
+            sx={{ position: 'absolute', inset: 0 }}
           />
-        </ButtonBase>
+          <Box
+            sx={{
+              position: 'relative',
+              // 中身は押せなくして下のボタンに通し、天気のリンクだけは押せるようにする
+              pointerEvents: 'none',
+              '& a': { pointerEvents: 'auto' },
+              display: 'flex',
+              flexDirection: single ? 'row' : 'column',
+              alignItems: 'center',
+              justifyContent: single ? 'flex-start' : 'center',
+              gap: single ? 1 : 0,
+              py: 0.5,
+              px: single ? 1 : 0,
+            }}
+          >
+            <DayHeading
+              day={day}
+              single={single}
+              holiday={holidays.has(day)}
+              weather={weather.get(day)}
+            />
+          </Box>
+        </Box>
       ))}
     </Box>
   );

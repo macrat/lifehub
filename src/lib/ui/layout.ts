@@ -13,6 +13,12 @@ export const APP_BAR_HEIGHT = 48;
 export const STICKY_TOP = `calc(${APP_BAR_HEIGHT}px + env(safe-area-inset-top))`;
 /** 下部ナビの上端。スマホで画面の下端に寄せる物（引っ張って更新の印、スクロールの下端）はここを下端にする */
 export const BOTTOM_NAV_TOP = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
+/**
+ * ページ（main）の下端の余白。右下の追加ボタンに最後の内容が隠れないよう取る。スマホは下部ナビの分も足す。
+ * md から PC（サイドナビ。`useIsDesktop` と同じ境界）
+ */
+export const MAIN_BOTTOM_PADDING = { xs: `calc(${BOTTOM_NAV_TOP} + 96px)`, md: '96px' } as const;
+
 /** 右下の追加ボタン（FAB / SpeedDial）の置き場所（位置と影）。スマホでは下部ナビの上に置く */
 export const FAB_SX = {
   position: 'fixed',

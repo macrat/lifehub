@@ -1,7 +1,7 @@
 import Typography from '@mui/material/Typography';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect } from 'react';
+import { EdgeSentinel } from '../../../lib/ui/EdgeSentinel.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { useEdgeObserver } from '../../../lib/ui/use-edge-observer.ts';
 import type { TimelineEntry, useTimeline } from '../queries.ts';
 import { TimelineRow } from './TimelineRow.tsx';
 
@@ -15,15 +15,14 @@ type Props = {
 };
 
 /**
- * タイムライン。上が新しく下が古く、下の端へ近づくと古いほうのページを読み足す（`useEdgeObserver`）。
+ * タイムライン。上が新しく下が古く、下の端へ近づくと古いほうのページを読み足す（`EdgeSentinel`）。
  * 立替・レモンの履歴（`HistoryList`）とは上下が逆で、足すのはいつも下なので、見ている所を保つ仕掛けは要らない。
+ * 引っ張って更新は、読み足す下端の逆の上端からだけ引ける（`EdgeSentinel` の印）。
  * 最初の位置は一番上（最新）。開いたときと絞り込みを変えたときにそこへ置く（ルーターは位置に触らない。
  * ホームのルートの `staticData.ownsScroll`）。タブの再押下で戻る先も一番上で、それは
  * `scrollToInitialPosition` の既定なので、ここでは受け持たない。
  */
 export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
-  const endRef = useRef<HTMLDivElement>(null);
-  useEdgeObserver(endRef, timeline.loadEarlier);
   // biome-ignore lint/correctness/useExhaustiveDependencies: キーは「別の一覧になった」合図で、値そのものは使わない
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -45,7 +44,7 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
           )
         }
       </QueryView>
-      <div ref={endRef} />
+      <EdgeSentinel edge="bottom" onReach={timeline.loadEarlier} />
     </>
   );
 }

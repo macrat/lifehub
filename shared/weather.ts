@@ -16,13 +16,16 @@ export type WeatherIcon =
 
 /**
  * 1 日の天気。label は気象庁の天気の名前（「晴時々曇」など）で、アイコンの説明に出す。
- * tempMax は最高気温（℃）で、予報に無かった日は null。
+ * tempMax / tempMin は最高・最低気温（℃）、pop は降水確率（%）で、予報に無かった日は null。
+ * 今日・明日の降水確率は 6 時間ごとの予報のうち一番高いもの（今日は、まだ過ぎていない時間帯のうち）。
  */
 export type DailyWeather = {
   date: DateString;
   icon: WeatherIcon;
   label: string;
   tempMax: number | null;
+  tempMin: number | null;
+  pop: number | null;
 };
 
 /**
@@ -42,3 +45,28 @@ export type HourlyWeather = {
 
 /** 期間の天気（`GET /api/calendar` の `weather`）。日ごとの天気と 3 時間ごとの天気 */
 export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };
+
+/**
+ * 天気の画面の 3 時間ごとの天気の 1 枠。startMin は date の 0:00 からの分（0・180…1260）。
+ * label は気象庁の天気の名前（「くもり」など）、temp は枠の始まりの時刻の気温（℃。予報に無ければ null）。
+ */
+export type WeatherSlot = {
+  startMin: number;
+  symbol: WeatherSymbol;
+  label: string;
+  temp: number | null;
+};
+
+/** 6 時間ごとの降水確率（%）。startMin は date の 0:00 からの分で、0・360・720・1080 のどれか */
+export type PopSlot = { startMin: number; pop: number };
+
+/**
+ * 天気の画面の 1 日（`GET /api/weather` のページの行）。日ごとの天気と、祝日か、その日の 3 時間ごとの天気（時刻順）と
+ * 6 時間ごとの降水確率（時刻順）。予報の無い日（明後日から）と取り始める前の日は、どちらも空。
+ */
+export type WeatherDay = DailyWeather & {
+  /** 祝日か（日付を日曜と同じ赤にする。カレンダーと同じ色分け） */
+  holiday: boolean;
+  slots: WeatherSlot[];
+  pops: PopSlot[];
+};

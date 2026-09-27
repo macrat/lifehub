@@ -29,23 +29,11 @@ export const GLYPHS: Record<WeatherSymbol, string> = {
 /** 天気が変わる日の横並びのアイコンの幅（高さ 24 に対して）。部品 2 つと変わり方の印が入る */
 export const WIDE_WIDTH = 46;
 
+/** 天気が変わる日の横並びのアイコンの幅の、高さに対する比 */
+export const WIDE_RATIO = WIDE_WIDTH / 24;
+
 /**
  * 横並びのアイコンの幅の、高さに対する比。天気が 1 つの日は横並びでも 1 文字分の正方形になる。
  * 置く側（`DayWeather`）が、アイコンが入るかどうかをこの幅で決める。
  */
-export const wideRatio = (icon: WeatherIcon): number => ('change' in icon ? WIDE_WIDTH / 24 : 1);
-
-/**
- * 日表示の時刻の左に出す 3 時間ごとの天気（`HourlyWeatherColumn`）のアイコンの大きさ（px）。
- * 時刻の字（0.65rem）と同じくらいにして、時刻より目立たせない。
- */
-export const HOURLY_ICON_SIZE = 12;
-
-/** 3 時間ごとの天気と、欄の左端とのあいだの余白（px） */
-export const HOURLY_WEATHER_INSET = 2;
-
-/**
- * 3 時間ごとの天気のために時刻の欄へ足す幅（px）。左の余白とアイコン。
- * 欄の幅を決める側（`TimelineView`）と中に置く側（`HourlyWeatherColumn`）が同じ寸法を読むよう、部品のファイルではなくここに置く。
- */
-export const HOURLY_WEATHER_WIDTH = HOURLY_WEATHER_INSET + HOURLY_ICON_SIZE;
+export const wideRatio = (icon: WeatherIcon): number => ('change' in icon ? WIDE_RATIO : 1);
