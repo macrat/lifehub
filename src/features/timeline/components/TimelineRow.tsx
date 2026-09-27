@@ -27,8 +27,21 @@ const ICON_SIZE = 40;
  */
 const TASK_ICON_SIZE = ICON_SIZE * 0.95;
 
-/** 行の上下の余白（px）。左のアイコンの列と押せる範囲の中身を同じ高さに揃える */
+/** 行の上下の余白（px） */
 const ROW_PADDING_Y = 10;
+
+/** 行の左右の余白（px）。タスクのチェックボックスを重ねる位置もこれで決める */
+const ROW_PADDING_X = 16;
+
+/** 左のアイコンの枠。行をまたいで右の文字の左端が揃うよう、幅を決め打ちにする */
+const ICON_SLOT_SX = {
+  width: ICON_SIZE,
+  height: ICON_SIZE,
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+} as const;
 
 type Props = {
   entry: TimelineEntry;
@@ -40,36 +53,44 @@ type Props = {
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
  * その下に予定・タスクの場所とメモ（詳細と同じアイコン付き）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
- * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
- * チェックの印を出す（押すと完了・未完了が切り替わる）。
- * 左のアイコンは押せる範囲（ButtonBase）の外の列に置く（リストの行の `MarkedRow` と同じ組み方）。
- * 押せる範囲の中にチェックボックス（ボタン）を入れられないため。
+ *
+ * 押せる範囲（ButtonBase）は左のアイコンを含む行全体で、どこを押しても行全体に波紋が広がる。
+ * タスクだけは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
+ * チェックの印を出す（押すと完了・未完了が切り替わる）。ボタンの中にボタンは入れられないので、
+ * チェックボックスは押せる範囲の外（兄弟）に置き、押せる範囲の中の空けた枠の上に重ねる。
+ * こうすると、アイコンを押せば完了が切り替わり、それ以外を押せば行が開いて、波紋はアイコンの下まで広がる。
  */
 function TimelineRowView({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
   const press = useRecordPress((editing) => onSelect(entry, editing));
   return (
-    <Stack
-      direction="row"
-      sx={{
-        alignItems: 'flex-start',
-        pl: 2,
-        borderBottom: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Box
+    <Box sx={{ position: 'relative', borderBottom: 1, borderColor: 'divider' }}>
+      <ButtonBase
+        {...press}
         sx={{
-          width: ICON_SIZE,
-          height: ICON_SIZE,
-          my: `${ROW_PADDING_Y}px`,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: '100%',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+          gap: 1.5,
+          px: `${ROW_PADDING_X}px`,
+          py: `${ROW_PADDING_Y}px`,
+          textAlign: 'left',
         }}
       >
-        {view.task ? (
+        <Box sx={ICON_SLOT_SX}>
+          {!view.task && <Circle colors={view.colors} icon={view.icon} />}
+        </Box>
+        <EntryText view={view} />
+      </ButtonBase>
+      {view.task && (
+        <Box
+          sx={{
+            ...ICON_SLOT_SX,
+            position: 'absolute',
+            top: ROW_PADDING_Y,
+            left: ROW_PADDING_X,
+          }}
+        >
           <TaskCheckbox
             item={view.task}
             icons={{
@@ -89,27 +110,9 @@ function TimelineRowView({ entry, onSelect }: Props) {
             // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
             sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
           />
-        ) : (
-          <Circle colors={view.colors} icon={view.icon} />
-        )}
-      </Box>
-      <ButtonBase
-        {...press}
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          alignSelf: 'stretch',
-          justifyContent: 'flex-start',
-          alignItems: 'flex-start',
-          pl: 1.5,
-          pr: 2,
-          py: `${ROW_PADDING_Y}px`,
-          textAlign: 'left',
-        }}
-      >
-        <EntryText view={view} />
-      </ButtonBase>
-    </Stack>
+        </Box>
+      )}
+    </Box>
   );
 }
 

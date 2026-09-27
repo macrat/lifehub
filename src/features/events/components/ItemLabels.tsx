@@ -10,6 +10,22 @@ import type { ComponentType } from 'react';
  * 場所だけにアイコンがあると左に隙間ができて段がずれて見えるので、メモにも付けて左端を揃える
  */
 
+/**
+ * アイコンの絵の幅（px）。どのアイコンも絵そのものをこの幅に収めるので、絵の左右の端と右の文字の左端が
+ * 行をまたいで揃い、絵の左端は上の段（タイトルなど）の文字の左端とも揃う。
+ * 場所のピン（縦長）が 1 行の高さ（body2 で 20px）に収まる幅にする
+ */
+const ICON_WIDTH = 12;
+
+/**
+ * アイコンと、その絵が実際に描かれている範囲（24×24 の中の viewBox）。
+ * Material Icons は絵ごとに 24×24 の中の余白が違う（ピンは幅 14、横線は幅 18）ので、
+ * 枠のまま並べると絵の左右の端がずれる。viewBox を絵の範囲に切り詰めて余白を無くし、幅を揃える
+ */
+type LabelIcon = { Icon: ComponentType<SvgIconProps>; viewBox: string };
+const LOCATION_ICON: LabelIcon = { Icon: LocationOnIcon, viewBox: '5 2 14 20' };
+const NOTE_ICON: LabelIcon = { Icon: NotesIcon, viewBox: '3 6 18 12' };
+
 /** 場所。リンクにするかは使う側が決める（押せる行の中にはリンクを入れられないため） */
 export function LocationLabel({
   location,
@@ -20,7 +36,7 @@ export function LocationLabel({
   noWrap?: boolean;
 }) {
   return (
-    <IconText icon={LocationOnIcon} variant="body2" color="textSecondary" noWrap={noWrap}>
+    <IconText icon={LOCATION_ICON} variant="body2" color="textSecondary" noWrap={noWrap}>
       {location}
     </IconText>
   );
@@ -35,7 +51,7 @@ export function NoteLabel({
   variant?: TypographyProps['variant'];
 }) {
   return (
-    <IconText icon={NotesIcon} variant={variant}>
+    <IconText icon={NOTE_ICON} variant={variant}>
       {note}
     </IconText>
   );
@@ -43,16 +59,18 @@ export function NoteLabel({
 
 /**
  * 左にアイコン、右に文字。アイコンは文字の 1 行目の高さ（1lh）の中で上下中央に置くので、
- * 文字が折り返しても 1 行目に揃い、文字の大きさが変わっても揃ったままになる
+ * 文字が折り返しても 1 行目に揃い、文字の大きさが変わっても揃ったままになる。
+ * 絵は幅 ICON_WIDTH・高さ 1lh の枠に縦横比を保って収める（どのアイコンも幅で決まる）ので、
+ * 文字の大きさが違うホームと詳細でも同じ大きさになる
  */
 function IconText({
-  icon: Icon,
+  icon: { Icon, viewBox },
   variant,
   color,
   noWrap = false,
   children,
 }: {
-  icon: ComponentType<SvgIconProps>;
+  icon: LabelIcon;
   variant: TypographyProps['variant'];
   color?: TypographyProps['color'];
   noWrap?: boolean;
@@ -63,7 +81,7 @@ function IconText({
       variant={variant}
       color={color}
       component="span"
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}
+      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
     >
       <Box
         component="span"
@@ -75,7 +93,7 @@ function IconText({
           color: 'text.secondary',
         }}
       >
-        <Icon fontSize="small" />
+        <Icon viewBox={viewBox} sx={{ width: ICON_WIDTH, height: '100%' }} />
       </Box>
       <Box
         component="span"
