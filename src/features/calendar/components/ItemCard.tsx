@@ -18,6 +18,12 @@ import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { itemTransitionName } from '../item-transition.ts';
 
+/** 印の枠の幅。タスクのチェックボックス（押せる範囲の余白を含めて 28px。`TaskCheckbox`）が収まる幅 */
+const MARK_WIDTH = 28;
+
+/** 時刻の列の幅 */
+const TIME_WIDTH = 64;
+
 type Props = {
   item: CalendarItem;
   /** 行を押したとき。editing は長押し（編集で開く）か */
@@ -51,7 +57,8 @@ export function ItemCard({ item, onSelect }: Props) {
       }}
       mark={!isTask && <ParticipantsMark participantIds={item.participantIds} />}
       control={isTask && <TaskCheckbox item={item} />}
-      leadWidth={64}
+      markWidth={MARK_WIDTH}
+      leadWidth={TIME_WIDTH}
       lead={
         <>
           {time.caption && (
