@@ -1,4 +1,3 @@
-import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
@@ -6,8 +5,8 @@ import Typography from '@mui/material/Typography';
 import { type CalendarItem, TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
-
 import { describeRRule } from '../recurrence-options.ts';
+import { LocationLabel } from './LocationLabel.tsx';
 
 /** 予定・タスクの詳細の、読むだけの中身（日時・参加者・繰り返し・場所・メモ） */
 export function ItemDetailView({ item }: { item: CalendarItem }) {
@@ -20,13 +19,10 @@ export function ItemDetailView({ item }: { item: CalendarItem }) {
           href={mapSearchUrl(item.location)}
           target="_blank"
           rel="noreferrer"
-          variant="body2"
           color="textSecondary"
           underline="hover"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
         >
-          <LocationOnIcon fontSize="small" />
-          {item.location}
+          <LocationLabel location={item.location} />
         </Link>
       )}
       {item.note && (

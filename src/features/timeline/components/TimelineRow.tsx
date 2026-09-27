@@ -1,6 +1,5 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
@@ -13,6 +12,7 @@ import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { LocationLabel } from '../../events/components/LocationLabel.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { CARE_TYPE_ICONS } from '../../lemon/care-type-icons.tsx';
 import type { TimelineEntry } from '../queries.ts';
@@ -48,12 +48,11 @@ type Props = {
 function TimelineRowView({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
   const press = useRecordPress((editing) => onSelect(entry, editing));
-  const multiline = view.body !== null || view.location !== null || view.careTypes.length > 0;
   return (
     <Stack
       direction="row"
       sx={{
-        alignItems: multiline ? 'flex-start' : 'center',
+        alignItems: 'flex-start',
         pl: 2,
         borderBottom: 1,
         borderColor: 'divider',
@@ -101,7 +100,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
           minWidth: 0,
           alignSelf: 'stretch',
           justifyContent: 'flex-start',
-          alignItems: multiline ? 'flex-start' : 'center',
+          alignItems: 'flex-start',
           pl: 1.5,
           pr: 2,
           py: `${ROW_PADDING_Y}px`,
@@ -155,7 +154,13 @@ function Circle({
 function EntryText({ view }: { view: EntryView }) {
   return (
     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minHeight: 24 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        // 上段だけの行は左のアイコンと同じ高さにして、上下の中央で揃える。
+        // 下に段があるときは、上段をアイコンの上端に揃えて下へ積む
+        sx={{ alignItems: 'center', minHeight: 24, '&:only-child': { minHeight: ICON_SIZE } }}
+      >
         <Typography
           variant="subtitle2"
           component="span"
@@ -177,14 +182,7 @@ function EntryText({ view }: { view: EntryView }) {
           </Typography>
         )}
       </Stack>
-      {view.location && (
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-          <LocationOnIcon fontSize="small" />
-          <Typography variant="body2" component="span" noWrap>
-            {view.location}
-          </Typography>
-        </Stack>
-      )}
+      {view.location && <LocationLabel location={view.location} noWrap />}
       {view.careTypes.length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ color: 'text.secondary', py: 0.25 }}>
           {view.careTypes.map((careType) => {

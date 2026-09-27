@@ -3,13 +3,10 @@ import { openHome } from './auth.ts';
 import { detailAction } from './detail.ts';
 import { addItem, deleteItem } from './events.ts';
 
-test.beforeEach(async ({ page }) => {
-  await openHome(page);
-});
-
 test('ホームからタスクとレモンの記録を追加し、タイムラインとタイルに反映される', async ({
   page,
 }) => {
+  await openHome(page);
   const title = `E2E ホーム ${Date.now()}`;
 
   await page.getByRole('button', { name: '追加' }).hover();
@@ -43,6 +40,7 @@ test('ホームからタスクとレモンの記録を追加し、タイムラ�
 });
 
 test('メモを書いて、詳細から直して消せる', async ({ page }) => {
+  await openHome(page);
   const body = `E2E メモ ${Date.now()}`;
 
   // 右下の追加ボタンから書く
@@ -89,7 +87,7 @@ test('場所のある予定は、タイトルの下・メモの上に場所が�
     location: `${title} の場所`,
     note: `${title} のメモ`,
   });
-  await page.reload();
+  await openHome(page);
 
   await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveText(
     new RegExp(`${title}.*${title} の場所.*${title} のメモ`),
