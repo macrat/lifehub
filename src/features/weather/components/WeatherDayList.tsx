@@ -55,7 +55,7 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
               onClick={() => onToggle(day.date)}
               sx={{
                 display: 'grid',
-                gridTemplateColumns: `4.5em ${ICON_COLUMN}px minmax(0, 1fr) auto 3.5em`,
+                gridTemplateColumns: `4.5em ${ICON_COLUMN}px minmax(0, 1fr) auto 2.5em`,
                 alignItems: 'center',
                 columnGap: 1.5,
                 py: 1.5,
@@ -86,24 +86,12 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
                   {formatTemp(day.tempMin)}
                 </Box>
               </Typography>
+              {/* 数だけで降水確率と読める（天気予報で見慣れた並び）。右に揃えて桁を揃える */}
               <Typography
                 variant="body2"
                 color="textSecondary"
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  // 傘は列の左端、数は右端に揃える（「0%」のように短くても傘の位置が動かない）
-                  justifyContent: 'space-between',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
+                sx={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
               >
-                {/* 雨のアイコンと同じ開いた傘。天気の列の傘と同じ絵なので「雨の見込み」と読める */}
-                <WeatherIcon
-                  icon={{ symbol: 'rain' }}
-                  layout="square"
-                  titleAccess="降水確率"
-                  sx={{ fontSize: '1rem' }}
-                />
                 {day.pop === null ? '—' : `${day.pop}%`}
               </Typography>
             </ListItemButton>
