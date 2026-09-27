@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt, lte, min, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
@@ -32,6 +32,40 @@ export async function findBetween(
       .orderBy(asc(weatherHourly.startsAt)),
   ]);
   return { daily, hourly };
+}
+
+/**
+ * 天気の画面の 1 ページ分（[from, to]。両端を含む JST 暦日）を 1 回の往復で読む: 日ごとの天気（日付順）、
+ * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）と、from より前に取っておいた日があるか。
+ */
+export async function findDays(range: DateRange): Promise<{
+  daily: WeatherRow[];
+  hourly: HourlyWeatherRow[];
+  pops: PopRow[];
+  hasEarlier: boolean;
+}> {
+  const instants = instantRange(range);
+  const [daily, hourly, pops, earlier] = await runBatch((tx) => [
+    tx
+      .select()
+      .from(weather)
+      .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
+      .orderBy(asc(weather.date)),
+    tx
+      .select()
+      .from(weatherHourly)
+      .where(
+        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
+      )
+      .orderBy(asc(weatherHourly.startsAt)),
+    tx
+      .select()
+      .from(weatherPop)
+      .where(and(gte(weatherPop.startsAt, instants.from), lt(weatherPop.startsAt, instants.to)))
+      .orderBy(asc(weatherPop.startsAt)),
+    tx.select({ date: weather.date }).from(weather).where(lt(weather.date, range.from)).limit(1),
+  ]);
+  return { daily, hourly, pops, hasEarlier: earlier.length > 0 };
 }
 
 /**
@@ -83,22 +117,6 @@ export async function upsertHourly(rows: HourlyWeatherRow[]): Promise<void> {
         temp: sql`coalesce(excluded.temp, ${weatherHourly.temp})`,
       },
     });
-}
-
-/** 取っておいた日ごとの天気のうち、いちばん古い日（無ければ null） */
-export async function findEarliestDate(): Promise<DateString | null> {
-  const [row] = await db.select({ date: min(weather.date) }).from(weather);
-  return row?.date ?? null;
-}
-
-/** [from, to]（両端を含む JST 暦日）の 6 時間ごとの降水確率（時刻順） */
-export async function findPopsBetween(range: DateRange): Promise<PopRow[]> {
-  const instants = instantRange(range);
-  return db
-    .select()
-    .from(weatherPop)
-    .where(and(gte(weatherPop.startsAt, instants.from), lt(weatherPop.startsAt, instants.to)))
-    .orderBy(asc(weatherPop.startsAt));
 }
 
 /** 6 時間ごとの降水確率を区間ごとに上書きする。渡さなかった区間（過ぎた区間）は残す */

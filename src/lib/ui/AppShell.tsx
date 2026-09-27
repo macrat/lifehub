@@ -19,7 +19,7 @@ import { type ReactNode, useRef } from 'react';
 import { useIsLoadingWithoutCache } from '../query-client.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { scrollToInitialPosition } from './initial-position.ts';
-import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP } from './layout.ts';
+import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP, MAIN_BOTTOM_PADDING } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
 import { OfflineBanner } from './OfflineBanner.tsx';
@@ -111,9 +111,7 @@ export function AppShell({ navItems, children }: Props) {
             px: { xs: 0, md: 2 },
             pt: { xs: 0, md: 1 },
             // 下部ナビと右下の追加ボタンに最後の内容が隠れないよう余白を取る
-            pb: isDesktop
-              ? 12
-              : `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 96px)`,
+            pb: MAIN_BOTTOM_PADDING,
           }}
         >
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)' }} />

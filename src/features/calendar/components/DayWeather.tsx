@@ -74,8 +74,6 @@ export function DayWeather({ weather, size }: Props) {
           borderRadius: 1,
           font: 'inherit',
           color: 'text.secondary',
-          // 押せる枠（見出しのボタン）の上に重ねて置かれても、ここだけは押せる
-          pointerEvents: 'auto',
           [`@container (width < ${size}px)`]: { display: 'none' },
         }}
       >

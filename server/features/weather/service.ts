@@ -16,6 +16,7 @@ import type {
   WeatherInRange,
 } from '../../../shared/weather.ts';
 import { fetchOk } from '../../lib/fetch.ts';
+import { listHolidays } from '../holidays/service.ts';
 import * as repository from './repository.ts';
 import { HOURLY_SYMBOLS, TELOPS } from './telops.ts';
 
@@ -87,11 +88,23 @@ function shortTempKind(time: string): 'tempMin' | 'tempMax' | undefined {
  * 短期予報の降水確率は 6 時間ごとに並ぶので、その日のうち一番高いものを 1 日の値にする
  * （傘が要るかを決めるのは一番降りやすい時間帯なので）。
  * 週間予報の気温と降水確率は日ごとに並び、予報の無い日（初日）は空文字になる。
+ * 6 時間ごとの降水確率（`readPops`）も同じ JSON に載っているので、一緒に取り出す（JSON の検証は 1 度だけ）。
  */
-export function parseForecast(json: unknown): repository.WeatherRow[] {
+export function parseForecast(json: unknown): {
+  days: repository.WeatherRow[];
+  pops: repository.PopRow[];
+} {
+  const reports = forecastSchema.parse(json);
+  return { days: readDays(reports), pops: readPops(reports) };
+}
+
+type Forecast = z.infer<typeof forecastSchema>;
+
+/** 予報から日ごとの天気を読む（`parseForecast`） */
+function readDays(reports: Forecast): repository.WeatherRow[] {
   const days = new Map<DateString, Day>();
   // 週間予報を先に入れ、短期予報で上書きする
-  for (const report of forecastSchema.parse(json).toReversed()) {
+  for (const report of reports.toReversed()) {
     const reported = new Map<DateString, Day>();
     for (const { timeDefines, areas } of report.timeSeries) {
       const area = areas.find((a) => a.area.code === AREA_CODE);
@@ -130,12 +143,12 @@ export function parseForecast(json: unknown): repository.WeatherRow[] {
 }
 
 /**
- * 予報の JSON から 6 時間ごとの降水確率を取り出す（時刻順）。読むのは 1 つ目の報（短期予報）だけで、
- * 週間予報の降水確率（日ごと）は `parseForecast` が日ごとの天気に入れる。
+ * 予報から 6 時間ごとの降水確率を読む（時刻順）。読むのは 1 つ目の報（短期予報）だけで、
+ * 週間予報の降水確率（日ごと）は `readDays` が日ごとの天気に入れる。
  * 区切りは 0・6・12・18 時で、今日の過ぎた区間は載らない（発表の後の区間から）。
  */
-function parsePops(json: unknown): repository.PopRow[] {
-  const [short] = forecastSchema.parse(json);
+function readPops(reports: Forecast): repository.PopRow[] {
+  const [short] = reports;
   return (short?.timeSeries ?? []).flatMap(({ timeDefines, areas }) => {
     const pops = areas.find((a) => a.area.code === AREA_CODE)?.pops;
     return pops
@@ -151,12 +164,9 @@ function parsePops(json: unknown): repository.PopRow[] {
  * どちらも同じ JSON に載っているので、1 回の取得で両方を書く。
  */
 async function refreshDailyWeather(): Promise<number> {
-  const json = await (await fetchOk(FORECAST_URL)).json();
-  const rows = parseForecast(json);
-  const pops = parsePops(json);
-  await repository.upsertDaily(rows);
-  await repository.upsertPops(pops);
-  return rows.length;
+  const { days, pops } = parseForecast(await (await fetchOk(FORECAST_URL)).json());
+  await Promise.all([repository.upsertDaily(days), repository.upsertPops(pops)]);
+  return days.length;
 }
 
 /**
@@ -275,6 +285,22 @@ function toDaily(rows: repository.WeatherRow[]): DailyWeather[] {
 }
 
 /**
+ * 3 時間ごとの天気の行を、その日付と、日付の 0:00 からの分に直す。表に無い天気の区間は、アイコンを決められないので
+ * undefined（カレンダーでも天気の画面でも出さない）
+ */
+function toSlot({ startsAt, weather, temp }: repository.HourlyWeatherRow) {
+  const symbol = HOURLY_SYMBOLS[weather];
+  if (!symbol) return undefined;
+  return {
+    date: toDateString(startsAt),
+    startMin: minutesOfDay(startsAt),
+    symbol,
+    label: weather,
+    temp,
+  };
+}
+
+/**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
  * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、
  * 3 時間ごとは明日の終わり）まで。表に無い天気（気象庁が新しく足したものなど）は、アイコンを決められないので返さない。
@@ -285,16 +311,15 @@ export async function listWeather(range: DateRange): Promise<WeatherInRange> {
   const rows = await repository.findBetween(range);
   const daily = toDaily(rows.daily);
   const hourly: HourlyWeather[] = [];
-  for (const { startsAt, weather } of rows.hourly) {
-    const symbol = HOURLY_SYMBOLS[weather];
-    if (!symbol) continue;
-    const date = toDateString(startsAt);
-    const startMin = minutesOfDay(startsAt);
+  for (const row of rows.hourly) {
+    const slot = toSlot(row);
+    if (!slot) continue;
+    const { date, startMin, symbol, label } = slot;
     const last = hourly.at(-1);
-    if (last?.date === date && last.label === weather && last.endMin === startMin) {
+    if (last?.date === date && last.label === label && last.endMin === startMin) {
       last.endMin += SLOT_MINUTES;
     } else {
-      hourly.push({ date, startMin, endMin: startMin + SLOT_MINUTES, symbol, label: weather });
+      hourly.push({ date, startMin, endMin: startMin + SLOT_MINUTES, symbol, label });
     }
   }
   return { daily, hourly };
@@ -310,7 +335,8 @@ const RECENT_DAYS = 7;
 const PAGE_DAYS = 14;
 
 /**
- * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、その日の 3 時間ごとの天気と気温
+ * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、祝日か（日付の色。カレンダーと同じ色分け）と、
+ * その日の 3 時間ごとの天気と気温
  * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
  * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
  * before を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。
@@ -325,38 +351,26 @@ export async function listWeatherDays(
 ): Promise<HistoryPage<WeatherDay>> {
   const from = before ? addDays(before, -PAGE_DAYS) : addDays(today(now), -RECENT_DAYS);
   const to = before ? addDays(before, -1) : addDays(today(now), FORECAST_DAYS - 1);
-  const [rows, popRows, earliest] = await Promise.all([
-    repository.findBetween({ from, to }),
-    repository.findPopsBetween({ from, to }),
-    repository.findEarliestDate(),
+  const [rows, holidays] = await Promise.all([
+    repository.findDays({ from, to }),
+    listHolidays({ from, to }),
   ]);
-  const slots = rows.hourly.flatMap(({ startsAt, weather, temp }) => {
-    const symbol = HOURLY_SYMBOLS[weather];
-    return symbol
-      ? [
-          {
-            date: toDateString(startsAt),
-            startMin: minutesOfDay(startsAt),
-            symbol,
-            label: weather,
-            temp,
-          },
-        ]
-      : [];
-  });
-  const pops = popRows.map(({ startsAt, pop }) => ({
-    date: toDateString(startsAt),
-    startMin: minutesOfDay(startsAt),
-    pop,
-  }));
-  const onDate = <T extends { date: DateString }>(items: T[], date: DateString) =>
-    items.filter((item) => item.date === date).map(({ date: _, ...rest }) => rest);
+  const holidaySet = new Set(holidays);
+  const slots = Map.groupBy(
+    rows.hourly.flatMap((row) => toSlot(row) ?? []),
+    (slot) => slot.date,
+  );
+  const pops = Map.groupBy(rows.pops, ({ startsAt }) => toDateString(startsAt));
   return {
     items: toDaily(rows.daily).map((day) => ({
       ...day,
-      slots: onDate(slots, day.date),
-      pops: onDate(pops, day.date),
+      holiday: holidaySet.has(day.date),
+      slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),
+      pops: (pops.get(day.date) ?? []).map(({ startsAt, pop }) => ({
+        startMin: minutesOfDay(startsAt),
+        pop,
+      })),
     })),
-    nextCursor: earliest !== null && earliest < from ? from : null,
+    nextCursor: rows.hasEarlier ? from : null,
   };
 }

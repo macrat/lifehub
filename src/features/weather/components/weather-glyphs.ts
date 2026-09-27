@@ -29,8 +29,11 @@ export const GLYPHS: Record<WeatherSymbol, string> = {
 /** 天気が変わる日の横並びのアイコンの幅（高さ 24 に対して）。部品 2 つと変わり方の印が入る */
 export const WIDE_WIDTH = 46;
 
+/** 天気が変わる日の横並びのアイコンの幅の、高さに対する比 */
+export const WIDE_RATIO = WIDE_WIDTH / 24;
+
 /**
  * 横並びのアイコンの幅の、高さに対する比。天気が 1 つの日は横並びでも 1 文字分の正方形になる。
  * 置く側（`DayWeather`）が、アイコンが入るかどうかをこの幅で決める。
  */
-export const wideRatio = (icon: WeatherIcon): number => ('change' in icon ? WIDE_WIDTH / 24 : 1);
+export const wideRatio = (icon: WeatherIcon): number => ('change' in icon ? WIDE_RATIO : 1);

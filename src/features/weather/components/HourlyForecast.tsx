@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { PopSlot, WeatherSlot } from '../../../../shared/weather.ts';
-import { formatTemp } from '../format.ts';
+import { formatPop, formatTemp } from '../format.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
 
 /** 3 時間ごとの枠の始まり（その日の 0:00 からの分）。気象庁の区切りと同じく 0 時から 3 時間ごと */
@@ -24,6 +24,7 @@ type Props = {
  * 同じ位置に来るようにする。
  */
 export function HourlyForecast({ slots, pops }: Props) {
+  const cells = SLOTS.map((min) => ({ min, slot: slots.find((s) => s.startMin === min) }));
   return (
     <Box
       sx={{
@@ -40,9 +41,8 @@ export function HourlyForecast({ slots, pops }: Props) {
           {min / 60}時
         </Typography>
       ))}
-      {SLOTS.map((min) => {
-        const slot = slots.find((s) => s.startMin === min);
-        return slot ? (
+      {cells.map(({ min, slot }) =>
+        slot ? (
           <WeatherIcon
             key={min}
             icon={{ symbol: slot.symbol }}
@@ -52,16 +52,13 @@ export function HourlyForecast({ slots, pops }: Props) {
           />
         ) : (
           <Box key={min} sx={{ height: 24 }} />
-        );
-      })}
-      {SLOTS.map((min) => {
-        const slot = slots.find((s) => s.startMin === min);
-        return (
-          <Typography key={min} variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {slot ? formatTemp(slot.temp) : ''}
-          </Typography>
-        );
-      })}
+        ),
+      )}
+      {cells.map(({ min, slot }) => (
+        <Typography key={min} variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {slot && formatTemp(slot.temp)}
+        </Typography>
+      ))}
       {POP_SLOTS.map((min) => {
         const pop = pops.find((p) => p.startMin === min);
         return (
@@ -78,7 +75,7 @@ export function HourlyForecast({ slots, pops }: Props) {
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {pop && `${pop.pop}%`}
+            {pop && formatPop(pop.pop)}
           </Typography>
         );
       })}

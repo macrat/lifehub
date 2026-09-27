@@ -6,21 +6,19 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
-import { formatTemp } from '../format.ts';
+import { formatPop, formatTemp } from '../format.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
-import { WIDE_WIDTH } from './weather-glyphs.ts';
+import { WIDE_RATIO } from './weather-glyphs.ts';
 
 /** 天気のアイコンの高さ（px） */
 const ICON_SIZE = 32;
 
 /** アイコンの列の幅（px）。天気が変わる日の横並びが入る幅にして、どの行もアイコンの中央を揃える */
-const ICON_COLUMN = Math.ceil((ICON_SIZE * WIDE_WIDTH) / 24);
+const ICON_COLUMN = Math.ceil(ICON_SIZE * WIDE_RATIO);
 
 type Props = {
   days: WeatherDay[];
-  /** 祝日（日付を日曜と同じ赤にする。カレンダーと同じ色分け） */
-  holidays: ReadonlySet<DateString>;
   /** 3 時間ごとの天気を開いているか */
   isOpen: (date: DateString) => boolean;
   /** 行を押したとき（3 時間ごとの天気を開け閉めする） */
@@ -36,7 +34,7 @@ type Props = {
  * 無い日（明後日から）の行は押せない。
  * 行には日付（`data-date`）を持たせ、画面が最初に今日を一番上に出すのに使う。
  */
-export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
+export function WeatherDayList({ days, isOpen, onToggle }: Props) {
   return (
     <List disablePadding>
       {days.map((day) => {
@@ -63,7 +61,7 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
                 '&.Mui-disabled': { opacity: 1 },
               }}
             >
-              <Typography sx={{ color: dateColor(day.date, holidays.has(day.date)) }}>
+              <Typography sx={{ color: dateColor(day.date, day.holiday) }}>
                 {formatDate(day.date)}
               </Typography>
               <WeatherIcon
@@ -92,11 +90,11 @@ export function WeatherDayList({ days, holidays, isOpen, onToggle }: Props) {
                 color="textSecondary"
                 sx={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
               >
-                {day.pop === null ? '—' : `${day.pop}%`}
+                {formatPop(day.pop)}
               </Typography>
             </ListItemButton>
             {expandable && (
-              <Collapse in={open}>
+              <Collapse in={open} unmountOnExit>
                 <HourlyForecast slots={day.slots} pops={day.pops} />
               </Collapse>
             )}

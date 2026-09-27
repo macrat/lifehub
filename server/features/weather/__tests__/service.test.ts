@@ -21,7 +21,7 @@ describe('weather service', () => {
   });
 
   it('東京の天気・気温・降水確率を日ごとに取り出し、重なる日は短期予報を採る', () => {
-    expect(parseForecast(forecast(['302', '202', '200'], ['100', '100', '400']))).toEqual([
+    expect(parseForecast(forecast(['302', '202', '200'], ['100', '100', '400'])).days).toEqual([
       { date: '2026-09-23', code: '302', tempMax: null, tempMin: null, pop: 70 },
       // 降水確率は 6 時間ごとのうち一番高いもの
       { date: '2026-09-24', code: '202', tempMax: 29, tempMin: 19, pop: 30 },
@@ -94,7 +94,7 @@ describe('weather service', () => {
       ],
       areas: [{ area: { code: '44132' }, temps: ['24', '24', '20', '26'] }],
     });
-    const days = parseForecast(json);
+    const { days } = parseForecast(json);
     expect(days.find((d) => d.date === '2026-09-23')).toMatchObject({ tempMax: 24, tempMin: null });
     expect(days.find((d) => d.date === '2026-09-24')).toMatchObject({ tempMax: 26, tempMin: 20 });
   });

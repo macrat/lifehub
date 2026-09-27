@@ -6,7 +6,6 @@ import type { Breakpoint, SxProps, Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { TILE_MASK } from './squircle.ts';
-import { textTransitionSx } from './text-transition.ts';
 
 /** タイルの内側の余白（タイルと骨組みで同じ高さにする） */
 const TILE_PADDING = 1;
@@ -23,10 +22,9 @@ type Props = {
   /** 値の下の補足。空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
   sub: string;
   /**
-   * 別の画面の同じものとその場で動く名前（View Transition）。`tile` はタイルごと、`value` は値だけが動く。
-   * 相手の画面に同じタイルが在るならタイルごと、値だけが在るなら値だけに付ける。相手が無ければ付けない
+   * 別の画面の同じタイルとその場で動く名前（View Transition。タイルごと動く）。相手の画面に同じタイルが無ければ付けない
    */
-  transitionName?: { tile: string } | { value: string };
+  transitionName?: string;
   onClick: () => void;
 };
 
@@ -41,20 +39,11 @@ export function StatusTile({ icon, label, value, sub, transitionName, onClick }:
         bgcolor: 'action.hover',
         borderRadius: 0,
         mask: TILE_MASK,
-        viewTransitionName:
-          transitionName && 'tile' in transitionName ? transitionName.tile : undefined,
+        viewTransitionName: transitionName,
       }}
     >
       <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
-        <TileLines
-          icon={icon}
-          label={label}
-          value={value}
-          sub={sub}
-          valueTransitionName={
-            transitionName && 'value' in transitionName ? transitionName.value : undefined
-          }
-        />
+        <TileLines icon={icon} label={label} value={value} sub={sub} />
       </CardActionArea>
     </Card>
   );
@@ -79,13 +68,11 @@ function TileLines({
   label,
   value,
   sub,
-  valueTransitionName,
 }: {
   icon?: ReactNode;
   label: string;
   value: string;
   sub: string;
-  valueTransitionName?: string | undefined;
 }) {
   return (
     <>
@@ -111,7 +98,6 @@ function TileLines({
         sx={{
           lineHeight: 1.3,
           fontVariantNumeric: 'tabular-nums',
-          ...textTransitionSx(valueTransitionName),
         }}
       >
         {value}

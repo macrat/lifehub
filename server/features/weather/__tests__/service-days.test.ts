@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
+import { refreshHolidays } from '../../holidays/service.ts';
 import { listWeatherDays, refreshWeather } from '../service.ts';
 import { forecast, hourly, serve } from './service-fixtures.ts';
 
-/** 天気の画面のページ（`listWeatherDays`）。日ごとの天気に 3 時間ごとの天気と 6 時間ごとの降水確率を添える */
+/** 天気の画面のページ（`listWeatherDays`）。日ごとの天気に祝日の印、3 時間ごとの天気、6 時間ごとの降水確率を添える */
 describe('weather service: 天気の画面のページ', () => {
   beforeEach(async () => {
     await clearTables();
@@ -69,6 +70,33 @@ describe('weather service: 天気の画面のページ', () => {
     expect(items.find((d) => d.date === '2026-09-24')?.slots).toEqual([
       { startMin: 1080, symbol: 'rain', label: '雨', temp: 20 },
       { startMin: 1260, symbol: 'rain', label: '雨', temp: 21 },
+    ]);
+  });
+
+  it('祝日の日には印を付ける（日付の色をカレンダーと揃える）', async () => {
+    // 9/23（秋分の日）だけを祝日にする
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(
+          [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:autumn',
+            'DTSTART;VALUE=DATE:20260923',
+            'DTEND;VALUE=DATE:20260924',
+            'END:VEVENT',
+            'END:VCALENDAR',
+          ].join('\r\n'),
+        ),
+    );
+    await refreshHolidays();
+    const page = await listWeatherDays(undefined, new Date('2026-09-24T03:00:00Z'));
+    expect(page.items.map((d) => [d.date, d.holiday])).toEqual([
+      ['2026-09-23', true],
+      ['2026-09-24', false],
+      ['2026-09-25', false],
+      ['2026-09-26', false],
     ]);
   });
 });

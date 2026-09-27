@@ -38,7 +38,11 @@ const WEEK: DailyWeather[] = [
  * 1 日ぶんの 3 時間ごとの天気（気温は 0 時の 15 度から 1 度ずつ上がる）と 6 時間ごとの降水確率
  * （0 時から 10・20・30・40%）。昨日は 1 日じゅう雨、今日・明日は晴れ
  */
-const allDay = (symbol: 'sun' | 'rain', label: string): Pick<WeatherDay, 'slots' | 'pops'> => ({
+const allDay = (
+  symbol: 'sun' | 'rain',
+  label: string,
+): Pick<WeatherDay, 'holiday' | 'slots' | 'pops'> => ({
+  holiday: false,
   slots: Array.from({ length: 8 }, (_, i) => ({ startMin: i * 180, symbol, label, temp: 15 + i })),
   pops: Array.from({ length: 4 }, (_, i) => ({ startMin: i * 360, pop: (i + 1) * 10 })),
 });
@@ -53,7 +57,7 @@ const PAGES: Record<string, HistoryPage<WeatherDay>> = {
     nextCursor: YESTERDAY,
   },
   [YESTERDAY]: {
-    items: [{ ...SUNNY, date: EARLIER, label: '雪', slots: [], pops: [] }],
+    items: [{ ...SUNNY, date: EARLIER, label: '雪', holiday: false, slots: [], pops: [] }],
     nextCursor: null,
   },
 };

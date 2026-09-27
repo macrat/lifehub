@@ -49,7 +49,9 @@ export function TimelineHeader({ days, columns, onSelectDate }: Props) {
           <Box
             sx={{
               position: 'relative',
+              // 中身は押せなくして下のボタンに通し、天気のリンクだけは押せるようにする
               pointerEvents: 'none',
+              '& a': { pointerEvents: 'auto' },
               display: 'flex',
               flexDirection: single ? 'row' : 'column',
               alignItems: 'center',

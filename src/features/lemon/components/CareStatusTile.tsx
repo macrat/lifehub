@@ -29,7 +29,7 @@ export function CareStatusTile({ status, onSelect }: Props) {
             : `${status.daysSince}日前`
       }
       sub={status.lastDoneAt ? formatDate(status.lastDoneAt) : '記録なし'}
-      transitionName={{ tile: `care-${status.careType}` }}
+      transitionName={`care-${status.careType}`}
       onClick={() => onSelect?.(status)}
     />
   );
