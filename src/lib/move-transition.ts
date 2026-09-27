@@ -1,3 +1,5 @@
+import { notifyManager } from '@tanstack/react-query';
+
 /**
  * 書き込みで一覧の中の項目の位置が変わるとき（タスクを完了にすると、完了した物の並びへ移る）に、
  * 項目が元の位置から新しい位置へ滑って見えるようにする View Transition の種別。
@@ -22,9 +24,9 @@ export const MOVE_TRANSITION_SX = {
 
 /**
  * update（キャッシュの書き換え）を、項目が動いて見える View Transition の中で行う。
- * 書き換えが画面に出るのは、TanStack Query が購読者への通知を `setTimeout(0)` で遅らせて送り、
- * それを受けた React が同じタスクの終わり（マイクロタスク）で描き直した後。書き換えの後に積んだ
- * `setTimeout(0)` は通知の後に回るので、それを待てば新しい画面が描き上がっている。
+ * 書き換えが画面に出るのは、TanStack Query が購読者へ遅らせて送る通知（`notifyManager`）を受けた React が
+ * 描き直した後（通知と同じタスクの終わりのマイクロタスク）。書き換えの後に同じ `notifyManager` へ積んだ
+ * 処理は通知の後に回るので、それを待てば新しい画面が描き上がっている。
  * WHY NOT React の `<ViewTransition>`: React が遷移を起こすのは startTransition の更新だけで、
  * TanStack Query の更新（useSyncExternalStore）は対象にならない。
  */
@@ -32,7 +34,7 @@ export function withMoveTransition(update: () => void): void {
   document.startViewTransition({
     update: async () => {
       update();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise<void>((resolve) => notifyManager.schedule(resolve));
     },
     types: [MOVE_TRANSITION_TYPE],
   });
