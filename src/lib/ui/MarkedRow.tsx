@@ -13,13 +13,15 @@ const MARK_SX = {
   flexShrink: 0,
 } as const;
 
-/** 行の並べ方。枠線を持たず、押したときだけ薄く色が付く */
+/**
+ * 行の並べ方。枠線も背景も持たず、押したときだけ薄く色が付く。
+ * 見た目の上で行に形が無いので、押したときの色（波紋）も角を丸めず端から端まで出す
+ */
 const LAYOUT_SX = {
   alignItems: 'center',
   py: 0.75,
   pr: 2,
   gap: 1.5,
-  borderRadius: 1,
 } as const;
 
 /**
