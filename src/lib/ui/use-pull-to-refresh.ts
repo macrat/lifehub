@@ -2,6 +2,7 @@ import { isCancelledError, useQueryClient } from '@tanstack/react-query';
 import { useMatches } from '@tanstack/react-router';
 import { type RefObject, useEffect, useState } from 'react';
 import { useOnline } from '../online.ts';
+import { loadingEdges } from './loading-edge.ts';
 import { notify } from './notice.ts';
 
 /** 離したときに取り直す、指を下ろした所からの引いた向きへの動き（px） */
@@ -76,14 +77,12 @@ function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
 /**
  * 画面の中で引ける端。無限スクロールの一覧がある画面では、どの一覧も続きを読み足さない端だけ（上へ読み足す立替・
  * レモン・天気は下端、下へ読み足すホームは上端、上下に読み足す予定のリストはどちらも引けない）。
- * 無限スクロールの一覧が無い画面は上端だけ。読み足す端は見張り（`useEdgeObserver`）が付ける印（`data-loads-at`）で知る。
+ * 無限スクロールの一覧が無い画面は上端だけ。読み足す端は一覧の端の見張り（`EdgeSentinel`）が付ける印で知る。
  * WHY: 同じ端に 2 つの働きを持たせると、続きを読むつもりで取り直しが起きたり、取り直すつもりで続きが読まれたりして、
  * 指の動きから結果が読めなくなる。引ける端を一覧ごとに宣言させず、読み足す端から決めるので、食い違いが書けない。
  */
 function allowedEdges(area: HTMLElement): PullEdge[] {
-  const loading = new Set(
-    [...area.querySelectorAll<HTMLElement>('[data-loads-at]')].map((el) => el.dataset.loadsAt),
-  );
+  const loading = loadingEdges(area);
   if (loading.size === 0) return ['top'];
   return (['top', 'bottom'] as const).filter((edge) => !loading.has(edge));
 }

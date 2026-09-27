@@ -27,7 +27,7 @@ type Props = {
  * 上が古く下が新しい。最初は基準の日（既定は今日）を一番上に出し、上下の端へ近づくと前後の月を 1 か月ずつ読み足す
  * （`useListMonths`）。月ごとに見出しを立てるので、項目の無い月も見出しの分だけ一覧が伸び、端が見えたまま
  * 読み続けることがない。基準の日は項目が無くても「予定なし」として出し、今どこにいるかを示す。
- * 引っ張って更新はしない。上下どちらの端でも続きを読み足すので、引っ張って更新に使える端が無い（`useEdgeObserver` の印）。
+ * 引っ張って更新はしない。上下どちらの端でも続きを読み足すので、引っ張って更新に使える端が無い（`EdgeSentinel` の印）。
  */
 export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
   const { months, range, extendStart, extendEnd } = useListMonths(date, filters);
@@ -38,8 +38,7 @@ export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelect
   return (
     <InfiniteScroll
       header={<ListFilterForm open={filtersOpen} filters={filters} onChange={onChangeFilters} />}
-      onReachStart={(loaded && extendStart) || null}
-      onReachEnd={(loaded && extendEnd) || null}
+      load={{ top: (loaded && extendStart) || null, bottom: (loaded && extendEnd) || null }}
       initial={{ block: 'start', target: (list) => firstDayFrom(list, date) }}
       resetKey={JSON.stringify({ date, filters })}
       // 最初の位置は出している月が揃ってから決める

@@ -1,8 +1,9 @@
 import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
+import { EdgeSentinel } from './EdgeSentinel.tsx';
 import { useInitialPosition } from './initial-position.ts';
 import { STICKY_TOP } from './layout.ts';
+import type { EdgeLoader } from './loading-edge.ts';
 import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
-import { type EdgeLoader, useEdgeObserver } from './use-edge-observer.ts';
 import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
 /** 一覧の上に貼り付けておく物とその出し方。一覧を包む部品（`HistoryList` など）はこれをそのまま受けて渡す */
@@ -16,12 +17,11 @@ export type InfiniteScrollHeaderProps = {
 type Props = InfiniteScrollHeaderProps & {
   children: ReactNode;
   /**
-   * 先頭に近づいたとき（上へ読み足す一覧）。null は今は読む物が無い（読み込み中・読み切った）とき。
-   * 渡さなければ先頭では読み足さない（引っ張って更新で引ける端になる）
+   * 続きを読み足す端と、その端に近づいたときに読む物（`EdgeLoader`。今は読む物が無ければ null）。
+   * top は上へ（古いほうを）、bottom は下へ読み足す。書かなかった端では読み足さず、引っ張って更新で引ける端になる。
+   * 読む物は null か関数で、undefined は書けない（読み込み中に undefined を渡すと、読み足さない端に化けるため）
    */
-  onReachStart?: EdgeLoader;
-  /** 末尾に近づいたとき（下へ読み足す一覧）。null と渡さないときの意味は onReachStart と同じ */
-  onReachEnd?: EdgeLoader;
+  load: { top: EdgeLoader } | { bottom: EdgeLoader } | { top: EdgeLoader; bottom: EdgeLoader };
   /**
    * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
    * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
@@ -36,7 +36,7 @@ type Props = InfiniteScrollHeaderProps & {
 
 /**
  * 端に近づくと続きを読む一覧。画面（window）そのものをスクロールする。
- * - 端の見張りは `useEdgeObserver`。読み込み中は onReach を渡さないことで、二重に読まない
+ * - 端の見張りは `EdgeSentinel`。読み込み中は読む物を null にすることで、二重に読まない
  * - 前に足しても見ている所が動かないよう、見出しの下で最初に見えている要素（ブラウザの
  *   スクロールアンカーと同じ選び方）の位置を覚えておき、描き直した後でその分だけ戻す。
  *   ブラウザのスクロールアンカー（`overflow-anchor`）は Safari が対応していないので使わず、止めておく
@@ -45,22 +45,19 @@ type Props = InfiniteScrollHeaderProps & {
  *   利用者が自分で動かし始めたらやめる
  * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
  * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
- * - 引っ張って更新は、続きを読み足す端（onReachStart / onReachEnd を渡した端）からは引けない（`useEdgeObserver` の印）
+ * - 引っ張って更新は、続きを読み足す端（load に書いた端）からは引けない（`EdgeSentinel` の印）
  */
 export function InfiniteScroll({
   header,
   headerScrollsAway = false,
   children,
-  onReachStart,
-  onReachEnd,
+  load,
   initial,
   resetKey,
   ready = true,
 }: Props) {
   const headerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const startRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   // 見えている要素と、その画面上の位置。スクロールと描画のたびに測り直す
   const anchor = useRef<{ element: Element; top: number } | null>(null);
   const positionedFor = useRef<string | null>(null);
@@ -144,17 +141,14 @@ export function InfiniteScroll({
     if (listRef.current) place(listRef.current, 'smooth');
   });
 
-  useEdgeObserver(startRef, 'top', onReachStart);
-  useEdgeObserver(endRef, 'bottom', onReachEnd);
-
   return (
     <>
       <ScrollAwayHeader ref={headerRef} pinned={!headerScrollsAway}>
         {header}
       </ScrollAwayHeader>
-      <div ref={startRef} />
+      {'top' in load && <EdgeSentinel edge="top" onReach={load.top} />}
       <div ref={listRef}>{children}</div>
-      <div ref={endRef} />
+      {'bottom' in load && <EdgeSentinel edge="bottom" onReach={load.bottom} />}
     </>
   );
 }
