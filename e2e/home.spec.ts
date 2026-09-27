@@ -77,7 +77,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByRole('button', { name: /E2E ホーム/ })).toHaveCount(0);
 });
 
-test('場所のある予定は、タイトルの下・メモの上に場所が出る', async ({ page }) => {
+test('場所のある予定は、タイトルの下・メモの上に地図を開く場所が出る', async ({ page }) => {
   const title = `E2E 場所 ${Date.now()}`;
   const id = await addItem(page, {
     kind: 'event',
@@ -89,8 +89,13 @@ test('場所のある予定は、タイトルの下・メモの上に場所が�
   });
   await openHome(page);
 
-  await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveText(
+  await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveAccessibleName(
     new RegExp(`${title}.*${title} の場所.*${title} のメモ`),
+  );
+  // 場所はアイコンと文字の所だけが、地図でその場所を検索するリンクになる
+  await expect(page.getByRole('link', { name: `${title} の場所` })).toHaveAttribute(
+    'href',
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} の場所`)}`,
   );
   await deleteItem(page, id);
 });
