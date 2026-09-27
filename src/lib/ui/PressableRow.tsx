@@ -45,6 +45,21 @@ const CONTROL_SX = { '& > *': { pointerEvents: 'auto' } } as const;
  * その上に同じ並べ方の層を重ねて印を置く。印を押せば印の操作になり、それ以外を押せば行が開いて、
  * 波紋は印の下まで広がる。
  */
+/**
+ * 印の渡し方。印（mark・control）を渡すなら、その枠（markSx）も要る。
+ * 枠が無いと印を置く場所が無く、黙って消えたり位置がずれたりするので、型で組み合わせを強いる
+ */
+type MarkProps =
+  | {
+      /** 印の枠。行をまたいで中身の左端が揃うよう、幅を決め打ちにする */
+      markSx: SxProps<Theme>;
+      /** 印（見せるだけのもの）。押すと行を押したことになる */
+      mark?: ReactNode;
+      /** 操作できる印。行の上に重ねて置き、押すとその操作になる */
+      control?: ReactNode;
+    }
+  | { markSx?: undefined; mark?: undefined; control?: undefined };
+
 export function PressableRow({
   onSelect,
   mark,
@@ -54,15 +69,9 @@ export function PressableRow({
   divider = false,
   sx,
   children,
-}: {
+}: MarkProps & {
   /** 押されたとき。editing は長押し（編集で開く）か */
   onSelect: (editing: boolean) => void;
-  /** 印（見せるだけのもの）。押すと行を押したことになる */
-  mark?: ReactNode;
-  /** 操作できる印。行の上に重ねて置き、押すとその操作になる */
-  control?: ReactNode;
-  /** 印の枠。行をまたいで中身の左端が揃うよう、幅を決め打ちにする。省くと印の枠を置かない */
-  markSx?: SxProps<Theme>;
   /** 中身の並べ方（余白・揃え・間隔）。操作できる印の層も同じ並べ方にする */
   layoutSx: SxProps<Theme>;
   /** 行の下に区切り線を引く */
