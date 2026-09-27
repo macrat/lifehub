@@ -43,16 +43,28 @@ export function homeWeatherDay(now: Date): { date: DateString; label: '今日' |
     : { date: addDays(date, 1), label: '明日' };
 }
 
+/** ホームのタイルに出す日（`homeWeatherDay`）。18 時を過ぎれば開いたままでも明日に変わるよう、時計に合わせて選び直す */
+export function useHomeWeatherDay() {
+  return homeWeatherDay(useNow());
+}
+
+/**
+ * ホームの天気のタイルと、週間天気の同じ日の行に付ける名前（View Transition）。
+ * ホームと週間天気を行き来すると、タイルがその日の行へ（行がタイルへ）その場から動く。
+ * 行はタイルに出す日（`useHomeWeatherDay`）の 1 行だけに付ける。ほかの日はホームに無いので、付けても相手がおらず、
+ * 名前の付いた要素は画面の外にあっても撮られるので、スクロールの外の行まで画面の外から飛んでくる。
+ */
+export const HOME_WEATHER_TRANSITION = 'home-weather';
+
 /** ホームのタイルの中身。予報の無い日は weather が無い */
 export type HomeWeather = { label: '今日' | '明日'; weather: WeatherDay | undefined };
 
 /**
- * ホームのタイルに出す天気（`homeWeatherDay` の日）。天気の画面と同じキャッシュの最新のページ（今日と明日が入る）
+ * ホームのタイルに出す天気（`useHomeWeatherDay` の日）。天気の画面と同じキャッシュの最新のページ（今日と明日が入る）
  * から選ぶので、ホームから天気の画面へ移っても取り直しを待たず、どちらかで取り直せばもう片方も変わる。
- * 開いたままでも 18 時を過ぎれば明日の天気に変わるよう、時計に合わせて選び直す。
  */
 export function useHomeWeather(): QueryState<HomeWeather> {
-  const { date, label } = homeWeatherDay(useNow());
+  const { date, label } = useHomeWeatherDay();
   const select = useCallback(
     (data: InfiniteData<HistoryPage<WeatherDay>>): HomeWeather => ({
       label,

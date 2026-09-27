@@ -7,6 +7,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
 import { formatPop, formatTemp } from '../format.ts';
+import { HOME_WEATHER_TRANSITION } from '../queries.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
 import { WIDE_RATIO } from './weather-glyphs.ts';
@@ -19,6 +20,8 @@ const ICON_COLUMN = Math.ceil(ICON_SIZE * WIDE_RATIO);
 
 type Props = {
   days: WeatherDay[];
+  /** ホームの天気のタイルと名前を合わせる日（View Transition。`HOME_WEATHER_TRANSITION`） */
+  homeDate: DateString;
   /** 3 時間ごとの天気を開いているか */
   isOpen: (date: DateString) => boolean;
   /** 行を押したとき（3 時間ごとの天気を開け閉めする） */
@@ -33,8 +36,10 @@ type Props = {
  * （`HourlyForecast`）。
  * 無い日（明後日から）の行は押せない。
  * 行には日付（`data-date`）を持たせ、画面が最初に今日を一番上に出すのに使う。
+ * ホームのタイルに出ている日の行は、タイルと名前を合わせ、ホームと行き来するとその場から動く。
+ * 名前は開いた 3 時間ごとの天気を含まない行の部分に付ける（タイルに当たるのは 1 日の要約なので）。
  */
-export function WeatherDayList({ days, isOpen, onToggle }: Props) {
+export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
   return (
     <List disablePadding>
       {days.map((day) => {
@@ -57,6 +62,7 @@ export function WeatherDayList({ days, isOpen, onToggle }: Props) {
                 alignItems: 'center',
                 columnGap: 1.5,
                 py: 1.5,
+                viewTransitionName: day.date === homeDate ? HOME_WEATHER_TRANSITION : undefined,
                 // 押せない行も薄くしない（天気そのものは読めるので）
                 '&.Mui-disabled': { opacity: 1 },
               }}

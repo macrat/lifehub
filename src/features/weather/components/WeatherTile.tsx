@@ -1,6 +1,6 @@
 import { StatusTile } from '../../../lib/ui/StatusTile.tsx';
 import { formatTemp } from '../format.ts';
-import type { HomeWeather } from '../queries.ts';
+import { HOME_WEATHER_TRANSITION, type HomeWeather } from '../queries.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
 
 type Props = {
@@ -16,6 +16,7 @@ type Props = {
  * アイコンは名前の字の大きさなので、天気が変わる日も 1 文字分の正方形に重ねた形で出す（変わり方は名前で分かる）。
  * 名前が入りきらないとき（「曇時々雨で雷を伴う」など）は末尾を「…」で切り、全文は週間天気で見る。
  * 予報の無い日（取り始める前など）は、ほかのタイルの「記録なし」と同じく値を「—」にする。
+ * 週間天気の同じ日の行とは名前を合わせてあり、行き来するとその場から動く（`HOME_WEATHER_TRANSITION`）。
  */
 export function WeatherTile({ home: { label, weather }, onClick }: Props) {
   return (
@@ -24,6 +25,7 @@ export function WeatherTile({ home: { label, weather }, onClick }: Props) {
       label={label}
       value={weather ? `${formatTemp(weather.tempMax)} / ${formatTemp(weather.tempMin)}` : '—'}
       sub={weather ? weather.label : '予報なし'}
+      transitionName={HOME_WEATHER_TRANSITION}
       onClick={onClick}
     />
   );
