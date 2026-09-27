@@ -71,10 +71,6 @@ export function HourlyForecast({ slots, pops }: Props) {
             color="textSecondary"
             sx={{
               gridColumn: 'span 2',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 0.25,
               mx: 0.5,
               // 2 列にまたがる値だと分かるよう、区間の幅に線を引く
               borderTop: 1,
@@ -82,17 +78,7 @@ export function HourlyForecast({ slots, pops }: Props) {
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {pop && (
-              <>
-                <WeatherIcon
-                  icon={{ symbol: 'rain' }}
-                  layout="square"
-                  titleAccess="降水確率"
-                  sx={{ fontSize: '0.9rem' }}
-                />
-                {pop.pop}%
-              </>
-            )}
+            {pop && `${pop.pop}%`}
           </Typography>
         );
       })}
