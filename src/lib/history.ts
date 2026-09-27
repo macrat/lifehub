@@ -52,7 +52,7 @@ export function historyQueryOptions<T, F extends object>(source: HistorySource<T
 }
 
 /**
- * 画面が読む履歴。読んだページを古い順に繋ぎ、今日までと未来の記録に分けて返す。上の端へ近づいたら
+ * 画面が読む履歴。読んだページを古い順に繋ぎ、全部と、今日までと未来の記録に分けた物を返す。上の端へ近づいたら
  * 古いほうのページを読む（`HistoryList` にそのまま渡せる形）。
  * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
  * - resetKey は取得のキーで、変わったら一覧を最初の位置（`HistoryList`）へ戻す合図。ready は出している結果が
@@ -80,7 +80,11 @@ export function useHistory<T, F extends object>(source: HistorySource<T, F>, fil
   // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
   const items = data?.pages.toReversed().flatMap((page) => page.items);
   return {
-    query: { data: items && splitAtToday(items, source.dayOf, source.todayAtTop), error },
+    // items は分けない全部（古い順）。今日で分けずに扱う所（タイムライン、立替の金額の列の幅）が繋ぎ直さずに済む
+    query: {
+      data: items && { items, ...splitAtToday(items, source.dayOf, source.todayAtTop) },
+      error,
+    },
     todayAtTop: source.todayAtTop ?? false,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,

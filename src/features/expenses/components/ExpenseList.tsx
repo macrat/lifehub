@@ -40,8 +40,8 @@ function Amount({ amount, widest }: { amount: number; widest: string }) {
 }
 
 /** 読んだ記録（今日までと未来の両方）の中で一番幅を取る金額の表示。数字は等幅なので文字数で比べる */
-function widestAmount(data: { past: Expense[]; future: Expense[] } | undefined): string {
-  return [...(data?.past ?? []), ...(data?.future ?? [])]
+function widestAmount(expenses: Expense[] = []): string {
+  return expenses
     .map((e) => formatYen(e.amount))
     .reduce((a, b) => (b.length > a.length ? b : a), '');
 }
@@ -62,7 +62,7 @@ type Props = Omit<HistoryListProps<Expense>, 'children'> & {
 export function ExpenseList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const widest = widestAmount(listProps.history.query.data);
+  const widest = widestAmount(listProps.history.query.data?.items);
   return (
     <HistoryList {...listProps}>
       {(expenses) =>
