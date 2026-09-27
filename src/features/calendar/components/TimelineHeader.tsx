@@ -9,6 +9,7 @@ import {
   weekdayIndex,
   weekdayLabelColor,
 } from '../../../lib/date.ts';
+import { OVERLAY_CONTENT_SX, UNDERLAY_BUTTON_SX } from '../../../lib/ui/button-underlay.ts';
 import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';
@@ -35,23 +36,19 @@ export function TimelineHeader({ days, columns, onSelectDate }: Props) {
       }}
     >
       <Box />
-      {/* 見出しを押す所（日表示へ）は枠いっぱいに敷いたボタンで、中身はその上に重ねて押せなくする。
-          中身の天気（週間天気へのリンク）だけは押せるようにする。リンクをボタンの中に入れ子にすると、
-          押したときにどちらが動くかがブラウザ任せになり、読み上げでも 1 つのボタンとして読まれる */}
+      {/* 見出しを押す所（日表示へ）は枠いっぱいに敷いたボタンで、中身はその上に重ね、
+          中身の天気（週間天気へのリンク）だけを押せるようにする（`button-underlay.ts`） */}
       {days.map((day) => (
         <Box key={day} sx={{ position: 'relative', borderLeft: 1, borderColor: 'divider' }}>
           <ButtonBase
             disabled={!onSelectDate}
             onClick={() => onSelectDate?.(day)}
             aria-label={formatDateWithYear(day)}
-            sx={{ position: 'absolute', inset: 0 }}
+            sx={UNDERLAY_BUTTON_SX}
           />
           <Box
             sx={{
-              position: 'relative',
-              // 中身は押せなくして下のボタンに通し、天気のリンクだけは押せるようにする
-              pointerEvents: 'none',
-              '& a': { pointerEvents: 'auto' },
+              ...OVERLAY_CONTENT_SX,
               display: 'flex',
               flexDirection: single ? 'row' : 'column',
               alignItems: 'center',

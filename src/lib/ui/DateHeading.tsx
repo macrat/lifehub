@@ -1,6 +1,7 @@
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../shared/types.ts';
 import { formatDate, isToday } from '../date.ts';
+import { DATE_HEADING_INSET } from './layout.ts';
 
 /**
  * 日付ごとに区切る一覧（カレンダーのリスト表示、立替の履歴）の見出し。
@@ -13,7 +14,7 @@ export function DateHeading({ date }: { date: DateString }) {
       variant="caption"
       component="h3"
       sx={{
-        px: 2,
+        px: DATE_HEADING_INSET,
         pt: 1,
         pb: 0.25,
         fontWeight: 600,

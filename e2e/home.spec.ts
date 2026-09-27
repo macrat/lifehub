@@ -34,7 +34,7 @@ test('ホームからタスクとレモンの記録を追加し、タイムラ�
   await expect(page.getByRole('checkbox', { name: `${title} を完了にする` })).not.toBeChecked();
 
   // 行を押すと、ホームのまま詳細が開く
-  await page.getByText(title, { exact: true }).click();
+  await page.getByRole('button', { name: title, exact: true }).click();
   await expect(page.getByRole('dialog', { name: title })).toBeVisible();
   await expect(page).toHaveURL('/');
 });
@@ -57,7 +57,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByText(`${body} その2`)).toBeVisible();
 
   // 詳細を開いて直す
-  await page.getByText(body, { exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(`${body}$`) }).click();
   await page.getByRole('button', { name: '編集' }).click();
   // 編集に切り替えたらそのまま打てる
   await expect(page.getByRole('textbox', { name: 'メモ', exact: true })).toBeFocused();
@@ -67,7 +67,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
 
   // 消す
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByText(`${body} 直した`).click();
+  await page.getByRole('button', { name: `${body} 直した` }).click();
   await detailAction(page, '削除');
   await expect(page.getByText(`${body} 直した`)).toHaveCount(0);
 
@@ -77,7 +77,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByRole('button', { name: /E2E ホーム/ })).toHaveCount(0);
 });
 
-test('場所のある予定は、タイトルの下・メモの上に場所が出る', async ({ page }) => {
+test('場所のある予定は、タイトルの下・メモの上に地図を開く場所が出る', async ({ page }) => {
   const title = `E2E 場所 ${Date.now()}`;
   const id = await addItem(page, {
     kind: 'event',
@@ -89,8 +89,13 @@ test('場所のある予定は、タイトルの下・メモの上に場所が�
   });
   await openHome(page);
 
-  await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveText(
+  await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveAccessibleName(
     new RegExp(`${title}.*${title} の場所.*${title} のメモ`),
+  );
+  // 場所はアイコンと文字の所だけが、地図でその場所を検索するリンクになる
+  await expect(page.getByRole('link', { name: `${title} の場所` })).toHaveAttribute(
+    'href',
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} の場所`)}`,
   );
   await deleteItem(page, id);
 });

@@ -108,7 +108,7 @@ test('記録の行は長押しすると編集で開く（立替・レモンと�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(sheet).toHaveCount(0);
   // 行は金額・内容・名前を 1 つのボタンに収めるので、直した金額は行の読み上げ名に出る
-  const editedRow = page.getByRole('button', { name: new RegExp(`￥1,500.*${note}`) });
+  const editedRow = page.getByRole('button', { name: new RegExp(`¥1,500.*${note}`) });
   await expect(editedRow).toBeVisible();
 
   // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
