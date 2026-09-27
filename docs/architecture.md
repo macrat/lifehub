@@ -6,7 +6,7 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 
 - 利用者は 2 人、データ量は小規模。スケーラビリティよりも単純さと正しさを優先する。
 - 少人数がヘビーに使うため、初回ロードより **2 回目以降の起動速度とオフライン閲覧** を重視する。
-- インフラはすべて無料枠（Vercel Hobby / Neon Free / Upstash QStash Free / HCP Terraform Free）。
+- インフラはすべて無料枠（Vercel Hobby / Neon Free / Upstash QStash Free / HCP Terraform Free / Sentry Developer）。
 - ブラウザ互換性は考慮しない。最新の Chrome と Safari（iOS 含む）のみを対象とし、ポリフィルを入れない。
 - 業務ロジックはサーバー（Hono）に置く。クライアントは表示と入力に徹し、UI と MCP と通知処理が同じ Service 層を共有する。
 
@@ -35,8 +35,9 @@ LifeHub の技術的な決定事項と構造。すべての判断は [AGENTS.md]
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
 | テスト | Vitest（クライアント: jsdom、共有（shared）とサーバー: Node。3 つを別のプロジェクトにし、DB を使うのはサーバーだけ）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
 | Lint / Format | Biome | 単一ツールで完結し設定量が少ない。 |
-| IaC | Terraform（`vercel/vercel`, `kislerdm/neon`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon の全設定をコードとして確認・編集できるようにする。 |
+| IaC | Terraform（`vercel/vercel`, `kislerdm/neon`, `jianyuan/sentry`, `hashicorp/random`）+ HCP Terraform（Free）をリモート state に使用 | Vercel・Neon・Sentry の全設定をコードとして確認・編集できるようにする。 |
 | CI/CD | GitHub Actions。main へのプッシュで Terraform apply → DB マイグレーション → Vercel 本番デプロイ | Vercel の Git 連携（自動デプロイ）は使わない。順序を 1 つのワークフローで保証するため。 |
+| エラー監視 | Sentry（Developer = 無料）。`@sentry/react`（ブラウザ）+ `@sentry/node`（サーバー） | 2 人しか使わないので、利用者が気づいて報告するより先に不具合を知る手段が要る。エラーの収集・まとめ・通知と死活監視を 1 つの無料のサービスで賄える。`@sentry/hono` は Node では `--import` での起動が前提で Vercel Function に置けないので使わない（下記「エラー監視」）。 |
 | パッケージ管理 | pnpm | 高速・厳格。 |
 
 ## レイヤー構成
@@ -105,7 +106,7 @@ server/                       # サーバー（Hono）
         history.ts = 履歴のページ分け・キーワード・タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
-    mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）
+    mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（エラーの報告）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
@@ -241,11 +242,12 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
 | 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`） |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
+| Sentry | `sentry_team`, `sentry_project`, `sentry_key`（DSN。日ごとの上限付き）, `sentry_uptime_monitor`（`/api/health`） | 下記「エラー監視」。DSN は `SENTRY_DSN` として production にだけ渡す（`sensitive` ではない） |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
 | Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |
-| 出力 | `vercel_org_id`, `vercel_project_id`, `dns_cname_target`, `database_url`(sensitive), `neon_project_id` | GitHub Actions と初回セットアップが参照する |
+| 出力 | `vercel_org_id`, `vercel_project_id`, `dns_cname_target`, `database_url`(sensitive), `neon_project_id`, `sentry_organization`, `sentry_project` | GitHub Actions と初回セットアップが参照する |
 
-- Terraform の入力（変数）として外部から渡すもの: Vercel API トークン、Neon API キーと組織 ID、Vercel のチーム、QStash トークンと署名鍵、VAPID 鍵ペア。GitHub Secrets → `TF_VAR_*` として渡す。
+- Terraform の入力（変数）として外部から渡すもの: Vercel API トークン、Neon API キーと組織 ID、Vercel のチーム、Sentry の User Auth Token、QStash トークンと署名鍵、VAPID 鍵ペア。GitHub Secrets → `TF_VAR_*` として渡す。
 - GitHub Secrets はワークフローやジョブの `env` に置かず、それを使うステップの `env` にだけ渡す。テストやアプリのビルドなど依存パッケージのコードが動くステップにクレデンシャルを渡さないため。`typecheck / lint / test` ジョブは Secrets を一切受け取らず、`vercel build` にはトークンを渡さない。Terraform の出力（DB 接続文字列など）も `GITHUB_ENV` ではなくステップ出力にして、使うステップにだけ渡す。
 - Terraform 対象外: Vercel Cron の定義（`vercel.json`）、外部 DNS の CNAME、DB マイグレーション、初期ユーザー作成。
 - state は HCP Terraform（Free）のワークスペース `lifehub` にリモート保存し、GitHub Actions からは `TF_API_TOKEN` で接続する。
@@ -265,18 +267,27 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。private リポジトリの Artifact はリポジトリを読める人しか取り出せないので暗号化はしない。戻し方は [README](../README.md#バックアップ)。
 
-**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。
+**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod`。
 
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。
 - `VERCEL_ENV !== 'production'` のとき、日次 Cron の通知予約と QStash への publish を無効化する（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。配信コールバックの署名検証は Preview でも行う。
 - better-auth の `baseURL` は、`APP_URL` があればそれに固定し、無ければ（= Preview）`VERCEL_URL`・`VERCEL_BRANCH_URL` のホストに限ってリクエストのホストから決める。Preview は URL がデプロイごとに変わるため、固定値では origin チェックに落ちてログインできない。この 2 つは Vercel のシステム環境変数なので、プロジェクト設定の公開（`automatically_expose_system_environment_variables`）が前提になる。
 
+### エラー監視（Sentry）
+
+- 送るのは本番のエラーだけ。DSN（`SENTRY_DSN`）は production にしか無く、無ければ SDK は何も送らない（ローカル・テスト・Preview）。ブラウザへはビルド時に `vite.config.ts` の define で埋め込む（`vercel pull` で落とした値を `vercel build` が渡す）。サーバーとブラウザで同じ変数を読む。
+- サーバー（`server/lib/sentry.ts`、`api/index.ts` が起動）: `console.error` に出したものをすべて送る（`captureConsoleIntegration`）。想定外のエラーは共通のエラーハンドラ・応答の後の処理・通知の予約と送信がすでに `console.error` に出しているので、報告の呼び出しを個々に足さない。業務エラー（4xx）は出さないので送られない。Vercel Function は応答の後に止まりうるので、送る直前に `waitUntil(flush)` で送り終わるまで生かす（SDK が自分で待つのは Edge ランタイムだけ）。
+- ブラウザ（`src/lib/sentry.ts`、`src/main.tsx` が起動）: 未処理の例外と、ルートのエラー画面が受け止めた描画中のエラー（`createRoot` の `onCaughtError`）を送る。API のエラーは送らない（サーバーのエラーはサーバーが送り、通信の失敗はオフラインで使う PWA では不具合ではない）。`release` はビルドしたコミット。ソースマップは `build.sourcemap: 'hidden'` で作り、デプロイ前に Sentry へ送ってから消す（公開しない）。
+- 無料枠（月 5,000 エラー・稼働監視 1 つ）を超えないよう、エラー以外（トレース・セッションリプレイ・プロファイリング・ログ）は有効にせず、DSN に 150 件/日の上限を掛ける（150 × 31 < 5,000）。無料プランは枠を超えても課金されず捨てられるだけだが、1 つの不具合が月の枠を使い切ると残りのエラーが見えなくなるため、日ごとに区切る。
+- 稼働監視は `/api/health`（API と DB が応答するか）を 30 分ごとに外から確かめ、2 回続けて失敗したら課題にする。DB に問い合わせるたびに Neon のコンピュートが起きるので、間隔を詰めて Neon の無料枠を食わないようにしている。
+- 新しい課題はプロジェクト作成時の既定のアラート（新しい課題ごとにメール）で届く。
+
 運用上の注意:
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
 - ロールバックはアプリ側は `vercel rollback`、インフラ側は Terraform の変更を revert してプッシュ。
 - バックアップは Neon の PITR（直近 6 時間）と、日次の `backup.yml`（上記のデプロイフロー）の 2 段。PITR は直前の誤操作を戻すため、日次のダンプはそれより前の状態と、Neon そのものが使えなくなったときのため。
-- 無料枠の制約: Vercel Hobby は Cron の式 1 つにつき日次まで（時は最大 59 分ずれる）・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日。
+- 無料枠の制約: Vercel Hobby は Cron の式 1 つにつき日次まで（時は最大 59 分ずれる）・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日、Sentry Developer は月 5,000 エラー・稼働監視 1 つ・ユーザー 1 人。
 
 ## 品質基準
 

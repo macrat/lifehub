@@ -19,3 +19,12 @@ output "database_url" {
 output "neon_project_id" {
   value = neon_project.lifehub.id
 }
+
+# ソースマップの送り先（deploy.yml）
+output "sentry_organization" {
+  value = var.sentry_organization
+}
+
+output "sentry_project" {
+  value = sentry_project.lifehub.slug
+}

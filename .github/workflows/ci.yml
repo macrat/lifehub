@@ -87,6 +87,7 @@ jobs:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
           TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
           TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
           TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
           TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}

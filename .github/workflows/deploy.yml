@@ -39,6 +39,7 @@ jobs:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_VAR_vercel_api_token: ${{ secrets.VERCEL_TOKEN }}
           TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
           TF_VAR_neon_org_id: ${{ secrets.TF_VAR_neon_org_id }}
           TF_VAR_vercel_team: ${{ secrets.TF_VAR_vercel_team }}
           TF_VAR_qstash_token: ${{ secrets.TF_VAR_qstash_token }}
@@ -53,6 +54,8 @@ jobs:
         run: |
           echo "vercel_org_id=$(terraform -chdir=infra output -raw vercel_org_id)" >> "$GITHUB_OUTPUT"
           echo "vercel_project_id=$(terraform -chdir=infra output -raw vercel_project_id)" >> "$GITHUB_OUTPUT"
+          echo "sentry_organization=$(terraform -chdir=infra output -raw sentry_organization)" >> "$GITHUB_OUTPUT"
+          echo "sentry_project=$(terraform -chdir=infra output -raw sentry_project)" >> "$GITHUB_OUTPUT"
           database_url=$(terraform -chdir=infra output -raw database_url)
           echo "::add-mask::$database_url"
           echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
@@ -76,6 +79,21 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
           VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      # ブラウザのエラーを元のソースの位置で読めるよう、ソースマップを Sentry に送る。ビルドした JS と
+      # ソースマップの両方に同じ Debug ID を書き込み（inject）、Sentry はそれで対応を取る。
+      # 送れなくてもエラーの収集は続き、スタックトレースが圧縮後の位置になるだけなので、デプロイは止めない。
+      - name: Upload source maps to Sentry
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ steps.tf.outputs.sentry_organization }}
+          SENTRY_PROJECT: ${{ steps.tf.outputs.sentry_project }}
+        run: |
+          pnpm exec sentry-cli sourcemaps inject .vercel/output/static
+          pnpm exec sentry-cli sourcemaps upload .vercel/output/static
+      # ソースマップは公開しない（ビルドした JS からは参照していない。vite.config.ts の build.sourcemap）
+      - name: Remove source maps
+        run: find .vercel/output/static -name '*.map' -delete
       - run: pnpm exec vercel deploy --prebuilt --prod
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

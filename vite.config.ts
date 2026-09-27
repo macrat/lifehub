@@ -26,7 +26,15 @@ function themeColorMeta(): Plugin {
 }
 
 export default defineConfig({
-  define: buildInfoDefine,
+  define: {
+    ...buildInfoDefine,
+    /**
+     * ブラウザが使う Sentry の DSN（`src/lib/sentry.ts`）。本番のデプロイ（deploy.yml）の `vercel build` が
+     * `vercel pull` で得た Vercel の環境変数を渡してくる（infra/vercel.tf が production にだけ置く）。
+     * サーバーと同じ変数を読み、値を 1 か所で持つ。
+     */
+    __SENTRY_DSN__: JSON.stringify(process.env.SENTRY_DSN ?? ''),
+  },
   plugins: [
     // TanStack Router のプラグインは React プラグインより前に置く（公式の要件）
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
@@ -74,6 +82,8 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  // ソースマップは作るが、ビルドした JS からは参照しない。デプロイ前に Sentry に送ってから消す（deploy.yml）
+  build: { sourcemap: 'hidden' },
   server: {
     proxy: {
       '/api': 'http://localhost:3000',

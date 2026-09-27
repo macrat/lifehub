@@ -16,6 +16,8 @@ const envObject = z.object({
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).optional(),
+  /** エラーの送り先（server/lib/sentry.ts）。無ければ送らない（ローカル・テスト・Preview）。 */
+  SENTRY_DSN: z.url().optional(),
   // ここから下は Vercel のシステム環境変数。Vercel プロジェクトの「システム環境変数の公開」
   // （infra/vercel.tf の automatically_expose_system_environment_variables）が有効なときだけ存在する。
   /** `production` のときだけ通知の予約を行う。下記 PRODUCTION_REQUIRED の判定もこれで行う。 */
@@ -32,8 +34,9 @@ export type Env = z.infer<typeof envObject>;
 
 /**
  * 本番で必ず要る変数。1 つでも欠けていれば起動しない。
- * 欠けたままでも通知の予約（`server/features/notifications/publisher.ts`）と送信（`server/features/push/service.ts`）は
- * 何もせずに正常終了してしまい、画面にもログにも異常が出ないので、起動時に落とすしかない。
+ * 欠けたままでも通知の予約（`server/features/notifications/publisher.ts`）と送信（`server/features/push/service.ts`）、
+ * エラーの報告（`server/lib/sentry.ts`）は何もせずに正常終了してしまい、画面にもログにも異常が出ないので、
+ * 起動時に落とすしかない。
  * Preview には本番の秘密情報を渡さない（`infra/vercel.tf`）ので対象は production だけ。
  */
 const PRODUCTION_REQUIRED = [
@@ -45,6 +48,7 @@ const PRODUCTION_REQUIRED = [
   'VAPID_PUBLIC_KEY',
   'VAPID_PRIVATE_KEY',
   'VAPID_SUBJECT',
+  'SENTRY_DSN',
 ] as const satisfies readonly (keyof Env)[];
 
 const envSchema = envObject.superRefine((value, ctx) => {

@@ -10,6 +10,7 @@ import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { watchAppBadge } from './lib/app-badge.ts';
 import { markSignedOut } from './lib/auth.ts';
 import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
+import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
@@ -114,6 +115,9 @@ window.addEventListener(UNAUTHORIZED_EVENT, () => {
   }
 });
 
+// エラーの報告は最初に始める（この後の起動処理で起きたエラーも拾う）
+initSentry();
+
 // アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
 registerSW({ immediate: true });
 
@@ -140,7 +144,7 @@ function ThemedApp() {
   );
 }
 
-createRoot(rootElement).render(
+createRoot(rootElement, { onCaughtError: reportCaughtError }).render(
   <StrictMode>
     <PersistQueryClientProvider
       client={queryClient}

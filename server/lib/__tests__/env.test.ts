@@ -19,6 +19,7 @@ const production = {
   VAPID_PUBLIC_KEY: 'vapid-public',
   VAPID_PRIVATE_KEY: 'vapid-private',
   VAPID_SUBJECT: 'mailto:admin@example.com',
+  SENTRY_DSN: 'https://public@o0.ingest.sentry.io/0',
 };
 
 describe('環境変数', () => {

@@ -51,13 +51,13 @@ pnpm dev                          # http://localhost:5173
 
 インフラの設定はすべて `infra/` の Terraform に書き、ダッシュボードで直接変更しない。デプロイは main ブランチへのプッシュで完結する。
 
-1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、GitHub リポジトリ。いずれもカード登録不要。
+1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、Sentry（Developer）、GitHub リポジトリ。いずれもカード登録不要。Sentry の組織の slug が `blanktar` でなければ `infra/variables.tf` の `sentry_organization` を書き換える。
 2. ID の確認: Neon の組織 ID（コンソールの Organization settings。`org-...`）と Vercel のチーム slug または ID（Team Settings → General。Hobby でもアカウントはチームとして扱われる）。
-3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。
+3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。Sentry の **User Auth Token**（User Settings → Personal Tokens。権限は Organization: Read、Team: Admin、Project: Admin、Release: Admin、Alerts: Read & Write。Terraform がチーム・プロジェクト・DSN・稼働監視を作り、デプロイがソースマップを送る。Organization Token はソースマップの送信にしか使えない）。
 4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`）。
 5. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
 6. 上記を GitHub Secrets に登録する:
-   `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
+   `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
 7. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
 8. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
 9. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
