@@ -155,8 +155,14 @@ describe('書き込みの失敗', () => {
     const items = () => queryClient.getQueryData(['items']);
 
     await act(() => read().write.mutateAsync('b'));
-    await vi.waitFor(() => expect(read().notice).toMatchObject({ open: true }));
-    expect(read().notice).toMatchObject({ severity: 'error', message: '保存できませんでした' });
+    // 知らせは画面全体で 1 つなので、前のテストの知らせが開いたまま残っていることがある。この書き込みの知らせを待つ
+    await vi.waitFor(() =>
+      expect(read().notice).toMatchObject({
+        open: true,
+        severity: 'error',
+        message: '保存できませんでした',
+      }),
+    );
     expect(items()).toEqual(['a']);
 
     await act(() => read().write.mutateAsync('c'));

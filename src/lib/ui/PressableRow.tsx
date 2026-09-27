@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { type ReactNode, useId } from 'react';
+import { moveKeyAttribute } from '../move-animation.ts';
 import { OVERLAY_CONTENT_SX, UNDERLAY_BUTTON_SX } from './button-underlay.ts';
 import { mergeSx } from './merge-sx.ts';
 import { useRecordPress } from './use-record-press.ts';
@@ -59,6 +60,7 @@ export function PressableRow({
   markSx,
   layoutSx,
   divider = false,
+  moveKey,
   sx,
   children,
 }: MarkProps & {
@@ -68,6 +70,10 @@ export function PressableRow({
   layoutSx: SxProps<Theme>;
   /** 行の下に区切り線を引く */
   divider?: boolean;
+  /**
+   * 書き込みで行の位置が変わるとき（`withMoveAnimation`）に、前後の行を結び付けるキー。画面の中で一意な記録のキーを渡す
+   */
+  moveKey?: string;
   /** 行全体の体裁（完了した行を薄くする、View Transition の名前） */
   sx?: SxProps<Theme>;
   children: ReactNode;
@@ -75,7 +81,7 @@ export function PressableRow({
   const press = useRecordPress(onSelect);
   const contentId = useId();
   return (
-    <Box sx={mergeSx(divider ? DIVIDER_SX : ROOT_SX, sx)}>
+    <Box {...moveKeyAttribute(moveKey)} sx={mergeSx(divider ? DIVIDER_SX : ROOT_SX, sx)}>
       <ButtonBase {...press} aria-labelledby={contentId} sx={UNDERLAY_BUTTON_SX} />
       <Box sx={mergeSx(CONTENT_SX, layoutSx)}>
         {markSx && (

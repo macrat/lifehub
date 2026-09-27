@@ -66,6 +66,7 @@ export function CareLogList({ onSelect, ...listProps }: Props) {
               key={log.id}
               layoutSx={ROW_SX}
               divider
+              moveKey={log.id}
               onSelect={(editing) => onSelect(log, editing)}
             >
               {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、

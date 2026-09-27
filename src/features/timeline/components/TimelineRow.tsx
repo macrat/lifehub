@@ -105,6 +105,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
       markSx={ICON_SLOT_SX}
       layoutSx={LAYOUT_SX}
       divider
+      moveKey={entry.id}
     >
       <EntryText view={view} />
     </PressableRow>

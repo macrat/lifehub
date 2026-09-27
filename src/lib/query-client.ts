@@ -15,6 +15,7 @@ import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { meQueryOptions } from './auth.ts';
+import { withMoveAnimation } from './move-animation.ts';
 import { notify } from './ui/notice.ts';
 
 const ONE_HOUR = 1000 * 60 * 60;
@@ -150,9 +151,14 @@ const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
 /** 書き込みの結果の扱い（溜める・溜めないで共通）。失敗は送信前の値に戻して通知し、終わったらサーバーの値に揃える */
 const settleWrite = {
   mutationFn: sendAsAuthor,
-  onError: (error, _variables, snapshot) => {
-    // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える
-    for (const [queryKey, data] of snapshot ?? []) queryClient.setQueryData(queryKey, data);
+  onError: async (error, _variables, snapshot) => {
+    // 復元した書き込みには送信前の値が無い（snapshot は保存されない）。再取得がサーバーの値に揃える。
+    // 戻し終えてから取り直す（onSettled）。先に取り直しが届くと、それを送信前の値で上書きしてしまう
+    if (snapshot) {
+      await withMoveAnimation(() => {
+        for (const [queryKey, data] of snapshot) queryClient.setQueryData(queryKey, data);
+      });
+    }
     notify('error', error.message);
   },
   onSettled: (_data, _error, { keys }) => {
@@ -228,6 +234,7 @@ type OptimisticMutation<TArgs> = {
 /**
  * 書き込みの mutation。送信を待たずに結果を先にキャッシュへ置くので、画面には即座に反映される
  * （フォームは送信と同時に閉じてよい）。失敗したら送信前の値に戻し、理由を通知で伝える。
+ * 先に出すときも戻すときも、動いた項目は元の位置から滑らせる（`withMoveAnimation`）。
  * 送信が終わったら keys を無効化してサーバーの値に合わせる（再取得の完了は待たない）。
  * オフラインでは送信せずに端末へ溜め、オンラインに戻ったときに溜めた順で送る。
  */
@@ -259,7 +266,8 @@ export function useOptimisticMutation<TInput>({
       // 送信中に届く取得結果で投機的な表示が上書きされないよう、取得を止めてから書き換える
       await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
       const snapshot = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }));
-      apply?.(queryClient, input);
+      // 書き換え終えてから送る。先に送ると、返事を受けた取り直しの結果に同じ書き換えを重ねてしまう（追加が 2 件になる）
+      if (apply) await withMoveAnimation(() => apply(queryClient, input));
       return snapshot;
     },
   });

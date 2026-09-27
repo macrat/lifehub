@@ -73,6 +73,7 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
               return (
                 <MarkedRow
                   key={expense.id}
+                  moveKey={expense.id}
                   onSelect={(editing) => onSelect(expense, editing)}
                   mark={<VennMark colors={people.map((id) => colorFor(id).mark)} />}
                   markWidth={MARK_WIDTH}

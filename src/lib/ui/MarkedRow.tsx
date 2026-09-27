@@ -54,6 +54,7 @@ export function MarkedRow({
   lead,
   leadWidth,
   onSelect,
+  moveKey,
   sx,
   children,
 }: {
@@ -71,6 +72,8 @@ export function MarkedRow({
   leadWidth?: number;
   /** 押されたとき。editing は長押し（編集で開く）か */
   onSelect: (editing: boolean) => void;
+  /** 書き込みで行が動くときに、前後の行を結び付けるキー（`PressableRow`） */
+  moveKey?: string;
   /** 行全体の体裁（完了した行を薄くする、View Transition の名前） */
   sx?: SxProps<Theme>;
   children: ReactNode;
@@ -82,6 +85,7 @@ export function MarkedRow({
       control={control}
       markSx={{ ...MARK_SX, width: markWidth }}
       layoutSx={LAYOUT_SX}
+      moveKey={moveKey}
       sx={sx}
     >
       <Box sx={{ ...LEAD_SX, width: leadWidth }}>{lead}</Box>
