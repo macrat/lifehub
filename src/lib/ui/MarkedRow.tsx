@@ -3,9 +3,11 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { PressableRow } from './PressableRow.tsx';
 
-/** 印の枠。幅を決め打ちにして、行をまたいで印と主列の左端が揃うようにする */
+/**
+ * 印の枠。幅は呼び出し側が決め打ちにして（`markWidth`）、行をまたいで印と主列の左端が揃うようにする。
+ * 幅は印の形で違う（押せるチェックボックスを重ねる予定と、見せるだけの小さなベン図の立替）ので、ここでは持たない
+ */
 const MARK_SX = {
-  width: 44,
   alignSelf: 'stretch',
   display: 'flex',
   alignItems: 'center',
@@ -38,11 +40,14 @@ const LEAD_SX = {
  * 押し方（印を含む行全体が押せる範囲、操作できる印は重ねて置く）は `PressableRow` が決める。
  *
  * カレンダーのリスト表示（`ItemCard`）・立替の履歴（`ExpenseList`）が
- * 同じ形で並ぶよう、行の骨組みはここ 1 か所に置く。中身と主列の幅は呼び出し側が決める。
+ * 同じ形で並ぶよう、行の骨組み（列の順と間隔）はここ 1 か所に置く。中身と、印・主列の幅は画面ごとに違うので
+ * 呼び出し側が決める（一方の画面の都合で他方の列の幅が変わらないようにする）。
  */
 export function MarkedRow({
   mark,
   control,
+  markWidth,
+  markInset = 0,
   lead,
   leadWidth,
   onSelect,
@@ -53,6 +58,10 @@ export function MarkedRow({
   mark?: ReactNode;
   /** 操作できる印（タスクの完了のチェックボックス） */
   control?: ReactNode;
+  /** 印の枠の幅。印が収まる幅を呼び出し側が決める */
+  markWidth: number;
+  /** 行の左端から印の枠までの余白（px）。枠を印ぴったりの幅にしたとき、画面の端に付かないようにする */
+  markInset?: number;
   lead: ReactNode;
   /**
    * 主列の幅。揃えたい値が収まる幅を呼び出し側が決める。省くと中身の幅になるので、
@@ -70,7 +79,7 @@ export function MarkedRow({
       onSelect={onSelect}
       mark={mark}
       control={control}
-      markSx={MARK_SX}
+      markSx={{ ...MARK_SX, width: markWidth, ml: `${markInset}px` }}
       layoutSx={LAYOUT_SX}
       sx={sx}
     >

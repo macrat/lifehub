@@ -11,6 +11,13 @@ import { PARTIES_SEPARATOR, partiesInOrder } from '../parties.ts';
 import type { Expense } from '../queries.ts';
 
 /**
+ * 印の枠。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない。
+ * 左端からは日付の見出し（`DateHeading`）と同じだけ離し、見出しと印の左端を揃える
+ */
+const MARK_WIDTH = 20;
+const MARK_INSET = 16;
+
+/**
  * 金額の列。列の幅は読んだ記録の中で一番幅を取る金額に合わせる（`widest`）: 決め打ちの幅だと、
  * 普段の数千円の記録にまれな 6 桁が収まる幅を取り続けて本文が狭くなる。
  * 幅は測らず、一番幅を取る金額を透明にして同じ升目に重ね、CSS に中身の幅として決めさせる
@@ -69,6 +76,8 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                   key={expense.id}
                   onSelect={(editing) => onSelect(expense, editing)}
                   mark={<VennMark colors={people.map((id) => colorFor(id).mark)} />}
+                  markWidth={MARK_WIDTH}
+                  markInset={MARK_INSET}
                   lead={<Amount amount={expense.amount} widest={widest} />}
                 >
                   <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
