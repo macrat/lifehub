@@ -34,7 +34,7 @@ test('ホームからタスクとレモンの記録を追加し、タイムラ�
   await expect(page.getByRole('checkbox', { name: `${title} を完了にする` })).not.toBeChecked();
 
   // 行を押すと、ホームのまま詳細が開く
-  await page.getByText(title, { exact: true }).click();
+  await page.getByRole('button', { name: title, exact: true }).click();
   await expect(page.getByRole('dialog', { name: title })).toBeVisible();
   await expect(page).toHaveURL('/');
 });
@@ -57,7 +57,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByText(`${body} その2`)).toBeVisible();
 
   // 詳細を開いて直す
-  await page.getByText(body, { exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(`${body}$`) }).click();
   await page.getByRole('button', { name: '編集' }).click();
   // 編集に切り替えたらそのまま打てる
   await expect(page.getByRole('textbox', { name: 'メモ', exact: true })).toBeFocused();
@@ -67,7 +67,7 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
 
   // 消す
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByText(`${body} 直した`).click();
+  await page.getByRole('button', { name: `${body} 直した` }).click();
   await detailAction(page, '削除');
   await expect(page.getByText(`${body} 直した`)).toHaveCount(0);
 

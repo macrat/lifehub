@@ -142,7 +142,7 @@ test('ホームの追加ボタンから始めた予定の入力は、閉じる�
   await expect(page.getByText(title)).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByText(title).click();
+  await page.getByRole('button', { name: title }).click();
   const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');
   await detailAction(page, '削除');
   await deleted;
