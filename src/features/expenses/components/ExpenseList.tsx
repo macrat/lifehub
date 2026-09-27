@@ -11,10 +11,33 @@ import { PARTIES_SEPARATOR, partiesInOrder } from '../parties.ts';
 import type { Expense } from '../queries.ts';
 
 /**
- * 金額の列の幅。カレンダーの時刻の列より少し広く、6 桁の金額（¥100,000）まで折り返さない。
+ * 金額の列。列の幅は読んだ記録の中で一番幅を取る金額に合わせる（`widest`）: 決め打ちの幅だと、
+ * 普段の数千円の記録にまれな 6 桁が収まる幅を取り続けて本文が狭くなる。
+ * 幅は測らず、一番幅を取る金額を透明にして同じ升目に重ね、CSS に中身の幅として決めさせる
+ * （フォントや文字の幅をコードで見積もらずに済み、どの行も同じ幅になる）。
  * 桁は `MarkedRow` が揃えるので、ここは帳簿と同じ右寄せだけを足す。
  */
-const AMOUNT_WIDTH = 80;
+function Amount({ amount, widest }: { amount: number; widest: string }) {
+  return (
+    <Typography
+      variant="body2"
+      component="div"
+      sx={{ display: 'grid', justifyItems: 'end', '& > *': { gridArea: '1 / 1' } }}
+    >
+      <span aria-hidden style={{ visibility: 'hidden' }}>
+        {widest}
+      </span>
+      <span>{formatYen(amount)}</span>
+    </Typography>
+  );
+}
+
+/** 読んだ記録（今日までと未来の両方）の中で一番幅を取る金額の表示。数字は等幅なので文字数で比べる */
+function widestAmount({ past, future }: { past: Expense[]; future: Expense[] }): string {
+  return [...past, ...future]
+    .map((e) => formatYen(e.amount))
+    .reduce((a, b) => (b.length > a.length ? b : a), '');
+}
 
 type Props = Omit<HistoryListProps<Expense>, 'children'> & {
   /** 行を押したとき。editing は長押し（編集で開く）か */
@@ -32,6 +55,7 @@ type Props = Omit<HistoryListProps<Expense>, 'children'> & {
 export function ExpenseList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
+  const widest = listProps.history.query.data ? widestAmount(listProps.history.query.data) : '';
   return (
     <HistoryList {...listProps}>
       {(expenses) =>
@@ -45,12 +69,7 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                   key={expense.id}
                   onSelect={(editing) => onSelect(expense, editing)}
                   mark={<VennMark colors={people.map((id) => colorFor(id).mark)} />}
-                  leadWidth={AMOUNT_WIDTH}
-                  lead={
-                    <Typography variant="body2" component="div" sx={{ textAlign: 'right' }}>
-                      {formatYen(expense.amount)}
-                    </Typography>
-                  }
+                  lead={<Amount amount={expense.amount} widest={widest} />}
                 >
                   <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
                   <Typography variant="caption" color="textSecondary" component="div" noWrap>

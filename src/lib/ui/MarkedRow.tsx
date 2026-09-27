@@ -23,7 +23,7 @@ const LAYOUT_SX = {
 
 /**
  * 主列。折り返さず桁を揃えるので、時刻も金額も行をまたいで縦に読める。
- * 幅だけは呼び出し側が決める（時刻と金額で必要な幅が違う）。
+ * 幅は呼び出し側が決める（時刻と金額で必要な幅が違う）。
  */
 const LEAD_SX = {
   flexShrink: 0,
@@ -54,8 +54,11 @@ export function MarkedRow({
   /** 操作できる印（タスクの完了のチェックボックス） */
   control?: ReactNode;
   lead: ReactNode;
-  /** 主列の幅。揃えたい値が収まる幅を呼び出し側が決める */
-  leadWidth: number;
+  /**
+   * 主列の幅。揃えたい値が収まる幅を呼び出し側が決める。省くと中身の幅になるので、
+   * 行をまたいで揃えるには中身の側で幅を揃える（`ExpenseList` は一番幅を取る金額を透明に重ねる）
+   */
+  leadWidth?: number;
   /** 押されたとき。editing は長押し（編集で開く）か */
   onSelect: (editing: boolean) => void;
   /** 行全体の体裁（完了した行を薄くする、View Transition の名前） */
