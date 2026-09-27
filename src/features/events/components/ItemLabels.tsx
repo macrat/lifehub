@@ -1,6 +1,5 @@
 import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import NotesIcon from '@mui/icons-material/Notes';
-import Box from '@mui/material/Box';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography, { type TypographyProps } from '@mui/material/Typography';
 import type { ComponentType } from 'react';
@@ -59,21 +58,18 @@ export function NoteLabel({
 
 /** IconText の体裁。一覧の行ごとに作り直さないよう、動かない sx はここに置く */
 const ROOT_SX = { display: 'flex', alignItems: 'flex-start', gap: 1 } as const;
-const ICON_BOX_SX = {
-  display: 'flex',
-  alignItems: 'center',
+/**
+ * アイコン。font-size を文字から受け継ぐので、1lh が文字の 1 行の高さになる。
+ * 絵は既定の preserveAspectRatio（xMidYMid meet）で枠の上下中央に置かれる
+ */
+const ICON_SX = {
+  width: ICON_WIDTH,
   height: '1lh',
   flexShrink: 0,
   color: 'text.secondary',
 } as const;
-const ICON_SX = { width: ICON_WIDTH, height: '100%' } as const;
 const TEXT_SX = { minWidth: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } as const;
-const NOWRAP_TEXT_SX = {
-  minWidth: 0,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-} as const;
+const NOWRAP_TEXT_SX = { minWidth: 0 } as const;
 
 /**
  * 左にアイコン、右に文字。アイコンは文字の 1 行目の高さ（1lh）の中で上下中央に置くので、
@@ -96,12 +92,16 @@ function IconText({
 }) {
   return (
     <Typography variant={variant} color={color} component="span" sx={ROOT_SX}>
-      <Box component="span" sx={ICON_BOX_SX}>
-        <Icon viewBox={viewBox} sx={ICON_SX} />
-      </Box>
-      <Box component="span" sx={noWrap ? NOWRAP_TEXT_SX : TEXT_SX}>
+      <Icon viewBox={viewBox} fontSize="inherit" sx={ICON_SX} />
+      <Typography
+        variant="inherit"
+        color="inherit"
+        component="span"
+        noWrap={noWrap}
+        sx={noWrap ? NOWRAP_TEXT_SX : TEXT_SX}
+      >
         {children}
-      </Box>
+      </Typography>
     </Typography>
   );
 }

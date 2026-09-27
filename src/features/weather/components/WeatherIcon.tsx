@@ -1,6 +1,7 @@
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
 import { useId } from 'react';
 import type { WeatherIcon as Icon, WeatherSymbol } from '../../../../shared/weather.ts';
+import { mergeSx } from '../../../lib/ui/merge-sx.ts';
 import { GLYPHS, WIDE_WIDTH } from './weather-glyphs.ts';
 
 /**
@@ -59,7 +60,7 @@ export function WeatherIcon({ icon, layout, sx, ...props }: Props) {
       <SvgIcon
         {...props}
         viewBox={`0 0 ${WIDE_WIDTH} 24`}
-        sx={[{ width: `${WIDE_WIDTH / 24}em` }, sx ?? {}].flat()}
+        sx={mergeSx({ width: `${WIDE_WIDTH / 24}em` }, sx)}
       >
         <Glyph symbol={icon.symbol} x={0} y={2} size={20} />
         <path

@@ -44,13 +44,21 @@ const LAYOUT_SX = {
   py: '10px',
 } as const;
 
-const ROW_SX = { borderBottom: 1, borderColor: 'divider' } as const;
-
 /**
  * タスクのチェックボックスの押せる範囲。丸ではなくスクワークル（チェックボックスの四角に合わせた形）で、
  * 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
  */
 const TASK_CHECKBOX_SX = { p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 } as const;
+
+/**
+ * 上段（名前と日時）。上段だけの行は左のアイコンと同じ高さにして、上下の中央で揃える。
+ * 下に段があるときは、上段をアイコンの上端に揃えて下へ積む
+ */
+const HEADING_SX = {
+  alignItems: 'center',
+  minHeight: 24,
+  '&:only-child': { minHeight: ICON_SIZE },
+} as const;
 
 type Props = {
   entry: TimelineEntry;
@@ -71,7 +79,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
   return (
     <PressableRow
       onSelect={(editing) => onSelect(entry, editing)}
-      mark={<Circle colors={view.colors} icon={view.icon} />}
+      mark={!view.task && <Circle colors={view.colors} icon={view.icon} />}
       control={
         view.task && (
           <TaskCheckbox
@@ -95,7 +103,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
       }
       markSx={ICON_SLOT_SX}
       layoutSx={LAYOUT_SX}
-      sx={ROW_SX}
+      divider
     >
       <EntryText view={view} />
     </PressableRow>
@@ -143,13 +151,7 @@ function Circle({
 function EntryText({ view }: { view: EntryView }) {
   return (
     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <Stack
-        direction="row"
-        spacing={1}
-        // 上段だけの行は左のアイコンと同じ高さにして、上下の中央で揃える。
-        // 下に段があるときは、上段をアイコンの上端に揃えて下へ積む
-        sx={{ alignItems: 'center', minHeight: 24, '&:only-child': { minHeight: ICON_SIZE } }}
-      >
+      <Stack direction="row" spacing={1} sx={HEADING_SX}>
         <Typography
           variant="subtitle2"
           component="span"
