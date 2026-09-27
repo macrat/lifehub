@@ -2,8 +2,7 @@ import { type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef } fr
 import { useInitialPosition } from './initial-position.ts';
 import { STICKY_TOP } from './layout.ts';
 import { ScrollAwayHeader } from './ScrollAwayHeader.tsx';
-import { useEdgeObserver } from './use-edge-observer.ts';
-import { infiniteScrollPullEdges, type LoadingEdge } from './use-pull-to-refresh.ts';
+import { type EdgeLoader, useEdgeObserver } from './use-edge-observer.ts';
 import { ignoreScrollSoFar } from './use-scrolled-down.ts';
 
 /** 一覧の上に貼り付けておく物とその出し方。一覧を包む部品（`HistoryList` など）はこれをそのまま受けて渡す */
@@ -16,10 +15,13 @@ export type InfiniteScrollHeaderProps = {
 
 type Props = InfiniteScrollHeaderProps & {
   children: ReactNode;
-  /** 先頭に近づいたとき。undefined ならそれより前は無い（読み込み中を含む） */
-  onReachStart?: (() => void) | undefined;
-  /** 末尾に近づいたとき。undefined ならそれより後は無い（読み込み中を含む） */
-  onReachEnd?: (() => void) | undefined;
+  /**
+   * 先頭に近づいたとき（上へ読み足す一覧）。null は今は読む物が無い（読み込み中・読み切った）とき。
+   * 渡さなければ先頭では読み足さない（引っ張って更新で引ける端になる）
+   */
+  onReachStart?: EdgeLoader;
+  /** 末尾に近づいたとき（下へ読み足す一覧）。null と渡さないときの意味は onReachStart と同じ */
+  onReachEnd?: EdgeLoader;
   /**
    * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
    * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
@@ -30,11 +32,6 @@ type Props = InfiniteScrollHeaderProps & {
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
   ready?: boolean;
-  /**
-   * 続きを読み足す端（onReachStart は top、onReachEnd は bottom で受ける）。引っ張って更新はその逆の端からだけ引ける
-   * （`infiniteScrollPullEdges`）
-   */
-  loadsAt: LoadingEdge;
 };
 
 /**
@@ -48,7 +45,7 @@ type Props = InfiniteScrollHeaderProps & {
  *   利用者が自分で動かし始めたらやめる
  * - ここで動かした分は、header を隠すかを決めるスクロールの向きに数えないよう、描画のたびに `ignoreScrollSoFar` で除く
  * - 今いる画面のタブをもう一度押すと、最初の位置までなめらかに戻る（`useInitialPosition`）
- * - 引っ張って更新で引ける端は、続きを読み足す端（`loadsAt`）の逆の端（`infiniteScrollPullEdges`）
+ * - 引っ張って更新は、続きを読み足す端（onReachStart / onReachEnd を渡した端）からは引けない（`useEdgeObserver` の印）
  */
 export function InfiniteScroll({
   header,
@@ -59,7 +56,6 @@ export function InfiniteScroll({
   initial,
   resetKey,
   ready = true,
-  loadsAt,
 }: Props) {
   const headerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -148,8 +144,8 @@ export function InfiniteScroll({
     if (listRef.current) place(listRef.current, 'smooth');
   });
 
-  useEdgeObserver(startRef, onReachStart);
-  useEdgeObserver(endRef, onReachEnd);
+  useEdgeObserver(startRef, 'top', onReachStart);
+  useEdgeObserver(endRef, 'bottom', onReachEnd);
 
   return (
     <>
@@ -158,7 +154,7 @@ export function InfiniteScroll({
       </ScrollAwayHeader>
       <div ref={startRef} />
       <div ref={listRef}>{children}</div>
-      <div ref={endRef} {...infiniteScrollPullEdges(loadsAt)} />
+      <div ref={endRef} />
     </>
   );
 }

@@ -36,7 +36,7 @@ const FUTURE_MIN_HEIGHT = {
  * 今日と未来の境は描いた中身から探さず、`useHistory` がデータで分けた物を別々に描く（画面ごとの描き方に
  * 目印を付けて回らなくて済む）。
  * 読み込み中・失敗・0 件の出し方をここに置き、中身の行の描き方だけを画面ごとに渡す。
- * 引っ張って更新は、読み足す上端の逆の下端から上へ引いて取り直す（上端から引いても取り直さない。`infiniteScrollPullEdges`）。
+ * 引っ張って更新は、読み足す上端の逆の下端から上へ引いて取り直す（上端から引いても取り直さない。`useEdgeObserver` の印）。
  */
 export function HistoryList<T>({
   history,
@@ -57,7 +57,6 @@ export function HistoryList<T>({
       }
       resetKey={history.resetKey}
       ready={history.ready}
-      loadsAt="top"
     >
       <QueryView query={history.query} skeleton={<ListSkeleton />}>
         {({ past, future }) =>

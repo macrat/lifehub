@@ -84,10 +84,9 @@ export function useHistory<T, F extends object>(source: HistorySource<T, F>, fil
     todayAtTop: source.todayAtTop ?? false,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,
+    /** 古いほうのページを読む。読み込み中・読み切ったときは null（`EdgeLoader`） */
     loadEarlier:
-      hasNextPage && !isFetchingNextPage && !isPlaceholderData
-        ? () => void fetchNextPage()
-        : undefined,
+      hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null,
   };
 }
 

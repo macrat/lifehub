@@ -10,22 +10,6 @@ export const PULL_THRESHOLD = 80;
 /** 引く端。上端から下へ引くか、下端から上へ引くか */
 export type PullEdge = 'top' | 'bottom';
 
-/** 無限スクロールの一覧が続きを読み足す端。both は上下どちらにも読み足す */
-export type LoadingEdge = PullEdge | 'both';
-
-/**
- * 無限スクロールの一覧が画面の中で引ける端を宣言する印（要素に付ける属性）。印が無い画面は上端からだけ引ける。
- * 引ける端は、続きを読み足す端の逆の端だけ（上へ読み足す立替・レモン・天気は下端、下へ読み足すホームは上端）で、
- * 上下どちらにも読み足す一覧（予定のリスト）は引けない。引ける端を一覧ごとに選ばせず、読み足す端から決める。
- * WHY: 同じ端に 2 つの働きを持たせると、続きを読むつもりで取り直しが起きたり、取り直すつもりで続きが読まれたりして、
- * 指の動きから結果が読めなくなる。
- * ルートごとに決まる宣言（取り直す内容を持たない画面）は `staticData.noPullToRefresh`。
- */
-export function infiniteScrollPullEdges(loadsAt: LoadingEdge) {
-  const edges: PullEdge[] = loadsAt === 'top' ? ['bottom'] : loadsAt === 'bottom' ? ['top'] : [];
-  return { 'data-pull-edges': edges.join(' ') };
-}
-
 /** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
 const FAILED_NOTICE_MS = 3000;
 
@@ -89,21 +73,35 @@ function canPull(target: Element, area: HTMLElement, edge: PullEdge): boolean {
   return true;
 }
 
+/**
+ * 画面の中で引ける端。無限スクロールの一覧がある画面では、どの一覧も続きを読み足さない端だけ（上へ読み足す立替・
+ * レモン・天気は下端、下へ読み足すホームは上端、上下に読み足す予定のリストはどちらも引けない）。
+ * 無限スクロールの一覧が無い画面は上端だけ。読み足す端は見張り（`useEdgeObserver`）が付ける印（`data-loads-at`）で知る。
+ * WHY: 同じ端に 2 つの働きを持たせると、続きを読むつもりで取り直しが起きたり、取り直すつもりで続きが読まれたりして、
+ * 指の動きから結果が読めなくなる。引ける端を一覧ごとに宣言させず、読み足す端から決めるので、食い違いが書けない。
+ */
+function allowedEdges(area: HTMLElement): PullEdge[] {
+  const loading = new Set(
+    [...area.querySelectorAll<HTMLElement>('[data-loads-at]')].map((el) => el.dataset.loadsAt),
+  );
+  if (loading.size === 0) return ['top'];
+  return (['top', 'bottom'] as const).filter((edge) => !loading.has(edge));
+}
+
 /** 指を下ろした所から引ける端。どちらからも引けなければ空 */
 function pullableEdges(target: Element, area: HTMLElement): PullEdge[] {
   // ページの途中から始めるなぞり（ふつうのスクロール）は、印を探すより先にここで外す
   const edges = pageEdges();
   if (edges.length === 0) return edges;
-  const declared = area.querySelector<HTMLElement>('[data-pull-edges]')?.dataset.pullEdges;
-  const allowed = declared === undefined ? ['top'] : declared.split(' ');
+  const allowed = allowedEdges(area);
   return edges.filter((edge) => allowed.includes(edge) && canPull(target, area, edge));
 }
 
 /**
  * 引っ張って更新（ブラウザのものを止めて代わりに持つ理由は `PullToRefresh`）。
  * 画面が `staticData.noPullToRefresh` で断っている間は何もしない。
- * ページの上端から下へ引く。画面に `pullEdges` の印があれば、そこで宣言した端から引ける
- * （下端からなら上へ引く）。
+ * ページの上端から下へ引く。無限スクロールの一覧がある画面では、続きを読み足す端の逆の端から引ける
+ * （下端からなら上へ引く。`allowedEdges`）。ルートごとに決まる宣言（取り直す内容を持たない画面）は `staticData.noPullToRefresh`。
  * ページが短くて上端と下端のどちらにもいるときは、指を動かした向きで決める。
  *
  * `area` は引ける範囲（アプリの枠）。指を下ろしたことはここで受けるので、body に出るダイアログや

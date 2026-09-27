@@ -6,7 +6,7 @@ import { touchDrag } from './touch.ts';
 /**
  * 引っ張って更新（`src/lib/ui/PullToRefresh.tsx`）。ブラウザのものではなくアプリのものが動き、
  * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す。
- * 引ける端は無限スクロールで読み足す端の逆だけ（`infiniteScrollPullEdges`）。上が古く下が新しい一覧（立替など）は
+ * 引ける端は無限スクロールで読み足す端の逆だけ（端の見張り `useEdgeObserver` の印で決まる）。上が古く下が新しい一覧（立替など）は
  * 下端から上へ、上が新しい一覧（ホーム）は上端から下へ引き、上下に読み足す一覧（予定のリスト）は引けない
  */
 test.use({ ...devices['Pixel 7'] });
@@ -83,23 +83,20 @@ test('オフラインと分からないまま取り直せなかったときは�
   await expect(notice).toBeHidden({ timeout: 5000 });
 });
 
-test('下が新しい一覧では、下端で上へ引き切って離すとデータを取り直す', async ({ page }) => {
-  await page.goto('/expenses');
-  const fetched = await fetchesFromNow(page, '/api/expenses');
-  await pullUp(page, 200);
-  await expect.poll(fetched).toBeGreaterThan(0);
-});
-
-test('下が新しい一覧では、上端から下へ引いても取り直さない（上端は古いほうを読み足す端）', async ({
+test('下が新しい一覧では、上端（古いほうを読み足す端）から引いても取り直さず、下端で上へ引くと取り直す', async ({
   page,
 }) => {
   await page.goto('/expenses');
   await expect(page.getByLabel('立替を検索')).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, 0));
   const fetched = await fetchesFromNow(page, '/api/expenses');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await pull(page, 200);
   await quiet(page, fetched);
   expect(fetched()).toBe(0);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await pullUp(page, 200);
+  await expect.poll(fetched).toBeGreaterThan(0);
 });
 
 test('天気（今日から下が先の日）も、下端で上へ引けば取り直し、上端から引いても取り直さない', async ({
