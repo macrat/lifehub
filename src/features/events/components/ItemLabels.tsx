@@ -29,7 +29,7 @@ const NOTE_ICON: LabelIcon = { Icon: NotesIcon, viewBox: '3 6 18 12' };
 /** 場所。リンクにするかは使う側が決める（押せる行の中にはリンクを入れられないため） */
 export function LocationLabel({
   location,
-  noWrap = false,
+  noWrap,
 }: {
   location: string;
   /** 1 行に収めて末尾を省略する（行の高さを揃えたい一覧で使う） */
@@ -57,6 +57,24 @@ export function NoteLabel({
   );
 }
 
+/** IconText の体裁。一覧の行ごとに作り直さないよう、動かない sx はここに置く */
+const ROOT_SX = { display: 'flex', alignItems: 'flex-start', gap: 1 } as const;
+const ICON_BOX_SX = {
+  display: 'flex',
+  alignItems: 'center',
+  height: '1lh',
+  flexShrink: 0,
+  color: 'text.secondary',
+} as const;
+const ICON_SX = { width: ICON_WIDTH, height: '100%' } as const;
+const TEXT_SX = { minWidth: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } as const;
+const NOWRAP_TEXT_SX = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const;
+
 /**
  * 左にアイコン、右に文字。アイコンは文字の 1 行目の高さ（1lh）の中で上下中央に置くので、
  * 文字が折り返しても 1 行目に揃い、文字の大きさが変わっても揃ったままになる。
@@ -77,33 +95,11 @@ function IconText({
   children: string;
 }) {
   return (
-    <Typography
-      variant={variant}
-      color={color}
-      component="span"
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
-    >
-      <Box
-        component="span"
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          height: '1lh',
-          flexShrink: 0,
-          color: 'text.secondary',
-        }}
-      >
-        <Icon viewBox={viewBox} sx={{ width: ICON_WIDTH, height: '100%' }} />
+    <Typography variant={variant} color={color} component="span" sx={ROOT_SX}>
+      <Box component="span" sx={ICON_BOX_SX}>
+        <Icon viewBox={viewBox} sx={ICON_SX} />
       </Box>
-      <Box
-        component="span"
-        sx={[
-          { minWidth: 0 },
-          noWrap
-            ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-            : { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
-        ]}
-      >
+      <Box component="span" sx={noWrap ? NOWRAP_TEXT_SX : TEXT_SX}>
         {children}
       </Box>
     </Typography>

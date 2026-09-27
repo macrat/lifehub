@@ -43,6 +43,41 @@ const ICON_SLOT_SX = {
   justifyContent: 'center',
 } as const;
 
+/** 行の押せる範囲。左のアイコンの枠を含む行全体 */
+const BUTTON_SX = {
+  width: '100%',
+  justifyContent: 'flex-start',
+  alignItems: 'flex-start',
+  gap: 1.5,
+  px: `${ROW_PADDING_X}px`,
+  py: `${ROW_PADDING_Y}px`,
+  textAlign: 'left',
+} as const;
+
+/**
+ * タスクのチェックボックスを、押せる範囲の中の空けた枠の上に重ねる枠。
+ * 枠のうちスクワークルの外（角）は、下の行を押したことにする。
+ * 枠が押されるとどちらにも反応しない隙間になるので、押せるのはチェックボックスだけにする
+ */
+const TASK_OVERLAY_SX = {
+  ...ICON_SLOT_SX,
+  position: 'absolute',
+  top: ROW_PADDING_Y,
+  left: ROW_PADDING_X,
+  pointerEvents: 'none',
+} as const;
+
+/**
+ * タスクのチェックボックスの押せる範囲。丸ではなくスクワークル（チェックボックスの四角に合わせた形）で、
+ * 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
+ */
+const TASK_CHECKBOX_SX = {
+  p: 0,
+  clipPath: SQUIRCLE_CLIP_PATH,
+  borderRadius: 0,
+  pointerEvents: 'auto',
+} as const;
+
 type Props = {
   entry: TimelineEntry;
   /** 押されたとき。editing は長押し（編集で開く）か */
@@ -65,35 +100,14 @@ function TimelineRowView({ entry, onSelect }: Props) {
   const press = useRecordPress((editing) => onSelect(entry, editing));
   return (
     <Box sx={{ position: 'relative', borderBottom: 1, borderColor: 'divider' }}>
-      <ButtonBase
-        {...press}
-        sx={{
-          width: '100%',
-          justifyContent: 'flex-start',
-          alignItems: 'flex-start',
-          gap: 1.5,
-          px: `${ROW_PADDING_X}px`,
-          py: `${ROW_PADDING_Y}px`,
-          textAlign: 'left',
-        }}
-      >
+      <ButtonBase {...press} sx={BUTTON_SX}>
         <Box sx={ICON_SLOT_SX}>
           {!view.task && <Circle colors={view.colors} icon={view.icon} />}
         </Box>
         <EntryText view={view} />
       </ButtonBase>
       {view.task && (
-        <Box
-          sx={{
-            ...ICON_SLOT_SX,
-            position: 'absolute',
-            top: ROW_PADDING_Y,
-            left: ROW_PADDING_X,
-            // 重ねた枠のうちスクワークルの外（角）は、下の行を押したことにする。
-            // 枠が押されるとどちらにも反応しない隙間になるので、押せるのはチェックボックスだけにする
-            pointerEvents: 'none',
-          }}
-        >
+        <Box sx={TASK_OVERLAY_SX}>
           <TaskCheckbox
             item={view.task}
             icons={{
@@ -109,9 +123,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
                 <Circle colors={view.colors} icon={CheckBoxIcon} size={TASK_ICON_SIZE} square />
               ),
             }}
-            // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
-            // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
-            sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0, pointerEvents: 'auto' }}
+            sx={TASK_CHECKBOX_SX}
           />
         </Box>
       )}
