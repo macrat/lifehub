@@ -89,6 +89,9 @@ function TimelineRowView({ entry, onSelect }: Props) {
             position: 'absolute',
             top: ROW_PADDING_Y,
             left: ROW_PADDING_X,
+            // 重ねた枠のうちスクワークルの外（角）は、下の行を押したことにする。
+            // 枠が押されるとどちらにも反応しない隙間になるので、押せるのはチェックボックスだけにする
+            pointerEvents: 'none',
           }}
         >
           <TaskCheckbox
@@ -108,7 +111,7 @@ function TimelineRowView({ entry, onSelect }: Props) {
             }}
             // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
             // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
-            sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
+            sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0, pointerEvents: 'auto' }}
           />
         </Box>
       )}
