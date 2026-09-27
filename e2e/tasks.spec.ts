@@ -21,7 +21,7 @@ test('タスクを追加し、カレンダーのリスト表示から完了に�
 
   // 詳細から削除
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByText(title).click();
+  await page.getByRole('button', { name: title }).click();
   await detailAction(page, '削除');
   await expect(page.getByText(title)).toHaveCount(0);
 });
@@ -41,9 +41,8 @@ test('終日のタスクを追加すると、期限日だけを持つタスク�
   await page.getByRole('button', { name: '保存' }).click();
 
   // 期限が今日なら、時刻の代わりに「期限 今日」と出る
-  const row = page.getByText(title);
+  const row = page.getByRole('button', { name: `期限 今日 ${title}` });
   await expect(row).toBeVisible();
-  await expect(page.getByRole('button', { name: `期限 今日 ${title}` })).toBeVisible();
   await row.click();
   page.once('dialog', (dialog) => dialog.accept());
   await detailAction(page, '削除');

@@ -11,7 +11,7 @@ import { PressableRow } from '../../../lib/ui/PressableRow.tsx';
 import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
-import { LocationLabel, NoteLabel } from '../../events/components/ItemLabels.tsx';
+import { LocationLink, NoteLabel } from '../../events/components/ItemLabels.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { CARE_TYPE_ICONS } from '../../lemon/care-type-icons.tsx';
 import type { TimelineEntry } from '../queries.ts';
@@ -71,6 +71,7 @@ type Props = {
  * その下に予定・タスクの場所とメモ（詳細と同じアイコン付き）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 何を出すかは `useEntryView` が決め、ここは並べるだけ。
  * 押し方（アイコンを含む行全体が押せる範囲、単押しは閲覧、長押しは編集）は `PressableRow` が決める。
+ * 場所はアイコンと文字だけが地図を開くリンクで、狭い画面でも行の残りを押せば予定が開く。
  * タスクだけは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
  * チェックの印を出す（押すと完了・未完了が切り替わる）。
  */
@@ -173,7 +174,7 @@ function EntryText({ view }: { view: EntryView }) {
           </Typography>
         )}
       </Stack>
-      {view.location && <LocationLabel location={view.location} noWrap />}
+      {view.location && <LocationLink location={view.location} noWrap />}
       {view.note && <NoteLabel note={view.note} variant="body1" />}
       {view.careTypes.length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ color: 'text.secondary', py: 0.25 }}>

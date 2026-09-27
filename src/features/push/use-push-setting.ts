@@ -1,4 +1,5 @@
 import type { AlertColor } from '@mui/material/Alert';
+import { isIOS } from '../../lib/platform.ts';
 import {
   isStandalone,
   pushSupported,
@@ -6,8 +7,6 @@ import {
   useSubscribePush,
   useUnsubscribePush,
 } from './queries.ts';
-
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
 /** 購読できない理由と失敗の知らせ 1 つ */
 type PushNote = { key: string; severity: AlertColor; message: string };

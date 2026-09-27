@@ -1,12 +1,11 @@
 import Chip from '@mui/material/Chip';
-import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { type CalendarItem, TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
 import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import { describeRRule } from '../recurrence-options.ts';
-import { LocationLabel, NoteLabel } from './ItemLabels.tsx';
+import { LocationLink, NoteLabel } from './ItemLabels.tsx';
 
 /** 予定・タスクの詳細の、読むだけの中身（日時・参加者・繰り返し・場所・メモ） */
 export function ItemDetailView({ item }: { item: CalendarItem }) {
@@ -14,17 +13,7 @@ export function ItemDetailView({ item }: { item: CalendarItem }) {
     <>
       <ItemWhen item={item} />
       <ItemChips item={item} />
-      {item.location && (
-        <Link
-          href={mapSearchUrl(item.location)}
-          target="_blank"
-          rel="noreferrer"
-          color="textSecondary"
-          underline="hover"
-        >
-          <LocationLabel location={item.location} />
-        </Link>
-      )}
+      {item.location && <LocationLink location={item.location} />}
       {item.note && <NoteLabel note={item.note} />}
     </>
   );
@@ -70,12 +59,4 @@ function ItemChips({ item }: { item: CalendarItem }) {
       {item.isModified && <Chip size="small" variant="outlined" label="この回だけ変更あり" />}
     </Stack>
   );
-}
-
-/**
- * 場所の文字列を Google マップの検索で開く URL。
- * 住所か店名かは入力した人しか知らないので、座標や地物の ID ではなく文字列のまま検索に渡す。
- */
-function mapSearchUrl(location: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }

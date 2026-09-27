@@ -1,8 +1,11 @@
 import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import NotesIcon from '@mui/icons-material/Notes';
+import Link from '@mui/material/Link';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography, { type TypographyProps } from '@mui/material/Typography';
 import type { ComponentType } from 'react';
+import { isIOS } from '../../../lib/platform.ts';
+import { mapSearchUrl } from '../map-search-url.ts';
 
 /**
  * 予定・タスクの場所とメモ。詳細とホームのタイムラインで同じアイコンを添え、何の情報かを見分けられるようにする。
@@ -25,8 +28,14 @@ type LabelIcon = { Icon: ComponentType<SvgIconProps>; viewBox: string };
 const LOCATION_ICON: LabelIcon = { Icon: LocationOnIcon, viewBox: '5 2 14 20' };
 const NOTE_ICON: LabelIcon = { Icon: NotesIcon, viewBox: '3 6 18 12' };
 
-/** 場所。リンクにするかは使う側が決める（押せる行の中にはリンクを入れられないため） */
-export function LocationLabel({
+/**
+ * 押せる範囲をアイコンと文字だけにする（行いっぱいに広げない）。
+ * 押せる行（`PressableRow`）の中に置くと、行の残りを押せば予定が開き、狙って押したときだけ地図が開く
+ */
+const LOCATION_LINK_SX = { display: 'block', width: 'fit-content', maxWidth: '100%' } as const;
+
+/** 場所。押すと地図でその場所を検索する（iPhone / iPad では Apple のマップ、それ以外では Google マップ） */
+export function LocationLink({
   location,
   noWrap,
 }: {
@@ -35,9 +44,18 @@ export function LocationLabel({
   noWrap?: boolean;
 }) {
   return (
-    <IconText icon={LOCATION_ICON} variant="body2" color="textSecondary" noWrap={noWrap}>
-      {location}
-    </IconText>
+    <Link
+      href={mapSearchUrl(location, isIOS)}
+      target="_blank"
+      rel="noreferrer"
+      color="textSecondary"
+      underline="hover"
+      sx={LOCATION_LINK_SX}
+    >
+      <IconText icon={LOCATION_ICON} variant="body2" noWrap={noWrap}>
+        {location}
+      </IconText>
+    </Link>
   );
 }
 
@@ -80,18 +98,16 @@ const NOWRAP_TEXT_SX = { minWidth: 0 } as const;
 function IconText({
   icon: { Icon, viewBox },
   variant,
-  color,
   noWrap = false,
   children,
 }: {
   icon: LabelIcon;
   variant: TypographyProps['variant'];
-  color?: TypographyProps['color'];
   noWrap?: boolean;
   children: string;
 }) {
   return (
-    <Typography variant={variant} color={color} component="span" sx={ROOT_SX}>
+    <Typography variant={variant} component="span" sx={ROOT_SX}>
       <Icon viewBox={viewBox} fontSize="inherit" sx={ICON_SX} />
       <Typography
         variant="inherit"
