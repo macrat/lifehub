@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
+import { DATE_HEADING_INSET } from './layout.ts';
 import { PressableRow } from './PressableRow.tsx';
 
 /**
@@ -15,11 +16,14 @@ const MARK_SX = {
   flexShrink: 0,
 } as const;
 
-/** 行の並べ方。枠線も背景も持たず、押したときだけ薄く色が付く */
+/**
+ * 行の並べ方。枠線も背景も持たず、押したときだけ薄く色が付く。
+ * 左右の余白は日付の見出し（`DateHeading`）と同じにして、見出しと印の左端を揃える
+ */
 const LAYOUT_SX = {
   alignItems: 'center',
   py: 0.75,
-  pr: 2,
+  px: DATE_HEADING_INSET,
   gap: 1.5,
 } as const;
 
@@ -47,7 +51,6 @@ export function MarkedRow({
   mark,
   control,
   markWidth,
-  markInset = 0,
   lead,
   leadWidth,
   onSelect,
@@ -60,8 +63,6 @@ export function MarkedRow({
   control?: ReactNode;
   /** 印の枠の幅。印が収まる幅を呼び出し側が決める */
   markWidth: number;
-  /** 行の左端から印の枠までの余白（テーマの spacing の単位）。枠を印ぴったりの幅にしたとき、画面の端に付かないようにする */
-  markInset?: number;
   lead: ReactNode;
   /**
    * 主列の幅。揃えたい値が収まる幅を呼び出し側が決める。省くと中身の幅になるので、
@@ -79,7 +80,7 @@ export function MarkedRow({
       onSelect={onSelect}
       mark={mark}
       control={control}
-      markSx={{ ...MARK_SX, width: markWidth, ml: markInset }}
+      markSx={{ ...MARK_SX, width: markWidth }}
       layoutSx={LAYOUT_SX}
       sx={sx}
     >

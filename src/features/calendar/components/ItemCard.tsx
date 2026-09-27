@@ -18,8 +18,8 @@ import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { itemTransitionName } from '../item-transition.ts';
 
-/** 印の枠の幅。タスクのチェックボックス（押せる範囲を含む）が収まる幅 */
-const MARK_WIDTH = 44;
+/** 印の枠の幅。タスクのチェックボックス（押せる範囲の余白を含めて 28px。`TaskCheckbox`）が収まる幅 */
+const MARK_WIDTH = 28;
 
 /** 時刻の列の幅 */
 const TIME_WIDTH = 64;

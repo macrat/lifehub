@@ -2,7 +2,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
-import { DATE_HEADING_INSET } from '../../../lib/ui/layout.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
@@ -11,10 +10,7 @@ import { formatYen } from '../format.ts';
 import { PARTIES_SEPARATOR, partiesInOrder } from '../parties.ts';
 import type { Expense } from '../queries.ts';
 
-/**
- * 印の枠。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない。
- * 左端からは日付の見出し（`DateHeading`）と同じだけ離し、見出しと印の左端を揃える
- */
+/** 印の枠の幅。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない */
 const MARK_WIDTH = 20;
 
 /**
@@ -77,7 +73,6 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                   onSelect={(editing) => onSelect(expense, editing)}
                   mark={<VennMark colors={people.map((id) => colorFor(id).mark)} />}
                   markWidth={MARK_WIDTH}
-                  markInset={DATE_HEADING_INSET}
                   lead={<Amount amount={expense.amount} widest={widest} />}
                 >
                   <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
