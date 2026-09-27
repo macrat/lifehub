@@ -35,6 +35,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 - 塗り分けは帯・ブロックと同じ `wedgeBackground`、誰のものでもない記録の無彩色は `useUserColor(null)`（[architecture.md](../architecture.md#ui--ux-方針)）。
 - 行を単押しすると、その記録の詳細がホームの上に開く（スマホはシート、PC はダイアログ。ホームからは移らない）。長押しは編集で開く（アプリ全体の「単押しは閲覧、長押しは編集」）。詳細はそれぞれの機能の画面の一覧から開くものと同じ（`TimelineEntrySheet`）。
 - 予定・タスクの行には View Transition の名前（`itemTransitionName`）を付けず、ホームと予定画面の間は画面ごとフェードする（理由は `src/features/calendar/item-transition.ts`）。
+- タスクを完了・未完了にして行の位置が変わるときは、その間だけ行が名前（`match-element`）を持ち、元の位置から新しい位置へ滑る（`src/lib/move-transition.ts`）。
 
 ### 行を置く日時（`shared/timeline.ts`）
 
