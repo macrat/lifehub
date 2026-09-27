@@ -2,8 +2,11 @@ import Checkbox from '@mui/material/Checkbox';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { type CalendarTaskItem, isCompletedTask } from '../../../../shared/calendar.ts';
+import { mergeSx } from '../../../lib/ui/merge-sx.ts';
 import { useToggleCompletion } from '../queries.ts';
 import { ParticipantsCheckIcon } from './ParticipantsMark.tsx';
+
+const CHECKBOX_SX = { p: 0.5 } as const;
 
 /**
  * タスクの完了・未完了を切り替えるチェックボックス。一覧の行（リスト表示・ホームのタイムライン）で使う。
@@ -42,7 +45,7 @@ export function TaskCheckbox({
       checkedIcon={
         icons?.checked ?? <ParticipantsCheckIcon participantIds={item.participantIds} checked />
       }
-      sx={[{ p: 0.5 }, ...(Array.isArray(sx) ? sx : [sx])]}
+      sx={mergeSx(CHECKBOX_SX, sx)}
     />
   );
 }

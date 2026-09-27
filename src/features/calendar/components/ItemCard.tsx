@@ -28,7 +28,8 @@ type Props = {
  * 一覧（リスト表示）の 1 行（`MarkedRow`。立替の履歴と同じ骨組み）。
  * 印は予定が参加者の色を重ねたベン図（`ParticipantsMark`）、タスクは参加者の色で塗り分けたチェックボックス。
  * 主列は時刻（折り返さない）、本文はタイトルとメタ情報。期限超過は赤、完了は薄く取り消し線。
- * 単押しは閲覧、長押しは編集（グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
+ * 印を含む行全体が押せる範囲で、単押しは閲覧、長押しは編集（グリッドの長押しと違い、ここは日時を直に動かせないのでシートで開く）。
+ * タスクのチェックボックスは行の上に重ね、押すと完了が切り替わる（`PressableRow`）。
  */
 export function ItemCard({ item, onSelect }: Props) {
   const { label } = useUserLabels();
@@ -48,13 +49,8 @@ export function ItemCard({ item, onSelect }: Props) {
         // 表示を切り替えたとき、同じ項目がこの行から動く
         viewTransitionName: itemTransitionName(item),
       }}
-      mark={
-        isTask ? (
-          <TaskCheckbox item={item} />
-        ) : (
-          <ParticipantsMark participantIds={item.participantIds} />
-        )
-      }
+      mark={!isTask && <ParticipantsMark participantIds={item.participantIds} />}
+      control={isTask && <TaskCheckbox item={item} />}
       leadWidth={64}
       lead={
         <>
