@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
+import { DATE_HEADING_INSET } from '../../../lib/ui/layout.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
@@ -15,7 +16,6 @@ import type { Expense } from '../queries.ts';
  * 左端からは日付の見出し（`DateHeading`）と同じだけ離し、見出しと印の左端を揃える
  */
 const MARK_WIDTH = 20;
-const MARK_INSET = 16;
 
 /**
  * 金額の列。列の幅は読んだ記録の中で一番幅を取る金額に合わせる（`widest`）: 決め打ちの幅だと、
@@ -40,8 +40,8 @@ function Amount({ amount, widest }: { amount: number; widest: string }) {
 }
 
 /** 読んだ記録（今日までと未来の両方）の中で一番幅を取る金額の表示。数字は等幅なので文字数で比べる */
-function widestAmount({ past, future }: { past: Expense[]; future: Expense[] }): string {
-  return [...past, ...future]
+function widestAmount(data: { past: Expense[]; future: Expense[] } | undefined): string {
+  return [...(data?.past ?? []), ...(data?.future ?? [])]
     .map((e) => formatYen(e.amount))
     .reduce((a, b) => (b.length > a.length ? b : a), '');
 }
@@ -62,7 +62,7 @@ type Props = Omit<HistoryListProps<Expense>, 'children'> & {
 export function ExpenseList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const widest = listProps.history.query.data ? widestAmount(listProps.history.query.data) : '';
+  const widest = widestAmount(listProps.history.query.data);
   return (
     <HistoryList {...listProps}>
       {(expenses) =>
@@ -77,7 +77,7 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                   onSelect={(editing) => onSelect(expense, editing)}
                   mark={<VennMark colors={people.map((id) => colorFor(id).mark)} />}
                   markWidth={MARK_WIDTH}
-                  markInset={MARK_INSET}
+                  markInset={DATE_HEADING_INSET}
                   lead={<Amount amount={expense.amount} widest={widest} />}
                 >
                   <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>

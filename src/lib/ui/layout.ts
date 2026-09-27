@@ -27,3 +27,6 @@ export const FAB_SX = {
   right: 16,
   bottom: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 24 },
 } as const;
+
+/** 日付の見出し（`DateHeading`）の左右の余白（テーマの spacing の単位）。見出しと左端を揃えたい一覧の行もこれを使う */
+export const DATE_HEADING_INSET = 2;

@@ -60,7 +60,7 @@ export function MarkedRow({
   control?: ReactNode;
   /** 印の枠の幅。印が収まる幅を呼び出し側が決める */
   markWidth: number;
-  /** 行の左端から印の枠までの余白（px）。枠を印ぴったりの幅にしたとき、画面の端に付かないようにする */
+  /** 行の左端から印の枠までの余白（テーマの spacing の単位）。枠を印ぴったりの幅にしたとき、画面の端に付かないようにする */
   markInset?: number;
   lead: ReactNode;
   /**
@@ -79,7 +79,7 @@ export function MarkedRow({
       onSelect={onSelect}
       mark={mark}
       control={control}
-      markSx={{ ...MARK_SX, width: markWidth, ml: `${markInset}px` }}
+      markSx={{ ...MARK_SX, width: markWidth, ml: markInset }}
       layoutSx={LAYOUT_SX}
       sx={sx}
     >
