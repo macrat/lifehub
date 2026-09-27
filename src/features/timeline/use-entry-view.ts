@@ -34,6 +34,8 @@ export type EntryView = {
   time: string | null;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
   careTypes: CareType[];
+  /** 上段の下に場所のアイコンを添えて出す場所（予定・タスク）。無ければその行は詰める */
+  location: string | null;
   /** 下段。無ければ上段だけの 1 行で出す */
   body: string | null;
 };
@@ -43,11 +45,11 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const { label, authorName } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
-  const view = { time, task: null, struck: false, overdue: false, careTypes: [] };
+  const view = { time, task: null, struck: false, overdue: false, careTypes: [], location: null };
   switch (entry.type) {
     case 'event': {
       const { item } = entry;
-      // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、下段にメモを出す
+      // 参加者は丸の色で分かるので、名前の代わりにタイトルを出し、その下に場所、下段にメモを出す
       return {
         ...view,
         time: item.kind === 'event' && item.allDay ? allDayPeriod(item) : time,
@@ -57,6 +59,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         heading: item.title,
         struck: isCompletedTask(item),
         overdue: item.kind === 'task' && item.isOverdue,
+        location: item.location,
         body: item.note,
       };
     }

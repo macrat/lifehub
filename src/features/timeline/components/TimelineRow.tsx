@@ -1,5 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
@@ -37,7 +38,7 @@ type Props = {
 
 /**
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
- * その下にレモンの項目のアイコン、下段に中身。無いものの段は詰める。
+ * その下に場所（予定・タスク）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
  * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
  * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
  * チェックの印を出す（押すと完了・未完了が切り替わる）。
@@ -47,7 +48,7 @@ type Props = {
 function TimelineRowView({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
   const press = useRecordPress((editing) => onSelect(entry, editing));
-  const multiline = view.body !== null || view.careTypes.length > 0;
+  const multiline = view.body !== null || view.location !== null || view.careTypes.length > 0;
   return (
     <Stack
       direction="row"
@@ -176,6 +177,18 @@ function EntryText({ view }: { view: EntryView }) {
           </Typography>
         )}
       </Stack>
+      {view.location && (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ alignItems: 'center', color: 'text.secondary', minWidth: 0 }}
+        >
+          <LocationOnIcon fontSize="small" />
+          <Typography variant="body2" component="span" noWrap>
+            {view.location}
+          </Typography>
+        </Stack>
+      )}
       {view.careTypes.length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ color: 'text.secondary', py: 0.25 }}>
           {view.careTypes.map((careType) => {
