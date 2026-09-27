@@ -10,12 +10,19 @@ export const PULL_THRESHOLD = 80;
 /** 引く端。上端から下へ引くか、下端から上へ引くか */
 export type PullEdge = 'top' | 'bottom';
 
+/** 無限スクロールの一覧が続きを読み足す端。both は上下どちらにも読み足す */
+export type LoadingEdge = PullEdge | 'both';
+
 /**
- * 画面の中で引ける端を宣言する印（要素に付ける属性）。印が無い画面は上端からだけ引ける。
- * 画面の中身（表示の切り替え）で変わる宣言に使う。ルートごとに決まる宣言は `staticData.noPullToRefresh`。
- * 端の選び方の理由は付ける側（`HistoryList`、カレンダーの `ListView`）に書く。
+ * 無限スクロールの一覧が画面の中で引ける端を宣言する印（要素に付ける属性）。印が無い画面は上端からだけ引ける。
+ * 引ける端は、続きを読み足す端の逆の端だけ（上へ読み足す立替・レモン・天気は下端、下へ読み足すホームは上端）で、
+ * 上下どちらにも読み足す一覧（予定のリスト）は引けない。引ける端を一覧ごとに選ばせず、読み足す端から決める。
+ * WHY: 同じ端に 2 つの働きを持たせると、続きを読むつもりで取り直しが起きたり、取り直すつもりで続きが読まれたりして、
+ * 指の動きから結果が読めなくなる。
+ * ルートごとに決まる宣言（取り直す内容を持たない画面）は `staticData.noPullToRefresh`。
  */
-export function pullEdges(edges: readonly PullEdge[]) {
+export function infiniteScrollPullEdges(loadsAt: LoadingEdge) {
+  const edges: PullEdge[] = loadsAt === 'top' ? ['bottom'] : loadsAt === 'bottom' ? ['top'] : [];
   return { 'data-pull-edges': edges.join(' ') };
 }
 
