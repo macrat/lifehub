@@ -78,7 +78,12 @@ export function PressableRow({
     <Box sx={mergeSx(divider ? DIVIDER_SX : ROOT_SX, sx)}>
       <ButtonBase {...press} aria-labelledby={contentId} sx={UNDERLAY_BUTTON_SX} />
       <Box sx={mergeSx(CONTENT_SX, layoutSx)}>
-        {markSx && <Box sx={markSx}>{control ?? mark}</Box>}
+        {markSx && (
+          <Box sx={markSx}>
+            {mark}
+            {control}
+          </Box>
+        )}
         <Box id={contentId} sx={LABEL_SX}>
           {children}
         </Box>
