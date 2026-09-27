@@ -1,17 +1,17 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
 import { type ComponentType, memo } from 'react';
 import { FILL_TEXT } from '../../../../shared/color.ts';
 import { CARE_TYPE_LABELS } from '../../../../shared/validation/lemon.ts';
+import { PressableRow } from '../../../lib/ui/PressableRow.tsx';
 import { SQUIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
-import { useRecordPress } from '../../../lib/ui/use-record-press.ts';
 import { wedgeBackground } from '../../../lib/ui/wedge.ts';
 import { COMPLETED_TITLE_SX } from '../../events/components/completed-style.ts';
+import { LocationLabel, NoteLabel } from '../../events/components/ItemLabels.tsx';
 import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 import { CARE_TYPE_ICONS } from '../../lemon/care-type-icons.tsx';
 import type { TimelineEntry } from '../queries.ts';
@@ -26,8 +26,39 @@ const ICON_SIZE = 40;
  */
 const TASK_ICON_SIZE = ICON_SIZE * 0.95;
 
-/** 行の上下の余白（px）。左のアイコンの列と押せる範囲の中身を同じ高さに揃える */
-const ROW_PADDING_Y = 10;
+/** 左のアイコンの枠。行をまたいで右の文字の左端が揃うよう、幅を決め打ちにする */
+const ICON_SLOT_SX = {
+  width: ICON_SIZE,
+  height: ICON_SIZE,
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+} as const;
+
+/** 行の並べ方。アイコンと文字は上端で揃える（上段だけの行の揃えは `EntryText` が決める） */
+const LAYOUT_SX = {
+  alignItems: 'flex-start',
+  gap: 1.5,
+  px: 2,
+  py: '10px',
+} as const;
+
+/**
+ * タスクのチェックボックスの押せる範囲。丸ではなくスクワークル（チェックボックスの四角に合わせた形）で、
+ * 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
+ */
+const TASK_CHECKBOX_SX = { p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 } as const;
+
+/**
+ * 上段（名前と日時）。上段だけの行は左のアイコンと同じ高さにして、上下の中央で揃える。
+ * 下に段があるときは、上段をアイコンの上端に揃えて下へ積む
+ */
+const HEADING_SX = {
+  alignItems: 'center',
+  minHeight: 24,
+  '&:only-child': { minHeight: ICON_SIZE },
+} as const;
 
 type Props = {
   entry: TimelineEntry;
@@ -37,39 +68,20 @@ type Props = {
 
 /**
  * タイムラインの 1 行（X の投稿と同じ組み方）。左に丸いアイコン、右は上段に名前（タイトル）と薄い字の日時、
- * その下にレモンの項目のアイコン、下段に中身。無いものの段は詰める。
- * 単押しは閲覧、長押しは編集（`useRecordPress`）。何を出すかは `useEntryView` が決め、ここは並べるだけ。
- * タスクは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
+ * その下に予定・タスクの場所とメモ（詳細と同じアイコン付き）かレモンの項目のアイコン、下段に中身。無いものの段は詰める。
+ * 何を出すかは `useEntryView` が決め、ここは並べるだけ。
+ * 押し方（アイコンを含む行全体が押せる範囲、単押しは閲覧、長押しは編集）は `PressableRow` が決める。
+ * タスクだけは左のアイコンそのものが完了のチェックボックスで、丸ではなくスクワークル（`SQUIRCLE_CLIP_PATH`）の中に
  * チェックの印を出す（押すと完了・未完了が切り替わる）。
- * 左のアイコンは押せる範囲（ButtonBase）の外の列に置く（リストの行の `MarkedRow` と同じ組み方）。
- * 押せる範囲の中にチェックボックス（ボタン）を入れられないため。
  */
 function TimelineRowView({ entry, onSelect }: Props) {
   const view = useEntryView(entry);
-  const press = useRecordPress((editing) => onSelect(entry, editing));
-  const multiline = view.body !== null || view.careTypes.length > 0;
   return (
-    <Stack
-      direction="row"
-      sx={{
-        alignItems: multiline ? 'flex-start' : 'center',
-        pl: 2,
-        borderBottom: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Box
-        sx={{
-          width: ICON_SIZE,
-          height: ICON_SIZE,
-          my: `${ROW_PADDING_Y}px`,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {view.task ? (
+    <PressableRow
+      onSelect={(editing) => onSelect(entry, editing)}
+      mark={!view.task && <Circle colors={view.colors} icon={view.icon} />}
+      control={
+        view.task && (
           <TaskCheckbox
             item={view.task}
             icons={{
@@ -85,31 +97,16 @@ function TimelineRowView({ entry, onSelect }: Props) {
                 <Circle colors={view.colors} icon={CheckBoxIcon} size={TASK_ICON_SIZE} square />
               ),
             }}
-            // タスクだけは丸ではなくスクワークル（チェックボックスの四角に合わせた形）。
-            // 押せる範囲ごと切り抜くので、中の面も押したときの波紋も同じ形になる
-            sx={{ p: 0, clipPath: SQUIRCLE_CLIP_PATH, borderRadius: 0 }}
+            sx={TASK_CHECKBOX_SX}
           />
-        ) : (
-          <Circle colors={view.colors} icon={view.icon} />
-        )}
-      </Box>
-      <ButtonBase
-        {...press}
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          alignSelf: 'stretch',
-          justifyContent: 'flex-start',
-          alignItems: multiline ? 'flex-start' : 'center',
-          pl: 1.5,
-          pr: 2,
-          py: `${ROW_PADDING_Y}px`,
-          textAlign: 'left',
-        }}
-      >
-        <EntryText view={view} />
-      </ButtonBase>
-    </Stack>
+        )
+      }
+      markSx={ICON_SLOT_SX}
+      layoutSx={LAYOUT_SX}
+      divider
+    >
+      <EntryText view={view} />
+    </PressableRow>
   );
 }
 
@@ -154,7 +151,7 @@ function Circle({
 function EntryText({ view }: { view: EntryView }) {
   return (
     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minHeight: 24 }}>
+      <Stack direction="row" spacing={1} sx={HEADING_SX}>
         <Typography
           variant="subtitle2"
           component="span"
@@ -176,6 +173,8 @@ function EntryText({ view }: { view: EntryView }) {
           </Typography>
         )}
       </Stack>
+      {view.location && <LocationLabel location={view.location} noWrap />}
+      {view.note && <NoteLabel note={view.note} variant="body1" />}
       {view.careTypes.length > 0 && (
         <Stack direction="row" spacing={0.5} sx={{ color: 'text.secondary', py: 0.25 }}>
           {view.careTypes.map((careType) => {

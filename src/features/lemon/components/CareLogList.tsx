@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import List from '@mui/material/List';
 import Typography from '@mui/material/Typography';
 import {
   CARE_TYPE_LABELS,
@@ -8,7 +7,7 @@ import {
 } from '../../../../shared/validation/lemon.ts';
 import { formatDatePadded } from '../../../lib/date.ts';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
-import { RecordListRow } from '../../../lib/ui/RecordListRow.tsx';
+import { PressableRow } from '../../../lib/ui/PressableRow.tsx';
 import { CARE_TYPE_ICONS } from '../care-type-icons.tsx';
 import type { CareLog } from '../queries.ts';
 
@@ -24,6 +23,8 @@ const ROW_SX = {
   gridTemplateColumns: 'max-content max-content minmax(0, 1fr)',
   columnGap: 1,
   alignItems: 'center',
+  px: 2,
+  py: 1,
 } as const;
 
 /**
@@ -52,16 +53,21 @@ type Props = Omit<HistoryListProps<CareLog>, 'children'> & {
 /**
  * 世話の記録（上が古く下が新しい）。最初に出す位置は `HistoryList` が決め、上へスクロールすると古いほうのページを
  * 読み足す（`useCareLogHistory`、`HistoryList`）。1 行が 1 回の記録で、その日付・そのときやったこと・
- * メモを 3 列に並べる。行は単押しで閲覧（時刻を含む全文）、長押しで編集（`RecordListRow`）。
+ * メモを 3 列に並べる。行は単押しで閲覧（時刻を含む全文）、長押しで編集（`PressableRow`）。
  * 削除は詳細の三点リーダーに集める。
  */
 export function CareLogList({ onSelect, ...listProps }: Props) {
   return (
     <HistoryList {...listProps}>
       {(logs) => (
-        <List disablePadding>
+        <Box>
           {logs.map((log) => (
-            <RecordListRow key={log.id} sx={ROW_SX} onSelect={(editing) => onSelect(log, editing)}>
+            <PressableRow
+              key={log.id}
+              layoutSx={ROW_SX}
+              divider
+              onSelect={(editing) => onSelect(log, editing)}
+            >
               {/* 桁を揃えた日付（"09/02(水)"）。字数が行ごとに変わると、
                   中身の幅で決まる列の右端が動いて、次のアイコンの位置が行ごとにずれる */}
               <Typography variant="body2">{formatDatePadded(log.doneAt)}</Typography>
@@ -69,9 +75,9 @@ export function CareLogList({ onSelect, ...listProps }: Props) {
               <Typography variant="body2" color="textSecondary" noWrap>
                 {log.note}
               </Typography>
-            </RecordListRow>
+            </PressableRow>
           ))}
-        </List>
+        </Box>
       )}
     </HistoryList>
   );

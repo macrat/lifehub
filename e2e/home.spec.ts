@@ -1,14 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { detailAction } from './detail.ts';
-
-test.beforeEach(async ({ page }) => {
-  await openHome(page);
-});
+import { addItem, deleteItem } from './events.ts';
 
 test('ホームからタスクとレモンの記録を追加し、タイムラインとタイルに反映される', async ({
   page,
 }) => {
+  await openHome(page);
   const title = `E2E ホーム ${Date.now()}`;
 
   await page.getByRole('button', { name: '追加' }).hover();
@@ -42,6 +40,7 @@ test('ホームからタスクとレモンの記録を追加し、タイムラ�
 });
 
 test('メモを書いて、詳細から直して消せる', async ({ page }) => {
+  await openHome(page);
   const body = `E2E メモ ${Date.now()}`;
 
   // 右下の追加ボタンから書く
@@ -76,4 +75,22 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await page.getByLabel('記録を検索').fill(body);
   await expect(page.getByText(`${body} その2`)).toBeVisible();
   await expect(page.getByRole('button', { name: /E2E ホーム/ })).toHaveCount(0);
+});
+
+test('場所のある予定は、タイトルの下・メモの上に場所が出る', async ({ page }) => {
+  const title = `E2E 場所 ${Date.now()}`;
+  const id = await addItem(page, {
+    kind: 'event',
+    title,
+    startsAt: new Date().toISOString(),
+    endsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    location: `${title} の場所`,
+    note: `${title} のメモ`,
+  });
+  await openHome(page);
+
+  await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveText(
+    new RegExp(`${title}.*${title} の場所.*${title} のメモ`),
+  );
+  await deleteItem(page, id);
 });

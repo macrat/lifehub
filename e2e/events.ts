@@ -9,6 +9,8 @@ type Item = {
   startsAt?: string;
   endsAt?: string;
   rrule?: string;
+  location?: string;
+  note?: string;
   participantIds?: string[];
 };
 
