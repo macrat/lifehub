@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { useMemo } from 'react';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
@@ -58,7 +59,9 @@ type Props = Omit<HistoryListProps<Expense>, 'children'> & {
 export function ExpenseList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const widest = widestAmount(listProps.history.query.data?.items);
+  const items = listProps.history.query.data?.items;
+  // 読んだ記録が増えるほど重くなるので、記録が変わったときだけ求め直す
+  const widest = useMemo(() => widestAmount(items), [items]);
   return (
     <HistoryList {...listProps}>
       {(expenses) =>

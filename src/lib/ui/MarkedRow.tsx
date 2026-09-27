@@ -61,11 +61,11 @@ export function MarkedRow({
   mark?: ReactNode;
   /** 操作できる印（タスクの完了のチェックボックス） */
   control?: ReactNode;
-  /** 印の枠の幅。印が収まる幅を呼び出し側が決める */
+  /** 印の枠の幅（px）。印が収まる幅を呼び出し側が決める */
   markWidth: number;
   lead: ReactNode;
   /**
-   * 主列の幅。揃えたい値が収まる幅を呼び出し側が決める。省くと中身の幅になるので、
+   * 主列の幅（px）。揃えたい値が収まる幅を呼び出し側が決める。省くと中身の幅になるので、
    * 行をまたいで揃えるには中身の側で幅を揃える（`ExpenseList` は一番幅を取る金額を透明に重ねる）
    */
   leadWidth?: number;
