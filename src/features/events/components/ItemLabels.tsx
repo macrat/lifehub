@@ -98,18 +98,16 @@ const NOWRAP_TEXT_SX = { minWidth: 0 } as const;
 function IconText({
   icon: { Icon, viewBox },
   variant,
-  color,
   noWrap = false,
   children,
 }: {
   icon: LabelIcon;
   variant: TypographyProps['variant'];
-  color?: TypographyProps['color'];
   noWrap?: boolean;
   children: string;
 }) {
   return (
-    <Typography variant={variant} color={color} component="span" sx={ROOT_SX}>
+    <Typography variant={variant} component="span" sx={ROOT_SX}>
       <Icon viewBox={viewBox} fontSize="inherit" sx={ICON_SX} />
       <Typography
         variant="inherit"
