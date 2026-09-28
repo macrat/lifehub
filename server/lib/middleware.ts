@@ -8,7 +8,8 @@ import { getAuth } from './auth.ts';
  * サーバー側のこの検証が唯一の防御線（クライアントのルートガードは UX のためだけ）。
  */
 export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const session = await (await getAuth()).api.getSession({ headers: c.req.raw.headers });
+  const auth = await getAuth();
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
     throw new HTTPException(401, { message: 'ログインが必要です' });
   }

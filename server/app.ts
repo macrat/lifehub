@@ -1,4 +1,4 @@
-import { Hono, type MiddlewareHandler } from 'hono';
+import { type Handler, Hono, type MiddlewareHandler } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
 import { cronRoutes } from './cron.ts';
@@ -22,6 +22,9 @@ import { requireSession } from './lib/middleware.ts';
 import { mcpRoutes } from './mcp.ts';
 import { qstashRoutes } from './qstash.ts';
 
+/** better-auth 自身のエンドポイント（`/api/auth/*` と OAuth の探索メタデータ `/.well-known/*`） */
+const authHandler: Handler<AppEnv> = async (c) => (await getAuth()).handler(c.req.raw);
+
 /**
  * `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。
  * `AppType` を Hono RPC クライアント（src/lib/api.ts）が参照するため、ルートは必ずメソッドチェーンで登録する。
@@ -33,7 +36,7 @@ api.get('/health', async (c) => {
   await pingDatabase();
   return c.json({ ok: true as const, db: true as const });
 });
-api.on(['GET', 'POST'], '/auth/*', async (c) => (await getAuth()).handler(c.req.raw));
+api.on(['GET', 'POST'], '/auth/*', authHandler);
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
 // ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
@@ -104,5 +107,5 @@ export const app = new Hono<AppEnv>()
     console.error(error);
     return c.json({ message: 'サーバーエラーが発生しました' }, 500);
   })
-  .get('/.well-known/*', async (c) => (await getAuth()).handler(c.req.raw))
+  .get('/.well-known/*', authHandler)
   .route('/', api);
