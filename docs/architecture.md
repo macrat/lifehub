@@ -238,7 +238,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 | 対象 | リソース | 備考 |
 |---|---|---|
-| Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う）。`automatically_expose_system_environment_variables` を有効にし、`VERCEL`・`VERCEL_ENV`・`VERCEL_URL`・`VERCEL_BRANCH_URL` を関数に渡す |
+| Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う）。`automatically_expose_system_environment_variables` を有効にし、`VERCEL`・`VERCEL_ENV`・`VERCEL_URL`・`VERCEL_BRANCH_URL` を関数に渡す。関数の地域は `resource_config.function_default_regions` で Neon と同じ `sin1`（シンガポール）にする（HTTP ドライバは問い合わせごとに DB と往復するので、利用者より DB の隣に置くほうが速い。Neon に日本の地域は無い） |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
 | 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`） |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |

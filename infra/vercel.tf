@@ -14,6 +14,16 @@ resource "vercel_project" "lifehub" {
   install_command  = "pnpm install --frozen-lockfile"
   output_directory = "dist"
 
+  # 関数は Neon（infra/neon.tf の aws-ap-southeast-1）と同じシンガポールで動かす。
+  # HTTP ドライバは問い合わせ 1 回が DB との往復 1 回なので（server/lib/db/client.ts）、要求 1 回に
+  # 1 度だけ払う利用者との往復よりも、問い合わせの数だけ払う DB との往復を縮めるほうが効く。
+  # WHY NOT hnd1（東京）: 利用者との往復は縮むが、DB との往復（東京 ↔ シンガポール）を問い合わせの数だけ払う。
+  # WHY NOT Neon を東京へ: Neon に日本の地域が無い。
+  # WHY NOT vercel.json の regions: 地域はプロジェクトの設定で、ほかの設定と同じく Terraform に持つ。
+  resource_config = {
+    function_default_regions = ["sin1"]
+  }
+
   # Preview URL を Vercel 認証で保護する
   vercel_authentication = {
     deployment_type = "standard_protection_new"
