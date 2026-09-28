@@ -47,15 +47,23 @@ export async function insertOnce<T extends TableWithId>(
   row: T['$inferInsert'] & { id: string },
 ): Promise<T['$inferSelect']> {
   const [inserted] = await db.insert(table).values(row).onConflictDoNothing().returning();
-  if (inserted) return inserted;
-  // select の from は総称の表を受けないので、ここだけ具体的な表の型に広げる
-  const [existing] = await db
-    .select()
-    .from(table as TableWithId)
-    .where(eq(table.id, row.id))
-    .limit(1);
+  const existing = inserted ?? (await findById(table, row.id));
   if (!existing) throw new Error('insert returned no row');
   return existing;
+}
+
+/** id の行（無ければ undefined） */
+export async function findById<T extends TableWithId>(
+  table: T,
+  id: string,
+): Promise<T['$inferSelect'] | undefined> {
+  // select の from は総称の表を受けないので、ここだけ具体的な表の型に広げる
+  const [row] = await db
+    .select()
+    .from(table as TableWithId)
+    .where(eq(table.id, id))
+    .limit(1);
+  return row;
 }
 
 /**

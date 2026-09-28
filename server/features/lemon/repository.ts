@@ -9,7 +9,7 @@ import {
 } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db/client.ts';
 import { findHistoryPage } from '../../lib/db/history.ts';
-import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
+import { containsKeyword, findById as findRowById, insertOnce } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
@@ -97,8 +97,7 @@ export async function insert(row: {
 }
 
 export async function findById(id: string): Promise<LemonCareLogRow | undefined> {
-  const rows = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, id)).limit(1);
-  return rows[0];
+  return findRowById(lemonCareLogs, id);
 }
 
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */

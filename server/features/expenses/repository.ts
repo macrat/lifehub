@@ -9,7 +9,7 @@ import {
 } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db/client.ts';
 import { findHistoryPage } from '../../lib/db/history.ts';
-import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
+import { containsKeyword, findById as findRowById, insertOnce } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
@@ -89,8 +89,7 @@ export async function insert(
 }
 
 export async function findById(id: string): Promise<ExpenseRow | undefined> {
-  const rows = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
-  return rows[0];
+  return findRowById(expenses, id);
 }
 
 export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow | undefined> {

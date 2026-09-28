@@ -137,18 +137,22 @@ export async function listDays(
   now: Date = new Date(),
 ): Promise<TimelineDay[]> {
   const wants = (type: DayEntryType) => !types || types.includes(type);
+  const instants = instantRange(range);
   const records = Object.entries(recordSources).flatMap(([type, source]) =>
-    wants(type as DayEntryType) ? [source.entries(instantRange(range), q, now)] : [],
+    wants(type as DayEntryType) ? [source.entries(instants, q, now)] : [],
   );
+  // 予定とタスクの片方だけが要るなら、もう片方は展開しない
+  const kind = wants('event') ? (wants('task') ? undefined : 'event') : 'task';
   const [items, holidays, weather, ...recordEntries] = await Promise.all([
-    wants('event') || wants('task') ? events.listItems(range, now, { q }) : [],
+    wants('event') || wants('task') ? events.listItems(range, now, { kind, q }) : [],
     listHolidays(range),
     listDailyWeather(range),
     ...records,
   ]);
-  const eventEntries = items
-    .filter((item) => wants(item.kind))
-    .map((item) => ({ date: item.placementDate, entry: eventEntry(item, now) }));
+  const eventEntries = items.map((item) => ({
+    date: item.placementDate,
+    entry: eventEntry(item, now),
+  }));
   const byDay = Map.groupBy(
     [
       ...eventEntries,

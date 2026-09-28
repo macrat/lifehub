@@ -23,17 +23,20 @@ export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
 
+/** 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない */
+type OccurrenceFilter = { kind?: EventKind | undefined; q?: string | undefined };
+
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
  * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
- * q を渡すとタイトルかメモが当たる回だけを置く（`listOccurrences`）。
+ * filter は `listOccurrences` にそのまま渡す（種別とキーワードの絞り込み）。
  */
 export async function listItems(
   range: DateRange,
   now: Date = new Date(),
-  { q }: { q?: string | undefined } = {},
+  filter: OccurrenceFilter = {},
 ): Promise<CalendarItem[]> {
-  const occurrences = await listOccurrences(range, now, { q });
+  const occurrences = await listOccurrences(range, now, filter);
   return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
 }
 
@@ -51,7 +54,7 @@ export async function listItems(
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  { kind, q }: { kind?: EventKind; q?: string | undefined } = {},
+  { kind, q }: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
   const instants = instantRange(range);
   const rows = await repository.findCalendarRows(instants.from, instants.to, q);
