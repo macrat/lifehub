@@ -10,6 +10,7 @@ import {
   updateUserSchema,
 } from '../../../../shared/validation/users.ts';
 import { formValues, useFormSubmit } from '../../../lib/form.ts';
+import { CopyField } from '../../../lib/ui/CopyField.tsx';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { User } from '../queries.ts';
 import { HueSlider } from './HueSlider.tsx';
@@ -79,6 +80,14 @@ export function UserForm(props: CreateProps | EditProps) {
         fullWidth
       />
       <HueSlider value={hue ?? DEFAULT_HUE} onChange={setHue} />
+      {/* Sentry の記録（`server/lib/sentry.ts` の `setSentryUser`）や DB と見比べるために出す */}
+      {props.mode === 'edit' && (
+        <CopyField
+          label="ユーザー ID"
+          value={props.user.id}
+          copied="ユーザー ID をコピーしました"
+        />
+      )}
     </RecordSheet>
   );
 }

@@ -43,6 +43,11 @@ export const meQueryOptions = queryOptions({
   staleTime: 1000 * 60 * 5,
 });
 
+/** 今ログインしているユーザーの ID（手元のキャッシュから読む。未ログインか、まだ取得していなければ null） */
+export function signedInUserId(client: QueryClient): string | null {
+  return client.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+}
+
 /**
  * ルートの beforeLoad が使う、ログイン中のユーザー。未ログインなら null。
  * - オフラインではキャッシュだけを見る（TanStack Query はオフライン中の取得を一時停止するので、

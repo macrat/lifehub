@@ -116,7 +116,7 @@ window.addEventListener(UNAUTHORIZED_EVENT, () => {
 });
 
 // Sentry への報告はルーターができたらすぐ始める（この後の起動処理で起きたエラーも拾い、最初の画面の読み込みも計る）
-initSentry(router);
+initSentry(router, queryClient);
 
 // アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
 registerSW({ immediate: true });

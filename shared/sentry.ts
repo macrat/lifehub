@@ -5,7 +5,7 @@
  * 何が起きたかはスパンの名前（ルート）・所要時間・ステータスとスタックトレースで追えるので、中身は要らない。
  */
 export const SENTRY_DATA_COLLECTION = {
-  /** IP アドレスなど。利用者は 2 人と決まっていて、識別に要らない */
+  /** IP アドレスなど。誰の操作かは DB のユーザー ID（`server/lib/sentry.ts` の `setSentryUser`）で分かるので要らない */
   userInfo: false,
   /** セッションの Cookie */
   cookies: false,
@@ -18,3 +18,12 @@ export const SENTRY_DATA_COLLECTION = {
   /** 例外が起きた時点のローカル変数。記録の中身を持っていることが多い */
   stackFrameVariables: false,
 };
+
+/**
+ * Sentry に知らせるユーザー（サーバー `server/lib/sentry.ts` とブラウザ `src/lib/sentry.ts` の共通）。
+ * 送るのは DB のユーザー ID だけで、名前やメールアドレスは載せない（理由は docs/architecture.md の「監視（Sentry）」）。
+ * 未ログインなら null（ユーザーを外す）。
+ */
+export function sentryUser(userId: string | null): { id: string } | null {
+  return userId ? { id: userId } : null;
+}

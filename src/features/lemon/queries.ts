@@ -9,7 +9,7 @@ import {
 } from '../../../shared/lemon.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { meQueryOptions } from '../../lib/auth.ts';
+import { signedInUserId } from '../../lib/auth.ts';
 import { type HistorySource, useHistory } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
@@ -70,7 +70,7 @@ export function useLogCare() {
         note: input.note ?? null,
         // 画面から記録するのはログイン中の人（サーバーもセッションのユーザーを記録者にする）。
         // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる（メモの先回りと同じ）
-        createdBy: client.getQueryData(meQueryOptions.queryKey)?.id ?? null,
+        createdBy: signedInUserId(client),
         apiKeyName: null,
       };
       careLogCache.apply(client, input.id, log);

@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/react';
+import { type QueryClient, QueryObserver } from '@tanstack/react-query';
 import type { AnyRouter } from '@tanstack/react-router';
-import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
+import { SENTRY_DATA_COLLECTION, sentryUser } from '../../shared/sentry.ts';
+import { meQueryOptions } from './auth.ts';
 
 /**
  * ブラウザのエラー・トレース・ログを Sentry に送る。DSN は本番のビルドにだけ埋め込まれる（`vite.config.ts`）ので、
@@ -15,7 +17,7 @@ import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
  *
  * セッションリプレイは無料枠が月 50 件しかないので使わない。
  */
-export function initSentry(router: AnyRouter): void {
+export function initSentry(router: AnyRouter, client: QueryClient): void {
   const dsn = import.meta.env.SENTRY_DSN;
   if (!dsn) return;
   Sentry.init({
@@ -29,6 +31,24 @@ export function initSentry(router: AnyRouter): void {
       Sentry.consoleLoggingIntegration(),
     ],
   });
+  watchUser(client);
+}
+
+/**
+ * ログイン中のユーザーを Sentry に知らせ続ける（`sentryUser`。サーバーの `setSentryUser` と同じ値）。
+ * ログイン中のユーザーの置き場所（`meQueryOptions` のキャッシュ）を読むだけの observer で見張るので、ログイン・
+ * ログアウト・セッション切れ・永続化キャッシュからの復元のどれで変わっても、呼び出し側に手を入れずに追従する。
+ */
+function watchUser(client: QueryClient): void {
+  const observer = new QueryObserver(client, { ...meQueryOptions, enabled: false });
+  let current: string | null = null;
+  const sync = (id: string | null) => {
+    if (id === current) return;
+    current = id;
+    Sentry.setUser(sentryUser(id));
+  };
+  observer.subscribe(({ data }) => sync(data?.id ?? null));
+  sync(observer.getCurrentResult().data?.id ?? null);
 }
 
 /**

@@ -9,6 +9,7 @@ import { registerUserTools } from './features/users/mcp.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, ToolRegistrar } from './lib/mcp/types.ts';
+import { setSentryUser } from './lib/sentry.ts';
 
 /** 全 feature のツール。新しい feature のツールはここに 1 行足す。 */
 const registrars: ToolRegistrar[] = [
@@ -46,6 +47,7 @@ export const mcpRoutes = new Hono<AppEnv>().all('/', async (c) => {
     async (_request, claims) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
+      setSentryUser(userId);
       const server = createMcpServer({ userId });
       const transport = new StreamableHTTPTransport({ enableJsonResponse: true });
       await server.connect(transport);
