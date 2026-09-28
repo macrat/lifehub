@@ -67,8 +67,16 @@ pnpm dev                          # http://localhost:5173
 
 `.github/workflows/backup.yml` が毎日 JST 4:00 に本番 DB を Artifact（`backup-<JST の日付>`、30 日保持）に置く。手動でも実行できる（Actions の画面から `Run workflow`）。
 
-- `lifehub.sql`: DB まるごとのダンプ（`pnpm db:dump`）。スキーマ・データ・マイグレーションの記録を含む。
-- `lifehub.ics`: 全員の全予定（`pnpm calendar:export`）。LifeHub が使えなくなったときに他のカレンダーアプリへ取り込む用。タスクは含まない。
+- `lifehub.sql.gpg`: DB まるごとのダンプ（`pnpm db:dump`）。スキーマ・データ・マイグレーションの記録を含む。
+- `lifehub.ics.gpg`: 全員の全予定（`pnpm calendar:export`）。LifeHub が使えなくなったときに他のカレンダーアプリへ取り込む用。タスクは含まない。
+
+どちらも `.github/backup-key.asc` の公開鍵で暗号化してある。対になる秘密鍵を持つ GnuPG で復号する。
+
+```sh
+gpg --decrypt-files lifehub.sql.gpg lifehub.ics.gpg
+```
+
+鍵を替えたり有効期限を延ばしたりしたら、`.github/backup-key.asc` を書き出し直す（`gpg --armor --export <フィンガープリント>`）。暗号化用の副鍵が期限切れになるとバックアップが失敗する。
 
 ダンプを戻すには、Postgres 17 以上のクライアント（`pg_dump` / `psql`。本番の Neon と同じ版以上が要る）を入れて次を実行する。ダンプに含まれるテーブルは中身ごと置き換わり、途中で失敗したら何も変わらない。
 
