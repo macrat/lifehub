@@ -88,7 +88,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     {
       title: '今の状況',
       description:
-        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の残高（payer が payee に amount 円払えば精算）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。ほかの期間や過去の記録は read_timeline、3 時間ごとの天気や週間予報は get_weather で読む。',
+        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の残高（payer が payee に amount 円払えば精算）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       inputSchema: {},
       annotations: READ_ONLY,
     },
@@ -126,7 +126,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎたか日時を持たなければ今日に出る（overdue は期限切れ）。完了したタスクは完了した日に出る。',
         '日時は JST。終日の予定・タスクは start / end / due が日付だけ（end と due はその日を含む）。',
         'q で文字（タイトル・メモ・立替の内容・メモの本文など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
-        `一度に返すのは ${MAX_ENTRIES} 件まで。越えるとその日から先を省き、続きの読み方を添える。`,
+        `一度に返すのは ${MAX_ENTRIES} 件まで。`,
         '各エントリーの ref を update_event・set_task_done・update_expense・update_lemon_log・update_memo・delete_entry に渡す。',
       ].join(' '),
       inputSchema: {
