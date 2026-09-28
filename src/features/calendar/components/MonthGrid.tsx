@@ -111,8 +111,6 @@ export function MonthGrid({
           display: 'grid',
           gridTemplateRows: 'auto repeat(6, minmax(0, 1fr))',
           height: '100%',
-          borderTop: 1,
-          borderColor: 'divider',
           userSelect: 'none',
         }}
       >
