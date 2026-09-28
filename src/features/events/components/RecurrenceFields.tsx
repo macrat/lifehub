@@ -37,35 +37,39 @@ export function RecurrenceFields({ initial, error }: Props) {
     );
   }
   const rrule = buildRRule(freq, isDateString(until) ? until : undefined);
+  // hidden input を Stack の外に置くのは、Stack の spacing が兄弟要素への margin で付くため。
+  // 中に置くと横並びのとき先頭の欄にも左の margin が付き、他の欄と左端が揃わなくなる
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+    <>
       <input type="hidden" name="rrule" value={rrule ?? ''} />
-      <TextField
-        label="繰り返し"
-        select
-        value={freq}
-        onChange={(e) => setFreq(e.target.value as RecurrenceFreq)}
-        error={Boolean(error)}
-        helperText={error}
-        fullWidth
-      >
-        {RECURRENCE_FREQ_OPTIONS.map((o) => (
-          <MenuItem key={o.value} value={o.value}>
-            {o.label}
-          </MenuItem>
-        ))}
-      </TextField>
-      {freq !== 'none' && (
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField
-          label="繰り返しの終了日"
-          type="date"
-          value={until}
-          onChange={(e) => setUntil(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
-          helperText="空欄なら無期限"
+          label="繰り返し"
+          select
+          value={freq}
+          onChange={(e) => setFreq(e.target.value as RecurrenceFreq)}
+          error={Boolean(error)}
+          helperText={error}
           fullWidth
-        />
-      )}
-    </Stack>
+        >
+          {RECURRENCE_FREQ_OPTIONS.map((o) => (
+            <MenuItem key={o.value} value={o.value}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        {freq !== 'none' && (
+          <TextField
+            label="繰り返しの終了日"
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            helperText="空欄なら無期限"
+            fullWidth
+          />
+        )}
+      </Stack>
+    </>
   );
 }
