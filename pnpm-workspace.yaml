@@ -20,3 +20,10 @@ overrides:
   'smol-toml@<1.8.0': 1.8.0
   'tar@>=7 <7.5.22': 7.5.22
   'undici@>=5 <6.28.1': 6.28.1
+
+# 依存パッケージの不具合を直すパッチ（`pnpm patch`）。上流で直ったら外す。
+# バージョンを付けないので、更新でパッチが当たらなくなると install が失敗して気づける。
+# - @tanstack/router-core: View Transition の `ready` を受け取らず、次の遷移に割り込まれて飛ばされたとき
+#   （AbortError）に未処理の例外になる。画面の更新は行われるので AbortError だけ受け取り、それ以外は投げ直す
+patchedDependencies:
+  '@tanstack/router-core': patches/@tanstack__router-core.patch

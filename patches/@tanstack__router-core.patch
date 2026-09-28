@@ -1,0 +1,56 @@
+diff --git a/dist/cjs/router.cjs b/dist/cjs/router.cjs
+index f3e213a0e9a98f198443ae41e833039b602e68ad..adfc9db5a0a37f9658558324d17ba8db801fb90e 100644
+--- a/dist/cjs/router.cjs
++++ b/dist/cjs/router.cjs
+@@ -502,7 +502,11 @@ var RouterCore = class {
+ 						types: resolvedViewTransitionTypes
+ 					};
+ 				} else startViewTransitionParams = fn;
+-				return document.startViewTransition(startViewTransitionParams).updateCallbackDone;
++				const transition = document.startViewTransition(startViewTransitionParams);
++				transition.ready.catch((error) => {
++					if (error?.name !== "AbortError") throw error;
++				});
++				return transition.updateCallbackDone;
+ 			}
+ 			return fn();
+ 		};
+diff --git a/dist/esm/router.js b/dist/esm/router.js
+index 7a450eb62ec5ce5b2019c53d27bd319fae36e6b6..5c43e4bf26da18a43010f5d7d4780f67cd19c2c1 100644
+--- a/dist/esm/router.js
++++ b/dist/esm/router.js
+@@ -502,7 +502,11 @@ var RouterCore = class {
+ 						types: resolvedViewTransitionTypes
+ 					};
+ 				} else startViewTransitionParams = fn;
+-				return document.startViewTransition(startViewTransitionParams).updateCallbackDone;
++				const transition = document.startViewTransition(startViewTransitionParams);
++				transition.ready.catch((error) => {
++					if (error?.name !== "AbortError") throw error;
++				});
++				return transition.updateCallbackDone;
+ 			}
+ 			return fn();
+ 		};
+diff --git a/src/router.ts b/src/router.ts
+index 1974690b39aad0ca7793a982d18e4acc199ab435..972a31ce99e9e80f0380277152ca5945976e73de 100644
+--- a/src/router.ts
++++ b/src/router.ts
+@@ -2478,8 +2478,15 @@ export class RouterCore<
+         startViewTransitionParams = fn
+       }
+ 
+-      return (document as any).startViewTransition(startViewTransitionParams)
+-        .updateCallbackDone
++      const transition = (document as any).startViewTransition(
++        startViewTransitionParams,
++      )
++      // A transition skipped by a newer one rejects `ready` with an AbortError.
++      // The DOM update still runs, so only rethrow real animation failures.
++      transition.ready.catch((error: unknown) => {
++        if ((error as Error | undefined)?.name !== 'AbortError') throw error
++      })
++      return transition.updateCallbackDone
+     }
+     return fn()
+   }
