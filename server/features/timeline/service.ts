@@ -1,4 +1,3 @@
-import { compareKeys, sortKey } from '../../../shared/calendar.ts';
 import {
   addDays,
   type DateRange,
@@ -129,7 +128,9 @@ export type DayEntryType = 'event' | 'task' | keyof typeof recordSources;
  * WHY NOT ホームのタイムライン（`getTimelinePage`）と同じく 1 回を 1 行にする: 行は置く日を 1 つしか持たないので、
  * 「10/2 の予定」を訊かれたとき、10/1 から続く旅行が 10/1 の側にしか出ず、10/2 を読んでも見つからない。
  * 日を指して読む相手には、その日に掛かる予定がすべてその日に出るほうが正しい。
- * 1 日の中は、終日 → 時刻の順 → 日時を持たないタスク（`compareInDay`）。
+ * 1 日の中はホームのタイムラインと同じ並び（`sortTimeline`。古い順）で、行はホームと同じ日時（`eventEntry`）に置く。
+ * WHY: 同じ記録が、ホームの画面と AI に訊いたときとで違う順に並ばないようにする。
+ * 日の並びが古い順なので、1 日の中もホームの画面を逆さにした古い順に揃える。
  */
 export async function listDays(
   range: DateRange,
@@ -168,16 +169,7 @@ export async function listDays(
       date,
       holiday: holidaySet.has(date),
       weather: weatherByDay.get(date) ?? null,
-      entries: (byDay.get(date) ?? []).map(({ entry }) => entry).sort(compareInDay),
+      entries: sortTimeline((byDay.get(date) ?? []).map(({ entry }) => entry)),
     };
   });
-}
-
-/**
- * 1 日の中の並び: 予定・タスクはカレンダーと同じ鍵（`sortKey`。終日の予定 → 終日のタスク → 時刻の順 → 日時の無いタスク）、
- * ほかの記録は置く日時で、同じ時間軸に混ぜる。同じなら鍵の順
- */
-function compareInDay(a: TimelineEntry, b: TimelineEntry): number {
-  const key = (entry: TimelineEntry) => (entry.type === 'event' ? sortKey(entry.item) : entry.at);
-  return compareKeys(key(a), key(b)) || compareKeys(a.id, b.id);
 }

@@ -155,6 +155,27 @@ describe('MCP server', () => {
       ]);
     });
 
+    it('1 日の中はホームのタイムラインと同じ置き方の古い順（終日の予定はその日の終わり）', async () => {
+      const client = await connect(userId);
+      await call(client, 'add_event', {
+        title: '終日の予定',
+        start: '2030-01-08',
+        end: '2030-01-08',
+      });
+      await call(client, 'add_event', {
+        title: '10 時の予定',
+        start: '2030-01-08T10:00',
+        end: '2030-01-08T11:00',
+      });
+      await call(client, 'add_task', { title: '終日のタスク', start: '2030-01-08' });
+      const [day] = await readDays(client, { from: '2030-01-08', to: '2030-01-08' });
+      expect(day?.entries.map((e) => e.title)).toEqual([
+        '終日のタスク',
+        '10 時の予定',
+        '終日の予定',
+      ]);
+    });
+
     it('開始と終了の形（日付と日時）が混ざっていれば、揃えるよう文で返す', async () => {
       const client = await connect(userId);
       const message = await fail(client, 'add_event', {
