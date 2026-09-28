@@ -22,6 +22,8 @@ import { env } from './env.ts';
  * diagnostics_channel で取れる。DB は Neon の HTTP ドライバ（fetch）なので、書き換えは要らない。
  */
 export function initSentry(): void {
+  // DSN の無い環境（Preview）では SDK を起こさない（console の差し替えや計測だけが動いて何も送らないため）
+  if (!env.SENTRY_DSN) return;
   Sentry.init({
     dsn: env.SENTRY_DSN,
     environment: env.VERCEL_ENV,
@@ -80,11 +82,13 @@ const flushAfterRequest: MiddlewareHandler = async (_c, next) => {
  * アプリはローカル（`server/dev.ts`）とテストも使うので、Sentry を入れるのは本番のエントリで包む外側だけにする。
  * エラーの報告は `console.error` 経由の 1 経路にまとめているので、ミドルウェアからは送らない
  * （`shouldHandleError`。送ると同じエラーが 2 件になり、業務エラーまで送られる）。
+ * SDK を起こしていない環境（`initSentry` が DSN の無いときは何もしない）では、アプリをそのまま返す。
  */
 export function withSentry<E extends Env, S extends Schema, B extends string>(
   app: Hono<E, S, B>,
-): Hono {
-  const root = new Hono();
+): Hono<E, S, B> {
+  if (!Sentry.getClient()) return app;
+  const root = new Hono<E, S, B>();
   root.use(Sentry.sentry(root, { shouldHandleError: () => false }));
   root.use(flushAfterRequest);
   root.route('/', app);

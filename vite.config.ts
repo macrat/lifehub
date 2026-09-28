@@ -30,7 +30,8 @@ export default defineConfig({
   /**
    * `SENTRY_DSN` もブラウザに渡す（`import.meta.env.SENTRY_DSN`。`src/lib/sentry.ts`）。本番のデプロイ（deploy.yml）の
    * `vercel build` が `vercel pull` で得た Vercel の環境変数を渡してくる（infra/vercel.tf が production にだけ置く）。
-   * サーバーと同じ変数を読み、値を 1 か所で持つ。接頭辞は変数名そのものなので、他の `SENTRY_*`（トークンなど）は渡らない。
+   * サーバーと同じ変数を読み、値を 1 か所で持つ。envPrefix は前方一致なので、渡るのは `SENTRY_DSN` で始まる変数だけで、
+   * `SENTRY_AUTH_TOKEN` など他の `SENTRY_*` は渡らない（`SENTRY_DSN` で始まる名前の変数に秘密を置かないこと）。
    */
   envPrefix: ['VITE_', 'SENTRY_DSN'],
   plugins: [
