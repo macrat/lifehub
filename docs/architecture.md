@@ -82,7 +82,7 @@ src/                          # クライアント（Vite + React）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  history.ts（無限スクロールの履歴の読み足しと楽観的更新。`useHistory`）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    api.ts（Hono RPC client・WriteRequest と、その組み立て createRequest / itemRequest / deleteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  history.ts（無限スクロールの履歴の読み足しと楽観的更新。`useHistory`）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除。直せない記録は読むだけ）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
@@ -166,7 +166,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 オフラインでも記録でき、オンラインに戻ったときにまとめて送る。仕組みは TanStack Query の mutation にそのまま乗せ、キューを自作しない。
 
-- **送る内容だけを値として持つ**。書き込み 1 回分は `{ method, path, body }`（`WriteRequest`）というプレーンな値で、mutation の引数になる。関数は保存できないので、送り方は `mutationKey` に紐づけた 1 つの既定（`setMutationDefaults`）に置く。復元した書き込みも同じ既定で送られるので、feature ごとの送信コードを起動時に読み込む必要がない。パスは Hono RPC の `$url()` で組み立て、型で守る。
+- **送る内容だけを値として持つ**。書き込み 1 回分は `{ method, path, body }`（`WriteRequest`）というプレーンな値で、mutation の引数になる。関数は保存できないので、送り方は `mutationKey` に紐づけた 1 つの既定（`setMutationDefaults`）に置く。復元した書き込みも同じ既定で送られるので、feature ごとの送信コードを起動時に読み込む必要がない。パスは Hono RPC の `$url()` で組み立て、型で守る（形は作成・1 件への書き込み・1 件の削除の 3 通りなので、`lib/api.ts` の `createRequest` / `itemRequest` / `deleteRequest` が組み立てる）。
 - **溜める**: `networkMode: 'online'`（既定）なのでオフラインでは送らずに保留し、保留中の書き込みは永続化キャッシュに含まれる（`persistOptions` の dehydrateOptions が、保留中の mutation のうち書き込みのキーを持つものだけを残す。既定を持たないほかの mutation は、残すと送り方の無いまま復元されるため）。アプリを閉じても消えず、次の起動で復元して送る（`main.tsx` の `resumeWrites`）。
 - **順序**: すべての書き込みが同じ `scope` を持つので 1 つずつ順に走り、「追加してから直す」が操作した順でサーバーに届く。
 - **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す（帯は「オフラインモード」の一言と、未送信があるときだけその件数）。
