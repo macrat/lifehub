@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { type ColorMode, hueColor } from '../../../shared/color.ts';
 import { useColorMode } from '../../lib/theme.ts';
-import { useUsers } from './queries.ts';
+import { NO_USERS, useUsers } from './queries.ts';
 
 export type ItemColors = {
   /** 帯などの面の色。上に載せる文字は `FILL_TEXT` */
@@ -41,7 +41,7 @@ function colorsOf(hue: number | null, mode: ColorMode): ItemColors {
  * 表示モード（ライト／ダーク）ごとに明度・彩度を変える。
  */
 export function useUserColor(): (userId: string | null) => ItemColors {
-  const { data: users = [] } = useUsers();
+  const { data: users = NO_USERS } = useUsers();
   const mode = useColorMode();
   return useMemo(
     () => (userId: string | null) =>

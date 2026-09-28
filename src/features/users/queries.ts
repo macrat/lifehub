@@ -8,7 +8,8 @@ import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 export type User = Me['users'][number];
 
-const NO_USERS: User[] = [];
+/** ユーザーがまだ読めていないときの一覧。いつも同じ配列を返し、それを元にした memo を無駄に作り直さない */
+export const NO_USERS: User[] = [];
 
 function usersOf(me: Me | null): User[] {
   return me?.users ?? NO_USERS;
