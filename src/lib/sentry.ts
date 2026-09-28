@@ -30,6 +30,14 @@ export function initSentry(router: AnyRouter, client: QueryClient): void {
       Sentry.tanstackRouterBrowserTracingIntegration(router),
       Sentry.consoleLoggingIntegration(),
     ],
+    /**
+     * View Transition の途中で次の遷移が始まったときの AbortError（前の遷移のアニメーションが飛ばされただけで、
+     * 画面の更新は行われる）。ルーター（`defaultViewTransition`）は `startViewTransition` の `updateCallbackDone`
+     * だけを待ち、`ready` を放っておくので、その reject が未処理の例外として上がってくる。
+     * WHY NOT `startViewTransition` を包んで `ready` の失敗を握りつぶす: 全体を書き換える割に得るものが無く、
+     * 名前の重複で遷移が行われない（InvalidStateError。`item-transition.ts`）という本物の不具合まで隠しかねない
+     */
+    ignoreErrors: ['Transition was skipped. New ViewTransition started'],
   });
   watchUser(client);
 }
