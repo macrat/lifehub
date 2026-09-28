@@ -209,6 +209,25 @@ describe('MCP server', () => {
       expect(updated).not.toHaveProperty('location');
     });
 
+    it('終日と時刻ありを切り替えるときは両端を求め、省いた端を黙って丸めない', async () => {
+      const client = await connect(userId);
+      const task = await call<Entry>(client, 'add_task', {
+        title: '提出',
+        start: '2030-01-07T09:00',
+        due: '2030-01-08T18:00',
+      });
+      const message = await fail(client, 'update_event', { ref: task.ref, due: '2030-01-09' });
+      expect(message).toContain('両方');
+
+      const updated = await call<Entry>(client, 'update_event', {
+        ref: task.ref,
+        start: null,
+        due: '2030-01-09',
+      });
+      expect(updated).toMatchObject({ due: '2030-01-09' });
+      expect(updated).not.toHaveProperty('start');
+    });
+
     it('予定に due・タスクに end を渡すと、使う名前を文で返す', async () => {
       const client = await connect(userId);
       const event = await call<Entry>(client, 'add_event', WEEKLY_DENTIST);

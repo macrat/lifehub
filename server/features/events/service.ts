@@ -27,6 +27,7 @@ export async function getEvent(id: string): Promise<EventMaster> {
 /**
  * 一部の項目だけを変える更新（MCP。`applyPatch`）。patch で undefined の項目は今の値のまま。
  * 予定の開始だけが指定されたら、終了も同じだけずらす（`keepDuration`）。
+ * 終日と時刻ありを切り替えるときは、日時を持つ端をすべて指定させる（`requireBothEnds`）。
  * 繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
  */
 export async function patchEvent(
@@ -37,6 +38,7 @@ export async function patchEvent(
 ): Promise<WrittenEvent> {
   const master = await findMaster(id);
   const current = await currentInput(master, target);
+  requireBothEnds(current, patch);
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
   const result = await applyUpdate(master, { ...merged, ...target }, userId);
   scheduleUpcoming();
@@ -44,18 +46,33 @@ export async function patchEvent(
 }
 
 /**
+ * 終日と時刻ありを切り替える部分更新は、今の値が日時を持つ端（開始・終了（期限））をすべて指定させる。
+ * WHY: 終日の日時は保存のときに 0:00 に丸める（`normalizeInstants`）ので、省いた端を今のまま残すと、
+ * 「期限を日付にして」で開始の時刻が 0:00 に切り詰められるように、省いた項目が黙って変わる。
+ * 切り替え先でその端をどうするかは LLM に決めさせる（タスクの端は null で消せる）。
+ */
+function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
+  if (patch.allDay === undefined || patch.allDay === current.allDay) return;
+  const omitted = (['startsAt', 'endsAt'] as const).filter(
+    (key) => patch[key] === undefined && current[key] !== null,
+  );
+  if (omitted.length > 0) {
+    throw new ValidationError(
+      '終日と時刻ありを切り替えるときは、開始と終了（期限）を両方指定してください（タスクで要らない端は null）',
+    );
+  }
+}
+
+/**
  * 予定の開始だけを変える部分更新は、長さを保って終了もずらす（予定を動かす）。
  * WHY: 「3 時からにして」を頼まれた LLM は終了を渡さないことが多く、終了を今のままにすると
  * 開始が終了を追い越して規則の誤りになるか、予定が意図せず伸び縮みする。
- * 終日と時刻ありを切り替えるときは長さの意味が変わる（日数と時間）ので、ずらさずに終了の指定を求める。
+ * 終日と時刻ありの切り替えでは両端が指定されている（`requireBothEnds`）ので、ここには来ない。
  */
 function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
   const { startsAt, endsAt } = current;
   if (current.kind !== 'event' || !patch.startsAt || patch.endsAt !== undefined) return patch;
   if (!startsAt || !endsAt) return patch;
-  if (patch.allDay !== undefined && patch.allDay !== current.allDay) {
-    throw new ValidationError('終日と時刻ありを切り替えるときは、終了も指定してください');
-  }
   const duration = endsAt.getTime() - startsAt.getTime();
   return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };
 }
