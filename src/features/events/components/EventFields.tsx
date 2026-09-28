@@ -1,7 +1,7 @@
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import type { ChangeEvent } from 'react';
@@ -18,7 +18,12 @@ import {
 import { toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { EXTRA_FIELDS_MARKER, endFollowsStart, type ItemFormValues } from '../form-values.ts';
+import {
+  EXTRA_FIELDS_MARKER,
+  endFollowsStart,
+  type ItemFormValues,
+  whenFieldNames,
+} from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 type Props = {
@@ -126,7 +131,9 @@ export function ItemFields({
 /**
  * 日時（終日の切り替えと、開始・終了または開始・期限）。全項目（`ItemFields`）と、
  * スマホで上の段まで広げたクイック入力（`QuickItemForm`）で同じものを使う。
- * 終日かどうかで日付だけ／日時に入れ替わるので、その状態だけ呼び出し側から受け取る。
+ * 開始・終了（期限）はそれぞれ日付と時刻の 2 つの欄に分け（`whenFieldNames`）、日付を左、時刻を右の列に並べる。
+ * 終日の切り替えは時刻の列の上に置き、時刻の欄と縦の線を揃える。終日では時刻の欄を出さず、日付の欄を行いっぱいに広げる。
+ * 終日かどうかは状態として呼び出し側から受け取る。
  * 予定は開始・終了が必須で、開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
  * タスクは開始・期限がどちらも任意なので、空のまま出す。
  */
@@ -137,53 +144,55 @@ export function WhenFields({
   allDay,
   onChangeAllDay,
 }: Props & AllDayProps & { kind: Kind }) {
-  const when = kind === 'event' ? eventWhen(initial, allDay) : taskWhen(initial, allDay);
+  const when = kind === 'event' ? eventWhen(initial) : taskWhen(initial);
   return (
-    <>
+    <Box
+      sx={{
+        display: 'grid',
+        // 日付は年月日と曜日のピッカーの印が入る分だけ時刻より広く取る
+        gridTemplateColumns: '3fr 2fr',
+        columnGap: 2,
+        rowGap: 2,
+        alignItems: 'start',
+      }}
+    >
       <FormControlLabel
         control={<Switch checked={allDay} onChange={(_, v) => onChangeAllDay(v)} />}
         label="終日"
+        sx={{ gridColumn: 2 }}
       />
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <WhenField
-          name="startsAt"
-          label={when.startLabel}
-          defaultValue={inputValue(when.start, 'start', initial.allDay, allDay)}
-          allDay={allDay}
-          error={errors.startsAt}
-          onChange={kind === 'event' ? endFollowsStart : undefined}
-        />
-        <WhenField
-          name="endsAt"
-          label={when.endLabel}
-          defaultValue={inputValue(when.end, 'end', initial.allDay, allDay)}
-          allDay={allDay}
-          error={errors.endsAt}
-        />
-      </Stack>
-    </>
+      <WhenField
+        name="startsAt"
+        edge={when.startLabel}
+        defaultValue={inputValue(when.start, 'start', initial.allDay, allDay)}
+        allDay={allDay}
+        error={errors.startsAt}
+        onChange={kind === 'event' ? endFollowsStart : undefined}
+      />
+      <WhenField
+        name="endsAt"
+        edge={when.endLabel}
+        defaultValue={inputValue(when.end, 'end', initial.allDay, allDay)}
+        allDay={allDay}
+        error={errors.endsAt}
+      />
+    </Box>
   );
 }
 
 /** 予定の日時の入力欄。開始が無ければ今、終了が無ければ開始から始める */
-function eventWhen(initial: ItemFormValues, allDay: boolean) {
+function eventWhen(initial: ItemFormValues) {
   const start = initial.startsAt ?? new Date().toISOString();
-  return {
-    start,
-    end: initial.endsAt ?? start,
-    startLabel: allDay ? '開始日' : '開始',
-    endLabel: allDay ? '終了日' : '終了',
-  };
+  return { start, end: initial.endsAt ?? start, startLabel: '開始', endLabel: '終了' };
 }
 
 /** タスクの日時の入力欄 */
-function taskWhen(initial: ItemFormValues, allDay: boolean) {
-  const label = taskWhenLabels(allDay);
+function taskWhen(initial: ItemFormValues) {
   return {
     start: initial.startsAt,
     end: initial.endsAt,
-    startLabel: label.start,
-    endLabel: label.due,
+    startLabel: TASK_TIME_LABELS.start,
+    endLabel: TASK_TIME_LABELS.due,
   };
 }
 
@@ -278,44 +287,60 @@ function RemindField({
   );
 }
 
-/** タスクの開始・期限の入力欄の名前。終日なら日付だけ（開始日）、そうでなければ日時（開始日時） */
-function taskWhenLabels(allDay: boolean) {
-  const unit = allDay ? '日' : '日時';
-  return { start: `${TASK_TIME_LABELS.start}${unit}`, due: `${TASK_TIME_LABELS.due}${unit}` };
-}
-
 /**
- * 日時の入力欄 1 つ。終日なら日付だけ（`type="date"`）、そうでなければ日時。予定とタスクで同じものを使う。
- * 終日の切り替えで種類が入れ替わるので、key に含めて入力欄ごと作り直す（残っている値を別の形式で読ませない）。
+ * 日時の入力欄 1 組: 日付（左の列。終日では行いっぱい）と時刻（右の列。終日では出さない）。予定とタスクで同じものを使う。
+ * 名前は「開始日」「開始時刻」のように端の名前（edge）から付ける。
+ * 終日の切り替えで初期値の形が変わるので、key に含めて入力欄ごと作り直す（切り替え前の値を別の形で読ませない）。
+ * 誤りは日付の欄の下に出し、時刻の欄も誤りの色にする。
  */
 function WhenField({
   name,
-  label,
+  edge,
   defaultValue,
   allDay,
   error,
   onChange,
 }: {
   name: 'startsAt' | 'endsAt';
-  label: string;
+  edge: string;
+  /** "YYYY-MM-DD"（終日）か "YYYY-MM-DDTHH:mm"。未設定は空 */
   defaultValue: string;
   allDay: boolean;
   error: string | undefined;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const names = whenFieldNames(name);
+  const [date = '', time = ''] = defaultValue.split('T');
   return (
-    <TextField
-      key={`${name}-${allDay}`}
-      name={name}
-      label={label}
-      type={allDay ? 'date' : 'datetime-local'}
-      defaultValue={defaultValue}
-      onChange={onChange}
-      error={Boolean(error)}
-      helperText={error}
-      slotProps={{ inputLabel: { shrink: true } }}
-      fullWidth
-    />
+    <>
+      <TextField
+        key={`${names.date}-${allDay}`}
+        name={names.date}
+        label={`${edge}日`}
+        type="date"
+        defaultValue={date}
+        onChange={onChange}
+        error={Boolean(error)}
+        helperText={error}
+        slotProps={{ inputLabel: { shrink: true } }}
+        // 終日では時刻の欄が無いので、日付の欄を行いっぱいに広げる
+        sx={{ gridColumn: allDay ? '1 / -1' : 1 }}
+        fullWidth
+      />
+      {!allDay && (
+        <TextField
+          name={names.time}
+          label={`${edge}時刻`}
+          type="time"
+          defaultValue={time}
+          onChange={onChange}
+          error={Boolean(error)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ gridColumn: 2 }}
+          fullWidth
+        />
+      )}
+    </>
   );
 }
 

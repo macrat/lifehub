@@ -44,8 +44,10 @@ test('時間軸のタスクは長押しでつまんで動かし、下半分の�
 
   // 上の段まで広げるとタスクの全項目が出る
   await page.getByRole('button', { name: 'その他のオプション' }).click();
-  await expect(page.getByLabel('開始日時', { exact: true })).toHaveValue('2031-06-19T15:00');
-  await expect(page.getByLabel('期限日時', { exact: true })).toHaveValue('2031-06-19T17:00');
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('2031-06-19');
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
+  await expect(page.getByLabel('期限日', { exact: true })).toHaveValue('2031-06-19');
+  await expect(page.getByLabel('期限時刻', { exact: true })).toHaveValue('17:00');
   await expect(page.getByLabel('期限の通知')).toBeVisible();
 
   await page.getByRole('button', { name: '保存' }).click();
@@ -126,8 +128,9 @@ test('なぞって開いた予定の入力は上端でタスクに切り替え�
   // 詳細の編集でも種類を切り替えられる。予定にすると開始から 1 時間になる
   await page.getByRole('button', { name: '編集' }).click();
   await page.getByRole('button', { name: '予定', exact: true }).click();
-  await expect(page.getByLabel('開始', { exact: true })).toHaveValue('2031-06-26T15:00');
-  await expect(page.getByLabel('終了', { exact: true })).toHaveValue('2031-06-26T16:00');
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
+  await expect(page.getByLabel('終了日', { exact: true })).toHaveValue('2031-06-26');
+  await expect(page.getByLabel('終了時刻', { exact: true })).toHaveValue('16:00');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(block).toBeVisible();
 

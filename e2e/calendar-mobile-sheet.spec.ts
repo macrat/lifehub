@@ -63,8 +63,9 @@ test('クイック入力のシートは上下のドラッグで 3 段に止ま�
   await settledAt('full');
   await expect(page.getByLabel('メモ')).toBeInViewport();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
-  await page.getByLabel('終了').fill('2031-06-05T11:00');
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('2031-06-05');
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('09:00');
+  await page.getByLabel('終了時刻', { exact: true }).fill('11:00');
   await page.getByLabel('メモ').fill('シートから入力');
 
   // 少し下へドラッグすると下の段へ戻り、直した日時が見出しとグリッドの枠に映る

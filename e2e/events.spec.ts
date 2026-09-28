@@ -13,8 +13,11 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   // 追加ボタンからの予定は終日で始まる
   await expect(page.getByLabel('終日')).toBeChecked();
   await page.getByLabel('終日').uncheck();
-  await page.getByLabel('開始').fill('2030-01-07T09:00');
-  await page.getByLabel('終了').fill('2030-01-07T10:00');
+  // 日付と時刻は別の欄。終日を切ると時刻の欄が出る
+  await page.getByLabel('開始日', { exact: true }).fill('2030-01-07');
+  await page.getByLabel('開始時刻', { exact: true }).fill('09:00');
+  await page.getByLabel('終了日', { exact: true }).fill('2030-01-07');
+  await page.getByLabel('終了時刻', { exact: true }).fill('10:00');
   await page.getByLabel('繰り返し', { exact: true }).click();
   await page.getByRole('option', { name: '毎週' }).click();
   await page.getByRole('button', { name: '保存' }).click();
@@ -69,11 +72,12 @@ test('週表示で時間をドラッグして予定を作れる', async ({ page 
   // 「その他のオプション」には入力済みの内容と選んだ時間帯を引き継ぐ
   await page.getByRole('button', { name: 'その他のオプション' }).click();
   await expect(page.getByLabel('タイトル')).toHaveValue(title);
-  await expect(page.getByLabel('開始')).toHaveValue('2031-06-05T09:00');
-  await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T10:30');
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('2031-06-05');
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('09:00');
+  await expect(page.getByLabel('終了時刻', { exact: true })).toHaveValue('10:30');
   // 開始を動かすと、終了も長さを保ったまま動く
-  await page.getByLabel('開始').fill('2031-06-05T09:30');
-  await expect(page.getByLabel('終了')).toHaveValue('2031-06-05T11:00');
+  await page.getByLabel('開始時刻', { exact: true }).fill('09:30');
+  await expect(page.getByLabel('終了時刻', { exact: true })).toHaveValue('11:00');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByRole('button', { name: title })).toBeVisible();
 

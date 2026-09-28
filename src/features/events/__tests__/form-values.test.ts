@@ -137,3 +137,36 @@ test('開始の無いタスクを予定にすると、今日の終日の予定�
     endsAt: '2030-02-04T15:00:00.000Z',
   });
 });
+
+test('日付と時刻に分けた欄を 1 つの日時にし、終日では日付だけを読む', () => {
+  const formData = bubble('歯医者');
+  formData.set('startsAtDate', '2030-02-04');
+  formData.set('startsAtTime', '09:30');
+  formData.set('endsAtDate', '2030-02-04');
+  formData.set('endsAtTime', '10:00');
+  expect(eventInputFromForm(formData, { initial: saved, allDay: false })).toMatchObject({
+    startsAt: '2030-02-04T00:30:00.000Z',
+    endsAt: '2030-02-04T01:00:00.000Z',
+  });
+
+  const allDay = bubble('旅行');
+  allDay.set('startsAtDate', '2030-02-04');
+  allDay.set('endsAtDate', '2030-02-05');
+  expect(eventInputFromForm(allDay, { initial: saved, allDay: true })).toMatchObject({
+    allDay: true,
+    startsAt: '2030-02-03T15:00:00.000Z',
+    endsAt: '2030-02-04T15:00:00.000Z',
+  });
+});
+
+test('タスクの日時は両方空なら未設定、日付か時刻の片方だけなら書きかけとして検証で止める', () => {
+  const formData = bubble('提出');
+  formData.set('startsAtDate', '');
+  formData.set('startsAtTime', '');
+  formData.set('endsAtDate', '2030-02-04');
+  formData.set('endsAtTime', '');
+  expect(taskInputFromForm(formData, { initial: saved, allDay: false })).toMatchObject({
+    startsAt: null,
+    endsAt: '',
+  });
+});

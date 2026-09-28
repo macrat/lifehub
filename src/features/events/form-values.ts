@@ -138,8 +138,8 @@ export function carriedValues(
 /**
  * 予定のフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 全項目のフォームと、スマホのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
- * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）や空のときは、既定値の日時をそのまま使う（`savedInstants`）。
- * 予定の日時は必須なので、空欄は「未設定」ではなく入力の途中とみなす。
+ * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は、既定値の日時をそのまま使う（`savedInstants`）。
+ * 予定の日時は必須なので、空欄は検証で止める（開始・終了を入力させる）。
  * 終了前の通知はフォームに出さない（MCP から入れたもの）ので、既定値のまま送る。
  */
 export function eventInputFromForm(
@@ -150,12 +150,15 @@ export function eventInputFromForm(
     thisOnly = false,
   }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
-  const startsRaw = formText(formData, 'startsAt');
-  const endsRaw = formText(formData, 'endsAt');
+  const startsRaw = whenRaw(formData, 'startsAt');
   const when =
-    startsRaw && endsRaw
-      ? { allDay, startsAt: toInstant(startsRaw, allDay), endsAt: toInstant(endsRaw, allDay) }
-      : savedInstants(initial);
+    startsRaw === undefined
+      ? savedInstants(initial)
+      : {
+          allDay,
+          startsAt: toInstant(startsRaw, allDay),
+          endsAt: toInstant(whenRaw(formData, 'endsAt') ?? null, allDay),
+        };
   const extras = hasExtraFields(formData);
   return {
     kind: 'event' as const,
@@ -181,13 +184,15 @@ export function taskInputFromForm(
     thisOnly = false,
   }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
-  const when = formData.has('startsAt')
-    ? {
-        allDay,
-        startsAt: optionalInstant(formText(formData, 'startsAt'), allDay),
-        endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
-      }
-    : savedInstants(initial);
+  const startsRaw = whenRaw(formData, 'startsAt');
+  const when =
+    startsRaw === undefined
+      ? savedInstants(initial)
+      : {
+          allDay,
+          startsAt: toInstant(startsRaw, allDay),
+          endsAt: toInstant(whenRaw(formData, 'endsAt') ?? null, allDay),
+        };
   const extras = hasExtraFields(formData);
   return {
     kind: 'task' as const,
@@ -253,14 +258,45 @@ function savedInstants({ allDay, startsAt, endsAt }: ItemFormValues) {
   return { allDay, ...toInputIsoInstants(allDay, startsAt, endsAt) };
 }
 
-/** 日時の入力欄の値 → ISO 日時。終日では日付だけの欄（`type="date"`）から来る */
-function toInstant(raw: string, allDay: boolean): string {
-  return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+/**
+ * 日時の入力欄の名前。日付（`type="date"`）と時刻（`type="time"`）の 2 つに分け、終日では時刻の欄を出さない。
+ * name は保存の項目（開始 startsAt・終了（期限）endsAt）。
+ * WHY 分ける: 1 つの `datetime-local` だと、日だけ・時刻だけを直すときにも両方の入ったピッカーを開くことになる。
+ */
+export function whenFieldNames(name: 'startsAt' | 'endsAt') {
+  return { date: `${name}Date`, time: `${name}Time` } as const;
 }
 
-/** 任意の日時の入力欄（タスクの開始・期限）。空欄は未設定 */
-function optionalInstant(raw: string | null, allDay: boolean): string | null {
-  return raw ? toInstant(raw, allDay) : null;
+/**
+ * 日付と時刻に分けた入力欄の値を 1 つにする（終日は "YYYY-MM-DD"、時刻ありは "YYYY-MM-DDTHH:mm"）。
+ * 時刻の欄が無ければ（終日）日付だけ。両方空なら null（未設定）、片方だけなら ''（書きかけ。`toInstant` が検証で止まる形にする）。
+ * フォームを読む（`whenRaw`）ときも、開始に合わせて終了を動かす（`endFollowsStart`）ときも同じ規則で繋ぐ。
+ */
+function joinWhen(date: string, time: string | undefined): string | null {
+  if (time === undefined) return date || null;
+  if (date && time) return `${date}T${time}`;
+  return date || time ? '' : null;
+}
+
+/** 日時の入力欄の値（`joinWhen`）。欄が無ければ（PC のクイック入力の吹き出し）undefined */
+function whenRaw(formData: FormData, name: 'startsAt' | 'endsAt'): string | null | undefined {
+  const { date, time } = whenFieldNames(name);
+  if (!formData.has(date)) return undefined;
+  const timeValue = formData.get(time);
+  return joinWhen(
+    formText(formData, date) ?? '',
+    typeof timeValue === 'string' ? timeValue : undefined,
+  );
+}
+
+/**
+ * 日時の入力欄の値（`joinWhen`）→ ISO 日時。未設定は null。書きかけ（日付か時刻の片方だけ）は '' のまま返し、
+ * 日時の検証（`instantSchema`）で「日付と時刻を入力してください」と止める。
+ * WHY NOT 片方を補う（時刻を 0:00 にする等）: 入れたつもりの無い時刻が黙って保存される。
+ */
+function toInstant(raw: string | null, allDay: boolean): string | null {
+  if (!raw) return raw;
+  return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
 }
 
 /**
@@ -277,21 +313,43 @@ export function shiftedEnd(before: string, after: string, end: string): string |
   return toDateTimeLocalValue(new Date(ms(end) + ms(after) - ms(before)));
 }
 
+/** フォームの中の日時の入力欄（日付と、終日でなければ時刻）。今の値・初期値を 1 つにして読み、書き戻す */
+function whenInputs(form: HTMLFormElement, name: 'startsAt' | 'endsAt') {
+  const names = whenFieldNames(name);
+  const date = form.elements.namedItem(names.date);
+  const found = form.elements.namedItem(names.time);
+  if (!(date instanceof HTMLInputElement)) return null;
+  const time = found instanceof HTMLInputElement ? found : null;
+  return {
+    date,
+    value: joinWhen(date.value, time?.value) ?? '',
+    defaultValue: joinWhen(date.defaultValue, time?.defaultValue) ?? '',
+    set: (value: string) => {
+      const [dateValue = '', timeValue] = value.split('T');
+      date.value = dateValue;
+      if (time && timeValue !== undefined) time.value = timeValue;
+    },
+  };
+}
+
 /**
- * 予定の開始の入力欄の変更。終了の入力欄を、長さを保ったまま同じだけ動かす（`shiftedEnd`）。
- * 入力欄は制御しない（値は DOM が持つ）ので、動かす前の開始の値は入力欄そのものに覚えておく（`data-previous`）。
+ * 予定の開始の入力欄（日付・時刻のどちらでも）の変更。終了の入力欄を、長さを保ったまま同じだけ動かす（`shiftedEnd`）。
+ * 入力欄は制御しない（値は DOM が持つ）ので、動かす前の開始の値は開始の日付の欄に覚えておく（`data-previous`）。
  * 終日の切り替えで入力欄が作り直されたら、覚えた値は消えて新しい入力欄の初期値から数え直す。
  * 書きかけで空の間は覚え直さないので、書き終えたときに書き始める前の値からの差で動く。
  */
-export function endFollowsStart({ target: start }: ChangeEvent<HTMLInputElement>): void {
-  const end = start.form?.elements.namedItem('endsAt');
-  if (end instanceof HTMLInputElement) {
+export function endFollowsStart({ target }: ChangeEvent<HTMLInputElement>): void {
+  const form = target.form;
+  const start = form && whenInputs(form, 'startsAt');
+  if (!form || !start) return;
+  const end = whenInputs(form, 'endsAt');
+  if (end) {
     const shifted = shiftedEnd(
-      start.dataset.previous ?? start.defaultValue,
+      start.date.dataset.previous ?? start.defaultValue,
       start.value,
       end.value,
     );
-    if (shifted !== null) end.value = shifted;
+    if (shifted !== null) end.set(shifted);
   }
-  if (start.value) start.dataset.previous = start.value;
+  if (start.value) start.date.dataset.previous = start.value;
 }
