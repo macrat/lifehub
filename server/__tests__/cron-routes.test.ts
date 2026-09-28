@@ -13,6 +13,13 @@ describe('Vercel Cron の入口', () => {
     }
   });
 
+  it('Cron secret が違えば 401', async () => {
+    const res = await app.request('/api/cron/notifications', {
+      headers: { authorization: 'Bearer wrong-secret' },
+    });
+    expect(res.status).toBe(401);
+  });
+
   it('Cron secret があれば通る', async () => {
     const res = await app.request('/api/cron/notifications', {
       headers: { authorization: 'Bearer test-cron-secret' },

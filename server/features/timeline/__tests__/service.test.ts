@@ -3,10 +3,10 @@ import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { toDateString } from '../../../../shared/date.ts';
 import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { createEventSchema } from '../../../../shared/validation/events.ts';
+import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { expenseSchema } from '../../../../shared/validation/expenses.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
-import { completeEvent, createEvent } from '../../events/service.ts';
+import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
 import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';
 import { addMemo } from '../../memos/service.ts';
@@ -252,6 +252,31 @@ describe('timeline service', () => {
 
     expect(labels((await getTimelinePage({ q: '買い物' }, now)).items)).toEqual(['掃除', '買い物']);
     expect(labels((await getTimelinePage({ q: '水やり' }, now)).items)).toEqual(['water']);
+  });
+
+  it('「この回だけ」で直した回は、繰り返し元に当たらないキーワードでも見つかる', async () => {
+    const weekly = {
+      title: '朝会',
+      startsAt: iso('2026-09-07T09:00:00'),
+      endsAt: iso('2026-09-07T09:30:00'),
+      rrule: 'FREQ=WEEKLY',
+    };
+    const master = await createEvent(event(weekly), userId);
+    await updateEvent(
+      master.id,
+      updateEventSchema.parse({
+        kind: 'event',
+        participantIds: [userId],
+        ...weekly,
+        title: '歯医者',
+        scope: 'this',
+        occurrenceStart: weekly.startsAt,
+      }),
+      userId,
+    );
+
+    expect(labels((await getTimelinePage({ q: '歯医者' }, now)).items)).toEqual(['歯医者']);
+    expect(labels((await getTimelinePage({ q: '朝会' }, now)).items)).toEqual(['朝会']);
   });
 
   it('日付の範囲で絞り込むと、その範囲の記録だけを出し、日時の無いタスクは出さない', async () => {

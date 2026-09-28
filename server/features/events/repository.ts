@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  exists,
   getTableColumns,
   gt,
   gte,
@@ -46,13 +47,34 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
+  'id' | 'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
 /** 検索（ホームのタイムライン）: タイトルかメモの部分一致。空のキーワードは条件にしない */
 function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | undefined) {
   return or(containsKeyword(table.title, q), containsKeyword(table.note, q));
+}
+
+/**
+ * 検索で繰り返し元・単発の行を読む条件: 行そのものか、実体化された回のどれかが当たる。
+ * 「この回だけ」で直した回は繰り返し元と別のタイトル・メモを持つので、繰り返し元だけを見ると、
+ * 当たる回を持つのに繰り返しごと読まれない。どの回を出すかは展開した後に回の値で絞り直す
+ * （`timeline.ts` の `entries`）。
+ */
+function seriesKeywordOf(table: CandidateColumns, q: string | undefined): SQL | undefined {
+  const own = keywordOf(table, q);
+  if (!own) return undefined;
+  const occurrence = alias(events, 'keyword_occurrence');
+  return or(
+    own,
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(occurrence)
+        .where(and(eq(occurrence.seriesId, table.id), keywordOf(occurrence, q))),
+    ),
+  );
 }
 
 function isCandidate(
@@ -63,7 +85,7 @@ function isCandidate(
 ): SQL | undefined {
   const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
-    keywordOf(table, q),
+    seriesKeywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(

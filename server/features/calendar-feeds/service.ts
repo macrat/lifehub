@@ -34,7 +34,7 @@ export async function listFeeds(userId: string): Promise<CalendarFeed[]> {
 
 export async function createFeed(input: CalendarFeedInput, userId: string): Promise<void> {
   await repository.insert(
-    { id: newId(), userId, name: input.name, token: newSecret(), createdAt: new Date() },
+    { id: newId(), userId, name: input.name, token: newSecret() },
     input.participantIds,
   );
 }
@@ -103,13 +103,8 @@ function feedUrl(token: string): string {
   return `${resolveBaseUrl()}/api/calendar/${token}.ics`;
 }
 
-/** 保存されている行（または今しがた保存した値）を画面に出す形にする */
-function toFeed(
-  row: Pick<
-    CalendarFeedWithParticipants,
-    'id' | 'name' | 'token' | 'participantIds' | 'createdAt' | 'lastAccessedAt'
-  >,
-): CalendarFeed {
+/** 保存されている行を画面に出す形にする */
+function toFeed(row: CalendarFeedWithParticipants): CalendarFeed {
   return {
     id: row.id,
     name: row.name,

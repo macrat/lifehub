@@ -32,10 +32,12 @@ export function parseHolidays(ics: string): DateString[] {
 
 /**
  * 配布元から取り直して入れ替え、入れ替えた一覧を返す（月次の Cron）。
- * 取得や解析に失敗したら何も書かずに投げる（手元の一覧は前回のまま残る）。
+ * 取得や解析に失敗したら何も書かずに投げる（手元の一覧は前回のまま残る）。祝日が 1 つも無い配布も
+ * 失敗とみなす（配布元の不調で空の ics が返ったときに、手元の祝日をすべて消してしまわないように）。
  */
 export async function refreshHolidays(): Promise<DateString[]> {
   const dates = parseHolidays(await (await fetchOk(HOLIDAYS_URL)).text());
+  if (dates.length === 0) throw new Error(`holidays: ${HOLIDAYS_URL} has no events`);
   await repository.replaceAll(dates);
   return dates;
 }

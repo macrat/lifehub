@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { isDateString } from '../date.ts';
-import { newId } from '../id.ts';
 import type { DateString } from '../types.ts';
 
 /** JST の暦日（YYYY-MM-DD） */
@@ -24,13 +23,13 @@ export const nameSchema = z.string().trim().min(1, '名前を入力してくだ�
 
 /**
  * API が受け取る作成の入力に足す、行の ID（`schema.safeExtend(clientIdShape)`）。
- * ID はクライアントが決めて送れ、省略時はサーバーが採番する。
+ * ID はクライアントが決めて送れ、省略時はサーバー（各 feature の service の作成の既定の引数）が採番する。
  * WHY: オフラインで作った記録をオンラインに戻る前に編集・削除でき（ID が仮のものにならない）、
  * 通信が切れて送り直しても同じ行になる（二重に作られない）。
  * WHY NOT 入力のスキーマそのものに持たせる: MCP は ID を考える必要がなく、持たせると
  * ツールの入力欄が増えて誤った ID を渡す余地ができる。
  */
-export const clientIdShape = { id: uuidSchema.default(newId) };
+export const clientIdShape = { id: uuidSchema.optional() };
 
 /**
  * 履歴の 1 ページの問い合わせ（shared/types.ts の `HistoryPage`）で絞り込みに足す、続きのページの

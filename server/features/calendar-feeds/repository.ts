@@ -32,7 +32,7 @@ const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsW
 
 /** 行と参加者を原子的に作る */
 export async function insert(
-  values: { id: string; userId: string; name: string; token: string; createdAt: Date },
+  values: { id: string; userId: string; name: string; token: string },
   participantIds: string[],
 ): Promise<void> {
   await runBatch((tx) => [

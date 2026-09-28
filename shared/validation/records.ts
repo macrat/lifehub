@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { instantSchema, uuidSchema } from './common.ts';
+import { clientIdShape, instantSchema } from './common.ts';
 import { careLogFieldsSchema, withCareLogRules } from './lemon.ts';
 
 /**
@@ -15,7 +15,7 @@ export const recordSchema = z.discriminatedUnion('type', [
   withCareLogRules(
     careLogFieldsSchema.extend({
       type: z.literal('lemon'),
-      id: uuidSchema.optional(),
+      ...clientIdShape,
       doneAt: instantSchema.default(() => new Date()),
     }),
   ),
