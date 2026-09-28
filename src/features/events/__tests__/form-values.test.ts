@@ -164,14 +164,17 @@ test('日付と時刻に分けた欄を 1 つの日時にし、終日では日�
   });
 });
 
-test('タスクの日時は両方空なら未設定、日付か時刻の片方だけなら書きかけとして検証で止める', () => {
+test('タスクの日時は両方空なら未設定、日付か時刻の片方だけなら書きかけとしてその欄で止める', () => {
   const formData = bubble('提出');
   formData.set('startsAtDate', '');
   formData.set('startsAtTime', '');
   formData.set('endsAtDate', '2030-02-04');
-  formData.set('endsAtTime', '');
+  formData.set('endsAtTime', '10:00');
   expect(itemInputFromForm('task', formData, { initial: saved, allDay: false })).toMatchObject({
     startsAt: null,
-    endsAt: '',
   });
+  formData.set('endsAtTime', '');
+  expect(() => itemInputFromForm('task', formData, { initial: saved, allDay: false })).toThrow(
+    expect.objectContaining({ field: 'endsAt', message: '日付と時刻を入力してください' }),
+  );
 });

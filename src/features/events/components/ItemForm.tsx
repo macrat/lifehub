@@ -48,7 +48,7 @@ export function ItemForm(props: Props) {
       full
       title={`${ADD_KINDS[kind].label}を${editing ? '編集' : '追加'}`}
       headerMiddle={
-        !thisOnly && <KindToggle kind={kind} onChange={(to) => switchTo(to, readInput())} />
+        <KindToggle kind={kind} thisOnly={thisOnly} onChange={(to) => switchTo(to, readInput())} />
       }
     >
       <ItemFields

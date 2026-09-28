@@ -20,7 +20,8 @@ import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
 import { KindToggle } from '../../events/components/KindToggle.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import type { GridDraft, QuickProps } from '../use-event-composer.ts';
+import { draftKind, type GridDraft } from '../draft.ts';
+import type { QuickProps } from '../use-event-composer.ts';
 import type { Quick } from '../use-quick-form.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
 
@@ -45,8 +46,7 @@ type Props = Pick<QuickProps, 'onExpand'> & {
 
 /**
  * グリッドの下書きを入力するクイック入力の入れ物（`QuickItemForm`）。予定とタスクで同じもので、端末に合った入れ物を選ぶ。
- * どちらも上端に予定・タスクの切り替え（`KindToggle`）を置く（繰り返しの 1 回だけを直しているときは出さない。
- * 回の種類は繰り返し元のもの）。
+ * どちらも上端に予定・タスクの切り替え（`KindToggle`）を置く。
  * - スマホ: 画面下のシート（`QuickSheet`）。下の段はタイトル・日時の見出し・参加者だけ、上の段まで広げると全項目。
  * - PC: 選んだ範囲に寄せた吹き出し（`QuickBubble`）。タイトルと参加者だけを扱い、残りは
  *   「その他のオプション」で全項目のフォームへ渡す。
@@ -64,9 +64,15 @@ export function QuickForm({ onExpand, ...props }: Props) {
 
 type LayoutProps = Omit<Props, 'onChangeInset' | 'onExpand'>;
 
-/** 上端の予定・タスクの切り替え。繰り返しの 1 回だけを直しているときは種類を変えられないので出さない */
+/** 上端の予定・タスクの切り替え */
 function Switcher({ draft, quick }: Pick<Props, 'draft' | 'quick'>) {
-  return quick.form.thisOnly ? null : <KindToggle kind={draft.kind} onChange={quick.switchKind} />;
+  return (
+    <KindToggle
+      kind={draftKind(draft)}
+      thisOnly={quick.form.thisOnly}
+      onChange={quick.switchKind}
+    />
+  );
 }
 
 /**
@@ -133,16 +139,16 @@ function QuickSheet({
           }}
         >
           <WhenFields
-            kind={draft.kind}
+            kind={draftKind(draft)}
             // 枠を動かしたら・種類を切り替えたら、入力欄もその日時に入れ直す
-            key={`${draft.kind}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            key={`${draftKind(draft)}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
             onChangeAllDay={quick.changeAllDay}
           />
           <ExtraFields
-            kind={draft.kind}
+            kind={draftKind(draft)}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}

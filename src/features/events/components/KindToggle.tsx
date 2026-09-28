@@ -8,14 +8,19 @@ import { ADD_KINDS } from '../../add/kinds.ts';
  * 違うのは日時と通知の項目だけなので、書き始めてから種類を変えられるようにする。
  * 入力のときの上端の帯は見出しを出さず空いているので（`SheetHeader`）、そこに置けばシートの高さは増えない。
  * 押された種類を渡すだけで、何を引き継ぐかは呼び出し側が決める。
+ * 繰り返しの 1 回だけ（thisOnly）を直しているときは出さない。回の種類は繰り返し元のもので、
+ * 回だけは変えられない（サーバーも拒む）。どの入力でも同じ規則になるよう、ここで決める。
  */
 export function KindToggle({
   kind,
+  thisOnly,
   onChange,
 }: {
   kind: EventKind;
+  thisOnly: boolean;
   onChange: (kind: EventKind) => void;
 }) {
+  if (thisOnly) return null;
   return (
     <ToggleButtonGroup
       value={kind}

@@ -5,9 +5,10 @@ import {
   type AllDayDraft,
   type DraftRange,
   draftDays,
+  draftKind,
   type Grabbed,
+  type GridDraft,
   hasEnds,
-  type KindedDraft,
   SHORT_VIBRATION_MS,
 } from './draft.ts';
 import type { Drag } from './range-drag-session.ts';
@@ -28,17 +29,17 @@ export type DayGrab = Grabbed &
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
 export function dayGrab(
-  draft: KindedDraft | null,
+  draft: Pick<GridDraft, 'range' | 'item' | 'task'> | null,
   date: DateString,
   half: 'left' | 'right',
 ): DayGrab | null {
   if (draft === null) return null;
-  const { range, item, kind } = draft;
+  const { range, item } = draft;
   const days = draftDays(range);
   if (!inRange(date, days)) return null;
   const { from, to } = days;
   // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。端の無い枠（タスク）も動かすだけ
-  if (!range.allDay || !hasEnds(kind)) return { kind: 'move', draft: range, item };
+  if (!range.allDay || !hasEnds(draftKind(draft))) return { kind: 'move', draft: range, item };
   if (date === from && half === 'left') return { kind: 'start', draft: range, item };
   if (date === to && half === 'right') return { kind: 'end', draft: range, item };
   return { kind: 'move', draft: range, item };

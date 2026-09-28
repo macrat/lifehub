@@ -6,8 +6,17 @@ import {
 } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
-import type { ItemFormValues } from '../events/form-values.ts';
-import { type DraftRange, itemDraft, taskFrame, toTaskFrame } from './draft.ts';
+import { carriedValues, type ItemFormValues } from '../events/form-values.ts';
+import {
+  type Draft,
+  type DraftOps,
+  type DraftRange,
+  itemDraft,
+  sameRange,
+  taskFrame,
+  toTaskFrame,
+  type WhenInput,
+} from './draft.ts';
 
 /**
  * グリッドの枠で動かすタスクの日時（開始・期限と、終日か）と、その日時が置かれていた枠（frame）。
@@ -40,7 +49,8 @@ export function newTaskTimes(range: DraftRange): TaskTimes {
 }
 
 /**
- * 枠 range に置いたタスクの日時。落とした所をそのまま開始にし、期限は元の開始〜期限の長さを保ってずらす
+ * 枠 range に置いたタスクの日時。枠が動いていなければ（range が frame と同じ）日時はそのまま。
+ * 動かしたら、落とした所をそのまま開始にし、期限は元の開始〜期限の長さを保ってずらす
  * （開始が無ければ、枠を動かした分だけずらす）。
  * WHY 開始にする: タスクは開始が未来ならその日に置かれるので、落とした所が開始になれば、未来の日へ動かした
  * タスクはその日に現れる。期限を動かすだけだと、表示の日（開始の日か今日）は変わらず、動かしたのに元の日に
@@ -52,6 +62,12 @@ export function taskTimesAt(
   times: TaskTimes,
   range: DraftRange,
 ): Pick<ItemFormValues, 'allDay' | 'startsAt' | 'endsAt'> {
+  // WHY 動かしていなければそのまま: つまんだだけ・終日を切り替えただけで、開始の無いタスクに開始が付いたり
+  // 日時が枠の形に丸められたりしないように
+  if (sameRange(range, times.frame)) {
+    const { allDay, startsAt, endsAt } = times;
+    return { allDay, startsAt, endsAt };
+  }
   const start = dropStart(times, range);
   // 開始が無ければ、動かす前の枠の開始から数える（落とした所までずらした分だけ期限もずらす）
   const from = times.startsAt ?? dropStart(times, times.frame).startsAt;
@@ -79,17 +95,54 @@ function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; star
  * （期限も入力したまま。枠から数え直さない）。開始が空なら枠に置けないので null（枠はそのまま）。
  * input は入力欄の形（終日の期限は「含む日」）で、保存されている形（排他的な終端）で持つ。
  */
-export function taskDraftFromInput(input: {
-  allDay: boolean;
-  startsAt: string | null;
-  endsAt: string | null;
-}): TaskTimes | null {
+export function taskDraftFromInput(input: WhenInput): TaskTimes | null {
   const { allDay, startsAt } = input;
   if (startsAt === null) return null;
   return {
     allDay,
     ...normalizeIsoInstants(allDay, startsAt, input.endsAt),
     frame: taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt)),
+  };
+}
+
+/**
+ * タスクの終日の切り替え。日時はそのまま（終日なら日付として読み、時刻ありに戻せば元の時刻）で、
+ * 枠だけを開始の所の形（終日なら 1 日の帯、時刻ありなら時間軸のブロック）に置き直す。
+ * 開始が無ければ枠に置けないので、枠はそのまま。
+ */
+function withTaskAllDay(times: TaskTimes, allDay: boolean): TaskTimes {
+  const { startsAt } = times;
+  const frame = startsAt
+    ? taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt))
+    : times.frame;
+  return { ...times, allDay, frame };
+}
+
+/**
+ * タスクの下書きの扱い（`DraftOps`）。日時は枠と、それを動かす元の日時（task）から導き（`taskTimesAt`）、
+ * 入力で直した日時と終日の切り替えは、その元の日時ごと持ち替える（`taskDraftFromInput` / `withTaskAllDay`）。
+ * 終日かどうかも元の日時が持つので、予定と同じく入力の側には状態を持たない。
+ */
+export function taskDraftOps(task: TaskTimes, { range, item }: Draft): DraftOps {
+  const values = { ...carriedValues(item, 'task'), ...taskTimesAt(task, range) };
+  return {
+    values,
+    rangeText: taskDraftText(values),
+    fromInput: (input) => {
+      const next = taskDraftFromInput(input);
+      return next && { task: next };
+    },
+    withAllDay: (input, allDay) => {
+      // 入力欄の日時（読めなければ今の枠に置いた日時）を保ったまま切り替える
+      const { allDay: current, startsAt, endsAt } = values;
+      const base = (input && taskDraftFromInput(input)) ?? {
+        allDay: current,
+        startsAt,
+        endsAt,
+        frame: range,
+      };
+      return { task: withTaskAllDay(base, allDay) };
+    },
   };
 }
 

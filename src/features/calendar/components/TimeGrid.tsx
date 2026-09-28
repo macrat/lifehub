@@ -14,11 +14,11 @@ import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/comple
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
-import { type Draft, sameOccurrence } from '../draft.ts';
+import type { GridDraft } from '../draft.ts';
+import { type Draft, draftKind, sameOccurrence } from '../draft.ts';
 import { itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { atMinute, HOUR_HEIGHT_VAR } from '../use-hour-zoom.ts';
 import { usePinch } from '../use-pinch.ts';
 import type { DragHandlers } from '../use-range-drag.ts';
@@ -187,7 +187,7 @@ export function TimeGrid({
         {draft && timedDraft && draftCol >= 0 && (
           <DraftBlock
             draft={timedDraft}
-            kind={draft.kind}
+            kind={draftKind(draft)}
             column={draftCol + 1}
             participantIds={draft.participantIds}
             grab={drag.frameProps(timedDraft)}

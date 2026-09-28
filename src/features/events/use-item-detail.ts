@@ -65,11 +65,8 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
           thisOnly: form.thisOnly,
         }
       : null,
-    /**
-     * 種類の切り替え。繰り返しの 1 回だけ（this）を直しているときは変えられない（回の種類は繰り返し元のもの）ので null。
-     * 切り替えたときの入力の開始を引き継ぐ
-     */
-    switchKind: form.thisOnly ? null : (to: EventKind) => switchTo(to, form.readInput()),
+    /** 種類の切り替え。切り替えたときの入力の開始を引き継ぐ */
+    switchKind: (to: EventKind) => switchTo(to, form.readInput()),
     /** 繰り返しのどの範囲を直しているか（範囲の印を出す）。繰り返しでない・閲覧中は null */
     editScope: editing && item.isRecurring ? editScope : null,
     /** 範囲の選択を待っている操作（繰り返しのときだけ）。無ければ null */

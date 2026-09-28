@@ -73,8 +73,13 @@ function ItemDetail({
         onEdit={detail.startEdit}
         actions={actions}
         headerMiddle={
-          fields &&
-          detail.switchKind && <KindToggle kind={fields.kind} onChange={detail.switchKind} />
+          fields && (
+            <KindToggle
+              kind={fields.kind}
+              thisOnly={fields.thisOnly}
+              onChange={detail.switchKind}
+            />
+          )
         }
       >
         {fields ? (

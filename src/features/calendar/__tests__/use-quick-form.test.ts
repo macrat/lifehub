@@ -1,9 +1,8 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { itemDraft } from '../draft.ts';
+import { type DraftChange, type GridDraft, itemDraft } from '../draft.ts';
 import { taskTimesOf } from '../task-draft.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { useQuickForm } from '../use-quick-form.ts';
 import { allDay, DAY, event, task } from './draft-fixtures.ts';
 
@@ -13,14 +12,15 @@ import { allDay, DAY, event, task } from './draft-fixtures.ts';
 let unmount: () => void = () => {};
 afterEach(() => unmount());
 
-/** 下書きでフックを描き、描き直す関数と最新の戻り値を受け取る */
+/** 下書きでフックを描き、描き直す関数・最新の戻り値・下書きへ戻した変更を受け取る */
 function setup(draft: GridDraft) {
   let quick!: ReturnType<typeof useQuickForm>;
+  const onChangeDraft = vi.fn<(change: DraftChange) => void>();
   function Probe({ draft }: { draft: GridDraft }) {
     quick = useQuickForm({
       draft,
       onSubmit: vi.fn(),
-      onChangeDraft: vi.fn(),
+      onChangeDraft,
       onSwitchKind: vi.fn(),
       onClose: vi.fn(),
     });
@@ -30,69 +30,45 @@ function setup(draft: GridDraft) {
   const render = (next: GridDraft) => act(() => root.render(createElement(Probe, { draft: next })));
   render(draft);
   unmount = () => act(() => root.unmount());
-  return { read: () => quick, render };
+  return { read: () => quick, render, onChangeDraft };
 }
 
+const base = { participantIds: ['u1'], settled: true, origin: 'grid' as const };
 const frame = itemDraft(task) ?? allDay(DAY, DAY);
 /** つまんだタスクの下書き */
-const draft: GridDraft = {
-  kind: 'task',
-  times: taskTimesOf(task, frame),
-  range: frame,
-  item: task,
-  participantIds: ['u1'],
-  settled: true,
-  origin: 'grid',
-};
+const taskDraft: GridDraft = { ...base, task: taskTimesOf(task, frame), range: frame, item: task };
 
-describe('useQuickForm（タスク）', () => {
-  it('参加者を選び直しても、切り替えた終日は戻らず、既定値の参加者は選んだものになる', () => {
-    const { read, render } = setup(draft);
-    act(() => read().changeAllDay(true));
-    render({ ...draft, participantIds: ['u1', 'u2'] });
-    expect(read().allDay).toBe(true);
+describe('useQuickForm', () => {
+  it('既定値は下書きから導き、参加者は選んだものになる', () => {
+    const { read, render } = setup(taskDraft);
+    expect(read().initial).toMatchObject({ title: task.title, startsAt: task.startsAt });
+    render({ ...taskDraft, participantIds: ['u1', 'u2'] });
     expect(read().initial.participantIds).toEqual(['u1', 'u2']);
   });
 
-  it('枠を動かしたら、終日はその置き方に合わせ直す', () => {
-    const { read, render } = setup(draft);
+  it('終日は下書きが持ち、切り替えは下書きへ戻す（タスクは開始の所の 1 日の帯になる）', () => {
+    const { read, onChangeDraft } = setup(taskDraft);
+    expect(read().allDay).toBe(false);
     act(() => read().changeAllDay(true));
-    render({ ...draft, range: { allDay: false, date: DAY, startMin: 600, endMin: 630 } });
-    expect(read().allDay).toBe(false);
+    expect(onChangeDraft).toHaveBeenCalledWith({
+      task: expect.objectContaining({ allDay: true, frame: allDay(DAY, DAY) }),
+    });
   });
-});
 
-describe('useQuickForm（予定）', () => {
-  it('終日は下書きの枠そのもので決まる', () => {
+  it('予定の終日は枠そのもので決まる', () => {
     const range = { allDay: false as const, date: DAY, startMin: 600, endMin: 660 };
-    const { read, render } = setup({
-      kind: 'event',
-      range,
-      item: event,
-      participantIds: ['u1'],
-      settled: true,
-      origin: 'grid',
-    });
+    const { read, render } = setup({ ...base, task: null, range, item: event });
     expect(read().allDay).toBe(false);
-    render({
-      kind: 'event',
-      range: allDay(DAY, DAY),
-      item: event,
-      participantIds: ['u1'],
-      settled: true,
-      origin: 'grid',
-    });
+    render({ ...base, task: null, range: allDay(DAY, DAY), item: event });
     expect(read().allDay).toBe(true);
   });
 
   it('タスクから予定に切り替えた下書きは、期限前の通知を持ち越さない', () => {
     const { read } = setup({
-      kind: 'event',
+      ...base,
+      task: null,
       range: { allDay: false, date: DAY, startMin: 540, endMin: 600 },
       item: task,
-      participantIds: ['u1'],
-      settled: true,
-      origin: 'grid',
     });
     expect(read().initial).toMatchObject({ title: task.title, remindEndMinutes: null });
   });

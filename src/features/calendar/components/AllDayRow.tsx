@@ -4,11 +4,10 @@ import { useMemo } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-
-import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
+import type { GridDraft } from '../draft.ts';
+import { type Draft, draftColumns, draftKind, sameOccurrence } from '../draft.ts';
 import { layoutLanes } from '../lane-layout.ts';
 import { useDayDrag } from '../use-day-drag.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { DraftBar } from './DraftBlock.tsx';
 import { GridChip } from './GridChip.tsx';
 
@@ -100,7 +99,7 @@ export function AllDayRow({
         <DraftBar
           columns={{ ...draftCols, col: draftCols.col + 1 }}
           lane={laneCount}
-          kind={barDraft.kind}
+          kind={draftKind(barDraft)}
           participantIds={barDraft.participantIds}
         />
       )}

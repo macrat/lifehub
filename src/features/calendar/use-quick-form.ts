@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import type { EventKind } from '../../../shared/validation/events.ts';
-import { carriedValues, type ItemFormValues } from '../events/form-values.ts';
+import type { ItemFormValues } from '../events/form-values.ts';
 import { grabbedScope } from '../events/recurrence-options.ts';
-import { useAllDay, useItemForm } from '../events/use-item-form.ts';
-import { type DraftRange, withAllDay } from './draft.ts';
-import { draftFromInstants, draftText, draftValues } from './event-draft.ts';
-import { taskDraftFromInput, taskDraftText, taskTimesAt } from './task-draft.ts';
+import { useItemForm } from '../events/use-item-form.ts';
+import { draftKind } from './draft.ts';
+import { eventDraftOps } from './event-draft.ts';
+import { taskDraftOps } from './task-draft.ts';
 import type { QuickProps } from './use-event-composer.ts';
 
 /**
@@ -23,7 +23,7 @@ export type Quick = {
   rangeText: string;
   /** 上の段で直した日時を下書き（見出しとグリッドの枠）へ映す。スマホのシートを下の段に戻すとき */
   syncDraft: () => void;
-  /** 終日か。予定は下書き、タスクはフォームが持つ */
+  /** 終日か（下書きが持つ） */
   allDay: boolean;
   changeAllDay: (allDay: boolean) => void;
   /** PC の「その他のオプション」で全項目のフォームへ引き継ぐ値 */
@@ -41,19 +41,15 @@ type Options = Pick<
 >;
 
 /**
- * クイック入力（予定・タスク）の状態と操作。入力欄の値はフォームの DOM が持つので、
- * 下書きへ映し戻すときも全項目のフォームへ引き継ぐときも、`formRef` の form から読む。
+ * クイック入力（予定・タスク）の状態と操作。日時と終日かどうかは下書き（`GridDraft`）だけが持ち、
+ * 入力欄で直した日時は下書きへ戻す（見出し・グリッドの枠・保存する日時がいつも同じ下書きから決まるように）。
+ * 入力欄の値はフォームの DOM が持つので、下書きへ映し戻すときも全項目のフォームへ引き継ぐときも、
+ * フォーム（`useItemForm` の readInput）から読む。
  * つまんだ繰り返しの回はその回だけを直す（`grabbedScope`。回の行は繰り返さないので繰り返しの設定は触らせない）。
  *
- * 予定とタスクで 1 つのフックにし、日時の扱いだけを種類（`draft.kind`）で分ける。
- * WHY: 入力の途中で種類を切り替えても、入れ物とタイトルなどの入力欄を作り直さないため
+ * 予定とタスクで 1 つのフックにし、種類で違う日時の扱いは下書きの種類ごとの扱い（`DraftOps`）に任せる。
+ * WHY 1 つのフック: 入力の途中で種類を切り替えても、入れ物とタイトルなどの入力欄を作り直さないため
  * （フックが種類ごとに分かれると、それを呼ぶコンポーネントも分かれ、切り替えると入れ物ごと作り直して入力が消える）。
- * - 予定: 日時（終日かどうかを含む）は下書きの範囲（`draft.range`）だけが持つ。入力で直した日時と終日の
- *   切り替えは下書きへ戻し、見出し・グリッドの枠・保存する日時がいつも同じ下書きから決まるようにする
- *   （入力の側にも持つと、開いたままグリッドで別の種類の枠を選び直したときに食い違う）。
- * - タスク: 日時は枠と、それを動かす元の日時（`draft.times`）から導き（`taskTimesAt`）、上の段で直した日時は
- *   下の段に戻るときに両方へ戻す（`taskDraftFromInput`）。終日かどうかはフォームが持つ（タスクの終日は置き方ではなく
- *   日時の形なので、切り替えても枠は動かない）。枠を動かしたとき（置いた値が変わったとき）だけ合わせ直す。
  */
 export function useQuickForm({
   draft,
@@ -62,23 +58,16 @@ export function useQuickForm({
   onSwitchKind,
   onClose,
 }: Options): Quick {
-  const { range, item, participantIds } = draft;
-  const times = draft.kind === 'task' ? draft.times : null;
-  // 枠から導く値。タスクの終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す
-  // （描画ごとや参加者を選び直すたびに合わせ直すと、選んだ終日が戻ってしまう）
-  const placed = useMemo(
-    () =>
-      times
-        ? { ...carriedValues(item, 'task'), ...taskTimesAt(times, range) }
-        : draftValues(range, [], item),
-    [times, range, item],
+  const { range, item, task, participantIds } = draft;
+  // 枠・直している物・タスクの日時から導く扱い。参加者を選び直しただけでは作り直さない
+  const ops = useMemo(
+    () => (task ? taskDraftOps(task, { range, item }) : eventDraftOps({ range, item })),
+    [task, range, item],
   );
-  // 予定の終日は枠が持つので、合わせ直す鍵はタスクのときだけ渡す（予定の枠を動かすたびに描き直しを重ねない）
-  const [taskAllDay, setTaskAllDay] = useAllDay(placed.allDay, times ? placed : null);
-  const allDay = times ? taskAllDay : range.allDay;
-  const initial = { ...placed, participantIds };
+  const initial = { ...ops.values, participantIds };
+  const { allDay } = initial;
   const form = useItemForm({
-    kind: draft.kind,
+    kind: draftKind(draft),
     initial,
     allDay,
     scope: grabbedScope(item),
@@ -87,39 +76,19 @@ export function useQuickForm({
   });
   const { readInput } = form;
 
-  /** 入力欄の日時 → 予定の枠。枠に出せない範囲（日をまたぐ時間指定など）なら null */
-  const eventRangeFromForm = (): DraftRange | null => {
-    const input = readInput();
-    return input?.startsAt && input.endsAt
-      ? draftFromInstants(input.allDay, input.startsAt, input.endsAt)
-      : null;
-  };
-
-  /**
-   * 入力欄で直した日時を下書き（見出しとグリッドの枠）へ映す。
-   * 予定は枠に出せない範囲なら、タスクは開始が空なら枠に置けないので、そのままにする
-   */
+  /** 入力欄で直した日時を下書きへ映す。枠に置けない（範囲に出せない・開始が空・書きかけ）ならそのまま */
   const syncDraft = () => {
-    if (times) {
-      const input = readInput();
-      const times = input && taskDraftFromInput(input);
-      if (times) onChangeDraft({ times });
-      return;
-    }
-    const next = eventRangeFromForm();
-    if (next) onChangeDraft({ range: next });
+    const input = readInput();
+    const change = input && ops.fromInput(input);
+    if (change) onChangeDraft(change);
   };
 
   return {
     form,
     initial,
-    rangeText: times ? taskDraftText(placed) : draftText(range),
+    rangeText: ops.rangeText,
     allDay,
-    changeAllDay: times
-      ? setTaskAllDay
-      : // 予定の終日は下書きそのものを切り替える（入力欄で直していた日時を保ったまま）
-        (next: boolean) =>
-          onChangeDraft({ range: withAllDay(eventRangeFromForm() ?? range, next) }),
+    changeAllDay: (next: boolean) => onChangeDraft(ops.withAllDay(readInput(), next)),
     syncDraft,
     switchKind: (kind: EventKind) => {
       syncDraft();

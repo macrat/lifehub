@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
 import { editingItemOn, itemDraft, nextHourDraft, sameOccurrence, withAllDay } from '../draft.ts';
-import { draftText, draftValues } from '../event-draft.ts';
+import { draftText, eventDraftOps } from '../event-draft.ts';
 import { allDay, at, DAY, day, event, select, task, timed } from './draft-fixtures.ts';
 
 describe('draftText', () => {
@@ -58,24 +58,24 @@ describe('withAllDay', () => {
   });
 });
 
-describe('draftValues', () => {
-  it('追加のときは日時と参加者だけの空の予定', () => {
-    expect(draftValues(timed, ['u1'])).toMatchObject({
+describe('eventDraftOps の既定値', () => {
+  const draftValues = (range: Parameters<typeof draftText>[0], item: typeof event | null = null) =>
+    eventDraftOps({ range, item }).values;
+
+  it('追加のときは日時だけの空の予定', () => {
+    expect(draftValues(timed)).toMatchObject({
       title: '',
       allDay: false,
       // `timed` は 9:00〜10:15（なぞって触れた 15 分の枠まで含む）
       startsAt: '2031-06-05T00:00:00.000Z',
       endsAt: '2031-06-05T01:15:00.000Z',
-      participantIds: ['u1'],
       location: null,
       rrule: null,
     });
   });
 
-  it('直している予定があるときは、その内容に枠の日時と参加者だけを重ねる', () => {
-    expect(
-      draftValues({ ...timed, startMin: 13 * 60, endMin: 14 * 60 }, ['u2'], event),
-    ).toMatchObject({
+  it('直している予定があるときは、その内容に枠の日時だけを重ねる', () => {
+    expect(draftValues({ ...timed, startMin: 13 * 60, endMin: 14 * 60 }, event)).toMatchObject({
       title: '打ち合わせ',
       location: '会議室',
       note: 'メモ',
@@ -84,12 +84,11 @@ describe('draftValues', () => {
       allDay: false,
       startsAt: '2031-06-05T04:00:00.000Z',
       endsAt: '2031-06-05T05:00:00.000Z',
-      participantIds: ['u2'],
     });
   });
 
   it('終日にすると日だけの日時になる（直している内容はそのまま）', () => {
-    expect(draftValues(allDay('2031-06-05', '2031-06-06'), ['u1'], event)).toMatchObject({
+    expect(draftValues(allDay('2031-06-05', '2031-06-06'), event)).toMatchObject({
       title: '打ち合わせ',
       allDay: true,
       // 終日の終わりは翌日 0:00（JST）

@@ -4,7 +4,7 @@ import {
   type EventKind,
   type RecurrenceScope,
 } from '../../../shared/validation/events.ts';
-import { useFormSubmit } from '../../lib/form.ts';
+import { FormFieldError, useFormSubmit } from '../../lib/form.ts';
 import { type ItemFormValues, itemInputFromForm, switchKindValues } from './form-values.ts';
 import type { CreateEventBody } from './queries.ts';
 
@@ -53,8 +53,19 @@ export function useItemForm({
     thisOnly,
     /** 入力欄の form（`RecordSheet` の formRef、クイック入力の form に渡す） */
     formRef,
-    /** 今の入力欄の値（検証前）。フォームがまだ無ければ null */
-    readInput: () => formRef.current && inputFromForm(new FormData(formRef.current)),
+    /**
+     * 今の入力欄の値（検証前）。フォームがまだ無い・書きかけの欄がある（`FormFieldError`）なら null
+     * （読むのは下書きへの映し戻しや種類の切り替えで、書きかけの間は今の値のままにする）
+     */
+    readInput: () => {
+      if (!formRef.current) return null;
+      try {
+        return inputFromForm(new FormData(formRef.current));
+      } catch (error) {
+        if (error instanceof FormFieldError) return null;
+        throw error;
+      }
+    },
     /** `RecordSheet` にそのまま広げる props（`useFormSubmit` の sheet と form） */
     sheet: { ...form.sheet, formRef },
   };

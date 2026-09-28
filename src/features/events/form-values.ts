@@ -16,7 +16,7 @@ import {
   isDateTimeLocalValue,
   toDateTimeLocalValue,
 } from '../../lib/date.ts';
-import { formList, formSelect, formText } from '../../lib/form.ts';
+import { FormFieldError, formList, formSelect, formText } from '../../lib/form.ts';
 
 /**
  * 予定・タスクのフォームが扱う値（日時は ISO 文字列）。保存されている行（`EventMaster`）の入力できる項目なので、
@@ -159,8 +159,8 @@ export function itemInputFromForm(
       ? savedInstants(initial)
       : {
           allDay,
-          startsAt: toInstant(startsRaw, allDay),
-          endsAt: toInstant(whenRaw(formData, 'endsAt') ?? null, allDay),
+          startsAt: toInstant('startsAt', startsRaw, allDay),
+          endsAt: toInstant('endsAt', whenRaw(formData, 'endsAt') ?? null, allDay),
         };
   const extras = hasExtraFields(formData);
   return {
@@ -241,7 +241,7 @@ export function whenFieldNames(name: 'startsAt' | 'endsAt') {
 
 /**
  * 日付と時刻に分けた入力欄の値を 1 つにする（終日は "YYYY-MM-DD"、時刻ありは "YYYY-MM-DDTHH:mm"）。
- * 時刻の欄が無ければ（終日）日付だけ。両方空なら null（未設定）、片方だけなら ''（書きかけ。`toInstant` が検証で止まる形にする）。
+ * 時刻の欄が無ければ（終日）日付だけ。両方空なら null（未設定）、片方だけなら ''（書きかけ。`toInstant` が止める）。
  * フォームを読む（`whenRaw`）ときも、開始に合わせて終了を動かす（`endFollowsStart`）ときも同じ規則で繋ぐ。
  */
 function joinWhen(date: string, time: string | undefined): string | null {
@@ -268,12 +268,17 @@ function whenRaw(formData: FormData, name: 'startsAt' | 'endsAt'): string | null
 }
 
 /**
- * 日時の入力欄の値（`joinWhen`）→ ISO 日時。未設定は null。書きかけ（日付か時刻の片方だけ）は '' のまま返し、
- * 日時の検証（`instantSchema`）で「日付と時刻を入力してください」と止める。
+ * 日時の入力欄の値（`joinWhen`）→ ISO 日時。未設定は null。
+ * 書きかけ（日付か時刻の片方だけ。''）は、その欄の誤りとして止める（`FormFieldError`）。
  * WHY NOT 片方を補う（時刻を 0:00 にする等）: 入れたつもりの無い時刻が黙って保存される。
  */
-function toInstant(raw: string | null, allDay: boolean): string | null {
-  if (!raw) return raw;
+function toInstant(
+  name: 'startsAt' | 'endsAt',
+  raw: string | null,
+  allDay: boolean,
+): string | null {
+  if (raw === '') throw new FormFieldError(name, '日付と時刻を入力してください');
+  if (raw === null) return null;
   return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
 }
 

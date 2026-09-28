@@ -44,7 +44,7 @@ describe('composerReducer', () => {
   it('空いている所をなぞると、自分だけの下書きを下の段で開く（離すまでは入力を出さない）', () => {
     expect(grab(null, { range, item: null }, false)).toEqual({
       mode: 'grid',
-      kind: 'event',
+      task: null,
       range,
       item: null,
       participantIds: ME,
@@ -80,7 +80,7 @@ describe('composerReducer', () => {
       composerReducer(null, { type: 'start', range, kind: 'event', participantIds: ME }),
     ).toMatchObject({
       mode: 'grid',
-      kind: 'event',
+      task: null,
       item: null,
       settled: true,
       origin: 'add',
@@ -90,7 +90,7 @@ describe('composerReducer', () => {
   it('タスクのショートカットからは、その所から始まる期限なしのタスクで開く', () => {
     expect(
       composerReducer(null, { type: 'start', range, kind: 'task', participantIds: ME }),
-    ).toMatchObject({ kind: 'task', times: newTaskTimes(range), range: newTaskTimes(range).frame });
+    ).toMatchObject({ task: newTaskTimes(range), range: newTaskTimes(range).frame });
   });
 
   it('入力で直した日時は下書きに戻り、入力を出したままにする', () => {
@@ -104,15 +104,14 @@ describe('composerReducer', () => {
 
   it('タスクは入力で直した日時を枠を動かす元の日時として持ち替え、直しているタスクは変えない', () => {
     const state = grab(null, { range: itemDraft(task) ?? range, item: task }, false);
-    const times = taskDraftFromInput({
+    const next = taskDraftFromInput({
       allDay: false,
       startsAt: '2031-06-05T02:00:00.000Z',
       endsAt: null,
     });
-    expect(times && composerReducer(state, { type: 'change', times })).toMatchObject({
-      kind: 'task',
-      times,
-      range: times?.frame,
+    expect(next && composerReducer(state, { type: 'change', task: next })).toMatchObject({
+      task: next,
+      range: next?.frame,
       item: task,
     });
   });
@@ -120,9 +119,8 @@ describe('composerReducer', () => {
   it('つまんだタスクは、そのタスクの日時から始まるタスクの下書きになる', () => {
     const frame = itemDraft(task) ?? range;
     expect(grab(null, { range: frame, item: task })).toMatchObject({
-      kind: 'task',
       range: frame,
-      times: taskTimesOf(task, frame),
+      task: taskTimesOf(task, frame),
     });
   });
 
@@ -130,8 +128,7 @@ describe('composerReducer', () => {
     const state = grab(null, { range, item: event });
     expect(composerReducer(state, { type: 'switchKind', kind: 'task' })).toEqual({
       mode: 'grid',
-      kind: 'task',
-      times: newTaskTimes(range),
+      task: newTaskTimes(range),
       range: newTaskTimes(range).frame,
       item: event,
       participantIds: event.participantIds,
@@ -146,8 +143,7 @@ describe('composerReducer', () => {
       kind: 'task',
     });
     const back = composerReducer(state, { type: 'switchKind', kind: 'event' });
-    expect(back).toMatchObject({ kind: 'event', range });
-    expect(back).not.toHaveProperty('times');
+    expect(back).toMatchObject({ task: null, range });
   });
 
   it('タスクに切り替えた下書きは、なぞり直してもタスクの形のまま', () => {
@@ -156,7 +152,7 @@ describe('composerReducer', () => {
       kind: 'task',
     });
     expect(grab(state, { range: moved, item: null })).toMatchObject({
-      kind: 'task',
+      task: newTaskTimes(range),
       range: newTaskTimes(moved).frame,
     });
   });

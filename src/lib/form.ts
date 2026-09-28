@@ -4,6 +4,22 @@ import { closeNotice } from './ui/notice.ts';
 
 export type FormErrors = Record<string, string>;
 
+/**
+ * 値を組み立てる途中で見つけた、ある欄の入力の誤り（日付と時刻の片方だけを入れた書きかけなど）。
+ * 検証（スキーマ）は組み立てた値しか見ないので、欄の形そのものの誤りはここで投げ、検証の誤りと同じく欄に出す
+ * （`useFormSubmit`）。
+ * WHY NOT 検証で止める: 共有のスキーマは API や MCP の入力にも使うので、画面の欄の言葉（「日付と時刻」）を
+ * 持ち込めない。
+ */
+export class FormFieldError extends Error {
+  constructor(
+    readonly field: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 type ParseResult<T> = { data: T; errors: null } | { data: null; errors: FormErrors };
 
 /** Select の「なし／共有」を表す値。空文字だとラベルが選択済みに見えないため */
@@ -90,7 +106,15 @@ export function useFormSubmit<S extends z.ZodType>({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = parseValues(schema, values(new FormData(event.currentTarget)));
+    let raw: unknown;
+    try {
+      raw = values(new FormData(event.currentTarget));
+    } catch (error) {
+      if (!(error instanceof FormFieldError)) throw error;
+      setErrors({ [error.field]: error.message });
+      return;
+    }
+    const parsed = parseValues(schema, raw);
     if (parsed.errors) {
       setErrors(parsed.errors);
       return;

@@ -8,44 +8,15 @@ import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
 import {
   allDayDraft,
   type Draft,
+  type DraftChange,
   type DraftRange,
+  draftKind,
+  type GridDraft,
   sameOccurrence,
   toEventRange,
   toTaskFrame,
 } from './draft.ts';
-import { newTaskTimes, type TaskTimes, taskTimesOf } from './task-draft.ts';
-
-/**
- * 下書きが何の枠か。予定の日時は枠そのもの、タスクの日時は枠を動かす元の日時（`TaskTimes`）から導く。
- * 直している物（item）の種類とは限らない（クイック入力の上端で切り替えられる。`switchKind`）。
- */
-type DraftKind = { kind: 'event' } | { kind: 'task'; times: TaskTimes };
-
-/**
- * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
- * 追加しようとしている予定・タスクと、長押しでつまんで直している予定・タスク（item）の両方。
- */
-export type GridDraft = Draft &
-  DraftKind & {
-    /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
-    participantIds: string[];
-    /**
-     * なぞり終えたか。なぞっている間は PC の吹き出しを出さず（枠に重なって選べなくなる）、
-     * グリッドも枠を追いかけてスクロールしない（指の下でグリッドが動くと狙いがずれる）
-     */
-    settled: boolean;
-    /**
-     * 入力をどこから始めたか（グリッドをなぞった・追加ボタン）。開く段とタイトルに焦点を当てるかがこれで決まる。
-     * 見た目の結果（段）ではなく入口を持つのは、段と焦点がどちらも入口から決まる別々の事柄だから
-     */
-    origin: 'grid' | 'add';
-  };
-
-/**
- * 入力で直した日時の下書きへの映し戻し。予定は枠、タスクは枠を動かす元の日時（入力した開始・期限と
- * 開始の所の枠。`taskDraftFromInput`）。直している物（item）は変わらない
- */
-export type DraftChange = { range: DraftRange } | { times: TaskTimes };
+import { newTaskTimes, taskTimesOf } from './task-draft.ts';
 
 /** クイック入力（`QuickItemForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */
 export type QuickProps = {
@@ -99,7 +70,7 @@ type ComposerAction =
   | { type: 'start'; range: DraftRange; kind: EventKind; participantIds: string[] }
   /**
    * クイック入力で直した日時・終日の切り替えを下書きへ戻す。
-   * 予定は枠だけが変わり、タスクは日時を枠から導くので、入力した日時（`times`）も持ち替える（`taskDraftFromInput`）
+   * 予定は枠だけが変わり、タスクは日時を枠から導くので、入力した日時（`task`）ごと持ち替える（`taskDraftFromInput`）
    */
   | ({ type: 'change' } & DraftChange)
   /** 予定・タスクの切り替え。枠をその種類の形にし、開始だけを引き継ぐ（`switchedKind`） */
@@ -116,11 +87,14 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
     case 'grab': {
       const { draft, done } = action;
       const keep = state?.mode === 'grid' && sameOccurrence(state.item, draft.item);
+      // 同じ物を直し続けている間は選んだ種類のまま（切り替えたタスクは、なぞり直してもタスク）
+      const task = keep ? state.task : grabbedTask(draft);
       return {
         mode: 'grid',
         item: draft.item,
-        // 同じ物を直し続けている間は選んだ種類のまま（切り替えたタスクは、なぞり直してもタスク）
-        ...placed(keep ? kindOf(state) : grabbedKind(draft), draft.range),
+        task,
+        // タスクの枠は長さを持たないので、なぞった範囲からでも開始の所のタスクの形にする（置いたタスクと同じ見た目）
+        range: task ? toTaskFrame(draft.range) : draft.range,
         participantIds: keep
           ? state.participantIds
           : (draft.item?.participantIds ?? action.participantIds),
@@ -137,68 +111,40 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         settled: true,
         origin: 'add',
       };
-    case 'change': {
+    case 'change':
       if (state?.mode !== 'grid') return state;
-      const next =
-        'times' in action
-          ? { kind: 'task' as const, times: action.times, range: action.times.frame }
-          : placed(kindOf(state), action.range);
-      return withKind({ ...state, settled: true }, next);
-    }
+      return 'task' in action
+        ? { ...state, task: action.task, range: action.task.frame, settled: true }
+        : { ...state, range: action.range, settled: true };
     case 'switchKind':
-      return state?.mode === 'grid' && state.kind !== action.kind
-        ? withKind(state, switchedKind(state.range, action.kind))
+      return state?.mode === 'grid' && draftKind(state) !== action.kind
+        ? { ...state, ...switchedKind(state.range, action.kind) }
         : state;
     case 'participants':
       return state?.mode === 'grid' ? { ...state, participantIds: action.participantIds } : state;
     case 'expand':
       return state?.mode === 'grid'
-        ? { mode: 'form', values: action.values, item: state.item, kind: state.kind }
+        ? { mode: 'form', values: action.values, item: state.item, kind: draftKind(state) }
         : state;
     case 'close':
       return null;
   }
 }
 
-/** 下書きの種類だけを取り出す（`GridDraft` から） */
-function kindOf(draft: DraftKind): DraftKind {
-  return draft.kind === 'task' ? { kind: 'task', times: draft.times } : { kind: 'event' };
+/** つまんだ物がタスクなら、枠を動かす元になるその日時。空いている所からの下書き・予定は null（予定） */
+function grabbedTask({ item, range }: Draft): GridDraft['task'] {
+  return item?.kind === 'task' ? taskTimesOf(item, range) : null;
 }
 
 /**
- * 下書きの種類と枠を差し替える。種類ごとの項目（タスクの times）は丸ごと入れ替える
- * （下書きごとスプレッドすると、予定に切り替えてもタスクの times が残る）
+ * 枠 range を種類 kind の下書きにする（切り替え・追加の開始）。引き継ぐのは枠の開始だけ（全項目のフォームの
+ * `switchKindValues`・MCP の `switchedKind` と同じ規則を枠の形にしたもの）: タスクへは開始の所に期限なしのタスク（`newTaskTimes`）、予定へは開始から 1 時間
+ * （終日はその日。枠は日をまたげないので日の終わりで止める。`toEventRange`）。
  */
-function withKind(
-  { item, participantIds, settled, origin }: GridDraft,
-  next: DraftKind & { range: DraftRange },
-): { mode: 'grid' } & GridDraft {
-  return { mode: 'grid', item, participantIds, settled, origin, ...next };
-}
-
-/** つまんだ物の種類。つまんだタスクはその日時から、空いている所からの下書きは予定 */
-function grabbedKind({ item, range }: Draft): DraftKind {
-  return item?.kind === 'task'
-    ? { kind: 'task', times: taskTimesOf(item, range) }
-    : { kind: 'event' };
-}
-
-/**
- * 種類に合わせた枠。タスクの枠は長さを持たないので、なぞった範囲からでも開始の所のタスクの形にする
- * （`toTaskFrame`。置いたタスクと同じ見た目）
- */
-function placed(kind: DraftKind, range: DraftRange): DraftKind & { range: DraftRange } {
-  return { ...kind, range: kind.kind === 'task' ? toTaskFrame(range) : range };
-}
-
-/**
- * 枠 range を種類 kind の下書きにする（切り替え・追加の開始）。引き継ぐのは枠の開始だけ:
- * タスクへは開始の所に期限なしのタスク（`newTaskTimes`）、予定へは開始から 1 時間（終日はその日。`toEventRange`）。
- */
-function switchedKind(range: DraftRange, kind: EventKind): DraftKind & { range: DraftRange } {
-  if (kind === 'event') return { kind: 'event', range: toEventRange(range) };
-  const times = newTaskTimes(range);
-  return { kind: 'task', times, range: times.frame };
+function switchedKind(range: DraftRange, kind: EventKind): Pick<GridDraft, 'task' | 'range'> {
+  if (kind === 'event') return { task: null, range: toEventRange(range) };
+  const task = newTaskTimes(range);
+  return { task, range: task.frame };
 }
 
 /**

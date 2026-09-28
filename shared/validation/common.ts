@@ -8,13 +8,8 @@ export const dateStringSchema = z
   .refine(isDateString, '日付は YYYY-MM-DD 形式で指定してください')
   .transform((v) => v as DateString);
 
-/**
- * ISO 8601 の日時。Date に変換する。形が違えば（画面で日付か時刻の片方だけを入れた書きかけを含む）、
- * 日付と時刻の両方を入れるよう返す。
- */
-export const instantSchema = z.iso
-  .datetime({ offset: true, error: '日付と時刻を入力してください' })
-  .transform((v) => new Date(v));
+/** ISO 8601 の日時。Date に変換する。 */
+export const instantSchema = z.iso.datetime({ offset: true }).transform((v) => new Date(v));
 
 /** 期間指定（両端を含む JST 暦日） */
 export const dateRangeQuerySchema = z
