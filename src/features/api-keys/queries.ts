@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InferResponseType } from 'hono/client';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, deleteRequest, ensureOk } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** 記録投入用の API キー（[docs/features/api-keys.md](../../../docs/features/api-keys.md)） */
@@ -40,10 +40,7 @@ export function useCreateApiKey() {
  */
 export function useRevokeApiKey() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api['api-keys'][':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api['api-keys'][':id']),
     queue: false,
     keys: [apiKeysQueryOptions.queryKey],
     apply: (client, id) => {

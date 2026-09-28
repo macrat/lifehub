@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InferResponseType } from 'hono/client';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** カレンダーの ics 配信 URL（[docs/features/calendar-feeds.md](../../../docs/features/calendar-feeds.md)） */
@@ -19,11 +19,7 @@ export const calendarFeedsQueryOptions = queryOptions({
  */
 export function useCreateCalendarFeed() {
   return useOptimisticMutation({
-    request: (input: CalendarFeedInput) => ({
-      method: 'POST' as const,
-      path: api.calendar.feeds.$url().pathname,
-      body: input,
-    }),
+    request: createRequest<CalendarFeedInput>(api.calendar.feeds),
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
   });
@@ -36,11 +32,7 @@ export function useCreateCalendarFeed() {
  */
 export function useUpdateCalendarFeed() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: CalendarFeedInput & { id: string }) => ({
-      method: 'PATCH' as const,
-      path: api.calendar.feeds[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<CalendarFeedInput & { id: string }>('PATCH', api.calendar.feeds[':id']),
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
     apply: (client, { id, ...input }) => {
@@ -57,10 +49,7 @@ export function useUpdateCalendarFeed() {
  */
 export function useRevokeCalendarFeed() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api.calendar.feeds[':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api.calendar.feeds[':id']),
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
     apply: (client, id) => {

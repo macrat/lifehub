@@ -1,5 +1,5 @@
 import type { MemoInput } from '../../../shared/validation/memos.ts';
-import { api } from '../../lib/api.ts';
+import { api, createRequest, deleteRequest, itemRequest } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
@@ -15,11 +15,7 @@ const memoCache = timelineRecordCache('memo');
 
 export function useAddMemo() {
   return useCreateMutation<MemoInput>({
-    request: (input) => ({
-      method: 'POST' as const,
-      path: api.memos.$url().pathname,
-      body: input,
-    }),
+    request: createRequest(api.memos),
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
       // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
@@ -32,11 +28,7 @@ export function useAddMemo() {
 
 export function useUpdateMemo() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: MemoInput & { id: string }) => ({
-      method: 'PUT' as const,
-      path: api.memos[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<MemoInput & { id: string }>('PUT', api.memos[':id']),
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
       const prev = memoCache.find(client, id);
@@ -47,10 +39,7 @@ export function useUpdateMemo() {
 
 export function useDeleteMemo() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api.memos[':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api.memos[':id']),
     keys: WRITE_KEYS,
     apply: (client, id) => memoCache.apply(client, id, null),
   });

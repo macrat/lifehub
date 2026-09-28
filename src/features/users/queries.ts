@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
-import { api } from '../../lib/api.ts';
+import { api, createRequest, itemRequest } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
@@ -30,11 +30,7 @@ export function useUsers() {
  */
 export function useCreateUser() {
   return useOptimisticMutation({
-    request: (input: CreateUserInput) => ({
-      method: 'POST' as const,
-      path: api.users.$url().pathname,
-      body: input,
-    }),
+    request: createRequest<CreateUserInput>(api.users),
     queue: false,
     keys: [meQueryOptions.queryKey],
     apply: (client, input) => {
@@ -52,11 +48,7 @@ export function useCreateUser() {
 /** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
 export function useUpdateUser() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: UpdateUserInput & { id: string }) => ({
-      method: 'PATCH' as const,
-      path: api.users[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<UpdateUserInput & { id: string }>('PATCH', api.users[':id']),
     queue: false,
     keys: [meQueryOptions.queryKey],
     apply: (client, { id, password: _password, ...input }) => {

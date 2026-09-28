@@ -8,7 +8,7 @@ import {
   sortCareLogs,
 } from '../../../shared/lemon.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import { type HistorySource, useHistory } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
@@ -56,11 +56,7 @@ export function useCareLogHistory(filter: CareLogFilter) {
 
 export function useLogCare() {
   return useCreateMutation<CareLogBody>({
-    request: (input) => ({
-      method: 'POST' as const,
-      path: api.lemon.logs.$url().pathname,
-      body: input,
-    }),
+    request: createRequest(api.lemon.logs),
     keys: WRITE_KEYS,
     apply: (client, input) => {
       const log: CareLog = {
@@ -84,11 +80,7 @@ export function useLogCare() {
 
 export function useUpdateCareLog() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: CareLogBody & { id: string }) => ({
-      method: 'PUT' as const,
-      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<CareLogBody & { id: string }>('PUT', api.lemon.logs[':id']),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
       const prev = careLogCache.find(client, id);
@@ -107,10 +99,7 @@ export function useUpdateCareLog() {
 
 export function useDeleteCareLog() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api.lemon.logs[':id']),
     keys: WRITE_KEYS,
     apply: (client, id) => {
       careLogCache.apply(client, id, null);
