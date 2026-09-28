@@ -103,11 +103,12 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
-        history.ts = 履歴のページ分け・キーワード・タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
+        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・参加者の書き込み）、
+        history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
     mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
-    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型）  validator.ts（入力検証。`validate`）
+    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）

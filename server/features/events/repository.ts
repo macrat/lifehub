@@ -17,8 +17,8 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db/client.ts';
-import { containsKeyword } from '../../lib/db/history.ts';
+import { type Database, db, runBatch } from '../../lib/db/client.ts';
+import { containsKeyword, idArrayAgg, participantWrites } from '../../lib/db/query.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -284,35 +284,17 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
 }
 
 /**
- * where に合う行（1 行）に userIds を参加者として入れる文。参加者の書き込みはすべてこの形にし、
- * 行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、ID を手元に持たない条件
- * （回の実体化の (series_id, occurrence_start)）でも引き当てられ、条件を足せば「作れたときだけ」入れられる。
+ * 参加者の書き込み。すべてこの形にし、行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、
+ * ID を手元に持たない条件（回の実体化の (series_id, occurrence_start)）でも引き当てられ、
+ * 条件を足せば「作れたときだけ」入れられる。
  */
-function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
-  return tx.insert(eventParticipants).select(
-    tx
-      .select({
-        eventId: events.id,
-        userId: unnestIds(userIds, 'user_id'),
-      })
-      .from(events)
-      .where(where),
-  );
-}
+const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsWhere } =
+  participantWrites({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
 function hasNoParticipants(tx: Database): SQL {
   const own = alias(eventParticipants, 'own_participants');
   return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
-}
-
-/** where に合う行（1 行）の参加者を userIds に置き換える 2 文（消して入れ直す） */
-function replaceParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
-  const target = tx.select({ id: events.id }).from(events).where(where);
-  return [
-    tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, target)),
-    insertParticipantsWhere(tx, where, userIds),
-  ] as const;
 }
 
 export async function remove(id: string): Promise<void> {

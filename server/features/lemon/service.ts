@@ -4,11 +4,9 @@ import { careLogEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import type { TimelineSource } from '../../lib/timeline-source.ts';
+import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
-
-export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 
 /**
  * 記録の 1 ページ（古い順）。全件を返さないのは、記録は増え続けるのに画面が見るのは新しいほうだけだから。
@@ -20,11 +18,9 @@ export async function listLogs(query: CareLogListQuery): Promise<HistoryPage<Car
 }
 
 /** タイムラインに並べる記録（置く日時は実施日時。キーワードはメモか項目の名前） */
-export const timelineSource: TimelineSource = {
-  recentInstants: repository.timeline.findRecentInstants,
-  entries: async (range, q) =>
-    (await repository.timeline.findInRange(range, q)).map((row) => careLogEntry(toLog(row))),
-};
+export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
+  careLogEntry(toLog(row)),
+);
 
 /** 項目ごとの状態（shared/lemon.ts の規則）。項目ごとの最新の記録だけを読んで導く */
 export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {

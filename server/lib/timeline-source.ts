@@ -11,3 +11,20 @@ export type TimelineSource = {
   /** range に掛かる記録の行。どの行を出すかはタイムラインが行の日時で決める */
   entries(range: InstantRange, q: string | undefined, now: Date): Promise<TimelineEntry[]>;
 };
+
+/**
+ * 1 件の記録が 1 つの日時に置かれる feature の `TimelineSource`。repository の問い合わせ
+ * （`lib/db/timeline.ts` の `timelineQueries`）が返す行を、toEntry でタイムラインの行にするだけ。
+ */
+export function recordTimelineSource<Row>(
+  queries: {
+    findRecentInstants: TimelineSource['recentInstants'];
+    findInRange(range: InstantRange, q: string | undefined): Promise<Row[]>;
+  },
+  toEntry: (row: Row) => TimelineEntry,
+): TimelineSource {
+  return {
+    recentInstants: queries.findRecentInstants,
+    entries: async (range, q) => (await queries.findInRange(range, q)).map(toEntry),
+  };
+}

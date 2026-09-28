@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
-import { containsKeyword, timelineQueries } from '../../lib/db/history.ts';
+import { containsKeyword } from '../../lib/db/query.ts';
+import { timelineQueries } from '../../lib/db/timeline.ts';
 import { memos } from './schema.ts';
 
 /** タイムラインの問い合わせ。置く日時は書いた時刻、キーワードは本文の部分一致 */
