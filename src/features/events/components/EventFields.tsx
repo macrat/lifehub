@@ -18,7 +18,7 @@ import {
 import { toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { endFollowsStart, type ItemFormValues } from '../form-values.ts';
+import { EXTRA_FIELDS_MARKER, endFollowsStart, type ItemFormValues } from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 type Props = {
@@ -199,6 +199,7 @@ export function ExtraFields({
 }: ScopedProps & { kind: Kind; allDay: boolean }) {
   return (
     <>
+      <input type="hidden" name={EXTRA_FIELDS_MARKER} value="1" />
       <TextField name="location" label="場所" defaultValue={initial.location ?? ''} fullWidth />
       <TextField
         name="note"

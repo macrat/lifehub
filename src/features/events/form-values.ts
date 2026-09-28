@@ -105,15 +105,14 @@ export function eventInputFromForm(
       : savedInstants(initial);
   // 終日の予定の通知は日単位（当日・前日）なので、終日にしたら寄せる（入力欄の既定値と同じ）
   const remind = (minutes: number | null) => (allDay ? toAllDayRemind(minutes) : minutes);
+  const extras = hasExtraFields(formData);
+  const remindStart = formSelect(formData, 'remindStartMinutes');
+  const selectedRemind = remindStart === null ? null : Number(remindStart);
   return {
     kind: 'event' as const,
     ...when,
-    ...commonInput(formData, initial, thisOnly),
-    remindStartMinutes: hasExtraFields(formData)
-      ? formSelect(formData, 'remindStartMinutes') === null
-        ? null
-        : Number(formText(formData, 'remindStartMinutes'))
-      : remind(initial.remindStartMinutes),
+    ...commonInput(formData, initial, { extras, thisOnly }),
+    remindStartMinutes: extras ? selectedRemind : remind(initial.remindStartMinutes),
     // フォームに出していない終了前の通知（MCP から入れたもの）も、終日にしたら日単位に寄せる
     remindEndMinutes: remind(initial.remindEndMinutes),
   };
@@ -142,36 +141,36 @@ export function taskInputFromForm(
       }
     : savedInstants(initial);
   const extras = hasExtraFields(formData);
+  // チェックを外した欄は FormData に載らないので、欄が無いのとは残りの項目の欄があるかで見分ける
+  const notify = (name: string, saved: number | null) =>
+    extras ? (formData.get(name) === 'on' ? 0 : null) : saved;
   return {
     kind: 'task' as const,
     ...when,
-    ...commonInput(formData, initial, thisOnly),
-    // チェックを外した欄は FormData に載らないので、欄が無いのとは残りの項目の欄があるかで見分ける
-    remindStartMinutes: extras
-      ? formData.get('notifyAtStart') === 'on'
-        ? 0
-        : null
-      : initial.remindStartMinutes,
-    remindEndMinutes: extras
-      ? formData.get('notifyAtEnd') === 'on'
-        ? 0
-        : null
-      : initial.remindEndMinutes,
+    ...commonInput(formData, initial, { extras, thisOnly }),
+    remindStartMinutes: notify('notifyAtStart', initial.remindStartMinutes),
+    remindEndMinutes: notify('notifyAtEnd', initial.remindEndMinutes),
   };
 }
 
 /**
- * 残りの項目（場所・メモ・繰り返し・通知。`ExtraFields`）の入力欄があるか。いつも出る場所の欄で見分ける。
- * 無いとき（PC のクイック入力の吹き出し）は、それらを既定値のまま送る。更新は全項目の置き換えなので、
+ * 残りの項目（場所・メモ・繰り返し・通知）の入力欄を出したしるしの欄の名前。`ExtraFields` が隠しの欄で必ず送る。
+ * しるしが無いとき（PC のクイック入力の吹き出し）は、それらを既定値のまま送る。更新は全項目の置き換えなので、
  * 空で送ると、つまんで日時を動かしただけの予定の場所・メモ・通知を消してしまう。
+ * WHY NOT 項目の欄そのもの（場所）で見分ける: 欄の並びを変えたときに黙って逆の結果になる。
  */
+export const EXTRA_FIELDS_MARKER = 'extraFields';
+
 function hasExtraFields(formData: FormData): boolean {
-  return formData.has('location');
+  return formData.has(EXTRA_FIELDS_MARKER);
 }
 
 /** 予定とタスクで同じ形の項目（タイトル・参加者・場所・メモ・繰り返し） */
-function commonInput(formData: FormData, initial: ItemFormValues, thisOnly: boolean) {
-  const extras = hasExtraFields(formData);
+function commonInput(
+  formData: FormData,
+  initial: ItemFormValues,
+  { extras, thisOnly }: { extras: boolean; thisOnly: boolean },
+) {
   return {
     title: formText(formData, 'title') ?? '',
     participantIds: formList(formData, 'participantIds'),

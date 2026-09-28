@@ -14,7 +14,7 @@ import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/comple
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
-import { type Draft, sameOccurrence } from '../draft.ts';
+import { type Draft, editingItemOn, sameOccurrence } from '../draft.ts';
 import { itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
@@ -92,9 +92,8 @@ export function TimeGrid({
   const timedDraft = draft?.range.allDay === false ? draft.range : null;
   // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
-  // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
-  // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）
-  const editing = draftCol >= 0 ? draft?.item : null;
+  // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。`editingItemOn`）
+  const editing = editingItemOn(timedDraft ? draft : null, days);
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);

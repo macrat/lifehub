@@ -2,7 +2,6 @@ import {
   and,
   desc,
   eq,
-  exists,
   getTableColumns,
   gt,
   gte,
@@ -47,7 +46,7 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'id' | 'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
+  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
@@ -57,24 +56,14 @@ function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | 
 }
 
 /**
- * 検索で繰り返し元・単発の行を読む条件: 行そのものか、実体化された回のどれかが当たる。
- * 「この回だけ」で直した回は繰り返し元と別のタイトル・メモを持つので、繰り返し元だけを見ると、
- * 当たる回を持つのに繰り返しごと読まれない。どの回を出すかは展開した後に回の値で絞り直す
- * （`timeline.ts` の `entries`）。
+ * 検索で繰り返し元・単発の行を読む条件。キーワードで絞るのは単発の行だけにし、繰り返し元はすべて読む。
+ * 「この回だけ」で直した回は繰り返し元と別のタイトル・メモを持つので、どの回が当たるかは展開した後に
+ * 回の値で決める（`occurrences.ts` の `listOccurrences`）。繰り返し元の数は少ないので、読み足しても重くない。
+ * WHY NOT 繰り返し元も SQL で絞る: 回の書き換えの規則を SQL にも写すことになり、2 か所で揃え続ける必要がある。
  */
-function seriesKeywordOf(table: CandidateColumns, q: string | undefined): SQL | undefined {
+function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL | undefined {
   const own = keywordOf(table, q);
-  if (!own) return undefined;
-  const occurrence = alias(events, 'keyword_occurrence');
-  return or(
-    own,
-    exists(
-      db
-        .select({ one: sql`1` })
-        .from(occurrence)
-        .where(and(eq(occurrence.seriesId, table.id), keywordOf(occurrence, q))),
-    ),
-  );
+  return own && or(isNotNull(table.rrule), own);
 }
 
 function isCandidate(
@@ -85,7 +74,7 @@ function isCandidate(
 ): SQL | undefined {
   const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
-    seriesKeywordOf(table, q),
+    candidateKeywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -133,8 +122,8 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
- * q を渡すと、タイトルかメモが当たる繰り返し元・単発だけを読む（ホームのタイムラインの検索。
- * 当たらない繰り返しを展開してから捨てずに済む）。
+ * q を渡すと、単発の行はタイトルかメモが当たるものだけを読む（ホームのタイムラインの検索。繰り返し元は
+ * すべて読み、どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
  */
 export async function findCalendarRows(
   from: Date,

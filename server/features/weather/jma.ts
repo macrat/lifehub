@@ -210,17 +210,17 @@ export async function fetchHourlyForecast(): Promise<HourlyWeatherRow[]> {
 
 /**
  * day（JST）の 0:00 の観測に載る「その時点までの最高・最低気温」（= 前日の最高・最低気温。0.1℃ 単位）。
- * 欠測はそれぞれ undefined。両方とも欠測なら投げる。
+ * 欠測はそれぞれ null（観測値の形と同じ）。両方とも欠測なら投げる。
  */
 export async function fetchMidnightObservation(
   day: DateString,
-): Promise<{ max: number | undefined; min: number | undefined }> {
+): Promise<{ max: number | null; min: number | null }> {
   const compact = day.replaceAll('-', '');
   const url = AMEDAS_URL(compact);
   const observed = amedasSchema.parse(await (await fetchOk(url)).json())[`${compact}000000`];
-  const max = observed?.maxTemp?.[0] ?? undefined;
-  const min = observed?.minTemp?.[0] ?? undefined;
-  if (max === undefined && min === undefined) {
+  const max = observed?.maxTemp?.[0] ?? null;
+  const min = observed?.minTemp?.[0] ?? null;
+  if (max === null && min === null) {
     throw new Error(`weather: ${url} has no maxTemp/minTemp at 00:00`);
   }
   return { max, min };

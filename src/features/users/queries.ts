@@ -9,7 +9,8 @@ export type User = Me['users'][number];
 /** ユーザーがまだ読めていないときの一覧。いつも同じ配列を返し、それを元にした memo を無駄に作り直さない */
 export const NO_USERS: User[] = [];
 
-function usersOf(me: Me | null): User[] {
+/** `/api/me` の応答 → ユーザーの一覧（未ログイン・まだ読めていなければ空） */
+export function usersOf(me: Me | null | undefined): User[] {
   return me?.users ?? NO_USERS;
 }
 

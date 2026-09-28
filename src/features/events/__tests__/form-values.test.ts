@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import {
+  EXTRA_FIELDS_MARKER,
   eventInputFromForm,
   type ItemFormValues,
   shiftedEnd,
@@ -66,6 +67,7 @@ test('残りの項目の欄が無いフォーム（PC の吹き出し）は、�
 
 test('残りの項目の欄があれば、空にした欄・外したチェックは消したものとして送る', () => {
   const formData = bubble('歯医者');
+  formData.set(EXTRA_FIELDS_MARKER, '1');
   formData.set('location', '');
   formData.set('note', '');
   formData.set('rrule', '');

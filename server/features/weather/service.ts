@@ -49,8 +49,8 @@ export async function recordObservedTemps(
 ): Promise<repository.WeatherRow | undefined> {
   const { max, min } = await fetchMidnightObservation(today(now));
   return repository.updateTemps(addDays(today(now), -1), {
-    ...(max !== undefined && { tempMax: Math.round(max) }),
-    ...(min !== undefined && { tempMin: Math.round(min) }),
+    ...(max !== null && { tempMax: Math.round(max) }),
+    ...(min !== null && { tempMin: Math.round(min) }),
   });
 }
 

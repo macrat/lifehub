@@ -46,10 +46,14 @@ export async function insertOnce<T extends TableWithId>(
   table: T,
   row: T['$inferInsert'] & { id: string },
 ): Promise<T['$inferSelect']> {
-  const target = table as TableWithId;
-  const [inserted] = await db.insert(target).values(row).onConflictDoNothing().returning();
+  const [inserted] = await db.insert(table).values(row).onConflictDoNothing().returning();
   if (inserted) return inserted;
-  const [existing] = await db.select().from(target).where(eq(target.id, row.id)).limit(1);
+  // select の from は総称の表を受けないので、ここだけ具体的な表の型に広げる
+  const [existing] = await db
+    .select()
+    .from(table as TableWithId)
+    .where(eq(table.id, row.id))
+    .limit(1);
   if (!existing) throw new Error('insert returned no row');
   return existing;
 }
@@ -59,7 +63,10 @@ export async function insertOnce<T extends TableWithId>(
  * どの文も親の行を where で引き当てて書くので、ID を手元に持たない条件（回の実体化）でも、
  * 持ち主などの条件を足した書き込み（他人の行には入らない）でも、親の行と同じ runBatch に入れて原子的に書ける。
  */
-export function participantWrites({
+export function participantWrites<
+  P extends PgTable & { userId: PgColumn },
+  K extends keyof P['$inferInsert'] & string,
+>({
   parent,
   participants,
   parentKey,
@@ -67,12 +74,12 @@ export function participantWrites({
   /** 親の表 */
   parent: TableWithId;
   /** 参加者の表（親を指す列と `userId` 列を持つ） */
-  participants: PgTable & { userId: PgColumn };
-  /** 参加者の表で親を指す列の名前 */
-  parentKey: string;
+  participants: P;
+  /** 参加者の表で親を指す列の名前（表に無い名前は型で止まる） */
+  parentKey: K;
 }) {
-  const parentColumn = (participants as unknown as Record<string, PgColumn>)[parentKey];
-  if (!parentColumn) throw new Error(`unknown column: ${parentKey}`);
+  // 列は表のオブジェクトに列の名前で載っている（K が表の列の名前であることは型が保証する）
+  const parentColumn = participants[parentKey as keyof P] as PgColumn;
 
   /** where に合う親の行（1 行）に userIds を参加者として入れる文 */
   const insertWhere = (tx: Database, where: SQL | undefined, userIds: string[]) =>

@@ -12,6 +12,7 @@ import {
   toDateString,
   today,
 } from '../../../shared/date.ts';
+import { matchesKeyword } from '../../../shared/search.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -37,7 +38,8 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
  * カレンダーは暦日に置いた `listItems` を読み、ics の配信（calendar-feeds）は日ごとに割らない
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
- * `kind` を渡すとその種別だけを展開する。`q` を渡すとタイトルかメモが当たる予定・タスクだけを読む。展開は繰り返し 1 つにつき期間の長さぶん走るので、
+ * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
+ * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
  * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
  * 捨てるものを展開してから捨てずに済む。
  */
@@ -70,7 +72,7 @@ export async function listOccurrences(
       ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
     );
   }
-  return result;
+  return q ? result.filter((o) => matchesKeyword(q, o.title, o.note)) : result;
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */
