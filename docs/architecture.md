@@ -272,7 +272,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、`.github/backup-key.asc` の公開鍵で GnuPG により暗号化して、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。public リポジトリの Artifact は誰でも取り出せるので暗号化する。公開鍵暗号にするのは、ランナーに復号できる秘密を置かずに済むため（共通鍵だと GitHub Secrets の鍵が漏れればすべてのバックアップが読める）。戻し方は [README](../README.md#バックアップ)。
 
-**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod` → Sentry のリリースに前のリリースからのコミットを紐付ける（`sentry-cli releases set-commits --local`。リポジトリとの連携は有料プランの機能なので手元の git から送る。そのため checkout は全履歴を取る。失敗してもデプロイは続ける）。
+**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod` → Sentry のリリースに前のリリースからのコミットを紐付ける（`sentry-cli releases new` → `set-commits --local` → `finalize`。リポジトリとの連携は有料プランの機能なので手元の git から送る。そのため checkout は全履歴を取る。失敗してもデプロイは続ける）。
 
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。

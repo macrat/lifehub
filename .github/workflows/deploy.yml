@@ -112,7 +112,8 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ steps.tf.outputs.sentry_organization }}
           SENTRY_PROJECT: ${{ steps.tf.outputs.sentry_project }}
+        # リリースは先に届いたエラーで作られていることがあり（再実行でも）、そのとき new が失敗しても紐付けは試す
         run: |
-          pnpm exec sentry-cli releases new "$GITHUB_SHA"
+          pnpm exec sentry-cli releases new "$GITHUB_SHA" || true
           pnpm exec sentry-cli releases set-commits "$GITHUB_SHA" --local
           pnpm exec sentry-cli releases finalize "$GITHUB_SHA"
