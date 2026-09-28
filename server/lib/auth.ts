@@ -28,70 +28,96 @@ const vercelHosts = [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter(
   (host): host is string => !!host,
 );
 
-export const auth = betterAuth({
-  /**
-   * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。APP_URL が無い Preview は
-   * URL がデプロイごとに変わるので、このデプロイとブランチの URL に限ってリクエストのホストから
-   * 決める（Vercel の他の利用者のホストは信頼しない）。
-   * どちらも分からないときに空の allowedHosts を渡すと better-auth が起動時に例外を投げ、
-   * API が丸ごと落ちて何も使えなくなる。ログインできないだけで済むよう固定 URL に倒す。
-   */
-  baseURL:
-    env.APP_URL ??
-    (vercelHosts.length > 0
-      ? { allowedHosts: vercelHosts, protocol: 'https', fallback: baseUrl }
-      : baseUrl),
-  basePath: '/api/auth',
-  secret: env.BETTER_AUTH_SECRET,
-  database: authDatabase,
-  user: {
-    // hue と終日の通知時刻も better-auth にセットで読ませることで、セッションの検証ついでに手に入る
-    // （/me のためだけに users をもう一度読まずに済む）。入力としては受け取らない
-    // （変更は users service を通す）。
-    additionalFields: {
-      hue: { type: 'number', input: false, required: true, defaultValue: DEFAULT_HUE },
-      allDayNotifyMinutes: {
-        type: 'number',
-        input: false,
-        required: true,
-        defaultValue: DEFAULT_ALL_DAY_NOTIFY_MINUTES,
+const createAuth = () =>
+  betterAuth({
+    /**
+     * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。APP_URL が無い Preview は
+     * URL がデプロイごとに変わるので、このデプロイとブランチの URL に限ってリクエストのホストから
+     * 決める（Vercel の他の利用者のホストは信頼しない）。
+     * どちらも分からないときに空の allowedHosts を渡すと better-auth が起動時に例外を投げ、
+     * API が丸ごと落ちて何も使えなくなる。ログインできないだけで済むよう固定 URL に倒す。
+     */
+    baseURL:
+      env.APP_URL ??
+      (vercelHosts.length > 0
+        ? { allowedHosts: vercelHosts, protocol: 'https', fallback: baseUrl }
+        : baseUrl),
+    basePath: '/api/auth',
+    secret: env.BETTER_AUTH_SECRET,
+    database: authDatabase,
+    user: {
+      // hue と終日の通知時刻も better-auth にセットで読ませることで、セッションの検証ついでに手に入る
+      // （/me のためだけに users をもう一度読まずに済む）。入力としては受け取らない
+      // （変更は users service を通す）。
+      additionalFields: {
+        hue: { type: 'number', input: false, required: true, defaultValue: DEFAULT_HUE },
+        allDayNotifyMinutes: {
+          type: 'number',
+          input: false,
+          required: true,
+          defaultValue: DEFAULT_ALL_DAY_NOTIFY_MINUTES,
+        },
       },
     },
-  },
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: PASSWORD_MIN_LENGTH,
-    autoSignIn: false,
-  },
-  // /token は jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
-  disabledPaths: ['/sign-up/email', '/token'],
-  plugins: [
-    jwt({ disableSettingJwtHeader: true }),
-    mcp({
-      loginPage: '/login',
-      consentPage: '/consent',
-      resource: MCP_RESOURCE,
-      allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
-    }),
-    cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
-  ],
-  advanced: {
-    database: {
-      generateId: newId,
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: PASSWORD_MIN_LENGTH,
+      autoSignIn: false,
     },
-    // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
-    // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
-    disableOriginCheck: false,
-  },
-  session: {
-    // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ
-    expiresIn: 60 * 60 * 24 * 90,
-    updateAge: 60 * 60 * 24,
-    // 失効したセッションを Cookie キャッシュから復活させない。
-    cookieCache: { enabled: false },
-  },
-});
+    // /token は jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
+    disabledPaths: ['/sign-up/email', '/token'],
+    plugins: [
+      jwt({ disableSettingJwtHeader: true }),
+      mcp({
+        loginPage: '/login',
+        consentPage: '/consent',
+        resource: MCP_RESOURCE,
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+      }),
+      cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
+    ],
+    advanced: {
+      database: {
+        generateId: newId,
+      },
+      // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
+      // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
+      disableOriginCheck: false,
+    },
+    session: {
+      // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ
+      expiresIn: 60 * 60 * 24 * 90,
+      updateAge: 60 * 60 * 24,
+      // 失効したセッションを Cookie キャッシュから復活させない。
+      cookieCache: { enabled: false },
+    },
+  });
 
-type AuthSession = typeof auth.$Infer.Session;
+type Auth = ReturnType<typeof createAuth>;
+type AuthSession = Auth['$Infer']['Session'];
 export type AuthUser = AuthSession['user'];
+
+let initializing: Promise<Auth> | undefined;
+
+/**
+ * 初期化を終えた better-auth を返す。最初の呼び出しで作り、以後は同じものを返す。
+ *
+ * better-auth は作った時点で初期化（oauth-provider の MCP リソースの登録で DB に問い合わせる）を始め、
+ * その結果を持ち続ける。一度失敗すると、そのインスタンスは認証の要求をすべて同じエラーで失敗させる。
+ * - モジュールの読み込み時に作らず、要求の中で作って初期化を待つ。Vercel Function は応答を返すと止まる
+ *   ので、要求の外で始めた DB への問い合わせは止まっている間に接続が切れて失敗する。
+ * - 初期化に失敗したら持たずに捨て、次の要求で作り直す。一時的な接続の失敗でインスタンスが止まるまで
+ *   認証が使えなくなるのを防ぐ。
+ */
+export function getAuth(): Promise<Auth> {
+  initializing ??= (async () => {
+    const auth = createAuth();
+    await auth.$context;
+    return auth;
+  })().catch((error: unknown) => {
+    initializing = undefined;
+    throw error;
+  });
+  return initializing;
+}

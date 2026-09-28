@@ -1,7 +1,7 @@
 import { hashPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
-import { auth } from '../../lib/auth.ts';
+import { getAuth } from '../../lib/auth.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import * as repository from './repository.ts';
@@ -39,7 +39,7 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
     throw new ConflictError('このメールアドレスは既に登録されています');
   }
   const { hue, ...credentials } = input;
-  const result = await auth.api.signUpEmail({ body: credentials });
+  const result = await (await getAuth()).api.signUpEmail({ body: credentials });
   // 色は better-auth の外側の属性なので、作成後に自前で更新する。指定が無ければ既存のユーザーと離れた色相にする
   const existing = await repository.findAll();
   const resolvedHue =

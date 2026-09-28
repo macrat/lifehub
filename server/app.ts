@@ -15,7 +15,7 @@ import { timelineRoutes } from './features/timeline/routes.ts';
 import { meRoutes, usersRoutes } from './features/users/routes.ts';
 import { weatherRoutes } from './features/weather/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
-import { auth } from './lib/auth.ts';
+import { getAuth } from './lib/auth.ts';
 import { pingDatabase } from './lib/db/health.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { requireSession } from './lib/middleware.ts';
@@ -33,7 +33,7 @@ api.get('/health', async (c) => {
   await pingDatabase();
   return c.json({ ok: true as const, db: true as const });
 });
-api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
+api.on(['GET', 'POST'], '/auth/*', async (c) => (await getAuth()).handler(c.req.raw));
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
 // ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
@@ -104,5 +104,5 @@ export const app = new Hono<AppEnv>()
     console.error(error);
     return c.json({ message: 'サーバーエラーが発生しました' }, 500);
   })
-  .get('/.well-known/*', (c) => auth.handler(c.req.raw))
+  .get('/.well-known/*', async (c) => (await getAuth()).handler(c.req.raw))
   .route('/', api);
