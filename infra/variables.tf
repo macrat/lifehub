@@ -20,6 +20,18 @@ variable "vercel_team" {
   type = string
 }
 
+# Sentry の User Auth Token（プロジェクト・キー・監視を作るので Organization Token では足りない）
+variable "sentry_auth_token" {
+  type      = string
+  sensitive = true
+}
+
+# Sentry の組織（slug）。URL の https://<slug>.sentry.io の部分
+variable "sentry_organization" {
+  type    = string
+  default = "blanktar"
+}
+
 variable "qstash_token" {
   type      = string
   sensitive = true

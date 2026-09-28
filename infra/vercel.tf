@@ -70,3 +70,15 @@ resource "vercel_project_environment_variable" "preview_auth_secret" {
   target     = ["preview"]
   sensitive  = true
 }
+
+# Sentry の DSN。サーバーは実行時に、ブラウザはビルド時に（vite.config.ts が埋め込む）読む。
+# ビルドは CI の `vercel build` で行い、そこへは `vercel pull` が落とした値しか渡らない。sensitive な値は
+# pull で読めないので、sensitive にしない（DSN は送り先を示すだけで、ブラウザに配る前提の公開値）。
+# Preview には渡さない（Preview のエラーで本番の枠を使わない）。
+resource "vercel_project_environment_variable" "sentry_dsn" {
+  project_id = vercel_project.lifehub.id
+  key        = "SENTRY_DSN"
+  value      = local.sentry_dsn
+  target     = ["production"]
+  sensitive  = false
+}

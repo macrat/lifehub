@@ -18,6 +18,10 @@ terraform {
       source  = "kislerdm/neon"
       version = "~> 0.17"
     }
+    sentry = {
+      source  = "jianyuan/sentry"
+      version = "~> 0.15"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.7"
@@ -32,4 +36,8 @@ provider "vercel" {
 
 provider "neon" {
   api_key = var.neon_api_key
+}
+
+provider "sentry" {
+  token = var.sentry_auth_token
 }
