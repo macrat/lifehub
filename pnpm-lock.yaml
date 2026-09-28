@@ -16,11 +16,6 @@ overrides:
   tar@>=7 <7.5.22: 7.5.22
   undici@>=5 <6.28.1: 6.28.1
 
-patchedDependencies:
-  '@tanstack/router-core':
-    hash: f71e28bcc5b221059b0cb78c80608d4dfbe049130287da56abe14770e599c05f
-    path: patches/@tanstack__router-core.patch
-
 importers:
 
   .:
@@ -8408,7 +8403,7 @@ snapshots:
     dependencies:
       '@tanstack/history': 1.162.4
       '@tanstack/react-store': 0.11.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@tanstack/router-core': 1.171.32(patch_hash=f71e28bcc5b221059b0cb78c80608d4dfbe049130287da56abe14770e599c05f)
+      '@tanstack/router-core': 1.171.32
       isbot: 5.2.2
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
@@ -8420,7 +8415,7 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
       use-sync-external-store: 1.7.0(react@19.3.0)
 
-  '@tanstack/router-core@1.171.32(patch_hash=f71e28bcc5b221059b0cb78c80608d4dfbe049130287da56abe14770e599c05f)':
+  '@tanstack/router-core@1.171.32':
     dependencies:
       '@tanstack/history': 1.162.4
       cookie-es: 3.1.1
@@ -8430,7 +8425,7 @@ snapshots:
   '@tanstack/router-generator@1.167.38':
     dependencies:
       '@babel/types': 7.29.8
-      '@tanstack/router-core': 1.171.32(patch_hash=f71e28bcc5b221059b0cb78c80608d4dfbe049130287da56abe14770e599c05f)
+      '@tanstack/router-core': 1.171.32
       '@tanstack/router-utils': 1.162.3
       '@tanstack/virtual-file-routes': 1.162.0
       jiti: 2.7.0
@@ -8445,7 +8440,7 @@ snapshots:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
-      '@tanstack/router-core': 1.171.32(patch_hash=f71e28bcc5b221059b0cb78c80608d4dfbe049130287da56abe14770e599c05f)
+      '@tanstack/router-core': 1.171.32
       '@tanstack/router-generator': 1.167.38
       '@tanstack/router-utils': 1.162.3
       chokidar: 5.0.0
