@@ -272,7 +272,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、`.github/backup-key.asc` の公開鍵で GnuPG により暗号化して、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。public リポジトリの Artifact は誰でも取り出せるので暗号化する。公開鍵暗号にするのは、ランナーに復号できる秘密を置かずに済むため（共通鍵だと GitHub Secrets の鍵が漏れればすべてのバックアップが読める）。戻し方は [README](../README.md#バックアップ)。
 
-**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod`。
+**main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod` → Sentry のリリースに前のリリースからのコミットを紐付ける（`sentry-cli releases set-commits --local`。リポジトリとの連携は有料プランの機能なので手元の git から送る。そのため checkout は全履歴を取る。失敗してもデプロイは続ける）。
 
 Preview 環境の挙動:
 - Preview の環境変数は Terraform（target = `preview`）で管理し、`DATABASE_URL` だけをデプロイ時に PR ブランチの値で上書きする。
@@ -295,7 +295,7 @@ Preview 環境の挙動:
   - エラー: 未処理の例外と、ルートのエラー画面が受け止めた描画中のエラー（`createRoot` の `onCaughtError`）。API のエラーは送らない（サーバーのエラーはサーバーが送り、通信の失敗はオフラインで使う PWA では不具合ではない）。View Transition が飛ばされたときの失敗（途中で次の遷移が始まったときの AbortError と、途中で画面の大きさが変わったときの InvalidStateError）も送らない（アニメーションが省かれるだけで画面は更新される。ルーターが `ready` の失敗を受け取らないので未処理の例外として上がる。上流で直るまでの一時的な対処）。
   - トレース: 起動と画面の移動をルート名で計り（`tanstackRouterBrowserTracingIntegration`）、API への要求にトレースの見出し（`sentry-trace`・`baggage`。同じオリジンなので既定で付く）を付けてサーバーのスパンと 1 本に繋ぐ。
   - ログ: `console` に出したものをすべて送る。
-  - `release` はビルドしたコミット。ソースマップは `build.sourcemap: 'hidden'` で作り、デプロイ前に Sentry へ送ってから消す（公開しない）。
+  - `release` はビルドしたコミット。デプロイのたびに、前のリリースからのコミットを紐付ける（上の `deploy.yml`）。ソースマップは `build.sourcemap: 'hidden'` で作り、デプロイ前に Sentry へ送ってから消す（公開しない）。
 - 誰の操作で起きたかを追えるよう、エラー・スパン・ログに DB のユーザー ID（UUID）を付ける。ID はそれ自体では個人を指さず（仮名）、誰かは DB か、ユーザー管理の編集画面に出る ID と見比べて確かめる。メールアドレス（やそのハッシュ）にしないのは、MCP のアクセストークンがユーザー ID しか持たず、要求のたびに DB から読むことになるため。
   - サーバー: ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が、要求ごとのスコープに付ける（`server/lib/sentry.ts` の `setSentryUser`）。
   - ブラウザ: `/api/me` の `id` を、ログイン中のユーザー（`meQueryOptions` のキャッシュ）が変わるたびに付け直す（`src/lib/sentry.ts` の `watchUser`）。
