@@ -65,7 +65,7 @@ export async function insertOnce<T extends TableWithId>(
  */
 export function participantWrites<
   P extends PgTable & { userId: PgColumn },
-  K extends keyof P['$inferInsert'] & string,
+  K extends keyof P & string,
 >({
   parent,
   participants,
@@ -78,8 +78,8 @@ export function participantWrites<
   /** 参加者の表で親を指す列の名前（表に無い名前は型で止まる） */
   parentKey: K;
 }) {
-  // 列は表のオブジェクトに列の名前で載っている（K が表の列の名前であることは型が保証する）
-  const parentColumn = participants[parentKey as keyof P] as PgColumn;
+  // 列は表のオブジェクトに列の名前で載っている
+  const parentColumn = participants[parentKey] as PgColumn;
 
   /** where に合う親の行（1 行）に userIds を参加者として入れる文 */
   const insertWhere = (tx: Database, where: SQL | undefined, userIds: string[]) =>

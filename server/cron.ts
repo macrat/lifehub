@@ -7,14 +7,15 @@ import { recordObservedTemps, refreshWeather } from './features/weather/service.
 import type { AppEnv } from './lib/app-env.ts';
 import { env } from './lib/env.ts';
 
-/** Cron secret の Bearer トークンの検査（比べ方は Hono 標準の bearerAuth。時間差で漏れない比較）。起動時に 1 度だけ作る */
-const checkCronSecret = env.CRON_SECRET ? bearerAuth<AppEnv>({ token: env.CRON_SECRET }) : null;
-
-/** secret の無い環境では、どんなトークンも通さない */
-const verifyCronSecret: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (!checkCronSecret) throw new HTTPException(401, { message: 'unauthorized' });
-  return checkCronSecret(c, next);
-};
+/**
+ * Cron secret の Bearer トークンの検査（比べ方は Hono 標準の bearerAuth。時間差で漏れない比較）。起動時に 1 度だけ選ぶ。
+ * secret の無い環境では、どんなトークンも通さない。
+ */
+const verifyCronSecret: MiddlewareHandler<AppEnv> = env.CRON_SECRET
+  ? bearerAuth<AppEnv>({ token: env.CRON_SECRET })
+  : () => {
+      throw new HTTPException(401, { message: 'unauthorized' });
+    };
 
 /**
  * Vercel Cron（`vercel.json` の `crons`）が呼ぶ入口をすべてここに集める。

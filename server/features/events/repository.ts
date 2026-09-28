@@ -46,7 +46,7 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
+  'id' | 'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
@@ -56,14 +56,23 @@ function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | 
 }
 
 /**
- * 検索で繰り返し元・単発の行を読む条件。キーワードで絞るのは単発の行だけにし、繰り返し元はすべて読む。
- * 「この回だけ」で直した回は繰り返し元と別のタイトル・メモを持つので、どの回が当たるかは展開した後に
- * 回の値で決める（`occurrences.ts` の `listOccurrences`）。繰り返し元の数は少ないので、読み足しても重くない。
- * WHY NOT 繰り返し元も SQL で絞る: 回の書き換えの規則を SQL にも写すことになり、2 か所で揃え続ける必要がある。
+ * 検索で繰り返し元・単発の行を読む粗いふるい: 行そのものか、繰り返し元なら実体化された回のどれかが当たる。
+ * 実体化されていない回は繰り返し元のタイトル・メモのままで、実体化された回は自分の値を持つので、
+ * 当たる回を持ちうる繰り返しはこれで漏れなく読める。どの回を返すかは展開した後に回の値で決める
+ * （`occurrences.ts` の `listOccurrences`）ので、ここは読む量を減らすだけで回の規則を持たない。
+ * WHY NOT 繰り返し元をすべて読む: 完了した回（実体化された行）は溜まり続けるので、検索のたびに
+ * すべての繰り返しの回を読んで展開することになる。
+ * 当たる回を持つ繰り返し元の集合は行によらないので、相関させずに 1 度だけ求める。
  */
 function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL | undefined {
   const own = keywordOf(table, q);
-  return own && or(isNotNull(table.rrule), own);
+  if (!own) return undefined;
+  const occurrence = alias(events, 'keyword_occurrence');
+  const seriesWithMatch = db
+    .select({ id: occurrence.seriesId })
+    .from(occurrence)
+    .where(and(isNotNull(occurrence.seriesId), keywordOf(occurrence, q)));
+  return or(own, and(isNotNull(table.rrule), inArray(table.id, seriesWithMatch)));
 }
 
 function isCandidate(

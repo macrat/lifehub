@@ -72,7 +72,7 @@ export async function listOccurrences(
       ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
     );
   }
-  return q ? result.filter((o) => matchesKeyword(q, o.title, o.note)) : result;
+  return result.filter((o) => matchesKeyword(q, o.title, o.note));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */

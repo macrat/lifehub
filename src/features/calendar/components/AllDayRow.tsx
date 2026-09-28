@@ -5,7 +5,7 @@ import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 
-import { type Draft, draftColumns, editingItemOn, sameOccurrence } from '../draft.ts';
+import { type Draft, draftColumns, sameOccurrence } from '../draft.ts';
 import { layoutLanes } from '../lane-layout.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import type { GridDraft } from '../use-event-composer.ts';
@@ -48,8 +48,8 @@ export function AllDayRow({
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、1 行足してその行に置く
   const draftCols = barDraft && draftColumns(barDraft.range, days);
-  // 枠を出せている間だけ、直している予定の元の帯を隠す
-  const editing = editingItemOn(barDraft, days);
+  // 枠を出せている間だけ、直している予定の元の帯を隠す（枠を置く列と同じ値で決める）
+  const editing = draftCols ? barDraft.item : null;
 
   return (
     <Box
