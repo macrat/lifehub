@@ -11,10 +11,14 @@ setupMobileCalendar();
 const shownView = (page: Page) => page.getByRole('button', { name: '表示の切替' });
 
 /**
- * 追加ボタンを開く。PC のテスト（events.spec.ts）と同じくホバーで開く: SpeedDial はホバーでも開くので、
+ * ホームの追加ボタンを開く。PC のテスト（events.spec.ts）と同じくホバーで開く: SpeedDial はホバーでも開くので、
  * click だとホバーで開いた直後の click で閉じてしまうことがある
  */
 const openAddMenu = (page: Page) => page.getByRole('button', { name: '追加', exact: true }).hover();
+
+/** カレンダーの追加ボタン（種類を選ばない。予定で始まり、入力の上端でタスクに切り替えられる） */
+const addOnCalendar = (page: Page) =>
+  page.getByRole('button', { name: '予定・タスクを追加' }).click();
 
 test('月表示の追加ボタンは閉じるまで日表示を出し、閉じたら月表示に戻る', async ({ page }) => {
   const title = `E2E 月表示から ${Date.now()}`;
@@ -22,8 +26,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(shownView(page)).toHaveText('月');
 
   // 取り消し: 閉じると月表示に戻る
-  await openAddMenu(page);
-  await page.getByRole('menuitem', { name: '予定' }).click();
+  await addOnCalendar(page);
   // 予定には必ずタイトルを入れるので、追加ボタンからはそのまま打てる
   await expect(page.getByLabel('タイトルを追加')).toBeFocused();
   await expect(shownView(page)).toHaveText('日');
@@ -31,8 +34,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(shownView(page)).toHaveText('月');
 
   // 保存: 返事を待たずに月表示へ戻り、下書きの枠は残らない
-  await openAddMenu(page);
-  await page.getByRole('menuitem', { name: '予定' }).click();
+  await addOnCalendar(page);
   // 追加ボタンからは全項目の段（画面いっぱい）で開く
   await expect.poll(async () => (await page.locator('[data-sheet]').boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
@@ -65,8 +67,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
 
 test('週表示の追加ボタンは週表示のまま下書きを置く', async ({ page }) => {
   await page.goto('/calendar?view=week&date=2031-06-18');
-  await openAddMenu(page);
-  await page.getByRole('menuitem', { name: '予定' }).click();
+  await addOnCalendar(page);
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await expect(shownView(page)).toHaveText('週');
   await expect(page.locator('[data-draft]')).toBeVisible();

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { clientIdShape, instantSchema, participantIdsSchema } from './common.ts';
 
-const EVENT_KINDS = ['event', 'task'] as const;
+export const EVENT_KINDS = ['event', 'task'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 export const REMIND_BEFORE_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440] as const;
@@ -121,9 +121,10 @@ export const createEventSchema = withEventRules(z.object(eventFields));
 
 /**
  * 部分更新（MCP の予定の更新）。省いた項目は今の値のまま、null は消す。
- * 種別は変えられないので含めない。組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
+ * 種別を変えるときは、画面と同じく開始だけを引き継ぐ（`patchEvent`）。
+ * 組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
-export type EventPatch = Partial<Omit<CreateEventInput, 'kind'>>;
+export type EventPatch = Partial<CreateEventInput>;
 
 /** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());

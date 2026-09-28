@@ -3,10 +3,11 @@ import { minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import {
   allDayEventValues,
+  carriedValues,
   eventValuesForRange,
   type ItemFormValues,
 } from '../events/form-values.ts';
-import type { DraftRange } from './draft.ts';
+import { type Draft, type DraftOps, type DraftRange, type WhenInput, withAllDay } from './draft.ts';
 
 /**
  * 予定の下書き ↔ フォームの値（クイック入力の見出し・既定値、入力で直した日時の映し戻し）。
@@ -27,37 +28,52 @@ export function draftText(draft: DraftRange): string {
 
 /**
  * クイック入力と全項目のフォーム（「その他のオプション」）に渡す既定値。
- * 保存済みの予定を直しているときは、その予定の内容に枠の日時と選んでいる参加者だけを重ねる
- * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない）。
+ * 保存済みの予定を直しているときは、その予定の内容に枠の日時だけを重ねる
+ * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない。参加者は呼び出し側が重ねる）。
+ * 直しているのがタスク（入力で予定に切り替えた）なら、期限前の通知は持ち越さない（`carriedValues`）。
  */
-export function draftValues(
-  draft: DraftRange,
-  participantIds: string[],
-  item: CalendarItem | null = null,
-): ItemFormValues {
+function draftValues(draft: DraftRange, item: CalendarItem | null): ItemFormValues {
   const when = draft.allDay
-    ? allDayEventValues(draft.from, draft.to, participantIds)
-    : eventValuesForRange(draft.date, draft.startMin, draft.endMin, participantIds);
+    ? allDayEventValues(draft.from, draft.to, [])
+    : eventValuesForRange(draft.date, draft.startMin, draft.endMin, []);
   return item === null
     ? when
     : {
-        ...item,
+        ...carriedValues(item, 'event'),
         allDay: when.allDay,
         startsAt: when.startsAt,
         endsAt: when.endsAt,
-        participantIds,
       };
+}
+
+/**
+ * 予定の下書きの扱い（`DraftOps`）。日時（終日かどうかを含む）は枠（range）だけが持つ。入力で直した日時と
+ * 終日の切り替えは枠へ戻し、見出し・グリッドの枠・保存する日時がいつも同じ枠から決まるようにする
+ * （入力の側にも持つと、開いたままグリッドで別の種類の枠を選び直したときに食い違う）。
+ */
+export function eventDraftOps({ range, item }: Draft): DraftOps {
+  /** 入力欄の日時 → 枠。枠に出せない範囲（日をまたぐ時間指定など）・書きかけなら null */
+  const rangeOf = ({ allDay, startsAt, endsAt }: WhenInput) =>
+    startsAt && endsAt ? draftFromInstants(allDay, startsAt, endsAt) : null;
+  return {
+    values: draftValues(range, item),
+    rangeText: draftText(range),
+    fromInput: (input) => {
+      const next = rangeOf(input);
+      return next && { range: next };
+    },
+    // 終日は枠そのものを切り替える（時間指定からはその日 1 日、終日からは既定の時間帯。`withAllDay`）
+    withAllDay: (input, allDay) => ({
+      range: withAllDay((input && rangeOf(input)) ?? range, allDay),
+    }),
+  };
 }
 
 /**
  * 保存する形の日時 → 下書き（グリッドの枠）。フォームで直した日時を枠に映し戻すのに使う。
  * 枠に出せない範囲（日をまたぐ時間指定、終わりが始まりより前）は null で、枠はそのままにする。
  */
-export function draftFromInstants(
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string,
-): DraftRange | null {
+function draftFromInstants(allDay: boolean, startsAt: string, endsAt: string): DraftRange | null {
   const from = toDateString(new Date(startsAt));
   if (allDay) {
     // 終日の入力の終わりは「含む終了日」

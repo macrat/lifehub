@@ -263,4 +263,102 @@ describe('events service', () => {
       ]);
     });
   });
+
+  describe('種別の変更', () => {
+    it('単発の予定をタスクに変えられる', async () => {
+      const created = await createEvent(
+        createEventSchema.parse({
+          kind: 'event',
+          title: '買い物',
+          startsAt: iso('2026-09-20T10:00:00'),
+          endsAt: iso('2026-09-20T11:00:00'),
+          participantIds: [userId],
+        }),
+        userId,
+      );
+      await updateEvent(
+        created.id,
+        updateEventSchema.parse({
+          kind: 'task',
+          title: '買い物',
+          startsAt: iso('2026-09-20T10:00:00'),
+          participantIds: [userId],
+          scope: 'all',
+        }),
+        userId,
+      );
+      const list = await listItems(september, now);
+      expect(list.map((t) => [t.kind, t.startsAt, t.endsAt, t.placementDate])).toEqual([
+        ['task', iso('2026-09-20T10:00:00'), null, '2026-09-20'],
+      ]);
+    });
+
+    it('完了したタスクを予定に変えると完了が外れる', async () => {
+      const created = await createEvent(
+        createEventSchema.parse({ kind: 'task', title: '買い物', participantIds: [userId] }),
+        userId,
+      );
+      await completeEvent(created.id, {}, userId, jst('2026-09-10T18:00:00'));
+      await updateEvent(
+        created.id,
+        updateEventSchema.parse({
+          kind: 'event',
+          title: '買い物',
+          startsAt: iso('2026-09-20T10:00:00'),
+          endsAt: iso('2026-09-20T11:00:00'),
+          participantIds: [userId],
+          scope: 'all',
+        }),
+        userId,
+      );
+      const list = await listItems(september, now);
+      expect(list.map((t) => [t.kind, t.completedAt])).toEqual([['event', null]]);
+    });
+
+    it('繰り返しのタスクを予定に変えると、完了した回も含めて回を捨てる', async () => {
+      const created = await createEvent(weeklyTask(), userId);
+      await completeEvent(
+        created.id,
+        { occurrenceStart: jst('2026-09-07T09:00:00') },
+        userId,
+        jst('2026-09-07T10:00:00'),
+      );
+      await updateEvent(
+        created.id,
+        updateEventSchema.parse({
+          ...weeklyTask(),
+          kind: 'event',
+          startsAt: iso('2026-09-07T09:00:00'),
+          endsAt: iso('2026-09-07T10:00:00'),
+          scope: 'all',
+        }),
+        userId,
+      );
+      const list = await listItems(september, now);
+      expect(list.map((t) => [t.kind, t.occurrenceStart, t.completedAt])).toEqual([
+        ['event', iso('2026-09-07T09:00:00'), null],
+        ['event', iso('2026-09-14T09:00:00'), null],
+        ['event', iso('2026-09-21T09:00:00'), null],
+        ['event', iso('2026-09-28T09:00:00'), null],
+      ]);
+    });
+
+    it('繰り返しの 1 回だけの種別は変えられない', async () => {
+      const created = await createEvent(weeklyTask(), userId);
+      await expect(
+        updateEvent(
+          created.id,
+          updateEventSchema.parse({
+            ...weeklyTask(),
+            kind: 'event',
+            endsAt: iso('2026-09-14T10:00:00'),
+            startsAt: iso('2026-09-14T09:00:00'),
+            scope: 'this',
+            occurrenceStart: iso('2026-09-14T09:00:00'),
+          }),
+          userId,
+        ),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+  });
 });

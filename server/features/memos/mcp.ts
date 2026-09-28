@@ -17,7 +17,7 @@ export const registerMemoTools: ToolRegistrar = (server, ctx) => {
     {
       title: 'メモを書く',
       description:
-        '家のことで思いついた一言を、今の日時でタイムラインに書き留める（X に投稿するような短いメモ）。予定やタスクにするものは add_event / add_task、レモンの木のことは log_lemon_care。書いたメモ（ref 付き）を返す。',
+        '家のことで思いついた一言を、今の日時でタイムラインに書き留める（X に投稿するような短いメモ）。予定やタスクにするものは add_event、レモンの木のことは log_lemon_care。書いたメモ（ref 付き）を返す。',
       inputSchema: { body },
       annotations: ADDITIVE,
     },

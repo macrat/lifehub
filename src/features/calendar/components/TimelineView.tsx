@@ -2,10 +2,8 @@ import Box from '@mui/material/Box';
 import { useMemo } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-
-import type { Draft } from '../draft.ts';
+import type { Draft, GridDraft } from '../draft.ts';
 import { partitionTimeline } from '../timeline-layout.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { AllDayRow } from './AllDayRow.tsx';
 import { HOURLY_WEATHER_WIDTH } from './hourly-weather-layout.ts';
 import { TimeGrid } from './TimeGrid.tsx';

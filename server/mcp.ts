@@ -30,7 +30,7 @@ const registrars: ToolRegistrar[] = [
  */
 const INSTRUCTIONS = [
   'LifeHub は 2 人（家族）の家庭用アプリ。記録はすべて、日付の上に並ぶタイムラインのエントリーとして扱う: 予定（event）、タスク（task）、立替（expense）、レモンの木の世話（lemon）、メモ（memo）。天気と祝日も日ごとに付く。',
-  'まず get_overview で今日の日付・ユーザーの名前・直近の状況をつかむ。期間や過去の記録は read_timeline で読む。書き込みは種類ごとの add_* / log_lemon_care で足し、エントリーの ref を update_* / set_task_done / delete_entry に渡して変える・消す。',
+  'まず get_overview で今日の日付・ユーザーの名前・直近の状況をつかむ。期間や過去の記録は read_timeline で読む。書き込みは種類ごとの add_* / log_lemon_care で足し（予定とタスクは同じ add_event で、kind で選ぶ）、エントリーの ref を update_* / set_task_done / delete_entry に渡して変える・消す。',
   '日付は JST の YYYY-MM-DD、日時は JST の YYYY-MM-DDTHH:mm（タイムゾーンは省ける）。人は名前（自分は "me"）で指す。',
 ].join('\n');
 

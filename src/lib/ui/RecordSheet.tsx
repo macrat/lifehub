@@ -8,7 +8,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type FormEvent, type ReactNode, type Ref, useState } from 'react';
 import { BottomSheet } from './BottomSheet.tsx';
 import { Dialog } from './Dialog.tsx';
 import { useDialogHistory } from './dialog-history.ts';
@@ -64,6 +64,13 @@ type Props = {
   full?: boolean;
   /** 三点リーダーのメニュー。何も無ければ出さない */
   actions?: RecordAction[];
+  /**
+   * 上端の帯の真ん中に置くもの（`SheetHeader` の middle。予定・タスクの種類の切り替えなど）。
+   * 帯は見出しを出す閲覧のときには見出しを出し、入力しているときは空いているので、そこに出る
+   */
+  headerMiddle?: ReactNode;
+  /** 入力欄の form。入力の途中の値を送信の外で読むとき（種類を切り替えるとき）に使う */
+  formRef?: Ref<HTMLFormElement>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   /** 保存の失敗など、項目に紐づかないエラー */
   error?: string | null;
@@ -129,14 +136,21 @@ function Body({
   editing = true,
   onEdit,
   actions = [],
+  headerMiddle,
+  formRef,
   onSubmit,
   error,
   children,
 }: Props) {
   return (
-    <Stack component="form" onSubmit={onSubmit} noValidate sx={{ minHeight: 0 }}>
+    <Stack component="form" ref={formRef} onSubmit={onSubmit} noValidate sx={{ minHeight: 0 }}>
       <Stack spacing={1} sx={{ pb: 1 }}>
-        <SheetHeader title={editing ? undefined : title} struck={struck} onClose={onClose}>
+        <SheetHeader
+          title={editing ? undefined : title}
+          struck={struck}
+          onClose={onClose}
+          middle={headerMiddle}
+        >
           {editing ? (
             <SubmitButton />
           ) : (
@@ -177,15 +191,19 @@ function Body({
  * シートの上端の帯。左に閉じる（バツ）、右に呼び出し側の操作を置く。
  * シートがどこまで下がっていても上端だけは必ず見えているので、主な操作はここに集める。
  * 見出しを持たないシート（予定のクイック入力）も、閉じると保存の位置を揃えるためにこれを使う。
+ * 見出しの無い帯は真ん中が空くので、そこに `middle`（予定・タスクの切り替え）を置ける。
  */
 export function SheetHeader({
   title,
   struck = false,
+  middle,
   onClose,
   children,
 }: {
   title?: string;
   struck?: boolean;
+  /** 見出しの代わりに真ん中に置くもの。見出しがあれば出さない */
+  middle?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -202,13 +220,19 @@ export function SheetHeader({
       <IconButton aria-label="閉じる" onClick={onClose}>
         <CloseIcon />
       </IconButton>
-      <Typography
-        variant="h6"
-        component={title ? 'h2' : 'span'}
-        sx={{ flexGrow: 1, minWidth: 0, px: 1, textDecoration: struck ? 'line-through' : 'none' }}
-      >
-        {title}
-      </Typography>
+      {title === undefined && middle ? (
+        <Stack direction="row" sx={{ flexGrow: 1, minWidth: 0, px: 1, justifyContent: 'center' }}>
+          {middle}
+        </Stack>
+      ) : (
+        <Typography
+          variant="h6"
+          component={title ? 'h2' : 'span'}
+          sx={{ flexGrow: 1, minWidth: 0, px: 1, textDecoration: struck ? 'line-through' : 'none' }}
+        >
+          {title}
+        </Typography>
+      )}
       {children}
     </Stack>
   );

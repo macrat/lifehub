@@ -1,8 +1,7 @@
-import Checkbox from '@mui/material/Checkbox';
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import type { ChangeEvent } from 'react';
@@ -11,6 +10,7 @@ import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
   type AllDayRemind,
+  type EventKind,
   REMIND_BEFORE_OPTIONS,
   type RecurrenceScope,
   toAllDayRemind,
@@ -18,7 +18,13 @@ import {
 import { toDateTimeLocalValue } from '../../../lib/date.ts';
 import { type FormErrors, SELECT_NONE } from '../../../lib/form.ts';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { EXTRA_FIELDS_MARKER, endFollowsStart, type ItemFormValues } from '../form-values.ts';
+import {
+  EXTRA_FIELDS_MARKER,
+  endFollowsStart,
+  type ItemFormValues,
+  splitWhen,
+  whenFieldNames,
+} from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
 
 type Props = {
@@ -48,14 +54,14 @@ export function ScopeChip({ scope }: { scope: RecurrenceScope }) {
   );
 }
 
-/** 終日の予定の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
+/** 終日の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
 const ALL_DAY_REMIND_LABELS: Record<AllDayRemind, string> = {
   0: '当日',
   1440: '前日',
 };
 
-const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
-  0: '開始時刻',
+/** 時刻のある通知の選択肢。0 分前は「開始時刻」「期限時刻」のように、その端の時刻そのもの */
+const REMIND_LABELS: Record<Exclude<(typeof REMIND_BEFORE_OPTIONS)[number], 0>, string> = {
   5: '5分前',
   10: '10分前',
   15: '15分前',
@@ -64,8 +70,6 @@ const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
   120: '2時間前',
   1440: '1日前',
 };
-
-type Kind = 'event' | 'task';
 
 type AllDayProps = { allDay: boolean; onChangeAllDay: (allDay: boolean) => void };
 
@@ -86,7 +90,7 @@ export function ItemFields({
   onChangeAllDay,
   thisOnly,
   autoFocus = false,
-}: ScopedProps & AllDayProps & { kind: Kind; autoFocus?: boolean }) {
+}: ScopedProps & AllDayProps & { kind: EventKind; autoFocus?: boolean }) {
   return (
     <>
       <TextField
@@ -99,6 +103,8 @@ export function ItemFields({
         fullWidth
       />
       <WhenFields
+        // 種類を切り替えたら、切り替えた既定値（`switchKindValues`）の日時で入力欄を作り直す
+        key={kind}
         kind={kind}
         initial={initial}
         errors={errors}
@@ -124,7 +130,9 @@ export function ItemFields({
 /**
  * 日時（終日の切り替えと、開始・終了または開始・期限）。全項目（`ItemFields`）と、
  * スマホで上の段まで広げたクイック入力（`QuickItemForm`）で同じものを使う。
- * 終日かどうかで日付だけ／日時に入れ替わるので、その状態だけ呼び出し側から受け取る。
+ * 開始・終了（期限）はそれぞれ日付と時刻の 2 つの欄に分け（`whenFieldNames`）、日付を左、時刻を右の列に並べる。
+ * 終日の切り替えは時刻の列の上に置き、時刻の欄と縦の線を揃える。終日では時刻の欄を出さず、日付の欄を行いっぱいに広げる。
+ * 終日かどうかは状態として呼び出し側から受け取る。
  * 予定は開始・終了が必須で、開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
  * タスクは開始・期限がどちらも任意なので、空のまま出す。
  */
@@ -134,60 +142,56 @@ export function WhenFields({
   errors,
   allDay,
   onChangeAllDay,
-}: Props & AllDayProps & { kind: Kind }) {
-  const when = kind === 'event' ? eventWhen(initial, allDay) : taskWhen(initial, allDay);
+}: Props & AllDayProps & { kind: EventKind }) {
+  const when = kind === 'event' ? eventWhen(initial) : initial;
   return (
-    <>
+    <Box
+      sx={{
+        display: 'grid',
+        // 日付は年月日と曜日のピッカーの印が入る分だけ時刻より広く取る
+        gridTemplateColumns: '3fr 2fr',
+        columnGap: 2,
+        rowGap: 2,
+        alignItems: 'start',
+      }}
+    >
       <FormControlLabel
         control={<Switch checked={allDay} onChange={(_, v) => onChangeAllDay(v)} />}
         label="終日"
+        sx={{ gridColumn: 2 }}
       />
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <WhenField
-          name="startsAt"
-          label={when.startLabel}
-          defaultValue={inputValue(when.start, 'start', initial.allDay, allDay)}
-          allDay={allDay}
-          error={errors.startsAt}
-          onChange={kind === 'event' ? endFollowsStart : undefined}
-        />
-        <WhenField
-          name="endsAt"
-          label={when.endLabel}
-          defaultValue={inputValue(when.end, 'end', initial.allDay, allDay)}
-          allDay={allDay}
-          error={errors.endsAt}
-        />
-      </Stack>
-    </>
+      <WhenField
+        name="startsAt"
+        edge={TASK_TIME_LABELS.start}
+        defaultValue={inputValue(when.startsAt, 'start', initial.allDay, allDay)}
+        allDay={allDay}
+        error={errors.startsAt}
+        onChange={kind === 'event' ? endFollowsStart : undefined}
+      />
+      <WhenField
+        name="endsAt"
+        edge={kind === 'event' ? '終了' : TASK_TIME_LABELS.due}
+        defaultValue={inputValue(when.endsAt, 'end', initial.allDay, allDay)}
+        allDay={allDay}
+        error={errors.endsAt}
+      />
+    </Box>
   );
 }
 
-/** 予定の日時の入力欄。開始が無ければ今、終了が無ければ開始から始める */
-function eventWhen(initial: ItemFormValues, allDay: boolean) {
-  const start = initial.startsAt ?? new Date().toISOString();
-  return {
-    start,
-    end: initial.endsAt ?? start,
-    startLabel: allDay ? '開始日' : '開始',
-    endLabel: allDay ? '終了日' : '終了',
-  };
-}
-
-/** タスクの日時の入力欄 */
-function taskWhen(initial: ItemFormValues, allDay: boolean) {
-  const label = taskWhenLabels(allDay);
-  return {
-    start: initial.startsAt,
-    end: initial.endsAt,
-    startLabel: label.start,
-    endLabel: label.due,
-  };
+/**
+ * 予定の日時の入力欄の初期値。予定は日時が必須なので、開始が無ければ今、終了が無ければ開始から始める
+ * （タスクは開始・期限がどちらも任意なので、そのまま空で出す）
+ */
+function eventWhen({ startsAt, endsAt }: ItemFormValues) {
+  const start = startsAt ?? new Date().toISOString();
+  return { startsAt: start, endsAt: endsAt ?? start };
 }
 
 /**
  * 残りの項目（場所・メモ・繰り返し・通知）。日時と同じく全項目とクイック入力で共通。
- * 通知は、予定は開始の何分前か（終日なら当日か前日）の 1 つ、タスクは「開始に」「期限に」の 2 択。
+ * 通知は何分前か（終日なら当日か前日）を選ぶ（`RemindField`）。予定は開始前の 1 つ、タスクは開始前と期限前の 2 つ。
+ * WHY 予定とタスクで選び方を揃える: 種類を切り替えても開始前の通知をそのまま引き継げる。
  * 終日の予定・タスクの通知は、その日の各自の通知時刻（設定画面で選ぶ）に届く。
  */
 export function ExtraFields({
@@ -196,7 +200,7 @@ export function ExtraFields({
   errors,
   allDay,
   thisOnly,
-}: ScopedProps & { kind: Kind; allDay: boolean }) {
+}: ScopedProps & { kind: EventKind; allDay: boolean }) {
   return (
     <>
       <input type="hidden" name={EXTRA_FIELDS_MARKER} value="1" />
@@ -210,31 +214,59 @@ export function ExtraFields({
         fullWidth
       />
       {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
-      {kind === 'event' ? (
-        <EventRemindField initial={initial} allDay={allDay} />
-      ) : (
-        <TaskRemindFields initial={initial} allDay={allDay} />
+      <RemindField
+        name="remindStartMinutes"
+        label={kind === 'event' ? '通知' : `${TASK_TIME_LABELS.start}の通知`}
+        edge={TASK_TIME_LABELS.start}
+        saved={initial.remindStartMinutes}
+        allDay={allDay}
+      />
+      {kind === 'task' && (
+        <RemindField
+          name="remindEndMinutes"
+          label={`${TASK_TIME_LABELS.due}の通知`}
+          edge={TASK_TIME_LABELS.due}
+          saved={initial.remindEndMinutes}
+          allDay={allDay}
+        />
       )}
     </>
   );
 }
 
-/** 予定の通知。開始の何分前か（終日なら当日か前日） */
-function EventRemindField({ initial, allDay }: { initial: ItemFormValues; allDay: boolean }) {
+/**
+ * 通知 1 つ（開始か期限の何分前か。終日なら当日か前日）。予定もタスクも同じ選び方で、
+ * 予定は開始前、タスクは開始前と期限前の 2 つを出す。
+ * 開始前の欄は予定とタスクで同じ位置・同じ部品なので、種類を切り替えても選んだ値が残る。
+ */
+function RemindField({
+  name,
+  label,
+  edge,
+  saved,
+  allDay,
+}: {
+  name: 'remindStartMinutes' | 'remindEndMinutes';
+  label: string;
+  /** 通知する端の名前（開始・期限）。0 分前の選択肢の名前になる */
+  edge: string;
+  saved: number | null;
+  allDay: boolean;
+}) {
   const options = allDay
     ? ALL_DAY_REMIND_OPTIONS.map((m) => ({ value: m, label: ALL_DAY_REMIND_LABELS[m] }))
-    : REMIND_BEFORE_OPTIONS.map((m) => ({ value: m, label: REMIND_LABELS[m] }));
+    : REMIND_BEFORE_OPTIONS.map((m) => ({
+        value: m,
+        label: m === 0 ? `${edge}時刻` : REMIND_LABELS[m],
+      }));
   return (
     <TextField
       // 終日を切り替えると選択肢が入れ替わるので、選択肢に合う値で作り直す
       key={allDay ? 'all-day' : 'timed'}
-      name="remindStartMinutes"
-      label="通知"
+      name={name}
+      label={label}
       select
-      defaultValue={
-        (allDay ? toAllDayRemind(initial.remindStartMinutes) : initial.remindStartMinutes) ??
-        SELECT_NONE
-      }
+      defaultValue={(allDay ? toAllDayRemind(saved) : saved) ?? SELECT_NONE}
       fullWidth
     >
       <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
@@ -247,63 +279,60 @@ function EventRemindField({ initial, allDay }: { initial: ItemFormValues; allDay
   );
 }
 
-/** タスクの通知。開始に・期限に通知するかの 2 つ */
-function TaskRemindFields({ initial, allDay }: { initial: ItemFormValues; allDay: boolean }) {
-  const label = taskWhenLabels(allDay);
-  return (
-    <Stack direction="row" spacing={2}>
-      <FormControlLabel
-        control={
-          <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
-        }
-        label={`${label.start}に通知`}
-      />
-      <FormControlLabel
-        control={<Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />}
-        label={`${label.due}に通知`}
-      />
-    </Stack>
-  );
-}
-
-/** タスクの開始・期限の入力欄の名前。終日なら日付だけ（開始日）、そうでなければ日時（開始日時） */
-function taskWhenLabels(allDay: boolean) {
-  const unit = allDay ? '日' : '日時';
-  return { start: `${TASK_TIME_LABELS.start}${unit}`, due: `${TASK_TIME_LABELS.due}${unit}` };
-}
-
 /**
- * 日時の入力欄 1 つ。終日なら日付だけ（`type="date"`）、そうでなければ日時。予定とタスクで同じものを使う。
- * 終日の切り替えで種類が入れ替わるので、key に含めて入力欄ごと作り直す（残っている値を別の形式で読ませない）。
+ * 日時の入力欄 1 組: 日付（左の列。終日では行いっぱい）と時刻（右の列。終日では出さない）。予定とタスクで同じものを使う。
+ * 名前は「開始日」「開始時刻」のように端の名前（edge）から付ける。
+ * 終日の切り替えで初期値の形が変わるので、key に含めて入力欄ごと作り直す（切り替え前の値を別の形で読ませない）。
+ * 誤りは日付の欄の下に出し、時刻の欄も誤りの色にする。
  */
 function WhenField({
   name,
-  label,
+  edge,
   defaultValue,
   allDay,
   error,
   onChange,
 }: {
   name: 'startsAt' | 'endsAt';
-  label: string;
+  edge: string;
+  /** "YYYY-MM-DD"（終日）か "YYYY-MM-DDTHH:mm"。未設定は空 */
   defaultValue: string;
   allDay: boolean;
   error: string | undefined;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const names = whenFieldNames(name);
+  const { date, time } = splitWhen(defaultValue);
   return (
-    <TextField
-      key={`${name}-${allDay}`}
-      name={name}
-      label={label}
-      type={allDay ? 'date' : 'datetime-local'}
-      defaultValue={defaultValue}
-      onChange={onChange}
-      error={Boolean(error)}
-      helperText={error}
-      slotProps={{ inputLabel: { shrink: true } }}
-      fullWidth
-    />
+    <>
+      <TextField
+        key={`${names.date}-${allDay}`}
+        name={names.date}
+        label={`${edge}日`}
+        type="date"
+        defaultValue={date}
+        onChange={onChange}
+        error={Boolean(error)}
+        helperText={error}
+        slotProps={{ inputLabel: { shrink: true } }}
+        // 終日では時刻の欄が無いので、日付の欄を行いっぱいに広げる
+        sx={{ gridColumn: allDay ? '1 / -1' : 1 }}
+        fullWidth
+      />
+      {!allDay && (
+        <TextField
+          name={names.time}
+          label={`${edge}時刻`}
+          type="time"
+          defaultValue={time}
+          onChange={onChange}
+          error={Boolean(error)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ gridColumn: 2 }}
+          fullWidth
+        />
+      )}
+    </>
   );
 }
 

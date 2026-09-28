@@ -128,6 +128,14 @@ describe('sortItems', () => {
     expect(sortItems(items).map((i) => i.title)).toEqual(['終日のタスク', '10 時の予定']);
   });
 
+  it('終日の中では、予定がタスクより先に並ぶ', () => {
+    const items = [
+      { ...task('終日のタスク', null, '2026-09-21T15:00:00.000Z'), allDay: true },
+      event('終日の予定', '2026-09-20T15:00:00.000Z', '2026-09-21T15:00:00.000Z', true),
+    ];
+    expect(sortItems(items).map((i) => i.title)).toEqual(['終日の予定', '終日のタスク']);
+  });
+
   it('日付が違えば placementDate 順に並ぶ', () => {
     const later = { ...task('翌日', null, null), placementDate: '2026-09-22' as DateString };
     const earlier = { ...event('前日', '2026-09-20T01:00:00.000Z', '2026-09-20T02:00:00.000Z') };

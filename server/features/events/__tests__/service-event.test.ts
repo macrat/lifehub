@@ -332,11 +332,8 @@ describe('events service', () => {
       expect(await listItems(september, now)).toHaveLength(4);
     });
 
-    it('種別は変更できず、予定は完了にできない', async () => {
+    it('予定は完了にできない', async () => {
       const created = await createEvent(weekly(), userId);
-      await expect(
-        updateEvent(created.id, { ...weekly(), kind: 'task', scope: 'all' }, userId),
-      ).rejects.toBeInstanceOf(ValidationError);
       await expect(completeEvent(created.id, {}, userId)).rejects.toBeInstanceOf(ValidationError);
     });
   });

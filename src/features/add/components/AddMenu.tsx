@@ -54,9 +54,10 @@ const PILL_SX: SxProps<Theme> = {
   '&:hover': { bgcolor: 'grey.A100' },
 };
 
+/** 出す種類と順（SpeedDial は下から上に開くので、先頭が一番下） */
+const KINDS: AddKind[] = ['memo', 'lemon', 'expense', 'task', 'event'];
+
 type Props = {
-  /** 出す順（SpeedDial は下から上に開くので、先頭が一番下） */
-  kinds: AddKind[];
   /** その場でフォームが開く種類が選ばれた。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
   onSelect: (kind: AddFormKind) => void;
   /** 予定が選ばれた。予定はフォームではなくカレンダーの下書きから始まるので、始め方は画面が決める */
@@ -64,14 +65,14 @@ type Props = {
 };
 
 /**
- * 右下の追加ボタン。ホームは 5 種、カレンダーは予定・タスクだけ。選ばれた種類を画面へ渡すだけで、
+ * 右下の追加ボタン（ホームの 5 種）。選ばれた種類を画面へ渡すだけで、
  * 入力を出すのは画面の側。予定だけは、選んだ時間帯を見ながらカレンダーの下書きから入れるので
  * （グリッドをなぞって作るのと同じ流れ）、フォームの種類とは別に `onAddEvent` で渡す。
  *
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
-export function AddMenu({ kinds, onSelect, onAddEvent }: Props) {
+export function AddMenu({ onSelect, onAddEvent }: Props) {
   const { value: expanded, on: expand, off: collapse } = useToggle();
   const open = (kind: AddKind) => {
     collapse();
@@ -93,7 +94,7 @@ export function AddMenu({ kinds, onSelect, onAddEvent }: Props) {
         slotProps={{ transition: { appear: false } }}
         sx={MENU_SX}
       >
-        {kinds.map((kind) => {
+        {KINDS.map((kind) => {
           const { label, icon: Icon } = ADD_KINDS[kind];
           return (
             <SpeedDialAction

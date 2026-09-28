@@ -70,6 +70,19 @@ test('日時の無いタスクは今日に置かれ、完了にすると完了�
   expect(itemsOf(client)).toEqual([]);
 });
 
+test('完了したタスクを予定に変えると、完了が外れて予定として置かれる', () => {
+  const client = clientWith('2030-05');
+  const task = { ...EVENT, kind: 'task' as const, allDay: false, endsAt: null };
+  insertItem(client, task);
+  setCompleted(client, { id: 'tmp', scope: 'all' }, '2030-05-01T09:00:00+09:00');
+  updateItem(client, { ...EVENT, scope: 'all' });
+  expect(itemsOf(client).map((item) => [item.kind, item.completedAt])).toEqual([
+    ['event', null],
+    ['event', null],
+    ['event', null],
+  ]);
+});
+
 /** 毎日 10:00〜11:00 の繰り返し予定の 1 回（サーバーが展開して返した形） */
 function dailyOccurrence(date: string): CalendarItem {
   const startsAt = new Date(`${date}T10:00:00+09:00`).toISOString();
