@@ -5,8 +5,8 @@ import {
   type Grabbed,
   LONG_VIBRATION_MS,
   SHORT_VIBRATION_MS,
-  TAP_MINUTES,
   type TimedDraft,
+  tapEnd,
 } from './draft.ts';
 import type { Drag } from './range-drag-session.ts';
 import { MIN_BLOCK_MINUTES } from './timeline-layout.ts';
@@ -67,7 +67,7 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft
   );
   const endMin = moved
     ? Math.max((Math.max(fromSlot, toSlot) + 1) * STEP_MINUTES, startMin + MIN_BLOCK_MINUTES)
-    : Math.min(startMin + TAP_MINUTES, DAY_MINUTES);
+    : tapEnd(startMin);
   return { allDay: false, date: from.date, startMin, endMin };
 }
 

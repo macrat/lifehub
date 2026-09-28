@@ -21,7 +21,6 @@ describe('MCP server', () => {
         'read_timeline',
         'delete_entry',
         'add_event',
-        'add_task',
         'update_event',
         'set_task_done',
         'add_expense',

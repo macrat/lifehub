@@ -90,11 +90,7 @@ function HomePage() {
         />
       </Box>
 
-      <AddMenu
-        kinds={['memo', 'lemon', 'expense', 'task', 'event']}
-        onSelect={adding.open}
-        onAddEvent={addEventOnCalendar}
-      />
+      <AddMenu onSelect={adding.open} onAddEvent={addEventOnCalendar} />
       {adding.value && <AddForm kind={adding.value} onClose={adding.close} />}
       {addingCare.value && (
         <CareLogForm initialCareTypes={addingCare.value} onClose={addingCare.close} />

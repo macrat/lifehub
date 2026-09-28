@@ -1,7 +1,7 @@
 import { ItemForm } from '../../events/components/ItemForm.tsx';
 import { grabbedScope } from '../../events/recurrence-options.ts';
-import { isTaskDraft, type useEventComposer } from '../use-event-composer.ts';
-import { QuickEventForm, QuickTaskForm } from './QuickItemForm.tsx';
+import type { useEventComposer } from '../use-event-composer.ts';
+import { QuickItemForm } from './QuickItemForm.tsx';
 
 type Props = {
   composer: ReturnType<typeof useEventComposer>;
@@ -14,30 +14,28 @@ type Props = {
 /**
  * 予定・タスクの入力。グリッドの下書きにはクイック入力を、「その他のオプション」で移した後は全項目のフォームを出す。
  * 同時に開くのはどちらか 1 つ（`useEventComposer` の状態がそれを守る）。
- * 長押しでつまんだのがタスクなら、どちらもタスクの入力にする。
+ * 種類はクイック入力で選んでいたもの（長押しでつまんだタスクならタスクから始まる）で、全項目のフォームへも持ち越す。
  */
 export function EventComposer({ composer, onClose, onChangeInset }: Props) {
   const { draft, expanded } = composer;
   if (draft) {
-    const common = {
-      draft,
-      onChangeParticipants: composer.changeParticipants,
-      onSubmit: composer.save,
-      onChangeDraft: composer.changeDraft,
-      onExpand: composer.expand,
-      onClose,
-      onChangeInset,
-    };
-    return isTaskDraft(draft) ? (
-      <QuickTaskForm {...common} draft={draft} />
-    ) : (
-      <QuickEventForm {...common} />
+    return (
+      <QuickItemForm
+        draft={draft}
+        onChangeParticipants={composer.changeParticipants}
+        onSubmit={composer.save}
+        onChangeDraft={composer.changeDraft}
+        onSwitchKind={composer.switchKind}
+        onExpand={composer.expand}
+        onClose={onClose}
+        onChangeInset={onChangeInset}
+      />
     );
   }
   if (expanded) {
     return (
       <ItemForm
-        kind={expanded.item?.kind ?? 'event'}
+        kind={expanded.kind}
         initial={expanded.values}
         scope={grabbedScope(expanded.item)}
         editing={expanded.item !== null}

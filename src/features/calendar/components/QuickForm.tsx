@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Grow from '@mui/material/Grow';
 import IconButton from '@mui/material/IconButton';
@@ -17,8 +18,10 @@ import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
+import { KindToggle } from '../../events/components/KindToggle.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import type { GridDraft, QuickProps } from '../use-event-composer.ts';
+import { draftKind, type GridDraft } from '../draft.ts';
+import type { QuickProps } from '../use-event-composer.ts';
 import type { Quick } from '../use-quick-form.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
 
@@ -32,8 +35,6 @@ type Props = Pick<QuickProps, 'onExpand'> & {
    */
   draft: GridDraft;
   quick: Quick;
-  /** 予定かタスクか。スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知）が違う */
-  kind: 'event' | 'task';
   onChangeParticipants: (participantIds: string[]) => void;
   onClose: () => void;
   /**
@@ -44,8 +45,8 @@ type Props = Pick<QuickProps, 'onExpand'> & {
 };
 
 /**
- * グリッドの下書きを入力するクイック入力の入れ物。予定（`QuickEventForm`）とタスク（`QuickTaskForm`）で同じもので、
- * 端末に合った入れ物を選ぶ。
+ * グリッドの下書きを入力するクイック入力の入れ物（`QuickItemForm`）。予定とタスクで同じもので、端末に合った入れ物を選ぶ。
+ * どちらも上端に予定・タスクの切り替え（`KindToggle`）を置く。
  * - スマホ: 画面下のシート（`QuickSheet`）。下の段はタイトル・日時の見出し・参加者だけ、上の段まで広げると全項目。
  * - PC: 選んだ範囲に寄せた吹き出し（`QuickBubble`）。タイトルと参加者だけを扱い、残りは
  *   「その他のオプション」で全項目のフォームへ渡す。
@@ -61,7 +62,18 @@ export function QuickForm({ onExpand, ...props }: Props) {
   );
 }
 
-type LayoutProps = Omit<Props, 'kind' | 'onChangeInset' | 'onExpand'>;
+type LayoutProps = Omit<Props, 'onChangeInset' | 'onExpand'>;
+
+/** 上端の予定・タスクの切り替え */
+function Switcher({ draft, quick }: Pick<Props, 'draft' | 'quick'>) {
+  return (
+    <KindToggle
+      kind={draftKind(draft)}
+      thisOnly={quick.form.thisOnly}
+      onChange={quick.switchKind}
+    />
+  );
+}
 
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
@@ -71,7 +83,6 @@ type LayoutProps = Omit<Props, 'kind' | 'onChangeInset' | 'onExpand'>;
  * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
-  kind,
   draft,
   quick,
   onChangeParticipants,
@@ -96,12 +107,12 @@ function QuickSheet({
       onChangeInset={onChangeInset}
     >
       <QuickFormBox
-        formRef={quick.formRef}
+        formRef={quick.form.formRef}
         onSubmit={form.handleSubmit}
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
         <Stack ref={peekRef}>
-          <SheetHeader onClose={onClose}>
+          <SheetHeader onClose={onClose} middle={<Switcher draft={draft} quick={quick} />}>
             <SubmitButton />
           </SheetHeader>
           <QuickFields
@@ -128,16 +139,16 @@ function QuickSheet({
           }}
         >
           <WhenFields
-            kind={kind}
-            // 枠を動かしたら、入力欄もその日時に入れ直す
-            key={`${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            kind={draftKind(draft)}
+            // 枠を動かしたら・種類を切り替えたら、入力欄もその日時に入れ直す
+            key={`${draftKind(draft)}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
             onChangeAllDay={quick.changeAllDay}
           />
           <ExtraFields
-            kind={kind}
+            kind={draftKind(draft)}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
@@ -199,8 +210,11 @@ function QuickBubble({
             }}
             sx={{ width: 340 }}
           >
-            <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
-              <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+            <QuickFormBox formRef={quick.form.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
+              <Stack direction="row" sx={{ pl: 2, pr: 1, alignItems: 'center' }}>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Switcher draft={draft} quick={quick} />
+                </Box>
                 <IconButton aria-label="閉じる" onClick={onClose}>
                   <CloseIcon />
                 </IconButton>

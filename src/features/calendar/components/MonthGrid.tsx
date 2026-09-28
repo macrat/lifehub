@@ -12,12 +12,18 @@ import {
   weekdayLabelColor,
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-
-import { type Draft, draftColumns, draftDays, editingItemOn, sameOccurrence } from '../draft.ts';
+import type { GridDraft } from '../draft.ts';
+import {
+  type Draft,
+  draftColumns,
+  draftDays,
+  draftKind,
+  editingItemOn,
+  sameOccurrence,
+} from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { useMonthGrid } from '../use-month-grid.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather } from './DayWeather.tsx';
@@ -259,6 +265,7 @@ function WeekRow({
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
+          kind={draftKind(draft)}
           participantIds={draft.participantIds}
         />
       )}

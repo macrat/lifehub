@@ -3,10 +3,11 @@ import { addDays, diffDays } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
   type AllDayDraft,
-  type Draft,
   type DraftRange,
   draftDays,
+  draftKind,
   type Grabbed,
+  type GridDraft,
   hasEnds,
   SHORT_VIBRATION_MS,
 } from './draft.ts';
@@ -28,7 +29,7 @@ export type DayGrab = Grabbed &
  * 帯は見せるだけでポインタを受けるのは下のセルだから（`DraftBar`）。
  */
 export function dayGrab(
-  draft: Draft | null,
+  draft: Pick<GridDraft, 'range' | 'item' | 'task'> | null,
   date: DateString,
   half: 'left' | 'right',
 ): DayGrab | null {
@@ -38,7 +39,7 @@ export function dayGrab(
   if (!inRange(date, days)) return null;
   const { from, to } = days;
   // 時間指定の帯は 1 日ぶんで、日の並びでは時間帯を変えられない。端の無い枠（タスク）も動かすだけ
-  if (!range.allDay || !hasEnds(item)) return { kind: 'move', draft: range, item };
+  if (!range.allDay || !hasEnds(draftKind(draft))) return { kind: 'move', draft: range, item };
   if (date === from && half === 'left') return { kind: 'start', draft: range, item };
   if (date === to && half === 'right') return { kind: 'end', draft: range, item };
   return { kind: 'move', draft: range, item };

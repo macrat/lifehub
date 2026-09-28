@@ -62,7 +62,8 @@ export function updateItem(client: QueryClient, input: UpdateEventBody & { id: s
 
 /**
  * 編集した回を作り直した発生。作り直せない（ほかの回に及ぶ）ときは null。
- * 完了はこの更新で変わらない（サーバーも completed_at を触らない）ので、今の値を引き継ぐ。
+ * 完了は種類を変えない限りこの更新で変わらない（サーバーも completed_at を触らない）ので、今の値を引き継ぐ。
+ * 種類を変えたら完了は外れる（サーバーと同じ。予定は完了を持てない）。
  * 取得済みのカレンダー全体から先に探す（完了したタスクは完了日の月にしか無く、動かした先の月には居ない）。
  */
 function replacementOf(
@@ -72,7 +73,8 @@ function replacementOf(
   const single = input.rrule == null && input.scope === 'all';
   if (!single && input.scope !== 'this') return null;
   const current = findItem(client, input);
-  const occurrence = { ...toOccurrence(input), completedAt: current?.completedAt ?? null };
+  const completedAt = current?.kind === input.kind ? current.completedAt : null;
+  const occurrence = { ...toOccurrence(input), completedAt };
   if (input.scope !== 'this') return occurrence;
   return {
     ...occurrence,

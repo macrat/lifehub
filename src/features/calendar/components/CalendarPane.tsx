@@ -2,9 +2,8 @@ import { memo, useMemo } from 'react';
 import { type CalendarItem, groupByDate } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useCalendarItems } from '../../events/queries.ts';
-import type { Draft } from '../draft.ts';
+import type { Draft, GridDraft } from '../draft.ts';
 import { type PeriodView, periodOf } from '../use-calendar-page.ts';
-import type { GridDraft } from '../use-event-composer.ts';
 import { MonthGrid } from './MonthGrid.tsx';
 import { TimelineView } from './TimelineView.tsx';
 

@@ -1,7 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { CalendarItem } from '../../../shared/calendar.ts';
-import { AddForm } from '../../features/add/components/AddForm.tsx';
-import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { EventComposer } from '../../features/calendar/components/EventComposer.tsx';
@@ -11,6 +9,7 @@ import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
@@ -25,7 +24,8 @@ export const Route = createFileRoute('/_authenticated/calendar')({
  * - 日をタップするとその日の日表示へ。左右のスワイプで前後の月・週・日へ
  * - 項目をタップすると詳細（`ItemDetailSheet`）。リストの行は長押しでその詳細が編集で開く
  * - 見出しをタップすると年月・週・日の選択ダイアログ
- * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）
+ * - グリッドをなぞると、その範囲の予定を追加できる（`draft`。クイック入力 →「その他のオプション」で全項目のフォーム）。
+ *   クイック入力の上端で予定とタスクを切り替えられる
  * - 予定を長押しでつまむと編集モード。枠になった予定を動かして日時を直し、同じクイック入力から保存する
  * - 追加ボタン・PWA のショートカット・ほかの画面の追加ボタンからの追加は `useCalendarAdd` が受け持つ
  */
@@ -95,10 +95,9 @@ function CalendarPage() {
         />
       )}
 
-      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
-      {!draft && (
-        <AddMenu kinds={['task', 'event']} onSelect={add.openForm} onAddEvent={add.addEvent} />
-      )}
+      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める。
+          予定とタスクは入力の上端で切り替えるので、種類を選ばせずに 1 つのボタンで開く */}
+      {!draft && <AddFab label="予定・タスクを追加" onClick={() => add.addItem()} />}
       {selection.selected && (
         <ItemDetailSheet
           item={selection.selected.record}
@@ -106,7 +105,6 @@ function CalendarPage() {
           onClose={selection.close}
         />
       )}
-      {add.adding && <AddForm kind={add.adding} onClose={add.closeForm} />}
       <EventComposer
         composer={add.composer}
         onClose={add.closeComposer}

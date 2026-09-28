@@ -44,9 +44,11 @@ test('時間軸のタスクは長押しでつまんで動かし、下半分の�
 
   // 上の段まで広げるとタスクの全項目が出る
   await page.getByRole('button', { name: 'その他のオプション' }).click();
-  await expect(page.getByLabel('開始日時', { exact: true })).toHaveValue('2031-06-19T15:00');
-  await expect(page.getByLabel('期限日時', { exact: true })).toHaveValue('2031-06-19T17:00');
-  await expect(page.getByLabel('期限日時に通知')).toBeVisible();
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('2031-06-19');
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
+  await expect(page.getByLabel('期限日', { exact: true })).toHaveValue('2031-06-19');
+  await expect(page.getByLabel('期限時刻', { exact: true })).toHaveValue('17:00');
+  await expect(page.getByLabel('期限の通知')).toBeVisible();
 
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
@@ -90,4 +92,51 @@ test('終日のタスクは月表示で長押しでつまんで別の日へ動�
   await expect(page.getByText('開始: 6/26(木)')).toBeVisible();
   await expect(page.getByText('期限: 6/27(金)')).toBeVisible();
   await deleteItem(page, id);
+});
+
+test('なぞって開いた予定の入力は上端でタスクに切り替えられ、詳細の編集でも予定に戻せる', async ({
+  page,
+}) => {
+  const title = `E2E 予定からタスク ${Date.now()}`;
+  await page.goto('/calendar?view=day&date=2031-06-26');
+  const at = (minutes: number) => timePoint(page, '2031-06-26', minutes);
+  const tap = await at(15 * 60 + 10);
+  await page.touchscreen.tap(tap.x, tap.y);
+  await expect(page.getByText('6/26(木) 15:00〜16:00')).toBeVisible();
+  await expect(page.locator('[data-handle]')).toHaveCount(2);
+  await page.getByLabel('タイトルを追加').fill(title);
+
+  // タスクへ: 開始だけを引き継ぎ（期限は付かない）、枠は端の無いタスクの形になる。入力したタイトルは残る
+  await page.getByRole('button', { name: 'タスク', exact: true }).click();
+  await expect(page.getByText('開始 6/26(木) 15:00', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-handle]')).toHaveCount(0);
+  await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
+
+  // 予定へ戻すと、開始から 1 時間の予定になる
+  await page.getByRole('button', { name: '予定', exact: true }).click();
+  await expect(page.getByText('6/26(木) 15:00〜16:00')).toBeVisible();
+  await expect(page.locator('[data-handle]')).toHaveCount(2);
+
+  // タスクにして保存する
+  await page.getByRole('button', { name: 'タスク', exact: true }).click();
+  await page.getByRole('button', { name: '保存' }).click();
+  const block = page.getByRole('button', { name: title });
+  await expect(block).toBeVisible();
+  await block.click();
+  await expect(page.getByText('開始: 6/26(木) 15:00')).toBeVisible();
+
+  // 詳細の編集でも種類を切り替えられる。予定にすると開始から 1 時間になる
+  await page.getByRole('button', { name: '編集' }).click();
+  await page.getByRole('button', { name: '予定', exact: true }).click();
+  await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
+  await expect(page.getByLabel('終了日', { exact: true })).toHaveValue('2031-06-26');
+  await expect(page.getByLabel('終了時刻', { exact: true })).toHaveValue('16:00');
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(block).toBeVisible();
+
+  const res = await page.request.get('/api/calendar?from=2031-06-26&to=2031-06-26');
+  const { items } = (await res.json()) as { items: { id: string; kind: string; title: string }[] };
+  const saved = items.find((item) => item.title === title);
+  expect(saved?.kind).toBe('event');
+  if (saved) await deleteItem(page, saved.id);
 });

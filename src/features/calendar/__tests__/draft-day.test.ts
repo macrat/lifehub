@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { dayDraft, dayGrab, dayVibration } from '../day-draft.ts';
-import { type Draft, type DraftRange, draftColumns } from '../draft.ts';
+import { type DraftRange, draftColumns } from '../draft.ts';
+import { newTaskTimes } from '../task-draft.ts';
 import {
   allDay,
   at,
@@ -33,8 +34,8 @@ describe('dayDraft', () => {
 
 describe('dayGrab', () => {
   const draft = allDay('2031-06-05', '2031-06-07');
-  /** 日の並びに出ている枠（追加の下書き） */
-  const shown = (range: DraftRange): Draft => ({ range, item: null });
+  /** 日の並びに出ている枠（追加の予定の下書き） */
+  const shown = (range: DraftRange) => ({ range, item: null, task: null });
 
   it('最初の日の左半分は開始、最後の日の右半分は終了', () => {
     expect(dayGrab(shown(draft), day('2031-06-05'), 'left')).toEqual({
@@ -78,7 +79,7 @@ describe('dayGrab', () => {
   });
 
   it('編集中の予定をつまんだときは、その予定を持ち回る', () => {
-    expect(dayGrab({ range: draft, item: event }, day('2031-06-06'), 'left')).toEqual({
+    expect(dayGrab({ range: draft, item: event, task: null }, day('2031-06-06'), 'left')).toEqual({
       kind: 'move',
       draft,
       item: event,
@@ -88,8 +89,20 @@ describe('dayGrab', () => {
   it('タスクは長さを持たないので、1 日の帯でも左右どちらを押しても帯そのもの', () => {
     const single = allDay(DAY, DAY);
     const move = { kind: 'move', draft: single, item: task };
-    expect(dayGrab({ range: single, item: task }, DAY, 'left')).toEqual(move);
-    expect(dayGrab({ range: single, item: task }, DAY, 'right')).toEqual(move);
+    expect(dayGrab({ range: single, item: task, task: newTaskTimes(single) }, DAY, 'left')).toEqual(
+      move,
+    );
+    expect(
+      dayGrab({ range: single, item: task, task: newTaskTimes(single) }, DAY, 'right'),
+    ).toEqual(move);
+  });
+
+  it('予定からタスクに切り替えた枠も、直している物に関わらずタスクとして帯そのもの', () => {
+    const single = allDay(DAY, DAY);
+    const move = { kind: 'move', draft: single, item: null };
+    expect(dayGrab({ range: single, item: null, task: newTaskTimes(single) }, DAY, 'left')).toEqual(
+      move,
+    );
   });
 
   it('掛からない日・枠無しは掴まない', () => {

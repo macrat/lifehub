@@ -4,6 +4,7 @@ import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 import { call, connect, type Entry, fail, readDays, run } from './mcp-client.ts';
 
 const WEEKLY_DENTIST = {
+  kind: 'event',
   title: '歯医者',
   start: '2030-01-07T09:00',
   end: '2030-01-07T10:00',
@@ -43,7 +44,12 @@ describe('MCP server: 予定・タスク', () => {
 
   it('複数日の終日の予定は掛かる日すべてに出る（日付を指して読んでも見つかる）', async () => {
     const client = await connect(userId);
-    await call(client, 'add_event', { title: '旅行', start: '2030-01-07', end: '2030-01-08' });
+    await call(client, 'add_event', {
+      kind: 'event',
+      title: '旅行',
+      start: '2030-01-07',
+      end: '2030-01-08',
+    });
     const [day] = await readDays(client, { from: '2030-01-08', to: '2030-01-08' });
     expect(day?.entries).toEqual([
       expect.objectContaining({
@@ -59,16 +65,18 @@ describe('MCP server: 予定・タスク', () => {
   it('1 日の中はホームのタイムラインと同じ置き方の古い順（終日の予定はその日の終わり）', async () => {
     const client = await connect(userId);
     await call(client, 'add_event', {
+      kind: 'event',
       title: '終日の予定',
       start: '2030-01-08',
       end: '2030-01-08',
     });
     await call(client, 'add_event', {
+      kind: 'event',
       title: '10 時の予定',
       start: '2030-01-08T10:00',
       end: '2030-01-08T11:00',
     });
-    await call(client, 'add_task', { title: '終日のタスク', start: '2030-01-08' });
+    await call(client, 'add_event', { kind: 'task', title: '終日のタスク', start: '2030-01-08' });
     const [day] = await readDays(client, { from: '2030-01-08', to: '2030-01-08' });
     expect(day?.entries.map((e) => e.title)).toEqual(['終日のタスク', '10 時の予定', '終日の予定']);
   });
@@ -76,6 +84,7 @@ describe('MCP server: 予定・タスク', () => {
   it('開始と終了の形（日付と日時）が混ざっていれば、揃えるよう文で返す', async () => {
     const client = await connect(userId);
     const message = await fail(client, 'add_event', {
+      kind: 'event',
       title: '旅行',
       start: '2030-01-07',
       end: '2030-01-08T10:00',
@@ -129,7 +138,8 @@ describe('MCP server: 予定・タスク', () => {
 
   it('終日と時刻ありを切り替えるときは両端を求め、省いた端を黙って丸めない', async () => {
     const client = await connect(userId);
-    const task = await call<Entry>(client, 'add_task', {
+    const task = await call<Entry>(client, 'add_event', {
+      kind: 'task',
       title: '提出',
       start: '2030-01-07T09:00',
       due: '2030-01-08T18:00',
@@ -152,7 +162,7 @@ describe('MCP server: 予定・タスク', () => {
     expect(await fail(client, 'update_event', { ref: event.ref, due: '2030-01-08' })).toContain(
       'end',
     );
-    const task = await call<Entry>(client, 'add_task', { title: '提出' });
+    const task = await call<Entry>(client, 'add_event', { kind: 'task', title: '提出' });
     expect(await fail(client, 'update_event', { ref: task.ref, end: '2030-01-08' })).toContain(
       'due',
     );
@@ -160,9 +170,13 @@ describe('MCP server: 予定・タスク', () => {
 
   it('日時の無いタスクは今日に出て、set_task_done で完了・取り消しができる', async () => {
     const client = await connect(userId);
-    const task = await call<Entry>(client, 'add_task', { title: '提出', due: '2030-01-31' });
+    const task = await call<Entry>(client, 'add_event', {
+      kind: 'task',
+      title: '提出',
+      due: '2030-01-31',
+    });
     expect(task).toMatchObject({ type: 'task', done: false, due: '2030-01-31' });
-    const undated = await call<Entry>(client, 'add_task', { title: '電球を替える' });
+    const undated = await call<Entry>(client, 'add_event', { kind: 'task', title: '電球を替える' });
     expect(await fail(client, 'set_task_done', { ref: 'x' })).toContain('ref');
 
     const doneOf = async () => {
@@ -180,6 +194,86 @@ describe('MCP server: 予定・タスク', () => {
     expect(await doneOf()).toContainEqual(['電球を替える', true]);
     await run(client, 'set_task_done', { ref: undated.ref, done: false });
     expect(await doneOf()).toContainEqual(['電球を替える', false]);
+  });
+
+  it('予定は終了を省くと開始から 1 時間（終日ならその日 1 日）で、開始は必須', async () => {
+    const client = await connect(userId);
+    expect(
+      await call<Entry>(client, 'add_event', {
+        kind: 'event',
+        title: '面談',
+        start: '2030-01-07T09:00',
+      }),
+    ).toMatchObject({ start: '2030-01-07T09:00+09:00', end: '2030-01-07T10:00+09:00' });
+    expect(
+      await call<Entry>(client, 'add_event', {
+        kind: 'event',
+        title: '休み',
+        start: '2030-01-08',
+      }),
+    ).toMatchObject({ start: '2030-01-08', end: '2030-01-08' });
+    expect(await fail(client, 'add_event', { kind: 'event', title: '面談' })).toContain('start');
+  });
+
+  it('kind で予定とタスクを入れ替え、引き継ぐ日時は開始だけ', async () => {
+    const client = await connect(userId);
+    const event = await call<Entry>(client, 'add_event', {
+      kind: 'event',
+      title: '買い物',
+      start: '2030-01-07T09:00',
+      end: '2030-01-07T11:00',
+      remindBeforeStart: 10,
+      remindBeforeEnd: 5,
+    });
+    const task = await call<Entry>(client, 'update_event', { ref: event.ref, kind: 'task' });
+    expect(task).toMatchObject({
+      type: 'task',
+      title: '買い物',
+      start: '2030-01-07T09:00+09:00',
+      remindBeforeStart: 10,
+    });
+    expect(task).not.toHaveProperty('due');
+    expect(task).not.toHaveProperty('remindBeforeDue');
+
+    // 予定に戻すと開始から 1 時間。終わりの名前は変えた後の種類のもの（予定なら end）
+    expect(
+      await fail(client, 'update_event', { ref: task.ref, kind: 'event', due: '2030-01-08' }),
+    ).toContain('end');
+    const back = await call<Entry>(client, 'update_event', { ref: task.ref, kind: 'event' });
+    expect(back).toMatchObject({
+      type: 'event',
+      start: '2030-01-07T09:00+09:00',
+      end: '2030-01-07T10:00+09:00',
+    });
+
+    // 開始・期限を一緒に渡せばそれにする
+    const moved = await call<Entry>(client, 'update_event', {
+      ref: back.ref,
+      kind: 'task',
+      start: '2030-01-09T13:00',
+      due: '2030-01-10T18:00',
+    });
+    expect(moved).toMatchObject({
+      type: 'task',
+      start: '2030-01-09T13:00+09:00',
+      due: '2030-01-10T18:00+09:00',
+    });
+
+    // 開始の無いタスクを予定にするときは、開始を求める
+    const undated = await call<Entry>(client, 'add_event', { kind: 'task', title: '電話' });
+    expect(await fail(client, 'update_event', { ref: undated.ref, kind: 'event' })).toContain(
+      'start',
+    );
+  });
+
+  it('繰り返しの 1 回だけの種類は入れ替えられないと文で返す', async () => {
+    const client = await connect(userId);
+    await call(client, 'add_event', WEEKLY_DENTIST);
+    const second = (await readDays(client, { from: '2030-01-14', to: '2030-01-14' }))[0]
+      ?.entries[0];
+    expect(
+      await fail(client, 'update_event', { ref: second?.ref, scope: 'this', kind: 'task' }),
+    ).toContain('種別');
   });
 
   it('予定は完了にできないと文で返す', async () => {

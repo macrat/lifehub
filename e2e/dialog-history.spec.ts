@@ -70,15 +70,11 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   await page.goto('/calendar?view=month&date=2030-03-15');
   const title = page.getByRole('button', { name: '2030年03月（年月を選ぶ）' });
 
-  // 追加フォームは戻るで閉じ、カレンダーはそのまま
-  // （予定は日表示へ移ってから開くので、その場で開くタスクで確かめる）
-  // SpeedDial はホバーで開く（クリックだと開閉が反転する）
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'タスク' }).click();
-  // 入力しているときは見出しを出さないので、入力欄が出たことで開いたと見る
-  await expect(page.getByLabel('タイトル')).toBeVisible();
+  // 追加の入力は戻るで閉じ、閉じるまで出していた日表示から元の月表示に戻る
+  await page.getByRole('button', { name: '予定・タスクを追加' }).click();
+  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(title).toBeVisible();
 
   // 年月を選ぶと、ダイアログの履歴は選んだ月で置き換わる（戻ると開く前の月）

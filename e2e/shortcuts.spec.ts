@@ -19,9 +19,13 @@ test('ショートカットの URL がそれぞれの入力を開く', async ({ 
   await page.goto(urlOf('予定登録'));
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
 
-  // タスク登録
+  // タスク登録: 同じクイック入力が、初めからタスクに切り替えた状態で開く
   await page.goto(urlOf('タスク登録'));
-  await expect(page.getByRole('dialog', { name: 'タスクを追加' })).toBeVisible();
+  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'タスク', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 
   // 立替登録
   await page.goto(urlOf('立替登録'));

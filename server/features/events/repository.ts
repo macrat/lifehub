@@ -234,28 +234,31 @@ export async function insert(row: NewEventRow, participantIds: string[]): Promis
 
 /**
  * 行を更新する。participantIds を渡すと参加者を置き換える。
- * dropOccurrences を立てると、実体化された未完了の回も同じ原子的な操作の中で消す。
+ * dropOccurrences を渡すと、実体化された回も同じ原子的な操作の中で消す
+ * （uncompleted は未完了の回だけ、all は完了した回も）。
  */
 export async function update(
   id: string,
   values: Partial<NewEventRow>,
-  options: { participantIds?: string[]; dropUncompletedOccurrences?: boolean } = {},
+  options: { participantIds?: string[]; dropOccurrences?: 'uncompleted' | 'all' | undefined } = {},
 ): Promise<void> {
-  const { participantIds, dropUncompletedOccurrences } = options;
-  if (participantIds === undefined && !dropUncompletedOccurrences) {
+  const { participantIds, dropOccurrences } = options;
+  if (participantIds === undefined && dropOccurrences === undefined) {
     await db.update(events).set(values).where(eq(events.id, id));
     return;
   }
+  // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
+  // 完了した回は履歴として残す（種別を変えたときは完了した回も捨てる。`applyUpdate`）
+  const series = eq(events.seriesId, id);
+  const dropWhere =
+    dropOccurrences &&
+    { all: series, uncompleted: and(series, isNull(events.completedAt)) }[dropOccurrences];
   await runBatch((tx) => [
     tx.update(events).set(values).where(eq(events.id, id)),
     ...(participantIds === undefined
       ? []
       : replaceParticipantsWhere(tx, eq(events.id, id), participantIds)),
-    // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
-    // 完了した回は履歴として残す
-    ...(dropUncompletedOccurrences
-      ? [tx.delete(events).where(and(eq(events.seriesId, id), isNull(events.completedAt)))]
-      : []),
+    ...(dropWhere ? [tx.delete(events).where(dropWhere)] : []),
   ]);
 }
 
