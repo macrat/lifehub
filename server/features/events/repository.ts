@@ -131,8 +131,8 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
- * q を渡すと、単発の行はタイトルかメモが当たるものだけを読む（ホームのタイムラインの検索。繰り返し元は
- * すべて読み、どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
+ * q を渡すと、行そのものか実体化された回のどれかが当たるものだけを読む（タイムラインの検索。粗いふるいで、
+ * どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
  */
 export async function findCalendarRows(
   from: Date,

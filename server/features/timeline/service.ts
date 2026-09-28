@@ -8,7 +8,6 @@ import {
   startOfDay,
   toDateString,
 } from '../../../shared/date.ts';
-import { matchesKeyword } from '../../../shared/search.ts';
 import {
   entryDay,
   entryStart,
@@ -142,13 +141,13 @@ export async function listDays(
     wants(type as DayEntryType) ? [source.entries(instantRange(range), q, now)] : [],
   );
   const [items, holidays, weather, ...recordEntries] = await Promise.all([
-    wants('event') || wants('task') ? events.listItems(range, now) : [],
+    wants('event') || wants('task') ? events.listItems(range, now, { q }) : [],
     listHolidays(range),
     listDailyWeather(range),
     ...records,
   ]);
   const eventEntries = items
-    .filter((item) => wants(item.kind) && matchesKeyword(q, item.title, item.note))
+    .filter((item) => wants(item.kind))
     .map((item) => ({ date: item.placementDate, entry: eventEntry(item, now) }));
   const byDay = Map.groupBy(
     [

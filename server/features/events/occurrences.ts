@@ -26,9 +26,14 @@ const MAX_VISIBLE_UNCOMPLETED = 2;
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
  * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+ * q を渡すとタイトルかメモが当たる回だけを置く（`listOccurrences`）。
  */
-export async function listItems(range: DateRange, now: Date = new Date()): Promise<CalendarItem[]> {
-  const occurrences = await listOccurrences(range, now);
+export async function listItems(
+  range: DateRange,
+  now: Date = new Date(),
+  { q }: { q?: string | undefined } = {},
+): Promise<CalendarItem[]> {
+  const occurrences = await listOccurrences(range, now, { q });
   return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
 }
 
