@@ -99,3 +99,22 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
           VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      # Sentry のリリース（ビルドしたコミット。`build-info.ts` の __BUILD_COMMIT__）に、前のリリースからの
+      # コミットを紐付ける。エラーがどのリリースで入ったかをコミットで追え、コミットメッセージの
+      # `Fixes <Issue>` でそのリリースが出たときに Issue が解決済みになる。
+      # --auto は Sentry の GitHub 連携に登録済みのリポジトリ（macrat/lifehub）を git の remote から見つけ、
+      # 前のリリースからのコミットを連携経由で GitHub から取る。
+      # WHY NOT --local: 手元の git から送るので、連携のリポジトリとは別の「origin」というリポジトリとして
+      # 登録され、Sentry 上で同じリポジトリが 2 つに分かれる。
+      # 送れなくてもエラーの収集は続くので、デプロイは止めない。
+      - name: Associate commits with the Sentry release
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ steps.tf.outputs.sentry_organization }}
+          SENTRY_PROJECT: ${{ steps.tf.outputs.sentry_project }}
+        # リリースは先に届いたエラーで作られていることがあり（再実行でも）、そのとき new が失敗しても紐付けは試す
+        run: |
+          pnpm exec sentry-cli releases new "$GITHUB_SHA" || true
+          pnpm exec sentry-cli releases set-commits "$GITHUB_SHA" --auto
+          pnpm exec sentry-cli releases finalize "$GITHUB_SHA"
