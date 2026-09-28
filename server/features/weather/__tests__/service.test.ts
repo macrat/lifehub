@@ -1,13 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
-import {
-  listWeather,
-  parseForecast,
-  readableLabel,
-  recordObservedTemps,
-  refreshWeather,
-} from '../service.ts';
+import { parseForecast } from '../jma.ts';
+import { listWeather, readableLabel, recordObservedTemps, refreshWeather } from '../service.ts';
 import { amedas, forecast, hourly, NO_HOURLY, offline, serve } from './service-fixtures.ts';
 
 /** 日ごとの天気の一覧（テストの日を含む 9 月） */

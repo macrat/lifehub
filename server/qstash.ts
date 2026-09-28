@@ -1,13 +1,10 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { z } from 'zod';
-import { notificationRefSchema } from './features/events/notifications.ts';
+import { notificationMessageSchema } from './features/notifications/publisher.ts';
 import { deliver } from './features/notifications/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { verifyQStashSignature } from './lib/qstash.ts';
 import { validate } from './lib/validator.ts';
-
-const deliverBodySchema = z.object({ key: z.string().min(1), ref: notificationRefSchema });
 
 const verifySignature: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!(await verifyQStashSignature(c.req.raw, await c.req.text()))) {
@@ -26,7 +23,7 @@ const verifySignature: MiddlewareHandler<AppEnv> = async (c, next) => {
 export const qstashRoutes = new Hono<AppEnv>()
   .use(verifySignature)
   // 通知 1 件の配信（docs/features/notifications.md）
-  .post('/notifications', validate('json', deliverBodySchema), async (c) => {
+  .post('/notifications', validate('json', notificationMessageSchema), async (c) => {
     const { key, ref } = c.req.valid('json');
     return c.json({ result: await deliver(key, ref) });
   });

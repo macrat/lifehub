@@ -41,11 +41,12 @@
 ```ts
 // server/features/events/notifications.ts
 export const notificationRefSchema = z.object({ id, occurrenceStart, edge: 'start' | 'end', at, userId });
-export function listNotifications(range): Promise<{ key; at; ref }[]>;   // 予約する通知の列挙
-export function resolveNotification(ref): Promise<NotificationPayload | null>; // 配信直前の再検証
+// notifyTimes はユーザーごとの終日の通知時刻（読み出しは notifications の側が行って渡す）
+export function listNotifications(range, notifyTimes): Promise<{ key; at; ref }[]>;   // 予約する通知の列挙
+export function resolveNotification(ref, notifyTimes): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```
 
-通知源は予定・タスク（events）だけなので registry は置かず、`server/features/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。通知は送信済み台帳（`sent_notifications`）を持つ 1 つの機能なので、feature として置き、repository の import の制限（他の feature の repository を読まない）も他の機能と同じに掛かる。QStash のメッセージ本文は `{ key, ref }` で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash への予約は `server/features/notifications/publisher.ts`、QStash の配信の署名検証は `server/lib/qstash.ts`（QStash が呼ぶ入口 `server/qstash.ts` の全体に掛ける）、Web Push の送信は `server/features/push/service.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
+通知源は予定・タスク（events）だけなので registry は置かず、`server/features/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。通知は送信済み台帳（`sent_notifications`）を持つ 1 つの機能なので、feature として置き、repository の import の制限（他の feature の repository を読まない）も他の機能と同じに掛かる。QStash のメッセージ本文は `{ key, ref }`（`publisher.ts` の `notificationMessageSchema`。予約する側と配信の入口が同じスキーマを使う）で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash への予約は `server/features/notifications/publisher.ts`、QStash の配信の署名検証は `server/lib/qstash.ts`（QStash が呼ぶ入口 `server/qstash.ts` の全体に掛ける）、Web Push の送信は `server/features/push/service.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
 
 ## 購読
 

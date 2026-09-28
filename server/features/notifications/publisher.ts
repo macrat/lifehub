@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Client } from '@upstash/qstash';
+import { z } from 'zod';
 import { env, isProduction, resolveBaseUrl } from '../../lib/env.ts';
-import type { PlannedNotification } from '../events/notifications.ts';
+import { notificationRefSchema, type PlannedNotification } from '../events/notifications.ts';
 
 /**
  * 通知の QStash への予約。予約した時刻に呼ばれる入口は server/qstash.ts（署名検証は server/lib/qstash.ts）。
@@ -10,6 +11,16 @@ import type { PlannedNotification } from '../events/notifications.ts';
 export type Publisher = {
   publish: (input: PlannedNotification) => Promise<void>;
 };
+
+/**
+ * QStash のメッセージ本文。予約（ここ）と配信の入口（server/qstash.ts）が同じ形を読み書きする。
+ * ref は配信時に再検証するための参照で、配信予定時刻（at）は QStash の notBefore に渡すので本文に載せない。
+ */
+export const notificationMessageSchema = z.object({
+  key: z.string().min(1),
+  ref: notificationRefSchema,
+});
+type NotificationMessage = z.infer<typeof notificationMessageSchema>;
 
 /**
  * QStash の US リージョン（us-east-1）のエンドポイント。日本からのレイテンシが EU より小さい。
@@ -40,7 +51,7 @@ export function createPublisher(): Publisher | null {
     publish: async ({ key, at, ref }) => {
       await client.publishJSON({
         url,
-        body: { key, ref },
+        body: { key, ref } satisfies NotificationMessage,
         notBefore: Math.ceil(at.getTime() / 1000),
         deduplicationId: deduplicationIdOf(key),
         retries: 3,

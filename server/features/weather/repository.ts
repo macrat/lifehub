@@ -1,12 +1,30 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
-import { type DateRange, instantRange } from '../../../shared/date.ts';
+import { type DateRange, type InstantRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { db, runBatch } from '../../lib/db/client.ts';
+import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { weather, weatherHourly, weatherPop } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
 export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
 export type PopRow = typeof weatherPop.$inferSelect;
+
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順） */
+function dailyIn(tx: Database, { from, to }: DateRange) {
+  return tx
+    .select()
+    .from(weather)
+    .where(and(gte(weather.date, from), lte(weather.date, to)))
+    .orderBy(asc(weather.date));
+}
+
+/** [from, to) に始まる 3 時間ごとの天気（時刻順） */
+function hourlyIn(tx: Database, { from, to }: InstantRange) {
+  return tx
+    .select()
+    .from(weatherHourly)
+    .where(and(gte(weatherHourly.startsAt, from), lt(weatherHourly.startsAt, to)))
+    .orderBy(asc(weatherHourly.startsAt));
+}
 
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
@@ -15,21 +33,9 @@ export type PopRow = typeof weatherPop.$inferSelect;
 export async function findBetween(
   range: DateRange,
 ): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const { from, to } = range;
-  const instants = instantRange(range);
   const [daily, hourly] = await runBatch((tx) => [
-    tx
-      .select()
-      .from(weather)
-      .where(and(gte(weather.date, from), lte(weather.date, to)))
-      .orderBy(asc(weather.date)),
-    tx
-      .select()
-      .from(weatherHourly)
-      .where(
-        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
-      )
-      .orderBy(asc(weatherHourly.startsAt)),
+    dailyIn(tx, range),
+    hourlyIn(tx, instantRange(range)),
   ]);
   return { daily, hourly };
 }
@@ -46,18 +52,8 @@ export async function findDays(range: DateRange): Promise<{
 }> {
   const instants = instantRange(range);
   const [daily, hourly, pops, earlier] = await runBatch((tx) => [
-    tx
-      .select()
-      .from(weather)
-      .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
-      .orderBy(asc(weather.date)),
-    tx
-      .select()
-      .from(weatherHourly)
-      .where(
-        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
-      )
-      .orderBy(asc(weatherHourly.startsAt)),
+    dailyIn(tx, range),
+    hourlyIn(tx, instants),
     tx
       .select()
       .from(weatherPop)
