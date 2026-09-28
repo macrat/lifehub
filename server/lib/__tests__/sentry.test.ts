@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { statementsOf } from '../sentry.ts';
+import { sentryUserId, statementsOf } from '../sentry.ts';
 
 describe('Neon への要求から SQL 文を取り出す', () => {
   it('問い合わせ 1 つなら、その文だけを返す（値は含めない）', () => {
@@ -27,5 +27,13 @@ describe('Neon への要求から SQL 文を取り出す', () => {
     expect(statementsOf(undefined)).toEqual([]);
     expect(statementsOf('not json')).toEqual([]);
     expect(statementsOf(JSON.stringify({ unexpected: true }))).toEqual([]);
+  });
+});
+
+describe('Sentry に送るユーザーの ID', () => {
+  it('メールアドレスの SHA-256 を 16 進で返す（手元の sha256sum と同じ値）', () => {
+    expect(sentryUserId('a@example.com')).toBe(
+      '08168cd80dfd534ab0f10af10f1303fe00af2d43ab5c1432360d137f8197e17a',
+    );
   });
 });

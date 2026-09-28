@@ -6,9 +6,11 @@ import { registerEventTools } from './features/events/mcp.ts';
 import { registerExpenseTools } from './features/expenses/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerUserTools } from './features/users/mcp.ts';
+import { getUser } from './features/users/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { auth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, ToolRegistrar } from './lib/mcp/types.ts';
+import { setSentryUser } from './lib/sentry.ts';
 
 /** 全 feature のツール。新しい feature のツールはここに 1 行足す。 */
 const registrars: ToolRegistrar[] = [
@@ -39,6 +41,9 @@ export function createMcpServer(ctx: McpContext): McpServer {
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * サーバーレスなのでリクエストごとにサーバーとトランスポートを組み立て、セッションは持たない。
+ * Sentry に知らせるユーザー（`setSentryUser`）はメールアドレスから作るので、トークンが持つユーザー ID から読む。
+ * WHY NOT アクセストークンにメールアドレスを載せる（`customAccessTokenClaims`）: 問い合わせ 1 回は省けるが、
+ * 載せる前に発行したトークンには無く、どちらの場合も扱う分だけ複雑になる。
  */
 export const mcpRoutes = new Hono<AppEnv>().all('/', (c) => {
   const handler = requireMcpAuth(
@@ -46,6 +51,8 @@ export const mcpRoutes = new Hono<AppEnv>().all('/', (c) => {
     async (_request, claims) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
+      const user = await getUser(userId);
+      if (user) setSentryUser(user.email);
       const server = createMcpServer({ userId });
       const transport = new StreamableHTTPTransport({ enableJsonResponse: true });
       await server.connect(transport);

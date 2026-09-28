@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from './app-env.ts';
 import { auth } from './auth.ts';
+import { setSentryUser } from './sentry.ts';
 
 /**
  * セッション Cookie を検証し、ユーザーをコンテキストにセットする。未認証は 401。
@@ -13,5 +14,6 @@ export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
     throw new HTTPException(401, { message: 'ログインが必要です' });
   }
   c.set('user', session.user);
+  setSentryUser(session.user.email);
   await next();
 };

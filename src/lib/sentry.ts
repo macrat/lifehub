@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/react';
+import { hashKey, type QueryClient } from '@tanstack/react-query';
 import type { AnyRouter } from '@tanstack/react-router';
 import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
+import { meQueryOptions } from './auth.ts';
 
 /**
  * ブラウザのエラー・トレース・ログを Sentry に送る。DSN は本番のビルドにだけ埋め込まれる（`vite.config.ts`）ので、
@@ -29,6 +31,26 @@ export function initSentry(router: AnyRouter): void {
       Sentry.consoleLoggingIntegration(),
     ],
   });
+}
+
+/**
+ * ログイン中のユーザーを Sentry に知らせ続ける。ID はサーバーが作ったメールアドレスのハッシュ
+ * （`/api/me` の `sentryUserId`。サーバーの要求と同じ値）で、以降のエラー・スパン・ログに付き、誰のどの操作で
+ * 起きたかを追える。
+ * ログイン中のユーザーの置き場所（`meQueryOptions` のキャッシュ）を見張るので、ログイン・ログアウト・
+ * セッション切れ・永続化キャッシュからの復元のどれで変わっても、呼び出し側に手を入れずに追従する。
+ */
+export function watchSentryUser(client: QueryClient): void {
+  if (!Sentry.getClient()) return;
+  const meHash = hashKey(meQueryOptions.queryKey);
+  const sync = () => {
+    const id = client.getQueryData(meQueryOptions.queryKey)?.sentryUserId;
+    Sentry.setUser(id ? { id } : null);
+  };
+  client.getQueryCache().subscribe((event) => {
+    if (event.query.queryHash === meHash) sync();
+  });
+  sync();
 }
 
 /**
