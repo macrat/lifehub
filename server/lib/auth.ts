@@ -1,7 +1,7 @@
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { mcp } from '@better-auth/mcp';
-import { betterAuth } from 'better-auth';
+import { type BetterAuthOptions, betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
@@ -28,7 +28,7 @@ const vercelHosts = [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter(
   (host): host is string => !!host,
 );
 
-export const auth = betterAuth({
+const options = {
   /**
    * 公開 URL が決まっている本番・ローカル・E2E は APP_URL に固定する。APP_URL が無い Preview は
    * URL がデプロイごとに変わるので、このデプロイとブランチの URL に限ってリクエストのホストから
@@ -91,7 +91,38 @@ export const auth = betterAuth({
     // 失効したセッションを Cookie キャッシュから復活させない。
     cookieCache: { enabled: false },
   },
-});
+} satisfies BetterAuthOptions;
 
-type AuthSession = typeof auth.$Infer.Session;
+const createAuth = () => betterAuth(options);
+type Auth = ReturnType<typeof createAuth>;
+type AuthSession = Auth['$Infer']['Session'];
 export type AuthUser = AuthSession['user'];
+
+let initializing: Promise<Auth> | undefined;
+
+/**
+ * 初期化を終えた better-auth を返す。最初の呼び出しで作り、以後は同じものを返す。
+ *
+ * better-auth は作った時点で初期化（oauth-provider の MCP リソースの登録で DB に問い合わせる）を始め、
+ * その結果を持ち続ける。一度失敗すると、そのインスタンスは認証の要求をすべて同じエラーで失敗させる。
+ * - モジュールの読み込み時に作らず、要求の中で作って初期化を待つ。Vercel Function は応答を返すと止まる
+ *   ので、要求の外で始めた DB への問い合わせは止まっている間に接続が切れて失敗する。
+ * - 初期化に失敗したら持たずに捨て、次の要求で作り直す。一時的な接続の失敗でインスタンスが止まるまで
+ *   認証が使えなくなるのを防ぐ。
+ *
+ * WHY NOT 初期化時の登録を止める・遅らせる: oauth-provider にその設定は無い（`resourceSeedMode` は既存の行を
+ * 上書きするかどうかだけを決める）。@better-auth/mcp は `resource` を必ず登録対象に加える。
+ * WHY NOT Neon への fetch を失敗時に再送する: 送った後に切れた要求は DB 側で実行済みかもしれず、書き込みを
+ * 二重に実行しうる。要求の外で問い合わせを始める限り、再送しても止まっている間に切れうる。
+ */
+export function getAuth(): Promise<Auth> {
+  initializing ??= (async () => {
+    const auth = createAuth();
+    await auth.$context;
+    return auth;
+  })().catch((error: unknown) => {
+    initializing = undefined;
+    throw error;
+  });
+  return initializing;
+}

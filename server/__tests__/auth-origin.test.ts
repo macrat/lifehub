@@ -65,7 +65,7 @@ describe('APP_URL が無いとき（Preview）', () => {
 
 describe('Vercel のホストが分からないとき', () => {
   // Vercel のシステム環境変数が公開されていない場合。allowedHosts を空にすると
-  // better-auth が読み込み時に例外を投げ、API が丸ごと落ちる。
+  // better-auth が作るときに例外を投げ、認証が丸ごと使えなくなる。
   const app = appWith('', { vercelHosts: false });
 
   it('起動でき、既定の URL だけを受け入れる', async () => {

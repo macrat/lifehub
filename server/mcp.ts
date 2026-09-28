@@ -7,7 +7,7 @@ import { registerExpenseTools } from './features/expenses/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerUserTools } from './features/users/mcp.ts';
 import type { AppEnv } from './lib/app-env.ts';
-import { auth, MCP_RESOURCE } from './lib/auth.ts';
+import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, ToolRegistrar } from './lib/mcp/types.ts';
 import { setSentryUser } from './lib/sentry.ts';
 
@@ -41,9 +41,9 @@ export function createMcpServer(ctx: McpContext): McpServer {
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * サーバーレスなのでリクエストごとにサーバーとトランスポートを組み立て、セッションは持たない。
  */
-export const mcpRoutes = new Hono<AppEnv>().all('/', (c) => {
+export const mcpRoutes = new Hono<AppEnv>().all('/', async (c) => {
   const handler = requireMcpAuth(
-    auth,
+    await getAuth(),
     async (_request, claims) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
