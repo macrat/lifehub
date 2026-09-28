@@ -4,6 +4,7 @@ import { TIME_ZONE } from '../../shared/constants.ts';
 import {
   addDays,
   allDayDate,
+  type DateRange,
   isDateString,
   startOfDate,
   toDateString,
@@ -169,7 +170,7 @@ export function firstDayOfMonth(month: string): DateString {
 }
 
 /** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
-export function monthRange(month: string): { from: DateString; to: DateString } {
+export function monthRange(month: string): DateRange {
   return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
 }
 
