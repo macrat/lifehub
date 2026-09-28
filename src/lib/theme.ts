@@ -30,30 +30,54 @@ export function useAppTheme(): Theme {
   return useMemo(() => createAppTheme(hue), [hue]);
 }
 
+/** 押すと日付・時刻を選ぶ画面が出る入力欄 */
+const PICKER_INPUT = 'input:is([type="date"], [type="datetime-local"], [type="time"])';
+
+/** MUI の Select のアイコンの位置と大きさ（outlined の枠の右端から 7px、SvgIcon の medium = 1.5rem） */
+const SELECT_ICON_BOX = {
+  position: 'absolute',
+  right: 7,
+  top: 'calc(50% - 0.75rem)',
+  width: '1.5rem',
+  height: '1.5rem',
+} as const;
+
 /**
- * 日付・時刻の欄の右の印（ブラウザが描く、押すとピッカーが開くもの）を、ドロップダウン（TextField の
- * select）の ▼ と同じ見た目にする。形・大きさ・色・位置・開いている間の向きは MUI の Select のアイコン
- * （内部の ArrowDropDown。SvgIcon の medium = 1.5rem、action.active、outlined の枠の右端から 7px、
- * 開いている間は 180° 回す）の値をそのまま写す。MUI はそれらを import できる形で出していない。
- * WHY NOT 印を消して ArrowDropDown を横に置く: 印そのものがピッカーを開くボタンなので、
- * 消すと押す場所が無くなる。印を残して描き方だけ変える。
+ * 日付・時刻の欄を、ドロップダウン（TextField の select）と同じ見た目にする。▼ の形・大きさ・色・位置・
+ * 開いている間の向き、文字の右の余白は MUI の Select（内部の ArrowDropDown、action.active、
+ * 開いている間は 180° 回す、paddingRight 32px）の値をそのまま写す。MUI はそれらを import できる形で出していない。
+ *
+ * ▼ はブラウザの印ではなく、欄の枠（input の親）の ::after に描く。ブラウザごとに印の作りが違うため:
+ * - PC の Chrome: 押すとピッカーが開く印（::-webkit-calendar-picker-indicator）が右にある。消すと押す場所が
+ *   無くなるので、透明にして ▼ と同じ位置・大きさに重ねる（▼ は pointer-events: none で押した指を通す）
+ * - Android の Chrome: 印は無く、欄全体がピッカーを開く。右端の細い矢印は appearance（menulist-button）が
+ *   描いているので appearance: none で消す
+ * - iOS の Safari: 印は無く、値を中央に寄せる（::-webkit-date-and-time-value）ので左に寄せ直す
+ * WHY NOT 印の描き方だけ変える: PC の Chrome にしか効かない。
  * WHY mask: 色をテーマの CSS 変数で塗れる（background-image の SVG では色を変えられない）。
- * WHY MuiOutlinedInput: 位置合わせの -7px が outlined の右の余白（14px）を前提にしている。
+ * WHY MuiOutlinedInput: 位置合わせの 7px が outlined の右の余白を前提にしている（Select も standard は 0）。
  */
-const PICKER_INDICATOR_AS_SELECT_ICON = {
-  '&::-webkit-calendar-picker-indicator': {
-    width: '1.5rem',
-    height: '1.5rem',
-    padding: 0,
-    marginInlineEnd: -7,
-    // 欄の高さを変えない（印は文字の行より少し高い）
-    marginBlock: '-0.5rem',
-    cursor: 'pointer',
-    backgroundImage: 'none',
+const PICKER_AS_SELECT = {
+  [`&:has(> ${PICKER_INPUT})::after`]: {
+    ...SELECT_ICON_BOX,
+    content: '""',
+    pointerEvents: 'none',
     backgroundColor: 'var(--mui-palette-action-active)',
     mask: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>') center / contain no-repeat`,
   },
-  '&:open::-webkit-calendar-picker-indicator': { transform: 'rotate(180deg)' },
+  [`&:has(> ${PICKER_INPUT}:open)::after`]: { transform: 'rotate(180deg)' },
+  [`& > ${PICKER_INPUT}`]: {
+    appearance: 'none',
+    paddingRight: 32,
+    '&::-webkit-date-and-time-value': { textAlign: 'start' },
+    '&::-webkit-calendar-picker-indicator': {
+      ...SELECT_ICON_BOX,
+      padding: 0,
+      margin: 0,
+      opacity: 0,
+      cursor: 'pointer',
+    },
+  },
 };
 
 /**
@@ -133,7 +157,7 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
           },
         ],
       },
-      MuiOutlinedInput: { styleOverrides: { input: PICKER_INDICATOR_AS_SELECT_ICON } },
+      MuiOutlinedInput: { styleOverrides: { root: PICKER_AS_SELECT } },
       MuiPaper: {
         defaultProps: { elevation: 0 },
       },
