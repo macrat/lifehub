@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/hono/node';
 import { waitUntil } from '@vercel/functions';
 import { type Env, Hono, type MiddlewareHandler, type Schema } from 'hono';
 import { z } from 'zod';
-import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
+import { SENTRY_DATA_COLLECTION, sentryUser } from '../../shared/sentry.ts';
 import { env } from './env.ts';
 
 /**
@@ -55,12 +55,12 @@ export function initSentry(): void {
 }
 
 /**
- * この要求を送ったユーザーを Sentry に知らせる。送るのは DB のユーザー ID だけ（理由は docs/architecture.md の
- * 「監視（Sentry）」）。ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が呼ぶ。
+ * この要求を送ったユーザーを Sentry に知らせる（`sentryUser`）。ログインが要る経路の認証（`requireSession` と
+ * MCP のアクセストークンの検証）が呼ぶ。
  * SDK が要求ごとに作る isolation scope に置くので、同じインスタンスが並べて受けた別の要求には混ざらない。
  */
 export function setSentryUser(userId: string): void {
-  Sentry.setUser({ id: userId });
+  Sentry.setUser(sentryUser(userId));
 }
 
 /**

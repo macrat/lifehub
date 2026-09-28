@@ -14,7 +14,7 @@ import {
 import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
 import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
-import { meQueryOptions } from './auth.ts';
+import { signedInUserId } from './auth.ts';
 import { withMoveAnimation } from './move-animation.ts';
 import { notify } from './ui/notice.ts';
 
@@ -113,11 +113,6 @@ type Write<TInput> = {
   author: string | null;
 };
 
-/** 今ログインしているユーザーの ID（未ログインなら null） */
-function signedInUserId(): string | null {
-  return queryClient.getQueryData(meQueryOptions.queryKey)?.id ?? null;
-}
-
 /**
  * 書き込みを、書いた人がまだログインしているときだけ送る。書き込みは送る時点のセッションで送られるので、
  * 送り直しを待っている間にログアウトして別のユーザーでログインすると、そのユーザーの記録として
@@ -126,7 +121,7 @@ function signedInUserId(): string | null {
  * 通信断ではない失敗として投げるので、送り直さずに諦め、楽観的な表示を戻して通知で伝える。
  */
 async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> {
-  if (author !== signedInUserId()) {
+  if (author !== signedInUserId(queryClient)) {
     throw new Error('ログインしているユーザーが変わったため、送れていなかった記録を取り消しました');
   }
   return sendWrite(request);
@@ -274,7 +269,7 @@ export function useOptimisticMutation<TInput>({
 
   const write = (args: unknown): Write<TInput> => {
     const input = prepare(args);
-    return { request: request(input), keys, input, author: signedInUserId() };
+    return { request: request(input), keys, input, author: signedInUserId(queryClient) };
   };
   return {
     mutate: (args, options) => mutation.mutate(write(args), options),

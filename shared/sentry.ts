@@ -18,3 +18,12 @@ export const SENTRY_DATA_COLLECTION = {
   /** 例外が起きた時点のローカル変数。記録の中身を持っていることが多い */
   stackFrameVariables: false,
 };
+
+/**
+ * Sentry に知らせるユーザー（サーバー `server/lib/sentry.ts` とブラウザ `src/lib/sentry.ts` の共通）。
+ * 送るのは DB のユーザー ID だけで、名前やメールアドレスは載せない（理由は docs/architecture.md の「監視（Sentry）」）。
+ * 未ログインなら null（ユーザーを外す）。
+ */
+export function sentryUser(userId: string | null): { id: string } | null {
+  return userId ? { id: userId } : null;
+}

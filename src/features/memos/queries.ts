@@ -1,6 +1,6 @@
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { api } from '../../lib/api.ts';
-import { meQueryOptions } from '../../lib/auth.ts';
+import { signedInUserId } from '../../lib/auth.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
@@ -24,7 +24,7 @@ export function useAddMemo() {
     apply: (client, { id, body }) => {
       // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
       // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
-      const createdBy = client.getQueryData(meQueryOptions.queryKey)?.id ?? null;
+      const createdBy = signedInUserId(client);
       memoCache.apply(client, id, { id, body, createdBy, createdAt: new Date().toISOString() });
     },
   });
