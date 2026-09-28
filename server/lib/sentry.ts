@@ -14,7 +14,7 @@ import { env } from './env.ts';
  *   409 など）は `console.error` に出さないので送られない。
  * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
  *   問い合わせ（HTTP）・外部への要求のスパン。ブラウザから来たトレースを引き継ぐ。すべて送る（`tracesSampleRate: 1`。
- *   2 人の利用なら無料枠の月 5M スパンの 1 割程度に収まる。`infra/sentry.tf`）。
+ *   無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
  * WHY NOT `--import` での起動（`@sentry/hono` の案内）: Vercel Function のエントリに置けない。それが要るのは
@@ -36,10 +36,11 @@ export function initSentry(): void {
    * Vercel Function は応答を返すと止まりうるので、送信が終わるまで `waitUntil` で生かしておく。
    * SDK が自分で待つのは Edge ランタイムだけで、Node ランタイムでは送りかけのまま止まる。
    * エラーは溜めずにすぐ送るので、送る直前（beforeEnvelope）に待ち始めれば、応答の後の処理で起きたエラーも
-   * 取りこぼさない。溜めてから送るスパンとログは下の `flushAfterRequest` が送り出す。
+   * 取りこぼさない。溜めてから送るスパンとログは下の `flushAfterRequest` が送り出すので、ここでは待たない
+   * （その flush が送る封筒でもここが呼ばれ、同じ送信を待つ flush が重なるだけになる）。
    */
-  Sentry.getClient()?.on('beforeEnvelope', () => {
-    waitUntil(Sentry.flush(2000));
+  Sentry.getClient()?.on('beforeEnvelope', ([, items]) => {
+    if (items.some(([header]) => header.type === 'event')) waitUntil(Sentry.flush(2000));
   });
 }
 

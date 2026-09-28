@@ -10,15 +10,16 @@ import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
  *   サーバーのエラーはサーバーが送り（`server/lib/sentry.ts`）、通信の失敗はオフラインで使う PWA では不具合ではない。
  * - トレース: 起動と画面の移動（ルート名で。`tanstackRouterBrowserTracingIntegration`）と、その間の API への
  *   要求。API への要求にはトレースの見出しを付け、サーバーのスパンと 1 本のトレースに繋ぐ（同じオリジンなので既定で付く）。
- *   すべて送る（`tracesSampleRate: 1`。2 人の利用なら無料枠に収まる。`infra/sentry.tf`）。
+ *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
  * セッションリプレイは無料枠が月 50 件しかないので使わない。
  */
 export function initSentry(router: AnyRouter): void {
-  if (!__SENTRY_DSN__) return;
+  const dsn = import.meta.env.SENTRY_DSN;
+  if (!dsn) return;
   Sentry.init({
-    dsn: __SENTRY_DSN__,
+    dsn,
     release: __BUILD_COMMIT__,
     environment: 'production',
     tracesSampleRate: 1,
