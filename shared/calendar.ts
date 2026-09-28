@@ -319,9 +319,12 @@ function placeEvent(
 }
 
 /**
- * 同日内の並び順のキー: 終日の項目（予定と、日付だけを持つタスク）→ 時刻のある項目（予定の開始、
+ * 同日内の並び順のキー: 終日の予定 → 終日のタスク（日付だけを持つタスク）→ 時刻のある項目（予定の開始、
  * タスクは `taskTime`）→ 日時の無いタスク。
- * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す。
+ * 終日の中で予定を先に置くのは、終日の予定はその日そのものの性質（旅行・休みなど）を表し、
+ * その日のやることより先に目に入るべきだから。
+ * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す
+ * （'' < '!' < ISO 日時（数字で始まる）< '~'）。
  * `taskTime` を通すので、行やブロックが示す時刻と並びの基準は必ず同じものになる。
  * MCP の日ごとのタイムライン（`server/features/timeline/service.ts` の `listDays`）も、同じ日の中をこの鍵で並べる。
  */
@@ -329,7 +332,7 @@ export function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
   const anchor = taskAnchor(item);
   if (!anchor) return '~';
-  return anchor.allDay ? '' : anchor.iso;
+  return anchor.allDay ? '!' : anchor.iso;
 }
 
 /**

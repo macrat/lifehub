@@ -174,7 +174,7 @@ export async function listDays(
 }
 
 /**
- * 1 日の中の並び: 予定・タスクはカレンダーと同じ鍵（`sortKey`。終日 → 時刻の順 → 日時の無いタスク）、
+ * 1 日の中の並び: 予定・タスクはカレンダーと同じ鍵（`sortKey`。終日の予定 → 終日のタスク → 時刻の順 → 日時の無いタスク）、
  * ほかの記録は置く日時で、同じ時間軸に混ぜる。同じなら鍵の順
  */
 function compareInDay(a: TimelineEntry, b: TimelineEntry): number {
