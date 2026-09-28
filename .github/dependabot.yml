@@ -22,4 +22,4 @@ updates:
           - '*'
 
 # GitHub Actions と Terraform は対象にしない。Terraform のプロバイダ更新はリソース再作成の事故を
-# 避けるためバージョン制約を編集する PR で行う（docs/architecture.md）。
+# 避けるためバージョン制約を編集する PR で行う（docs/development.md）。

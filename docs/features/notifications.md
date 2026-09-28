@@ -50,17 +50,31 @@ export function resolveNotification(ref, notifyTimes): Promise<NotificationPaylo
 
 ## 購読
 
-- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → `POST /api/push/subscriptions` に保存（`src/features/push/queries.ts`、画面は `PushSection`、スイッチの状態と案内は `use-push-setting.ts`）。解除は `DELETE /api/push/subscriptions`（endpoint 指定）。購読状態は `GET /api/push/subscriptions/status?endpoint=`。
+- `/settings` で「この端末で通知を受け取る」を押すと Notifications API の許可 → PushManager 購読 → サーバーに保存（`src/features/push/queries.ts`、画面は `PushSection`、スイッチの状態と案内は `use-push-setting.ts`）。
 - iOS はホーム画面に追加した PWA でのみ有効であることを UI で案内する。
 - 購読の登録・解除・状態の確認と送信は `server/features/push/service.ts` に集める（購読の行を書き換えるのはここだけ）。購読の削除はログイン中の所有者に限り、状態の確認も持ち主が本人のときだけ「購読中」と答える。送信先は HTTPS の Google / Mozilla / Apple / Windows の Push サービスに限定し、保存時と送信時に検証する。
-- VAPID 公開鍵は `GET /api/push/vapid-public-key` で配る。
-
-## データ
-
-`push_subscriptions`, `sent_notifications`（[data-model.md](../data-model.md)）。
 
 ## 環境変数
 
 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `CRON_SECRET`。Vercel の環境変数（Sensitive）として Terraform が設定する。`QSTASH_*` は US リージョンの値を使う。
 
 いずれも本番では必須で、1 つでも欠けていればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。欠けたままでも予約（`createPublisher()` が `null` を返す）と送信（`ensureConfigured()` が `false` を返す）は何もせずに正常終了してしまい、画面にもログにも異常が出ないため、起動時に落とす以外に気づく手段が無い。この判定は `VERCEL_ENV` を読むので、Vercel のシステム環境変数を実行時に公開しておく必要がある（`infra/vercel.tf`）。ローカルと Preview は通知用の秘密情報を持たないので対象外。
+
+## データ
+
+`push_subscriptions`, `sent_notifications`（[data-model.md](../data-model.md)）。
+
+## API
+
+| メソッド | パス | 認証 | 内容 |
+|---|---|---|---|
+| GET | `/api/push/vapid-public-key` | セッション | VAPID 公開鍵 |
+| POST | `/api/push/subscriptions` | セッション | この端末の購読を保存する |
+| DELETE | `/api/push/subscriptions` | セッション | 購読を解除する（endpoint 指定。所有者だけ） |
+| GET | `/api/push/subscriptions/status?endpoint=` | セッション | この端末が購読中か（持ち主が本人のときだけ「購読中」） |
+| GET | `/api/cron/notifications` | Cron secret | 翌日分の予約（上記「仕組み」の 1） |
+| POST | `/api/qstash/notifications` | QStash の署名 | 配信（上記「仕組み」の 3） |
+
+## MCP ツール
+
+無し。通知の要否は予定・タスクの項目（`remind_start_minutes` / `remind_end_minutes`）で、MCP の `add_event` / `add_task` / `update_event` から設定できる（[mcp.md](mcp.md)）。

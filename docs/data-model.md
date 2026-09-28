@@ -1,6 +1,6 @@
 # データモデル
 
-Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.ts` で集約）が単一情報源。本書はその意図と計算ルールを説明する。マイグレーション SQL は `drizzle/` にコミットする。`drizzle-kit generate` の生成物が基本だが、列の作り替えで既存の行を移すときは生成された SQL に移送の文を書き足す（`0002_lemon_multi_care_types.sql`。生成物任せだと列を落として中身ごと捨てるため）。
+Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.ts` で集約）が単一情報源。本書は表の一覧と、どの表にも共通する規約を書く。列ごとの意味と、値から画面に出すものを導く計算は各機能の文書（[features/](features/)）に書く。マイグレーション SQL は `drizzle/` にコミットする。`drizzle-kit generate` の生成物が基本だが、列の作り替えで既存の行を移すときは生成された SQL に移送の文を書き足す（`0002_lemon_multi_care_types.sql`。生成物任せだと列を落として中身ごと捨てるため）。
 
 ## 共通規約（Postgres）
 
@@ -20,26 +20,16 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 |---|---|---|
 | `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 + `users.hue`, `users.all_day_notify_minutes` | `users.name` を表示名として使う。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。`users.all_day_notify_minutes`（integer, 0〜1439, 既定 420 = 7:00）は終日の予定・タスクを通知する時刻（[notifications.md](features/notifications.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
 | `push_subscriptions` | `user_id`(index), `endpoint`(unique), `p256dh`, `auth`, `user_agent` | 端末ごとに 1 行。配信失敗（410/404）で削除 |
-| `calendar_feeds` | `user_id`, `name`, `token`(unique), `last_accessed_at` | カレンダーを ics で配る URL（[features/calendar-feeds.md](features/calendar-feeds.md)）。1 ユーザーが何本でも持ち、行を消せばその URL だけが失効する。`token` は 256 ビットの乱数を base64url にしたもので、ハッシュ化せず保存する（DB を読める者はカレンダーの中身も読めるので守れるものが増えず、発行時にしか URL を出せなくなる方が困る）。索引は `token` の一意制約だけ（配信のたびに引くのはトークンで、一覧は数本の全走査で足りる） |
-| `api_keys` | `user_id`, `name`, `key_hash`(unique), `last_used_at` | 記録投入用エンドポイント（`POST /api/records`）を呼ぶ API キー（[features/api-keys.md](features/api-keys.md)）。1 ユーザーが何本でも持ち、行を消せばそのキーだけが失効する。キーで入れた記録は記録した人を不明（`created_by` が null）にし、代わりにキーの名前を `api_key_name` に残す（家の誰が押しても同じキーで送るため）。キーそのものは保存せず、SHA-256 を base64url にしたものだけを置く（書くための資格なので、DB を読めても書けるようにはしない）。索引は `key_hash` の一意制約だけ |
+| `calendar_feeds` | `user_id`, `name`, `token`(unique), `last_accessed_at` | カレンダーを ics で配る URL（[features/calendar-feeds.md](features/calendar-feeds.md)）。1 ユーザーが何本でも持ち、行を消せばその URL だけが失効する。`token` はハッシュ化せず保存する（理由は calendar-feeds.md の「トークン」）。索引は `token` の一意制約だけ（配信のたびに引くのはトークンで、一覧は数本の全走査で足りる） |
+| `api_keys` | `user_id`, `name`, `key_hash`(unique), `last_used_at` | 記録投入用エンドポイント（`POST /api/records`）を呼ぶ API キー（[features/api-keys.md](features/api-keys.md)）。1 ユーザーが何本でも持ち、行を消せばそのキーだけが失効する。キーそのものは保存せず、SHA-256 を base64url にしたものだけを置く（理由は api-keys.md の「キー」）。索引は `key_hash` の一意制約だけ |
 | `calendar_feed_participants` | `feed_id`, `user_id` | 配信 URL に載せる参加者。この中の誰かが入っている予定だけを配る。PK(`feed_id`, `user_id`)。1 人以上は Zod で守る（結合テーブルでは DB 制約にできない）。列（配列）ではなく行で持つのは、消えたユーザーの ID が残らないようにするため |
 | `events` | `kind` (`event` / `task`), `title`, `all_day`, `starts_at`, `ends_at`, `completed_at`, `location`, `note`, `remind_start_minutes`, `remind_end_minutes`, `rrule` (null=単発), `series_id`, `occurrence_start`, `cancelled` | 予定とタスクを 1 つにしたイベント（[features/events.md](features/events.md)）。予定は `starts_at`/`ends_at` 必須、タスクは任意で `ends_at` が期限、`completed_at` はタスクのみ（いずれも CHECK）。終日（予定・タスクとも）は `all_day=true` かつ `starts_at`=JST 0:00、`ends_at`=翌日 JST 0:00（終端は排他的）。通知の分は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし（終日は 0 / 1440 だけ。CHECK）。`rrule` を持つ行が繰り返し元（DTSTART は `starts_at`、無ければ `ends_at`）。`series_id`（繰り返し元を参照、ON DELETE CASCADE）と `occurrence_start`（元の発生の基準日時）を持つ行は繰り返しの回を実体化したもの（全項目の複製）で、`rrule` は持たない。`cancelled` はその回の取り消し。unique(`series_id`, `occurrence_start`)（`series_id` だけの検索も先頭列で足りるので単独のインデックスは置かない）。これらの整合は CHECK 制約で守る（`(series_id IS NULL) = (occurrence_start IS NULL)` 等） |
 | `event_participants` | `event_id`, `user_id` | 参加者。PK(`event_id`, `user_id`)。1 人以上は Zod で守る（結合テーブルでは DB 制約にできない） |
 | `expenses` | `from_user_id`(user), `to_user_id`(user, null=共有), `amount`, `description`, `spent_on` | 立替（借方・貸方）。from が to のために払った。to が null なら折半。精算も同じ行（from = 払った人、to = 受け取った人） |
-| `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 1 回の記録に項目をいくつでも結び付ける（葉水と水やりは大抵まとめてやり、その過程で開花や落果に気づく）。配列は `CARE_TYPES` の順に正規化して重複を落とす。空なら項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。`created_by` は画面・MCP から記録すればその人、API キーで入れれば null（不明）で、代わりに `api_key_name` にそのキーの名前を持つ（どちらか一方だけ。CHECK 制約。[features/lemon.md](features/lemon.md)）。植物を増やす場合は `plants` テーブルと `plant_id` を追加して拡張する |
+| `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 世話の記録（[features/lemon.md](features/lemon.md#データ)）。空の配列は項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。`created_by` は API キーで入れた記録では null で、代わりに `api_key_name` にそのキーの名前を持つ（どちらか一方だけ。CHECK 制約） |
 | `memos` | `body`, `created_by`, `created_at` | メモ（[features/memos.md](features/memos.md)）。500 文字までのプレーンテキスト（Zod で守る）。日時は書いた時刻（`created_at`）だけで、編集しても動かない。ホームのタイムラインにだけ出る |
-| `holidays` | `date`(PK) | 日本の祝日・休日（[features/calendar.md](features/calendar.md#祝日)）。外部の ics を月次 Cron で取り直し、全行を入れ替える。使うのは日付だけなので名前は持たない |
-| `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京。[features/calendar.md](features/calendar.md#天気)、[features/weather.md](features/weather.md)）。気象庁の予報を 1 日 3 回の Cron で取り直し、予報のある日を上書きする。過去の日は消さない。終わった日の最高・最低気温は毎朝の Cron でアメダスの観測値に上書きする。気温と降水確率は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
-| `weather_hourly` | `starts_at`(PK), `weather`, `temp` | 3 時間ごとの天気（東京地方。[features/calendar.md](features/calendar.md#3-時間ごとの天気)、[features/weather.md](features/weather.md)）。気象庁の天気分布予報を 1 日 3 回の Cron で取り直し、予報のある区間を上書きする。過ぎた区間は消さない。天気は気象庁の名前（「くもり」など）のまま持ち、アイコンの種類は読むときに引く。気温は区間の始まりの時刻の東京の予想気温で、載っていない報もあるので null を許し、null では上書きしない |
+| `holidays` | `date`(PK) | 日本の祝日・休日（[features/holidays.md](features/holidays.md)）。外部の ics を月次 Cron で取り直し、全行を入れ替える。使うのは日付だけなので名前は持たない |
+| `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京。[features/weather.md](features/weather.md#日ごとの天気weather)）。気象庁の予報を 1 日 3 回の Cron で取り直し、予報のある日を上書きする。過去の日は消さない。終わった日の最高・最低気温は毎朝の Cron でアメダスの観測値に上書きする。気温と降水確率は予報に無い日があるので null を許し、null では上書きしない。アイコンの種類と名前は読むときに天気コードから引く |
+| `weather_hourly` | `starts_at`(PK), `weather`, `temp` | 3 時間ごとの天気（東京地方。[features/weather.md](features/weather.md#3-時間ごとの天気と気温weather_hourly)）。気象庁の天気分布予報を 1 日 3 回の Cron で取り直し、予報のある区間を上書きする。過ぎた区間は消さない。天気は気象庁の名前（「くもり」など）のまま持ち、アイコンの種類は読むときに引く。気温は区間の始まりの時刻の東京の予想気温で、載っていない報もあるので null を許し、null では上書きしない |
 | `weather_pop` | `starts_at`(PK), `pop` | 6 時間ごとの降水確率（東京地方。[features/weather.md](features/weather.md)）。気象庁の予報の短期予報の降水確率を 1 日 3 回の Cron で取り直し、予報のある区間を上書きする。過ぎた区間は消さない |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |
-
-## 計算ルール
-
-- **立替残高**（A が B に対して持つ債権）= (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。共有は折半。精算も「払った人 → 受け取った人」の同じ形の行）。端数は切り捨て。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出して `shared/expenses.ts` の `balanceOf` に渡す（履歴の行数に応答時間が左右されない）。クライアントも同じ合計（`GET /api/expenses/totals`）を受け取って同じ関数に渡し、楽観的更新では合計に 1 件分を足し引きする。
-- **レモンの世話の状態**は項目ごとの最新の記録だけで決まる。サーバーは `care_types` を `unnest` で 1 項目 1 行にほどいてから `DISTINCT ON (care_type)` で項目ごとに 1 行だけ読み、`shared/lemon.ts` の `careStatusesOf` に渡す。
-- **繰り返しの展開**は `server/lib/recurrence` で行い、触っていない回の行は作らない（繰り返し元 + 実体化した回 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。rrule ライブラリの走査は必ず DTSTART から始まるため、1 つのルールにつき走査は 1 回だけにし、必要な窓の外は瞬間に戻さず読み飛ばす（`expandOccurrences` の `lookbehind` / `lookahead`）。
-- **繰り返しタスクの表示対象**（最大 2 つ）と放棄の判定は [features/events.md](features/events.md) の規則で `events` の `occurrences.ts` が算出し、予定と統合する。放棄されずに残る最初の回は「今以前の最後の発生の 1 つ前」なので、走査はそこから始める（それより前の回は必ず放棄済みで、完了した回は実体化された行から拾う）。
-- **タスクの `placementDate`** は保存せず、毎回算出する（「今日」に依存するため保存すると陳腐化する）。
-- **繰り返しの編集**は「この回だけ」「これ以降すべて」「すべて」の 3 択。「この回だけ」はその回を実体化した行（無ければ繰り返し元の複製を作る）、「これ以降すべて」は元の `rrule` に `UNTIL` を付けて新しい繰り返し元を作る、「すべて」は繰り返し元を更新する（実体化済みの回には反映しない。ただし基準日時か繰り返しのルールが変わったときは、回の照合キー（元の発生日時）が意味を失うので未完了の実体化済みの回を消す。完了した回は履歴として残す）。複数文は `runBatch` で原子的に実行する。
-- **繰り返しタスクの完了**はその回を実体化した行の `completed_at`。単発は行自身の `completed_at`。
