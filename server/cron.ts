@@ -1,10 +1,17 @@
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from './features/holidays/service.ts';
 import { enqueueTomorrow } from './features/notifications/service.ts';
 import { recordObservedTemps, refreshWeather } from './features/weather/service.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { env } from './lib/env.ts';
+
+const verifyCronSecret: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!env.CRON_SECRET || c.req.header('authorization') !== `Bearer ${env.CRON_SECRET}`) {
+    throw new HTTPException(401, { message: 'unauthorized' });
+  }
+  await next();
+};
 
 /**
  * Vercel Cron（`vercel.json` の `crons`）が呼ぶ入口をすべてここに集める。
@@ -13,12 +20,7 @@ import { env } from './lib/env.ts';
  * server/app.ts で認証ミドルウェアより前に `/cron` へ登録する。
  */
 export const cronRoutes = new Hono<AppEnv>()
-  .use(async (c, next) => {
-    if (!env.CRON_SECRET || c.req.header('authorization') !== `Bearer ${env.CRON_SECRET}`) {
-      throw new HTTPException(401, { message: 'unauthorized' });
-    }
-    await next();
-  })
+  .use(verifyCronSecret)
   // 日次: 翌日分の通知を予約する（docs/features/notifications.md）
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))
   // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
