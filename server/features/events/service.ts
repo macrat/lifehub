@@ -34,7 +34,7 @@ export async function patchEvent(
   target: OccurrenceTarget,
   patch: EventPatch,
   userId: string,
-): Promise<EventMaster> {
+): Promise<WrittenEvent> {
   const master = await findMaster(id);
   const current = await currentInput(master, target);
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
@@ -117,11 +117,17 @@ export async function updateEvent(
   scheduleUpcoming();
 }
 
+/**
+ * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
+ * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
+ */
+type WrittenEvent = EventMaster & { occurrenceStart: string | null };
+
 async function applyUpdate(
   master: EventWithParticipants,
   input: UpdateEventInput,
   userId: string,
-): Promise<EventMaster> {
+): Promise<WrittenEvent> {
   const { id } = master;
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
   const target = resolveTarget(master, input);
@@ -130,15 +136,18 @@ async function applyUpdate(
 
   if (target.scope === 'this') {
     // 実体化された回は繰り返さない（繰り返しは元の行だけが持つ）
-    await materialize(
+    const { completedAt } = await materialize(
       master,
       target.occurrenceStart,
       { ...values, rrule: null, cancelled: false },
       participantIds,
       userId,
     );
-    // 変わったのは回の行で、繰り返し元は読んだままなので、それをそのまま返す
-    return toMaster(master);
+    // 一覧が回を出すときと同じく、id と繰り返しは繰り返し元のもの（`buildOccurrence`）
+    return {
+      ...toMaster({ ...values, id, rrule: master.rrule, participantIds, completedAt }),
+      occurrenceStart: target.occurrenceStart.toISOString(),
+    };
   }
 
   // ここから下は保存した値がすべて手元にあるので、読み直さずに応答を組み立てる（往復を 1 回減らす）
@@ -150,7 +159,10 @@ async function applyUpdate(
       newRow: { ...values, createdBy: userId },
       participantIds,
     });
-    return toMaster({ ...values, id: splitId, participantIds, completedAt: null });
+    return {
+      ...toMaster({ ...values, id: splitId, participantIds, completedAt: null }),
+      occurrenceStart: null,
+    };
   }
 
   await repository.update(id, values, {
@@ -159,7 +171,10 @@ async function applyUpdate(
       baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule,
   });
   // 完了状態は入力に無く保存でも変わらないので、保存前の値をそのまま使う
-  return toMaster({ ...values, id, participantIds, completedAt: master.completedAt });
+  return {
+    ...toMaster({ ...values, id, participantIds, completedAt: master.completedAt }),
+    occurrenceStart: null,
+  };
 }
 
 export async function deleteEvent(
@@ -271,9 +286,9 @@ async function materialize(
   values: Partial<NewEventRow>,
   participantIds: string[] | undefined,
   userId: string,
-): Promise<void> {
+): Promise<{ completedAt: Date | null }> {
   const { id: _id, createdAt: _c, updatedAt: _u, participantIds: _p, ...copy } = master;
-  await repository.materializeOccurrence(
+  return repository.materializeOccurrence(
     {
       ...copy,
       ...shiftTo(master, occurrenceStart),

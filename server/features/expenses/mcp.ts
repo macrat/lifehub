@@ -38,7 +38,7 @@ function toUserIdOf(ctx: McpContext, people: Person[], paidFor: string): string 
 }
 
 async function withBalance(people: Person[], expense: service.Expense) {
-  const balance = await service.getBalance();
+  const balance = await service.getBalance(people);
   return jsonResult({
     entry: formatExpense(expense, people),
     balance: balance && formatBalance(balance, people),

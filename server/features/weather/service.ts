@@ -352,7 +352,11 @@ export async function listWeatherPage(
 ): Promise<HistoryPage<WeatherDay>> {
   const from = before ? addDays(before, -PAGE_DAYS) : addDays(today(now), -RECENT_DAYS);
   const to = before ? addDays(before, -1) : addDays(today(now), FORECAST_DAYS - 1);
-  const { items, hasEarlier } = await listWeatherDays({ from, to });
+  // 前の日があるかはページの中身と関わらないので、並べて読む
+  const [items, hasEarlier] = await Promise.all([
+    listWeatherDays({ from, to }),
+    repository.hasDaysBefore(from),
+  ]);
   return { items, nextCursor: hasEarlier ? from : null };
 }
 
@@ -361,12 +365,10 @@ export async function listWeatherPage(
  * その日の 3 時間ごとの天気と気温
  * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
  * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
- * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。hasEarlier は from より前に取っておいた日があるか。
+ * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
  * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
  */
-export async function listWeatherDays(
-  range: DateRange,
-): Promise<{ items: WeatherDay[]; hasEarlier: boolean }> {
+export async function listWeatherDays(range: DateRange): Promise<WeatherDay[]> {
   const [rows, holidays] = await Promise.all([repository.findDays(range), listHolidays(range)]);
   const holidaySet = new Set(holidays);
   const slots = Map.groupBy(
@@ -374,16 +376,13 @@ export async function listWeatherDays(
     (slot) => slot.date,
   );
   const pops = Map.groupBy(rows.pops, ({ startsAt }) => toDateString(startsAt));
-  return {
-    items: toDaily(rows.daily).map((day) => ({
-      ...day,
-      holiday: holidaySet.has(day.date),
-      slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),
-      pops: (pops.get(day.date) ?? []).map(({ startsAt, pop }) => ({
-        startMin: minutesOfDay(startsAt),
-        pop,
-      })),
+  return toDaily(rows.daily).map((day) => ({
+    ...day,
+    holiday: holidaySet.has(day.date),
+    slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),
+    pops: (pops.get(day.date) ?? []).map(({ startsAt, pop }) => ({
+      startMin: minutesOfDay(startsAt),
+      pop,
     })),
-    hasEarlier: rows.hasEarlier,
-  };
+  }));
 }

@@ -37,8 +37,8 @@ export const registerWeatherTools: ToolRegistrar = (server) => {
     },
     async (input) => {
       const period = range.resolve(input);
-      const { items } = await service.listWeatherDays(period);
-      return jsonResult({ ...period, days: items.map(formatDay) });
+      const days = await service.listWeatherDays(period);
+      return jsonResult({ ...period, days: days.map(formatDay) });
     },
   );
 };

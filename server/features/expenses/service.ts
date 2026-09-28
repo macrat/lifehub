@@ -16,7 +16,6 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
-import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
 
@@ -39,14 +38,13 @@ export const timelineSource: TimelineSource = {
 };
 
 /**
- * 立替残高（借方・貸方）。式は shared/expenses.ts。利用者がちょうど 2 人でなければ計算できないので null
- * （呼び出し側が残高を出さずに済ませられるよう、例外ではなく値で返す）
+ * 立替残高（借方・貸方）。式は shared/expenses.ts。users は利用者の一覧（登録順。`balancePair` が先頭 2 人を選ぶ）で、
+ * 呼び出し側が手元に持っているものを渡す（MCP は要求ごとに 1 度だけ読む）。
+ * ちょうど 2 人でなければ計算できないので null（呼び出し側が残高を出さずに済ませられるよう、例外ではなく値で返す）
  */
-export async function getBalance(): Promise<Balance | null> {
-  // 2 つの問い合わせは互いに依存しないので並べて投げる（Neon の HTTP ドライバでは往復 1 回分で済む）
-  const [totals, userList] = await Promise.all([repository.sumByDirection(), users.listUsers()]);
-  const pair = balancePair(userList);
-  return pair && balanceOf(totals, pair);
+export async function getBalance(users: { id: string }[]): Promise<Balance | null> {
+  const pair = balancePair(users);
+  return pair && balanceOf(await repository.sumByDirection(), pair);
 }
 
 /**

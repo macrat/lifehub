@@ -98,7 +98,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
       const [people, timeline, balance, lemonStatus] = await Promise.all([
         ctx.people(),
         readDays(ctx, { from: date, to: addDays(date, 1) }, {}),
-        expenses.getBalance(),
+        ctx.people().then(expenses.getBalance),
         lemon.getStatus(now),
       ]);
       return jsonResult({

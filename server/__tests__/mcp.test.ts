@@ -174,7 +174,18 @@ describe('MCP server', () => {
         'scope',
       );
 
-      await call(client, 'update_event', { ref: second?.ref, scope: 'this', title: '矯正' });
+      const changed = await call<Entry>(client, 'update_event', {
+        ref: second?.ref,
+        scope: 'this',
+        title: '矯正',
+      });
+      // 返すのは変えた回（同じ回の ref、その回の日時）
+      expect(changed).toMatchObject({
+        ref: second?.ref,
+        title: '矯正',
+        start: '2030-01-14T09:00+09:00',
+        repeat: 'FREQ=WEEKLY',
+      });
       const titles = (await readDays(client, { from: '2030-01-01', to: '2030-01-31' })).flatMap(
         (d) => d.entries.map((e) => e.title),
       );

@@ -247,28 +247,32 @@ export async function update(
  * 全文を 1 回の原子的な操作で行う。回の行と参加者を別の往復で書くと、行だけが残ったときに
  * 参加者 0 人の回になり、通知も配信も届かなくなる。回の ID は呼び出し側が知らないので、
  * 参加者の文は (series_id, occurrence_start) で回の行を引き当てる。
+ * 書いた回の完了日時を返す（回の値のうち、呼び出し側が手元に持たないのはこれだけ）。
  */
 export async function materializeOccurrence(
   row: Omit<NewEventRow, 'id'> & { seriesId: string; occurrenceStart: Date },
   patch: Partial<NewEventRow>,
   participantIds: string[] | undefined,
-): Promise<void> {
+): Promise<{ completedAt: Date | null }> {
   const isTarget = and(
     eq(events.seriesId, row.seriesId),
     eq(events.occurrenceStart, row.occurrenceStart),
   );
-  await runBatch((tx) => [
+  const [[written]] = await runBatch((tx) => [
     tx
       .insert(events)
       .values({ ...row, id: newId() })
       .onConflictDoUpdate({
         target: [events.seriesId, events.occurrenceStart],
         set: { ...patch, updatedAt: new Date() },
-      }),
+      })
+      .returning({ completedAt: events.completedAt }),
     ...(participantIds === undefined
       ? [copyMasterParticipants(tx, isTarget)]
       : replaceParticipantsWhere(tx, isTarget, participantIds)),
   ]);
+  if (!written) throw new Error('materialize returned no row');
+  return written;
 }
 
 /** 回が参加者を持たなければ、繰り返し元の参加者を写す */

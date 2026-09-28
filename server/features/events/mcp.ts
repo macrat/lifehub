@@ -217,7 +217,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
     {
       title: '予定・タスクを変える',
       description:
-        '予定かタスクを ref で変える。変える項目だけを渡し、省いた項目は今のまま（null を渡すと消す）。予定の start だけを渡すと、長さを保ったまま動かす。予定の終了は end、タスクの期限は due。終日と時刻ありを切り替えるには、開始と終了（期限）を両方渡す。繰り返しの回（ref に @ を含む）は scope で範囲を選ぶ。変えた後の予定・タスクを返す（scope が this のときは ref だけ）。',
+        '予定かタスクを ref で変える。変える項目だけを渡し、省いた項目は今のまま（null を渡すと消す）。予定の start だけを渡すと、長さを保ったまま動かす。予定の終了は end、タスクの期限は due。終日と時刻ありを切り替えるには、開始と終了（期限）を両方渡す。繰り返しの回（ref に @ を含む）は scope で範囲を選ぶ。変えた後の予定・タスク（scope が this ならその回）を返す。',
       inputSchema: updateInput,
       annotations: EDITING,
     },
@@ -239,12 +239,6 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
         remindEndMinutes: remind,
       };
       const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
-      if (target.scope === 'this') {
-        return jsonResult({
-          ref: toRef(ref.type, ref.id, ref.occurrenceStart),
-          updated: 'この回だけ',
-        });
-      }
       return jsonResult(formatEvent(updated, people));
     },
   );

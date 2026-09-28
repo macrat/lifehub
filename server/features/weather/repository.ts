@@ -1,80 +1,83 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { db, runBatch } from '../../lib/db/client.ts';
+import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { weather, weatherHourly, weatherPop } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
 export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
 export type PopRow = typeof weatherPop.$inferSelect;
 
-/**
- * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
- * 1 回の往復で読む。
- */
-export async function findBetween(
-  range: DateRange,
-): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const { from, to } = range;
-  const instants = instantRange(range);
-  const [daily, hourly] = await runBatch((tx) => [
-    tx
-      .select()
-      .from(weather)
-      .where(and(gte(weather.date, from), lte(weather.date, to)))
-      .orderBy(asc(weather.date)),
-    tx
-      .select()
-      .from(weatherHourly)
-      .where(
-        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
-      )
-      .orderBy(asc(weatherHourly.startsAt)),
-  ]);
-  return { daily, hourly };
-}
-
-/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
-export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
-  return db
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）の問い合わせ */
+function dailyIn(tx: Database, range: DateRange) {
+  return tx
     .select()
     .from(weather)
     .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
     .orderBy(asc(weather.date));
 }
 
+/** [from, to] の日々の 3 時間ごとの天気（時刻順）の問い合わせ */
+function hourlyIn(tx: Database, range: DateRange) {
+  const { from, to } = instantRange(range);
+  return tx
+    .select()
+    .from(weatherHourly)
+    .where(and(gte(weatherHourly.startsAt, from), lt(weatherHourly.startsAt, to)))
+    .orderBy(asc(weatherHourly.startsAt));
+}
+
+/** [from, to] の日々の 6 時間ごとの降水確率（時刻順）の問い合わせ */
+function popsIn(tx: Database, range: DateRange) {
+  const { from, to } = instantRange(range);
+  return tx
+    .select()
+    .from(weatherPop)
+    .where(and(gte(weatherPop.startsAt, from), lt(weatherPop.startsAt, to)))
+    .orderBy(asc(weatherPop.startsAt));
+}
+
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
+export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
+  return dailyIn(db, range);
+}
+
 /**
- * 天気の画面の 1 ページ分（[from, to]。両端を含む JST 暦日）を 1 回の往復で読む: 日ごとの天気（日付順）、
- * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）と、from より前に取っておいた日があるか。
+ * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
+ * 1 回の往復で読む（カレンダー）。
+ */
+export async function findBetween(
+  range: DateRange,
+): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
+  const [daily, hourly] = await runBatch((tx) => [dailyIn(tx, range), hourlyIn(tx, range)]);
+  return { daily, hourly };
+}
+
+/**
+ * [from, to]（両端を含む JST 暦日）の天気を 1 回の往復で読む（天気の画面・MCP）: 日ごとの天気（日付順）、
+ * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。
  */
 export async function findDays(range: DateRange): Promise<{
   daily: WeatherRow[];
   hourly: HourlyWeatherRow[];
   pops: PopRow[];
-  hasEarlier: boolean;
 }> {
-  const instants = instantRange(range);
-  const [daily, hourly, pops, earlier] = await runBatch((tx) => [
-    tx
-      .select()
-      .from(weather)
-      .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
-      .orderBy(asc(weather.date)),
-    tx
-      .select()
-      .from(weatherHourly)
-      .where(
-        and(gte(weatherHourly.startsAt, instants.from), lt(weatherHourly.startsAt, instants.to)),
-      )
-      .orderBy(asc(weatherHourly.startsAt)),
-    tx
-      .select()
-      .from(weatherPop)
-      .where(and(gte(weatherPop.startsAt, instants.from), lt(weatherPop.startsAt, instants.to)))
-      .orderBy(asc(weatherPop.startsAt)),
-    tx.select({ date: weather.date }).from(weather).where(lt(weather.date, range.from)).limit(1),
+  const [daily, hourly, pops] = await runBatch((tx) => [
+    dailyIn(tx, range),
+    hourlyIn(tx, range),
+    popsIn(tx, range),
   ]);
-  return { daily, hourly, pops, hasEarlier: earlier.length > 0 };
+  return { daily, hourly, pops };
+}
+
+/** date より前に取っておいた日があるか（天気の画面の続きのページの有無） */
+export async function hasDaysBefore(date: DateString): Promise<boolean> {
+  const rows = await db
+    .select({ date: weather.date })
+    .from(weather)
+    .where(lt(weather.date, date))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**
