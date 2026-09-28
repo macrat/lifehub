@@ -48,7 +48,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
             {formatYen(expense.amount)}
           </Typography>
           <Typography>{formatDateWithYear(expense.spentOn)}</Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <UserChip prefix="To" userId={expense.toUserId} />
             <UserChip prefix="From" userId={expense.fromUserId} />
           </Stack>

@@ -49,7 +49,7 @@ function ItemWhen({ item }: { item: CalendarItem }) {
 /** 参加者（その人の色で塗る）と、繰り返し・この回だけの変更の印 */
 function ItemChips({ item }: { item: CalendarItem }) {
   return (
-    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
       {item.participantIds.map((id) => (
         <UserChip key={id} userId={id} />
       ))}
