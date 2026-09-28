@@ -139,6 +139,7 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
   const panel = useToggle();
   const filters: Filters<S> = { ...search, q: keyword };
   const activeFilters = countActiveFilters(search, conditions);
+  const filtering = keyword !== '' || activeFilters > 0;
   return {
     filters,
     /** サーバーに渡す絞り込み（取得のキーにもなる。`toListFilter`） */
@@ -148,8 +149,9 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
     setFilters: (next: FiltersPatch<S>) => patchSearch(next, { replace: true }),
     /** キーワード以外で効いている絞り込みの数 */
     activeFilters,
-    /** 何かで絞り込んでいるか（空の一覧の文言を「一致するものが無い」にする） */
-    filtering: keyword !== '' || activeFilters > 0,
+    /** 空の一覧に出す文言。絞り込んでいれば「一致するものが無い」、いなければ「まだ無い」 */
+    emptyMessage: (noun: string) =>
+      filtering ? `一致する${noun}はありません` : `まだ${noun}はありません`,
     /** 詳細な絞り込みのフォーム（`FilterPanel`）を開いているか。開閉は絞り込みボタン */
     panelOpen: panel.value,
     togglePanel: panel.toggle,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addDays, today } from '../../../shared/date.ts';
+import { addDays, type DateRange, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import {
   addMonths,
@@ -27,7 +27,7 @@ import type { CalendarView } from './view.ts';
 export type PeriodView = Exclude<CalendarView, 'list'>;
 
 /** 期間で見る表示の 1 ページ分（1 か月・1 週・1 日）。スワイプでは前後のページも同時に描く */
-export type CalendarPeriod = {
+export type PeriodPage = {
   /** そのページを代表する日（月なら 1 日）。ページが変わったことの判定に使う */
   date: DateString;
   /** 月表示で月外の日を薄く出すための "YYYY-MM" */
@@ -35,7 +35,7 @@ export type CalendarPeriod = {
   /** 表示する日（月は 42 日、週は 7 日、日は 1 日） */
   days: DateString[];
   /** 取得範囲（両端含む） */
-  range: { from: DateString; to: DateString };
+  range: DateRange;
 };
 
 /**
@@ -163,7 +163,7 @@ export function useCalendarPage(search: CalendarSearch) {
  * 面（CalendarPane）は代表日だけを受け取ってここで期間を組み立てる。
  * 期間そのものを props にすると、中身が同じでも描画のたびに別の値になり、面が描き直しを省けない。
  */
-export function periodOf(view: PeriodView, date: DateString): CalendarPeriod {
+export function periodOf(view: PeriodView, date: DateString): PeriodPage {
   const month = toMonthString(date);
   const days = view === 'month' ? monthGridDays(month) : view === 'week' ? weekDays(date) : [date];
   return { date, month, days, range: { from: days[0] ?? date, to: days.at(-1) ?? date } };

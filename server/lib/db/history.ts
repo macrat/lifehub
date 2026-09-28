@@ -4,15 +4,12 @@ import {
   type Column,
   desc,
   getTableColumns,
-  gte,
-  ilike,
   lt,
   type SQL,
   type SQLWrapper,
   sql,
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import type { InstantRange } from '../../../shared/date.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
 import { db } from './client.ts';
 
@@ -80,47 +77,4 @@ export async function findHistoryPage<T extends PgTable>({
     items: rows.map(({ pageBoundary: _, hasOlder: __, ...row }) => row) as T['$inferSelect'][],
     nextCursor: first?.pageBoundary && first.hasOlder ? first.pageBoundary : null,
   };
-}
-
-/**
- * 1 件の記録が 1 つの日時に置かれる表の、タイムライン向けの問い合わせ（`TimelineSource` の元）。
- * at はタイムラインに置く日時の列か式、keyword はキーワードの条件（空のキーワードは undefined を返す）。
- */
-export function timelineQueries<T extends PgTable>({
-  table,
-  at,
-  keyword,
-}: {
-  table: T;
-  at: SQL<Date> | Column;
-  keyword: (q: string | undefined) => SQL | undefined;
-}) {
-  // 列も式も SQL として同じに扱える（どちらも Date に読み替えられる。式は mapWith で渡される）
-  const instant = at as SQL<Date>;
-  return {
-    async findRecentInstants(before: Date, q: string | undefined, limit: number): Promise<Date[]> {
-      const rows = await db
-        .select({ at: instant })
-        .from(table as PgTable)
-        .where(and(lt(instant, before), keyword(q)))
-        .orderBy(desc(instant))
-        .limit(limit);
-      return rows.map((row) => row.at);
-    },
-    async findInRange(range: InstantRange, q: string | undefined): Promise<T['$inferSelect'][]> {
-      return db
-        .select()
-        .from(table as PgTable)
-        .where(and(gte(instant, range.from), lt(instant, range.to), keyword(q)));
-    },
-  };
-}
-
-/**
- * キーワードの部分一致（大文字小文字を区別しない）。画面の検索窓と同じ規則で、
- * LIKE の記号（% と _）は文字として扱う。空のキーワードは条件にしない
- */
-export function containsKeyword(column: Column, keyword: string | undefined): SQL | undefined {
-  const q = keyword?.trim();
-  return q ? ilike(column, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined;
 }

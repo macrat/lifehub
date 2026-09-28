@@ -38,6 +38,31 @@ export type WriteRequest = {
   body?: unknown;
 };
 
+/** 一覧の口（`api.memos` など）。作成はここへ送る */
+type CollectionRoute = { $url: () => URL };
+/** 1 件の口（`api.memos[':id']` など） */
+type ItemRoute = { $url: (args: { param: { id: string } }) => URL };
+
+/** 作成（POST）の送る内容。入力（クライアントが決めた id を含む）をそのまま本文にする */
+export function createRequest<T>(route: CollectionRoute): (input: T) => WriteRequest {
+  return (input) => ({ method: 'POST', path: route.$url().pathname, body: input });
+}
+
+/**
+ * 1 件への書き込み（置き換え・部分更新・回を指す削除）の送る内容。id を URL に、残りを本文にする。
+ */
+export function itemRequest<T extends { id: string }>(
+  method: 'PUT' | 'PATCH' | 'DELETE',
+  route: ItemRoute,
+): (input: T) => WriteRequest {
+  return ({ id, ...body }) => ({ method, path: route.$url({ param: { id } }).pathname, body });
+}
+
+/** 1 件の削除（本文なし）の送る内容 */
+export function deleteRequest(route: ItemRoute): (id: string) => WriteRequest {
+  return (id) => ({ method: 'DELETE', path: route.$url({ param: { id } }).pathname });
+}
+
 /** 書き込みを送る。失敗はサーバーのメッセージを含む Error（通信断なら NetworkError）になる。 */
 export async function sendWrite({ method, path, body }: WriteRequest): Promise<void> {
   const res = await apiFetch(path, {

@@ -1,4 +1,8 @@
-import type { UpdateUserInput } from '../../../shared/validation/users.ts';
+import {
+  createUserSchema,
+  type UpdateUserInput,
+  updateUserSchema,
+} from '../../../shared/validation/users.ts';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 import { type User, useCreateUser, useUpdateUser, useUsers } from './queries.ts';
 
@@ -19,12 +23,17 @@ export function useUserAdmin() {
     startCreate: creating.on,
     startEdit: editing.open,
     createForm: creating.value
-      ? { mode: 'create' as const, onClose: creating.off, onSubmit: createUser.mutateAsync }
+      ? {
+          user: null,
+          schema: createUserSchema,
+          onClose: creating.off,
+          onSubmit: createUser.mutateAsync,
+        }
       : null,
     editForm: editingUser
       ? {
-          mode: 'edit' as const,
           user: editingUser,
+          schema: updateUserSchema,
           onClose: editing.close,
           onSubmit: (input: UpdateUserInput) =>
             updateUser.mutateAsync({ id: editingUser.id, ...input }),

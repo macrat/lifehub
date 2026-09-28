@@ -3,13 +3,13 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { ItemEnds } from './item-shape.ts';
-import { MIN_BLOCK_MINUTES, timedSlot, timelineSlot } from './timeline-layout.ts';
+import { taskBlock, timedSlot, timelineSlot } from './timeline-layout.ts';
 
 /**
  * グリッドで選んだ、まだ保存していない予定の範囲（Google カレンダーの下書き）。
  * 週・日の時間軸で選べば時間指定、月と終日欄で選べば終日になる。
  */
-export type EventDraft =
+export type DraftRange =
   | { allDay: false; date: DateString; startMin: number; endMin: number }
   /** from・to はどちらも含む日 */
   | { allDay: true; from: DateString; to: DateString };
@@ -19,13 +19,13 @@ export type EventDraft =
  * （長押しでつまんだもの。まだ無い予定を追加するときは null）。
  * ドラッグは範囲と対象を一緒に返すので、つまむたびに「今どれを直しているか」が決まる。
  */
-export type Draft = { range: EventDraft; item: CalendarItem | null };
+export type Draft = { range: DraftRange; item: CalendarItem | null };
 
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
-export type TimedDraft = EventDraft & { allDay: false };
+export type TimedDraft = DraftRange & { allDay: false };
 
 /** 終日の下書き（月表示・終日欄に出す帯） */
-export type AllDayDraft = EventDraft & { allDay: true };
+export type AllDayDraft = DraftRange & { allDay: true };
 
 /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
 export type Grabbed = { item: CalendarItem | null };
@@ -38,7 +38,7 @@ export type Grabbed = { item: CalendarItem | null };
  * 長さを持たないので、枠は動かすだけで端は直せない（`hasEnds`）。
  * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
  */
-export function itemDraft(item: CalendarItem): EventDraft | null {
+export function itemDraft(item: CalendarItem): DraftRange | null {
   let draft = itemDrafts.get(item);
   if (draft === undefined) {
     draft = computeItemDraft(item);
@@ -53,9 +53,9 @@ export function itemDraft(item: CalendarItem): EventDraft | null {
  * オブジェクトが渡り続けるので、1 項目 1 回で済ませる（時刻の読み取りはタイムゾーンの計算を伴う）。
  * WeakMap なので、キャッシュから外れた項目の分は一緒に消える。
  */
-const itemDrafts = new WeakMap<CalendarItem, EventDraft | null>();
+const itemDrafts = new WeakMap<CalendarItem, DraftRange | null>();
 
-function computeItemDraft(item: CalendarItem): EventDraft | null {
+function computeItemDraft(item: CalendarItem): DraftRange | null {
   if (item.kind === 'task') {
     if (item.completedAt !== null) return null;
     return taskFrame(item.placementDate, timelineSlot(item)?.startMin ?? null);
@@ -71,18 +71,13 @@ function computeItemDraft(item: CalendarItem): EventDraft | null {
 }
 
 /**
- * タスクの枠。時刻（その日の 0:00 からの分）があれば時間軸に置くブロックと同じ最小の長さ（24 時で切る）、
+ * タスクの枠。時刻（その日の 0:00 からの分）があれば時間軸に置くブロック（`taskBlock`）、
  * 無ければその日 1 日。置かれているタスクの枠（`itemDraft`）と入力で直した日時の枠（`taskDraftFromInput`）が
  * 同じ形になるよう、ここ 1 か所で決める。
  */
-export function taskFrame(date: DateString, startMin: number | null): EventDraft {
+export function taskFrame(date: DateString, startMin: number | null): DraftRange {
   if (startMin === null) return allDayDraft(date);
-  return {
-    allDay: false,
-    date,
-    startMin,
-    endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES),
-  };
+  return { allDay: false, date, ...taskBlock(startMin) };
 }
 
 /**
@@ -103,6 +98,17 @@ export function sameOccurrence(
 ): boolean {
   if (!a || !b) return !a && !b;
   return occurrenceKey(a) === occurrenceKey(b);
+}
+
+/**
+ * 並べている日（days）に枠を出しているときの、枠が直している項目（元の帯・ブロックはこれを隠す）。
+ * 月表示は週の行ごとに枠を置くので、見えている 6 週のどこかに出ているかをこれで見る
+ * （終日欄・時間軸は枠を置く列をそのまま使う）。
+ * 枠が出ない間（別の週・月へ動かした、終日を切り替えた）は、保存するまで元の場所に見えているほうが
+ * 分かりやすいので隠さない（隠すと、どこにも出ていない予定になる）。
+ */
+export function editingItemOn(draft: Draft | null, days: DateString[]): CalendarItem | null {
+  return draft && draftColumns(draft.range, days) ? draft.item : null;
 }
 
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
@@ -130,7 +136,7 @@ export function nextHourDraft(date: DateString, now: Date = new Date()): TimedDr
  * 時間指定 → 終日はその日 1 日。終日 → 時間指定は、最初の日の次の正時から 1 時間（`nextHourDraft`）。
  * 時間指定の枠は日をまたげないので、複数日の終日から戻すと最初の日だけになる。
  */
-export function withAllDay(draft: EventDraft, allDay: boolean, now: Date = new Date()): EventDraft {
+export function withAllDay(draft: DraftRange, allDay: boolean, now: Date = new Date()): DraftRange {
   if (draft.allDay === allDay) return draft;
   return draft.allDay ? nextHourDraft(draft.from, now) : allDayDraft(draft.date);
 }
@@ -141,7 +147,7 @@ export function allDayDraft(date: DateString): AllDayDraft {
 }
 
 /** 日の並びで下書きが占める期間（両端を含む）。時間指定の下書きはその日 1 日ぶん */
-export function draftDays(draft: EventDraft): DateRange {
+export function draftDays(draft: DraftRange): DateRange {
   return draft.allDay ? draft : { from: draft.date, to: draft.date };
 }
 
@@ -150,7 +156,7 @@ export function draftDays(draft: EventDraft): DateRange {
  * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
  */
 export function draftColumns(
-  draft: EventDraft,
+  draft: DraftRange,
   days: DateString[],
 ): ({ col: number; span: number } & ItemEnds) | null {
   const { from, to } = draftDays(draft);

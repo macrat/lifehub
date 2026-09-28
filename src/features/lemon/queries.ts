@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { toDateString } from '../../../shared/date.ts';
 import {
@@ -8,7 +8,7 @@ import {
   sortCareLogs,
 } from '../../../shared/lemon.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import { type HistorySource, useHistory } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
@@ -56,11 +56,7 @@ export function useCareLogHistory(filter: CareLogFilter) {
 
 export function useLogCare() {
   return useCreateMutation<CareLogBody>({
-    request: (input) => ({
-      method: 'POST' as const,
-      path: api.lemon.logs.$url().pathname,
-      body: input,
-    }),
+    request: createRequest(api.lemon.logs),
     keys: WRITE_KEYS,
     apply: (client, input) => {
       const log: CareLog = {
@@ -73,50 +69,45 @@ export function useLogCare() {
         createdBy: signedInUserId(client),
         apiKeyName: null,
       };
-      careLogCache.apply(client, input.id, log);
-      client.setQueryData(
-        lemonStatusQueryOptions.queryKey,
-        (statuses) => statuses && advanceStatus(statuses, log),
-      );
+      applyLog(client, log);
     },
   });
 }
 
 export function useUpdateCareLog() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: CareLogBody & { id: string }) => ({
-      method: 'PUT' as const,
-      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<CareLogBody & { id: string }>('PUT', api.lemon.logs[':id']),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
       const prev = careLogCache.find(client, id);
       if (!prev) return;
-      const log = { ...prev, ...input, note: input.note ?? null };
-      careLogCache.apply(client, id, log);
-      // 新しくなった日時で進むタイルだけを進める。項目を外したり日時を戻したりしたときに
-      // どこまで戻るかは、読んでいない記録を含めて決まるので書き込み後の取り直しに任せる
-      client.setQueryData(
-        lemonStatusQueryOptions.queryKey,
-        (statuses) => statuses && advanceStatus(statuses, log),
-      );
+      applyLog(client, { ...prev, ...input, note: input.note ?? null });
     },
   });
 }
 
 export function useDeleteCareLog() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api.lemon.logs[':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api.lemon.logs[':id']),
     keys: WRITE_KEYS,
     apply: (client, id) => {
       careLogCache.apply(client, id, null);
       // タイルがどこまで戻るかは読んでいない記録を含めて決まるので、書き込み後の取り直しに任せる
     },
   });
+}
+
+/**
+ * 追加・編集した記録 1 件を先回りして書き込む: 履歴とタイムライン（`timelineRecordCache`）と、
+ * その記録の日時で進む状況のタイル。項目を外したり日時を戻したりしたときにタイルがどこまで戻るかは、
+ * 読んでいない記録を含めて決まるので書き込み後の取り直しに任せる。
+ */
+function applyLog(client: QueryClient, log: CareLog): void {
+  careLogCache.apply(client, log.id, log);
+  client.setQueryData(
+    lemonStatusQueryOptions.queryKey,
+    (statuses) => statuses && advanceStatus(statuses, log),
+  );
 }
 
 /**

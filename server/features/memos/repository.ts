@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
-import { containsKeyword, timelineQueries } from '../../lib/db/history.ts';
+import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
+import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type MemoRow, memos } from './schema.ts';
 
 /** タイムラインの問い合わせ。置く日時は書いた時刻、キーワードは本文の部分一致 */
@@ -10,25 +11,13 @@ export const timeline = timelineQueries({
   keyword: (q) => containsKeyword(memos.body, q),
 });
 
-/**
- * メモを作る。id は呼び出し元（多くはクライアント）が決めたもの。
- * 同じ id で送り直されたら（オフラインで溜めた書き込みの再送）何も書かない（二重に作らない）。
- * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
- */
+/** メモを作る。同じ id で送り直されたら何も書かず、今の行を返す（`insertOnce`） */
 export async function insert(row: {
   id: string;
   body: string;
   createdBy: string;
 }): Promise<MemoRow> {
-  const [inserted] = await db.insert(memos).values(row).onConflictDoNothing().returning();
-  const memo = inserted ?? (await findById(row.id));
-  if (!memo) throw new Error('insert returned no row');
-  return memo;
-}
-
-async function findById(id: string): Promise<MemoRow | undefined> {
-  const [row] = await db.select().from(memos).where(eq(memos.id, id));
-  return row;
+  return insertOnce(memos, row);
 }
 
 export async function exists(id: string): Promise<boolean> {

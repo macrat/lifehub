@@ -3,7 +3,7 @@ import type { Memo } from '../../../shared/memos.ts';
 import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import type { TimelineSource } from '../../lib/timeline-source.ts';
+import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
@@ -38,11 +38,9 @@ async function rejectWrite(id: string): Promise<never> {
 }
 
 /** タイムラインに並べるメモ（置く日時は書いた時刻。キーワードは本文の部分一致） */
-export const timelineSource: TimelineSource = {
-  recentInstants: repository.timeline.findRecentInstants,
-  entries: async (range, q) =>
-    (await repository.timeline.findInRange(range, q)).map((row) => memoEntry(toMemo(row))),
-};
+export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
+  memoEntry(toMemo(row)),
+);
 
 function toMemo(row: MemoRow): Memo {
   return {

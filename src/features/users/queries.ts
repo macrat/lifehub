@@ -1,16 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { pickDistinctHue } from '../../../shared/color.ts';
-import { newId } from '../../../shared/id.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
-import { api } from '../../lib/api.ts';
+import { api, createRequest, itemRequest } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 export type User = Me['users'][number];
 
-const NO_USERS: User[] = [];
+/** ユーザーがまだ読めていないときの一覧。いつも同じ配列を返し、それを元にした memo を無駄に作り直さない */
+export const NO_USERS: User[] = [];
 
-function usersOf(me: Me | null): User[] {
+/** `/api/me` の応答 → ユーザーの一覧（未ログイン・まだ読めていなければ空） */
+export function usersOf(me: Me | null | undefined): User[] {
   return me?.users ?? NO_USERS;
 }
 
@@ -27,36 +27,22 @@ export function useUsers() {
 /**
  * ユーザーの登録。オフラインでは溜めずにその場で失敗させる（queue: false）。
  * パスワードを含むので端末に残したくなく、2 人しか居ないアプリで急ぐ操作でもない。
+ * 楽観的更新の `apply` は持たない（配信 URL の発行と同じ）。ユーザーの ID はサーバー（better-auth）が
+ * 決めるので、先に出す行には本物と違う仮の ID しか付けられず、取り直しが届く前にその行を編集すると
+ * 無い ID へ送ってしまう。フォームはどのみち返事を待つので、一覧には取り直しで本物の行を出す。
  */
 export function useCreateUser() {
   return useOptimisticMutation({
-    request: (input: CreateUserInput) => ({
-      method: 'POST' as const,
-      path: api.users.$url().pathname,
-      body: input,
-    }),
+    request: createRequest<CreateUserInput>(api.users),
     queue: false,
     keys: [meQueryOptions.queryKey],
-    apply: (client, input) => {
-      client.setQueryData(meQueryOptions.queryKey, (me) => {
-        if (!me) return me;
-        // 色の既定はサーバーと同じ規則（既存のユーザーから最も離れた色相）で決める
-        const hue = input.hue ?? pickDistinctHue(me.users.map((user) => user.hue));
-        const user = { id: newId(), name: input.name, email: input.email, hue };
-        return { ...me, users: [...me.users, user] };
-      });
-    },
   });
 }
 
 /** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
 export function useUpdateUser() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: UpdateUserInput & { id: string }) => ({
-      method: 'PATCH' as const,
-      path: api.users[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<UpdateUserInput & { id: string }>('PATCH', api.users[':id']),
     queue: false,
     keys: [meQueryOptions.queryKey],
     apply: (client, { id, password: _password, ...input }) => {

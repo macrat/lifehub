@@ -19,6 +19,7 @@ import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
+import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
 import { ScrollAwayHeader } from '../../lib/ui/ScrollAwayHeader.tsx';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
@@ -30,12 +31,6 @@ export const Route = createFileRoute('/_authenticated/')({
   staticData: { ownsScroll: true },
   component: HomePage,
 });
-
-/**
- * タイムラインの幅の上限（PC）。X の投稿の列と同じく、1 行を目で追える幅に留める
- * （画面いっぱいに伸ばすと、左のアイコンと右端の日時が離れすぎる）
- */
-const MAX_WIDTH = 640;
 
 /**
  * ホーム。上から、最新の状態（天気・葉水・水やりのタイル）と、
@@ -76,7 +71,7 @@ function HomePage() {
         <FilterSearchField label="記録を検索" search={filter} />
       </AppBarContent>
 
-      <Box sx={{ maxWidth: MAX_WIDTH, mx: 'auto' }}>
+      <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
         <ScrollAwayHeader pinned={filter.panelOpen}>
           <TimelineFilterForm
             open={filter.panelOpen}
@@ -90,7 +85,7 @@ function HomePage() {
         </ScrollAwayHeader>
         <TimelineList
           timeline={timeline}
-          emptyMessage={filter.filtering ? '一致する記録はありません' : 'まだ記録はありません'}
+          emptyMessage={filter.emptyMessage('記録')}
           onSelect={selection.open}
         />
       </Box>

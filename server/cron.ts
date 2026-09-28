@@ -1,4 +1,5 @@
 import { Hono, type MiddlewareHandler } from 'hono';
+import { bearerAuth } from 'hono/bearer-auth';
 import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from './features/holidays/service.ts';
 import { enqueueTomorrow } from './features/notifications/service.ts';
@@ -6,12 +7,15 @@ import { recordObservedTemps, refreshWeather } from './features/weather/service.
 import type { AppEnv } from './lib/app-env.ts';
 import { env } from './lib/env.ts';
 
-const verifyCronSecret: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (!env.CRON_SECRET || c.req.header('authorization') !== `Bearer ${env.CRON_SECRET}`) {
-    throw new HTTPException(401, { message: 'unauthorized' });
-  }
-  await next();
-};
+/**
+ * Cron secret の Bearer トークンの検査（比べ方は Hono 標準の bearerAuth。時間差で漏れない比較）。起動時に 1 度だけ選ぶ。
+ * secret の無い環境では、どんなトークンも通さない。
+ */
+const verifyCronSecret: MiddlewareHandler<AppEnv> = env.CRON_SECRET
+  ? bearerAuth<AppEnv>({ token: env.CRON_SECRET })
+  : () => {
+      throw new HTTPException(401, { message: 'unauthorized' });
+    };
 
 /**
  * Vercel Cron（`vercel.json` の `crons`）が呼ぶ入口をすべてここに集める。

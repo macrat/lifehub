@@ -93,7 +93,7 @@ export function TimeGrid({
   // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない
   const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
   // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
-  // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）
+  // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）。枠を置く列と同じ値で決める
   const editing = draftCol >= 0 ? draft?.item : null;
   const now = useNow();
   const nowMin = minutesOfDay(now);

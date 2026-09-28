@@ -12,6 +12,7 @@ import {
   toDateString,
   today,
 } from '../../../shared/date.ts';
+import { matchesKeyword } from '../../../shared/search.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -22,12 +23,20 @@ export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
 
+/** 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない */
+type OccurrenceFilter = { kind?: EventKind | undefined; q?: string | undefined };
+
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
  * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+ * filter は `listOccurrences` にそのまま渡す（種別とキーワードの絞り込み）。
  */
-export async function listItems(range: DateRange, now: Date = new Date()): Promise<CalendarItem[]> {
-  const occurrences = await listOccurrences(range, now);
+export async function listItems(
+  range: DateRange,
+  now: Date = new Date(),
+  filter: OccurrenceFilter = {},
+): Promise<CalendarItem[]> {
+  const occurrences = await listOccurrences(range, now, filter);
   return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
 }
 
@@ -37,14 +46,15 @@ export async function listItems(range: DateRange, now: Date = new Date()): Promi
  * カレンダーは暦日に置いた `listItems` を読み、ics の配信（calendar-feeds）は日ごとに割らない
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
- * `kind` を渡すとその種別だけを展開する。`q` を渡すとタイトルかメモが当たる予定・タスクだけを読む。展開は繰り返し 1 つにつき期間の長さぶん走るので、
+ * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
+ * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
  * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
  * 捨てるものを展開してから捨てずに済む。
  */
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  { kind, q }: { kind?: EventKind; q?: string | undefined } = {},
+  { kind, q }: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
   const instants = instantRange(range);
   const rows = await repository.findCalendarRows(instants.from, instants.to, q);
@@ -70,7 +80,7 @@ export async function listOccurrences(
       ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
     );
   }
-  return result;
+  return result.filter((o) => matchesKeyword(q, o.title, o.note));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */

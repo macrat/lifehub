@@ -28,5 +28,11 @@ export const FAB_SX = {
   bottom: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 24 },
 } as const;
 
+/**
+ * 1 列に読む一覧（ホームのタイムライン・天気）の幅の上限（PC）。X の投稿の列と同じく、1 行を目で追える幅に留める
+ * （画面いっぱいに伸ばすと、左のアイコンと右端の値が離れすぎる）
+ */
+export const READING_MAX_WIDTH = 640;
+
 /** 日付の見出し（`DateHeading`）の左右の余白（テーマの spacing の単位）。見出しと左端を揃えたい一覧の行もこれを使う */
 export const DATE_HEADING_INSET = 2;

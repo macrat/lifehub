@@ -18,8 +18,8 @@ import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import type { Quick } from '../quick-form.ts';
 import type { GridDraft, QuickProps } from '../use-event-composer.ts';
+import type { Quick } from '../use-quick-form.ts';
 import { DRAFT_SELECTOR } from './markers.ts';
 
 type Props = Pick<QuickProps, 'onExpand'> & {

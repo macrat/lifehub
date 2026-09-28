@@ -48,6 +48,8 @@ export function AllDayRow({
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
   // 終日の下書きは既存の帯とぶつからないよう、1 行足してその行に置く
   const draftCols = barDraft && draftColumns(barDraft.range, days);
+  // 枠を出せている間だけ、直している予定の元の帯を隠す（枠を置く列と同じ値で決める）
+  const editing = draftCols ? barDraft.item : null;
 
   return (
     <Box
@@ -91,7 +93,7 @@ export function AllDayRow({
           showTime={false}
           onClick={() => onSelectItem(p.item)}
           grab={dayDrag.grabItemProps(p.item)}
-          hidden={sameOccurrence(barDraft?.item, p.item)}
+          hidden={sameOccurrence(editing, p.item)}
         />
       ))}
       {draftCols && (

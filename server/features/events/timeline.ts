@@ -1,6 +1,5 @@
 import { placeOnce } from '../../../shared/calendar.ts';
 import { type InstantRange, inclusiveEndDate, toDateString } from '../../../shared/date.ts';
-import { matchesKeyword } from '../../../shared/search.ts';
 import { eventEntry, type TimelineEntry } from '../../../shared/timeline.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
@@ -38,9 +37,7 @@ async function entries(
   now: Date,
 ): Promise<TimelineEntry[]> {
   const days = { from: toDateString(range.from), to: inclusiveEndDate(range.to.toISOString()) };
-  // DB は繰り返し元のタイトル・メモで絞るので、「この回だけ」で直した回はここで回そのものの値で絞り直す
   return (await listOccurrences(days, now, { q }))
-    .filter((o) => matchesKeyword(q, o.title, o.note))
     .flatMap((o) => placeOnce(o, now) ?? [])
     .map((item) => eventEntry(item, now));
 }

@@ -50,9 +50,15 @@ export function usePushStatus() {
   return useQuery({ ...pushStatusQueryOptions, enabled: pushSupported });
 }
 
+/**
+ * 購読の登録・解除は、ブラウザ（Push サービス）とサーバーの両方に繋がる操作なので溜めない。
+ * WHY networkMode: 'always': オフラインで保留させず、その場で失敗させる。保留すると切り替え中のまま
+ * スイッチが押せなくなり、オンラインに戻るまで何も起きない。
+ */
 export function useSubscribePush() {
   const queryClient = useQueryClient();
   return useMutation({
+    networkMode: 'always',
     mutationFn: async () => {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') throw new Error('通知が許可されませんでした');
@@ -81,9 +87,11 @@ export function useSubscribePush() {
   });
 }
 
+/** 購読の解除。登録と同じく溜めずにその場で失敗させる（`useSubscribePush`） */
 export function useUnsubscribePush() {
   const queryClient = useQueryClient();
   return useMutation({
+    networkMode: 'always',
     mutationFn: async () => {
       const subscription = await currentSubscription();
       if (!subscription) return;

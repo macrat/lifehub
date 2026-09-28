@@ -9,7 +9,7 @@ import {
   sortExpenses,
 } from '../../../shared/expenses.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { type HistorySource, useHistory } from '../../lib/history.ts';
 import {
   type QueryState,
@@ -64,7 +64,7 @@ const totalsQueryOptions = queryOptions({
 
 /**
  * 残高。サーバーの合計とユーザー（登録順の先頭 2 人が A, B。サーバーと同じ）から導く。
- * 立替ページとホームの残高のタイルが読む。
+ * 立替ページが読む。
  */
 export function useBalance(): QueryState<Balance> {
   const totals = useQuery(totalsQueryOptions);
@@ -81,11 +81,7 @@ export function useBalance(): QueryState<Balance> {
 
 export function useAddExpense() {
   return useCreateMutation<ExpenseBody>({
-    request: (input) => ({
-      method: 'POST' as const,
-      path: api.expenses.$url().pathname,
-      body: input,
-    }),
+    request: createRequest(api.expenses),
     keys: WRITE_KEYS,
     apply: (client, input) => {
       applyChange(client, input.id, null, { ...input, createdAt: new Date().toISOString() });
@@ -95,11 +91,7 @@ export function useAddExpense() {
 
 export function useUpdateExpense() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: ExpenseBody & { id: string }) => ({
-      method: 'PUT' as const,
-      path: api.expenses[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<ExpenseBody & { id: string }>('PUT', api.expenses[':id']),
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
       const prev = expenseCache.find(client, id);
@@ -110,10 +102,7 @@ export function useUpdateExpense() {
 
 export function useDeleteExpense() {
   return useOptimisticMutation({
-    request: (id: string) => ({
-      method: 'DELETE' as const,
-      path: api.expenses[':id'].$url({ param: { id } }).pathname,
-    }),
+    request: deleteRequest(api.expenses[':id']),
     keys: WRITE_KEYS,
     apply: (client, id) => {
       const prev = expenseCache.find(client, id);

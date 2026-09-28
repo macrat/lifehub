@@ -1,5 +1,6 @@
-import { and, asc, eq, getTableColumns, inArray, type SQL, sql } from 'drizzle-orm';
-import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db/client.ts';
+import { and, asc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { db, runBatch } from '../../lib/db/client.ts';
+import { idArrayAgg, participantWrites } from '../../lib/db/query.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -19,21 +20,19 @@ export async function findByUser(userId: string): Promise<CalendarFeedWithPartic
 }
 
 /**
- * where に合う配信 URL の行（1 行）に userIds を参加者として入れる文。作成（ID で引き当てる）と
- * 変更（ID と持ち主で引き当てる。他人の URL には入らない）が同じ形を使い、行と同じ runBatch に入れる。
+ * 参加者の書き込み。作成（ID で引き当てる）と変更（ID と持ち主で引き当てる。他人の URL には入らない）が
+ * 同じ形を使い、行と同じ runBatch に入れる。
  */
-function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
-  return tx.insert(calendarFeedParticipants).select(
-    tx
-      .select({ feedId: calendarFeeds.id, userId: unnestIds(userIds, 'user_id') })
-      .from(calendarFeeds)
-      .where(where),
-  );
-}
+const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsWhere } =
+  participantWrites({
+    parent: calendarFeeds,
+    participants: calendarFeedParticipants,
+    parentKey: 'feedId',
+  });
 
 /** 行と参加者を原子的に作る */
 export async function insert(
-  values: { id: string; userId: string; name: string; token: string; createdAt: Date },
+  values: { id: string; userId: string; name: string; token: string },
   participantIds: string[],
 ): Promise<void> {
   await runBatch((tx) => [
@@ -60,15 +59,7 @@ export async function update(
       .set({ name: values.name })
       .where(owned)
       .returning({ id: calendarFeeds.id }),
-    tx
-      .delete(calendarFeedParticipants)
-      .where(
-        inArray(
-          calendarFeedParticipants.feedId,
-          tx.select({ id: calendarFeeds.id }).from(calendarFeeds).where(owned),
-        ),
-      ),
-    insertParticipantsWhere(tx, owned, values.participantIds),
+    ...replaceParticipantsWhere(tx, owned, values.participantIds),
   ]);
   return updated.length > 0;
 }

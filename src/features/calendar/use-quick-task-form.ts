@@ -1,9 +1,8 @@
-import { useMemo, useRef } from 'react';
-import { grabbedScope } from '../events/recurrence-options.ts';
-import { useAllDay, useItemForm } from '../events/use-item-form.ts';
-import { expandValues, type Quick } from './quick-form.ts';
+import { useMemo } from 'react';
+import { useAllDay } from '../events/use-item-form.ts';
 import { taskDraftFromInput, taskDraftText, taskDraftValues } from './task-draft.ts';
 import type { QuickProps, TaskGridDraft } from './use-event-composer.ts';
+import { type Quick, useQuickForm } from './use-quick-form.ts';
 
 type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
   draft: TaskGridDraft;
@@ -17,20 +16,18 @@ type Options = Pick<QuickProps, 'onSubmit' | 'onChangeDraft' | 'onClose'> & {
  */
 export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Options): Quick {
   const { range, item: task, participantIds } = draft;
-  const formRef = useRef<HTMLFormElement>(null);
   // 枠とタスクから導く値。終日の状態（`useAllDay`）はこれが変わったとき（枠を動かしたとき）だけ合わせ直す
   // （描画ごとや参加者を選び直すたびに合わせ直すと、選んだ終日が戻ってしまう）
   const placed = useMemo(() => taskDraftValues(task, range), [task, range]);
   const [allDay, setAllDay] = useAllDay(placed.allDay, placed);
   const initial = { ...placed, participantIds };
-  const form = useItemForm({
+  const { formRef, form, readInput, expandValues } = useQuickForm({
     kind: 'task',
     initial,
     allDay,
-    // その回だけを直すときは、繰り返しの設定そのものは触らせない（回の行は繰り返さない）
-    scope: grabbedScope(task),
+    item: task,
     onSubmit,
-    onSaved: onClose,
+    onClose,
   });
 
   return {
@@ -40,11 +37,11 @@ export function useQuickTaskForm({ draft, onSubmit, onChangeDraft, onClose }: Op
     allDay,
     changeAllDay: setAllDay,
     rangeText: taskDraftText(placed),
-    expandValues: () => expandValues(formRef, form, initial),
+    expandValues,
     /** 入力欄で直した日時を枠とタスクへ映す。開始が空なら枠に置けないのでそのままにする */
     syncDraft: () => {
-      if (!formRef.current) return;
-      const next = taskDraftFromInput(task, form.inputFromForm(new FormData(formRef.current)));
+      const input = readInput();
+      const next = input && taskDraftFromInput(task, input);
       if (next) onChangeDraft(next);
     },
   };

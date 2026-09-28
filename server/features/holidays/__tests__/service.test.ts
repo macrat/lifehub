@@ -85,4 +85,13 @@ describe('holidays service', () => {
     await expect(refreshHolidays()).rejects.toThrow('offline');
     expect(await listHolidays(ALL)).toEqual(dates);
   });
+
+  it('祝日が 1 つも無い配布は失敗とみなし、前の一覧を残す', async () => {
+    serve(ICS);
+    const dates = await refreshHolidays();
+
+    serve('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR');
+    await expect(refreshHolidays()).rejects.toThrow('no events');
+    expect(await listHolidays(ALL)).toEqual(dates);
+  });
 });

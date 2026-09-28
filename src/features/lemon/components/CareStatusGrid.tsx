@@ -11,7 +11,7 @@ const COLUMNS = { xs: 3, sm: CARE_TYPES.length };
 
 type Props = {
   statuses: CareStatus[];
-  onSelect?: (status: CareStatus) => void;
+  onSelect: (status: CareStatus) => void;
 };
 
 /**

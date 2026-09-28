@@ -15,11 +15,9 @@ import {
 } from '../../../shared/validation/expenses.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
-import type { TimelineSource } from '../../lib/timeline-source.ts';
+import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
-
-export type { Balance, Expense } from '../../../shared/expenses.ts';
 
 /**
  * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
@@ -31,11 +29,9 @@ export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage
 }
 
 /** タイムラインに並べる立替（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */
-export const timelineSource: TimelineSource = {
-  recentInstants: repository.timeline.findRecentInstants,
-  entries: async (range, q) =>
-    (await repository.timeline.findInRange(range, q)).map((row) => expenseEntry(toExpense(row))),
-};
+export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
+  expenseEntry(toExpense(row)),
+);
 
 /**
  * 立替残高（借方・貸方）。式は shared/expenses.ts。users は利用者の一覧（登録順。`balancePair` が先頭 2 人を選ぶ）で、

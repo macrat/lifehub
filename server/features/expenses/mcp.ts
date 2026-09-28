@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { today } from '../../../shared/date.ts';
+import type { Expense } from '../../../shared/expenses.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { expenseFieldsSchema } from '../../../shared/validation/expenses.ts';
 import { formatBalance, formatExpense } from '../../lib/mcp/entries.ts';
@@ -37,7 +38,7 @@ function toUserIdOf(ctx: McpContext, people: Person[], paidFor: string): string 
   return paidFor === 'shared' ? null : resolvePerson(people, paidFor, ctx.userId);
 }
 
-async function withBalance(people: Person[], expense: service.Expense) {
+async function withBalance(people: Person[], expense: Expense) {
   const balance = await service.getBalance(people);
   return jsonResult({
     entry: formatExpense(expense, people),

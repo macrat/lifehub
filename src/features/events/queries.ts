@@ -15,7 +15,7 @@ import {
 } from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api, createRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
   type QueryState,
@@ -50,11 +50,7 @@ const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 export function useCreateEvent() {
   return useCreateMutation<CreateEventBody>({
-    request: (input) => ({
-      method: 'POST' as const,
-      path: api.events.$url().pathname,
-      body: input,
-    }),
+    request: createRequest(api.events),
     keys: WRITE_KEYS,
     apply: insertItem,
   });
@@ -62,11 +58,7 @@ export function useCreateEvent() {
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: UpdateEventBody & { id: string }) => ({
-      method: 'PUT' as const,
-      path: api.events[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<UpdateEventBody & { id: string }>('PUT', api.events[':id']),
     keys: WRITE_KEYS,
     apply: updateItem,
   });
@@ -74,11 +66,7 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    request: ({ id, ...input }: WriteTarget) => ({
-      method: 'DELETE' as const,
-      path: api.events[':id'].$url({ param: { id } }).pathname,
-      body: input,
-    }),
+    request: itemRequest<WriteTarget>('DELETE', api.events[':id']),
     keys: WRITE_KEYS,
     apply: removeItem,
   });

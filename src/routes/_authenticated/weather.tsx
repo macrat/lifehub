@@ -8,15 +8,13 @@ import { useHomeWeatherDay, useWeatherDays } from '../../features/weather/querie
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
+import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
 import { useGoBack } from '../../lib/ui/use-go-back.ts';
 
 export const Route = createFileRoute('/_authenticated/weather')({
   staticData: { ownsScroll: true },
   component: WeatherPage,
 });
-
-/** 一覧の幅の上限（PC）。1 行に日付から降水確率までを目で追える幅に留める（ホームのタイムラインと同じ） */
-const MAX_WIDTH = 640;
 
 /**
  * 天気（東京地方）。上が古く下が新しい 1 日 1 行の一覧で、最初は今日を一番上に出し、上へスクロールすると
@@ -40,7 +38,7 @@ function WeatherPage() {
           東京
         </Typography>
       </AppBarContent>
-      <Box sx={{ maxWidth: MAX_WIDTH, mx: 'auto' }}>
+      <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
         <HistoryList history={history} emptyMessage="予報がまだありません">
           {(days) => (
             <WeatherDayList

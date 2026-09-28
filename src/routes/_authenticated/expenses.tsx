@@ -74,7 +74,7 @@ function ExpensesPage() {
         history={history}
         header={header}
         headerScrollsAway={!filter.panelOpen}
-        emptyMessage={filter.filtering ? '一致する立替はありません' : 'まだ立替はありません'}
+        emptyMessage={filter.emptyMessage('立替')}
         onSelect={selection.open}
       />
 

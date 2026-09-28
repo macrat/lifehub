@@ -17,8 +17,8 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
-import { type Database, db, idArrayAgg, runBatch, unnestIds } from '../../lib/db/client.ts';
-import { containsKeyword } from '../../lib/db/history.ts';
+import { type Database, db, runBatch } from '../../lib/db/client.ts';
+import { containsKeyword, idArrayAgg, participantWrites } from '../../lib/db/query.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -46,13 +46,33 @@ async function findOne(where: SQL | undefined): Promise<EventWithParticipants | 
  * ここでの絞り込みは「読む量を減らすための粗いふるい」で、範囲との厳密な重なりは展開後に判定する。
  */
 type CandidateColumns = Record<
-  'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
+  'id' | 'seriesId' | 'rrule' | 'kind' | 'startsAt' | 'endsAt' | 'completedAt' | 'title' | 'note',
   PgColumn
 >;
 
 /** 検索（ホームのタイムライン）: タイトルかメモの部分一致。空のキーワードは条件にしない */
 function keywordOf(table: Pick<CandidateColumns, 'title' | 'note'>, q: string | undefined) {
   return or(containsKeyword(table.title, q), containsKeyword(table.note, q));
+}
+
+/**
+ * 検索で繰り返し元・単発の行を読む粗いふるい: 行そのものか、繰り返し元なら実体化された回のどれかが当たる。
+ * 実体化されていない回は繰り返し元のタイトル・メモのままで、実体化された回は自分の値を持つので、
+ * 当たる回を持ちうる繰り返しはこれで漏れなく読める。どの回を返すかは展開した後に回の値で決める
+ * （`occurrences.ts` の `listOccurrences`）ので、ここは読む量を減らすだけで回の規則を持たない。
+ * WHY NOT 繰り返し元をすべて読む: 完了した回（実体化された行）は溜まり続けるので、検索のたびに
+ * すべての繰り返しの回を読んで展開することになる。
+ * 当たる回を持つ繰り返し元の集合は行によらないので、相関させずに 1 度だけ求める。
+ */
+function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL | undefined {
+  const own = keywordOf(table, q);
+  if (!own) return undefined;
+  const occurrence = alias(events, 'keyword_occurrence');
+  const seriesWithMatch = db
+    .select({ id: occurrence.seriesId })
+    .from(occurrence)
+    .where(and(isNotNull(occurrence.seriesId), keywordOf(occurrence, q)));
+  return or(own, and(isNotNull(table.rrule), inArray(table.id, seriesWithMatch)));
 }
 
 function isCandidate(
@@ -63,7 +83,7 @@ function isCandidate(
 ): SQL | undefined {
   const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
-    keywordOf(table, q),
+    candidateKeywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -111,8 +131,8 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
- * q を渡すと、タイトルかメモが当たる繰り返し元・単発だけを読む（ホームのタイムラインの検索。
- * 当たらない繰り返しを展開してから捨てずに済む）。
+ * q を渡すと、行そのものか実体化された回のどれかが当たるものだけを読む（タイムラインの検索。粗いふるいで、
+ * どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
  */
 export async function findCalendarRows(
   from: Date,
@@ -288,35 +308,17 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
 }
 
 /**
- * where に合う行（1 行）に userIds を参加者として入れる文。参加者の書き込みはすべてこの形にし、
- * 行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、ID を手元に持たない条件
- * （回の実体化の (series_id, occurrence_start)）でも引き当てられ、条件を足せば「作れたときだけ」入れられる。
+ * 参加者の書き込み。すべてこの形にし、行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、
+ * ID を手元に持たない条件（回の実体化の (series_id, occurrence_start)）でも引き当てられ、
+ * 条件を足せば「作れたときだけ」入れられる。
  */
-function insertParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
-  return tx.insert(eventParticipants).select(
-    tx
-      .select({
-        eventId: events.id,
-        userId: unnestIds(userIds, 'user_id'),
-      })
-      .from(events)
-      .where(where),
-  );
-}
+const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsWhere } =
+  participantWrites({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
 function hasNoParticipants(tx: Database): SQL {
   const own = alias(eventParticipants, 'own_participants');
   return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
-}
-
-/** where に合う行（1 行）の参加者を userIds に置き換える 2 文（消して入れ直す） */
-function replaceParticipantsWhere(tx: Database, where: SQL | undefined, userIds: string[]) {
-  const target = tx.select({ id: events.id }).from(events).where(where);
-  return [
-    tx.delete(eventParticipants).where(inArray(eventParticipants.eventId, target)),
-    insertParticipantsWhere(tx, where, userIds),
-  ] as const;
 }
 
 export async function remove(id: string): Promise<void> {

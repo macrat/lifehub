@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
-import { itemDraft, nextHourDraft, sameOccurrence, withAllDay } from '../draft.ts';
+import { editingItemOn, itemDraft, nextHourDraft, sameOccurrence, withAllDay } from '../draft.ts';
 import { draftText, draftValues } from '../event-draft.ts';
 import { allDay, at, DAY, day, event, select, task, timed } from './draft-fixtures.ts';
 
@@ -170,5 +170,17 @@ describe('sameOccurrence', () => {
   it('どちらも無ければ（追加の下書きどうし）同じ、片方だけなら違う', () => {
     expect(sameOccurrence(null, null)).toBe(true);
     expect(sameOccurrence(event, null)).toBe(false);
+  });
+});
+
+describe('editingItemOn', () => {
+  const week = ['2031-06-02', '2031-06-03', '2031-06-04', '2031-06-05'].map(day);
+
+  it('並べている日に枠を出しているときだけ、枠が直している項目を返す', () => {
+    const draft = { range: allDay(DAY, DAY), item: event };
+    expect(editingItemOn(draft, week)).toBe(event);
+    // 別の週へ動かした枠は出ないので、元の帯は隠さない
+    expect(editingItemOn({ ...draft, range: allDay('2031-06-12', '2031-06-12') }, week)).toBe(null);
+    expect(editingItemOn(null, week)).toBe(null);
   });
 });

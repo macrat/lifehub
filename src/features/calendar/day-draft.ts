@@ -4,8 +4,8 @@ import type { DateString } from '../../../shared/types.ts';
 import {
   type AllDayDraft,
   type Draft,
+  type DraftRange,
   draftDays,
-  type EventDraft,
   type Grabbed,
   hasEnds,
   SHORT_VIBRATION_MS,
@@ -16,7 +16,7 @@ import type { Drag } from './range-drag-session.ts';
 
 /** 日の並びでは時間指定の下書きは幅が 1 日で、動かせるのは日だけ（時間帯は時間軸で直す） */
 export type DayGrab = Grabbed &
-  ({ kind: 'start' | 'end'; draft: AllDayDraft } | { kind: 'move'; draft: EventDraft });
+  ({ kind: 'start' | 'end'; draft: AllDayDraft } | { kind: 'move'; draft: DraftRange });
 
 /**
  * 日の並びで押した所が、今出ている枠（下書き・編集中の予定）のどこか。掛かっていなければ null（押した所から選び直す）。
@@ -50,7 +50,7 @@ export function dayGrab(
  * つまんだだけで動かしていなければそのまま。端をつまんだときは反対の端を越えられない（最短 1 日）。
  * 帯そのものをつまんだときは動かした日数だけずらす。終日は日数を、時間指定は時間帯を保つ。
  */
-export function dayDraft({ grab, from, to, moved }: Drag<DateString, DayGrab>): EventDraft {
+export function dayDraft({ grab, from, to, moved }: Drag<DateString, DayGrab>): DraftRange {
   if (grab === null) return { allDay: true, from: earlier(from, to), to: later(from, to) };
   if (!moved) return grab.draft;
   switch (grab.kind) {
@@ -75,7 +75,7 @@ const later = (a: DateString, b: DateString) => (a >= b ? a : b);
  * 日の並びで下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
  * 日をまたいで占める日が変わるたびに震わせ、いくつ先の日まで選んだ・動かしたかを数えられるようにする。
  */
-export function dayVibration(previous: EventDraft, draft: EventDraft): number | null {
+export function dayVibration(previous: DraftRange, draft: DraftRange): number | null {
   const days = draftDays(draft);
   const previousDays = draftDays(previous);
   return days.from === previousDays.from && days.to === previousDays.to ? null : SHORT_VIBRATION_MS;
