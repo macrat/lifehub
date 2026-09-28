@@ -24,3 +24,7 @@
 | DELETE | `/api/memos/:id` | 削除。書いた本人以外は 403 |
 
 読むのはタイムライン（`GET /api/timeline`）だけなので、一覧の口は持たない。
+
+## MCP ツール
+
+`add_memo`, `update_memo`。読むのは `read_timeline`、消すのは `delete_entry`（[mcp.md](mcp.md)）。

@@ -2,8 +2,13 @@ import { newId } from '../../../shared/id.ts';
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
 import { careLogEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
-import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
+import {
+  type CareLogInput,
+  type CareLogListQuery,
+  careLogRulesSchema,
+} from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import { applyPatch, checkRules } from '../../lib/patch.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
@@ -42,7 +47,11 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
  */
 export type CareLogSource = { userId: string } | { apiKeyName: string };
 
-/** id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ */
 export async function logCare(
   input: CareLogInput,
   source: CareLogSource,
@@ -50,7 +59,7 @@ export async function logCare(
 ): Promise<CareLog> {
   return toLog(
     await repository.insert({
-      ...input,
+      ...checkRules(input, careLogRulesSchema),
       id,
       createdBy: 'userId' in source ? source.userId : null,
       apiKeyName: 'apiKeyName' in source ? source.apiKeyName : null,
@@ -61,6 +70,21 @@ export async function logCare(
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
 export async function updateLog(id: string, input: CareLogInput): Promise<void> {
   if (!(await repository.update(id, input))) throw new NotFoundError('記録が見つかりません');
+}
+
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
+export async function patchLog(id: string, patch: Partial<CareLogInput>): Promise<CareLog> {
+  const current = await repository.findById(id);
+  if (!current) throw new NotFoundError('記録が見つかりません');
+  // 項目の並びは、保存した値も入力（`careLogFieldsSchema`）も正規化済みなので、重ねたまま書ける
+  const values = applyPatch(
+    { careTypes: current.careTypes, doneAt: current.doneAt, note: current.note },
+    patch,
+    careLogRulesSchema,
+  );
+  const updated = await repository.update(id, values);
+  if (!updated) throw new NotFoundError('記録が見つかりません');
+  return toLog(updated);
 }
 
 export async function deleteLog(id: string): Promise<void> {

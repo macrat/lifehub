@@ -51,6 +51,9 @@ export function withCareLogRules<
 export const careLogSchema = withCareLogRules(careLogFieldsSchema);
 export type CareLogInput = z.infer<typeof careLogSchema>;
 
+/** 検証済みの値（MCP が組み立てた入力や、今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
+export const careLogRulesSchema = withCareLogRules(z.custom<CareLogInput>());
+
 /** API（POST /api/lemon/logs）が受け取る追加の入力（`clientIdShape`） */
 export const createCareLogRequestSchema = careLogSchema.safeExtend(clientIdShape);
 

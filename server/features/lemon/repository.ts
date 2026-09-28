@@ -101,7 +101,7 @@ export async function insert(row: {
   return log;
 }
 
-async function findById(id: string): Promise<LemonCareLogRow | undefined> {
+export async function findById(id: string): Promise<LemonCareLogRow | undefined> {
   const rows = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, id)).limit(1);
   return rows[0];
 }

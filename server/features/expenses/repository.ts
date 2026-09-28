@@ -94,7 +94,7 @@ export async function insert(
   return expense;
 }
 
-async function findById(id: string): Promise<ExpenseRow | undefined> {
+export async function findById(id: string): Promise<ExpenseRow | undefined> {
   const rows = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
   return rows[0];
 }

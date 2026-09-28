@@ -148,4 +148,4 @@ type CalendarItem =
 
 ## MCP ツール
 
-`events_list`（[mcp.md](mcp.md)）。
+無し。予定・タスクは `read_timeline` がカレンダーと同じ規則で日に置いて返す（[mcp.md](mcp.md)）。
