@@ -7,7 +7,7 @@ import {
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
 import type { ItemFormValues } from '../events/form-values.ts';
-import { type EventDraft, itemDraft, taskFrame } from './draft.ts';
+import { type DraftRange, itemDraft, taskFrame } from './draft.ts';
 
 /**
  * グリッドでつまんで動かしたタスクの値。落とした所をそのまま開始にし、期限は元の開始〜期限の長さを保ってずらす
@@ -19,7 +19,7 @@ import { type EventDraft, itemDraft, taskFrame } from './draft.ts';
  * 時刻を持つタスクは元の時刻（開始、無ければ期限）のままその日へ移す。日時の無いタスクは日だけのタスクにする。
  * 繰り返しや通知などの残りの項目はそのまま持ち越す（参加者はタスクのまま。選び直した参加者は呼び出し側が重ねる）。
  */
-export function taskDraftValues(task: CalendarTaskItem, range: EventDraft): ItemFormValues {
+export function taskDraftValues(task: CalendarTaskItem, range: DraftRange): ItemFormValues {
   const start = dropStart(task, range);
   // 開始が無ければ、動かす前の枠の開始から数える（落とした所までずらした分だけ期限もずらす）
   const from = task.startsAt ?? dropStart(task, itemDraft(task) ?? range).startsAt;
@@ -34,7 +34,7 @@ export function taskDraftValues(task: CalendarTaskItem, range: EventDraft): Item
 /** 落とした所 → 開始（と終日か）。枠が決める日時の置き方は `taskDraftValues` のとおり */
 function dropStart(
   task: CalendarTaskItem,
-  range: EventDraft,
+  range: DraftRange,
 ): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
@@ -55,7 +55,7 @@ function dropStart(
 export function taskDraftFromInput(
   task: CalendarTaskItem,
   input: { allDay: boolean; startsAt: string | null; endsAt: string | null },
-): { range: EventDraft; item: CalendarTaskItem } | null {
+): { range: DraftRange; item: CalendarTaskItem } | null {
   const { allDay, startsAt } = input;
   if (startsAt === null) return null;
   return {

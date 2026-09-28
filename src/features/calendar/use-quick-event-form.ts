@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useItemForm } from '../events/use-item-form.ts';
-import { type EventDraft, withAllDay } from './draft.ts';
+import { type DraftRange, withAllDay } from './draft.ts';
 import { draftFromInstants, draftText, draftValues } from './event-draft.ts';
 import { expandValues, type Quick } from './quick-form.ts';
 import type { QuickProps } from './use-event-composer.ts';
@@ -29,10 +29,10 @@ export function useQuickEventForm({ draft, onSubmit, onChangeDraft, onClose }: O
   });
 
   /** 日時を直した枠を下書きへ戻す。直している予定は変わらない */
-  const changeRange = (next: EventDraft) => onChangeDraft({ range: next, item });
+  const changeRange = (next: DraftRange) => onChangeDraft({ range: next, item });
 
   /** 入力欄の日時 → 下書き。枠に出せない範囲（日をまたぐ時間指定など）なら null */
-  const draftFromForm = (): EventDraft | null => {
+  const draftFromForm = (): DraftRange | null => {
     if (!formRef.current) return null;
     const { allDay, startsAt, endsAt } = form.inputFromForm(new FormData(formRef.current));
     return startsAt && endsAt ? draftFromInstants(allDay, startsAt, endsAt) : null;

@@ -4,7 +4,7 @@ import type { DateString } from '../../../shared/types.ts';
 import { defaultParticipants, type ItemFormValues } from '../events/form-values.ts';
 import { type CreateEventBody, useCreateEvent, useUpdateEvent } from '../events/queries.ts';
 import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
-import { allDayDraft, type Draft, type EventDraft, sameOccurrence } from './draft.ts';
+import { allDayDraft, type Draft, type DraftRange, sameOccurrence } from './draft.ts';
 
 /**
  * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態。
@@ -74,7 +74,7 @@ type ComposerAction =
    */
   | { type: 'grab'; draft: Draft; done: boolean; participantIds: string[] }
   /** 追加ボタンからの予定の入力。その日の終日の下書きを置き、入力を全項目の段で開く */
-  | { type: 'start'; range: EventDraft; participantIds: string[] }
+  | { type: 'start'; range: DraftRange; participantIds: string[] }
   /**
    * クイック入力で直した日時・終日の切り替えを下書き（枠と直している物）へ戻す。
    * 予定は枠だけが変わり、タスクは日時を枠から導くので入力した日時を持たせたタスクも変わる（`taskDraftFromInput`）

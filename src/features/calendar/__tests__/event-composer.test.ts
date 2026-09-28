@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { defaultTaskValues } from '../../events/form-values.ts';
-import type { Draft, EventDraft } from '../draft.ts';
+import type { Draft, DraftRange } from '../draft.ts';
 import { composerReducer } from '../use-event-composer.ts';
 import { task } from './draft-fixtures.ts';
 
@@ -10,8 +10,8 @@ type State = Parameters<typeof composerReducer>[0];
 
 const DAY = '2031-06-05' as DateString;
 const ME = ['me'];
-const range: EventDraft = { allDay: false, date: DAY, startMin: 9 * 60, endMin: 10 * 60 };
-const moved: EventDraft = { ...range, startMin: 11 * 60, endMin: 12 * 60 };
+const range: DraftRange = { allDay: false, date: DAY, startMin: 9 * 60, endMin: 10 * 60 };
+const moved: DraftRange = { ...range, startMin: 11 * 60, endMin: 12 * 60 };
 
 /** 保存済みの予定（2 人の予定） */
 const event: CalendarItem = {

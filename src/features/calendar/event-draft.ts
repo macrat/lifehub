@@ -6,7 +6,7 @@ import {
   eventValuesForRange,
   type ItemFormValues,
 } from '../events/form-values.ts';
-import type { EventDraft } from './draft.ts';
+import type { DraftRange } from './draft.ts';
 
 /**
  * 予定の下書き ↔ フォームの値（クイック入力の見出し・既定値、入力で直した日時の映し戻し）。
@@ -14,7 +14,7 @@ import type { EventDraft } from './draft.ts';
  */
 
 /** 下書きの期間の表示（クイック入力の見出し） */
-export function draftText(draft: EventDraft): string {
+export function draftText(draft: DraftRange): string {
   if (draft.allDay) {
     const days =
       draft.from === draft.to
@@ -31,7 +31,7 @@ export function draftText(draft: EventDraft): string {
  * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない）。
  */
 export function draftValues(
-  draft: EventDraft,
+  draft: DraftRange,
   participantIds: string[],
   item: CalendarItem | null = null,
 ): ItemFormValues {
@@ -57,7 +57,7 @@ export function draftFromInstants(
   allDay: boolean,
   startsAt: string,
   endsAt: string,
-): EventDraft | null {
+): DraftRange | null {
   const from = toDateString(new Date(startsAt));
   if (allDay) {
     // 終日の入力の終わりは「含む終了日」

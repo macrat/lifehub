@@ -84,8 +84,14 @@ export function timelineSlot(item: CalendarItem): { startMin: number; endMin: nu
   if (item.kind === 'event') return timedSlot(item);
   const time = taskTimeOnPlacementDate(item);
   if (!time?.at) return null;
-  const startMin = minutesOfDay(time.at);
-  // 日の終わりを越えて描かない（つまんだときの枠 `taskFrame` と同じ）
+  return taskBlock(minutesOfDay(time.at));
+}
+
+/**
+ * 時間軸に置くタスクのブロック。タスクは長さを持たないので、時刻から最小の長さで描き、日の終わりを越えない。
+ * 置いたタスクのブロック（`timelineSlot`）と、つまんだとき・入力で直したときの枠（`draft.ts` の `taskFrame`）が同じ形になる。
+ */
+export function taskBlock(startMin: number): { startMin: number; endMin: number } {
   return { startMin, endMin: Math.min(startMin + MIN_BLOCK_MINUTES, DAY_MINUTES) };
 }
 

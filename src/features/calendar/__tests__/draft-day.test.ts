@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { dayDraft, dayGrab, dayVibration } from '../day-draft.ts';
-import { type Draft, draftColumns, type EventDraft } from '../draft.ts';
+import { type Draft, type DraftRange, draftColumns } from '../draft.ts';
 import {
   allDay,
   at,
@@ -34,7 +34,7 @@ describe('dayDraft', () => {
 describe('dayGrab', () => {
   const draft = allDay('2031-06-05', '2031-06-07');
   /** 日の並びに出ている枠（追加の下書き） */
-  const shown = (range: EventDraft): Draft => ({ range, item: null });
+  const shown = (range: DraftRange): Draft => ({ range, item: null });
 
   it('最初の日の左半分は開始、最後の日の右半分は終了', () => {
     expect(dayGrab(shown(draft), day('2031-06-05'), 'left')).toEqual({
