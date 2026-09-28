@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import { type EventMaster, toInputIsoInstants } from '../../../shared/calendar.ts';
+import { defaultEventEnd, type EventMaster, toInputIsoInstants } from '../../../shared/calendar.ts';
 import {
   addDays,
   diffDays,
@@ -90,9 +90,6 @@ export function defaultTaskValues(participantIds: string[]): ItemFormValues {
   return { ...EMPTY, participantIds, allDay: true };
 }
 
-/** 予定に切り替えたとき、時刻のある開始から数える長さ（ms）。グリッドをタップして作る予定と同じ 1 時間 */
-const SWITCHED_EVENT_MS = 60 * 60 * 1000;
-
 /**
  * 予定・タスクの種類を切り替えた入力の既定値。引き継ぐ日時は開始（と終日か）だけで、終了・期限は引き継がない。
  * WHY: 予定の終了は時間の枠の終わり、タスクの期限はやり終える締め切りで、同じ時刻でも意味が違う。
@@ -121,7 +118,7 @@ export function switchKindValues(
     ...carried,
     allDay: false,
     startsAt: start.startsAt,
-    endsAt: new Date(Date.parse(start.startsAt) + SWITCHED_EVENT_MS).toISOString(),
+    endsAt: defaultEventEnd(false, new Date(start.startsAt)).toISOString(),
   };
 }
 

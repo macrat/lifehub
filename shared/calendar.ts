@@ -105,6 +105,18 @@ export function normalizeInstants(
   };
 }
 
+/** 開始だけが決まっている予定の長さ（分）。グリッドをタップして作る予定と同じ 1 時間 */
+const DEFAULT_EVENT_MINUTES = 60;
+
+/**
+ * 開始だけが決まっている予定の終了（入力の形。終日なら含む最終日）。終日はその日 1 日、時刻ありは 1 時間。
+ * タスクから予定へ切り替えたとき（画面の入力と MCP の更新）と、MCP で終了を省いて予定を入れたときに使う。
+ * 画面と MCP が同じ規則で切り替わるよう、ここ 1 か所で決める。
+ */
+export function defaultEventEnd(allDay: boolean, startsAt: Date): Date {
+  return allDay ? startsAt : new Date(startsAt.getTime() + DEFAULT_EVENT_MINUTES * 60_000);
+}
+
 /**
  * 保存した日時を入力の形に戻す（`normalizeInstants` の逆）。終日の終了は排他的な終端（翌日 0:00）から
  * 含む最終日の中へ戻す。保存形式のまま入力に渡すと、`normalizeInstants` でもう 1 日延びる。

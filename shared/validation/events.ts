@@ -121,10 +121,10 @@ export const createEventSchema = withEventRules(z.object(eventFields));
 
 /**
  * 部分更新（MCP の予定の更新）。省いた項目は今の値のまま、null は消す。
- * 種別は含めない（種別を変えるのは画面の全項目の更新だけ。`updateEventSchema`）。
+ * 種別を変えるときは、画面と同じく開始だけを引き継ぐ（`patchEvent`）。
  * 組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
-export type EventPatch = Partial<Omit<CreateEventInput, 'kind'>>;
+export type EventPatch = Partial<CreateEventInput>;
 
 /** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());

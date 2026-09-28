@@ -1,4 +1,4 @@
-import { normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
+import { defaultEventEnd, normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import {
   type CompleteEventInput,
@@ -26,6 +26,7 @@ export async function getEvent(id: string): Promise<EventMaster> {
 
 /**
  * 一部の項目だけを変える更新（MCP。`applyPatch`）。patch で undefined の項目は今の値のまま。
+ * 種別を変えるときは、今の値を切り替えた種別の値に直してから重ねる（`switchedKind`）。
  * 予定の開始だけが指定されたら、終了も同じだけずらす（`keepDuration`）。
  * 終日と時刻ありを切り替えるときは、日時を持つ端をすべて指定させる（`requireBothEnds`）。
  * 繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
@@ -37,12 +38,35 @@ export async function patchEvent(
   userId: string,
 ): Promise<WrittenEvent> {
   const master = await findMaster(id);
-  const current = await currentInput(master, target);
+  const current = switchedKind(await currentInput(master, target), patch);
   requireBothEnds(current, patch);
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
   const result = await applyUpdate(master, { ...merged, ...target }, userId);
   scheduleUpcoming();
   return result;
+}
+
+/**
+ * 種別を変える部分更新の、切り替えた後の今の値。画面の切り替え（`switchKindValues`）と同じく、引き継ぐ日時は開始だけ:
+ * - タスクへ: 期限は無し（patch に due があればそれ）
+ * - 予定へ: 終了は開始から 1 時間、終日ならその日 1 日（`defaultEventEnd`。patch に end があればそれ）
+ * 終了（期限）前の通知も終わりを引き継がないので消す。開始は patch に渡されていればそれを引き継ぐ
+ * （「このタスクを明日 10 時の予定にして」で、終了が 10 時の 1 時間後になるように）。
+ * WHY 終了・期限を引き継がない: 予定の終了は時間の枠の終わり、タスクの期限はやり終える締め切りで意味が違う。
+ * 開始の無いタスクを予定にするときは、いつの予定かを決めさせる（画面は今日の終日を置くが、LLM には
+ * 黙って決めた日より、訊き直してもらうほうが確か）。
+ */
+function switchedKind(current: CreateEventInput, patch: EventPatch): CreateEventInput {
+  const { kind } = patch;
+  if (kind === undefined || kind === current.kind) return current;
+  const allDay = patch.allDay ?? current.allDay;
+  const startsAt = patch.startsAt === undefined ? current.startsAt : patch.startsAt;
+  const carried = { ...current, kind, allDay, startsAt, remindEndMinutes: null };
+  if (kind === 'task') return { ...carried, endsAt: null };
+  if (!startsAt) {
+    throw new ValidationError('開始の無いタスクを予定にするときは、start で開始を指定してください');
+  }
+  return { ...carried, endsAt: defaultEventEnd(allDay, startsAt) };
 }
 
 /**
