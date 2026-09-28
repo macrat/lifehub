@@ -14,7 +14,7 @@ constexpr uint32_t WIFI_TIMEOUT_MS = 10000;
 // 前回の AP へ直接つなぐときの待ち時間。普段は数百 ms で繋がるので、AP が変わったときに
 // 無線を長く動かしたまま待たず、早めに走査からやり直す
 constexpr uint32_t CACHED_WIFI_TIMEOUT_MS = 3000;
-constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
+constexpr uint32_t HTTP_TIMEOUT_MS = 30000;
 constexpr uint32_t TLS_HANDSHAKE_TIMEOUT_S = 30;
 constexpr int SEND_ATTEMPTS = 3;
 
