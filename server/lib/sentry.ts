@@ -32,7 +32,13 @@ export function initSentry(): void {
     integrations: [
       Sentry.captureConsoleIntegration({ levels: ['error'] }),
       Sentry.consoleLoggingIntegration(),
+      // Vercel の実行環境が関数の生存確認に送る要求（`/_vercel/ping`）は、関数が起きている間 1 分に 20 回ほど届く。
+      // スパンにすると月に 100 万近くになり、アプリの要求より桁違いに多く無料枠を食うので計らない
+      Sentry.httpIntegration({ ignoreIncomingRequests: (path) => path.startsWith('/_vercel/') }),
     ],
+    // Node の警告（`(node:4) ExperimentalWarning: ...`）は Vercel の実行環境が起動のたびに console.error へ出す。
+    // 不具合ではないのに、エラーとして送ると起動のたびに 1 件ずつ日ごとの上限を減らすので送らない
+    ignoreErrors: [/^\(node:\d+\) \w*Warning: /],
   });
   /**
    * Vercel Function は応答を返すと止まりうるので、送信が終わるまで `waitUntil` で生かしておく。
