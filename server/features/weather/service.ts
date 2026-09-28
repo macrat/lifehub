@@ -109,6 +109,11 @@ function toSlot({ startsAt, weather, temp }: repository.HourlyWeatherRow) {
   };
 }
 
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順。表に無い天気の日は除く。`listWeather`） */
+export async function listDailyWeather(range: DateRange): Promise<DailyWeather[]> {
+  return toDaily(await repository.findDaily(range));
+}
+
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
  * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、
@@ -144,42 +149,49 @@ const RECENT_DAYS = 7;
 const PAGE_DAYS = 14;
 
 /**
- * 週間天気の 1 ページ（`HistoryPage`。日付順）。日ごとの天気に、祝日か（日付の色。カレンダーと同じ色分け）と、
- * その日の 3 時間ごとの天気と気温
- * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
- * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
+ * 週間天気の 1 ページ（`HistoryPage`。日付順。1 日の形は `listWeatherDays`）。
  * before を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。
  * ページは日で区切るので、日の途中では切れない。nextCursor は、それより前に取っておいた日があるときの次の before
- * （取り始めた日より前は無い）。手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
- * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
+ * （取り始めた日より前は無い）。
  * WHY NOT 件数で区切る（立替・レモンの履歴のように）: 天気は 1 日 1 行で、日数で区切れば件数も決まる。
  */
-export async function listWeatherDays(
+export async function listWeatherPage(
   before: DateString | undefined,
   now: Date = new Date(),
 ): Promise<HistoryPage<WeatherDay>> {
   const from = before ? addDays(before, -PAGE_DAYS) : addDays(today(now), -RECENT_DAYS);
   const to = before ? addDays(before, -1) : addDays(today(now), FORECAST_DAYS - 1);
-  const [rows, holidays] = await Promise.all([
-    repository.findDays({ from, to }),
-    listHolidays({ from, to }),
+  // 前の日があるかはページの中身と関わらないので、並べて読む
+  const [items, hasEarlier] = await Promise.all([
+    listWeatherDays({ from, to }),
+    repository.hasDaysBefore(from),
   ]);
+  return { items, nextCursor: hasEarlier ? from : null };
+}
+
+/**
+ * [from, to]（両端を含む JST 暦日）の天気を日ごとに（日付順）。日ごとの天気に、祝日か（日付の色。カレンダーと同じ色分け）と、
+ * その日の 3 時間ごとの天気と気温
+ * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
+ * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
+ * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
+ * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
+ */
+export async function listWeatherDays(range: DateRange): Promise<WeatherDay[]> {
+  const [rows, holidays] = await Promise.all([repository.findDays(range), listHolidays(range)]);
   const holidaySet = new Set(holidays);
   const slots = Map.groupBy(
     rows.hourly.flatMap((row) => toSlot(row) ?? []),
     (slot) => slot.date,
   );
   const pops = Map.groupBy(rows.pops, ({ startsAt }) => toDateString(startsAt));
-  return {
-    items: toDaily(rows.daily).map((day) => ({
-      ...day,
-      holiday: holidaySet.has(day.date),
-      slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),
-      pops: (pops.get(day.date) ?? []).map(({ startsAt, pop }) => ({
-        startMin: minutesOfDay(startsAt),
-        pop,
-      })),
+  return toDaily(rows.daily).map((day) => ({
+    ...day,
+    holiday: holidaySet.has(day.date),
+    slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),
+    pops: (pops.get(day.date) ?? []).map(({ startsAt, pop }) => ({
+      startMin: minutesOfDay(startsAt),
+      pop,
     })),
-    nextCursor: rows.hasEarlier ? from : null,
-  };
+  }));
 }

@@ -70,7 +70,7 @@
 
 ## MCP ツール
 
-`events_list`, `events_create`, `events_update`, `events_delete`, `events_complete`, `events_uncomplete`（[mcp.md](mcp.md)）。
+`add_event`, `add_task`, `update_event`, `set_task_done`。読むのは `read_timeline`、消すのは `delete_entry`（[mcp.md](mcp.md)）。
 
 ## 通知
 

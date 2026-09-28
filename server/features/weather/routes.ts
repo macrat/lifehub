@@ -9,5 +9,5 @@ import * as service from './service.ts';
 export const weatherRoutes = new Hono<AppEnv>().get(
   '/',
   validate('query', z.object(cursorShape)),
-  async (c) => c.json(await service.listWeatherDays(c.req.valid('query').before)),
+  async (c) => c.json(await service.listWeatherPage(c.req.valid('query').before)),
 );

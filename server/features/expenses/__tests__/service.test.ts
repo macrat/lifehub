@@ -8,6 +8,7 @@ import {
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { listUsers } from '../../users/service.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
 let a: string;
@@ -22,8 +23,17 @@ describe('expenses service', () => {
     b = await createTestUser('B');
   });
 
+  it('利用者がちょうど 2 人でなければ、残高を計算せずに null を返す', async () => {
+    const [first] = await listUsers();
+    expect(await getBalance(first ? [first] : [])).toBeNull();
+  });
+
   it('立替が無ければ精算済み', async () => {
-    expect(await getBalance()).toEqual({ amount: 0, fromUserId: null, toUserId: null });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 0,
+      fromUserId: null,
+      toUserId: null,
+    });
   });
 
   it('共有（To なし）は折半で残高を計算し、端数は切り捨てる', async () => {
@@ -36,7 +46,11 @@ describe('expenses service', () => {
       b,
     );
     // (3001 - 1000) / 2 = 1000.5 → 1000。B が A に払う
-    expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 1000,
+      fromUserId: b,
+      toUserId: a,
+    });
   });
 
   it('To にユーザーを指定すると全額がそのユーザーの負担になる', async () => {
@@ -44,7 +58,11 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: b, amount: 2000, description: 'B の分', spentOn: on },
       a,
     );
-    expect(await getBalance()).toEqual({ amount: 2000, fromUserId: b, toUserId: a });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 2000,
+      fromUserId: b,
+      toUserId: a,
+    });
   });
 
   it('精算は「払った人 → 受け取った人」の行として記録し、残高がゼロに戻る', async () => {
@@ -52,18 +70,30 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 1000,
+      fromUserId: b,
+      toUserId: a,
+    });
     await addExpense(
       { fromUserId: b, toUserId: a, amount: 1000, description: '精算', spentOn: on },
       b,
     );
-    expect(await getBalance()).toEqual({ amount: 0, fromUserId: null, toUserId: null });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 0,
+      fromUserId: null,
+      toUserId: null,
+    });
 
     await addExpense(
       { fromUserId: b, toUserId: null, amount: 500, description: 'コーヒー', spentOn: on },
       b,
     );
-    expect(await getBalance()).toEqual({ amount: 250, fromUserId: a, toUserId: b });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 250,
+      fromUserId: a,
+      toUserId: b,
+    });
   });
 
   it('立替を編集すると全項目が置き換わり、残高に反映される', async () => {
@@ -88,7 +118,11 @@ describe('expenses service', () => {
         spentOn: '2026-09-02',
       },
     ]);
-    expect(await getBalance()).toEqual({ amount: 500, fromUserId: a, toUserId: b });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 500,
+      fromUserId: a,
+      toUserId: b,
+    });
   });
 
   it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
@@ -98,7 +132,11 @@ describe('expenses service', () => {
     await addExpense(input, a, id);
 
     expect((await listExpenses({})).items).toHaveLength(1);
-    expect(await getBalance()).toEqual({ amount: 1000, fromUserId: b, toUserId: a });
+    expect(await getBalance(await listUsers())).toEqual({
+      amount: 1000,
+      fromUserId: b,
+      toUserId: a,
+    });
   });
 
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {

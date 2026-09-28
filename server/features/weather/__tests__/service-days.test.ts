@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateString } from '../../../../shared/types.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
 import { refreshHolidays } from '../../holidays/service.ts';
-import { listWeatherDays, refreshWeather } from '../service.ts';
+import { listWeatherPage, refreshWeather } from '../service.ts';
 import { forecast, hourly, serve } from './service-fixtures.ts';
 
-/** 天気の画面のページ（`listWeatherDays`）。日ごとの天気に祝日の印、3 時間ごとの天気、6 時間ごとの降水確率を添える */
+/** 天気の画面のページ（`listWeatherPage`）。日ごとの天気に祝日の印、3 時間ごとの天気、6 時間ごとの降水確率を添える */
 describe('weather service: 天気の画面のページ', () => {
   beforeEach(async () => {
     await clearTables();
@@ -21,7 +21,7 @@ describe('weather service: 天気の画面のページ', () => {
 
   it('最新のページは今日の 1 週間前から週間予報の終わりまでで、日ごとに 3 時間ごとの天気と降水確率を添える', async () => {
     // 2026-09-24 12:00 JST。9/17〜10/1 のうち、取ってある 23〜26 日
-    const page = await listWeatherDays(undefined, new Date('2026-09-24T03:00:00Z'));
+    const page = await listWeatherPage(undefined, new Date('2026-09-24T03:00:00Z'));
     expect(page.items.map((d) => d.date)).toEqual([
       '2026-09-23',
       '2026-09-24',
@@ -47,9 +47,9 @@ describe('weather service: 天気の画面のページ', () => {
 
   it('前に取っておいた日があれば、続きのページで 2 週間ずつ遡る', async () => {
     // 2026-10-05 12:00 JST。最新のページ（9/28〜）には取ってある日が無く、それより前にある
-    const latest = await listWeatherDays(undefined, new Date('2026-10-05T03:00:00Z'));
+    const latest = await listWeatherPage(undefined, new Date('2026-10-05T03:00:00Z'));
     expect(latest).toEqual({ items: [], nextCursor: '2026-09-28' });
-    const earlier = await listWeatherDays('2026-09-28' as DateString);
+    const earlier = await listWeatherPage('2026-09-28' as DateString);
     expect(earlier.items.map((d) => d.date)).toEqual([
       '2026-09-23',
       '2026-09-24',
@@ -66,7 +66,7 @@ describe('weather service: 天気の画面のページ', () => {
       hourly: { areaTimeSeries: hourly('2026-09-24T18:00:00+09:00', ['雨']).areaTimeSeries },
     });
     await refreshWeather();
-    const { items } = await listWeatherDays('2026-09-25' as DateString);
+    const { items } = await listWeatherPage('2026-09-25' as DateString);
     expect(items.find((d) => d.date === '2026-09-24')?.slots).toEqual([
       { startMin: 1080, symbol: 'rain', label: '雨', temp: 20 },
       { startMin: 1260, symbol: 'rain', label: '雨', temp: 21 },
@@ -91,7 +91,7 @@ describe('weather service: 天気の画面のページ', () => {
         ),
     );
     await refreshHolidays();
-    const page = await listWeatherDays(undefined, new Date('2026-09-24T03:00:00Z'));
+    const page = await listWeatherPage(undefined, new Date('2026-09-24T03:00:00Z'));
     expect(page.items.map((d) => [d.date, d.holiday])).toEqual([
       ['2026-09-23', true],
       ['2026-09-24', false],

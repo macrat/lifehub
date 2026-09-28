@@ -15,9 +15,9 @@ export const expenseFieldsSchema = z.object({
 });
 
 /** 立替の組み合わせの規則。追加・編集と MCP の入力が同じ規則を通るよう、スキーマの形とは切り離す */
-export function withExpenseRules<
-  T extends z.ZodType<{ fromUserId: string; toUserId: string | null }>,
->(schema: T): T {
+function withExpenseRules<T extends z.ZodType<{ fromUserId: string; toUserId: string | null }>>(
+  schema: T,
+): T {
   return schema.refine((v) => v.fromUserId !== v.toUserId, {
     message: 'From と To に同じ人は選べません',
     path: ['toUserId'],
@@ -27,6 +27,9 @@ export function withExpenseRules<
 /** 立替の入力。追加と編集で同じ（編集は全項目を置き換える） */
 export const expenseSchema = withExpenseRules(expenseFieldsSchema);
 export type ExpenseInput = z.infer<typeof expenseSchema>;
+
+/** 検証済みの値（MCP が組み立てた入力や、今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
+export const expenseRulesSchema = withExpenseRules(z.custom<ExpenseInput>());
 
 /** API（POST /api/expenses）が受け取る追加の入力（`clientIdShape`） */
 export const createExpenseRequestSchema = expenseSchema.safeExtend(clientIdShape);

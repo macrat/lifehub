@@ -1,53 +1,111 @@
+import { z } from 'zod';
 import { today } from '../../../shared/date.ts';
+import type { Expense } from '../../../shared/expenses.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
+import { expenseFieldsSchema } from '../../../shared/validation/expenses.ts';
+import { formatBalance, formatExpense } from '../../lib/mcp/entries.ts';
+import { personInputSchema, resolvePerson } from '../../lib/mcp/people.ts';
+import { expectType, refSchema } from '../../lib/mcp/refs.ts';
 import {
-  expenseFieldsSchema,
-  expenseListQuerySchema,
-  withExpenseRules,
-} from '../../../shared/validation/expenses.ts';
-import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
+  ADDITIVE,
+  EDITING,
+  jsonResult,
+  type McpContext,
+  type Person,
+  type ToolRegistrar,
+} from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
 /**
- * 立替の追加の入力。spentOn は省略でき、省くと今日（JST）になる。
- * WHY: LLM は今日の日付を正確には知らないので、必須にすると推し量った日付が記録される。
+ * 立替を書く MCP ツール。読むのはタイムライン（`read_timeline` の types=["expense"]）、残高は `get_overview`、
+ * 消すのは `delete_entry`。人は名前で指し、To の共有は "shared" と書かせる（API は null）。
+ * 書いた後の残高も返す（「いくら払えば精算か」を続けて訊かれることが多く、読み直させない）。
  */
-const addExpenseInputSchema = withExpenseRules(
-  expenseFieldsSchema.extend({ spentOn: dateStringSchema.optional() }),
-);
+
+const PAID_FOR =
+  '誰のための支払いか: "shared"（2 人の共有 = 折半）か、その人だけの負担ならその人の名前';
+
+const fields = {
+  amount: expenseFieldsSchema.shape.amount.describe('金額（円、正の整数）'),
+  description: expenseFieldsSchema.shape.description.describe('内容（「スーパー」「電気代」など）'),
+  paidBy: personInputSchema.describe('払った人の名前。自分なら "me"'),
+  paidFor: z.union([z.literal('shared'), personInputSchema]).describe(PAID_FOR),
+  date: dateStringSchema.describe('使った日（JST の YYYY-MM-DD）'),
+};
+
+/** paidFor → 立替の To（null は共有） */
+function toUserIdOf(ctx: McpContext, people: Person[], paidFor: string): string | null {
+  return paidFor === 'shared' ? null : resolvePerson(people, paidFor, ctx.userId);
+}
+
+async function withBalance(people: Person[], expense: Expense) {
+  const balance = await service.getBalance(people);
+  return jsonResult({
+    entry: formatExpense(expense, people),
+    balance: balance && formatBalance(balance, people),
+  });
+}
 
 export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
-    'expenses_get_balance',
+    'add_expense',
     {
-      title: '立替残高',
+      title: '立替を記録する',
       description:
-        '立替の残高を返す。fromUserId のユーザーが toUserId のユーザーに amount 円を支払うと精算される。amount が 0 なら精算済み。',
-      inputSchema: {},
+        '2 人の間の立替（どちらかが払ったお金）を記録する。精算（残高の支払い）も同じく記録し、払った人を paidBy、受け取った人を paidFor、内容を「精算」にする。記録した立替と、記録した後の残高（payer が payee に amount 円払えば精算）を返す。',
+      inputSchema: {
+        amount: fields.amount,
+        description: fields.description,
+        paidFor: fields.paidFor,
+        paidBy: fields.paidBy.optional().describe('払った人の名前。省くと自分'),
+        date: fields.date.optional().describe('使った日（JST の YYYY-MM-DD）。今日なら省く'),
+      },
+      annotations: ADDITIVE,
     },
-    async () => jsonResult(await service.getBalance()),
+    async ({ amount, description, paidFor, paidBy, date }) => {
+      const people = await ctx.people();
+      const expense = await service.addExpense(
+        {
+          amount,
+          description,
+          fromUserId: paidBy ? resolvePerson(people, paidBy, ctx.userId) : ctx.userId,
+          toUserId: toUserIdOf(ctx, people, paidFor),
+          // 今日の日付は LLM が推し量らずに済むよう、サーバーの今日で埋める
+          spentOn: date ?? today(),
+        },
+        ctx.userId,
+      );
+      return withBalance(people, expense);
+    },
   );
 
   server.registerTool(
-    'expenses_list',
+    'update_expense',
     {
-      title: '立替の履歴',
+      title: '立替を直す',
       description:
-        '立替の履歴を新しいほうから 1 ページ分、古い順（items）で返す。nextCursor が null でなければ、それを before に渡すとさらに前のページを返す。fromUserId が払った人、toUserId が誰のために払ったか（null は共有 = 折半）。精算（誰かが誰かに払った額）も同じ形で含まれる。q（内容のキーワード）、min / max（金額）、since / until（使った日、YYYY-MM-DD）、to（"shared" かユーザー ID）、from（ユーザー ID）で絞り込める。',
-      inputSchema: expenseListQuerySchema,
+        '立替を ref で直す。変える項目だけを渡し、省いた項目は今のまま。直した立替と、直した後の残高を返す。',
+      inputSchema: {
+        ref: refSchema.describe('立替の ref'),
+        amount: fields.amount.optional(),
+        description: fields.description.optional(),
+        paidFor: fields.paidFor.optional(),
+        paidBy: fields.paidBy.optional(),
+        date: fields.date.optional(),
+      },
+      annotations: EDITING,
     },
-    async (input) => jsonResult(await service.listExpenses(input)),
-  );
-
-  server.registerTool(
-    'expenses_add',
-    {
-      title: '立替の追加',
-      description:
-        '立替を記録する。fromUserId は払ったユーザーの ID、toUserId は誰のために払ったか（null なら共有 = 折半、ユーザー ID なら全額そのユーザーの負担）、amount は円（正の整数）、spentOn は JST の日付（YYYY-MM-DD）で、今日のことなら省略する（省略すると今日）。精算は「払った人を fromUserId、受け取った人を toUserId」にして記録する。',
-      inputSchema: addExpenseInputSchema,
+    async ({ ref, amount, description, paidFor, paidBy, date }) => {
+      const { id } = expectType(ref, ['expense']);
+      const people = await ctx.people();
+      const expense = await service.patchExpense(id, {
+        amount,
+        description,
+        fromUserId: paidBy && resolvePerson(people, paidBy, ctx.userId),
+        toUserId: paidFor === undefined ? undefined : toUserIdOf(ctx, people, paidFor),
+        spentOn: date,
+      });
+      return withBalance(people, expense);
     },
-    async ({ spentOn, ...input }) =>
-      jsonResult(await service.addExpense({ ...input, spentOn: spentOn ?? today() }, ctx.userId)),
   );
 };

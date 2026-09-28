@@ -7,18 +7,19 @@ import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
-/** id はクライアントが決めて送ってくる（`createMemoRequestSchema`） */
+/** id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function addMemo(
   input: MemoInput,
   userId: string,
   id: string = newId(),
-): Promise<void> {
-  await repository.insert({ ...input, id, createdBy: userId });
+): Promise<Memo> {
+  return toMemo(await repository.insert({ ...input, id, createdBy: userId }));
 }
 
 /** 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない） */
-export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<void> {
-  if (!(await repository.update(id, actorId, input.body))) await rejectWrite(id);
+export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<Memo> {
+  const updated = await repository.update(id, actorId, input.body);
+  return updated ? toMemo(updated) : rejectWrite(id);
 }
 
 export async function deleteMemo(id: string, actorId: string): Promise<void> {

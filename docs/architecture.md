@@ -110,7 +110,8 @@ server/                       # サーバー（Hono）
         history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
-    mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
+    mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
+        people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
@@ -269,7 +270,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 **PR クローズ／マージ（`preview-cleanup.yml`）**: Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブランチ数上限（10）を超えないよう必ず行う。Preview を作っていない PR（`preview` ラベル無し、初回 apply 前）には消すものが無いので、Neon にブランチがあるかどうかを確かめてから削除し、無ければ何もしない。ラベルの有無では判断しない（デプロイ後にラベルを外した PR のブランチが残ってしまうため）。
 
-**毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。private リポジトリの Artifact はリポジトリを読める人しか取り出せないので暗号化はしない。戻し方は [README](../README.md#バックアップ)。
+**毎日 JST 4:00（`backup.yml`）**: `terraform output` の `DATABASE_URL` に対して `pnpm db:dump`（`pg_dump`）と `pnpm calendar:export`（全員の全予定の ics）を実行し、`.github/backup-key.asc` の公開鍵で GnuPG により暗号化して、Artifact `backup-<JST の日付>` に 30 日保持で置く。ランナーの Postgres クライアントは本番（Neon）より古いので、PGDG から同じメジャーバージョンを入れて使う。public リポジトリの Artifact は誰でも取り出せるので暗号化する。公開鍵暗号にするのは、ランナーに復号できる秘密を置かずに済むため（共通鍵だと GitHub Secrets の鍵が漏れればすべてのバックアップが読める）。戻し方は [README](../README.md#バックアップ)。
 
 **main へのプッシュ（`deploy.yml`）**: `terraform apply -auto-approve` → `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）→ `pnpm data:refresh`（祝日と天気を表に入れる。[features/calendar.md](features/calendar.md#祝日)。失敗してもデプロイは続ける）→ `vercel pull --environment=production` → `vercel build --prod` → ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）→ ソースマップを消す → `vercel deploy --prebuilt --prod`。
 

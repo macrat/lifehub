@@ -88,6 +88,11 @@ export async function insert(
   return insertOnce(expenses, row);
 }
 
+export async function findById(id: string): Promise<ExpenseRow | undefined> {
+  const rows = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
+  return rows[0];
+}
+
 export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow | undefined> {
   const updated = await db.update(expenses).set(row).where(eq(expenses.id, id)).returning();
   return updated[0];

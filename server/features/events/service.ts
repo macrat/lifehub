@@ -9,6 +9,7 @@ import {
   type UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
@@ -24,7 +25,9 @@ export async function getEvent(id: string): Promise<EventMaster> {
 }
 
 /**
- * 一部の項目だけを変える更新（MCP）。patch で undefined の項目は今の値のまま（`mergePatch`）。
+ * 一部の項目だけを変える更新（MCP。`applyPatch`）。patch で undefined の項目は今の値のまま。
+ * 予定の開始だけが指定されたら、終了も同じだけずらす（`keepDuration`）。
+ * 終日と時刻ありを切り替えるときは、日時を持つ端をすべて指定させる（`requireBothEnds`）。
  * 繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
  */
 export async function patchEvent(
@@ -32,29 +35,46 @@ export async function patchEvent(
   target: OccurrenceTarget,
   patch: EventPatch,
   userId: string,
-): Promise<EventMaster> {
+): Promise<WrittenEvent> {
   const master = await findMaster(id);
   const current = await currentInput(master, target);
-  const result = await applyUpdate(master, { ...mergePatch(current, patch), ...target }, userId);
+  requireBothEnds(current, patch);
+  const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
+  const result = await applyUpdate(master, { ...merged, ...target }, userId);
   scheduleUpcoming();
   return result;
 }
 
 /**
- * 今の値に、変える項目だけを重ねる（省いた項目 = undefined は今の値のまま）。
- * 重ねた結果の組み合わせ（予定の開始と終了がそろっているか など）はここで確かめ、誤りは ValidationError の文で返す。
- * WHY NOT 全項目の置き換え: 「タイトルだけ変えて」で繰り返しや場所を省くと、それらが消えてしまう。
+ * 終日と時刻ありを切り替える部分更新は、今の値が日時を持つ端（開始・終了（期限））をすべて指定させる。
+ * WHY: 終日の日時は保存のときに 0:00 に丸める（`normalizeInstants`）ので、省いた端を今のまま残すと、
+ * 「期限を日付にして」で開始の時刻が 0:00 に切り詰められるように、省いた項目が黙って変わる。
+ * 切り替え先でその端をどうするかは LLM に決めさせる（タスクの端は null で消せる）。
  */
-function mergePatch(current: CreateEventInput, patch: EventPatch): CreateEventInput {
-  const defined: Partial<CreateEventInput> = Object.fromEntries(
-    Object.entries(patch).filter(([, v]) => v !== undefined),
+function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
+  if (patch.allDay === undefined || patch.allDay === current.allDay) return;
+  const omitted = (['startsAt', 'endsAt'] as const).filter(
+    (key) => patch[key] === undefined && current[key] !== null,
   );
-  const merged = { ...current, ...defined };
-  const result = eventRulesSchema.safeParse(merged);
-  if (!result.success) {
-    throw new ValidationError(result.error.issues.map((issue) => issue.message).join(' / '));
+  if (omitted.length > 0) {
+    throw new ValidationError(
+      '終日と時刻ありを切り替えるときは、開始と終了（期限）を両方指定してください（タスクで要らない端は null）',
+    );
   }
-  return merged;
+}
+
+/**
+ * 予定の開始だけを変える部分更新は、長さを保って終了もずらす（予定を動かす）。
+ * WHY: 「3 時からにして」を頼まれた LLM は終了を渡さないことが多く、終了を今のままにすると
+ * 開始が終了を追い越して規則の誤りになるか、予定が意図せず伸び縮みする。
+ * 終日と時刻ありの切り替えでは両端が指定されている（`requireBothEnds`）ので、ここには来ない。
+ */
+function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
+  const { startsAt, endsAt } = current;
+  if (current.kind !== 'event' || !patch.startsAt || patch.endsAt !== undefined) return patch;
+  if (!startsAt || !endsAt) return patch;
+  const duration = endsAt.getTime() - startsAt.getTime();
+  return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };
 }
 
 /**
@@ -88,13 +108,17 @@ async function currentInput(
   };
 }
 
-/** id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ */
 export async function createEvent(
   input: CreateEventInput,
   userId: string,
   id: string = newId(),
 ): Promise<EventMaster> {
-  const values = normalizeInput(input);
+  const values = normalizeInput(checkRules(input, eventRulesSchema));
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
   scheduleUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
@@ -110,11 +134,17 @@ export async function updateEvent(
   scheduleUpcoming();
 }
 
+/**
+ * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
+ * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
+ */
+type WrittenEvent = EventMaster & { occurrenceStart: string | null };
+
 async function applyUpdate(
   master: EventWithParticipants,
   input: UpdateEventInput,
   userId: string,
-): Promise<EventMaster> {
+): Promise<WrittenEvent> {
   const { id } = master;
   if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
   const target = resolveTarget(master, input);
@@ -123,15 +153,18 @@ async function applyUpdate(
 
   if (target.scope === 'this') {
     // 実体化された回は繰り返さない（繰り返しは元の行だけが持つ）
-    await materialize(
+    const { completedAt } = await materialize(
       master,
       target.occurrenceStart,
       { ...values, rrule: null, cancelled: false },
       participantIds,
       userId,
     );
-    // 変わったのは回の行で、繰り返し元は読んだままなので、それをそのまま返す
-    return toMaster(master);
+    // 一覧が回を出すときと同じく、id と繰り返しは繰り返し元のもの（`buildOccurrence`）
+    return {
+      ...toMaster({ ...values, id, rrule: master.rrule, participantIds, completedAt }),
+      occurrenceStart: target.occurrenceStart.toISOString(),
+    };
   }
 
   // ここから下は保存した値がすべて手元にあるので、読み直さずに応答を組み立てる（往復を 1 回減らす）
@@ -143,7 +176,10 @@ async function applyUpdate(
       newRow: { ...values, createdBy: userId },
       participantIds,
     });
-    return toMaster({ ...values, id: splitId, participantIds, completedAt: null });
+    return {
+      ...toMaster({ ...values, id: splitId, participantIds, completedAt: null }),
+      occurrenceStart: null,
+    };
   }
 
   await repository.update(id, values, {
@@ -152,7 +188,10 @@ async function applyUpdate(
       baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule,
   });
   // 完了状態は入力に無く保存でも変わらないので、保存前の値をそのまま使う
-  return toMaster({ ...values, id, participantIds, completedAt: master.completedAt });
+  return {
+    ...toMaster({ ...values, id, participantIds, completedAt: master.completedAt }),
+    occurrenceStart: null,
+  };
 }
 
 export async function deleteEvent(
@@ -220,7 +259,8 @@ async function setCompletedAt(
     return;
   }
   const { occurrenceStart } = input;
-  if (!occurrenceStart) throw new ValidationError('occurrenceStart が必要です');
+  if (!occurrenceStart)
+    throw new ValidationError('繰り返しのタスクは、完了にする回を指定してください');
   if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   await materialize(master, occurrenceStart, { completedAt }, undefined, userId);
 }
@@ -263,9 +303,9 @@ async function materialize(
   values: Partial<NewEventRow>,
   participantIds: string[] | undefined,
   userId: string,
-): Promise<void> {
+): Promise<{ completedAt: Date | null }> {
   const { id: _id, createdAt: _c, updatedAt: _u, participantIds: _p, ...copy } = master;
-  await repository.materializeOccurrence(
+  return repository.materializeOccurrence(
     {
       ...copy,
       ...shiftTo(master, occurrenceStart),

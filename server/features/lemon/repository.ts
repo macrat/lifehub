@@ -96,6 +96,11 @@ export async function insert(row: {
   return insertOnce(lemonCareLogs, row);
 }
 
+export async function findById(id: string): Promise<LemonCareLogRow | undefined> {
+  const rows = await db.select().from(lemonCareLogs).where(eq(lemonCareLogs.id, id)).limit(1);
+  return rows[0];
+}
+
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
 export async function update(
   id: string,

@@ -323,8 +323,9 @@ function placeEvent(
  * タスクは `taskTime`）→ 日時の無いタスク。
  * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す。
  * `taskTime` を通すので、行やブロックが示す時刻と並びの基準は必ず同じものになる。
+ * MCP の日ごとのタイムライン（`server/features/timeline/service.ts` の `listDays`）も、同じ日の中をこの鍵で並べる。
  */
-function sortKey(item: CalendarItem): string {
+export function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
   const anchor = taskAnchor(item);
   if (!anchor) return '~';

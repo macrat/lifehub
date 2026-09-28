@@ -36,10 +36,14 @@
 | GET | `/api/weather?before=YYYY-MM-DD` | 天気の 1 ページ（`HistoryPage<WeatherDay>`。日付順）。日ごとの天気に、祝日か（`holiday`）と、その日の 3 時間ごとの天気と気温（`WeatherSlot`。時刻順。カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と 6 時間ごとの降水確率（`PopSlot`。時刻順）を添える。`before` を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。`nextCursor` はそれより前に取っておいた日があるときの次の `before`。予報の無い日と表に無い天気の日は含まない |
 
 - カレンダーと同じく手元の表（`weather` / `weather_hourly` / `weather_pop`）を読むだけで、気象庁へは取りに行かない（[calendar.md](calendar.md#天気)）。
-- 1 ページの日ごとの天気・3 時間ごとの天気・降水確率と、それより前の日があるかは、DB を 1 回の往復で読む（`repository.findDays`）。祝日は祝日の機能から読む（`listHolidays`。同時に投げる）。
-- ページは日数で区切る（`listWeatherDays`）。天気は 1 日 1 行なので、立替・レモンの履歴のように件数で数えなくても大きさが決まる。最新のページに過ぎた 1 週間を入れるのは、開いてすぐ上へ少し戻っても読み込みを待たせないため。
+- 1 ページの日ごとの天気・3 時間ごとの天気・降水確率は、DB を 1 回の往復で読む（`repository.findDays`。MCP の `get_weather` も同じものを読む）。それより前の日があるか（`repository.hasDaysBefore`。ページの続きの有無にだけ使う）と祝日（`listHolidays`）は、同時に投げる。
+- ページは日数で区切る（`listWeatherPage`。1 ページの中身は期間の天気を日ごとに読む `listWeatherDays` で、MCP の `get_weather` も同じものを読む）。天気は 1 日 1 行なので、立替・レモンの履歴のように件数で数えなくても大きさが決まる。最新のページに過ぎた 1 週間を入れるのは、開いてすぐ上へ少し戻っても読み込みを待たせないため。
 - WHY NOT `GET /api/calendar` を読む: 予定・タスクまで付いてきて、天気の画面は使わない。ホームで読むと、ホームに要らない月の項目を 1〜2 か月分読むことになる。
 - クライアントは天気の画面もホームのタイルも同じ無限クエリ（`useHistory` のキー `['weather', 'days', {}]`。`historyQueryOptions`）を読み、タイルは最新のページから今日か明日を選ぶ。書き込みは無く、画面に入ったときに取り直す（既定の `staleTime`）。天気は Cron が 1 日 3 回しか変えないので、それ以上は追わない。
+
+## MCP ツール
+
+`get_weather`（[mcp.md](mcp.md)）。今日と明日の天気の要約は `get_overview`・`read_timeline` の日にも付く。
 
 ## データ
 

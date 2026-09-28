@@ -81,7 +81,7 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   });
   expect(listTools.ok(), await listTools.text()).toBe(true);
   const body = (await listTools.json()) as { result: { tools: { name: string }[] } };
-  expect(body.result.tools.map((t) => t.name)).toContain('events_list');
+  expect(body.result.tools.map((t) => t.name)).toContain('read_timeline');
 
   const whoami = await request.post('/api/mcp', {
     headers: {
@@ -93,14 +93,14 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
-      params: { name: 'users_list', arguments: {} },
+      params: { name: 'get_overview', arguments: {} },
     },
   });
-  const users = JSON.parse(
+  const { users } = JSON.parse(
     ((await whoami.json()) as { result: { content: { text: string }[] } }).result.content[0]
-      ?.text ?? '[]',
-  ) as { email: string; isMe: boolean }[];
-  expect(users.find((u) => u.isMe)?.email).toBe(E2E_USER.email);
+      ?.text ?? '{}',
+  ) as { users: { name: string; isMe: boolean }[] };
+  expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
 
   // トークン無しは 401 と RFC 9728 の案内
   const anonymous = await request.post('/api/mcp', {

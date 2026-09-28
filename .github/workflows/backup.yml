@@ -15,8 +15,8 @@ concurrency:
 permissions:
   contents: read
 
-# 本番 DB のまるごとのダンプと全予定の ics を Artifact に置く。何をなぜ残すかと、暗号化しない
-# 理由は docs/architecture.md の「デプロイフロー」を参照。
+# 本番 DB のまるごとのダンプと全予定の ics を暗号化して Artifact に置く。何をなぜ残すかと、
+# なぜ暗号化するかは docs/architecture.md の「デプロイフロー」を参照。
 #
 # クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
 jobs:
@@ -64,9 +64,16 @@ jobs:
           DATABASE_URL: ${{ steps.tf.outputs.database_url }}
           # サーバーの環境変数の検証（server/lib/env.ts）を通すためだけの値。ics の書き出しは認証を使わない
           BETTER_AUTH_SECRET: unused-for-export-but-required-by-env-validation
+      # 鍵はキーリングに取り込まずにファイルから直接使う（--recipient-file）。ランナーの GnuPG に
+      # 信用の設定をせずに済む。
+      - name: Encrypt
+        run: gpg --batch --recipient-file .github/backup-key.asc --encrypt-files backup/*
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.name.outputs.name }}
-          path: backup
+          # 平文を消すのではなく、暗号化した物だけを選んで上げる。backup/ に何が増えても平文は出ない
+          path: backup/*.gpg
           if-no-files-found: error
+          # gpg が暗号化の前に圧縮している。暗号文はそれ以上縮まない
+          compression-level: 0
           retention-days: 30
