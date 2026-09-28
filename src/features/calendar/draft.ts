@@ -105,6 +105,15 @@ export function sameOccurrence(
   return occurrenceKey(a) === occurrenceKey(b);
 }
 
+/**
+ * 並べている日（days）に枠を出しているときの、枠が直している項目（元の帯・ブロックはこれを隠す）。
+ * 枠が出ない間（別の週・月へ動かした、終日を切り替えた）は、保存するまで元の場所に見えているほうが
+ * 分かりやすいので隠さない（隠すと、どこにも出ていない予定になる）。
+ */
+export function editingItemOn(draft: Draft | null, days: DateString[]): CalendarItem | null {
+  return draft && draftColumns(draft.range, days) ? draft.item : null;
+}
+
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
 export const TAP_MINUTES = 60;
 /**

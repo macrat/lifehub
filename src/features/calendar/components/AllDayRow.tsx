@@ -91,7 +91,7 @@ export function AllDayRow({
           showTime={false}
           onClick={() => onSelectItem(p.item)}
           grab={dayDrag.grabItemProps(p.item)}
-          hidden={sameOccurrence(barDraft?.item, p.item)}
+          hidden={sameOccurrence(draftCols ? barDraft?.item : null, p.item)}
         />
       ))}
       {draftCols && (

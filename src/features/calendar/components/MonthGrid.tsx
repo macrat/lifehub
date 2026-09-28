@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
+import { useMemo } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
@@ -12,7 +13,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 
-import { type Draft, draftColumns, draftDays, sameOccurrence } from '../draft.ts';
+import { type Draft, draftColumns, draftDays, editingItemOn, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
@@ -81,8 +82,15 @@ export function MonthGrid({
     onTapDate: compact ? onSelectDate : undefined,
   });
   const laneHeight = compact ? 17 : 20;
-  const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7));
-  const ordered = completedLast(itemsByDate);
+  // 配置は日付と項目だけで決まる。つまんで動かすたびに数え直さない
+  const weeks = useMemo(() => {
+    const ordered = completedLast(itemsByDate);
+    return Array.from({ length: 6 }, (_, w) => {
+      const week = days.slice(w * 7, w * 7 + 7);
+      return { days: week, placed: layoutLanes(week, ordered) };
+    });
+  }, [days, itemsByDate]);
+  const editing = editingItemOn(draft, days);
 
   // レーン数の実測と、置いた枠を見える所まで送るスクロール
   const { firstWeekRef, scrollRef, maxLanes } = useMonthGrid({
@@ -127,14 +135,15 @@ export function MonthGrid({
         </Box>
         {weeks.map((week, w) => (
           <WeekRow
-            key={week[0]}
+            key={week.days[0]}
             ref={w === 0 ? firstWeekRef : undefined}
-            days={week}
+            days={week.days}
+            placed={week.placed}
             month={month}
-            itemsByDate={ordered}
             onSelectDate={onSelectDate}
             onSelectItem={onSelectItem}
             draft={draft}
+            editing={editing}
             drag={drag}
             holidays={holidays}
             weather={weather}
@@ -153,11 +162,14 @@ export function MonthGrid({
 type WeekRowProps = {
   ref?: React.Ref<HTMLDivElement>;
   days: DateString[];
+  /** その週の帯の配置（`layoutLanes`） */
+  placed: ReturnType<typeof layoutLanes>;
   month: string;
-  itemsByDate: Map<DateString, CalendarItem[]>;
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
   draft: GridDraft | null;
+  /** 枠が直している項目（`editingItemOn`）。元の帯は隠す */
+  editing: CalendarItem | null;
   drag: ReturnType<typeof useDayDrag>;
   holidays: ReadonlySet<DateString>;
   weather: ReadonlyMap<DateString, DailyWeather>;
@@ -169,11 +181,12 @@ type WeekRowProps = {
 function WeekRow({
   ref,
   days,
+  placed,
   month,
-  itemsByDate,
   onSelectDate,
   onSelectItem,
   draft,
+  editing,
   drag,
   holidays,
   weather,
@@ -181,7 +194,6 @@ function WeekRow({
   laneHeight,
   compact,
 }: WeekRowProps) {
-  const placed = layoutLanes(days, itemsByDate);
   const draftCols = draft && draftColumns(draft.range, days);
   const { visible, foldedLane, foldedPerCol } = foldLanes(placed, maxLanes, days.length);
 
@@ -242,7 +254,7 @@ function WeekRow({
           compact={compact}
           onClick={() => onSelectItem(p.item)}
           grab={drag.grabItemProps(p.item)}
-          hidden={sameOccurrence(draft?.item, p.item)}
+          hidden={sameOccurrence(editing, p.item)}
         />
       ))}
       {draft && draftCols && (
