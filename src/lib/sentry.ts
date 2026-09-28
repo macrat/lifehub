@@ -31,16 +31,23 @@ export function initSentry(router: AnyRouter, client: QueryClient): void {
       Sentry.consoleLoggingIntegration(),
     ],
     /**
-     * View Transition の途中で次の遷移が始まったときの AbortError（前の遷移のアニメーションが飛ばされただけで、
-     * 画面の更新は行われる）。ルーター（`defaultViewTransition`）は `startViewTransition` の `updateCallbackDone`
-     * だけを待ち、`ready` を放っておくので、その reject が未処理の例外として上がってくる。
+     * View Transition が飛ばされたときの失敗。どちらもアニメーションが省かれるだけで、画面の更新は行われる。
+     * - AbortError: 遷移の途中で次の遷移が始まった
+     * - InvalidStateError（Viewport size changed）: 遷移の途中で画面の大きさが変わった（モバイルのアドレスバーの
+     *   出し入れやキーボードの開閉）。React DOM も自前の View Transition ではこれを無視している
+     * ルーター（`defaultViewTransition`）は `startViewTransition` の `updateCallbackDone` だけを待ち、`ready` を
+     * 放っておくので、その reject が未処理の例外として上がってくる。
      * 不具合は @tanstack/router-core（`RouterCore` の `startViewTransition`）にあり、上流で直るまでの間だけ送らない。
      * 直った版に上げたら消す。
      * WHY NOT アプリ側で直す: 依存ライブラリへのパッチも `router.startViewTransition` の差し替えも、ライブラリの
      * 内側に手を入れることになり、更新のたびに追従が要る。
-     * 文字列で絞るので、名前の重複で遷移が行われない InvalidStateError（`item-transition.ts`）は引き続き送られる
+     * 文字列で絞るので、名前の重複で遷移が行われない InvalidStateError（メッセージは「Transition was aborted
+     * because of invalid state」まで同じで、理由が続かない。`item-transition.ts`）は引き続き送られる
      */
-    ignoreErrors: ['Transition was skipped. New ViewTransition started'],
+    ignoreErrors: [
+      'Transition was skipped. New ViewTransition started',
+      'Transition was aborted because of invalid state. Viewport size changed',
+    ],
   });
   watchUser(client);
 }
