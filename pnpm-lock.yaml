@@ -62,6 +62,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
+      '@sentry/hono':
+        specifier: ^11.0.0
+        version: 11.0.0(@hono/node-server@2.1.1(hono@4.13.8))(@sentry/node@11.0.0(rollup@4.63.3))(hono@4.13.8)
       '@sentry/node':
         specifier: ^11.0.0
         version: 11.0.0(rollup@4.63.3)
@@ -2860,6 +2863,31 @@ packages:
   '@sentry/feedback@11.0.0':
     resolution: {integrity: sha512-ZdUE6qSfMH4zturLHxg8idfI8cA+JdfrisqUQ6hE6MKaIAAZysNIPvvFysE2WQDjFbj3puS1iZm0jg0ym7kA5g==}
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
+
+  '@sentry/hono@11.0.0':
+    resolution: {integrity: sha512-4uD4PIhvjwnH2a9RjueVCKCDN0dlHYM3T9+XdKh9mPGAhOZT7E2gQYq4ikO9gEdHj9qqzMHAVZjjshce6/PRTg==}
+    engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
+    peerDependencies:
+      '@cloudflare/workers-types': ^4.x || ^5.x
+      '@hono/node-server': ^1.x || ^2.x
+      '@sentry/bun': 11.0.0
+      '@sentry/cloudflare': 11.0.0
+      '@sentry/deno': 11.0.0
+      '@sentry/node': 11.0.0
+      hono: ^4.x
+    peerDependenciesMeta:
+      '@cloudflare/workers-types':
+        optional: true
+      '@hono/node-server':
+        optional: true
+      '@sentry/bun':
+        optional: true
+      '@sentry/cloudflare':
+        optional: true
+      '@sentry/deno':
+        optional: true
+      '@sentry/node':
+        optional: true
 
   '@sentry/node@11.0.0':
     resolution: {integrity: sha512-ZHk2wYvnKPfaq05YHnva/a6EzZDLTG0EStcWnQdjSae/OxluwCfOfMqwlsKxaY8KDUkyqokTCUPqJITZpUH1Jw==}
@@ -8253,6 +8281,16 @@ snapshots:
   '@sentry/feedback@11.0.0':
     dependencies:
       '@sentry/core': 11.0.0
+
+  '@sentry/hono@11.0.0(@hono/node-server@2.1.1(hono@4.13.8))(@sentry/node@11.0.0(rollup@4.63.3))(hono@4.13.8)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@sentry/conventions': 0.23.0
+      '@sentry/core': 11.0.0
+      hono: 4.13.8
+    optionalDependencies:
+      '@hono/node-server': 2.1.1(hono@4.13.8)
+      '@sentry/node': 11.0.0(rollup@4.63.3)
 
   '@sentry/node@11.0.0(rollup@4.63.3)':
     dependencies:

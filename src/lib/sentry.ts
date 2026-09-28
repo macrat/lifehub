@@ -1,19 +1,32 @@
 import * as Sentry from '@sentry/react';
+import type { AnyRouter } from '@tanstack/react-router';
+import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
 
 /**
- * ブラウザのエラーを Sentry に送る。DSN は本番のビルドにだけ埋め込まれる（`vite.config.ts`）ので、
+ * ブラウザのエラー・トレース・ログを Sentry に送る。DSN は本番のビルドにだけ埋め込まれる（`vite.config.ts`）ので、
  * ローカルと Preview では何もしない。
  *
- * 集めるのは未処理の例外と、React の描画中のエラー（下の `reportCaughtError`）。API のエラーは送らない:
- * サーバーのエラーはサーバーが送り（`server/lib/sentry.ts`）、通信の失敗はオフラインで使う PWA では不具合ではない。
- * 無料枠（`infra/sentry.tf`）に収めるため、トレースとセッションリプレイは有効にしない。
+ * - エラー: 未処理の例外と、React の描画中のエラー（下の `reportCaughtError`）。API のエラーは送らない:
+ *   サーバーのエラーはサーバーが送り（`server/lib/sentry.ts`）、通信の失敗はオフラインで使う PWA では不具合ではない。
+ * - トレース: 起動と画面の移動（ルート名で。`tanstackRouterBrowserTracingIntegration`）と、その間の API への
+ *   要求。API への要求にはトレースの見出しを付け、サーバーのスパンと 1 本のトレースに繋ぐ（同じオリジンなので既定で付く）。
+ *   すべて送る（`tracesSampleRate: 1`。2 人の利用なら無料枠に収まる。`infra/sentry.tf`）。
+ * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
+ *
+ * セッションリプレイは無料枠が月 50 件しかないので使わない。
  */
-export function initSentry(): void {
+export function initSentry(router: AnyRouter): void {
   if (!__SENTRY_DSN__) return;
   Sentry.init({
     dsn: __SENTRY_DSN__,
     release: __BUILD_COMMIT__,
     environment: 'production',
+    tracesSampleRate: 1,
+    dataCollection: SENTRY_DATA_COLLECTION,
+    integrations: [
+      Sentry.tanstackRouterBrowserTracingIntegration(router),
+      Sentry.consoleLoggingIntegration(),
+    ],
   });
 }
 
