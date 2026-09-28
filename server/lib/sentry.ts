@@ -1,6 +1,8 @@
+import { neonConfig } from '@neondatabase/serverless';
 import * as Sentry from '@sentry/hono/node';
 import { waitUntil } from '@vercel/functions';
 import { type Env, Hono, type MiddlewareHandler, type Schema } from 'hono';
+import { z } from 'zod';
 import { SENTRY_DATA_COLLECTION } from '../../shared/sentry.ts';
 import { env } from './env.ts';
 
@@ -13,8 +15,9 @@ import { env } from './env.ts';
  *   `console.error` に出しているので、報告の呼び出しを個々に足さずに済み、足し忘れもない。業務エラー（404 や
  *   409 など）は `console.error` に出さないので送られない。
  * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
- *   問い合わせ（HTTP）・外部への要求のスパン。ブラウザから来たトレースを引き継ぐ。すべて送る（`tracesSampleRate: 1`。
- *   無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
+ *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
+ *   最初の要求かどうか（`faas.coldstart`。下の `markColdStart`）を付ける。ブラウザから来たトレースを引き継ぐ。
+ *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
  * WHY NOT `--import` での起動（`@sentry/hono` の案内）: Vercel Function のエントリに置けない。それが要るのは
@@ -50,7 +53,77 @@ export function initSentry(): void {
   Sentry.getClient()?.on('beforeEnvelope', ([, items]) => {
     if (items.some(([header]) => header.type === 'event')) waitUntil(Sentry.flush(2000));
   });
+  neonConfig.fetchFunction = traceNeonFetch;
 }
+
+/**
+ * Neon の HTTP ドライバが送る本文。問い合わせ 1 つか、`runBatch`（`server/lib/db/client.ts`）の
+ * トランザクションなら複数の文。SQL-over-HTTP の形で、`params` に値が別に入る。
+ */
+const neonRequestSchema = z.union([
+  z.object({ query: z.string() }).transform(({ query }) => [query]),
+  z
+    .object({ queries: z.array(z.object({ query: z.string() })) })
+    .transform(({ queries }) => queries.map(({ query }) => query)),
+]);
+
+/** Neon への要求の本文から SQL 文を取り出す。読めないときは空（計らずに送るだけにする） */
+export function statementsOf(body: RequestInit['body']): string[] {
+  if (typeof body !== 'string') return [];
+  try {
+    return neonRequestSchema.safeParse(JSON.parse(body)).data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Neon への問い合わせ 1 回（HTTP の往復 1 回）を、SQL 文を名前にした DB のスパンで包む。Sentry の
+ * 「Queries」で文ごとに回数と時間を集計でき、トレースでどの問い合わせが遅いかが分かる。HTTP のスパンは
+ * この下にそのまま残る。
+ * SQL 文は Drizzle が値を `$1` などの置き場所にして組み立てたもので、値（記録の中身）は `params` に別にあり、
+ * 送らない（`SENTRY_DATA_COLLECTION` の方針どおり）。
+ *
+ * WHY NOT Drizzle や Neon の計測: Sentry にはどちらの計測も無く、Drizzle の OpenTelemetry の口
+ * （`drizzle-orm/tracing`）は何もしない。
+ * WHY NOT Drizzle に渡すクライアントを包む: トランザクションは、個々の文の問い合わせ（遅延実行の
+ * `NeonQueryPromise`）をまとめて送る作りで、文ごとに包むと送る前に実行されてしまう。fetch なら
+ * 1 文でもトランザクションでも、1 回の送信として 1 か所で包める。
+ */
+const traceNeonFetch: typeof fetch = (input, init) => {
+  const statements = statementsOf(init?.body);
+  if (statements.length === 0) return fetch(input, init);
+  const text = statements.join(';\n');
+  return Sentry.startSpan(
+    {
+      name: text,
+      op: 'db',
+      attributes: {
+        'db.system.name': 'postgresql',
+        'db.query.text': text,
+        ...(statements.length > 1 && { 'db.operation.batch.size': statements.length }),
+      },
+    },
+    () => fetch(input, init),
+  );
+};
+
+/** このインスタンスがまだ要求を計っていないか。Vercel Function はインスタンスを使い回すので、最初の 1 回だけ真 */
+let coldStart = true;
+
+/**
+ * 要求のスパンに、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付ける。起動（モジュールの
+ * 読み込みや Neon への最初の接続）の分だけ遅い要求を、普段の遅さと分けて見るため。
+ * 計らない要求（Vercel の生存確認。`initSentry` の `httpIntegration`）では印を使わない。
+ */
+const markColdStart: MiddlewareHandler = async (_c, next) => {
+  const active = Sentry.getActiveSpan();
+  if (active?.isRecording()) {
+    Sentry.getRootSpan(active).setAttribute('faas.coldstart', coldStart);
+    coldStart = false;
+  }
+  await next();
+};
 
 /** 要求のスパンが閉じるのを待つ上限。応答を書き終えれば閉じるので、届かないのは接続が切れたときなど */
 const SEGMENT_END_TIMEOUT_MS = 10_000;
@@ -96,6 +169,7 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   if (!Sentry.getClient()) return app;
   const root = new Hono<E, S, B>();
   root.use(Sentry.sentry(root, { shouldHandleError: () => false }));
+  root.use(markColdStart);
   root.use(flushAfterRequest);
   root.route('/', app);
   return root;

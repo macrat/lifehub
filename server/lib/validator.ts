@@ -17,11 +17,15 @@ function validationHook(
 }
 
 /**
- * 入力（target）を schema で検証するミドルウェア。すべてのルートがこれを使い、失敗の応答を 1 つの形にそろえる
+ * 入力（target）を schema で検証するミドルウェア。すべてのルートがこれを使い、失敗の応答を 1 つの形にそろえる。
+ * zValidator が返す関数は無名なので、トレースのミドルウェアのスパン（名前は関数名）で何を検証しているかが
+ * 分かるよう `validate(json)` のような名前を付ける。
  */
 export function validate<Target extends keyof ValidationTargets, Schema extends ZodType>(
   target: Target,
   schema: Schema,
 ) {
-  return zValidator(target, schema, validationHook);
+  return Object.defineProperty(zValidator(target, schema, validationHook), 'name', {
+    value: `validate(${target})`,
+  });
 }

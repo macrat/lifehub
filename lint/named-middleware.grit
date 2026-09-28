@@ -1,0 +1,17 @@
+// Hono のミドルウェアは名前の付いた変数に入れてから渡す（`const requireSession: MiddlewareHandler = async (c, next) => ...`）。
+// Sentry はミドルウェア 1 つごとにスパンを作り、関数名をスパンの名前にする（server/lib/sentry.ts の withSentry）。
+// `use()` や `createMiddleware()` に直に書いた関数は無名になり、トレースに `<anonymous>` としか出ないので、
+// どのミドルウェアが時間を使ったか分からなくなる。
+// WHY NOT `createMiddleware` の結果を変数に入れればよいとする: 関数の名前は、変数に直に代入した無名関数にしか
+// 付かない。`createMiddleware()` の引数に書いた関数は、結果を変数に入れても無名のまま。
+language js
+
+or {
+  `$_.use($args)`,
+  `createMiddleware($args)`
+} where {
+  $args <: some bubble $arg where {
+    $arg <: JsArrowFunctionExpression(),
+    register_diagnostic(span=$arg, message="ミドルウェアは名前の付いた変数（const name: MiddlewareHandler = ...）に入れてから渡す。無名の関数は Sentry のトレースで <anonymous> になる")
+  }
+}

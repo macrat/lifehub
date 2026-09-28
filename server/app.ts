@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
 import { cronRoutes } from './cron.ts';
@@ -57,11 +57,12 @@ api.use('*', requireSession);
  * If-None-Match を添えて聞き直し、同じなら本文が流れない。`private, no-cache` は「共有キャッシュには
  * 置かない・使う前に必ず確かめる」の意味で、常に最新を出す性質は変わらない。
  */
-api.use('*', etag());
-api.use('*', async (c, next) => {
+const cacheControl: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
   if (c.req.method === 'GET') c.header('Cache-Control', 'private, no-cache');
-});
+};
+api.use('*', etag());
+api.use('*', cacheControl);
 
 /**
  * 画面専用の API。互換性や REST としての形より通信の本数と量を優先する（docs/architecture.md）。
