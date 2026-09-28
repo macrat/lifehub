@@ -3,7 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { expect } from 'vitest';
 import { createMcpServer } from '../mcp.ts';
 
-/** MCP サーバーのテスト（`mcp*.test.ts`）で共有する、ツールを呼んで結果を読む道具 */
+/** MCP のテストで、サーバーにつないでツールを呼ぶための共通の手順 */
 
 export async function connect(userId: string): Promise<Client> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

@@ -12,14 +12,15 @@ const WEEKLY_DENTIST = {
   repeat: 'FREQ=WEEKLY',
 };
 
-let userId: string;
-beforeEach(async () => {
-  await clearTables();
-  userId = await createTestUser('A');
-  await createTestUser('B');
-});
+describe('MCP server: 予定・タスク', () => {
+  let userId: string;
+  beforeEach(async () => {
+    await clearTables();
+    userId = await createTestUser('A');
+    // 参加者に名前で指す相手
+    await createTestUser('B');
+  });
 
-describe('予定・タスク', () => {
   it('タイムゾーンを省いた日時は JST で、人は名前で受け、JST と名前で返す', async () => {
     const client = await connect(userId);
     const created = await call<Entry>(client, 'add_event', {
@@ -59,6 +60,25 @@ describe('予定・タスク', () => {
         day: '2/2',
       }),
     ]);
+  });
+
+  it('1 日の中はホームのタイムラインと同じ置き方の古い順（終日の予定はその日の終わり）', async () => {
+    const client = await connect(userId);
+    await call(client, 'add_event', {
+      kind: 'event',
+      title: '終日の予定',
+      start: '2030-01-08',
+      end: '2030-01-08',
+    });
+    await call(client, 'add_event', {
+      kind: 'event',
+      title: '10 時の予定',
+      start: '2030-01-08T10:00',
+      end: '2030-01-08T11:00',
+    });
+    await call(client, 'add_event', { kind: 'task', title: '終日のタスク', start: '2030-01-08' });
+    const [day] = await readDays(client, { from: '2030-01-08', to: '2030-01-08' });
+    expect(day?.entries.map((e) => e.title)).toEqual(['終日のタスク', '10 時の予定', '終日の予定']);
   });
 
   it('開始と終了の形（日付と日時）が混ざっていれば、揃えるよう文で返す', async () => {
@@ -156,10 +176,7 @@ describe('予定・タスク', () => {
       due: '2030-01-31',
     });
     expect(task).toMatchObject({ type: 'task', done: false, due: '2030-01-31' });
-    const undated = await call<Entry>(client, 'add_event', {
-      kind: 'task',
-      title: '電球を替える',
-    });
+    const undated = await call<Entry>(client, 'add_event', { kind: 'task', title: '電球を替える' });
     expect(await fail(client, 'set_task_done', { ref: 'x' })).toContain('ref');
 
     const doneOf = async () => {

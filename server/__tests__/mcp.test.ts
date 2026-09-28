@@ -42,6 +42,18 @@ describe('MCP server', () => {
     }
     expect(tools.find((t) => t.name === 'delete_entry')?.annotations?.destructiveHint).toBe(true);
     expect(client.getInstructions()).toContain('get_overview');
+    // 説明が名前で指すツール（snake_case。add_* は接頭辞）は、どれも公開している（改名したツールを指し残さない）
+    const texts = tools.map((t) => `${t.description} ${JSON.stringify(t.inputSchema)}`);
+    for (const [ref] of [client.getInstructions(), ...texts]
+      .join(' ')
+      .matchAll(/\b[a-z]+(?:_[a-z*]+)+/g)) {
+      const matches = (name: string) =>
+        ref.endsWith('*') ? name.startsWith(ref.slice(0, -1)) : name === ref;
+      expect(
+        tools.some((t) => matches(t.name)),
+        ref,
+      ).toBe(true);
+    }
   });
 
   it('get_overview は今日・ユーザーの名前と自分・今日と明日の日・レモンの状況を返す', async () => {
