@@ -4,10 +4,10 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { useState } from 'react';
 import type { AddKind } from '../../../lib/add-pages.ts';
 import { FAB_SX } from '../../../lib/ui/layout.ts';
 import { CIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
+import { useToggle } from '../../../lib/ui/use-toggle.ts';
 import { ADD_KINDS, type AddFormKind } from '../kinds.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
@@ -72,8 +72,7 @@ type Props = {
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
 export function AddMenu({ kinds, onSelect, onAddEvent }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const collapse = () => setExpanded(false);
+  const { value: expanded, on: expand, off: collapse } = useToggle();
   const open = (kind: AddKind) => {
     collapse();
     if (kind === 'event') onAddEvent();
@@ -89,7 +88,7 @@ export function AddMenu({ kinds, onSelect, onAddEvent }: Props) {
         ariaLabel="追加"
         icon={<SpeedDialIcon icon={<AddIcon />} />}
         open={expanded}
-        onOpen={(_, reason) => reason !== 'focus' && setExpanded(true)}
+        onOpen={(_, reason) => reason !== 'focus' && expand()}
         onClose={collapse}
         slotProps={{ transition: { appear: false } }}
         sx={MENU_SX}

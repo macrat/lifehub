@@ -6,7 +6,7 @@ import type { CareStatus } from '../queries.ts';
 
 type Props = {
   status: CareStatus;
-  onSelect?: ((status: CareStatus) => void) | undefined;
+  onSelect: (status: CareStatus) => void;
 };
 
 /**
@@ -30,7 +30,7 @@ export function CareStatusTile({ status, onSelect }: Props) {
       }
       sub={status.lastDoneAt ? formatDate(status.lastDoneAt) : '記録なし'}
       transitionName={`care-${status.careType}`}
-      onClick={() => onSelect?.(status)}
+      onClick={() => onSelect(status)}
     />
   );
 }

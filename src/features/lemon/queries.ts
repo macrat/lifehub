@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
 import { toDateString } from '../../../shared/date.ts';
 import {
@@ -69,11 +69,7 @@ export function useLogCare() {
         createdBy: signedInUserId(client),
         apiKeyName: null,
       };
-      careLogCache.apply(client, input.id, log);
-      client.setQueryData(
-        lemonStatusQueryOptions.queryKey,
-        (statuses) => statuses && advanceStatus(statuses, log),
-      );
+      applyLog(client, log);
     },
   });
 }
@@ -85,14 +81,7 @@ export function useUpdateCareLog() {
     apply: (client, { id, ...input }) => {
       const prev = careLogCache.find(client, id);
       if (!prev) return;
-      const log = { ...prev, ...input, note: input.note ?? null };
-      careLogCache.apply(client, id, log);
-      // 新しくなった日時で進むタイルだけを進める。項目を外したり日時を戻したりしたときに
-      // どこまで戻るかは、読んでいない記録を含めて決まるので書き込み後の取り直しに任せる
-      client.setQueryData(
-        lemonStatusQueryOptions.queryKey,
-        (statuses) => statuses && advanceStatus(statuses, log),
-      );
+      applyLog(client, { ...prev, ...input, note: input.note ?? null });
     },
   });
 }
@@ -106,6 +95,19 @@ export function useDeleteCareLog() {
       // タイルがどこまで戻るかは読んでいない記録を含めて決まるので、書き込み後の取り直しに任せる
     },
   });
+}
+
+/**
+ * 追加・編集した記録 1 件を先回りして書き込む: 履歴とタイムライン（`timelineRecordCache`）と、
+ * その記録の日時で進む状況のタイル。項目を外したり日時を戻したりしたときにタイルがどこまで戻るかは、
+ * 読んでいない記録を含めて決まるので書き込み後の取り直しに任せる。
+ */
+function applyLog(client: QueryClient, log: CareLog): void {
+  careLogCache.apply(client, log.id, log);
+  client.setQueryData(
+    lemonStatusQueryOptions.queryKey,
+    (statuses) => statuses && advanceStatus(statuses, log),
+  );
 }
 
 /**

@@ -77,7 +77,7 @@ function LemonPage() {
             </Box>
           </>
         }
-        emptyMessage={filter.filtering ? '一致する記録はありません' : 'まだ記録はありません'}
+        emptyMessage={filter.emptyMessage('記録')}
         onSelect={selection.open}
       />
 
