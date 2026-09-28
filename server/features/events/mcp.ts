@@ -4,7 +4,6 @@ import {
   type CreateEventInput,
   type EventPatch,
   eventFieldTypes,
-  eventRulesSchema,
 } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../../lib/errors.ts';
 import { formatEvent } from '../../lib/mcp/entries.ts';
@@ -13,8 +12,8 @@ import {
   expectType,
   occurrenceTargetOf,
   refSchema,
-  refString,
   scopeSchema,
+  toRef,
 } from '../../lib/mcp/refs.ts';
 import { instantOf, type When, whenInputSchema } from '../../lib/mcp/time.ts';
 import {
@@ -22,9 +21,9 @@ import {
   EDITING,
   jsonResult,
   type McpContext,
+  type Person,
   type ToolRegistrar,
 } from '../../lib/mcp/types.ts';
-import { checkRules } from '../../lib/patch.ts';
 import * as service from './service.ts';
 
 /**
@@ -68,16 +67,40 @@ function allDayOf(...whens: (When | null | undefined)[]): boolean | undefined {
 }
 
 /** 参加者の名前 → ID。省けば自分だけ */
-async function participantIdsOf(ctx: McpContext, names: string[] | undefined): Promise<string[]> {
+function participantIdsOf(ctx: McpContext, people: Person[], names: string[] | undefined) {
   if (!names) return [ctx.userId];
-  const people = await ctx.people();
   return [...new Set(names.map((name) => resolvePerson(people, name, ctx.userId)))];
 }
 
-async function create(ctx: McpContext, input: CreateEventInput) {
-  // 作成の入力は API のスキーマを通っていないので、組み合わせの規則をここで掛ける
-  const created = await service.createEvent(checkRules(input, eventRulesSchema), ctx.userId);
-  return jsonResult(formatEvent(created, await ctx.people()));
+/** 予定・タスクで同じ項目（省いた項目は既定: 参加者は自分だけ、ほかは無し） */
+type CommonInput = {
+  title: string;
+  participants?: string[] | undefined;
+  location?: string | null | undefined;
+  note?: string | null | undefined;
+  repeat?: string | null | undefined;
+  remindBeforeStart?: CreateEventInput['remindStartMinutes'] | undefined;
+};
+
+async function create(
+  ctx: McpContext,
+  input: CommonInput,
+  values: Pick<CreateEventInput, 'kind' | 'allDay' | 'startsAt' | 'endsAt' | 'remindEndMinutes'>,
+) {
+  const people = await ctx.people();
+  const created = await service.createEvent(
+    {
+      ...values,
+      title: input.title,
+      participantIds: participantIdsOf(ctx, people, input.participants),
+      location: input.location ?? null,
+      note: input.note ?? null,
+      rrule: input.repeat ?? null,
+      remindStartMinutes: input.remindBeforeStart ?? null,
+    },
+    ctx.userId,
+  );
+  return jsonResult(formatEvent(created, people));
 }
 
 function registerAdd(server: McpServer, ctx: McpContext) {
@@ -100,17 +123,11 @@ function registerAdd(server: McpServer, ctx: McpContext) {
       annotations: ADDITIVE,
     },
     async (input) =>
-      create(ctx, {
+      create(ctx, input, {
         kind: 'event',
-        title: input.title,
         allDay: allDayOf(input.start, input.end) ?? false,
         startsAt: instantOf(input.start),
         endsAt: instantOf(input.end),
-        participantIds: await participantIdsOf(ctx, input.participants),
-        location: input.location ?? null,
-        note: input.note ?? null,
-        rrule: input.repeat ?? null,
-        remindStartMinutes: input.remindBeforeStart ?? null,
         remindEndMinutes: input.remindBeforeEnd ?? null,
       }),
   );
@@ -136,17 +153,11 @@ function registerAdd(server: McpServer, ctx: McpContext) {
       annotations: ADDITIVE,
     },
     async (input) =>
-      create(ctx, {
+      create(ctx, input, {
         kind: 'task',
-        title: input.title,
         allDay: allDayOf(input.start, input.due) ?? false,
         startsAt: input.start ? instantOf(input.start) : null,
         endsAt: input.due ? instantOf(input.due) : null,
-        participantIds: await participantIdsOf(ctx, input.participants),
-        location: input.location ?? null,
-        note: input.note ?? null,
-        rrule: input.repeat ?? null,
-        remindStartMinutes: input.remindBeforeStart ?? null,
         remindEndMinutes: input.remindBeforeDue ?? null,
       }),
   );
@@ -169,20 +180,35 @@ const updateInput = {
 };
 
 /** 予定には end、タスクには due。取り違えは文で返す（黙って読み替えると、どちらのつもりか分からない） */
+const END_FIELDS = {
+  event: {
+    label: '予定',
+    own: 'end',
+    remind: 'remindBeforeEnd',
+    other: ['due', 'remindBeforeDue'],
+  },
+  task: {
+    label: 'タスク',
+    own: 'due',
+    remind: 'remindBeforeDue',
+    other: ['end', 'remindBeforeEnd'],
+  },
+} as const;
+
 function endOf(kind: 'event' | 'task', input: z.output<z.ZodObject<typeof updateInput>>) {
-  const { end, due, remindBeforeEnd, remindBeforeDue } = input;
-  const misused = Object.entries(
-    kind === 'event' ? { due, remindBeforeDue } : { end, remindBeforeEnd },
-  ).flatMap(([key, value]) => (value === undefined ? [] : [key]));
+  const { label, own, remind, other } = END_FIELDS[kind];
+  const misused = other.filter((key) => input[key] !== undefined);
   if (misused.length > 0) {
-    const [label, own] = kind === 'event' ? ['予定', 'end'] : ['タスク', 'due'];
     throw new ValidationError(
       `${label}には ${misused.join('・')} ではなく ${own} を使ってください`,
     );
   }
-  return kind === 'event'
-    ? { endsAt: end, remind: remindBeforeEnd }
-    : { endsAt: due, remind: remindBeforeDue };
+  return { endsAt: input[own], remind: input[remind] };
+}
+
+/** 部分更新の日時: 省けば（undefined）今のまま、null は消す */
+function instantPatch(when: When | null | undefined): Date | null | undefined {
+  return when && instantOf(when);
 }
 
 function registerUpdate(server: McpServer, ctx: McpContext) {
@@ -196,15 +222,16 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       annotations: EDITING,
     },
     async (input) => {
-      const ref = expectType(input.ref, ['event', 'task'], '');
+      const ref = expectType(input.ref, ['event', 'task']);
       const target = occurrenceTargetOf(ref, input.scope);
       const { endsAt, remind } = endOf(ref.type, input);
+      const people = await ctx.people();
       const patch: EventPatch = {
         title: input.title,
         allDay: allDayOf(input.start, endsAt),
-        startsAt: input.start === undefined ? undefined : input.start && instantOf(input.start),
-        endsAt: endsAt === undefined ? undefined : endsAt && instantOf(endsAt),
-        participantIds: input.participants && (await participantIdsOf(ctx, input.participants)),
+        startsAt: instantPatch(input.start),
+        endsAt: instantPatch(endsAt),
+        participantIds: input.participants && participantIdsOf(ctx, people, input.participants),
         location: input.location,
         note: input.note,
         rrule: input.repeat,
@@ -212,9 +239,13 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
         remindEndMinutes: remind,
       };
       const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
-      if (target.scope === 'this')
-        return jsonResult({ ref: refString(ref), updated: 'この回だけ' });
-      return jsonResult(formatEvent(updated, await ctx.people()));
+      if (target.scope === 'this') {
+        return jsonResult({
+          ref: toRef(ref.type, ref.id, ref.occurrenceStart),
+          updated: 'この回だけ',
+        });
+      }
+      return jsonResult(formatEvent(updated, people));
     },
   );
 
@@ -235,7 +266,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       const target = { occurrenceStart: ref.occurrenceStart ?? undefined };
       if (done) await service.completeEvent(ref.id, target, ctx.userId);
       else await service.uncompleteEvent(ref.id, target, ctx.userId);
-      return jsonResult({ ref: refString(ref), done });
+      return jsonResult({ ref: toRef(ref.type, ref.id, ref.occurrenceStart), done });
     },
   );
 }

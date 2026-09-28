@@ -3,9 +3,10 @@ import type { Balance, Expense } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
+import type { DailyWeather } from '../../../shared/weather.ts';
 import { nameOf } from './people.ts';
 import { toRef } from './refs.ts';
-import { endOutput, jstDateTime, startOutput } from './time.ts';
+import { jstDateTime, whenOutput } from './time.ts';
 import { compact, type Person } from './types.ts';
 
 /**
@@ -24,8 +25,8 @@ type EventLike = EventMaster &
 export function formatEvent(item: EventLike, people: Person[]) {
   const { allDay, startsAt, endsAt } = item;
   const ref = toRef(item.kind, item.id, item.occurrenceStart);
-  const start = startsAt && startOutput(allDay, startsAt);
-  const end = endsAt && endOutput(allDay, endsAt);
+  const start = startsAt && whenOutput(allDay, startsAt, 'start');
+  const end = endsAt && whenOutput(allDay, endsAt, 'end');
   const details = {
     participants: item.participantIds.map((id) => nameOf(people, id)),
     location: item.location,
@@ -125,4 +126,14 @@ export function formatEntry(entry: TimelineEntry, people: Person[]): FormattedEn
     case 'memo':
       return formatMemo(entry.memo, people);
   }
+}
+
+/** 日ごとの天気の要約（タイムラインの日と天気のツールで同じ名前にする） */
+export function weatherSummary(day: DailyWeather) {
+  return compact({
+    summary: day.label,
+    tempMax: day.tempMax,
+    tempMin: day.tempMin,
+    rainChance: day.pop,
+  });
 }

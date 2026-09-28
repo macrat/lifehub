@@ -34,6 +34,15 @@ export async function findBetween(
   return { daily, hourly };
 }
 
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
+export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
+  return db
+    .select()
+    .from(weather)
+    .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
+    .orderBy(asc(weather.date));
+}
+
 /**
  * 天気の画面の 1 ページ分（[from, to]。両端を含む JST 暦日）を 1 回の往復で読む: 日ごとの天気（日付順）、
  * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）と、from より前に取っておいた日があるか。

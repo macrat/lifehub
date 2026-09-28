@@ -31,11 +31,6 @@ export function toRef(type: EntryType, id: string, occurrenceStart?: Date | stri
     : `${type}:${id}`;
 }
 
-/** 読み取った ref を文字列に戻す（書き込みの結果に、渡された ref を添える） */
-export function refString({ type, id, occurrenceStart }: EntryRef): string {
-  return toRef(type, id, occurrenceStart);
-}
-
 const REF = /^([a-z]+):([0-9a-f-]{36})(?:@(.+))?$/;
 
 export const refSchema = z
@@ -62,7 +57,7 @@ export const refSchema = z
 export function expectType<T extends EntryType>(
   ref: EntryRef,
   types: readonly T[],
-  hint: string,
+  hint = '',
 ): EntryRef & { type: T } {
   if ((types as readonly EntryType[]).includes(ref.type)) return ref as EntryRef & { type: T };
   throw new ValidationError(

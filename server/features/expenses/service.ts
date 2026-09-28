@@ -1,5 +1,4 @@
 import {
-  BALANCE_NEEDS_TWO_USERS,
   type Balance,
   balanceOf,
   balancePair,
@@ -14,8 +13,8 @@ import {
   type ExpenseListQuery,
   expenseRulesSchema,
 } from '../../../shared/validation/expenses.ts';
-import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import { applyPatch } from '../../lib/patch.ts';
+import { NotFoundError } from '../../lib/errors.ts';
+import { applyPatch, checkRules } from '../../lib/patch.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -39,11 +38,15 @@ export const timelineSource: TimelineSource = {
     (await repository.timeline.findInRange(range, q)).map((row) => expenseEntry(toExpense(row))),
 };
 
-/** 立替残高（借方・貸方）。式は shared/expenses.ts。利用者が 2 人のときだけ計算できる */
-export async function getBalance(): Promise<Balance> {
+/**
+ * 立替残高（借方・貸方）。式は shared/expenses.ts。利用者がちょうど 2 人でなければ計算できないので null
+ * （呼び出し側が残高を出さずに済ませられるよう、例外ではなく値で返す）
+ */
+export async function getBalance(): Promise<Balance | null> {
   // 2 つの問い合わせは互いに依存しないので並べて投げる（Neon の HTTP ドライバでは往復 1 回分で済む）
-  const [totals, pair] = await Promise.all([repository.sumByDirection(), twoUsers()]);
-  return balanceOf(totals, pair);
+  const [totals, userList] = await Promise.all([repository.sumByDirection(), users.listUsers()]);
+  const pair = balancePair(userList);
+  return pair && balanceOf(totals, pair);
 }
 
 /**
@@ -55,13 +58,18 @@ export async function getTotals(): Promise<ExpenseTotal[]> {
   return repository.sumByDirection();
 }
 
-/** id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ */
 export async function addExpense(
   input: ExpenseInput,
   userId: string,
   id: string = newId(),
 ): Promise<Expense> {
-  return toExpense(await repository.insert({ ...input, id, createdBy: userId }));
+  const values = checkRules(input, expenseRulesSchema);
+  return toExpense(await repository.insert({ ...values, id, createdBy: userId }));
 }
 
 /** 全項目を置き換える。記録した人（createdBy）は変えない */
@@ -98,10 +106,4 @@ function toExpense(row: ExpenseRow): Expense {
     spentOn: row.spentOn,
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-async function twoUsers(): Promise<[string, string]> {
-  const pair = balancePair(await users.listUsers());
-  if (!pair) throw new ValidationError(BALANCE_NEEDS_TWO_USERS);
-  return pair;
 }

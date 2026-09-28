@@ -32,7 +32,8 @@ async function findById(id: string): Promise<MemoRow | undefined> {
 }
 
 export async function exists(id: string): Promise<boolean> {
-  return (await findById(id)) !== undefined;
+  const [row] = await db.select({ id: memos.id }).from(memos).where(eq(memos.id, id));
+  return row !== undefined;
 }
 
 /** createdBy が書いたメモの本文を置き換える（置き換えた行を返す）。書いた人と書いた時刻は変えない */

@@ -9,7 +9,7 @@ import {
   type UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
-import { applyPatch } from '../../lib/patch.ts';
+import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
@@ -91,13 +91,17 @@ async function currentInput(
   };
 }
 
-/** id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ */
 export async function createEvent(
   input: CreateEventInput,
   userId: string,
   id: string = newId(),
 ): Promise<EventMaster> {
-  const values = normalizeInput(input);
+  const values = normalizeInput(checkRules(input, eventRulesSchema));
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
   scheduleUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）

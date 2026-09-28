@@ -1,4 +1,4 @@
-import { compareKeys } from '../../../shared/calendar.ts';
+import { compareKeys, sortKey } from '../../../shared/calendar.ts';
 import {
   addDays,
   type DateRange,
@@ -25,7 +25,7 @@ import * as expenses from '../expenses/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
-import { listWeather } from '../weather/service.ts';
+import { listDailyWeather } from '../weather/service.ts';
 
 /**
  * 1 ページの件数の目安。ページは日の途中では切らないので、これより多くなることがある
@@ -36,13 +36,18 @@ const PAGE_SIZE = 50;
 /** 最新のページに出す未来の幅。これより先の予定はまだ出さない */
 const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
 
-/** タイムラインに並べる記録の出どころ。新しい種類の記録はここに 1 行足す */
-const sources: TimelineSource[] = [
-  events.timelineSource,
-  expenses.timelineSource,
-  lemon.timelineSource,
-  memos.timelineSource,
-];
+/**
+ * 予定・タスク以外の記録の出どころ。新しい種類の記録はここに 1 行足す。
+ * 日ごとのタイムライン（`listDays`）は予定・タスクだけをカレンダーと同じ規則で置くので、分けて持つ
+ */
+const recordSources = {
+  expense: expenses.timelineSource,
+  lemon: lemon.timelineSource,
+  memo: memos.timelineSource,
+} satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
+
+/** タイムラインに並べる記録の出どころ */
+const sources: TimelineSource[] = [events.timelineSource, ...Object.values(recordSources)];
 
 /**
  * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・立替・レモン・メモを 1 本に並べる。
@@ -113,12 +118,8 @@ export type TimelineDay = {
   entries: TimelineEntry[];
 };
 
-/** 予定・タスク以外の記録の出どころ。日ごとのタイムラインは、予定・タスクだけをカレンダーと同じ規則で置く */
-const recordSources = {
-  expense: expenses.timelineSource,
-  lemon: lemon.timelineSource,
-  memo: memos.timelineSource,
-} satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
+/** 日ごとのタイムラインで絞れる記録の種類。予定とタスクは分けて絞れる */
+export type DayEntryType = 'event' | 'task' | keyof typeof recordSources;
 
 /**
  * [from, to]（両端を含む JST 暦日）のタイムラインを日ごとに分けたもの（日付順。記録の無い日も含む）。MCP が読む。
@@ -129,25 +130,25 @@ const recordSources = {
  * WHY NOT ホームのタイムライン（`getTimelinePage`）と同じく 1 回を 1 行にする: 行は置く日を 1 つしか持たないので、
  * 「10/2 の予定」を訊かれたとき、10/1 から続く旅行が 10/1 の側にしか出ず、10/2 を読んでも見つからない。
  * 日を指して読む相手には、その日に掛かる予定がすべてその日に出るほうが正しい。
- * 1 日の中は、終日の予定 → 時刻の順 → 日時を持たないタスク。
+ * 1 日の中は、終日 → 時刻の順 → 日時を持たないタスク（`compareInDay`）。
  */
 export async function listDays(
   range: DateRange,
-  { q, types }: { q?: string | undefined; types?: readonly TimelineEntry['type'][] | undefined },
+  { q, types }: { q?: string | undefined; types?: readonly DayEntryType[] | undefined },
   now: Date = new Date(),
 ): Promise<TimelineDay[]> {
-  const wants = (type: TimelineEntry['type']) => !types || types.includes(type);
+  const wants = (type: DayEntryType) => !types || types.includes(type);
   const records = Object.entries(recordSources).flatMap(([type, source]) =>
-    wants(type as TimelineEntry['type']) ? [source.entries(instantRange(range), q, now)] : [],
+    wants(type as DayEntryType) ? [source.entries(instantRange(range), q, now)] : [],
   );
   const [items, holidays, weather, ...recordEntries] = await Promise.all([
-    wants('event') ? events.listItems(range, now) : [],
+    wants('event') || wants('task') ? events.listItems(range, now) : [],
     listHolidays(range),
-    listWeather(range),
+    listDailyWeather(range),
     ...records,
   ]);
   const eventEntries = items
-    .filter((item) => matchesKeyword(q, item.title, item.note))
+    .filter((item) => wants(item.kind) && matchesKeyword(q, item.title, item.note))
     .map((item) => ({ date: item.placementDate, entry: eventEntry(item, now) }));
   const byDay = Map.groupBy(
     [
@@ -157,7 +158,7 @@ export async function listDays(
     ({ date }) => date,
   );
   const holidaySet = new Set(holidays);
-  const weatherByDay = new Map(weather.daily.map((day) => [day.date, day]));
+  const weatherByDay = new Map(weather.map((day) => [day.date, day]));
   return Array.from({ length: diffDays(range.from, range.to) + 1 }, (_, i) => {
     const date = addDays(range.from, i);
     return {
@@ -169,11 +170,11 @@ export async function listDays(
   });
 }
 
-/** 1 日の中の並び: 終日の予定 → 時刻の順 → 日時を持たないタスク。同じなら鍵の順 */
+/**
+ * 1 日の中の並び: 予定・タスクはカレンダーと同じ鍵（`sortKey`。終日 → 時刻の順 → 日時の無いタスク）、
+ * ほかの記録は置く日時で、同じ時間軸に混ぜる。同じなら鍵の順
+ */
 function compareInDay(a: TimelineEntry, b: TimelineEntry): number {
-  const key = (entry: TimelineEntry) => {
-    if (entry.type === 'event' && entry.item.kind === 'event' && entry.item.allDay) return '0';
-    return entry.at ? `1${entry.at}` : '2';
-  };
+  const key = (entry: TimelineEntry) => (entry.type === 'event' ? sortKey(entry.item) : entry.at);
   return compareKeys(key(a), key(b)) || compareKeys(a.id, b.id);
 }

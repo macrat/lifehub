@@ -1,9 +1,8 @@
-import { careLogFieldsSchema, careLogRulesSchema } from '../../../shared/validation/lemon.ts';
+import { careLogFieldsSchema } from '../../../shared/validation/lemon.ts';
 import { formatCareLog } from '../../lib/mcp/entries.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
 import { instantInputSchema } from '../../lib/mcp/time.ts';
 import { ADDITIVE, EDITING, jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
-import { checkRules } from '../../lib/patch.ts';
 import * as service from './service.ts';
 
 /**
@@ -36,11 +35,14 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
     },
     async ({ careTypes, at, note }) => {
       // 今の日時は LLM が推し量らずに済むよう、サーバーの今で埋める
-      const input = { careTypes, doneAt: at ?? new Date(), note: note ?? null };
-      const log = await service.logCare(checkRules(input, careLogRulesSchema), {
-        userId: ctx.userId,
-      });
-      return jsonResult(formatCareLog(log, await ctx.people()));
+      const [log, people] = await Promise.all([
+        service.logCare(
+          { careTypes, doneAt: at ?? new Date(), note: note ?? null },
+          { userId: ctx.userId },
+        ),
+        ctx.people(),
+      ]);
+      return jsonResult(formatCareLog(log, people));
     },
   );
 
@@ -59,9 +61,12 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
       annotations: EDITING,
     },
     async ({ ref, careTypes, at, note }) => {
-      const { id } = expectType(ref, ['lemon'], '');
-      const log = await service.patchLog(id, { careTypes, doneAt: at, note });
-      return jsonResult(formatCareLog(log, await ctx.people()));
+      const { id } = expectType(ref, ['lemon']);
+      const [log, people] = await Promise.all([
+        service.patchLog(id, { careTypes, doneAt: at, note }),
+        ctx.people(),
+      ]);
+      return jsonResult(formatCareLog(log, people));
     },
   );
 };

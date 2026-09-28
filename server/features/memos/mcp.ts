@@ -22,8 +22,8 @@ export const registerMemoTools: ToolRegistrar = (server, ctx) => {
       annotations: ADDITIVE,
     },
     async (input) => {
-      const memo = await service.addMemo(input, ctx.userId);
-      return jsonResult(formatMemo(memo, await ctx.people()));
+      const [memo, people] = await Promise.all([service.addMemo(input, ctx.userId), ctx.people()]);
+      return jsonResult(formatMemo(memo, people));
     },
   );
 
@@ -37,9 +37,12 @@ export const registerMemoTools: ToolRegistrar = (server, ctx) => {
       annotations: EDITING,
     },
     async ({ ref, body }) => {
-      const { id } = expectType(ref, ['memo'], '');
-      const memo = await service.updateMemo(id, { body }, ctx.userId);
-      return jsonResult(formatMemo(memo, await ctx.people()));
+      const { id } = expectType(ref, ['memo']);
+      const [memo, people] = await Promise.all([
+        service.updateMemo(id, { body }, ctx.userId),
+        ctx.people(),
+      ]);
+      return jsonResult(formatMemo(memo, people));
     },
   );
 };

@@ -1,9 +1,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { addDays, type DateRange, diffDays, today } from '../../../shared/date.ts';
-import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { ValidationError } from '../../lib/errors.ts';
-import { type FormattedEntry, formatBalance, formatEntry } from '../../lib/mcp/entries.ts';
+import { addDays, type DateRange, today } from '../../../shared/date.ts';
+import {
+  type FormattedEntry,
+  formatBalance,
+  formatEntry,
+  weatherSummary,
+} from '../../lib/mcp/entries.ts';
 import {
   ENTRY_TYPES,
   type EntryType,
@@ -11,13 +14,12 @@ import {
   refSchema,
   scopeSchema,
 } from '../../lib/mcp/refs.ts';
-import { jstDateTime, weekdayOf } from '../../lib/mcp/time.ts';
+import { dateRangeInput, jstDateTime, weekdayOf } from '../../lib/mcp/time.ts';
 import {
   compact,
   EDITING,
   jsonResult,
   type McpContext,
-  type Person,
   READ_ONLY,
   type ToolRegistrar,
   textResult,
@@ -37,56 +39,45 @@ import { listDays, type TimelineDay } from './service.ts';
 /** 1 回の read_timeline で返すエントリーの上限。越えた日からは省き、絞り方を添える（LLM の文脈を溢れさせない） */
 const MAX_ENTRIES = 200;
 
-/** read_timeline で読める期間の上限（日数） */
-const MAX_DAYS = 366;
+/** read_timeline の期間: 既定は 7 日、最大 366 日 */
+const range = dateRangeInput(7, 366);
 
-/** 1 日を LLM に返す形にする。天気は 1 行の要約（詳しくは get_weather） */
+/** 1 日を LLM に返す形にする。天気は要約だけ（詳しくは get_weather） */
 function formatDay(day: TimelineDay, entries: FormattedEntry[]) {
-  const { weather } = day;
   return compact({
     date: day.date,
     weekday: weekdayOf(day.date),
     holiday: day.holiday || undefined,
-    weather:
-      weather &&
-      compact({
-        summary: weather.label,
-        tempMax: weather.tempMax,
-        tempMin: weather.tempMin,
-        rainChance: weather.pop,
-      }),
+    weather: day.weather && weatherSummary(day.weather),
     entries,
   });
 }
 
-/** エントリーの種類 → service が読む記録の種類（予定とタスクは同じ表） */
-function sourceTypes(types: EntryType[] | undefined) {
-  return types?.map((type) => (type === 'task' ? 'event' : type));
-}
-
-/** 期間の日ごとのエントリー。filtered のときは、エントリーの無い日を省く */
+/** 期間の日ごとのエントリー。絞り込んだとき（q・types）は、エントリーの無い日を省く */
 async function readDays(
-  range: DateRange,
+  ctx: McpContext,
+  days: DateRange,
   filter: { q?: string | undefined; types?: EntryType[] | undefined },
-  people: Person[],
 ) {
-  const days = await listDays(range, { q: filter.q, types: sourceTypes(filter.types) });
+  const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter)]);
   const filtered = filter.q !== undefined || filter.types !== undefined;
   const result = [];
   let count = 0;
-  for (const day of days) {
-    const entries = day.entries
-      .map((entry) => formatEntry(entry, people))
-      .filter((entry) => !filter.types || filter.types.includes(entry.type));
-    if (filtered && entries.length === 0) continue;
-    if (count + entries.length > MAX_ENTRIES && result.length > 0) {
+  for (const day of timeline) {
+    if (filtered && day.entries.length === 0) continue;
+    if (count + day.entries.length > MAX_ENTRIES && result.length > 0) {
       return {
         days: result,
         truncated: `エントリーが多いので ${day.date} 以降を省きました。from を ${day.date} にして続きを読むか、q・types で絞ってください`,
       };
     }
-    count += entries.length;
-    result.push(formatDay(day, entries));
+    count += day.entries.length;
+    result.push(
+      formatDay(
+        day,
+        day.entries.map((entry) => formatEntry(entry, people)),
+      ),
+    );
   }
   return { days: result };
 }
@@ -104,14 +95,10 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     async () => {
       const now = new Date();
       const date = today(now);
-      const people = await ctx.people();
-      const [timeline, balance, lemonStatus] = await Promise.all([
-        readDays({ from: date, to: addDays(date, 1) }, {}, people),
-        // 残高はユーザーがちょうど 2 人のときだけ計算できる。計算できなくても他の状況は返す
-        expenses.getBalance().catch((error: unknown) => {
-          if (error instanceof ValidationError) return null;
-          throw error;
-        }),
+      const [people, timeline, balance, lemonStatus] = await Promise.all([
+        ctx.people(),
+        readDays(ctx, { from: date, to: addDays(date, 1) }, {}),
+        expenses.getBalance(),
         lemon.getStatus(now),
       ]);
       return jsonResult({
@@ -142,10 +129,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
         '各エントリーの ref を update_event・set_task_done・update_expense・update_lemon_log・update_memo・delete_entry に渡す。',
       ].join(' '),
       inputSchema: {
-        from: dateStringSchema.optional().describe('最初の日（JST の YYYY-MM-DD）。省くと今日'),
-        to: dateStringSchema
-          .optional()
-          .describe(`最後の日（その日を含む）。省くと from の 6 日後。期間は ${MAX_DAYS} 日まで`),
+        ...range.shape,
         q: z
           .string()
           .trim()
@@ -156,15 +140,9 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
       },
       annotations: READ_ONLY,
     },
-    async ({ from: fromInput, to: toInput, q, types }) => {
-      const from = fromInput ?? (toInput ? addDays(toInput, -6) : today());
-      const to = toInput ?? addDays(from, 6);
-      if (from > to) throw new ValidationError('from は to 以前にしてください');
-      if (diffDays(from, to) >= MAX_DAYS) {
-        throw new ValidationError(`期間は ${MAX_DAYS} 日までです。分けて読んでください`);
-      }
-      const people = await ctx.people();
-      return jsonResult({ from, to, ...(await readDays({ from, to }, { q, types }, people)) });
+    async ({ from, to, q, types }) => {
+      const period = range.resolve({ from, to });
+      return jsonResult({ ...period, ...(await readDays(ctx, period, { q, types })) });
     },
   );
 }

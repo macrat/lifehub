@@ -300,6 +300,11 @@ function toSlot({ startsAt, weather, temp }: repository.HourlyWeatherRow) {
   };
 }
 
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順。表に無い天気の日は除く。`listWeather`） */
+export async function listDailyWeather(range: DateRange): Promise<DailyWeather[]> {
+  return toDaily(await repository.findDaily(range));
+}
+
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と 3 時間ごとの天気（時刻順）。
  * 過ぎた日は取っておいたすべて（その日・その区間の最後の予報）、先の日は予報のある所（日ごとは 7 日先、

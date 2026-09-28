@@ -2,8 +2,18 @@ import { TZDate } from '@date-fns/tz';
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import { inclusiveEndDate, isDateString, startOfDate, toDateString } from '../../../shared/date.ts';
+import {
+  addDays,
+  allDayDate,
+  type DateRange,
+  diffDays,
+  isDateString,
+  startOfDate,
+  today,
+} from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { dateRangeQuerySchema, dateStringSchema } from '../../../shared/validation/common.ts';
+import { ValidationError } from '../errors.ts';
 
 /**
  * MCP で受け渡す日付・日時。LLM が読み書きしやすいよう、日時はいつも JST（+09:00）の壁時計で出し、
@@ -12,7 +22,6 @@ import type { DateString } from '../../../shared/types.ts';
  * 入力にタイムゾーンを必須にすると、LLM は付け忘れたり、UTC に直し間違えたりする。
  */
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
 const HAS_ZONE = /(Z|[+-]\d{2}:\d{2})$/;
 
@@ -38,7 +47,7 @@ export const instantInputSchema = z.string().transform((value, ctx) => {
 
 /** 日付（YYYY-MM-DD。終日）か日時（YYYY-MM-DDTHH:mm。タイムゾーンを省くと JST）の入力 */
 export const whenInputSchema = z.string().transform((value, ctx): When => {
-  if (DATE.test(value) && isDateString(value)) return { date: value };
+  if (isDateString(value)) return { date: value };
   const at = parseDateTime(value);
   if (at) return { at };
   ctx.addIssue({
@@ -63,12 +72,9 @@ export function jstTime(value: Date | string): string {
   return format(new TZDate(new Date(value), TIME_ZONE), 'HH:mm');
 }
 
-/** 終日の項目の開始日・終了日（含む）と、時刻のある項目の日時を、それぞれ LLM に返す形にする */
-export function startOutput(allDay: boolean, startsAt: string): string {
-  return allDay ? toDateString(new Date(startsAt)) : jstDateTime(startsAt);
-}
-export function endOutput(allDay: boolean, endsAt: string): string {
-  return allDay ? inclusiveEndDate(endsAt) : jstDateTime(endsAt);
+/** 予定・タスクの開始・終了（期限）を LLM に返す形にする。終日は日付（終了はその日を含む）、時刻ありは JST の日時 */
+export function whenOutput(allDay: boolean, iso: string, edge: 'start' | 'end'): string {
+  return allDay ? allDayDate(iso, edge) : jstDateTime(iso);
 }
 
 const WEEKDAYS = '日月火水木金土';
@@ -76,4 +82,29 @@ const WEEKDAYS = '日月火水木金土';
 /** JST の暦日の曜日（`月`） */
 export function weekdayOf(date: DateString): string {
   return WEEKDAYS[new TZDate(startOfDate(date), TIME_ZONE).getDay()] ?? '';
+}
+
+/**
+ * 期間を読むツールの入力（最初の日・最後の日。どちらも省ける）と、それを期間に直す関数。
+ * 省いた端は days 日の期間になるよう埋め（両方省けば今日から）、max 日を越えれば分けて読むよう文で返す
+ * （一度に返す量を LLM の文脈に収める）。
+ */
+export function dateRangeInput(days: number, max: number) {
+  const shape = {
+    from: dateStringSchema.optional().describe('最初の日（JST の YYYY-MM-DD）。省くと今日'),
+    to: dateStringSchema
+      .optional()
+      .describe(`最後の日（その日を含む）。省くと from から ${days} 日間。期間は ${max} 日まで`),
+  };
+  const resolve = (input: { from?: DateRange['from']; to?: DateRange['to'] }): DateRange => {
+    const from = input.from ?? (input.to ? addDays(input.to, 1 - days) : today());
+    const range = { from, to: input.to ?? addDays(from, days - 1) };
+    const checked = dateRangeQuerySchema.safeParse(range);
+    if (!checked.success) throw new ValidationError(checked.error.issues[0]?.message);
+    if (diffDays(range.from, range.to) >= max) {
+      throw new ValidationError(`期間は ${max} 日までです。分けて読んでください`);
+    }
+    return range;
+  };
+  return { shape, resolve };
 }

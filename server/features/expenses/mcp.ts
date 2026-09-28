@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { today } from '../../../shared/date.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { expenseFieldsSchema, expenseRulesSchema } from '../../../shared/validation/expenses.ts';
+import { expenseFieldsSchema } from '../../../shared/validation/expenses.ts';
 import { formatBalance, formatExpense } from '../../lib/mcp/entries.ts';
 import { personInputSchema, resolvePerson } from '../../lib/mcp/people.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
@@ -10,9 +10,9 @@ import {
   EDITING,
   jsonResult,
   type McpContext,
+  type Person,
   type ToolRegistrar,
 } from '../../lib/mcp/types.ts';
-import { checkRules } from '../../lib/patch.ts';
 import * as service from './service.ts';
 
 /**
@@ -33,15 +33,15 @@ const fields = {
 };
 
 /** paidFor → 立替の To（null は共有） */
-async function toUserIdOf(ctx: McpContext, paidFor: string): Promise<string | null> {
-  return paidFor === 'shared' ? null : resolvePerson(await ctx.people(), paidFor, ctx.userId);
+function toUserIdOf(ctx: McpContext, people: Person[], paidFor: string): string | null {
+  return paidFor === 'shared' ? null : resolvePerson(people, paidFor, ctx.userId);
 }
 
-async function withBalance(ctx: McpContext, expense: service.Expense) {
-  const [people, balance] = await Promise.all([ctx.people(), service.getBalance()]);
+async function withBalance(people: Person[], expense: service.Expense) {
+  const balance = await service.getBalance();
   return jsonResult({
     entry: formatExpense(expense, people),
-    balance: formatBalance(balance, people),
+    balance: balance && formatBalance(balance, people),
   });
 }
 
@@ -63,16 +63,18 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
     },
     async ({ amount, description, paidFor, paidBy, date }) => {
       const people = await ctx.people();
-      const input = {
-        amount,
-        description,
-        fromUserId: paidBy ? resolvePerson(people, paidBy, ctx.userId) : ctx.userId,
-        toUserId: await toUserIdOf(ctx, paidFor),
-        // 今日の日付は LLM が推し量らずに済むよう、サーバーの今日で埋める
-        spentOn: date ?? today(),
-      };
-      const expense = await service.addExpense(checkRules(input, expenseRulesSchema), ctx.userId);
-      return withBalance(ctx, expense);
+      const expense = await service.addExpense(
+        {
+          amount,
+          description,
+          fromUserId: paidBy ? resolvePerson(people, paidBy, ctx.userId) : ctx.userId,
+          toUserId: toUserIdOf(ctx, people, paidFor),
+          // 今日の日付は LLM が推し量らずに済むよう、サーバーの今日で埋める
+          spentOn: date ?? today(),
+        },
+        ctx.userId,
+      );
+      return withBalance(people, expense);
     },
   );
 
@@ -93,16 +95,16 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
       annotations: EDITING,
     },
     async ({ ref, amount, description, paidFor, paidBy, date }) => {
-      const { id } = expectType(ref, ['expense'], '');
+      const { id } = expectType(ref, ['expense']);
       const people = await ctx.people();
       const expense = await service.patchExpense(id, {
         amount,
         description,
         fromUserId: paidBy && resolvePerson(people, paidBy, ctx.userId),
-        toUserId: paidFor === undefined ? undefined : await toUserIdOf(ctx, paidFor),
+        toUserId: paidFor === undefined ? undefined : toUserIdOf(ctx, people, paidFor),
         spentOn: date,
       });
-      return withBalance(ctx, expense);
+      return withBalance(people, expense);
     },
   );
 };
