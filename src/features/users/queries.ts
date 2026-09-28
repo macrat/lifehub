@@ -1,6 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { pickDistinctHue } from '../../../shared/color.ts';
-import { newId } from '../../../shared/id.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { api, createRequest, itemRequest } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
@@ -28,21 +26,15 @@ export function useUsers() {
 /**
  * ユーザーの登録。オフラインでは溜めずにその場で失敗させる（queue: false）。
  * パスワードを含むので端末に残したくなく、2 人しか居ないアプリで急ぐ操作でもない。
+ * 楽観的更新の `apply` は持たない（配信 URL の発行と同じ）。ユーザーの ID はサーバー（better-auth）が
+ * 決めるので、先に出す行には本物と違う仮の ID しか付けられず、取り直しが届く前にその行を編集すると
+ * 無い ID へ送ってしまう。フォームはどのみち返事を待つので、一覧には取り直しで本物の行を出す。
  */
 export function useCreateUser() {
   return useOptimisticMutation({
     request: createRequest<CreateUserInput>(api.users),
     queue: false,
     keys: [meQueryOptions.queryKey],
-    apply: (client, input) => {
-      client.setQueryData(meQueryOptions.queryKey, (me) => {
-        if (!me) return me;
-        // 色の既定はサーバーと同じ規則（既存のユーザーから最も離れた色相）で決める
-        const hue = input.hue ?? pickDistinctHue(me.users.map((user) => user.hue));
-        const user = { id: newId(), name: input.name, email: input.email, hue };
-        return { ...me, users: [...me.users, user] };
-      });
-    },
   });
 }
 
