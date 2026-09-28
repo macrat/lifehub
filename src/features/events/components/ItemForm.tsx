@@ -1,13 +1,15 @@
-import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
+import type { EventKind, RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { ADD_KINDS } from '../../add/kinds.ts';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
-import { useAllDay, useItemForm } from '../use-item-form.ts';
+import { useAllDay, useItemForm, useKindSwitch } from '../use-item-form.ts';
 import { ItemFields } from './EventFields.tsx';
+import { KindToggle } from './KindToggle.tsx';
 
 type Props = {
-  kind: 'event' | 'task';
+  /** 開いたときの種類。上端の切り替え（`KindToggle`）で入力の途中から変えられる */
+  kind: EventKind;
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
@@ -23,11 +25,14 @@ type Props = {
 /**
  * 予定・タスクの全項目のフォーム。追加（`ItemCreateForm`）のほか、クイック入力の「その他のオプション」から
  * 直し続けるときもここへ来る（何を保存するかは `onSubmit` を渡す側が決める）。詳細から開く編集は `ItemDetailSheet`。
- * 予定は開始・終了が必須で、通知は開始前だけを扱う。タスクは開始・期限がどちらも任意で、通知は「開始に」「期限に」の 2 択。
+ * 予定は開始・終了が必須で、通知は開始前だけを扱う。タスクは開始・期限がどちらも任意で、通知は開始前と期限前。
+ * 予定とタスクは上端の切り替えで入れ替えられる（繰り返しの 1 回だけを直しているときは出さない）。
  */
-export function ItemForm({ kind, initial, scope, editing = false, onSubmit, onClose }: Props) {
+export function ItemForm(props: Props) {
+  const { scope, editing = false, onSubmit, onClose } = props;
+  const { kind, initial, switchTo } = useKindSwitch(props.kind, props.initial);
   const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
-  const { thisOnly, errors, sheet } = useItemForm({
+  const { thisOnly, errors, sheet, readInput } = useItemForm({
     kind,
     initial,
     allDay,
@@ -42,6 +47,9 @@ export function ItemForm({ kind, initial, scope, editing = false, onSubmit, onCl
       onClose={onClose}
       full
       title={`${ADD_KINDS[kind].label}を${editing ? '編集' : '追加'}`}
+      switcher={
+        !thisOnly && <KindToggle kind={kind} onChange={(to) => switchTo(to, readInput())} />
+      }
     >
       <ItemFields
         kind={kind}

@@ -2,6 +2,7 @@ import { type CalendarItem, occurrenceKey } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import type { ItemEnds } from './item-shape.ts';
 import { taskBlock, timedSlot, timelineSlot } from './timeline-layout.ts';
 
@@ -20,6 +21,12 @@ export type DraftRange =
  * ドラッグは範囲と対象を一緒に返すので、つまむたびに「今どれを直しているか」が決まる。
  */
 export type Draft = { range: DraftRange; item: CalendarItem | null };
+
+/**
+ * グリッドに出している枠と、それが何の枠か（予定かタスクか）。直している物（item）の種類とは限らない
+ * （入力で種類を切り替えられる）。タスクの枠は長さを持たず、端をつまめない（`hasEnds`）
+ */
+export type KindedDraft = Draft & { kind: EventKind };
 
 /** 時間指定の下書き（週・日の時間軸に出す枠） */
 export type TimedDraft = DraftRange & { allDay: false };
@@ -81,11 +88,30 @@ export function taskFrame(date: DateString, startMin: number | null): DraftRange
 }
 
 /**
+ * 枠をタスクの形にする: 開始の所に置いたタスクの枠（`taskFrame`）。終日は最初の日 1 日。
+ * タスクは長さを持たないので、予定の枠から切り替えたときも、タスクのまま空いている所をなぞったときも、
+ * 見た目は置いたタスクと同じになる。タスクの枠はそのまま返る。
+ */
+export function toTaskFrame(range: DraftRange): DraftRange {
+  return range.allDay ? allDayDraft(range.from) : taskFrame(range.date, range.startMin);
+}
+
+/**
+ * タスクの枠を予定の枠にする（入力で種類を切り替えたとき）。引き継ぐのは開始だけで、
+ * 時間指定ならタップで作る予定と同じ 1 時間（日の終わりで止める）、終日はその日 1 日。
+ */
+export function toEventRange(range: DraftRange): DraftRange {
+  if (range.allDay) return allDayDraft(range.from);
+  const { date, startMin } = range;
+  return { allDay: false, date, startMin, endMin: Math.min(startMin + TAP_MINUTES, DAY_MINUTES) };
+}
+
+/**
  * 枠の端（開始・終了）をつまんで直せるか。タスクは長さを持たないので、どこをつまんでも枠ごと動く
  * （時間軸は端の丸・線を出さず、日の並びは端に当たる所を押しても帯そのもの）。
  */
-export function hasEnds(item: CalendarItem | null): boolean {
-  return item?.kind !== 'task';
+export function hasEnds(kind: EventKind): boolean {
+  return kind !== 'task';
 }
 
 /**

@@ -1,25 +1,15 @@
-import type { QuickProps, TaskGridDraft } from '../use-event-composer.ts';
-import { useQuickEventForm } from '../use-quick-event-form.ts';
-import { useQuickTaskForm } from '../use-quick-task-form.ts';
+import type { QuickProps } from '../use-event-composer.ts';
+import { useQuickForm } from '../use-quick-form.ts';
 import { QuickForm } from './QuickForm.tsx';
 
 /**
- * 選んだ範囲に予定を入れるための入力。予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。
- * 予定を長押しでつまんで直しているとき（`draft.item`）も同じ入力で、既定値がその予定の内容になるだけ。
- * 状態と操作は `useQuickEventForm` が持ち、入れ物（スマホのシート・PC の吹き出し）と項目は `QuickForm`。
+ * グリッドの下書き（選んだ範囲・長押しでつまんだ予定やタスク）を入力するクイック入力。
+ * 予定の追加はグリッドをなぞっても追加ボタンからでもここへ来る。つまんで直しているとき（`draft.item`）も同じ入力で、
+ * 既定値がその内容になるだけ。上端の切り替えで予定とタスクを入れ替えられ、入力の中身（日時・通知）と枠の形が変わる。
+ * 状態と操作は `useQuickForm` が持ち、入れ物（スマホのシート・PC の吹き出し）と項目は `QuickForm`。
+ * 予定とタスクで同じコンポーネントなので、種類を切り替えても入れ物と入力済みの欄は作り直さない。
  */
-export function QuickEventForm(props: QuickProps) {
-  const quick = useQuickEventForm(props);
-  return <QuickForm {...props} kind="event" quick={quick} />;
-}
-
-/**
- * 長押しでつまんで動かしたタスクの入力。予定と同じ入れ物（`QuickForm`）で、スマホでは画面の下半分の
- * シート（下の段はタイトル・日時の見出し・参加者だけ）から始まり、上の段まで広げるとタスクの全項目
- * （終日・開始・期限・場所・メモ・繰り返し・通知）になる。
- * 下の段では後ろのグリッドを触れるので、シートを開いたまま枠をつまんで動かし直せる。
- */
-export function QuickTaskForm(props: Omit<QuickProps, 'draft'> & { draft: TaskGridDraft }) {
-  const quick = useQuickTaskForm(props);
-  return <QuickForm {...props} kind="task" quick={quick} />;
+export function QuickItemForm(props: QuickProps) {
+  const quick = useQuickForm(props);
+  return <QuickForm {...props} kind={props.draft.kind} quick={quick} />;
 }

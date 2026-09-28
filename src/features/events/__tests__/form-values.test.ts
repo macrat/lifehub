@@ -4,6 +4,7 @@ import {
   eventInputFromForm,
   type ItemFormValues,
   shiftedEnd,
+  switchKindValues,
   taskInputFromForm,
 } from '../form-values.ts';
 
@@ -77,5 +78,62 @@ test('残りの項目の欄があれば、空にした欄・外したチェッ�
     note: null,
     remindStartMinutes: null,
     remindEndMinutes: null,
+  });
+});
+
+test('タスクの通知は予定と同じく何分前かを選び、終日なら日単位に寄せた既定値を使う', () => {
+  const formData = bubble('歯医者');
+  formData.set(EXTRA_FIELDS_MARKER, '1');
+  formData.set('remindStartMinutes', '30');
+  formData.set('remindEndMinutes', 'none');
+  expect(taskInputFromForm(formData, { initial: saved, allDay: false })).toMatchObject({
+    remindStartMinutes: 30,
+    remindEndMinutes: null,
+  });
+  // 欄の無い吹き出しで終日にしたら、30 分前は前日に寄せる（終日では n 分前を選べない）
+  expect(taskInputFromForm(bubble('歯医者'), { initial: saved, allDay: true })).toMatchObject({
+    remindStartMinutes: 1440,
+  });
+});
+
+test('予定をタスクにすると開始だけを引き継ぎ、期限と期限前の通知は空になる', () => {
+  const event = { ...saved, remindEndMinutes: 10 };
+  expect(
+    switchKindValues(event, { allDay: false, startsAt: '2030-02-04T02:00:00.000Z' }, 'task'),
+  ).toEqual({
+    ...event,
+    startsAt: '2030-02-04T02:00:00.000Z',
+    endsAt: null,
+    remindEndMinutes: null,
+  });
+});
+
+test('タスクを予定にすると、開始から 1 時間（終日ならその日 1 日）の予定になる', () => {
+  const task = { ...saved, endsAt: '2030-02-10T00:00:00.000Z', remindEndMinutes: 0 };
+  expect(
+    switchKindValues(task, { allDay: false, startsAt: '2030-02-04T02:00:00.000Z' }, 'event'),
+  ).toMatchObject({
+    allDay: false,
+    startsAt: '2030-02-04T02:00:00.000Z',
+    endsAt: '2030-02-04T03:00:00.000Z',
+    remindStartMinutes: 30,
+    remindEndMinutes: null,
+  });
+  // 2/4 JST の終日
+  expect(
+    switchKindValues(task, { allDay: true, startsAt: '2030-02-03T15:00:00.000Z' }, 'event'),
+  ).toMatchObject({
+    allDay: true,
+    startsAt: '2030-02-03T15:00:00.000Z',
+    endsAt: '2030-02-04T15:00:00.000Z',
+  });
+});
+
+test('開始の無いタスクを予定にすると、今日の終日の予定になる', () => {
+  const now = new Date('2030-02-04T12:00:00+09:00');
+  expect(switchKindValues(saved, { allDay: true, startsAt: null }, 'event', now)).toMatchObject({
+    allDay: true,
+    startsAt: '2030-02-03T15:00:00.000Z',
+    endsAt: '2030-02-04T15:00:00.000Z',
   });
 });

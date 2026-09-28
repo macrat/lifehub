@@ -1,4 +1,3 @@
-import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
@@ -11,6 +10,7 @@ import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
   type AllDayRemind,
+  type EventKind,
   REMIND_BEFORE_OPTIONS,
   type RecurrenceScope,
   toAllDayRemind,
@@ -48,14 +48,14 @@ export function ScopeChip({ scope }: { scope: RecurrenceScope }) {
   );
 }
 
-/** 終日の予定の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
+/** 終日の通知の選択肢（`ALL_DAY_REMIND_OPTIONS`）。当日か前日の、各自の通知時刻（設定画面で選ぶ）に届く */
 const ALL_DAY_REMIND_LABELS: Record<AllDayRemind, string> = {
   0: '当日',
   1440: '前日',
 };
 
-const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
-  0: '開始時刻',
+/** 時刻のある通知の選択肢。0 分前は「開始時刻」「期限時刻」のように、その端の時刻そのもの */
+const REMIND_LABELS: Record<Exclude<(typeof REMIND_BEFORE_OPTIONS)[number], 0>, string> = {
   5: '5分前',
   10: '10分前',
   15: '15分前',
@@ -65,7 +65,7 @@ const REMIND_LABELS: Record<(typeof REMIND_BEFORE_OPTIONS)[number], string> = {
   1440: '1日前',
 };
 
-type Kind = 'event' | 'task';
+type Kind = EventKind;
 
 type AllDayProps = { allDay: boolean; onChangeAllDay: (allDay: boolean) => void };
 
@@ -99,6 +99,8 @@ export function ItemFields({
         fullWidth
       />
       <WhenFields
+        // 種類を切り替えたら、切り替えた既定値（`switchKindValues`）の日時で入力欄を作り直す
+        key={kind}
         kind={kind}
         initial={initial}
         errors={errors}
@@ -187,7 +189,8 @@ function taskWhen(initial: ItemFormValues, allDay: boolean) {
 
 /**
  * 残りの項目（場所・メモ・繰り返し・通知）。日時と同じく全項目とクイック入力で共通。
- * 通知は、予定は開始の何分前か（終日なら当日か前日）の 1 つ、タスクは「開始に」「期限に」の 2 択。
+ * 通知は何分前か（終日なら当日か前日）を選ぶ（`RemindField`）。予定は開始前の 1 つ、タスクは開始前と期限前の 2 つ。
+ * WHY 予定とタスクで選び方を揃える: 種類を切り替えても開始前の通知をそのまま引き継げる。
  * 終日の予定・タスクの通知は、その日の各自の通知時刻（設定画面で選ぶ）に届く。
  */
 export function ExtraFields({
@@ -210,31 +213,59 @@ export function ExtraFields({
         fullWidth
       />
       {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
-      {kind === 'event' ? (
-        <EventRemindField initial={initial} allDay={allDay} />
-      ) : (
-        <TaskRemindFields initial={initial} allDay={allDay} />
+      <RemindField
+        name="remindStartMinutes"
+        label={kind === 'event' ? '通知' : `${TASK_TIME_LABELS.start}の通知`}
+        edge={TASK_TIME_LABELS.start}
+        saved={initial.remindStartMinutes}
+        allDay={allDay}
+      />
+      {kind === 'task' && (
+        <RemindField
+          name="remindEndMinutes"
+          label={`${TASK_TIME_LABELS.due}の通知`}
+          edge={TASK_TIME_LABELS.due}
+          saved={initial.remindEndMinutes}
+          allDay={allDay}
+        />
       )}
     </>
   );
 }
 
-/** 予定の通知。開始の何分前か（終日なら当日か前日） */
-function EventRemindField({ initial, allDay }: { initial: ItemFormValues; allDay: boolean }) {
+/**
+ * 通知 1 つ（開始か期限の何分前か。終日なら当日か前日）。予定もタスクも同じ選び方で、
+ * 予定は開始前、タスクは開始前と期限前の 2 つを出す。
+ * 開始前の欄は予定とタスクで同じ位置・同じ部品なので、種類を切り替えても選んだ値が残る。
+ */
+function RemindField({
+  name,
+  label,
+  edge,
+  saved,
+  allDay,
+}: {
+  name: 'remindStartMinutes' | 'remindEndMinutes';
+  label: string;
+  /** 通知する端の名前（開始・期限）。0 分前の選択肢の名前になる */
+  edge: string;
+  saved: number | null;
+  allDay: boolean;
+}) {
   const options = allDay
     ? ALL_DAY_REMIND_OPTIONS.map((m) => ({ value: m, label: ALL_DAY_REMIND_LABELS[m] }))
-    : REMIND_BEFORE_OPTIONS.map((m) => ({ value: m, label: REMIND_LABELS[m] }));
+    : REMIND_BEFORE_OPTIONS.map((m) => ({
+        value: m,
+        label: m === 0 ? `${edge}時刻` : REMIND_LABELS[m],
+      }));
   return (
     <TextField
       // 終日を切り替えると選択肢が入れ替わるので、選択肢に合う値で作り直す
       key={allDay ? 'all-day' : 'timed'}
-      name="remindStartMinutes"
-      label="通知"
+      name={name}
+      label={label}
       select
-      defaultValue={
-        (allDay ? toAllDayRemind(initial.remindStartMinutes) : initial.remindStartMinutes) ??
-        SELECT_NONE
-      }
+      defaultValue={(allDay ? toAllDayRemind(saved) : saved) ?? SELECT_NONE}
       fullWidth
     >
       <MenuItem value={SELECT_NONE}>通知しない</MenuItem>
@@ -244,25 +275,6 @@ function EventRemindField({ initial, allDay }: { initial: ItemFormValues; allDay
         </MenuItem>
       ))}
     </TextField>
-  );
-}
-
-/** タスクの通知。開始に・期限に通知するかの 2 つ */
-function TaskRemindFields({ initial, allDay }: { initial: ItemFormValues; allDay: boolean }) {
-  const label = taskWhenLabels(allDay);
-  return (
-    <Stack direction="row" spacing={2}>
-      <FormControlLabel
-        control={
-          <Checkbox name="notifyAtStart" defaultChecked={initial.remindStartMinutes !== null} />
-        }
-        label={`${label.start}に通知`}
-      />
-      <FormControlLabel
-        control={<Checkbox name="notifyAtEnd" defaultChecked={initial.remindEndMinutes !== null} />}
-        label={`${label.due}に通知`}
-      />
-    </Stack>
   );
 }
 

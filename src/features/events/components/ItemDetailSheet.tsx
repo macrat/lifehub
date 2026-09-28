@@ -10,6 +10,7 @@ import { useItemDetail } from '../use-item-detail.ts';
 import { ItemFields, ScopeChip } from './EventFields.tsx';
 import { ItemCreateForm } from './ItemCreateForm.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
+import { KindToggle } from './KindToggle.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 
 /**
  * 予定・タスクの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから複製・削除（タスクは完了も）する。
+ * 入力欄の上端の切り替えで、予定をタスクに（タスクを予定に）変えて保存できる（繰り返しの 1 回だけのときは出さない）。
  * 複製は同じ内容を初期値にした追加のフォーム（`ItemCreateForm`）を、詳細の代わりに画面いっぱいで開く。
  * 開いている回の値（繰り返しなら繰り返しの設定も）をそのまま写し、完了は状態なので引き継がない。
  * 複製のフォームを閉じれば詳細ごと閉じる。複製している間は詳細（`useItemDetail`）をマウントしない。
@@ -70,11 +72,15 @@ function ItemDetail({
         editing={fields !== null}
         onEdit={detail.startEdit}
         actions={actions}
+        switcher={
+          fields &&
+          detail.switchKind && <KindToggle kind={fields.kind} onChange={detail.switchKind} />
+        }
       >
         {fields ? (
           <>
             {detail.editScope && <ScopeChip scope={detail.editScope} />}
-            <ItemFields kind={item.kind} {...fields} />
+            <ItemFields {...fields} />
           </>
         ) : (
           <ItemDetailView item={item} />

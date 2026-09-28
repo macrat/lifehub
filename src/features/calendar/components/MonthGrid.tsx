@@ -259,6 +259,7 @@ function WeekRow({
         <DraftBar
           columns={draftCols}
           lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
+          kind={draft.kind}
           participantIds={draft.participantIds}
         />
       )}

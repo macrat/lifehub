@@ -1,5 +1,7 @@
 import Box from '@mui/material/Box';
+import type { EventKind } from '../../../../shared/validation/events.ts';
 import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
+import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
 import type { draftColumns, TimedDraft } from '../draft.ts';
@@ -82,12 +84,15 @@ const outline = (colors: ItemColors[], ends?: ItemEnds) =>
  */
 export function DraftBlock({
   draft,
+  kind,
   column,
   participantIds,
   grab,
   dots,
 }: {
   draft: TimedDraft;
+  /** 何の枠か。タスクなら置いたタスクと同じチェック印を添える（`TaskMark`） */
+  kind: EventKind;
   /** 時間軸のグリッドの中で重ねる列（時刻の目盛りを含めた 0 起点） */
   column: number;
   /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
@@ -124,8 +129,12 @@ export function DraftBlock({
         // 押した時点から動かすので、ブラウザのスクロール・スワイプには渡さない
         touchAction: 'none',
         cursor: 'move',
+        // チェック印は置いたタスク（`TimedBlock`）と同じ所（左上）に置く
+        px: 0.5,
+        py: '2px',
       }}
     >
+      {kind === 'task' && <TaskMark participantIds={participantIds} />}
       {ends && dots && (
         <>
           <Handle
@@ -160,11 +169,14 @@ export function DraftBlock({
 export function DraftBar({
   columns,
   lane,
+  kind,
   participantIds,
 }: {
   /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
   columns: NonNullable<ReturnType<typeof draftColumns>>;
   lane: number;
+  /** 何の枠か。タスクなら置いたタスクと同じチェック印を添える（`TaskMark`） */
+  kind: EventKind;
   /** 選んでいる参加者。枠は保存した予定の帯と同じく参加者の色で塗り分ける */
   participantIds: string[];
 }) {
@@ -185,7 +197,27 @@ export function DraftBar({
         alignSelf: 'center',
         height: LANE_ITEM_HEIGHT,
         ...itemMargins(columns),
+        // チェック印は置いたタスク（`GridChip`）と同じく左端で縦の中央に置く
+        display: 'flex',
+        alignItems: 'center',
+        px: '1px',
       }}
+    >
+      {kind === 'task' && <TaskMark participantIds={participantIds} />}
+    </Box>
+  );
+}
+
+/**
+ * タスクの枠に添えるチェック印。置いたタスク（時間軸の `TimedBlock`・日の並びの `GridChip`）と同じ印で、
+ * 予定から切り替えたときに枠がタスクになったことを、形（長さを持たない）と合わせて見せる。
+ */
+function TaskMark({ participantIds }: { participantIds: string[] }) {
+  return (
+    <ParticipantsCheckIcon
+      participantIds={participantIds}
+      checked={false}
+      sx={{ display: 'block', fontSize: 12 }}
     />
   );
 }

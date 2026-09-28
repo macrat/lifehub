@@ -146,12 +146,14 @@ async function applyUpdate(
   userId: string,
 ): Promise<WrittenEvent> {
   const { id } = master;
-  if (input.kind !== master.kind) throw new ValidationError('種別は変更できません');
   const target = resolveTarget(master, input);
   const values = normalizeInput(input);
   const { participantIds } = input;
+  const kindChanged = input.kind !== master.kind;
 
   if (target.scope === 'this') {
+    // 回の種別は繰り返し元のもの（展開は繰り返し元の種別で予定・タスクの規則を選ぶ）なので、回だけは変えられない
+    if (kindChanged) throw new ValidationError('繰り返しの 1 回だけの種別は変更できません');
     // 実体化された回は繰り返さない（繰り返しは元の行だけが持つ）
     const { completedAt } = await materialize(
       master,
@@ -182,14 +184,15 @@ async function applyUpdate(
     };
   }
 
-  await repository.update(id, values, {
+  // 種別を変えると完了は意味を失う（予定は完了を持てない）ので外す。変えないときは完了に触らない
+  // （同時に押された完了を、読んだ時点の値で上書きしない）
+  const completedAt = kindChanged ? null : master.completedAt;
+  await repository.update(id, kindChanged ? { ...values, completedAt } : values, {
     participantIds,
-    dropUncompletedOccurrences:
-      baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule,
+    dropOccurrences: occurrencesToDrop(master, values),
   });
-  // 完了状態は入力に無く保存でも変わらないので、保存前の値をそのまま使う
   return {
-    ...toMaster({ ...values, id, participantIds, completedAt: master.completedAt }),
+    ...toMaster({ ...values, id, participantIds, completedAt }),
     occurrenceStart: null,
   };
 }
@@ -318,6 +321,23 @@ async function materialize(
     values,
     participantIds,
   );
+}
+
+/**
+ * 繰り返し元を「すべて」で書き換えたときに捨てる実体化された回。
+ * - 種別が変わった: 完了した回も含めてすべて。回は繰り返し元の複製なので元の種別のままで、
+ *   完了した回はタスクだったときの履歴。予定になった繰り返しには置けない（予定は完了を持てない）
+ * - 基準日時か繰り返しのルールが変わった: 回の照合キー（元の発生日時）が意味を失うので未完了の回。
+ *   完了した回は履歴として残す
+ */
+function occurrencesToDrop(
+  master: EventWithParticipants,
+  values: ReturnType<typeof normalizeInput>,
+): 'all' | 'uncompleted' | undefined {
+  if (values.kind !== master.kind) return 'all';
+  const rebased =
+    baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule;
+  return rebased ? 'uncompleted' : undefined;
 }
 
 /**

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { defaultTaskValues } from '../../events/form-values.ts';
-import type { Draft, DraftRange } from '../draft.ts';
+import { type Draft, type DraftRange, itemDraft } from '../draft.ts';
+import { newTaskTimes, taskDraftFromInput, taskTimesOf } from '../task-draft.ts';
 import { composerReducer } from '../use-event-composer.ts';
 import { task } from './draft-fixtures.ts';
 
@@ -43,6 +44,7 @@ describe('composerReducer', () => {
   it('空いている所をなぞると、自分だけの下書きを下の段で開く（離すまでは入力を出さない）', () => {
     expect(grab(null, { range, item: null }, false)).toEqual({
       mode: 'grid',
+      kind: 'event',
       range,
       item: null,
       participantIds: ME,
@@ -74,52 +76,109 @@ describe('composerReducer', () => {
   });
 
   it('追加ボタンからは既定の参加者で全項目の段を開く', () => {
-    expect(composerReducer(null, { type: 'start', range, participantIds: ME })).toMatchObject({
+    expect(
+      composerReducer(null, { type: 'start', range, kind: 'event', participantIds: ME }),
+    ).toMatchObject({
       mode: 'grid',
+      kind: 'event',
       item: null,
       settled: true,
       origin: 'add',
     });
   });
 
+  it('タスクのショートカットからは、その所から始まる期限なしのタスクで開く', () => {
+    expect(
+      composerReducer(null, { type: 'start', range, kind: 'task', participantIds: ME }),
+    ).toMatchObject({ kind: 'task', ...newTaskTimes(range) });
+  });
+
   it('入力で直した日時は下書きに戻り、入力を出したままにする', () => {
     const state = grab(null, { range, item: event }, false);
-    expect(
-      composerReducer(state, { type: 'change', draft: { range: moved, item: event } }),
-    ).toMatchObject({
+    expect(composerReducer(state, { type: 'change', range: moved })).toMatchObject({
       range: moved,
       item: event,
       settled: true,
     });
   });
 
-  it('タスクは入力で直した日時を持たせたタスクごと差し替える', () => {
-    const state = grab(null, { range, item: task }, false);
-    const edited = { ...task, startsAt: null };
-    expect(
-      composerReducer(state, {
-        type: 'change',
-        draft: { range: moved, item: edited },
-      }),
-    ).toMatchObject({
-      range: moved,
-      item: edited,
+  it('タスクは入力で直した日時を枠を動かす元の日時として持ち替え、直しているタスクは変えない', () => {
+    const state = grab(null, { range: itemDraft(task) ?? range, item: task }, false);
+    const next = taskDraftFromInput({
+      allDay: false,
+      startsAt: '2031-06-05T02:00:00.000Z',
+      endsAt: null,
+    });
+    expect(next && composerReducer(state, { type: 'change', ...next })).toMatchObject({
+      kind: 'task',
+      ...next,
+      item: task,
     });
   });
 
-  it('「その他のオプション」で下書きを閉じ、直している予定ごと全項目のフォームへ移す', () => {
+  it('つまんだタスクは、そのタスクの日時から始まるタスクの下書きになる', () => {
+    const frame = itemDraft(task) ?? range;
+    expect(grab(null, { range: frame, item: task })).toMatchObject({
+      kind: 'task',
+      range: frame,
+      times: taskTimesOf(task, frame),
+    });
+  });
+
+  it('予定からタスクに切り替えると、枠は開始の所のタスクの形になり、開始だけを引き継ぐ', () => {
+    const state = grab(null, { range, item: event });
+    expect(composerReducer(state, { type: 'switchKind', kind: 'task' })).toEqual({
+      mode: 'grid',
+      kind: 'task',
+      ...newTaskTimes(range),
+      item: event,
+      participantIds: event.participantIds,
+      settled: true,
+      origin: 'grid',
+    });
+  });
+
+  it('タスクから予定に切り替えると、開始から 1 時間の枠になる', () => {
+    const state = composerReducer(grab(null, { range, item: null }), {
+      type: 'switchKind',
+      kind: 'task',
+    });
+    const back = composerReducer(state, { type: 'switchKind', kind: 'event' });
+    expect(back).toMatchObject({ kind: 'event', range });
+    expect(back).not.toHaveProperty('times');
+  });
+
+  it('タスクに切り替えた下書きは、なぞり直してもタスクの形のまま', () => {
+    const state = composerReducer(grab(null, { range, item: null }), {
+      type: 'switchKind',
+      kind: 'task',
+    });
+    expect(grab(state, { range: moved, item: null })).toMatchObject({
+      kind: 'task',
+      range: newTaskTimes(moved).range,
+    });
+  });
+
+  it('「その他のオプション」で下書きを閉じ、直している予定と選んだ種類ごと全項目のフォームへ移す', () => {
     const values = defaultTaskValues(ME);
     const state = grab(null, { range, item: event });
     expect(composerReducer(state, { type: 'expand', values })).toEqual({
       mode: 'form',
       values,
       item: event,
+      kind: 'event',
     });
   });
 
   it('全項目のフォームの間は下書きへの変更を受け付けない', () => {
-    const form: State = { mode: 'form', values: defaultTaskValues(ME), item: null };
-    expect(composerReducer(form, { type: 'change', draft: { range, item: null } })).toBe(form);
+    const form: State = {
+      mode: 'form',
+      values: defaultTaskValues(ME),
+      item: null,
+      kind: 'task',
+    };
+    expect(composerReducer(form, { type: 'change', range })).toBe(form);
+    expect(composerReducer(form, { type: 'switchKind', kind: 'event' })).toBe(form);
     expect(composerReducer(form, { type: 'participants', participantIds: [] })).toBe(form);
   });
 

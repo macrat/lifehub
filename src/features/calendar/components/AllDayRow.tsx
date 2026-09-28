@@ -100,6 +100,7 @@ export function AllDayRow({
         <DraftBar
           columns={{ ...draftCols, col: draftCols.col + 1 }}
           lane={laneCount}
+          kind={barDraft.kind}
           participantIds={barDraft.participantIds}
         />
       )}

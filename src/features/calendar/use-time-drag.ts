@@ -2,7 +2,7 @@ import type { PointerEvent } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { isDateString } from '../../../shared/date.ts';
-import { type Draft, hasEnds, itemDraft, type TimedDraft } from './draft.ts';
+import { type Draft, hasEnds, itemDraft, type KindedDraft, type TimedDraft } from './draft.ts';
 import { type TimeGrab, type TimePoint, timeDraft, timeVibration } from './time-draft.ts';
 import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 
@@ -27,7 +27,7 @@ export function useTimeDrag({
   onChange,
 }: {
   /** この面が時間軸に出している枠。つまんでも直す対象は変わらない（`useDayDrag` と同じ渡し方） */
-  draft: Draft | null;
+  draft: KindedDraft | null;
   onChange: (draft: Draft, done: boolean) => void;
 }) {
   const item = draft?.item ?? null;
@@ -57,7 +57,7 @@ export function useTimeDrag({
      */
     frameProps: (range: TimedDraft) => ({
       move: drag.grabProps({ kind: 'move', draft: range, item }, { instant: true }),
-      ends: hasEnds(item)
+      ends: hasEnds(draft?.kind ?? 'event')
         ? {
             start: drag.grabProps({ kind: 'start', draft: range, item }, { instant: true }),
             end: drag.grabProps({ kind: 'end', draft: range, item }, { instant: true }),

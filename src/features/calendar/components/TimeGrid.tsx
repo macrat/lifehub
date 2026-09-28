@@ -187,6 +187,7 @@ export function TimeGrid({
         {draft && timedDraft && draftCol >= 0 && (
           <DraftBlock
             draft={timedDraft}
+            kind={draft.kind}
             column={draftCol + 1}
             participantIds={draft.participantIds}
             grab={drag.frameProps(timedDraft)}

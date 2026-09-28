@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Grow from '@mui/material/Grow';
 import IconButton from '@mui/material/IconButton';
@@ -10,6 +11,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type FormEventHandler, type ReactNode, type RefObject, useRef, useState } from 'react';
+import type { EventKind } from '../../../../shared/validation/events.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
@@ -17,6 +19,7 @@ import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
+import { KindToggle } from '../../events/components/KindToggle.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import type { GridDraft, QuickProps } from '../use-event-composer.ts';
 import type { Quick } from '../use-quick-form.ts';
@@ -32,8 +35,11 @@ type Props = Pick<QuickProps, 'onExpand'> & {
    */
   draft: GridDraft;
   quick: Quick;
-  /** 予定かタスクか。スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知）が違う */
-  kind: 'event' | 'task';
+  /**
+   * 予定かタスクか。スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知）が違う。
+   * 上端の切り替え（`KindToggle`）で入れ替えられる
+   */
+  kind: EventKind;
   onChangeParticipants: (participantIds: string[]) => void;
   onClose: () => void;
   /**
@@ -44,8 +50,9 @@ type Props = Pick<QuickProps, 'onExpand'> & {
 };
 
 /**
- * グリッドの下書きを入力するクイック入力の入れ物。予定（`QuickEventForm`）とタスク（`QuickTaskForm`）で同じもので、
- * 端末に合った入れ物を選ぶ。
+ * グリッドの下書きを入力するクイック入力の入れ物（`QuickItemForm`）。予定とタスクで同じもので、端末に合った入れ物を選ぶ。
+ * どちらも上端に予定・タスクの切り替え（`KindToggle`）を置く（繰り返しの 1 回だけを直しているときは出さない。
+ * 回の種類は繰り返し元のもの）。
  * - スマホ: 画面下のシート（`QuickSheet`）。下の段はタイトル・日時の見出し・参加者だけ、上の段まで広げると全項目。
  * - PC: 選んだ範囲に寄せた吹き出し（`QuickBubble`）。タイトルと参加者だけを扱い、残りは
  *   「その他のオプション」で全項目のフォームへ渡す。
@@ -61,7 +68,12 @@ export function QuickForm({ onExpand, ...props }: Props) {
   );
 }
 
-type LayoutProps = Omit<Props, 'kind' | 'onChangeInset' | 'onExpand'>;
+type LayoutProps = Omit<Props, 'onChangeInset' | 'onExpand'>;
+
+/** 上端の予定・タスクの切り替え。繰り返しの 1 回だけを直しているときは種類を変えられないので出さない */
+function Switcher({ kind, quick }: Pick<Props, 'kind' | 'quick'>) {
+  return quick.form.thisOnly ? null : <KindToggle kind={kind} onChange={quick.switchKind} />;
+}
 
 /**
  * スマホ: 画面下のシート（`BottomSheet`）。ダイアログには移らず、同じシートの見える量が変わるだけ。
@@ -101,7 +113,7 @@ function QuickSheet({
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
         <Stack ref={peekRef}>
-          <SheetHeader onClose={onClose}>
+          <SheetHeader onClose={onClose} middle={<Switcher kind={kind} quick={quick} />}>
             <SubmitButton />
           </SheetHeader>
           <QuickFields
@@ -129,8 +141,8 @@ function QuickSheet({
         >
           <WhenFields
             kind={kind}
-            // 枠を動かしたら、入力欄もその日時に入れ直す
-            key={`${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            // 枠を動かしたら・種類を切り替えたら、入力欄もその日時に入れ直す
+            key={`${kind}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
@@ -169,6 +181,7 @@ const draftAnchor = {
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({
+  kind,
   draft,
   quick,
   onChangeParticipants,
@@ -200,7 +213,10 @@ function QuickBubble({
             sx={{ width: 340 }}
           >
             <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
-              <Stack direction="row" sx={{ px: 1, justifyContent: 'flex-end' }}>
+              <Stack direction="row" sx={{ pl: 2, pr: 1, alignItems: 'center' }}>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Switcher kind={kind} quick={quick} />
+                </Box>
                 <IconButton aria-label="閉じる" onClick={onClose}>
                   <CloseIcon />
                 </IconButton>

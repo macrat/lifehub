@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { type CalendarItem, isCompletedTask } from '../../../shared/calendar.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import type { ItemFormValues } from './form-values.ts';
 import {
   eventQueryOptions,
@@ -8,7 +9,7 @@ import {
   useUpdateEvent,
 } from './queries.ts';
 import { writeTarget } from './recurrence-options.ts';
-import { useAllDay, useItemForm } from './use-item-form.ts';
+import { useAllDay, useItemForm, useKindSwitch } from './use-item-form.ts';
 import { useRecurrenceEditing } from './use-recurrence-editing.ts';
 
 /**
@@ -35,10 +36,14 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
   const scope = editScope ?? 'all';
 
   const completed = isCompletedTask(item);
-  const initial: ItemFormValues = (fromMaster ? master.data : undefined) ?? item;
+  // 編集の途中で種類（予定・タスク）を切り替えられる。切り替えたら、その既定値から入力し直す
+  const { kind, initial, switchTo } = useKindSwitch(
+    item.kind,
+    ((fromMaster ? master.data : undefined) ?? item) satisfies ItemFormValues,
+  );
   const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const form = useItemForm({
-    kind: item.kind,
+    kind,
     initial,
     allDay,
     scope,
@@ -51,8 +56,20 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
   return {
     /** 入力欄に渡すもの。閲覧中は null */
     fields: editing
-      ? { initial, errors: form.errors, allDay, onChangeAllDay: setAllDay, thisOnly: form.thisOnly }
+      ? {
+          kind,
+          initial,
+          errors: form.errors,
+          allDay,
+          onChangeAllDay: setAllDay,
+          thisOnly: form.thisOnly,
+        }
       : null,
+    /**
+     * 種類の切り替え。繰り返しの 1 回だけ（this）を直しているときは変えられない（回の種類は繰り返し元のもの）ので null。
+     * 切り替えたときの入力の開始を引き継ぐ
+     */
+    switchKind: form.thisOnly ? null : (to: EventKind) => switchTo(to, form.readInput()),
     /** 繰り返しのどの範囲を直しているか（範囲の印を出す）。繰り返しでない・閲覧中は null */
     editScope: editing && item.isRecurring ? editScope : null,
     /** 範囲の選択を待っている操作（繰り返しのときだけ）。無ければ null */

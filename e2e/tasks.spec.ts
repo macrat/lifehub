@@ -1,19 +1,21 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 
+/** 今日（JST）の日付の入力欄の値 */
+const todayValue = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+
 test('タスクを追加し、カレンダーのリスト表示から完了にできる', async ({ page }) => {
   const title = `E2E タスク ${Date.now()}`;
   await page.goto('/calendar?view=list');
 
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'タスク' }).click();
-  await page.getByLabel('タイトル').fill(title);
-  // 既定は終日で日付は空欄なので、タイトルだけで保存できる
-  await expect(page.getByLabel('終日')).toBeChecked();
-  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('');
+  // 追加ボタンは予定で始まり、入力の上端でタスクに切り替える。開始（見ている今日）だけを引き継ぎ、
+  // タイトルだけで保存できる
+  await page.getByRole('button', { name: '予定・タスクを追加' }).click();
+  await page.getByRole('button', { name: 'タスク', exact: true }).click();
+  await page.getByLabel('タイトルを追加').fill(title);
   await page.getByRole('button', { name: '保存' }).click();
 
-  // 開始日なしのタスクは今日の位置に出る
+  // 開始が今日のタスクは今日の位置に出る
   await expect(page.getByText(title)).toBeVisible();
   // チェックボックスはサーバーの結果で制御されるので、click して結果を待つ（check は即時の状態変化を要求する）
   await page.getByRole('checkbox', { name: `${title} を完了にする` }).click();
@@ -30,14 +32,17 @@ test('終日のタスクを追加すると、期限日だけを持つタスク�
   const title = `E2E 終日タスク ${Date.now()}`;
   await page.goto('/calendar?view=list');
 
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'タスク' }).click();
+  await page.getByRole('button', { name: '予定・タスクを追加' }).click();
+  await page.getByRole('button', { name: 'タスク', exact: true }).click();
+  await page.getByRole('button', { name: 'その他のオプション' }).click();
   await page.getByLabel('タイトル').fill(title);
-  // 既定は終日で、日付だけを入れる
+  // 終日の予定から切り替えたので終日のまま、開始日だけを引き継ぐ。開始日を消して期限日だけを入れる
   await expect(page.getByLabel('終日')).toBeChecked();
+  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue(todayValue());
+  await page.getByLabel('開始日', { exact: true }).fill('');
   const due = page.getByLabel('期限日', { exact: true });
   await expect(due).toHaveAttribute('type', 'date');
-  await due.fill(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }));
+  await due.fill(todayValue());
   await page.getByRole('button', { name: '保存' }).click();
 
   // 期限が今日なら、時刻の代わりに「期限 今日」と出る
