@@ -1,4 +1,8 @@
-import { type CalendarItem, occurrenceKey } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  DEFAULT_EVENT_MINUTES,
+  occurrenceKey,
+} from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -103,7 +107,7 @@ export function toTaskFrame(range: DraftRange): DraftRange {
 export function toEventRange(range: DraftRange): DraftRange {
   if (range.allDay) return allDayDraft(range.from);
   const { date, startMin } = range;
-  return { allDay: false, date, startMin, endMin: Math.min(startMin + TAP_MINUTES, DAY_MINUTES) };
+  return { allDay: false, date, startMin, endMin: tapEnd(startMin) };
 }
 
 /**
@@ -137,8 +141,13 @@ export function editingItemOn(draft: Draft | null, days: DateString[]): Calendar
   return draft && draftColumns(draft.range, days) ? draft.item : null;
 }
 
-/** タップ・クリック（動かさずに離す）で作る予定の長さ（分）。Google カレンダーと同じ 1 時間 */
-export const TAP_MINUTES = 60;
+/** タップ・クリック（動かさずに離す）で作る予定の長さ（分） */
+const TAP_MINUTES = DEFAULT_EVENT_MINUTES;
+
+/** 時間軸でその分から始まる、タップで作るのと同じ長さの予定の終わり。枠は日をまたげないので日の終わりで止める */
+export function tapEnd(startMin: number): number {
+  return Math.min(startMin + TAP_MINUTES, DAY_MINUTES);
+}
 /**
  * 吸着したときの手応えの長さ（ms）。長いのは時間軸の正時だけの合図にして、それ以外の区切り
  * （15 分の刻み、日をまたぐとき）は短く軽く返す。これで時間の区切りを見ずに聞き分けられる。

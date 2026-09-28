@@ -11,7 +11,6 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type FormEventHandler, type ReactNode, type RefObject, useRef, useState } from 'react';
-import type { EventKind } from '../../../../shared/validation/events.ts';
 import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
@@ -35,11 +34,6 @@ type Props = Pick<QuickProps, 'onExpand'> & {
    */
   draft: GridDraft;
   quick: Quick;
-  /**
-   * 予定かタスクか。スマホで上の段まで広げたときだけ見える残りの項目（日時・場所・メモ・繰り返し・通知）が違う。
-   * 上端の切り替え（`KindToggle`）で入れ替えられる
-   */
-  kind: EventKind;
   onChangeParticipants: (participantIds: string[]) => void;
   onClose: () => void;
   /**
@@ -71,8 +65,8 @@ export function QuickForm({ onExpand, ...props }: Props) {
 type LayoutProps = Omit<Props, 'onChangeInset' | 'onExpand'>;
 
 /** 上端の予定・タスクの切り替え。繰り返しの 1 回だけを直しているときは種類を変えられないので出さない */
-function Switcher({ kind, quick }: Pick<Props, 'kind' | 'quick'>) {
-  return quick.form.thisOnly ? null : <KindToggle kind={kind} onChange={quick.switchKind} />;
+function Switcher({ draft, quick }: Pick<Props, 'draft' | 'quick'>) {
+  return quick.form.thisOnly ? null : <KindToggle kind={draft.kind} onChange={quick.switchKind} />;
 }
 
 /**
@@ -83,7 +77,6 @@ function Switcher({ kind, quick }: Pick<Props, 'kind' | 'quick'>) {
  * グリッドをなぞって開いたときは、まだ日時を選び直しているかもしれないので当てない。
  */
 function QuickSheet({
-  kind,
   draft,
   quick,
   onChangeParticipants,
@@ -108,12 +101,12 @@ function QuickSheet({
       onChangeInset={onChangeInset}
     >
       <QuickFormBox
-        formRef={quick.formRef}
+        formRef={quick.form.formRef}
         onSubmit={form.handleSubmit}
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
         <Stack ref={peekRef}>
-          <SheetHeader onClose={onClose} middle={<Switcher kind={kind} quick={quick} />}>
+          <SheetHeader onClose={onClose} middle={<Switcher draft={draft} quick={quick} />}>
             <SubmitButton />
           </SheetHeader>
           <QuickFields
@@ -140,16 +133,16 @@ function QuickSheet({
           }}
         >
           <WhenFields
-            kind={kind}
+            kind={draft.kind}
             // 枠を動かしたら・種類を切り替えたら、入力欄もその日時に入れ直す
-            key={`${kind}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            key={`${draft.kind}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
             onChangeAllDay={quick.changeAllDay}
           />
           <ExtraFields
-            kind={kind}
+            kind={draft.kind}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
@@ -181,7 +174,6 @@ const draftAnchor = {
  * 広がらないので、中身はいつもスマホの下の段と同じ。保存は Google カレンダーと同じ右下。
  */
 function QuickBubble({
-  kind,
   draft,
   quick,
   onChangeParticipants,
@@ -212,10 +204,10 @@ function QuickBubble({
             }}
             sx={{ width: 340 }}
           >
-            <QuickFormBox formRef={quick.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
+            <QuickFormBox formRef={quick.form.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
               <Stack direction="row" sx={{ pl: 2, pr: 1, alignItems: 'center' }}>
                 <Box sx={{ flexGrow: 1 }}>
-                  <Switcher kind={kind} quick={quick} />
+                  <Switcher draft={draft} quick={quick} />
                 </Box>
                 <IconButton aria-label="閉じる" onClick={onClose}>
                   <CloseIcon />

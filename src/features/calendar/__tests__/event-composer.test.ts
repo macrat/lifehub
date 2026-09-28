@@ -90,7 +90,7 @@ describe('composerReducer', () => {
   it('タスクのショートカットからは、その所から始まる期限なしのタスクで開く', () => {
     expect(
       composerReducer(null, { type: 'start', range, kind: 'task', participantIds: ME }),
-    ).toMatchObject({ kind: 'task', ...newTaskTimes(range) });
+    ).toMatchObject({ kind: 'task', times: newTaskTimes(range), range: newTaskTimes(range).frame });
   });
 
   it('入力で直した日時は下書きに戻り、入力を出したままにする', () => {
@@ -104,14 +104,15 @@ describe('composerReducer', () => {
 
   it('タスクは入力で直した日時を枠を動かす元の日時として持ち替え、直しているタスクは変えない', () => {
     const state = grab(null, { range: itemDraft(task) ?? range, item: task }, false);
-    const next = taskDraftFromInput({
+    const times = taskDraftFromInput({
       allDay: false,
       startsAt: '2031-06-05T02:00:00.000Z',
       endsAt: null,
     });
-    expect(next && composerReducer(state, { type: 'change', ...next })).toMatchObject({
+    expect(times && composerReducer(state, { type: 'change', times })).toMatchObject({
       kind: 'task',
-      ...next,
+      times,
+      range: times?.frame,
       item: task,
     });
   });
@@ -130,7 +131,8 @@ describe('composerReducer', () => {
     expect(composerReducer(state, { type: 'switchKind', kind: 'task' })).toEqual({
       mode: 'grid',
       kind: 'task',
-      ...newTaskTimes(range),
+      times: newTaskTimes(range),
+      range: newTaskTimes(range).frame,
       item: event,
       participantIds: event.participantIds,
       settled: true,
@@ -155,7 +157,7 @@ describe('composerReducer', () => {
     });
     expect(grab(state, { range: moved, item: null })).toMatchObject({
       kind: 'task',
-      range: newTaskTimes(moved).range,
+      range: newTaskTimes(moved).frame,
     });
   });
 

@@ -5,12 +5,7 @@ import {
   type RecurrenceScope,
 } from '../../../shared/validation/events.ts';
 import { useFormSubmit } from '../../lib/form.ts';
-import {
-  eventInputFromForm,
-  type ItemFormValues,
-  switchKindValues,
-  taskInputFromForm,
-} from './form-values.ts';
+import { type ItemFormValues, itemInputFromForm, switchKindValues } from './form-values.ts';
 import type { CreateEventBody } from './queries.ts';
 
 /**
@@ -39,9 +34,7 @@ export function useItemForm({
   const formRef = useRef<HTMLFormElement>(null);
   /** 今の入力 → 検証前の値。保存のほか、入力を下書きへ映し戻す（クイック入力）のにも使う */
   const inputFromForm = (fd: FormData) =>
-    kind === 'task'
-      ? taskInputFromForm(fd, { initial, allDay, thisOnly })
-      : eventInputFromForm(fd, { initial, allDay, thisOnly });
+    itemInputFromForm(kind, fd, { initial, allDay, thisOnly });
 
   const form = useFormSubmit({
     schema: createEventSchema,

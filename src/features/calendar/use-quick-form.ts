@@ -1,4 +1,4 @@
-import { type RefObject, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { carriedValues, type ItemFormValues } from '../events/form-values.ts';
 import { grabbedScope } from '../events/recurrence-options.ts';
@@ -13,10 +13,9 @@ import type { QuickProps } from './use-event-composer.ts';
  * 入れ物（シート・吹き出し）と項目は予定とタスクで同じで、違うのは上の段に出す日時と通知の項目（`kind`）だけ。
  */
 export type Quick = {
-  formRef: RefObject<HTMLFormElement | null>;
   form: Pick<
     ReturnType<typeof useItemForm>,
-    'errors' | 'submitError' | 'thisOnly' | 'submitted' | 'handleSubmit'
+    'formRef' | 'errors' | 'submitError' | 'thisOnly' | 'submitted' | 'handleSubmit'
   >;
   /** 入力の既定値（タイトルと、全項目のフォームへ引き継ぐ残りの項目） */
   initial: ItemFormValues;
@@ -74,7 +73,8 @@ export function useQuickForm({
         : draftValues(range, [], item),
     [times, range, item],
   );
-  const [taskAllDay, setTaskAllDay] = useAllDay(placed.allDay, placed);
+  // 予定の終日は枠が持つので、合わせ直す鍵はタスクのときだけ渡す（予定の枠を動かすたびに描き直しを重ねない）
+  const [taskAllDay, setTaskAllDay] = useAllDay(placed.allDay, times ? placed : null);
   const allDay = times ? taskAllDay : range.allDay;
   const initial = { ...placed, participantIds };
   const form = useItemForm({
@@ -102,8 +102,8 @@ export function useQuickForm({
   const syncDraft = () => {
     if (times) {
       const input = readInput();
-      const next = input && taskDraftFromInput(input);
-      if (next) onChangeDraft(next);
+      const times = input && taskDraftFromInput(input);
+      if (times) onChangeDraft({ times });
       return;
     }
     const next = eventRangeFromForm();
@@ -111,7 +111,6 @@ export function useQuickForm({
   };
 
   return {
-    formRef: form.formRef,
     form,
     initial,
     rangeText: times ? taskDraftText(placed) : draftText(range),

@@ -11,5 +11,5 @@ import { QuickForm } from './QuickForm.tsx';
  */
 export function QuickItemForm(props: QuickProps) {
   const quick = useQuickForm(props);
-  return <QuickForm {...props} kind={props.draft.kind} quick={quick} />;
+  return <QuickForm {...props} quick={quick} />;
 }

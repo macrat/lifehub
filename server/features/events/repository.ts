@@ -247,24 +247,18 @@ export async function update(
     await db.update(events).set(values).where(eq(events.id, id));
     return;
   }
+  // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
+  // 完了した回は履歴として残す（種別を変えたときは完了した回も捨てる。`applyUpdate`）
+  const series = eq(events.seriesId, id);
+  const dropWhere =
+    dropOccurrences &&
+    { all: series, uncompleted: and(series, isNull(events.completedAt)) }[dropOccurrences];
   await runBatch((tx) => [
     tx.update(events).set(values).where(eq(events.id, id)),
     ...(participantIds === undefined
       ? []
       : replaceParticipantsWhere(tx, eq(events.id, id), participantIds)),
-    // 基準日時や繰り返しが変わると回の照合キー（元の発生日時）が意味を失うため、未完了の回は捨てる。
-    // 完了した回は履歴として残す（種別を変えたときは完了した回も捨てる。`applyUpdate`）
-    ...(dropOccurrences === undefined
-      ? []
-      : [
-          tx
-            .delete(events)
-            .where(
-              dropOccurrences === 'all'
-                ? eq(events.seriesId, id)
-                : and(eq(events.seriesId, id), isNull(events.completedAt)),
-            ),
-        ]),
+    ...(dropWhere ? [tx.delete(events).where(dropWhere)] : []),
   ]);
 }
 

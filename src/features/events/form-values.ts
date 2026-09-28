@@ -136,13 +136,16 @@ export function carriedValues(
 }
 
 /**
- * 予定のフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
- * 全項目のフォームと、スマホのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
+ * 予定・タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
+ * 全項目のフォーム・詳細からの編集・カレンダーのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
  * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は、既定値の日時をそのまま使う（`savedInstants`）。
- * 予定の日時は必須なので、空欄は検証で止める（開始・終了を入力させる）。
- * 終了前の通知はフォームに出さない（MCP から入れたもの）ので、既定値のまま送る。
+ * 空欄（未設定）と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。空欄は、タスクなら未設定、
+ * 予定なら日時が必須なので検証で止まる（開始・終了を入力させる）。
+ * 予定とタスクで違うのは通知の欄だけ: タスクは開始前と期限前、予定は開始前だけを出す
+ * （予定の終了前の通知は MCP から入れたもので、フォームに出さないので既定値のまま送る）。
  */
-export function eventInputFromForm(
+export function itemInputFromForm(
+  kind: EventKind,
   formData: FormData,
   {
     initial,
@@ -161,45 +164,14 @@ export function eventInputFromForm(
         };
   const extras = hasExtraFields(formData);
   return {
-    kind: 'event' as const,
+    kind,
     ...when,
     ...commonInput(formData, initial, { extras, thisOnly }),
     remindStartMinutes: remindInput(formData, 'remindStartMinutes', initial, { extras, allDay }),
-    remindEndMinutes: remindInput(formData, 'remindEndMinutes', initial, { extras: false, allDay }),
-  };
-}
-
-/**
- * タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
- * 予定と違って開始・期限はどちらも任意で、通知は開始前と期限前の 2 つ（選び方は予定の通知と同じ）。
- * 終日では開始日・期限日（日付だけ）を受け取り、通知はその日（か前日）の各自の通知時刻になる。
- * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は既定値の日時をそのまま使う。
- * 空欄（未設定）と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。
- */
-export function taskInputFromForm(
-  formData: FormData,
-  {
-    initial,
-    allDay,
-    thisOnly = false,
-  }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
-) {
-  const startsRaw = whenRaw(formData, 'startsAt');
-  const when =
-    startsRaw === undefined
-      ? savedInstants(initial)
-      : {
-          allDay,
-          startsAt: toInstant(startsRaw, allDay),
-          endsAt: toInstant(whenRaw(formData, 'endsAt') ?? null, allDay),
-        };
-  const extras = hasExtraFields(formData);
-  return {
-    kind: 'task' as const,
-    ...when,
-    ...commonInput(formData, initial, { extras, thisOnly }),
-    remindStartMinutes: remindInput(formData, 'remindStartMinutes', initial, { extras, allDay }),
-    remindEndMinutes: remindInput(formData, 'remindEndMinutes', initial, { extras, allDay }),
+    remindEndMinutes: remindInput(formData, 'remindEndMinutes', initial, {
+      extras: extras && kind === 'task',
+      allDay,
+    }),
   };
 }
 
@@ -278,6 +250,12 @@ function joinWhen(date: string, time: string | undefined): string | null {
   return date || time ? '' : null;
 }
 
+/** `joinWhen` の逆: 1 つの値 → 日付と時刻の欄の値（終日の値なら時刻は空） */
+export function splitWhen(value: string): { date: string; time: string } {
+  const [date = '', time = ''] = value.split('T');
+  return { date, time };
+}
+
 /** 日時の入力欄の値（`joinWhen`）。欄が無ければ（PC のクイック入力の吹き出し）undefined */
 function whenRaw(formData: FormData, name: 'startsAt' | 'endsAt'): string | null | undefined {
   const { date, time } = whenFieldNames(name);
@@ -325,9 +303,9 @@ function whenInputs(form: HTMLFormElement, name: 'startsAt' | 'endsAt') {
     value: joinWhen(date.value, time?.value) ?? '',
     defaultValue: joinWhen(date.defaultValue, time?.defaultValue) ?? '',
     set: (value: string) => {
-      const [dateValue = '', timeValue] = value.split('T');
-      date.value = dateValue;
-      if (time && timeValue !== undefined) time.value = timeValue;
+      const next = splitWhen(value);
+      date.value = next.date;
+      if (time) time.value = next.time;
     },
   };
 }

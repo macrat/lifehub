@@ -22,6 +22,7 @@ import {
   EXTRA_FIELDS_MARKER,
   endFollowsStart,
   type ItemFormValues,
+  splitWhen,
   whenFieldNames,
 } from '../form-values.ts';
 import { RecurrenceFields } from './RecurrenceFields.tsx';
@@ -70,8 +71,6 @@ const REMIND_LABELS: Record<Exclude<(typeof REMIND_BEFORE_OPTIONS)[number], 0>, 
   1440: '1日前',
 };
 
-type Kind = EventKind;
-
 type AllDayProps = { allDay: boolean; onChangeAllDay: (allDay: boolean) => void };
 
 /**
@@ -91,7 +90,7 @@ export function ItemFields({
   onChangeAllDay,
   thisOnly,
   autoFocus = false,
-}: ScopedProps & AllDayProps & { kind: Kind; autoFocus?: boolean }) {
+}: ScopedProps & AllDayProps & { kind: EventKind; autoFocus?: boolean }) {
   return (
     <>
       <TextField
@@ -143,8 +142,8 @@ export function WhenFields({
   errors,
   allDay,
   onChangeAllDay,
-}: Props & AllDayProps & { kind: Kind }) {
-  const when = kind === 'event' ? eventWhen(initial) : taskWhen(initial);
+}: Props & AllDayProps & { kind: EventKind }) {
+  const when = kind === 'event' ? eventWhen(initial) : initial;
   return (
     <Box
       sx={{
@@ -163,16 +162,16 @@ export function WhenFields({
       />
       <WhenField
         name="startsAt"
-        edge={when.startLabel}
-        defaultValue={inputValue(when.start, 'start', initial.allDay, allDay)}
+        edge={TASK_TIME_LABELS.start}
+        defaultValue={inputValue(when.startsAt, 'start', initial.allDay, allDay)}
         allDay={allDay}
         error={errors.startsAt}
         onChange={kind === 'event' ? endFollowsStart : undefined}
       />
       <WhenField
         name="endsAt"
-        edge={when.endLabel}
-        defaultValue={inputValue(when.end, 'end', initial.allDay, allDay)}
+        edge={kind === 'event' ? '終了' : TASK_TIME_LABELS.due}
+        defaultValue={inputValue(when.endsAt, 'end', initial.allDay, allDay)}
         allDay={allDay}
         error={errors.endsAt}
       />
@@ -180,20 +179,13 @@ export function WhenFields({
   );
 }
 
-/** 予定の日時の入力欄。開始が無ければ今、終了が無ければ開始から始める */
-function eventWhen(initial: ItemFormValues) {
-  const start = initial.startsAt ?? new Date().toISOString();
-  return { start, end: initial.endsAt ?? start, startLabel: '開始', endLabel: '終了' };
-}
-
-/** タスクの日時の入力欄 */
-function taskWhen(initial: ItemFormValues) {
-  return {
-    start: initial.startsAt,
-    end: initial.endsAt,
-    startLabel: TASK_TIME_LABELS.start,
-    endLabel: TASK_TIME_LABELS.due,
-  };
+/**
+ * 予定の日時の入力欄の初期値。予定は日時が必須なので、開始が無ければ今、終了が無ければ開始から始める
+ * （タスクは開始・期限がどちらも任意なので、そのまま空で出す）
+ */
+function eventWhen({ startsAt, endsAt }: ItemFormValues) {
+  const start = startsAt ?? new Date().toISOString();
+  return { startsAt: start, endsAt: endsAt ?? start };
 }
 
 /**
@@ -208,7 +200,7 @@ export function ExtraFields({
   errors,
   allDay,
   thisOnly,
-}: ScopedProps & { kind: Kind; allDay: boolean }) {
+}: ScopedProps & { kind: EventKind; allDay: boolean }) {
   return (
     <>
       <input type="hidden" name={EXTRA_FIELDS_MARKER} value="1" />
@@ -310,7 +302,7 @@ function WhenField({
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   const names = whenFieldNames(name);
-  const [date = '', time = ''] = defaultValue.split('T');
+  const { date, time } = splitWhen(defaultValue);
   return (
     <>
       <TextField

@@ -105,8 +105,11 @@ export function normalizeInstants(
   };
 }
 
-/** 開始だけが決まっている予定の長さ（分）。グリッドをタップして作る予定と同じ 1 時間 */
-const DEFAULT_EVENT_MINUTES = 60;
+/**
+ * 開始だけが決まっている予定の長さ（分）。Google カレンダーと同じ 1 時間。
+ * グリッドのタップで作る予定（`TAP_MINUTES`）も、タスクから切り替えた予定・MCP で終了を省いた予定もこの長さ
+ */
+export const DEFAULT_EVENT_MINUTES = 60;
 
 /**
  * 開始だけが決まっている予定の終了（入力の形。終日なら含む最終日）。終日はその日 1 日、時刻ありは 1 時間。

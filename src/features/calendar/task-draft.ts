@@ -2,6 +2,7 @@ import {
   type CalendarTaskItem,
   normalizeIsoInstants,
   TASK_TIME_LABELS,
+  taskTime,
 } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
@@ -27,15 +28,15 @@ export function taskTimesOf(task: CalendarTaskItem, fallback: DraftRange): TaskT
 }
 
 /**
- * 枠の所から始めるタスク: 開始は枠の開始、期限は無し。枠はタスクの形（`toTaskFrame`）にする。
- * 予定からタスクに切り替えたとき（引き継ぐのは開始だけ）と、タスクを追加し始めるときに使う。
+ * 枠の所から始めるタスク: 開始は枠の開始、期限は無し。枠（`frame`。そのままグリッドに出す枠になる）は
+ * タスクの形（`toTaskFrame`）にする。予定からタスクに切り替えたとき（引き継ぐのは開始だけ）と、
+ * タスクを追加し始めるときに使う。
  */
-export function newTaskTimes(range: DraftRange): { range: DraftRange; times: TaskTimes } {
-  const frame = toTaskFrame(range);
+export function newTaskTimes(range: DraftRange): TaskTimes {
   const startsAt = range.allDay
     ? fromDateValue(range.from)
     : fromMinutesOfDay(range.date, range.startMin);
-  return { range: frame, times: { allDay: range.allDay, startsAt, endsAt: null, frame } };
+  return { allDay: range.allDay, startsAt, endsAt: null, frame: toTaskFrame(range) };
 }
 
 /**
@@ -61,26 +62,18 @@ export function taskTimesAt(
   };
 }
 
-/**
- * つまんで動かした保存済みのタスクの値。日時は `taskTimesAt` のとおりで、繰り返しや通知などの残りの項目は
- * そのまま持ち越す（参加者はタスクのまま。選び直した参加者は呼び出し側が重ねる）。
- */
-export function taskDraftValues(task: CalendarTaskItem, range: DraftRange): ItemFormValues {
-  return { ...task, ...taskTimesAt(taskTimesOf(task, range), range) };
-}
-
 /** 落とした所 → 開始（と終日か）。枠が決める日時の置き方は `taskTimesAt` のとおり */
 function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
-  // 時刻はタスクの基準日時のもの（開始 → 期限）。終日・日時なしでは時刻が無い
-  const at = times.allDay ? null : (times.startsAt ?? times.endsAt);
+  // 時刻はタスクの基準日時（`taskTime`。動かすのは未完了のタスクなので開始 → 期限）のもの。終日・日時なしでは時刻が無い
+  const at = taskTime({ ...times, completedAt: null })?.at;
   if (!at) return { allDay: true, startsAt: fromDateValue(range.from) };
   return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(at)) };
 }
 
 /**
- * 入力欄で直したタスクの日時 → つまんでいる枠と、それを動かす元になる日時。
+ * 入力欄で直したタスクの日時 → それを動かす元になる日時（開始の所に置いた枠 `frame` ごと）。
  * スマホのシートを下の段に戻すとき、上の段で直した日時をグリッドの枠と見出しへ映すのに使う。
  * 開始の所に枠を置き、日時もその値にしておくので、`taskTimesAt` は入力した日時をそのまま返す
  * （期限も入力したまま。枠から数え直さない）。開始が空なら枠に置けないので null（枠はそのまま）。
@@ -90,13 +83,13 @@ export function taskDraftFromInput(input: {
   allDay: boolean;
   startsAt: string | null;
   endsAt: string | null;
-}): { range: DraftRange; times: TaskTimes } | null {
+}): TaskTimes | null {
   const { allDay, startsAt } = input;
   if (startsAt === null) return null;
-  const range = taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt));
   return {
-    range,
-    times: { allDay, ...normalizeIsoInstants(allDay, startsAt, input.endsAt), frame: range },
+    allDay,
+    ...normalizeIsoInstants(allDay, startsAt, input.endsAt),
+    frame: taskFrame(toDateString(new Date(startsAt)), allDay ? null : minutesOfDay(startsAt)),
   };
 }
 

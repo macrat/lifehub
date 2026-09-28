@@ -65,10 +65,10 @@ type Props = {
   /** 三点リーダーのメニュー。何も無ければ出さない */
   actions?: RecordAction[];
   /**
-   * 入力しているときだけ上端の帯の真ん中に出すもの（予定・タスクの種類の切り替え）。
-   * 入力中の帯は見出しを出さず空いているので、シートの高さを増やさずに置ける
+   * 上端の帯の真ん中に置くもの（`SheetHeader` の middle。予定・タスクの種類の切り替えなど）。
+   * 帯は見出しを出す閲覧のときには見出しを出し、入力しているときは空いているので、そこに出る
    */
-  switcher?: ReactNode;
+  headerMiddle?: ReactNode;
   /** 入力欄の form。入力の途中の値を送信の外で読むとき（種類を切り替えるとき）に使う */
   formRef?: Ref<HTMLFormElement>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -136,7 +136,7 @@ function Body({
   editing = true,
   onEdit,
   actions = [],
-  switcher,
+  headerMiddle,
   formRef,
   onSubmit,
   error,
@@ -149,7 +149,7 @@ function Body({
           title={editing ? undefined : title}
           struck={struck}
           onClose={onClose}
-          middle={editing ? switcher : undefined}
+          middle={headerMiddle}
         >
           {editing ? (
             <SubmitButton />

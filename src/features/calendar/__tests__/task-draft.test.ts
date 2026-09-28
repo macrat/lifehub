@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { iso } from '../../../../shared/__tests__/jst.ts';
-import { itemDraft } from '../draft.ts';
+import type { CalendarTaskItem } from '../../../../shared/calendar.ts';
+import { type DraftRange, itemDraft } from '../draft.ts';
 import {
   newTaskTimes,
   taskDraftFromInput,
   taskDraftText,
-  taskDraftValues,
   taskTimesAt,
+  taskTimesOf,
 } from '../task-draft.ts';
 import { allDay, DAY, day, task } from './draft-fixtures.ts';
 
@@ -26,7 +27,13 @@ const allDayTask = {
   endsAt: iso('2031-06-08T00:00:00'),
 };
 
-describe('taskDraftValues', () => {
+/** 保存済みのタスクを枠 range へ動かしたときの値（残りの項目はタスクのまま） */
+const taskDraftValues = (t: CalendarTaskItem, range: DraftRange) => ({
+  ...t,
+  ...taskTimesAt(taskTimesOf(t, range), range),
+});
+
+describe('taskTimesAt（保存済みのタスクを動かす）', () => {
   it('落とした日時を開始にし、期限は開始〜期限の長さを保ってずらす', () => {
     // 開始の 9:00 に置かれたタスクを翌日の 20:00 へ
     expect(taskDraftValues(task, timedAt('2031-06-06', 20 * 60))).toMatchObject({
@@ -98,8 +105,8 @@ describe('taskDraftFromInput', () => {
       endsAt: iso('2031-06-20T12:00:00'),
     };
     const next = taskDraftFromInput(input);
-    expect(next?.range).toEqual(timedAt('2031-06-10', 8 * 60 + 15));
-    expect(next && taskTimesAt(next.times, next.range)).toEqual(input);
+    expect(next?.frame).toEqual(timedAt('2031-06-10', 8 * 60 + 15));
+    expect(next && taskTimesAt(next, next.frame)).toEqual(input);
   });
 
   it('終日の期限は「含む日」で受け取り、排他的な終端で持つ', () => {
@@ -108,8 +115,8 @@ describe('taskDraftFromInput', () => {
       startsAt: iso('2031-06-10T00:00:00'),
       endsAt: iso('2031-06-12T00:00:00'),
     });
-    expect(next?.range).toEqual(allDay('2031-06-10', '2031-06-10'));
-    expect(next && taskTimesAt(next.times, next.range)).toEqual({
+    expect(next?.frame).toEqual(allDay('2031-06-10', '2031-06-10'));
+    expect(next && taskTimesAt(next, next.frame)).toEqual({
       allDay: true,
       startsAt: iso('2031-06-10T00:00:00'),
       endsAt: iso('2031-06-13T00:00:00'),
@@ -124,8 +131,8 @@ describe('taskDraftFromInput', () => {
 describe('newTaskTimes', () => {
   it('予定の枠の開始の所に、期限なしのタスクを置く（枠はタスクの形）', () => {
     const next = newTaskTimes({ allDay: false, date: DAY, startMin: 9 * 60, endMin: 11 * 60 });
-    expect(next.range).toEqual(timedAt(DAY, 9 * 60));
-    expect(taskTimesAt(next.times, next.range)).toEqual({
+    expect(next.frame).toEqual(timedAt(DAY, 9 * 60));
+    expect(taskTimesAt(next, next.frame)).toEqual({
       allDay: false,
       startsAt: iso('2031-06-05T09:00:00'),
       endsAt: null,
@@ -134,8 +141,8 @@ describe('newTaskTimes', () => {
 
   it('複数日の終日の予定からは、最初の日を開始日にした日だけのタスク', () => {
     const next = newTaskTimes(allDay('2031-06-05', '2031-06-07'));
-    expect(next.range).toEqual(allDay(DAY, DAY));
-    expect(taskTimesAt(next.times, next.range)).toEqual({
+    expect(next.frame).toEqual(allDay(DAY, DAY));
+    expect(taskTimesAt(next, next.frame)).toEqual({
       allDay: true,
       startsAt: iso('2031-06-05T00:00:00'),
       endsAt: null,
@@ -144,7 +151,7 @@ describe('newTaskTimes', () => {
 
   it('動かすと開始が付いてくる', () => {
     const next = newTaskTimes(allDay(DAY, DAY));
-    expect(taskTimesAt(next.times, timedAt('2031-06-06', 20 * 60))).toEqual({
+    expect(taskTimesAt(next, timedAt('2031-06-06', 20 * 60))).toEqual({
       allDay: false,
       startsAt: iso('2031-06-06T20:00:00'),
       endsAt: null,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { clientIdShape, instantSchema, participantIdsSchema } from './common.ts';
 
-const EVENT_KINDS = ['event', 'task'] as const;
+export const EVENT_KINDS = ['event', 'task'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 export const REMIND_BEFORE_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440] as const;

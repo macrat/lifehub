@@ -42,10 +42,10 @@ export type GridDraft = Draft &
   };
 
 /**
- * 入力で直した日時の下書きへの映し戻し。予定は枠だけ、タスクは枠と、それを動かす元の日時
- * （入力した開始・期限。`taskDraftFromInput`）。直している物（item）は変わらない
+ * 入力で直した日時の下書きへの映し戻し。予定は枠、タスクは枠を動かす元の日時（入力した開始・期限と
+ * 開始の所の枠。`taskDraftFromInput`）。直している物（item）は変わらない
  */
-export type DraftChange = { range: DraftRange; times?: TaskTimes };
+export type DraftChange = { range: DraftRange } | { times: TaskTimes };
 
 /** クイック入力（`QuickItemForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */
 export type QuickProps = {
@@ -139,10 +139,11 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
       };
     case 'change': {
       if (state?.mode !== 'grid') return state;
-      const { range, times } = action;
-      const kind =
-        state.kind === 'task' && times ? { kind: 'task' as const, times } : kindOf(state);
-      return withKind({ ...state, settled: true }, placed(kind, range));
+      const next =
+        'times' in action
+          ? { kind: 'task' as const, times: action.times, range: action.times.frame }
+          : placed(kindOf(state), action.range);
+      return withKind({ ...state, settled: true }, next);
     }
     case 'switchKind':
       return state?.mode === 'grid' && state.kind !== action.kind
@@ -196,8 +197,8 @@ function placed(kind: DraftKind, range: DraftRange): DraftKind & { range: DraftR
  */
 function switchedKind(range: DraftRange, kind: EventKind): DraftKind & { range: DraftRange } {
   if (kind === 'event') return { kind: 'event', range: toEventRange(range) };
-  const task = newTaskTimes(range);
-  return { kind: 'task', times: task.times, range: task.range };
+  const times = newTaskTimes(range);
+  return { kind: 'task', times, range: times.frame };
 }
 
 /**

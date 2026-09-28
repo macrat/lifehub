@@ -1,9 +1,7 @@
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import type { EventKind } from '../../../../shared/validation/events.ts';
+import { EVENT_KINDS, type EventKind } from '../../../../shared/validation/events.ts';
 import { ADD_KINDS } from '../../add/kinds.ts';
-
-const KINDS: EventKind[] = ['event', 'task'];
 
 /**
  * 予定・タスクの入力の上端に置く「予定｜タスク」の切り替え。予定とタスクは同じ入れ物・同じ項目で入力し、
@@ -29,7 +27,7 @@ export function KindToggle({
         if (next !== null && next !== kind) onChange(next);
       }}
     >
-      {KINDS.map((k) => (
+      {EVENT_KINDS.map((k) => (
         <ToggleButton key={k} value={k} sx={{ px: 1.5, py: 0.5 }}>
           {ADD_KINDS[k].label}
         </ToggleButton>
