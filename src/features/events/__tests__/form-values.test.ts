@@ -134,6 +134,18 @@ test('タスクを予定にすると、開始から 1 時間（終日ならそ�
   });
 });
 
+test('終日の予定にするときも、日時以外の項目は引き継ぐ', () => {
+  const task = { ...saved, startsAt: null, endsAt: null };
+  expect(
+    switchKindValues(task, { allDay: true, startsAt: null }, 'event', new Date()),
+  ).toMatchObject({
+    allDay: true,
+    location: '駅前',
+    note: '保険証',
+    remindStartMinutes: 30,
+  });
+});
+
 test('開始の無いタスクを予定にすると、今日の終日の予定になる', () => {
   const now = new Date('2030-02-04T12:00:00+09:00');
   expect(switchKindValues(saved, { allDay: true, startsAt: null }, 'event', now)).toMatchObject({

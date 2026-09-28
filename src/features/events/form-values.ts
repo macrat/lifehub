@@ -112,7 +112,9 @@ export function switchKindValues(
     return { ...carried, allDay: start.allDay, startsAt: start.startsAt, endsAt: null };
   if (start.startsAt === null || start.allDay) {
     const date = start.startsAt === null ? today(now) : toDateString(new Date(start.startsAt));
-    return { ...carried, ...allDayEventValues(date, date, values.participantIds) };
+    // 日時だけを差し替える（allDayEventValues は空の予定から作るので、丸ごと重ねると場所・メモ・通知などが消える）
+    const { allDay, startsAt, endsAt } = allDayEventValues(date, date, values.participantIds);
+    return { ...carried, allDay, startsAt, endsAt };
   }
   return {
     ...carried,
