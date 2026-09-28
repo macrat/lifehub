@@ -25,7 +25,7 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
     {
       title: 'レモンの世話を記録する',
       description:
-        'レモンの木の世話（葉水・水やり・施肥）や、木の様子（開花・落果・収穫）を 1 件記録する。記録した内容（ref 付き）を返す。',
+        '家のレモンの木（1 本）の世話（葉水・水やり・施肥）や、木の様子（開花・落果・収穫）を 1 件記録する。木と関係の無い一言は add_memo。記録した内容（ref 付き）を返す。',
       inputSchema: {
         careTypes: fields.careTypes,
         at: fields.at.optional().describe('やった日時（"2030-01-07T09:00"、JST）。今なら省く'),
