@@ -136,7 +136,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
     'add_task',
     {
       title: 'タスクを足す',
-      description: `やるべきことを足す。完了にできる（set_task_done）。due（期限）と start（この日時から取りかかる）はどちらも任意で、${WHEN_FORMAT}。日時の無いタスクは完了まで毎日タイムラインの今日に出る。作ったタスク（ref 付き）を返す。`,
+      description: `やるべきことを足す。完了にできる（set_task_done）。日時の決まった出来事（完了の無いもの）は add_event。due（期限）と start（この日時から取りかかる）はどちらも任意で、${WHEN_FORMAT}。日時の無いタスクは完了まで毎日タイムラインの今日に出る。作ったタスク（ref 付き）を返す。`,
       inputSchema: {
         title: fields.title,
         due: whenInputSchema.optional().describe(`期限。${WHEN_FORMAT}`),
