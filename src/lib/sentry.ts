@@ -34,8 +34,11 @@ export function initSentry(router: AnyRouter, client: QueryClient): void {
      * View Transition の途中で次の遷移が始まったときの AbortError（前の遷移のアニメーションが飛ばされただけで、
      * 画面の更新は行われる）。ルーター（`defaultViewTransition`）は `startViewTransition` の `updateCallbackDone`
      * だけを待ち、`ready` を放っておくので、その reject が未処理の例外として上がってくる。
-     * WHY NOT `startViewTransition` を包んで `ready` の失敗を握りつぶす: 全体を書き換える割に得るものが無く、
-     * 名前の重複で遷移が行われない（InvalidStateError。`item-transition.ts`）という本物の不具合まで隠しかねない
+     * 不具合は @tanstack/router-core（`RouterCore` の `startViewTransition`）にあり、上流で直るまでの間だけ送らない。
+     * 直った版に上げたら消す。
+     * WHY NOT アプリ側で直す: 依存ライブラリへのパッチも `router.startViewTransition` の差し替えも、ライブラリの
+     * 内側に手を入れることになり、更新のたびに追従が要る。
+     * 文字列で絞るので、名前の重複で遷移が行われない InvalidStateError（`item-transition.ts`）は引き続き送られる
      */
     ignoreErrors: ['Transition was skipped. New ViewTransition started'],
   });
