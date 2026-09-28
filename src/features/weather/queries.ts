@@ -50,7 +50,7 @@ const CLOCK_INTERVAL_MS = 60_000;
 
 /**
  * ホームのタイルに出す日（`homeWeatherDay`）。18 時を過ぎれば開いたままでも明日に変わるよう、時計に合わせて選び直す。
- * 描き直すのは日が変わったときだけにする（1 日 2 回）。
+ * 描き直すのは日か呼び方が変わったときだけにする（18 時と 0 時の 1 日 2 回。0 時は日が同じまま「明日」が「今日」になる）。
  * WHY NOT `useNow`: 毎分新しい Date を返すので、天気の画面では一覧全体が毎分描き直される。
  */
 export function useHomeWeatherDay(): HomeWeatherDay {
@@ -58,7 +58,7 @@ export function useHomeWeatherDay(): HomeWeatherDay {
   useEffect(() => {
     const timer = setInterval(() => {
       const next = homeWeatherDay(new Date());
-      setDay((prev) => (prev.date === next.date ? prev : next));
+      setDay((prev) => (prev.date === next.date && prev.label === next.label ? prev : next));
     }, CLOCK_INTERVAL_MS);
     return () => clearInterval(timer);
   }, []);
