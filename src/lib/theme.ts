@@ -1,4 +1,4 @@
-import { createTheme, type Theme } from '@mui/material/styles';
+import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -55,6 +55,32 @@ const PICKER_INDICATOR_AS_SELECT_ICON = {
   },
   '&:open::-webkit-calendar-picker-indicator': { transform: 'rotate(180deg)' },
 };
+
+/** 部品の設定のうち、色相に依らないもの（テーマを作るたびに組み立て直さない） */
+const FIXED_COMPONENTS = {
+  MuiStack: {
+    // 間隔は CSS の gap で空ける。MUI の既定（兄弟要素への margin）では、hidden input のような
+    // 見えない子も兄弟に数えられて先頭の欄に余計な margin が付き、折り返した行の先頭にも margin が残る
+    defaultProps: { useFlexGap: true },
+  },
+  MuiDialog: {
+    styleOverrides: {
+      paper: { borderRadius: 28 },
+      // スマホの全画面フォームはページとして見せるので角丸にしない
+      paperFullScreen: { borderRadius: 0 },
+    },
+  },
+  MuiButton: {
+    styleOverrides: {
+      root: { borderRadius: 20, textTransform: 'none' },
+    },
+  },
+  MuiChip: {
+    styleOverrides: {
+      root: { borderRadius: 8 },
+    },
+  },
+} satisfies ThemeOptions['components'];
 
 /**
  * Material Design 3 の見た目に寄せた設定。
@@ -181,23 +207,7 @@ function createAppTheme(hue: number = DEFAULT_HUE) {
           }),
         },
       },
-      MuiDialog: {
-        styleOverrides: {
-          paper: { borderRadius: 28 },
-          // スマホの全画面フォームはページとして見せるので角丸にしない
-          paperFullScreen: { borderRadius: 0 },
-        },
-      },
-      MuiButton: {
-        styleOverrides: {
-          root: { borderRadius: 20, textTransform: 'none' },
-        },
-      },
-      MuiChip: {
-        styleOverrides: {
-          root: { borderRadius: 8 },
-        },
-      },
+      ...FIXED_COMPONENTS,
     },
   });
 }
