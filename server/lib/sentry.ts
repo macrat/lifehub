@@ -1,4 +1,3 @@
-import { neonConfig } from '@neondatabase/serverless';
 import * as Sentry from '@sentry/hono/node';
 import { waitUntil } from '@vercel/functions';
 import { type Env, Hono, type MiddlewareHandler, type Schema } from 'hono';
@@ -53,7 +52,6 @@ export function initSentry(): void {
   Sentry.getClient()?.on('beforeEnvelope', ([, items]) => {
     if (items.some(([header]) => header.type === 'event')) waitUntil(Sentry.flush(2000));
   });
-  neonConfig.fetchFunction = traceNeonFetch;
 }
 
 /**
@@ -89,8 +87,10 @@ export function statementsOf(body: RequestInit['body']): string[] {
  * WHY NOT Drizzle に渡すクライアントを包む: トランザクションは、個々の文の問い合わせ（遅延実行の
  * `NeonQueryPromise`）をまとめて送る作りで、文ごとに包むと送る前に実行されてしまう。fetch なら
  * 1 文でもトランザクションでも、1 回の送信として 1 か所で包める。
+ * 計っている要求の中でだけ本文を読む（SDK を起こしていない Preview や、計らない要求では読むだけ無駄になる）。
  */
-const traceNeonFetch: typeof fetch = (input, init) => {
+export const traceNeonFetch: typeof fetch = (input, init) => {
+  if (!Sentry.getActiveSpan()?.isRecording()) return fetch(input, init);
   const statements = statementsOf(init?.body);
   if (statements.length === 0) return fetch(input, init);
   const text = statements.join(';\n');
