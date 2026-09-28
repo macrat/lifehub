@@ -17,6 +17,11 @@ constexpr uint32_t I2C_FREQ = 400000;
 // 明るさは読める範囲で低めにする（点いている時間は数秒なので、消費への影響は小さい）
 constexpr uint8_t BRIGHTNESS = 96;
 
+// 本体を横向き（右に 90 度倒して）置くので、描くものを左に 90 度回す。
+// setRotation は 1 増やすごとに時計回りに 90 度回るので、3 増やす（= 左に 90 度）。
+// 既定の向きからの相対にするのは、M5GFX がボードごとに決める既定の向きに左右されないようにするため
+constexpr uint8_t ROTATE_LEFT = 3;
+
 // 送れなかったときはアイコンを灰色にして、赤い × を重ねる。
 // × は画面の中央に、縁から 3/16 ずつ空けて置く（アイコンの絵とおおむね同じ広さになる）
 constexpr uint16_t FAILED_COLOR = TFT_DARKGREY;
@@ -46,7 +51,10 @@ void drawIcon(screen::Icon icon, bool failed) {
 
 namespace screen {
 
-void begin() { off(); }
+void begin() {
+  M5.Display.setRotation((M5.Display.getRotation() + ROTATE_LEFT) % 4);
+  off();
+}
 
 void show(Icon icon) {
   M5.Display.wakeup();
