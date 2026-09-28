@@ -55,15 +55,9 @@ export function initSentry(): void {
 }
 
 /**
- * この要求を送ったユーザーを Sentry に知らせる。エラー・スパン・ログに付き、誰のどの操作で起きたかを追える。
- * ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が、ユーザーが分かった時点で呼ぶ。
- * 要求ごとに分かれたスコープ（SDK が要求ごとに作る isolation scope）に置くので、同じインスタンスが
- * 並べて受けた別の要求には混ざらない。
- *
- * 送るのは DB のユーザー ID（UUID）だけで、それ自体は個人を指さない（仮名）。誰かは DB か、ユーザー管理の
- * 編集画面に出る ID と見比べて確かめる。
- * WHY NOT メールアドレス（やそのハッシュ）: MCP のアクセストークンはユーザー ID しか持たないので、
- * 要求のたびに DB から読むことになる。ID ならどの経路でも手元にあり、ブラウザも `/api/me` の `id` をそのまま使える。
+ * この要求を送ったユーザーを Sentry に知らせる。送るのは DB のユーザー ID だけ（理由は docs/architecture.md の
+ * 「監視（Sentry）」）。ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が呼ぶ。
+ * SDK が要求ごとに作る isolation scope に置くので、同じインスタンスが並べて受けた別の要求には混ざらない。
  */
 export function setSentryUser(userId: string): void {
   Sentry.setUser({ id: userId });

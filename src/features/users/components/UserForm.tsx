@@ -1,6 +1,4 @@
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Alert from '@mui/material/Alert';
-import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
@@ -12,7 +10,7 @@ import {
   updateUserSchema,
 } from '../../../../shared/validation/users.ts';
 import { formValues, useFormSubmit } from '../../../lib/form.ts';
-import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
+import { CopyField } from '../../../lib/ui/CopyField.tsx';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { User } from '../queries.ts';
 import { HueSlider } from './HueSlider.tsx';
@@ -82,34 +80,14 @@ export function UserForm(props: CreateProps | EditProps) {
         fullWidth
       />
       <HueSlider value={hue ?? DEFAULT_HUE} onChange={setHue} />
-      {props.mode === 'edit' && <UserIdField id={props.user.id} />}
+      {/* Sentry の記録（`server/lib/sentry.ts` の `setSentryUser`）や DB と見比べるために出す */}
+      {props.mode === 'edit' && (
+        <CopyField
+          label="ユーザー ID"
+          value={props.user.id}
+          copied="ユーザー ID をコピーしました"
+        />
+      )}
     </RecordSheet>
-  );
-}
-
-/**
- * ユーザー ID（編集できない）。Sentry の記録（`server/lib/sentry.ts` の `setSentryUser`）や DB と
- * 見比べるために出す。押すとコピーする。
- * `name` を付けないので、フォームの値（`formValues`）には入らない。
- */
-function UserIdField({ id }: { id: string }) {
-  return (
-    <TextField
-      label="ユーザー ID"
-      value={id}
-      onClick={() => copyToClipboard(id, 'ユーザー ID をコピーしました')}
-      fullWidth
-      slotProps={{
-        input: {
-          readOnly: true,
-          sx: { fontFamily: 'monospace', cursor: 'pointer', '& input': { cursor: 'pointer' } },
-          endAdornment: (
-            <InputAdornment position="end">
-              <ContentCopyIcon />
-            </InputAdornment>
-          ),
-        },
-      }}
-    />
   );
 }

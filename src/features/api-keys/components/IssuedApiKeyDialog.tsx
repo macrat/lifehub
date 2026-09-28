@@ -1,13 +1,9 @@
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Button from '@mui/material/Button';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import TextField from '@mui/material/TextField';
-import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
+import { CopyField } from '../../../lib/ui/CopyField.tsx';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import type { IssuedApiKey } from '../queries.ts';
 
@@ -28,28 +24,7 @@ export function IssuedApiKeyDialog({ apiKey, onClose }: Props) {
         <DialogContentText sx={{ mb: 2 }}>
           このキーは今だけ表示されます。閉じる前にコピーしてください。
         </DialogContentText>
-        <TextField
-          label="API キー"
-          value={apiKey.key}
-          fullWidth
-          slotProps={{
-            input: {
-              readOnly: true,
-              sx: { fontFamily: 'monospace' },
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    edge="end"
-                    aria-label="API キーをコピー"
-                    onClick={() => copyToClipboard(apiKey.key, 'API キーをコピーしました')}
-                  >
-                    <ContentCopyIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
+        <CopyField label="API キー" value={apiKey.key} copied="API キーをコピーしました" />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>閉じる</Button>
