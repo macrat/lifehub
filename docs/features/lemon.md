@@ -32,7 +32,7 @@
 
 ## MCP ツール
 
-`lemon_get_status`, `lemon_log_care`（[mcp.md](mcp.md)）。
+`log_lemon_care`, `update_lemon_log`。状況は `get_overview`、記録は `read_timeline`、消すのは `delete_entry`（[mcp.md](mcp.md)）。
 
 ## ホームのカード
 

@@ -9,6 +9,7 @@ import {
   type UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { applyPatch } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
@@ -24,7 +25,8 @@ export async function getEvent(id: string): Promise<EventMaster> {
 }
 
 /**
- * 一部の項目だけを変える更新（MCP）。patch で undefined の項目は今の値のまま（`mergePatch`）。
+ * 一部の項目だけを変える更新（MCP。`applyPatch`）。patch で undefined の項目は今の値のまま。
+ * 予定の開始だけが指定されたら、終了も同じだけずらす（`keepDuration`）。
  * 繰り返し元の読み出しは 1 回だけで、今の値の組み立てと更新の両方に使う。
  */
 export async function patchEvent(
@@ -35,26 +37,27 @@ export async function patchEvent(
 ): Promise<EventMaster> {
   const master = await findMaster(id);
   const current = await currentInput(master, target);
-  const result = await applyUpdate(master, { ...mergePatch(current, patch), ...target }, userId);
+  const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
+  const result = await applyUpdate(master, { ...merged, ...target }, userId);
   scheduleUpcoming();
   return result;
 }
 
 /**
- * 今の値に、変える項目だけを重ねる（省いた項目 = undefined は今の値のまま）。
- * 重ねた結果の組み合わせ（予定の開始と終了がそろっているか など）はここで確かめ、誤りは ValidationError の文で返す。
- * WHY NOT 全項目の置き換え: 「タイトルだけ変えて」で繰り返しや場所を省くと、それらが消えてしまう。
+ * 予定の開始だけを変える部分更新は、長さを保って終了もずらす（予定を動かす）。
+ * WHY: 「3 時からにして」を頼まれた LLM は終了を渡さないことが多く、終了を今のままにすると
+ * 開始が終了を追い越して規則の誤りになるか、予定が意図せず伸び縮みする。
+ * 終日と時刻ありを切り替えるときは長さの意味が変わる（日数と時間）ので、ずらさずに終了の指定を求める。
  */
-function mergePatch(current: CreateEventInput, patch: EventPatch): CreateEventInput {
-  const defined: Partial<CreateEventInput> = Object.fromEntries(
-    Object.entries(patch).filter(([, v]) => v !== undefined),
-  );
-  const merged = { ...current, ...defined };
-  const result = eventRulesSchema.safeParse(merged);
-  if (!result.success) {
-    throw new ValidationError(result.error.issues.map((issue) => issue.message).join(' / '));
+function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
+  const { startsAt, endsAt } = current;
+  if (current.kind !== 'event' || !patch.startsAt || patch.endsAt !== undefined) return patch;
+  if (!startsAt || !endsAt) return patch;
+  if (patch.allDay !== undefined && patch.allDay !== current.allDay) {
+    throw new ValidationError('終日と時刻ありを切り替えるときは、終了も指定してください');
   }
-  return merged;
+  const duration = endsAt.getTime() - startsAt.getTime();
+  return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };
 }
 
 /**
@@ -220,7 +223,8 @@ async function setCompletedAt(
     return;
   }
   const { occurrenceStart } = input;
-  if (!occurrenceStart) throw new ValidationError('occurrenceStart が必要です');
+  if (!occurrenceStart)
+    throw new ValidationError('繰り返しのタスクは、完了にする回を指定してください');
   if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   await materialize(master, occurrenceStart, { completedAt }, undefined, userId);
 }

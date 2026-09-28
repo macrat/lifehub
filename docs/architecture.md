@@ -106,7 +106,8 @@ server/                       # サーバー（Hono）
         history.ts = 履歴のページ分け・キーワード・タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
-    mcp/types.ts（ツールの登録関数の型と結果の形）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
+    mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
+        people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型）  validator.ts（入力検証。`validate`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）

@@ -15,28 +15,45 @@
 
 ## ツール一覧
 
-命名は `<feature>_<verb>_<object>`。ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。`shared/validation` の Zod は、項目の定義がそのまま LLM にも分かりやすいときだけ共有し、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。説明文は AI が正しく使えるよう具体的に書く。
+ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。DB の表や API の口ごとに並べず、LifeHub を **タイムライン（日付の上に並ぶ記録）** として見せる: 予定（event）・タスク（task）・立替（expense）・レモンの木の世話（lemon）・メモ（memo）は、どれも同じ形の「エントリー」として `read_timeline` で読み、エントリーの `ref` で書き換える・消す。天気と祝日は日に付く。
 
 | ツール | 内容 |
 |---|---|
-| `events_list` | 期間内の予定とタスク（繰り返し展開済み、`placementDate` 付き）を列挙する |
-| `events_create` | 予定またはタスクを作成する（`kind`） |
-| `events_update` | 変える項目だけを指定して更新する（省いた項目は今の値のまま、`null` は消す。`scope`: all / this / following。省略すると all。this / following は `occurrenceStart` で回を指定） |
-| `events_delete` | 削除する（`scope` と `occurrenceStart` は更新と同じ） |
-| `events_complete` | タスクを完了にする（繰り返しは `occurrenceStart` で回を指定） |
-| `events_uncomplete` | 完了を取り消す |
-| `users_list` | ユーザーの ID と名前（`isMe` で認可した本人が分かる） |
-| `expenses_get_balance` | 立替残高を返す |
-| `expenses_list` | 立替の履歴（精算を含む）の 1 ページ。画面と同じ絞り込みができ、`nextCursor` を `before` に渡すと前のページ |
-| `expenses_add` | 立替（精算を含む）を追加する（`spentOn` を省くと今日） |
-| `lemon_get_status` | レモンの世話状況（項目ごとの最終実施日と経過日数） |
-| `lemon_log_care` | レモンの世話を記録する（1 件に項目を複数まとめられる。`doneAt` を省くと今） |
+| `get_overview` | 最初に呼ぶ。今の日時と今日の日付、ユーザー（名前と自分）、今日と明日のタイムライン、立替の残高、レモンの世話の状況 |
+| `read_timeline` | 期間（既定は今日から 7 日、最大 366 日）の記録を日ごとに。各日に祝日と天気の要約。`q`（文字の部分一致）と `types`（種類）で絞れる |
+| `get_weather` | 期間（既定は今日から 8 日、最大 31 日）の天気を日ごとに。3 時間ごとの天気と気温・6 時間ごとの降水確率も |
+| `add_event` | 予定を入れる |
+| `add_task` | タスクを足す（`due` と `start` は任意） |
+| `update_event` | 予定・タスクを ref で部分更新する |
+| `set_task_done` | タスクを完了にする・完了を取り消す（`done`） |
+| `add_expense` / `update_expense` | 立替（精算を含む）を記録する・直す。書いた後の残高も返す |
+| `log_lemon_care` / `update_lemon_log` | レモンの世話を記録する・直す |
+| `add_memo` / `update_memo` | メモを書く・直す（直せるのは書いた本人だけ） |
+| `delete_entry` | どの種類のエントリーも ref で消す |
 
-各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。入力スキーマは最上位が平らな Zod オブジェクト（refine も効く）。予定の更新・削除の範囲は、API では判別共用体（`occurrenceTargetSchema`）だが、MCP では `scope`（省略可）と `occurrenceStart` の 2 項目で受け、`mcp.ts` の `toTarget` が判別共用体に直す。回の指定が抜けていれば、何を足せばよいかをツールのエラーの文で返す。
+命名は `動詞_対象`（`read_timeline`・`add_task`）。読むツールは種類を問わず 1 本（`read_timeline`）にし、書くツールは種類ごとに分ける。読むときは「今週どうなってる？」のように種類をまたいで訊かれ、書くときは項目が種類ごとに違う（1 本にすると入力が種類ごとの分岐の `anyOf` になる）。消すのは ref だけで足りるので 1 本（`delete_entry`）。ツールの性質（`readOnlyHint` / `destructiveHint` / `idempotentHint`）を付け、クライアントが確認の要否を決められるようにする。サーバーの説明（`instructions`。`server/mcp.ts`）には全体の捉え方と約束事だけを書き、個々の使い方は各ツールの説明に書く。
 
-予定の更新は、API では全項目の置き換えだが、MCP では部分更新にする。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、置き換えにすると省いた繰り返しや場所が消える。`service.patchEvent` が対象の今の値（回の指定があればその回の値。終日の終了は `toInputInstants` で入力の形に戻す）を組み立て、指定された項目だけを重ねて、作成・更新と同じ組み合わせの規則（`eventRulesSchema`）を掛ける（`mergePatch`）。`mcp.ts` は LLM の入力を部分更新（`EventPatch`）と回の指定に分けて渡すだけ。繰り返し元の読み出しは、今の値の組み立てと更新で 1 回を共有する。部分更新の項目（`eventPatchSchema`）は既定値を持たない項目の型から作る。既定値があると、省いた項目が既定値で埋まってしまうため。
+### LLM に合わせた約束事
 
-「今」を指す日時（世話の `doneAt`、立替の `spentOn`）は MCP では省略でき、省くと `mcp.ts` が今の日時・今日の日付で埋める。LLM は今の日時を正確には知らず、必須にすると推し量った日時が記録されるため。項目の組み合わせの規則（`withCareLogRules` / `withExpenseRules`）はスキーマの形と切り離してあり、省略できる形に変えた MCP の入力にも同じ規則を掛ける。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
+- **エントリーは ref で指す**（`server/lib/mcp/refs.ts`）。`<種類>:<ID>`、繰り返しの回は `<種類>:<ID>@<回の基準日時>`。種類・ID・回を別々の引数にすると LLM は組み合わせを取り違えるので、読んだ値を写すだけにする。種類が合わなければ（立替を直すツールにメモの ref を渡した等）、何の ref かを文で返す。
+- **繰り返しの回を変える・消すときは `scope`（this / following / all）を必ず選ばせる**（`occurrenceTargetOf`）。既定をすべての回にすると「来週の歯医者を 10 時に」が毎週を動かし、この回だけにすると「毎週の歯医者を 10 時に」がその回だけを動かすので、どちらに倒しても取り返しの付かない変更になりうる。回を指さない ref（`@` なし）は scope を省けばすべて。
+- **日時は JST で出し、入力のタイムゾーンは省ける**（`server/lib/mcp/time.ts`）。出力は `2030-01-07T09:00+09:00`（秒は出さない）、入力は `2030-01-07T09:00` を JST とみなす。UTC で出すと LLM は 9 時間ずらして読み違え、入力にタイムゾーンを必須にすると付け忘れや換算の誤りが起きる。
+- **終日かどうかは日時の形で決める**。予定・タスクの開始・終了（期限）は、日付（`2030-01-07`）なら終日、日時なら時刻あり。`allDay` の旗を別に持たせると旗と日時が食い違う。終日の終了（期限）はその日を含む最終日で受け・返す（保存の排他的な終端は出さない）。日付と日時が混ざっていれば、揃えるよう文で返す。
+- **タスクの期限は `due`、予定の終了は `end`**。API ではどちらも `endsAt` だが、LLM には意味の違う物なので名前を分ける。取り違えは読み替えずに文で返す。
+- **人は名前で指し、名前で返す**（`server/lib/mcp/people.ts`）。利用者は 2 人で、会話の中の人は名前で出てくる。自分は `"me"`、同じ名前の人がいるときのために ID も受ける。当てはまらなければ選べる名前を文で返す。立替の To の共有は `"shared"`。ユーザーの一覧は要求の中で 1 度だけ読む（`McpContext.people`）。
+- **「今」を指す日時は省ける**。世話の日時・立替の日付は省くと今・今日、予定・タスクの参加者は省くと自分。LLM は今の日時を正確には知らず、必須にすると推し量った日時が記録される。今日の日付が要る計算（「明日」「来週」）のために、`get_overview` が今日を返す。
+- **更新は部分更新**（`server/lib/patch.ts` の `applyPatch`）。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、省いた項目は今のまま、`null` は消す。service（`patchEvent` / `patchExpense` / `patchLog`）が今の値に重ね、追加・編集と同じ組み合わせの規則（`eventRulesSchema` / `expenseRulesSchema` / `careLogRulesSchema`）を掛ける。予定の開始だけが変われば、長さを保って終了もずらす（`keepDuration`。「3 時からにして」で終了を渡されないと、開始が終了を追い越すか予定が伸び縮みする）。終日と時刻ありの切り替えでは長さの意味が変わるので、終了の指定を求める。予定の繰り返しの回（`scope: this`）では、その回の今の値に重ねる。
+- **作成の入力にも組み合わせの規則を掛ける**（`checkRules`）。MCP の入力は API のスキーマを通らず `mcp.ts` が組み立てるので、組み立てた値に同じ規則を掛ける。
+- **出力は短く**（`server/lib/mcp/entries.ts`）。JSON は字下げしない。値の無い項目（`null`）は省く。DB の列や API の形（UTC の日時、排他的な終端、ユーザー ID、`placementDate`）は出さない。書いたツールは書いた後のエントリー（ref 付き）を返し、立替は残高も返す（続けて「いくら払えば精算？」と訊かれることが多い）。
+- **一度に返す量に上限を持つ**。`read_timeline` は 200 件を越える日から先を省き、どこから読み直せばよいか・どう絞ればよいかを文で添える。期間の上限（366 日・31 日）を越えれば、分けて読むよう文で返す。
+
+### タイムラインの読み方
+
+`read_timeline` と `get_overview` は、タイムラインの service の `listDays` を読む（ホームの画面のページ `getTimelinePage` ではない）。予定・タスクはカレンダーと同じく暦日に置き（`listItems`。複数日の予定は掛かる日すべてに出して `day` に何日目かを、未完了のタスクは開始が過ぎたか日時を持たなければ今日に）、立替・レモン・メモは各 feature の `timelineSource` を読む。WHY NOT ホームと同じく 1 回を 1 行にする: 行は置く日を 1 つしか持たないので、「10/2 の予定」を訊かれたとき 10/1 から続く旅行が 10/1 の側にしか出ない。日を指して読む相手には、その日に掛かる予定がすべてその日に出るほうが正しい。WHY NOT ホームと同じくページで読む: ページの境目は件数で決まり、LLM は日付で訊かれて日付で答えるので、期間で読むほうが扱いやすい。絞ったとき（`q` / `types`）は記録の無い日を省く。
+
+### 組み立て
+
+各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。タイムラインを読む・消すツール（`get_overview` / `read_timeline` / `delete_entry`）は種類をまたぐので、記録を集める feature の `server/features/timeline/mcp.ts` に置く。LLM 向けの形（ref・日時・人・出力の形）は feature をまたぐので `server/lib/mcp/` に置き、feature の `mcp.ts` は LLM の入力を service の入力に直して呼ぶだけにする。入力スキーマは最上位が平らな Zod オブジェクトで、項目ごとの規則（長さ・選択肢）は `shared/validation` から取り、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
 
 ## 接続方法
 

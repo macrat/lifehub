@@ -1,40 +1,67 @@
-import { instantSchema } from '../../../shared/validation/common.ts';
-import { careLogFieldsSchema, withCareLogRules } from '../../../shared/validation/lemon.ts';
-import { jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
+import { careLogFieldsSchema, careLogRulesSchema } from '../../../shared/validation/lemon.ts';
+import { formatCareLog } from '../../lib/mcp/entries.ts';
+import { expectType, refSchema } from '../../lib/mcp/refs.ts';
+import { instantInputSchema } from '../../lib/mcp/time.ts';
+import { ADDITIVE, EDITING, jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
+import { checkRules } from '../../lib/patch.ts';
 import * as service from './service.ts';
 
 /**
- * 世話の記録の入力。doneAt は省略でき、省くと今になる。
- * WHY: LLM は今の日時を正確には知らないので、必須にすると推し量った日時が記録される。
- * 「今やった」の記録がほとんどなので、日時を言われたときだけ渡させる。
+ * レモンの木の世話を書く MCP ツール。状況は `get_overview`、記録を読むのは `read_timeline` の types=["lemon"]、
+ * 消すのは `delete_entry`。
  */
-const logCareInputSchema = withCareLogRules(
-  careLogFieldsSchema.extend({ doneAt: instantSchema.optional() }),
-);
+
+const CARE_TYPES_HELP =
+  'やったこと・気づいたことの配列: mist=葉水, water=水やり, fertilize=施肥, bloom=開花, drop=落果, harvest=収穫。1 回にやったことはまとめて 1 件にする（葉水と水やりなら ["mist", "water"]）。空の配列にすると note だけの記録（メモ）になる';
+
+const fields = {
+  careTypes: careLogFieldsSchema.shape.careTypes.describe(CARE_TYPES_HELP),
+  at: instantInputSchema.describe('やった日時（"2030-01-07T09:00"、JST）'),
+  note: careLogFieldsSchema.shape.note.describe('メモ（木の様子など）'),
+};
 
 export const registerLemonTools: ToolRegistrar = (server, ctx) => {
   server.registerTool(
-    'lemon_get_status',
+    'log_lemon_care',
     {
-      title: 'レモンの木の状態',
+      title: 'レモンの世話を記録する',
       description:
-        'レモンの木の世話の状況を返す。項目（mist=葉水, water=水やり, fertilize=施肥, bloom=開花, drop=落果, harvest=収穫）ごとの最終実施日時と、そこからの経過日数（JST の暦日差）。未実施なら null。',
-      inputSchema: {},
+        'レモンの木の世話（葉水・水やり・施肥）や、木の様子（開花・落果・収穫）を 1 件記録する。記録した内容（ref 付き）を返す。',
+      inputSchema: {
+        careTypes: fields.careTypes,
+        at: fields.at.optional().describe('やった日時（"2030-01-07T09:00"、JST）。今なら省く'),
+        note: fields.note.optional(),
+      },
+      annotations: ADDITIVE,
     },
-    async () => jsonResult(await service.getStatus()),
+    async ({ careTypes, at, note }) => {
+      // 今の日時は LLM が推し量らずに済むよう、サーバーの今で埋める
+      const input = { careTypes, doneAt: at ?? new Date(), note: note ?? null };
+      const log = await service.logCare(checkRules(input, careLogRulesSchema), {
+        userId: ctx.userId,
+      });
+      return jsonResult(formatCareLog(log, await ctx.people()));
+    },
   );
 
   server.registerTool(
-    'lemon_log_care',
+    'update_lemon_log',
     {
-      title: 'レモンの世話を記録',
+      title: 'レモンの世話の記録を直す',
       description:
-        'レモンの木の世話を 1 件記録する。careTypes はその 1 回でやったことの配列で、mist / water / fertilize / bloom / drop / harvest から必要なだけ挙げる（葉水と水やりを一緒にやったなら ["mist", "water"]）。doneAt は ISO 8601 で、今やったことなら省略する（省略すると今）。careTypes が空なら本文（note）が必須で、その記録はメモになる。',
-      inputSchema: logCareInputSchema,
+        'レモンの世話の記録を ref で直す。変える項目だけを渡し、省いた項目は今のまま（careTypes は丸ごと置き換える）。直した記録を返す。',
+      inputSchema: {
+        ref: refSchema.describe('レモンの世話の記録の ref'),
+        careTypes: fields.careTypes.optional(),
+        at: fields.at.optional(),
+        note: fields.note.optional(),
+      },
+      annotations: EDITING,
     },
-    async ({ doneAt, ...input }) =>
-      jsonResult(
-        await service.logCare({ ...input, doneAt: doneAt ?? new Date() }, { userId: ctx.userId }),
-      ),
+    async ({ ref, careTypes, at, note }) => {
+      const { id } = expectType(ref, ['lemon'], '');
+      const log = await service.patchLog(id, { careTypes, doneAt: at, note });
+      return jsonResult(formatCareLog(log, await ctx.people()));
+    },
   );
 };

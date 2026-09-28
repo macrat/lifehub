@@ -33,11 +33,12 @@ const rruleSchema = z
 const remindMinutesSchema = z.union(REMIND_BEFORE_OPTIONS.map((v) => z.literal(v))).nullable();
 
 /**
- * 予定・タスクの項目の型。既定値は持たせない: 部分更新（MCP の `events_update`）では
+ * 予定・タスクの項目の型。既定値は持たせない: 部分更新（MCP の予定の更新）では
  * 「省いた（今の値のまま）」と「null にする（消す）」を見分ける必要があり、既定値があると
  * 省いた項目が既定値で埋まってしまう（zod の partial は既定値を外さない）。
+ * MCP は項目の名前と日時の形を LLM に合わせて変えるが、項目ごとの規則（長さ・選択肢）はここから取る。
  */
-const eventFieldTypes = {
+export const eventFieldTypes = {
   kind: z.enum(EVENT_KINDS),
   title: z.string().trim().min(1, 'タイトルを入力してください').max(200),
   allDay: z.boolean(),
@@ -119,11 +120,10 @@ function withEventRules<T extends z.ZodType<EventFieldsOutput>>(schema: T): T {
 export const createEventSchema = withEventRules(z.object(eventFields));
 
 /**
- * 部分更新の項目（MCP の `events_update`）。省いた項目は今の値のまま、null は消す。
+ * 部分更新（MCP の予定の更新）。省いた項目は今の値のまま、null は消す。
  * 種別は変えられないので含めない。組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
-export const eventPatchSchema = z.object(eventFieldTypes).omit({ kind: true }).partial();
-export type EventPatch = z.infer<typeof eventPatchSchema>;
+export type EventPatch = Partial<Omit<CreateEventInput, 'kind'>>;
 
 /** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());
@@ -133,7 +133,7 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export const createEventRequestSchema = createEventSchema.safeExtend(clientIdShape);
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
-export const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
+const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
 export type RecurrenceScope = z.infer<typeof recurrenceScopeSchema>;
 
 /**

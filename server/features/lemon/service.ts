@@ -2,8 +2,14 @@ import { newId } from '../../../shared/id.ts';
 import { type CareLog, type CareStatus, careStatusesOf } from '../../../shared/lemon.ts';
 import { careLogEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
-import type { CareLogInput, CareLogListQuery } from '../../../shared/validation/lemon.ts';
+import {
+  type CareLogInput,
+  type CareLogListQuery,
+  careLogRulesSchema,
+  normalizeCareTypes,
+} from '../../../shared/validation/lemon.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import { applyPatch } from '../../lib/patch.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
@@ -61,6 +67,24 @@ export async function logCare(
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
 export async function updateLog(id: string, input: CareLogInput): Promise<void> {
   if (!(await repository.update(id, input))) throw new NotFoundError('記録が見つかりません');
+}
+
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
+export async function patchLog(id: string, patch: Partial<CareLogInput>): Promise<CareLog> {
+  const current = await repository.findById(id);
+  if (!current) throw new NotFoundError('記録が見つかりません');
+  const { careTypes, doneAt, note } = applyPatch(
+    { careTypes: current.careTypes, doneAt: current.doneAt, note: current.note },
+    patch,
+    careLogRulesSchema,
+  );
+  const updated = await repository.update(id, {
+    careTypes: normalizeCareTypes(careTypes),
+    doneAt,
+    note,
+  });
+  if (!updated) throw new NotFoundError('記録が見つかりません');
+  return toLog(updated);
 }
 
 export async function deleteLog(id: string): Promise<void> {

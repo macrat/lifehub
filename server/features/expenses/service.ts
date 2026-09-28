@@ -9,8 +9,13 @@ import {
 import { newId } from '../../../shared/id.ts';
 import { expenseEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
-import type { ExpenseInput, ExpenseListQuery } from '../../../shared/validation/expenses.ts';
+import {
+  type ExpenseInput,
+  type ExpenseListQuery,
+  expenseRulesSchema,
+} from '../../../shared/validation/expenses.ts';
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { applyPatch } from '../../lib/patch.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as users from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -62,6 +67,21 @@ export async function addExpense(
 /** 全項目を置き換える。記録した人（createdBy）は変えない */
 export async function updateExpense(id: string, input: ExpenseInput): Promise<void> {
   if (!(await repository.update(id, input))) throw new NotFoundError('立替が見つかりません');
+}
+
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない */
+export async function patchExpense(id: string, patch: Partial<ExpenseInput>): Promise<Expense> {
+  const current = await repository.findById(id);
+  if (!current) throw new NotFoundError('立替が見つかりません');
+  const { fromUserId, toUserId, amount, description, spentOn } = current;
+  const values = applyPatch(
+    { fromUserId, toUserId, amount, description, spentOn },
+    patch,
+    expenseRulesSchema,
+  );
+  const updated = await repository.update(id, values);
+  if (!updated) throw new NotFoundError('立替が見つかりません');
+  return toExpense(updated);
 }
 
 export async function deleteExpense(id: string): Promise<void> {

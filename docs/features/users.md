@@ -50,7 +50,7 @@
 
 ## MCP ツール
 
-`users_list`（[mcp.md](mcp.md)）。
+無し。ユーザーの名前とどれが自分かは `get_overview` が返し、ほかのツールは人を名前で受ける（[mcp.md](mcp.md)）。
 
 ## 表示名
 

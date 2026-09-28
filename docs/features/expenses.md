@@ -39,7 +39,7 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 
 ## MCP ツール
 
-`expenses_get_balance`, `expenses_list`, `expenses_add`（[mcp.md](mcp.md)）。
+`add_expense`, `update_expense`。残高は `get_overview`（と書いた後の結果）、履歴は `read_timeline`、消すのは `delete_entry`（[mcp.md](mcp.md)）。
 
 ## ホームのカード
 

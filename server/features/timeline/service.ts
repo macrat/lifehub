@@ -1,12 +1,31 @@
-import { addDays, startOfDate, startOfDay, toDateString } from '../../../shared/date.ts';
-import { entryStart, sortTimeline, type TimelineEntry } from '../../../shared/timeline.ts';
-import type { HistoryPage } from '../../../shared/types.ts';
+import { compareKeys } from '../../../shared/calendar.ts';
+import {
+  addDays,
+  type DateRange,
+  diffDays,
+  instantRange,
+  startOfDate,
+  startOfDay,
+  toDateString,
+} from '../../../shared/date.ts';
+import { matchesKeyword } from '../../../shared/search.ts';
+import {
+  entryDay,
+  entryStart,
+  eventEntry,
+  sortTimeline,
+  type TimelineEntry,
+} from '../../../shared/timeline.ts';
+import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { TimelineQuery } from '../../../shared/validation/timeline.ts';
+import type { DailyWeather } from '../../../shared/weather.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
 import * as expenses from '../expenses/service.ts';
+import { listHolidays } from '../holidays/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
+import { listWeather } from '../weather/service.ts';
 
 /**
  * 1 ページの件数の目安。ページは日の途中では切らないので、これより多くなることがある
@@ -84,4 +103,77 @@ function earliest(a: Date, b: Date | null): Date {
 
 function latest(a: Date, b: Date): Date {
   return b.getTime() > a.getTime() ? b : a;
+}
+
+/** 日ごとのタイムライン（`listDays`）の 1 日: その日の記録と、祝日か・日ごとの天気（予報も記録も無ければ null） */
+export type TimelineDay = {
+  date: DateString;
+  holiday: boolean;
+  weather: DailyWeather | null;
+  entries: TimelineEntry[];
+};
+
+/** 予定・タスク以外の記録の出どころ。日ごとのタイムラインは、予定・タスクだけをカレンダーと同じ規則で置く */
+const recordSources = {
+  expense: expenses.timelineSource,
+  lemon: lemon.timelineSource,
+  memo: memos.timelineSource,
+} satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
+
+/**
+ * [from, to]（両端を含む JST 暦日）のタイムラインを日ごとに分けたもの（日付順。記録の無い日も含む）。MCP が読む。
+ * 記録は q（記録の文字の部分一致）と types（記録の種類）で絞れる。
+ *
+ * 予定・タスクはカレンダーと同じく暦日に置く（`listItems`）: 複数日の予定は日ごとに 1 件ずつ出し、
+ * 未完了のタスクは開始が過ぎたか日時を持たなければ今日に置く。
+ * WHY NOT ホームのタイムライン（`getTimelinePage`）と同じく 1 回を 1 行にする: 行は置く日を 1 つしか持たないので、
+ * 「10/2 の予定」を訊かれたとき、10/1 から続く旅行が 10/1 の側にしか出ず、10/2 を読んでも見つからない。
+ * 日を指して読む相手には、その日に掛かる予定がすべてその日に出るほうが正しい。
+ * 1 日の中は、終日の予定 → 時刻の順 → 日時を持たないタスク。
+ */
+export async function listDays(
+  range: DateRange,
+  { q, types }: { q?: string | undefined; types?: readonly TimelineEntry['type'][] | undefined },
+  now: Date = new Date(),
+): Promise<TimelineDay[]> {
+  const wants = (type: TimelineEntry['type']) => !types || types.includes(type);
+  const records = Object.entries(recordSources).flatMap(([type, source]) =>
+    wants(type as TimelineEntry['type']) ? [source.entries(instantRange(range), q, now)] : [],
+  );
+  const [items, holidays, weather, ...recordEntries] = await Promise.all([
+    wants('event') ? events.listItems(range, now) : [],
+    listHolidays(range),
+    listWeather(range),
+    ...records,
+  ]);
+  const eventEntries = items
+    .filter((item) => matchesKeyword(q, item.title, item.note))
+    .map((item) => ({ date: item.placementDate, entry: eventEntry(item, now) }));
+  const byDay = Map.groupBy(
+    [
+      ...eventEntries,
+      ...recordEntries.flat().map((entry) => ({ date: entryDay(entry, now), entry })),
+    ],
+    ({ date }) => date,
+  );
+  const holidaySet = new Set(holidays);
+  const weatherByDay = new Map(weather.daily.map((day) => [day.date, day]));
+  return Array.from({ length: diffDays(range.from, range.to) + 1 }, (_, i) => {
+    const date = addDays(range.from, i);
+    return {
+      date,
+      holiday: holidaySet.has(date),
+      weather: weatherByDay.get(date) ?? null,
+      entries: (byDay.get(date) ?? []).map(({ entry }) => entry).sort(compareInDay),
+    };
+  });
+}
+
+/** 1 日の中の並び: 終日の予定 → 時刻の順 → 日時を持たないタスク。同じなら鍵の順 */
+function compareInDay(a: TimelineEntry, b: TimelineEntry): number {
+  const key = (entry: TimelineEntry) => {
+    if (entry.type === 'event' && entry.item.kind === 'event' && entry.item.allDay) return '0';
+    return entry.at ? `1${entry.at}` : '2';
+  };
+  return compareKeys(key(a), key(b)) || compareKeys(a.id, b.id);
 }
