@@ -8,7 +8,7 @@ M5Stack AtomS3R の画面（ボタン）を押すだけで、LifeHub にレモ�
 | 2 回押す | 葉水＋水やり（`["mist", "water"]`） | しずく |
 | 3 回以上押す | 何も記録しない（取り消し） | 消える |
 
-画面のアイコンはアプリのレモンの画面と同じもの（`src/features/lemon/care-type-icons.tsx`）を、黒地に白で出す。`icons.h` は `pnpm icons:generate` がアプリのアイコンから生成するので、アプリのアイコンを変えたら生成し直す。
+画面のアイコンはアプリのレモンの画面と同じもの（`src/features/lemon/care-type-icons.tsx`）を、黒地に白で出す。本体を横向き（右に 90 度倒して）置くので、画面の絵は左に 90 度回して描く。`icons.h` は `pnpm icons:generate` がアプリのアイコンから生成するので、アプリのアイコンを変えたら生成し直す。
 
 続けて押す間隔が 0.4 秒以内なら、続けて押したと数える。最後に押してから 0.4 秒たったら押し終わりとして、Wi-Fi に繋いで記録投入用エンドポイント（`POST /api/records`。[docs/features/api-keys.md](../../docs/features/api-keys.md)）に送り、すぐに眠りに戻る。画面は押した瞬間から今の押し方を示し、送り終えたら消える。
 

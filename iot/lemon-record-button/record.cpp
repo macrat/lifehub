@@ -14,7 +14,8 @@ constexpr uint32_t WIFI_TIMEOUT_MS = 10000;
 // 前回の AP へ直接つなぐときの待ち時間。普段は数百 ms で繋がるので、AP が変わったときに
 // 無線を長く動かしたまま待たず、早めに走査からやり直す
 constexpr uint32_t CACHED_WIFI_TIMEOUT_MS = 3000;
-constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
+constexpr uint32_t HTTP_TIMEOUT_MS = 30000;
+constexpr uint32_t TLS_HANDSHAKE_TIMEOUT_S = 30;
 constexpr int SEND_ATTEMPTS = 3;
 
 // 前回つながったアクセスポイント。ライトスリープの間も RAM は保たれるので、次からは
@@ -81,6 +82,8 @@ String bodyOf(record::Care care, const String &id) {
 int post(const String &body) {
   NetworkClientSecure client;
   client.setCACert(ROOT_CA);
+  client.setTimeout(HTTP_TIMEOUT_MS / 1000);
+  client.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_S);
   HTTPClient http;
   http.setConnectTimeout(HTTP_TIMEOUT_MS);
   http.setTimeout(HTTP_TIMEOUT_MS);
