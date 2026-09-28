@@ -2,6 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
+import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
  * 天気は Cron が気象庁から取ってきた表を読むだけで、E2E の DB には入らない。
@@ -96,6 +97,28 @@ test('ホームの天気のタイルに今日か明日の天気が出て、押�
   await expect(tile).toContainText(name);
   await expect(tile).toContainText(temps);
   await openWeeklyFrom(page, tile);
+});
+
+test('ホームと週間天気を行き来すると、天気のタイルとその日の行が同じ名前で前後の画面に在る', async ({
+  page,
+}) => {
+  await recordViewTransitions(page);
+  await page.goto('/');
+  const [label, date] = minutesOfDay(new Date()) < 18 * 60 ? ['今日', TODAY] : ['明日', TOMORROW];
+  await openWeeklyFrom(page, page.getByRole('button', { name: new RegExp(`^${label}`) }));
+  await settle(page);
+  expect(await captured(page)).toContain('home-weather');
+  // 名前はタイルに出ている日の行に在る（重なれば遷移が失敗するので、ほかの行に無いことは下の ready で分かる）
+  await expect(page.locator(`li[data-date="${date}"]`).getByRole('button').first()).toHaveCSS(
+    'view-transition-name',
+    'home-weather',
+  );
+
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL('/');
+  await settle(page);
+  expect(await captured(page)).toContain('home-weather');
+  expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
 
 test('予定画面の日付の横の天気を押すと週間天気が開く（日表示・月表示）', async ({ page }) => {

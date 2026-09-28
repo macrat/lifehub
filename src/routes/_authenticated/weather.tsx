@@ -4,7 +4,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
-import { useWeatherDays } from '../../features/weather/queries.ts';
+import { useHomeWeatherDay, useWeatherDays } from '../../features/weather/queries.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
@@ -29,6 +29,7 @@ function WeatherPage() {
   const history = useWeatherDays();
   const expanded = useExpandedDays();
   const goBack = useGoBack();
+  const homeDay = useHomeWeatherDay();
   return (
     <>
       <AppBarContent>
@@ -42,7 +43,12 @@ function WeatherPage() {
       <Box sx={{ maxWidth: MAX_WIDTH, mx: 'auto' }}>
         <HistoryList history={history} emptyMessage="予報がまだありません">
           {(days) => (
-            <WeatherDayList days={days} isOpen={expanded.isOpen} onToggle={expanded.toggle} />
+            <WeatherDayList
+              days={days}
+              homeDate={homeDay.date}
+              isOpen={expanded.isOpen}
+              onToggle={expanded.toggle}
+            />
           )}
         </HistoryList>
       </Box>
