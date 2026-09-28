@@ -77,12 +77,12 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  memos/  users/  push/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
+    api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  memos/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
     add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
-    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    api.ts（Hono RPC client・WriteRequest・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  history.ts（無限スクロールの履歴の読み足しと楽観的更新。`useHistory`）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除。直せない記録は読むだけ）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
@@ -95,10 +95,13 @@ server/                       # サーバー（Hono）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
     repository.ts             # DB アクセス
-    service.ts                # 業務ロジック（繰り返し展開を含む）
+    service.ts                # 業務ロジック
     routes.ts                 # Hono ルート（Zod 検証 → service）
     mcp.ts                    # MCP ツール定義
-    notifications.ts          # 通知対象の列挙と配信時再検証（events のみ）
+    <関心ごと>.ts             # service が大きくなる feature だけ、関心ごとに分けた業務ロジック:
+                              #   events/occurrences.ts（繰り返しの回の展開）・events/timeline.ts（タイムラインの口）・
+                              #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
+                              #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
@@ -132,7 +135,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## 横断機能との接続
 
 - **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
-- **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（`useBalance` / `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）を invalidate する。
+- **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）を invalidate する。
 - **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 

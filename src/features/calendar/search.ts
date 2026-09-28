@@ -54,7 +54,7 @@ export const calendarSearchSchema = z.object({
   /** 無ければ最後に開いた表示（`storedView`） */
   view: viewSchema.default(storedView),
   date: dateStringSchema.optional(),
-  /** 予定は今の表示に既定の時間帯の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
+  /** 予定は今見ている日の終日の下書きを置いて開き（`useCalendarPage` の previewDay）、タスクはその場でフォームを開く */
   add: addSearchSchema('/calendar'),
   // 以下はリスト表示の絞り込み
   /** 期間の絞り込み。省略した端へは無限スクロールでどこまでも広がる */

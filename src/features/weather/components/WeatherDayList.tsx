@@ -35,7 +35,6 @@ type Props = {
  * 3 時間ごとの天気か 6 時間ごとの降水確率がある日（取り始めてからの過ぎた日と、明日まで）は、行を押すとその下に開く
  * （`HourlyForecast`）。
  * 無い日（明後日から）の行は押せない。
- * 行には日付（`data-date`）を持たせ、画面が最初に今日を一番上に出すのに使う。
  * ホームのタイルに出ている日の行は、タイルと名前を合わせ、ホームと行き来するとその場から動く。
  * 名前は開いた 3 時間ごとの天気を含まない行の部分に付ける（タイルに当たるのは 1 日の要約なので）。
  */
@@ -46,12 +45,7 @@ export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
         const expandable = day.slots.length > 0 || day.pops.length > 0;
         const open = expandable && isOpen(day.date);
         return (
-          <Box
-            key={day.date}
-            component="li"
-            data-date={day.date}
-            sx={{ borderBottom: 1, borderColor: 'divider' }}
-          >
+          <Box key={day.date} component="li" sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <ListItemButton
               disabled={!expandable}
               aria-expanded={expandable ? open : undefined}

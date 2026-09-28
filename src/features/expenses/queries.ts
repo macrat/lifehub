@@ -64,7 +64,7 @@ const totalsQueryOptions = queryOptions({
 
 /**
  * 残高。サーバーの合計とユーザー（登録順の先頭 2 人が A, B。サーバーと同じ）から導く。
- * 立替ページとホームの残高のタイルが読む。
+ * 立替ページが読む。
  */
 export function useBalance(): QueryState<Balance> {
   const totals = useQuery(totalsQueryOptions);

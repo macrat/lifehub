@@ -9,7 +9,7 @@ import { traverseTo } from './ui/dialog-history.ts';
  * 入力を開いて始めるしるし（`add`）。PWA のショートカット（`src/lib/shortcuts.ts`）が URL に付ける。
  * 値は開く物の種類で、受け取れる種類は画面ごとに `ADD_PAGES` が決める。
  * 絞り込みのような画面の状態ではないので、受け取った画面が開くと同時に消す（`useAddShortcut`）。
- * 追加のフォームを持つ機能（予定・立替・レモン）がそれぞれ読むので、どの機能にも属さない
+ * 追加のフォームを持つ機能（予定・立替・レモン・メモ）がそれぞれ読むので、どの機能にも属さない
  * `src/lib` に置く（機能から `features/add` を読むと、機能のフォームを読む `features/add` と輪になる）。
  */
 export const addSearchSchema = <P extends AddPage>(page: P) => z.enum(ADD_PAGES[page]).optional();
