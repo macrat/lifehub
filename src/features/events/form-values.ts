@@ -103,20 +103,19 @@ export function eventInputFromForm(
     startsRaw && endsRaw
       ? { allDay, startsAt: toInstant(startsRaw, allDay), endsAt: toInstant(endsRaw, allDay) }
       : savedInstants(initial);
+  // 終日の予定の通知は日単位（当日・前日）なので、終日にしたら寄せる（入力欄の既定値と同じ）
+  const remind = (minutes: number | null) => (allDay ? toAllDayRemind(minutes) : minutes);
   return {
     kind: 'event' as const,
     ...when,
-    title: formText(formData, 'title') ?? '',
-    participantIds: formList(formData, 'participantIds'),
-    location: formText(formData, 'location'),
-    note: formText(formData, 'note'),
-    rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
-    remindStartMinutes:
-      formSelect(formData, 'remindStartMinutes') === null
+    ...commonInput(formData, initial, thisOnly),
+    remindStartMinutes: hasExtraFields(formData)
+      ? formSelect(formData, 'remindStartMinutes') === null
         ? null
-        : Number(formText(formData, 'remindStartMinutes')),
+        : Number(formText(formData, 'remindStartMinutes'))
+      : remind(initial.remindStartMinutes),
     // フォームに出していない終了前の通知（MCP から入れたもの）も、終日にしたら日単位に寄せる
-    remindEndMinutes: allDay ? toAllDayRemind(initial.remindEndMinutes) : initial.remindEndMinutes,
+    remindEndMinutes: remind(initial.remindEndMinutes),
   };
 }
 
@@ -142,16 +141,44 @@ export function taskInputFromForm(
         endsAt: optionalInstant(formText(formData, 'endsAt'), allDay),
       }
     : savedInstants(initial);
+  const extras = hasExtraFields(formData);
   return {
     kind: 'task' as const,
-    title: formText(formData, 'title') ?? '',
     ...when,
+    ...commonInput(formData, initial, thisOnly),
+    // チェックを外した欄は FormData に載らないので、欄が無いのとは残りの項目の欄があるかで見分ける
+    remindStartMinutes: extras
+      ? formData.get('notifyAtStart') === 'on'
+        ? 0
+        : null
+      : initial.remindStartMinutes,
+    remindEndMinutes: extras
+      ? formData.get('notifyAtEnd') === 'on'
+        ? 0
+        : null
+      : initial.remindEndMinutes,
+  };
+}
+
+/**
+ * 残りの項目（場所・メモ・繰り返し・通知。`ExtraFields`）の入力欄があるか。いつも出る場所の欄で見分ける。
+ * 無いとき（PC のクイック入力の吹き出し）は、それらを既定値のまま送る。更新は全項目の置き換えなので、
+ * 空で送ると、つまんで日時を動かしただけの予定の場所・メモ・通知を消してしまう。
+ */
+function hasExtraFields(formData: FormData): boolean {
+  return formData.has('location');
+}
+
+/** 予定とタスクで同じ形の項目（タイトル・参加者・場所・メモ・繰り返し） */
+function commonInput(formData: FormData, initial: ItemFormValues, thisOnly: boolean) {
+  const extras = hasExtraFields(formData);
+  return {
+    title: formText(formData, 'title') ?? '',
     participantIds: formList(formData, 'participantIds'),
-    location: formText(formData, 'location'),
-    note: formText(formData, 'note'),
-    rrule: thisOnly ? initial.rrule : formText(formData, 'rrule'),
-    remindStartMinutes: formData.get('notifyAtStart') === 'on' ? 0 : null,
-    remindEndMinutes: formData.get('notifyAtEnd') === 'on' ? 0 : null,
+    location: extras ? formText(formData, 'location') : initial.location,
+    note: extras ? formText(formData, 'note') : initial.note,
+    // 「この回だけ」は繰り返しの欄を出さず、繰り返し元のルールのまま送る
+    rrule: extras && !thisOnly ? formText(formData, 'rrule') : initial.rrule,
   };
 }
 
