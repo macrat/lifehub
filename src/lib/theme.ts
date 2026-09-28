@@ -33,7 +33,7 @@ export function useAppTheme(): Theme {
 /** 押すと日付・時刻を選ぶ画面が出る入力欄 */
 const PICKER_INPUT = 'input:is([type="date"], [type="datetime-local"], [type="time"])';
 
-/** MUI の Select のアイコンの位置と大きさ（outlined の枠の右端から 7px、SvgIcon の medium = 1.5rem） */
+/** MUI の Select の ▼ の位置と大きさ */
 const SELECT_ICON_BOX = {
   position: 'absolute',
   right: 7,
@@ -43,17 +43,16 @@ const SELECT_ICON_BOX = {
 } as const;
 
 /**
- * 日付・時刻の欄を、ドロップダウン（TextField の select）と同じ見た目にする。▼ の形・大きさ・色・位置・
- * 開いている間の向き、文字の右の余白は MUI の Select（内部の ArrowDropDown、action.active、
- * 開いている間は 180° 回す、paddingRight 32px）の値をそのまま写す。MUI はそれらを import できる形で出していない。
+ * 日付・時刻の欄を、ドロップダウン（TextField の select）と同じ見た目にする。▼ と文字の右の余白は
+ * MUI の Select（内部の ArrowDropDown）の値をそのまま写す。MUI はそれらを import できる形で出していない。
  *
- * ▼ はブラウザの印ではなく、欄の枠（input の親）の ::after に描く。ブラウザごとに印の作りが違うため:
+ * ▼ はブラウザの印ではなく、欄の枠（input の親）の ::after に描く。印があるのは PC の Chrome だけで、
+ * ブラウザごとに作りが違うため:
  * - PC の Chrome: 押すとピッカーが開く印（::-webkit-calendar-picker-indicator）が右にある。消すと押す場所が
- *   無くなるので、透明にして ▼ と同じ位置・大きさに重ねる（▼ は pointer-events: none で押した指を通す）
+ *   無くなるので、透明にして ▼ と同じ位置・大きさに重ねる
  * - Android の Chrome: 印は無く、欄全体がピッカーを開く。右端の細い矢印は appearance（menulist-button）が
  *   描いているので appearance: none で消す
  * - iOS の Safari: 印は無く、値を中央に寄せる（::-webkit-date-and-time-value）ので左に寄せ直す
- * WHY NOT 印の描き方だけ変える: PC の Chrome にしか効かない。
  * WHY mask: 色をテーマの CSS 変数で塗れる（background-image の SVG では色を変えられない）。
  * WHY MuiOutlinedInput: 位置合わせの 7px が outlined の右の余白を前提にしている（Select も standard は 0）。
  */
