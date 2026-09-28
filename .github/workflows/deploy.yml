@@ -20,7 +20,10 @@ jobs:
     name: terraform apply → migrate → deploy
     runs-on: ubuntu-latest
     steps:
+      # Sentry のリリースにコミットを紐付けるとき、前のリリースのコミットまで遡るので全履歴を取る（下の Associate commits）
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -99,3 +102,18 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ steps.tf.outputs.vercel_org_id }}
           VERCEL_PROJECT_ID: ${{ steps.tf.outputs.vercel_project_id }}
+      # Sentry のリリース（ビルドしたコミット。`build-info.ts` の __BUILD_COMMIT__）に、前のリリースからの
+      # コミットを紐付ける。エラーがどのリリースで入ったかを、そのリリースに含まれるコミットで追えるようにする。
+      # WHY --local: リポジトリとの連携（GitHub integration）は Sentry の有料プランの機能なので、手元の git の
+      # 履歴を読んで送る。送れなくてもエラーの収集は続くので、デプロイは止めない。
+      - name: Associate commits with the Sentry release
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ steps.tf.outputs.sentry_organization }}
+          SENTRY_PROJECT: ${{ steps.tf.outputs.sentry_project }}
+        # リリースは先に届いたエラーで作られていることがあり（再実行でも）、そのとき new が失敗しても紐付けは試す
+        run: |
+          pnpm exec sentry-cli releases new "$GITHUB_SHA" || true
+          pnpm exec sentry-cli releases set-commits "$GITHUB_SHA" --local
+          pnpm exec sentry-cli releases finalize "$GITHUB_SHA"
