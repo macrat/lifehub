@@ -1,4 +1,7 @@
 # 外部から渡す資格情報。GitHub Secrets → TF_VAR_* として渡す（README の初回セットアップを参照）。
+#
+# GitHub Secrets から来る値はすべて sensitive にする。リポジトリは public で、CI は terraform plan の
+# 結果を PR コメントに貼る。Actions のログは Secrets の値を伏せるが、コメントに貼った plan は伏せない。
 
 variable "vercel_api_token" {
   type      = string
@@ -12,12 +15,14 @@ variable "neon_api_key" {
 
 # Neon の組織 ID（org-...）。プロジェクトは組織の下に作る（個人アカウントも組織として扱われる）
 variable "neon_org_id" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 # Vercel のチーム（slug か ID）。Hobby でもアカウントはチームなので、プロジェクトはその下に作る
 variable "vercel_team" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 # Sentry の User Auth Token（プロジェクト・キー・監視を作るので Organization Token では足りない）
