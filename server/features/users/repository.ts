@@ -11,11 +11,6 @@ export async function findAll(): Promise<UserRow[]> {
   return db.select(publicColumns).from(users).orderBy(asc(users.createdAt));
 }
 
-export async function findById(id: string): Promise<UserRow | undefined> {
-  const rows = await db.select(publicColumns).from(users).where(eq(users.id, id)).limit(1);
-  return rows[0];
-}
-
 export async function findByEmail(email: string): Promise<UserRow | undefined> {
   const rows = await db.select(publicColumns).from(users).where(eq(users.email, email)).limit(1);
   return rows[0];

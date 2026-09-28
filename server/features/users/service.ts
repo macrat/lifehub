@@ -3,17 +3,11 @@ import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { auth } from '../../lib/auth.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import { sentryUserId } from '../../lib/sentry.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import * as repository from './repository.ts';
 
 export async function listUsers() {
   return repository.findAll();
-}
-
-/** ID でユーザーを 1 人読む。いなければ undefined */
-export async function getUser(id: string): Promise<repository.UserRow | undefined> {
-  return repository.findById(id);
 }
 
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
@@ -26,14 +20,11 @@ function toPublicUser(user: repository.UserRow): repository.UserRow {
  * 本人はセッションの検証で読んだユーザーをそのまま使う（hue と通知時刻も載っている。server/lib/auth.ts）。
  * WHY 一覧も載せる: 名前と色を出す所は本人（先頭に並べる・自分の色）と一覧を必ず一緒に読むので、
  * 別々に問い合わせると起動のたびに 2 本になる。一覧は 2 人分だけで小さい。
- * `sentryUserId` は、ブラウザが Sentry に送るユーザーの ID（`src/lib/sentry.ts`）。サーバーと同じ値にするため、
- * サーバーが作って渡す。
  */
 export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: number }) {
   return {
     ...toPublicUser(user),
     allDayNotifyMinutes: user.allDayNotifyMinutes,
-    sentryUserId: sentryUserId(user.email),
     users: await listUsers(),
   };
 }

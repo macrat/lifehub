@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import * as Sentry from '@sentry/hono/node';
 import { waitUntil } from '@vercel/functions';
 import { type Env, Hono, type MiddlewareHandler, type Schema } from 'hono';
@@ -56,27 +55,18 @@ export function initSentry(): void {
 }
 
 /**
- * Sentry に送るユーザーの ID。メールアドレスの SHA-256（16 進）。エラー・スパン・ログに付き、誰のどの操作で
- * 起きたかを Sentry の上で絞り込める。メールアドレスそのものは送らない（外のサービスに個人を名指しする値を置かない）。
- * DB の ID ではなくメールアドレスから作るのは、Sentry の画面で見た値を手元で `sha256(メールアドレス)` として
- * 確かめられるため。ブラウザも同じ値を送れるよう、`/api/me` の応答に載せる（`getMe`）。
+ * この要求を送ったユーザーを Sentry に知らせる。エラー・スパン・ログに付き、誰のどの操作で起きたかを追える。
+ * ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が、ユーザーが分かった時点で呼ぶ。
+ * 要求ごとに分かれたスコープ（SDK が要求ごとに作る isolation scope）に置くので、同じインスタンスが
+ * 並べて受けた別の要求には混ざらない。
  *
- * WHY NOT 秘密の鍵を混ぜる（HMAC）: 候補のメールアドレスを知っていれば照合できてしまうが、利用者は 2 人と
- * 決まっていて、それを隠す意味は無い。鍵を混ぜると手元で確かめられなくなる。
- * WHY NOT ブラウザでも計算する: 同じ規則を 2 か所に書くことになる（`shared/` は実行環境の API を使えないので、
- * Web Crypto を使う関数を共有できない）。
+ * 送るのは DB のユーザー ID（UUID）だけで、それ自体は個人を指さない（仮名）。誰かは DB か、ユーザー管理の
+ * 編集画面に出る ID と見比べて確かめる。
+ * WHY NOT メールアドレス（やそのハッシュ）: MCP のアクセストークンはユーザー ID しか持たないので、
+ * 要求のたびに DB から読むことになる。ID ならどの経路でも手元にあり、ブラウザも `/api/me` の `id` をそのまま使える。
  */
-export function sentryUserId(email: string): string {
-  return createHash('sha256').update(email).digest('hex');
-}
-
-/**
- * この要求を送ったユーザーを Sentry に知らせる。ログインが要る経路の認証（`requireSession` と MCP の
- * アクセストークンの検証）が、ユーザーが分かった時点で呼ぶ。要求ごとに分かれたスコープ（SDK が要求ごとに作る
- * isolation scope）に置くので、同じインスタンスが並べて受けた別の要求には混ざらない。
- */
-export function setSentryUser(email: string): void {
-  Sentry.setUser({ id: sentryUserId(email) });
+export function setSentryUser(userId: string): void {
+  Sentry.setUser({ id: userId });
 }
 
 /**

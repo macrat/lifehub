@@ -11,7 +11,7 @@
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
 | 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。PC はサイドナビ、スマホはホームの末尾から開く |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
-| 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更 |
+| 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[architecture.md](../architecture.md#監視sentry)）や DB と見比べるため |
 
 - 未認証で保護ページを開くと `/login?redirect=<元のパス>` へ遷移する（UX 目的のガード。防御はサーバーの 401）。
 - API が 401 を返したら、クライアントは `/login` へ遷移する。ログアウトと 401 のどちらでも、端末に溜めた未送信の書き込みは捨てる（別のユーザーのセッションで送らないため。[architecture.md](../architecture.md#オフラインの書き込み)）。
@@ -42,7 +42,7 @@
 | メソッド | パス | 内容 |
 |---|---|---|
 | ANY | `/api/auth/*` | better-auth のハンドラ |
-| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes, sentryUserId）と、ユーザーの一覧（`users`。id, name, email, hue）。本人は `hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す。一覧を載せるのは、名前と色を出す所（`use-user-labels.ts` など）が本人と一覧を必ず一緒に読むため（別々に問い合わせると起動のたびに 2 本になる）。クライアントは一覧も `meQueryOptions` のキャッシュから読む（`useUsers` は `select` で一覧を取り出すだけ）。`sentryUserId` はブラウザが Sentry に送るユーザーの ID（[architecture.md](../architecture.md#監視sentry)） |
+| GET | `/api/me` | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes）と、ユーザーの一覧（`users`。id, name, email, hue）。本人は `hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す。一覧を載せるのは、名前と色を出す所（`use-user-labels.ts` など）が本人と一覧を必ず一緒に読むため（別々に問い合わせると起動のたびに 2 本になる）。クライアントは一覧も `meQueryOptions` のキャッシュから読む（`useUsers` は `select` で一覧を取り出すだけ） |
 | POST | `/api/users` | ユーザー作成（`hue` は任意）。応答は 204 |
 | PATCH | `/api/users/:id` | 名前・色相・パスワード・終日の通知時刻（`allDayNotifyMinutes`、0:00 からの分）の変更。応答は 204 |
 

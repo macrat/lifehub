@@ -14,6 +14,6 @@ export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
     throw new HTTPException(401, { message: 'ログインが必要です' });
   }
   c.set('user', session.user);
-  setSentryUser(session.user.email);
+  setSentryUser(session.user.id);
   await next();
 };

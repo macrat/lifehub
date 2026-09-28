@@ -5,7 +5,7 @@
  * 何が起きたかはスパンの名前（ルート）・所要時間・ステータスとスタックトレースで追えるので、中身は要らない。
  */
 export const SENTRY_DATA_COLLECTION = {
-  /** IP アドレスなど。誰の操作かはユーザーの ID（メールアドレスのハッシュ。`server/lib/sentry.ts` の `sentryUserId`）で分かるので要らない */
+  /** IP アドレスなど。誰の操作かは DB のユーザー ID（`server/lib/sentry.ts` の `setSentryUser`）で分かるので要らない */
   userInfo: false,
   /** セッションの Cookie */
   cookies: false,
