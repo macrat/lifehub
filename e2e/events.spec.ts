@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
+import { addOnCalendar } from './events.ts';
 import { centerOf, settledBox } from './touch.ts';
 
 test('繰り返し予定を作成し、この回だけ変更し、削除できる', async ({ page }) => {
@@ -7,7 +8,7 @@ test('繰り返し予定を作成し、この回だけ変更し、削除でき�
   await page.goto('/calendar?view=week&date=2030-01-07');
 
   // 作成（毎週）。予定の追加は週表示のまま下書きから始まり、PC は吹き出しから全項目のフォームへ移る
-  await page.getByRole('button', { name: '予定・タスクを追加' }).click();
+  await addOnCalendar(page, '予定');
   await page.getByRole('button', { name: 'その他のオプション' }).click();
   await page.getByLabel('タイトル').fill(title);
   // 追加ボタンからの予定は終日で始まる

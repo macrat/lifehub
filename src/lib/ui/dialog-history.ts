@@ -45,25 +45,6 @@ function syncHistoryDepth(router: Router): void {
 }
 
 /**
- * 履歴の index 番目の項目（`__TSR_index`）へ渡る。間に積んだ項目（ダイアログ、画面の中の移動）は
- * いくつあってもまとめて越える。閉じたダイアログの項目を戻す go がまだ済んでいなければ、
- * それが済んでから渡る。WHY: go を続けて呼ぶと、どちらも同じ位置から数えられてしまい、
- * 狙った項目に着かない。ダイアログのマウントが終わった後（effect の中）で呼ぶこと。
- */
-export function traverseTo(router: Router, index: number): void {
-  const go = () => router.history.go(index - router.history.location.state.__TSR_index);
-  if (depthOf(router.history.location.state) === openCount) {
-    go();
-    return;
-  }
-  // 次に届くのが、閉じたダイアログの項目を戻した知らせ
-  const unsubscribe = router.history.subscribe(() => {
-    unsubscribe();
-    go();
-  });
-}
-
-/**
  * ダイアログが開いている間、履歴に項目を 1 つ持たせる。
  * ブラウザバック（iOS の画面端のスワイプを含む）では前の画面へ戻らず、このダイアログだけが閉じる。
  * 画面の操作で閉じたとき（マウントが終わったとき）は、積んだ項目を戻して履歴を元どおりにする。

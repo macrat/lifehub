@@ -3,20 +3,14 @@ import { openHome } from './auth.ts';
 import { detailAction } from './detail.ts';
 import { addItem, deleteItem } from './events.ts';
 
-test('ホームからタスクとレモンの記録を追加し、タイムラインとタイルに反映される', async ({
-  page,
-}) => {
-  await openHome(page);
+test('タスクとレモンの記録がタイムラインとタイルに反映される', async ({ page }) => {
   const title = `E2E ホーム ${Date.now()}`;
-
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'タスク' }).click();
-  await page.getByLabel('タイトル').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
+  await addItem(page, { kind: 'task', title });
+  await openHome(page);
   await expect(page.getByText(title)).toBeVisible();
 
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'レモン' }).click();
+  // 葉水のタイルから記録する
+  await page.getByRole('button', { name: /^葉水/ }).click();
   await page.getByLabel('メモ', { exact: true }).fill(`${title} の葉水`);
   await page.getByRole('button', { name: '保存' }).click();
   // タイムラインに出て、葉水のタイルの経過日数が「今日」になる
@@ -43,15 +37,13 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await openHome(page);
   const body = `E2E メモ ${Date.now()}`;
 
-  // 右下の追加ボタンから書く
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'メモ' }).click();
+  // 右下の追加ボタンから、種類を選ばずにそのまま書く
+  await page.getByRole('button', { name: 'メモを追加' }).click();
   await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(body);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(body)).toBeVisible();
 
-  await page.getByRole('button', { name: '追加' }).hover();
-  await page.getByRole('menuitem', { name: 'メモ' }).click();
+  await page.getByRole('button', { name: 'メモを追加' }).click();
   await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(`${body} その2`);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(`${body} その2`)).toBeVisible();

@@ -10,8 +10,9 @@ import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { calendarMonthQueryOptions } from '../../features/events/queries.ts';
+import { ADD_PAGES } from '../../lib/add-pages.ts';
 import { useScreenQueries } from '../../lib/screen-data.ts';
-import { AddFab } from '../../lib/ui/AddFab.tsx';
+import { AddMenu } from '../../lib/ui/AddMenu.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
@@ -101,9 +102,10 @@ function CalendarPage() {
         />
       )}
 
-      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める。
-          予定とタスクは入力の上端で切り替えるので、種類を選ばせずに 1 つのボタンで開く */}
-      {!draft && <AddFab label="予定・タスクを追加" onClick={() => add.addItem()} />}
+      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
+      {!draft && (
+        <AddMenu label="予定・タスクを追加" kinds={ADD_PAGES['/calendar']} onSelect={add.addItem} />
+      )}
       {selection.selected && (
         <ItemDetailSheet
           item={selection.selected.record}
