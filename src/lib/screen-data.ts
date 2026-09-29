@@ -1,6 +1,5 @@
 import {
   hashKey,
-  type InfiniteData,
   keepPreviousData,
   type QueriesOptions,
   type QueryKey,
@@ -12,9 +11,14 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import type { HistoryPage } from '../../shared/types.ts';
-import { type HistorySource, historyQueryOptions, splitAtToday } from './history.ts';
+import { useEffect, useMemo } from 'react';
+import { today } from '../../shared/date.ts';
+import {
+  type HistoryPages,
+  type HistorySource,
+  historyQueryOptions,
+  splitAtToday,
+} from './history.ts';
 
 /**
  * 画面のデータの取得と配信。サーバーの状態は TanStack Query のキャッシュ（store）に 1 つだけ置き、
@@ -45,9 +49,6 @@ export function useScreenQueries<T extends unknown[]>(
   useQueries({ queries });
 }
 
-/** 履歴（ページで読み足す一覧）の、サーバーから読んだページ（`src/lib/history.ts`） */
-type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
-
 /**
  * 画面が読む履歴を購読し、読んだページを古い順に繋いで、全部と、今日までと未来の記録に分けた物を返す。
  * 上の端へ近づいたら古いほうのページを読む（`HistoryList` にそのまま渡せる形）。画面（ルート）からだけ呼ぶ。
@@ -74,14 +75,17 @@ export function useScreenHistory<T, F extends object>(source: HistorySource<T, F
     },
     [queryClient, resetKey],
   );
-  // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
-  const items = data?.pages.toReversed().flatMap((page) => page.items);
-  return {
+  // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ。
+  // 画面は入力のたびに描き直されるので、読んだページか日付が変わったときだけ繋ぎ直す
+  const day = today();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: source は機能ごとに 1 つの定数。day は今日で分け直す合図
+  const joined = useMemo(() => {
+    const items = data?.pages.toReversed().flatMap((page) => page.items);
     // items は分けない全部（古い順）。今日で分けずに扱う所（タイムライン、立替の金額の列の幅）が繋ぎ直さずに済む
-    query: {
-      data: items && { items, ...splitAtToday(items, source.dayOf, source.todayAtTop) },
-      error,
-    },
+    return items && { items, ...splitAtToday(items, source.dayOf, source.todayAtTop) };
+  }, [data, day]);
+  return {
+    query: { data: joined, error },
     todayAtTop: source.todayAtTop ?? false,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,

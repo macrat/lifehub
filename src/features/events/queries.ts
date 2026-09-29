@@ -90,14 +90,12 @@ export function useToggleCompletion() {
       occurrenceStart: string | null;
       completed: boolean;
     }) => ({ ...target, completedAt: completed ? new Date().toISOString() : null }),
-    request: ({ id, occurrenceStart, completedAt }) =>
-      completedAt
-        ? write.events.complete({
-            id,
-            occurrenceStart: occurrenceStart ?? undefined,
-            completedAt,
-          })
-        : write.events.uncomplete({ id, occurrenceStart: occurrenceStart ?? undefined }),
+    request: ({ id, occurrenceStart, completedAt }) => {
+      const target = { id, occurrenceStart: occurrenceStart ?? undefined };
+      return completedAt
+        ? write.events.complete({ ...target, completedAt })
+        : write.events.uncomplete(target);
+    },
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completedAt }) => {
       setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);

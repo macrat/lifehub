@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { mutate } from './api.ts';
+import { apiOf } from './api.ts';
 import { myId } from './auth.ts';
 
 /** API で置く予定・タスク。日時は時差付きの ISO 8601 で書き、参加者を省くと自分だけにする */
@@ -23,11 +23,11 @@ type Item = {
 export async function addItem(page: Page, item: Item): Promise<string> {
   const id = crypto.randomUUID();
   const participantIds = item.participantIds ?? [await myId(page)];
-  await mutate(page.request, 'events.create', { id, ...item, participantIds });
+  await apiOf(page.request).events.create.mutate({ id, ...item, participantIds });
   return id;
 }
 
 /** 置いた予定・タスクを API で消す（後片付け。同じ日を使う他のテストの操作に掛からないようにする） */
 export async function deleteItem(page: Page, id: string): Promise<void> {
-  await mutate(page.request, 'events.delete', { id, scope: 'all' });
+  await apiOf(page.request).events.delete.mutate({ id, scope: 'all' });
 }

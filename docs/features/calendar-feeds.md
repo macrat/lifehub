@@ -67,7 +67,7 @@ URL ごとに**載せる参加者**を選ぶ。選んだ人の誰かが入って
 |---|---|---|---|
 | GET | `/api/calendar/<token>.ics` | **なし** | ics の配信 |
 
-- ics の配信だけ `server/app.ts` の `requireSession` より前に登録する。購読するカレンダーはログインの Cookie を送れないので、**URL のトークンを知っていることだけが資格**になる。`.ics` で終わるパスしか受けない。
+- ics の配信はログインを確かめない Hono の口（`server/app.ts`）。購読するカレンダーはログインの Cookie を送れないので、**URL のトークンを知っていることだけが資格**になる。`.ics` で終わるパスしか受けない。
 - 知らないトークンは 404 だけを返し、理由は返さない。
 - 応答は `text/calendar; charset=utf-8` と `Cache-Control: private, no-cache`（内容は今日を軸に毎日変わる）。取り直しの推奨間隔（`REFRESH-INTERVAL` と `X-PUBLISHED-TTL`）は 1 時間。
 

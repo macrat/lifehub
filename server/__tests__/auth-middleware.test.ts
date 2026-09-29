@@ -44,7 +44,9 @@ describe('認証ミドルウェア', () => {
   it('未認証の読み出しは、ハンドラを走らせても中身を返さず 401', async () => {
     const res = await app.request('/api/trpc/lemon.status');
     expect(res.status).toBe(401);
-    expect(await res.text()).toBe('ログインが必要です');
+    const body = await res.json();
+    expect(body).toMatchObject({ error: { message: 'ログインが必要です' } });
+    expect(body).not.toHaveProperty('result');
   });
 
   it('未認証の書き込みは、ハンドラを走らせずに 401', async () => {

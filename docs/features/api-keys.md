@@ -34,7 +34,7 @@
 - `id`（UUID）は省略できる。送る側が決めておけば、届いたか分からずに送り直しても二重に作られない（各機能の作成は同じ id の作成が既にあれば何も書かない）。
 - 応答は 201 と、作った記録（その機能の service が作成で返すもの）。キーが無い・知らない・失効したキーは 401、本文が規則に合わなければ 400（`{ message }`）。
 - 入力スキーマは `shared/validation/records.ts` の `recordSchema`（`type` で分ける discriminated union）。受け付けは `server/features/records/service.ts` が `type` で振り分けて各機能の service に渡すだけで、記録の規則は各機能が持つ。記録の種類を増やすときは、この 2 か所に 1 つずつ足す。
-- `server/app.ts` の `requireSession` より前に登録し、キーの照合は Hono の `bearerAuth` に任せる。
+- ログインを確かめない Hono の口（`server/app.ts`）で、キーの照合は Hono の `bearerAuth` に任せる。
 
 ## キー
 

@@ -34,7 +34,7 @@
 | ログインして Cookie を得る手順 | `server/__tests__/login.ts`（`signIn` / `cookieOf` / `loginAs`） |
 | E2E のログイン済みの状態 | `e2e/auth.setup.ts`（1 度だけログインして保存する。E2E はこの状態から始まる） |
 | E2E のログインしていない状態・ホームを開く手順 | `e2e/auth.ts`（`SIGNED_OUT` / `openHome`） |
-| E2E で確かめる操作の前に予定や記録を置く手順 | `e2e/events.ts`（`addItem`）、`e2e/history.ts`（`addRecord` / `postRecord`） |
+| E2E で確かめる操作の前に予定や記録を置く手順 | `e2e/events.ts`（`addItem`）、`e2e/history.ts`（`addRecord`）、`e2e/api.ts`（`apiOf`。画面の API を型付きで呼ぶ） |
 
 ## コミット
 

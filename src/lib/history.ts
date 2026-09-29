@@ -6,7 +6,7 @@ import type { HistoryPage } from '../../shared/types.ts';
  * 履歴（立替・レモンの記録）の、サーバーから読んだページ。pages[0] が最新のページで、各ページの中は古い順
  * （shared/types.ts の `HistoryPage`）。上へスクロールすると古いほうのページを足す（`src/lib/screen-data.ts` の `useScreenHistory`）。
  */
-type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
+export type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
 
 /** 履歴の出どころ。機能ごとに 1 つ定め、読む・書き込む処理はすべてこれを受け取る */
 export type HistorySource<T, F> = {

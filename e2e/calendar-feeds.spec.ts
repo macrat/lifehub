@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { query } from './api.ts';
+import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
 import { carries } from './network.ts';
 
@@ -23,7 +23,7 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText('E2E のカレンダー')).toBeVisible();
   // 発行は値を返さないので、画面と同じく一覧から読む
-  const feeds = await query<{ name: string; url: string }[]>(page.request, 'calendarFeeds.list');
+  const feeds = await apiOf(page.request).calendarFeeds.list.query();
   const url = feeds.find((feed) => feed.name === 'E2E のカレンダー')?.url ?? '';
   await expect(page.getByText('E2E の予定・', { exact: false })).toBeVisible();
 

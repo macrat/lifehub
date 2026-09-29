@@ -61,7 +61,7 @@ export function initSentry(): void {
 }
 
 /**
- * この要求を送ったユーザーを Sentry に知らせる（`sentryUser`）。ログインが要る経路の認証（`requireSession` と
+ * この要求を送ったユーザーを Sentry に知らせる（`sentryUser`）。ログインが要る経路の認証（画面の API の `authenticate`（`lib/trpc.ts`）と
  * MCP のアクセストークンの検証）が呼ぶ。
  * SDK が要求ごとに作る isolation scope に置くので、同じインスタンスが並べて受けた別の要求には混ざらない。
  */

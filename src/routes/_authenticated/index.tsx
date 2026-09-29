@@ -16,7 +16,7 @@ import {
   TIMELINE_FILTER_CONDITIONS,
   timelineSearchSchema,
 } from '../../features/timeline/search.ts';
-import { NO_WEATHER_FILTER, weatherHistory } from '../../features/weather/queries.ts';
+import { weatherHistory } from '../../features/weather/queries.ts';
 import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
 import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
@@ -50,7 +50,7 @@ function HomePage() {
   const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
   // この画面が読むもの: 絞り込んだタイムラインと、タイルに出す天気（最新のページ）・レモンの状況
   const timeline = useScreenHistory(timelineHistory, filter.listFilter);
-  useScreenHistory(weatherHistory, NO_WEATHER_FILTER);
+  useScreenHistory(weatherHistory, {});
   useScreenQueries([lemonStatusQueryOptions]);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンとタイルから開く入力。世話はタイルの項目にチェックを入れて開く

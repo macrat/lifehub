@@ -9,7 +9,6 @@ import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
 import { listUsers } from './features/users/service.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
-import type { AppEnv } from './lib/app-env.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, Person, ToolRegistrar } from './lib/mcp/types.ts';
 import { setSentryUser } from './lib/sentry.ts';
@@ -61,7 +60,7 @@ export function createMcpServer({ userId }: { userId: string }): McpServer {
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * サーバーレスなのでリクエストごとにサーバーとトランスポートを組み立て、セッションは持たない。
  */
-export const mcpRoutes = new Hono<AppEnv>().all('/', async (c) => {
+export const mcpRoutes = new Hono().all('/', async (c) => {
   const handler = requireMcpAuth(
     await getAuth(),
     async (_request, claims) => {

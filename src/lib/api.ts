@@ -1,5 +1,5 @@
 import { withActiveSpan } from '@sentry/react';
-import { createTRPCClient, createTRPCUntypedClient, httpBatchLink } from '@trpc/client';
+import { createTRPCClient, getUntypedClient, httpBatchLink, TRPCClientError } from '@trpc/client';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../server/app.ts';
 
@@ -11,9 +11,6 @@ export const UNAUTHORIZED_EVENT = 'lifehub:unauthorized';
  * 送り直せば通る見込みがあるので、書き込みはこれだけを送り直す（`lib/query-client.ts`）。
  */
 class NetworkError extends Error {}
-
-/** ログインしていない（API が 401 を返した）。ログイン画面へ送るのは `UNAUTHORIZED_EVENT` が受け持つ */
-class UnauthorizedError extends Error {}
 
 /**
  * API への fetch。Sentry のトレースで、要求 1 つを画面の移動（navigation）のスパンの子にせず、それだけで
@@ -29,7 +26,7 @@ class UnauthorizedError extends Error {}
 export const apiRequestFetch: typeof fetch = (input, init) =>
   withActiveSpan(null, () => fetch(input, init));
 
-/** fetch に通信断の判別と 401 の検知を足したもの。失敗はそれぞれの Error として投げる */
+/** fetch に通信断の判別と 401 の検知を足したもの */
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
@@ -39,33 +36,30 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
   }
   if (res.status === 401) {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-    throw new UnauthorizedError('ログインが必要です');
   }
   return res;
 }
 
 /**
  * 画面の API（tRPC。`server/lib/trpc.ts`）へ送る口。同じ時点に出た呼び出しを 1 本の要求にまとめる
- * （読み出しは GET、書き込みは POST）。`apiFetch` が投げた失敗は、呼び出し側には `cause` に入って届く
- * （`isNetworkError`・`isUnauthorized`）。
+ * （読み出しは GET、書き込みは POST）。サーバーの AppRouter を型としてだけ参照し、実行時コードは含まない。
  */
-const links = [httpBatchLink({ url: '/api/trpc', fetch: apiFetch, maxURLLength: 8000 })];
-
-/** 画面の API のクライアント。サーバーの AppRouter を型としてだけ参照し、実行時コードは含まない */
-export const api = createTRPCClient<AppRouter>({ links });
+export const api = createTRPCClient<AppRouter>({
+  links: [httpBatchLink({ url: '/api/trpc', fetch: apiFetch, maxURLLength: 8000 })],
+});
 
 /** 画面の API の手続きの入力・出力の型（`ApiOutputs['me']['get']` のように引く） */
 export type ApiInputs = inferRouterInputs<AppRouter>;
 export type ApiOutputs = inferRouterOutputs<AppRouter>;
 
-/** 失敗が通信断によるものか */
+/** 失敗が通信断によるものか（`apiFetch` が投げた失敗は、tRPC の失敗の `cause` に入って届く） */
 export function isNetworkError(error: unknown): boolean {
   return error instanceof Error && error.cause instanceof NetworkError;
 }
 
-/** 失敗がログインしていないことによるものか */
+/** 失敗がログインしていないことによるものか（`server/lib/trpc.ts` の `authed`） */
 export function isUnauthorized(error: unknown): boolean {
-  return error instanceof Error && error.cause instanceof UnauthorizedError;
+  return error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED';
 }
 
 type Procedures = AppRouter['_def']['record'];
@@ -102,10 +96,10 @@ export const write = new Proxy({} as WriteBuilders, {
     ),
 });
 
-/** 名前で手続きを呼ぶクライアント（端末に溜めた書き込みは、手続きの名前と入力だけを持つ） */
-const untypedApi = createTRPCUntypedClient<AppRouter>({ links });
-
-/** 書き込みを送る。失敗はサーバーのメッセージを含む Error（通信断なら `isNetworkError`）になる。 */
+/**
+ * 書き込みを送る。端末に溜めた書き込みは手続きの名前と入力だけを持つので、名前で呼ぶ。
+ * 失敗はサーバーのメッセージを含む Error（通信断なら `isNetworkError`）になる。
+ */
 export async function sendWrite({ path, input }: WriteRequest): Promise<void> {
-  await untypedApi.mutation(path, input);
+  await getUntypedClient(api).mutation(path, input);
 }

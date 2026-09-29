@@ -4,11 +4,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
-import {
-  NO_WEATHER_FILTER,
-  useHomeWeatherDay,
-  weatherHistory,
-} from '../../features/weather/queries.ts';
+import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
 import { useScreenHistory } from '../../lib/screen-data.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -30,7 +26,7 @@ export const Route = createFileRoute('/_authenticated/weather')({
  */
 function WeatherPage() {
   // この画面が読むもの: 天気の日々
-  const history = useScreenHistory(weatherHistory, NO_WEATHER_FILTER);
+  const history = useScreenHistory(weatherHistory, {});
   const expanded = useExpandedDays();
   const goBack = useGoBack();
   const homeDay = useHomeWeatherDay();

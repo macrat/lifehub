@@ -37,7 +37,7 @@ export const clientIdShape = { id: uuidSchema.optional() };
  */
 export const cursorShape = { before: dateStringSchema.optional() };
 
-/** 記録 1 件を指す URL のパラメータ（`/:id`）。どの feature の ID も UUID なので 1 つを共有する */
+/** 記録 1 件を指す入力（1 件の読み出し・削除。書き込みは `withId`）。どの feature の ID も UUID なので 1 つを共有する */
 export const idParamSchema = z.object({ id: uuidSchema });
 
 /**

@@ -4,15 +4,14 @@ import { HTTPException } from 'hono/http-exception';
 import { refreshHolidays } from './features/holidays/service.ts';
 import { enqueueTomorrow } from './features/notifications/service.ts';
 import { recordObservedTemps, refreshWeather } from './features/weather/service.ts';
-import type { AppEnv } from './lib/app-env.ts';
 import { env } from './lib/env.ts';
 
 /**
  * Cron secret の Bearer トークンの検査（比べ方は Hono 標準の bearerAuth。時間差で漏れない比較）。起動時に 1 度だけ選ぶ。
  * secret の無い環境では、どんなトークンも通さない。
  */
-const verifyCronSecret: MiddlewareHandler<AppEnv> = env.CRON_SECRET
-  ? bearerAuth<AppEnv>({ token: env.CRON_SECRET })
+const verifyCronSecret: MiddlewareHandler = env.CRON_SECRET
+  ? bearerAuth({ token: env.CRON_SECRET })
   : () => {
       throw new HTTPException(401, { message: 'unauthorized' });
     };
@@ -23,7 +22,7 @@ const verifyCronSecret: MiddlewareHandler<AppEnv> = env.CRON_SECRET
  * 検査はこの集まり全体に 1 度だけ掛けるので、Cron を足しても保護を付け忘れることがない。
  * server/app.ts で認証ミドルウェアより前に `/cron` へ登録する。
  */
-export const cronRoutes = new Hono<AppEnv>()
+export const cronRoutes = new Hono()
   .use(verifyCronSecret)
   // 日次: 翌日分の通知を予約する（docs/features/notifications.md）
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))

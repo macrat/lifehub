@@ -1,28 +1,28 @@
-import { type APIRequestContext, expect } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
+import { createTRPCClient, httpLink } from '@trpc/client';
+import type { AppRouter } from '../server/app.ts';
 
 /**
- * 画面の API（tRPC。`server/lib/trpc.ts`）を、ブラウザを通さずに呼ぶ。テストの準備と後片付けに使う
+ * 画面の API（tRPC。`server/lib/trpc.ts`）を、ブラウザを通さずに呼ぶクライアント。テストの準備と後片付けに使う
  * （画面から作ると 1 件ごとに数秒かかり、確かめたいことより前の操作でテストが落ちうる所も増える）。
+ * 要求は Playwright の request で送るので、そのコンテキストのログイン（Cookie）がそのまま載る。
  */
-
-/** 読み出しの手続きを呼び、結果を返す。入力は JSON にしてクエリに載せる（tRPC の GET の形） */
-export async function query<T>(
-  request: APIRequestContext,
-  procedure: string,
-  input?: unknown,
-): Promise<T> {
-  const search = input === undefined ? '' : `?input=${encodeURIComponent(JSON.stringify(input))}`;
-  const res = await request.get(`/api/trpc/${procedure}${search}`);
-  expect(res.ok(), await res.text()).toBe(true);
-  return ((await res.json()) as { result: { data: T } }).result.data;
+export function apiOf(request: APIRequestContext) {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpLink({
+        url: '/api/trpc',
+        fetch: async (url, init) => {
+          const res = await request.fetch(String(url), {
+            method: init?.method,
+            headers: init?.headers as Record<string, string> | undefined,
+            data: init?.body ?? undefined,
+          });
+          return new Response(await res.text(), { status: res.status(), headers: res.headers() });
+        },
+      }),
+    ],
+  });
 }
 
-/** 書き込みの手続きを呼ぶ（入力は JSON の本文） */
-export async function mutate(
-  request: APIRequestContext,
-  procedure: string,
-  input: unknown,
-): Promise<void> {
-  const res = await request.post(`/api/trpc/${procedure}`, { data: input });
-  expect(res.ok(), await res.text()).toBe(true);
-}
+export type Api = ReturnType<typeof apiOf>;

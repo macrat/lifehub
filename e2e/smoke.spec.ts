@@ -1,17 +1,17 @@
 import { expect, type Page, test } from '@playwright/test';
-import { query } from './api.ts';
+import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
 import { carries } from './network.ts';
 
 /** サーバーに保存されているログイン中のユーザーの色相 */
 async function hue(page: Page): Promise<number> {
-  return (await query<{ hue: number }>(page.request, 'me.get')).hue;
+  return (await apiOf(page.request).me.get.query()).hue;
 }
 
 /** サーバーに保存されているログイン中のユーザーの終日の通知時刻（0:00 からの分） */
 async function notifyMinutes(page: Page): Promise<number> {
-  return (await query<{ allDayNotifyMinutes: number }>(page.request, 'me.get')).allDayNotifyMinutes;
+  return (await apiOf(page.request).me.get.query()).allDayNotifyMinutes;
 }
 
 /** 画面上部の取得・保存中インジケータの色。アクセントカラー（primary）がそのまま出る所 */

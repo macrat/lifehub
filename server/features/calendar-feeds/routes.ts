@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { calendarFeedSchema } from '../../../shared/validation/calendar-feeds.ts';
 import { idParamSchema, withId } from '../../../shared/validation/common.ts';
-import type { AppEnv } from '../../lib/app-env.ts';
 import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
@@ -29,7 +28,7 @@ export const calendarFeedsRouter = router({
  * 資格になる（カレンダーを購読するアプリはログインの Cookie を送れない）。
  * `.ics` で終わるパスしか受けない。
  */
-export const calendarIcsRoutes = new Hono<AppEnv>().get('/:file{[\\w-]+\\.ics}', async (c) => {
+export const calendarIcsRoutes = new Hono().get('/:file{[\\w-]+\\.ics}', async (c) => {
   const token = c.req.param('file').slice(0, -'.ics'.length);
   return c.body(await service.renderIcs(token), 200, {
     'Content-Type': 'text/calendar; charset=utf-8',

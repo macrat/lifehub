@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/hono/node';
 import { initTRPC, TRPCError } from '@trpc/server';
-import { HTTPException } from 'hono/http-exception';
 import { ZodError } from 'zod';
-import type { AuthUser } from './auth.ts';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.ts';
+import { type AuthUser, getAuth } from './auth.ts';
+import { domainErrorOf } from './errors.ts';
+import { setSentryUser } from './sentry.ts';
 
 /**
  * 画面の API（tRPC）の土台。画面専用の API は tRPC の手続き（procedure）にし、同じ時点に出た問い合わせを
@@ -11,14 +11,27 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '.
  * 手続きを並べて実行するので、DB の問い合わせも 1 往復にまとまる（`lib/db/coalesce-reads.ts`）。
  * 外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま（`server/app.ts`）。
  *
- * コンテキストはログイン中のユーザー（の Promise。`lib/middleware.ts` の `requireSession`）。読み出しは
- * セッションの検証と並べて走るので、ユーザーが要る手続きだけが `await ctx.user` で待つ。
+ * コンテキストはログイン中のユーザー（の Promise。下の `createContext`）。検証の扱いは `authed` が決める。
  */
 type TrpcContext = {
   user: Promise<AuthUser>;
   /** 要求の User-Agent（プッシュの購読に端末の名前として残す） */
   userAgent: string | null;
 };
+
+/** セッション Cookie を検証し、ログイン中のユーザーを返す。未認証は UNAUTHORIZED（401） */
+async function authenticate(headers: Headers): Promise<AuthUser> {
+  const auth = await getAuth();
+  const session = await auth.api.getSession({ headers });
+  if (!session) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'ログインが必要です' });
+  setSentryUser(session.user.id);
+  return session.user;
+}
+
+/** 要求 1 本ぶんのコンテキスト。検証は始めるだけで待たない（待つかどうかは `authed` と各手続き） */
+export function createContext(req: Request): TrpcContext {
+  return { user: authenticate(req.headers), userAgent: req.headers.get('user-agent') };
+}
 
 const t = initTRPC.context<TrpcContext>().create({
   /**
@@ -34,28 +47,33 @@ const t = initTRPC.context<TrpcContext>().create({
 });
 
 /**
- * service が投げる業務エラー（`lib/errors.ts`）と、ログインの検証の失敗（`await ctx.user` の 401）を、
- * tRPC の失敗の種類に置き換える。残るのは想定外の失敗（INTERNAL_SERVER_ERROR）だけになり、
- * それだけを報告する（`server/app.ts` の `onError`）
+ * ログインを必須にする。サーバー側のこの検証が唯一の防御線（クライアントのルートガードは UX のためだけ）。
+ * 読み出しは、検証を待たずに手続きを走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED にする。
+ * 検証の問い合わせと手続きの読み取りが同じ時点に出るので、DB へは 1 往復にまとまり
+ * （`lib/db/coalesce-reads.ts`）、検証を待ってから読むより往復が 1 回少ない。ユーザーが要る手続きは
+ * `await ctx.user` で検証を待つ。書き込みは検証が通ってから走らせる（ログインしていない要求に書き換えさせない）。
+ *
+ * WHY NOT Cookie に署名付きのセッションを持たせて DB を読まない（better-auth の cookieCache）: 失効
+ * （パスワードの変更・ログアウト）が次の要求から効かなくなる（`lib/auth.ts`）。
  */
+const authed = t.middleware(async ({ ctx, type, next }) => {
+  if (type === 'mutation') {
+    await ctx.user;
+    return next();
+  }
+  const result = next();
+  await ctx.user;
+  return result;
+});
+
+/** service が投げる業務エラー（`lib/errors.ts`）を、tRPC の失敗の種類に置き換える。残るのは想定外の失敗だけ */
 const domainErrors = t.middleware(async ({ next }) => {
   const result = await next();
   if (result.ok) return result;
   const { cause } = result.error;
-  const code =
-    cause instanceof NotFoundError
-      ? 'NOT_FOUND'
-      : cause instanceof ForbiddenError
-        ? 'FORBIDDEN'
-        : cause instanceof ConflictError
-          ? 'CONFLICT'
-          : cause instanceof ValidationError
-            ? 'BAD_REQUEST'
-            : cause instanceof HTTPException && cause.status === 401
-              ? 'UNAUTHORIZED'
-              : null;
-  if (!code) return result;
-  throw new TRPCError({ code, message: cause?.message ?? '', cause });
+  const known = domainErrorOf(cause);
+  if (!known) return result;
+  throw new TRPCError({ code: known.code, message: cause?.message ?? '', cause });
 });
 
 /**
@@ -76,4 +94,4 @@ const traced = t.middleware(({ path, type, next }) =>
 );
 
 export const router = t.router;
-export const procedure = t.procedure.use(traced).use(domainErrors);
+export const procedure = t.procedure.use(traced).use(authed).use(domainErrors);

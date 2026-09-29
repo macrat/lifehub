@@ -21,9 +21,6 @@ export const weatherHistory: HistorySource<WeatherDay, Record<string, never>> = 
   todayAtTop: true,
 };
 
-/** 天気の日々の絞り込み（無いのでいつも空。購読と読みで同じキーを指すよう 1 つを使い回す） */
-export const NO_WEATHER_FILTER = {};
-
 /** ホームのタイルに出す日と、その呼び方 */
 type HomeWeatherDay = { date: DateString; label: '今日' | '明日' };
 
@@ -78,7 +75,7 @@ export function useHomeWeather(): QueryState<HomeWeather> {
     [date, label],
   );
   return useStoreInfiniteQuery({
-    ...historyQueryOptions(weatherHistory, NO_WEATHER_FILTER),
+    ...historyQueryOptions(weatherHistory, {}),
     select,
   });
 }

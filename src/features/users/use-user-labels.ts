@@ -8,7 +8,7 @@ import { type User, usersOf } from './queries.ts';
  * label(null) は「共有」（立替の To）。
  */
 export function useUserLabels() {
-  // ログイン中のユーザーと一覧は同じ `/api/me` に載っているので、1 つのキャッシュから読む（`useUsers`）
+  // ログイン中のユーザーと一覧は同じ `me.get` に載っているので、1 つのキャッシュから読む（`useUsers`）
   const { data: me } = useStoreQuery(meQueryOptions);
   const users: User[] = useMemo(
     () => usersOf(me).toSorted((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0)),

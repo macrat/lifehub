@@ -15,17 +15,15 @@ import { recordsRoutes } from './features/records/routes.ts';
 import { timelineRouter } from './features/timeline/routes.ts';
 import { meRouter, usersRouter } from './features/users/routes.ts';
 import { weatherRouter } from './features/weather/routes.ts';
-import type { AppEnv } from './lib/app-env.ts';
 import { getAuth } from './lib/auth.ts';
 import { pingDatabase } from './lib/db/health.ts';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
-import { requireSession } from './lib/middleware.ts';
-import { router } from './lib/trpc.ts';
+import { domainErrorOf } from './lib/errors.ts';
+import { createContext, router } from './lib/trpc.ts';
 import { mcpRoutes } from './mcp.ts';
 import { qstashRoutes } from './qstash.ts';
 
 /** better-auth 自身のエンドポイント（`/api/auth/*` と OAuth の探索メタデータ `/.well-known/*`） */
-const authHandler: Handler<AppEnv> = async (c) => (await getAuth()).handler(c.req.raw);
+const authHandler: Handler = async (c) => (await getAuth()).handler(c.req.raw);
 
 /**
  * 画面専用の API（tRPC。`lib/trpc.ts`）。互換性や REST としての形より通信の本数と量を優先する
@@ -51,7 +49,7 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 /** `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。 */
-const api = new Hono<AppEnv>().basePath('/api');
+const api = new Hono().basePath('/api');
 
 // 認証不要: ヘルスチェックと better-auth 自身のエンドポイント
 api.get('/health', async (c) => {
@@ -66,11 +64,9 @@ api.get('/health', async (c) => {
  * 鍵は作り直さない限り変わらない（jwt プラグインの鍵の自動の入れ替えは使っていない。lib/auth.ts）ので、
  * 1 日持たせる。ブラウザ向けの Cache-Control（vercel.json の no-store）とは別の、Vercel の CDN だけが読む見出し。
  */
-const cacheJwksOnCdn: MiddlewareHandler<AppEnv> = async (c, next) => {
+const cacheJwksOnCdn: MiddlewareHandler = async (c, next) => {
   await next();
-  if (!c.res.ok) return;
-  c.res = new Response(c.res.body, c.res);
-  c.res.headers.set('Vercel-CDN-Cache-Control', 'max-age=86400, stale-while-revalidate=86400');
+  if (c.res.ok) c.header('Vercel-CDN-Cache-Control', 'max-age=86400, stale-while-revalidate=86400');
 };
 api.get('/auth/jwks', cacheJwksOnCdn);
 api.on(['GET', 'POST'], '/auth/*', authHandler);
@@ -87,9 +83,6 @@ api.route('/cron', cronRoutes);
 // QStash の配信コールバック。QStash の署名で保護する（セッションではない）
 api.route('/qstash', qstashRoutes);
 
-// これ以降はすべてログイン必須
-api.use('*', requireSession);
-
 /**
  * 内容が変わっていなければ 304 を返す（HTTP の条件付き要求）。
  * 既定の staleTime は 0 で、画面を開くたびに取り直すため、変わっていない一覧（立替の履歴、世話の記録、
@@ -97,19 +90,17 @@ api.use('*', requireSession);
  * If-None-Match を添えて聞き直し、同じなら本文が流れない。`private, no-cache` は「共有キャッシュには
  * 置かない・使う前に必ず確かめる」の意味で、常に最新を出す性質は変わらない。
  */
-const cacheControl: MiddlewareHandler<AppEnv> = async (c, next) => {
+const cacheControl: MiddlewareHandler = async (c, next) => {
   await next();
   if (c.req.method === 'GET') c.header('Cache-Control', 'private, no-cache');
 };
-api.use('*', etag());
-api.use('*', cacheControl);
-
-api.on(['GET', 'POST'], '/trpc/*', (c) =>
+// 画面の API。ログインは手続きごとに確かめる（`lib/trpc.ts` の `authed`）
+api.on(['GET', 'POST'], '/trpc/*', etag(), cacheControl, (c) =>
   fetchRequestHandler({
     endpoint: '/api/trpc',
     req: c.req.raw,
     router: appRouter,
-    createContext: () => ({ user: c.var.user, userAgent: c.req.header('user-agent') ?? null }),
+    createContext: ({ req }) => createContext(req),
     // 想定外の失敗だけを出す（Sentry へ送られる。`lib/sentry.ts`）。業務エラーは `lib/trpc.ts` が種類を付けている
     onError: ({ error }) => {
       if (error.code === 'INTERNAL_SERVER_ERROR') console.error(error.cause ?? error);
@@ -125,13 +116,11 @@ api.on(['GET', 'POST'], '/trpc/*', (c) =>
  * この関数へ振り向ける（ローカルは vite の proxy）。rewrite でも関数が受け取る URL は
  * 元のパスのままなので、`/api` の下に移さず、来たパスをそのまま better-auth に渡す。
  */
-export const app = new Hono<AppEnv>()
+export const app = new Hono()
   .onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
-    if (error instanceof ForbiddenError) return c.json({ message: error.message }, 403);
-    if (error instanceof NotFoundError) return c.json({ message: error.message }, 404);
-    if (error instanceof ConflictError) return c.json({ message: error.message }, 409);
-    if (error instanceof ValidationError) return c.json({ message: error.message }, 400);
+    const known = domainErrorOf(error);
+    if (known) return c.json({ message: error.message }, known.status);
     console.error(error);
     return c.json({ message: 'サーバーエラーが発生しました' }, 500);
   })

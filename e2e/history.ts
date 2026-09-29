@@ -1,56 +1,57 @@
 import type { Page } from '@playwright/test';
 import { toDateString } from '../shared/date.ts';
-import { mutate } from './api.ts';
+import { type Api, apiOf } from './api.ts';
 
 /**
  * 立替・レモンの履歴（`src/lib/ui/HistoryList.tsx`）を確かめるテストの道具。
  * 記録は API で置き、最初の位置は「今日の最後の記録が下部ナビのすぐ上」で見る。
  */
 
-/** 記録の出どころ。手続き（`expenses` など）の create に body で作った入力を送ると 1 件増える */
-type History = { api: string; body: (me: string, at: Date, text: string) => object };
+/** 記録の出どころ。add で ID を決めた記録を 1 件置き、router の delete で消す */
+type History = {
+  router: 'expenses' | 'lemon';
+  add: (api: Api, id: string, me: string, at: Date, text: string) => Promise<void>;
+};
 
 /** 立替（自分が払った 100 円） */
 export const expenseHistory: History = {
-  api: 'expenses',
-  body: (me, at, text) => ({
-    fromUserId: me,
-    toUserId: null,
-    amount: 100,
-    description: text,
-    spentOn: toDateString(at),
-  }),
+  router: 'expenses',
+  add: (api, id, me, at, text) =>
+    api.expenses.create.mutate({
+      id,
+      fromUserId: me,
+      toUserId: null,
+      amount: 100,
+      description: text,
+      spentOn: toDateString(at),
+    }),
 };
 
 /** レモンの世話の記録（水やり） */
 export const careLogHistory: History = {
-  api: 'lemon',
-  body: (_me, at, text) => ({ careTypes: ['water'], doneAt: at.toISOString(), note: text }),
+  router: 'lemon',
+  add: (api, id, _me, at, text) =>
+    api.lemon.create.mutate({ id, careTypes: ['water'], doneAt: at.toISOString(), note: text }),
 };
 
 /** 置いた記録。後で `deleteRecord` で消す */
-export type Created = { api: string; id: string };
+export type Created = { router: History['router']; id: string };
 
-/** 記録を 1 件置く（api は `expenses` などの手続きのまとまり）。ID は送る側が決める（書き込みは値を返さない） */
-export async function postRecord(page: Page, api: string, body: object): Promise<Created> {
-  const id = crypto.randomUUID();
-  await mutate(page.request, `${api}.create`, { id, ...body });
-  return { api, id };
-}
-
-/** history の決まった形の記録を 1 件置く */
-export function addRecord(
+/** history の決まった形の記録を 1 件置く。ID は送る側が決める（書き込みは値を返さない） */
+export async function addRecord(
   page: Page,
   history: History,
   me: string,
   at: Date,
   text: string,
 ): Promise<Created> {
-  return postRecord(page, history.api, history.body(me, at, text));
+  const id = crypto.randomUUID();
+  await history.add(apiOf(page.request), id, me, at, text);
+  return { router: history.router, id };
 }
 
-export async function deleteRecord(page: Page, { api, id }: Created) {
-  await mutate(page.request, `${api}.delete`, { id });
+export async function deleteRecord(page: Page, { router, id }: Created) {
+  await apiOf(page.request)[router].delete.mutate({ id });
 }
 
 /** スマホの下部ナビ（画面の最後の navigation） */

@@ -130,7 +130,7 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
   - ログ: `console` に出したものをすべて送る。
   - `release` はビルドしたコミット。デプロイのたびに、前のリリースからのコミットを紐付ける（上の `deploy.yml`）。ソースマップは `build.sourcemap: 'hidden'` で作り、デプロイ前に Sentry へ送ってから消す（公開しない）。
 - 誰の操作で起きたかを追えるよう、エラー・スパン・ログに DB のユーザー ID（UUID）を付ける。ID はそれ自体では個人を指さず（仮名）、誰かは DB か、ユーザー管理の編集画面に出る ID と見比べて確かめる。メールアドレス（やそのハッシュ）にしないのは、MCP のアクセストークンがユーザー ID しか持たず、要求のたびに DB から読むことになるため。
-  - サーバー: ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が、要求ごとのスコープに付ける（`server/lib/sentry.ts` の `setSentryUser`）。
+  - サーバー: ログインが要る経路の認証（画面の API の `authenticate`（`server/lib/trpc.ts`）と MCP のアクセストークンの検証）が、要求ごとのスコープに付ける（`server/lib/sentry.ts` の `setSentryUser`）。
   - ブラウザ: `me.get` の `id` を、ログイン中のユーザー（`meQueryOptions` のキャッシュ）が変わるたびに付け直す（`src/lib/sentry.ts` の `watchUser`）。
 - 送らないもの（`shared/sentry.ts` の `SENTRY_DATA_COLLECTION`。サーバーとブラウザで共通）: 要求・応答の本文、クエリ文字列、Cookie、IP アドレス、DB の問い合わせの引数と結果、例外の時点のローカル変数。SDK の既定はこれらも集めるが、家庭の記録（予定・立替の金額・メモ）やパスワード、OAuth の認可コードを外のサービスに渡さない。見出し（ヘッダ）は送るが、`Authorization` などの秘密は SDK が伏せる。何が起きたかはルート名・所要時間・ステータス・スタックトレースで追える。
 - 無料枠（月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ）に収める:
