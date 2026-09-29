@@ -470,6 +470,23 @@
       }
     },
     {
+      "includes": ["src/**", "!src/lib/api.ts", "!src/**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "fetch": "API への要求は src/lib/api.ts の apiRequestFetch（か、それを使う api）を通す。素の fetch は Sentry のトレースで画面の移動のスパンの子になり、移動が打ち切られると所要時間が短く記録される"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["src/**/*.tsx", "!src/main.tsx", "!src/routes/**"],
       "linter": {
         "rules": {

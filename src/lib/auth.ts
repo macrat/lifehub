@@ -11,7 +11,7 @@ import { redirect, useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
 import type { InferResponseType } from 'hono/client';
 import type { LoginInput } from '../../shared/validation/users.ts';
-import { api } from './api.ts';
+import { api, apiRequestFetch } from './api.ts';
 
 // ログイン状態に関わることはすべてこの file に置き、画面（routes）はここの関数を呼ぶだけにする。
 // 判定・遷移・キャッシュの扱いが画面ごとに食い違わないようにするため。
@@ -22,6 +22,7 @@ import { api } from './api.ts';
  */
 const authClient = createAuthClient({
   basePath: '/api/auth',
+  fetchOptions: { customFetchImpl: apiRequestFetch },
   plugins: [oauthProviderClient()],
 });
 
