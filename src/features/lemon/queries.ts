@@ -1,5 +1,4 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
-import type { InferRequestType } from 'hono/client';
 import { toDateString } from '../../../shared/date.ts';
 import {
   type CareLog,
@@ -8,14 +7,14 @@ import {
   sortCareLogs,
 } from '../../../shared/lemon.ts';
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
-import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
+import { type ApiInputs, api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
-import { type HistorySource, useHistory } from '../../lib/history.ts';
+import type { HistorySource } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
-export type CareLogBody = InferRequestType<typeof api.lemon.logs.$post>['json'];
+export type CareLogBody = ApiInputs['lemon']['create'];
 /** 記録と状態の形はサーバーと共有する（楽観的更新もこの形で導く。shared/lemon.ts） */
 export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 
@@ -26,22 +25,16 @@ const WRITE_KEYS = [LEMON_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 export const lemonStatusQueryOptions = queryOptions({
   queryKey: [...LEMON_QUERY_KEY, 'status'],
-  queryFn: async (): Promise<CareStatus[]> =>
-    (await ensureOk(await api.lemon.status.$get())).json(),
+  queryFn: ({ signal }): Promise<CareStatus[]> => api.lemon.status.query(undefined, { signal }),
 });
 
 /**
- * 記録（`src/lib/history.ts`）。絞り込みはサーバーが掛ける
+ * レモン画面の記録（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける
  * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
  */
-const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
+export const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
   key: [...LEMON_QUERY_KEY, 'logs'],
-  fetch: async (filter, before, signal) =>
-    (
-      await ensureOk(
-        await api.lemon.logs.$get({ query: { ...filter, before } }, { init: { signal } }),
-      )
-    ).json(),
+  fetch: (filter, before, signal) => api.lemon.logs.query({ ...filter, before }, { signal }),
   dayOf: (log) => toDateString(new Date(log.doneAt)),
   sort: sortCareLogs,
 };
@@ -49,14 +42,9 @@ const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
 /** 記録の履歴とタイムラインへの先回りの読み書き */
 const careLogCache = timelineRecordCache('lemon', careLogHistory);
 
-/** レモン画面の記録（`useHistory`） */
-export function useCareLogHistory(filter: CareLogFilter) {
-  return useHistory(careLogHistory, filter);
-}
-
 export function useLogCare() {
   return useCreateMutation<CareLogBody>({
-    request: createRequest(api.lemon.logs),
+    request: write.lemon.create,
     keys: WRITE_KEYS,
     apply: (client, input) => {
       const log: CareLog = {
@@ -76,7 +64,7 @@ export function useLogCare() {
 
 export function useUpdateCareLog() {
   return useOptimisticMutation({
-    request: itemRequest<CareLogBody & { id: string }>('PUT', api.lemon.logs[':id']),
+    request: write.lemon.update,
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
       const prev = careLogCache.find(client, id);
@@ -88,7 +76,7 @@ export function useUpdateCareLog() {
 
 export function useDeleteCareLog() {
   return useOptimisticMutation({
-    request: deleteRequest(api.lemon.logs[':id']),
+    request: (id: string) => write.lemon.delete({ id }),
     keys: WRITE_KEYS,
     apply: (client, id) => {
       careLogCache.apply(client, id, null);

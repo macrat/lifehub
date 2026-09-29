@@ -21,25 +21,28 @@ describe('条件付き要求', () => {
     ({ userId, cookie } = await loginAs('A'));
   });
 
-  const get = (path: string, etag?: string) =>
-    app.request(path, {
+  /** 画面の API の読み出し 1 つを GET で送る（tRPC の URL の形。入力は JSON にしてクエリに載せる） */
+  const get = (procedure: string, input: unknown, etag?: string) =>
+    app.request(`/api/trpc/${procedure}?input=${encodeURIComponent(JSON.stringify(input))}`, {
       headers: { cookie, ...(etag ? { 'if-none-match': etag } : {}) },
     });
+  const dataOf = async <T>(res: Response) =>
+    ((await res.json()) as { result: { data: T } }).result.data;
 
   it('内容が同じなら 304 を返し、本文を送らない', async () => {
-    const first = await get('/api/expenses');
+    const first = await get('expenses.list', {});
     expect(first.status).toBe(200);
     const etag = first.headers.get('etag');
     expect(etag).toBeTruthy();
     expect(first.headers.get('cache-control')).toBe('private, no-cache');
 
-    const second = await get('/api/expenses', etag ?? '');
+    const second = await get('expenses.list', {}, etag ?? '');
     expect(second.status).toBe(304);
     expect(await second.text()).toBe('');
   });
 
   it('内容が変わったら 200 で新しい本文を返す', async () => {
-    const etag = (await get('/api/expenses')).headers.get('etag') ?? '';
+    const etag = (await get('expenses.list', {})).headers.get('etag') ?? '';
     await addExpense(
       {
         fromUserId: userId,
@@ -50,14 +53,14 @@ describe('条件付き要求', () => {
       },
       userId,
     );
-    const res = await get('/api/expenses', etag);
+    const res = await get('expenses.list', {}, etag);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as HistoryPage<Expense>).items).toHaveLength(1);
+    expect((await dataOf<HistoryPage<Expense>>(res)).items).toHaveLength(1);
   });
 
-  it('/me は色の変更に追従する（セッションから返しても古くならない）', async () => {
-    expect(await (await get('/api/me')).json()).toMatchObject({ name: 'A', hue: 335 });
+  it('me.get は色の変更に追従する（セッションから返しても古くならない）', async () => {
+    expect(await dataOf(await get('me.get', undefined))).toMatchObject({ name: 'A', hue: 335 });
     await updateUser(userId, { hue: 120 }, userId);
-    expect(await (await get('/api/me')).json()).toMatchObject({ hue: 120 });
+    expect(await dataOf(await get('me.get', undefined))).toMatchObject({ hue: 120 });
   });
 });

@@ -8,6 +8,7 @@ import {
   formatMonth,
   formatWeekRange,
   monthGridDays,
+  monthsInRange,
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
@@ -21,6 +22,7 @@ import {
   storeView,
 } from './search.ts';
 import { useHourZoom } from './use-hour-zoom.ts';
+import { type ListMonths, useListMonths } from './use-list-months.ts';
 import type { CalendarView } from './view.ts';
 
 /** 期間で見る表示。リストだけは期間が絞り込みで決まるので別扱い */
@@ -76,6 +78,10 @@ export function useCalendarPage(search: CalendarSearch) {
   const month = toMonthString(date);
 
   const filters: ListFilters = { ...search, q: query };
+  // リスト表示で出している月（無限スクロールで前後に広げる）
+  const list = useListMonths(date, filters);
+  // 年月・週・日の選択ダイアログで送っている月。開いていなければ null
+  const [pickerMonth, setPickerMonth] = useState<string | null>(null);
 
   /** offset ページ前後を代表する日（月は n か月、週は n 週、日は n 日ずらす） */
   const dateAt = (offset: number): DateString =>
@@ -118,12 +124,24 @@ export function useCalendarPage(search: CalendarSearch) {
   /** 前後の月・週・日へ（スワイプ） */
   const move = (direction: 1 | -1) => setSearch({ date: dateAt(direction) }, { replace: true });
 
+  const pages = [dateAt(-1), dateAt(0), dateAt(1)] as const;
+
   return {
     view,
     date,
     month,
     /** スワイプで同時に描く 3 ページ（前・今・次）を代表する日 */
-    pages: [dateAt(-1), dateAt(0), dateAt(1)] as const,
+    pages,
+    /** 画面に出している月（面・リスト・選択ダイアログ）。画面はこの月の項目と祝日・天気を購読する */
+    months: shownMonths(view, pages, list, pickerMonth),
+    list,
+    /** 年月・週・日の選択ダイアログ。month は送っている月（開いていなければ null） */
+    picker: {
+      month: pickerMonth,
+      open: () => setPickerMonth(toMonthString(date)),
+      close: () => setPickerMonth(null),
+      setMonth: setPickerMonth,
+    },
     title,
     filters,
     activeFilters: countActiveFilters(filters, LIST_FILTER_CONDITIONS),
@@ -156,6 +174,25 @@ export function useCalendarPage(search: CalendarSearch) {
       setSearch({ date: includesToday ? today() : d }, { replace: true });
     },
   };
+}
+
+/**
+ * 画面に出している月（昇順）。面はスワイプで前後のページも描くので 3 ページ分、リストは広げた月、
+ * 週・日の選択ダイアログは送っている月のグリッド（祝日を出す）。どれも同じ月のキャッシュを読むので、
+ * 画面はこの月をまとめて購読する。
+ */
+function shownMonths(
+  view: CalendarView,
+  pages: readonly DateString[],
+  list: ListMonths,
+  pickerMonth: string | null,
+): string[] {
+  const ranges: DateRange[] =
+    view === 'list' ? [list.range] : pages.map((d) => periodOf(view, d).range);
+  const pickerDays = pickerMonth && view !== 'month' ? monthGridDays(pickerMonth) : [];
+  const [first, last] = [pickerDays[0], pickerDays.at(-1)];
+  if (first && last) ranges.push({ from: first, to: last });
+  return [...new Set(ranges.flatMap((range) => monthsInRange(range.from, range.to)))].sort();
 }
 
 /**

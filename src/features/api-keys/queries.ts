@@ -1,18 +1,17 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InferResponseType } from 'hono/client';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
-import { api, deleteRequest, ensureOk } from '../../lib/api.ts';
+import { type ApiOutputs, api, write } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** 記録投入用の API キー（[docs/features/api-keys.md](../../../docs/features/api-keys.md)） */
-export type ApiKey = InferResponseType<(typeof api)['api-keys']['$get']>[number];
+export type ApiKey = ApiOutputs['apiKeys']['list'][number];
 
 /** 発行した直後の API キー。キーそのものを見られるのはこのときだけ */
-export type IssuedApiKey = InferResponseType<(typeof api)['api-keys']['$post'], 201>;
+export type IssuedApiKey = ApiOutputs['apiKeys']['create'];
 
 export const apiKeysQueryOptions = queryOptions({
   queryKey: ['api-keys'],
-  queryFn: async () => (await ensureOk(await api['api-keys'].$get())).json(),
+  queryFn: ({ signal }) => api.apiKeys.list.query(undefined, { signal }),
 });
 
 /**
@@ -25,8 +24,7 @@ export const apiKeysQueryOptions = queryOptions({
 export function useCreateApiKey() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: ApiKeyInput): Promise<IssuedApiKey> =>
-      (await ensureOk(await api['api-keys'].$post({ json: input }))).json(),
+    mutationFn: (input: ApiKeyInput): Promise<IssuedApiKey> => api.apiKeys.create.mutate(input),
     networkMode: 'always',
     onSuccess: ({ key: _key, ...apiKey }) => {
       queryClient.setQueryData(apiKeysQueryOptions.queryKey, (keys) => keys && [...keys, apiKey]);
@@ -40,7 +38,7 @@ export function useCreateApiKey() {
  */
 export function useRevokeApiKey() {
   return useOptimisticMutation({
-    request: deleteRequest(api['api-keys'][':id']),
+    request: (id: string) => write.apiKeys.revoke({ id }),
     queue: false,
     keys: [apiKeysQueryOptions.queryKey],
     apply: (client, id) => {

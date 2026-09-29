@@ -2,11 +2,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
+import { rewriteJson } from './network.ts';
 import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
  * 天気は Cron が気象庁から取ってきた表を読むだけで、E2E の DB には入らない。
- * 天気の画面の 1 ページ（`/api/weather`）とカレンダーの 1 期間分（`/api/calendar` の `weather.daily`）の応答に、
+ * 天気の画面の 1 ページ（`weather.page`）とカレンダーの 1 期間分（`calendar.get` の `weather.daily`）の応答に、
  * 昨日・今日・明日の天気を差し込んで確かめる（天気の画面は、昨日の前にもう 1 ページある）。
  * WHY NOT 時計を止める（`page.clock`）: 偽の Date では JST の暦日の計算（`@date-fns/tz`）が壊れる。
  * 18 時の切り替えはユニットテストで確かめる（`src/features/weather/__tests__/queries.test.ts`）。
@@ -64,15 +65,15 @@ const PAGES: Record<string, HistoryPage<WeatherDay>> = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/weather*', (route) => {
-    const before = new URL(route.request().url()).searchParams.get('before');
-    return route.fulfill({ json: PAGES[before ?? 'latest'] });
-  });
-  await page.route('**/api/calendar?*', async (route) => {
-    const res = await route.fetch();
-    const json = await res.json();
-    await route.fulfill({ response: res, json: { ...json, weather: { daily: WEEK, hourly: [] } } });
-  });
+  await rewriteJson(
+    page,
+    'weather.page',
+    (input) => PAGES[(input as { before?: string } | undefined)?.before ?? 'latest'],
+  );
+  await rewriteJson(page, 'calendar.get', async (_input, real) => ({
+    ...((await real()) as object),
+    weather: { daily: WEEK, hourly: [] },
+  }));
 });
 
 /** 見出しのボタンの名前（"2026年09月27日（日）"）の頭 */

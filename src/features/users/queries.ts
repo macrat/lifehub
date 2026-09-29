@@ -1,27 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
-import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
-import { api, createRequest, itemRequest } from '../../lib/api.ts';
+import type { UpdateUserInput } from '../../../shared/validation/users.ts';
+import { write } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 
 export type User = Me['users'][number];
 
 /** ユーザーがまだ読めていないときの一覧。いつも同じ配列を返し、それを元にした memo を無駄に作り直さない */
 export const NO_USERS: User[] = [];
 
-/** `/api/me` の応答 → ユーザーの一覧（未ログイン・まだ読めていなければ空） */
+/** `me.get` の応答 → ユーザーの一覧（未ログイン・まだ読めていなければ空） */
 export function usersOf(me: Me | null | undefined): User[] {
   return me?.users ?? NO_USERS;
 }
 
 /**
- * ユーザーの一覧。ログイン中のユーザーと一緒に `/api/me` に載ってくるので、そのキャッシュから読む
- * （取り直しの間隔も `meQueryOptions` に従う）。書き込みで変えるのも `meQueryOptions` のキャッシュ。
+ * ユーザーの一覧。ログイン中のユーザーと一緒に `me.get` に載ってくるので、そのキャッシュから読む
+ * （購読はログインが要る画面をまとめるレイアウト `routes/_authenticated.tsx`。取り直しの間隔は `meQueryOptions` に従う）。書き込みで変えるのも `meQueryOptions` のキャッシュ。
  * WHY: 名前と色を出す所（`use-user-labels.ts` など）は本人と一覧を必ず一緒に読むので、
  * 別々に問い合わせると 2 本になる。
  */
 export function useUsers() {
-  return useQuery({ ...meQueryOptions, select: usersOf });
+  return useStoreQuery({ ...meQueryOptions, select: usersOf });
 }
 
 /**
@@ -33,7 +33,7 @@ export function useUsers() {
  */
 export function useCreateUser() {
   return useOptimisticMutation({
-    request: createRequest<CreateUserInput>(api.users),
+    request: write.users.create,
     queue: false,
     keys: [meQueryOptions.queryKey],
   });
@@ -41,8 +41,8 @@ export function useCreateUser() {
 
 /** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
 export function useUpdateUser() {
-  return useOptimisticMutation({
-    request: itemRequest<UpdateUserInput & { id: string }>('PATCH', api.users[':id']),
+  return useOptimisticMutation<UpdateUserInput & { id: string }>({
+    request: write.users.update,
     queue: false,
     keys: [meQueryOptions.queryKey],
     apply: (client, { id, password: _password, ...input }) => {

@@ -21,12 +21,12 @@ function toPublicUser(user: repository.UserRow): repository.UserRow {
  * WHY 一覧も載せる: 名前と色を出す所は本人（先頭に並べる・自分の色）と一覧を必ず一緒に読むので、
  * 別々に問い合わせると起動のたびに 2 本になる。一覧は 2 人分だけで小さい。
  */
-export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: number }) {
-  return {
-    ...toPublicUser(user),
-    allDayNotifyMinutes: user.allDayNotifyMinutes,
-    users: await listUsers(),
-  };
+export async function getMe(
+  current: Promise<repository.UserRow & { allDayNotifyMinutes: number }>,
+) {
+  // 一覧はログイン中のユーザーに依らないので、セッションの検証（current）を待たずに並べて読む
+  const [user, users] = await Promise.all([current, listUsers()]);
+  return { ...toPublicUser(user), allDayNotifyMinutes: user.allDayNotifyMinutes, users };
 }
 
 /**

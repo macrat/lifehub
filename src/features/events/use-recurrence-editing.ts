@@ -14,6 +14,8 @@ export function useRecurrenceEditing(options: {
   isRecurring: boolean;
   /** 開いた時点から編集にするか */
   editing?: boolean;
+  /** 編集する範囲が決まったとき（入力欄に切り替える前に、範囲に応じた初期値を読み始めるため） */
+  onEdit?: (scope: RecurrenceScope) => void;
   onDelete: (scope: RecurrenceScope) => void;
 }) {
   const [pending, setPending] = useState<RecurrenceAction | null>(
@@ -26,6 +28,7 @@ export function useRecurrenceEditing(options: {
   const proceed = (action: RecurrenceAction, scope: RecurrenceScope) => {
     setPending(null);
     if (action === 'edit') {
+      options.onEdit?.(scope);
       setEditScope(scope);
       return;
     }

@@ -39,7 +39,7 @@
   - タスク → 予定: 開始から 1 時間（終日ならその日 1 日、開始の無いタスクは今日の終日。`shared/calendar.ts` の `defaultEventEnd`）。
 - 終了（期限）前の通知も終わりを引き継がないので消し、それ以外の項目（タイトル・参加者・場所・メモ・繰り返し・開始前の通知）はそのまま残す。
 - 繰り返しの「この回だけ」の編集では出さない（回の種類は繰り返し元のもの。API も拒否する。下記「API」）。
-- 保存すると同じ項目の種類が変わる（`PUT /api/events/:id`）。MCP の `update_event` も同じ規則で入れ替える（[mcp.md](mcp.md)）。
+- 保存すると同じ項目の種類が変わる（`events.update`）。MCP の `update_event` も同じ規則で入れ替える（[mcp.md](mcp.md)）。
 
 ## タスクの表示規則（placementDate）
 
@@ -78,22 +78,22 @@
 
 ## API（`server/features/events/routes.ts`）
 
-カレンダーに並べる一覧（`CalendarItem[]`）は、祝日・天気と一緒にカレンダーの問い合わせ `GET /api/calendar?from&to` が返す（[calendar.md](calendar.md#api)）。書き込み（POST / PUT / DELETE）の応答は本文の無い 204。
+カレンダーに並べる一覧（`CalendarItem[]`）は、祝日・天気と一緒にカレンダーの手続き `calendar.get` が返す（[calendar.md](calendar.md#api)）。書き込みの手続きは値を返さない。1 件への書き込みの入力は、予定・タスクの `id` とそれぞれの入力を 1 つにしたもの。
 
-| メソッド | パス | 内容 |
+| 手続き | 種類 | 内容 |
 |---|---|---|
-| GET | `/api/events/:id` | 行そのものを返す（繰り返しの「すべて」を編集する起点） |
-| POST | `/api/events` | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
-| PUT | `/api/events/:id` | 更新（全項目。`kind` も変えられる。下記）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |
-| DELETE | `/api/events/:id` | 削除。`scope` と `occurrenceStart` は更新と同じ |
-| POST | `/api/events/:id/complete` | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定。完了日時（`completedAt`）は押した端末が決めて送る（オフラインで溜めた完了や送り直しでも押した時刻が残る。省略はサーバーの今で、MCP は省略する） |
-| DELETE | `/api/events/:id/complete` | 完了を取り消す（body に `occurrenceStart`） |
+| `events.get` | 読み出し | 行そのものを返す（入力は `id`。繰り返しの「すべて」を編集する起点） |
+| `events.create` | 書き込み | 作成（`kind` を含む全項目）。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
+| `events.update` | 書き込み | 更新（全項目。`kind` も変えられる。下記）。`scope`（`all` / `this` / `following`。省略不可）と、`all` 以外では `occurrenceStart`（元の発生の基準日時）を指定する（判別共用体 `occurrenceTargetSchema`）。単発では常に `all` として扱う |
+| `events.delete` | 書き込み | 削除。`scope` と `occurrenceStart` は更新と同じ |
+| `events.complete` | 書き込み | タスクを完了にする。繰り返しでは `occurrenceStart` で回を指定。完了日時（`completedAt`）は押した端末が決めて送る（オフラインで溜めた完了や送り直しでも押した時刻が残る。省略はサーバーの今で、MCP は省略する） |
+| `events.uncomplete` | 書き込み | 完了を取り消す。繰り返しでは `occurrenceStart` で回を指定 |
 
 - `this`: 回を実体化する（無ければ複製を作り、あれば更新）。`rrule` は持たない。
 - `following`: 元の `rrule` に UNTIL（対象回の直前）を付け、対象回以降の実体化された回を消し、新しい繰り返し元を作る（`runBatch` で原子的に）。先頭の回への `following` は `all` と同じ。
 - `all`: 行を更新する。基準日時または `rrule` が変わった場合は、未完了の実体化された回を捨てる（元の発生日時をキーにした回が意味を失うため）。完了した回は履歴として残す。
-- `occurrenceStart` はルール上に実在する発生でなければ拒否する（400）。
-- 種類（`kind`）の変更: `all` では完了を外し（予定は完了を持てない）、実体化された回を完了した回も含めてすべて捨てる（回は繰り返し元の複製で元の種類のまま、完了した回はタスクだったときの履歴で、予定になった繰り返しには置けない）。`following` は新しい繰り返し元がその種類になる。`this` では拒否する（400。展開は繰り返し元の種類で予定・タスクの規則を選ぶので、回だけ種類を変えられない）。MCP の `update_event` も `kind` で種類を変えられ、画面と同じく開始だけを引き継ぐ（[mcp.md](mcp.md)）。
+- `occurrenceStart` はルール上に実在する発生でなければ拒否する（`BAD_REQUEST`）。
+- 種類（`kind`）の変更: `all` では完了を外し（予定は完了を持てない）、実体化された回を完了した回も含めてすべて捨てる（回は繰り返し元の複製で元の種類のまま、完了した回はタスクだったときの履歴で、予定になった繰り返しには置けない）。`following` は新しい繰り返し元がその種類になる。`this` では拒否する（`BAD_REQUEST`。展開は繰り返し元の種類で予定・タスクの規則を選ぶので、回だけ種類を変えられない）。MCP の `update_event` も `kind` で種類を変えられ、画面と同じく開始だけを引き継ぐ（[mcp.md](mcp.md)）。
 
 入力スキーマは `shared/validation/events.ts`。
 

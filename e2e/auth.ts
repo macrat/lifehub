@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { apiOf } from './api.ts';
 
 /**
  * E2E のログイン状態。E2E ユーザーでのログインは `auth.setup.ts` が 1 度だけ行い、その Cookie を
@@ -25,6 +26,5 @@ export async function openHome(page: Page): Promise<void> {
 
 /** ログイン中のユーザー（E2E ユーザー）の ID（API で項目を用意するときの参加者に使う） */
 export async function myId(page: Page): Promise<string> {
-  const me: { id: string } = await (await page.request.get('/api/me')).json();
-  return me.id;
+  return (await apiOf(page.request).me.get.query()).id;
 }

@@ -37,8 +37,16 @@ export const clientIdShape = { id: uuidSchema.optional() };
  */
 export const cursorShape = { before: dateStringSchema.optional() };
 
-/** 記録 1 件を指す URL のパラメータ（`/:id`）。どの feature の ID も UUID なので 1 つを共有する */
+/** 記録 1 件を指す入力（1 件の読み出し・削除。書き込みは `withId`）。どの feature の ID も UUID なので 1 つを共有する */
 export const idParamSchema = z.object({ id: uuidSchema });
+
+/**
+ * 記録 1 件への書き込みの入力（画面の API の手続き）: 記録の ID と、その記録への入力を 1 つにしたもの。
+ * 入力の規則（refine など）はそのまま効く
+ */
+export function withId<T extends z.ZodType<object>>(schema: T) {
+  return idParamSchema.and(schema);
+}
 
 /**
  * 参加者（ユーザー ID の集合）。1 人以上で、重複は落とす。

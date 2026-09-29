@@ -1,21 +1,12 @@
-import {
-  hashKey,
-  type InfiniteData,
-  keepPreviousData,
-  type QueryClient,
-  type QueryKey,
-  useInfiniteQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
-import { useEffect } from 'react';
+import type { InfiniteData, QueryClient, QueryKey } from '@tanstack/react-query';
 import { today } from '../../shared/date.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 
 /**
  * 履歴（立替・レモンの記録）の、サーバーから読んだページ。pages[0] が最新のページで、各ページの中は古い順
- * （shared/types.ts の `HistoryPage`）。上へスクロールすると古いほうのページを足す（`fetchNextPage`）。
+ * （shared/types.ts の `HistoryPage`）。上へスクロールすると古いほうのページを足す（`src/lib/screen-data.ts` の `useScreenHistory`）。
  */
-type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
+export type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
 
 /** 履歴の出どころ。機能ごとに 1 つ定め、読む・書き込む処理はすべてこれを受け取る */
 export type HistorySource<T, F> = {
@@ -52,53 +43,10 @@ export function historyQueryOptions<T, F extends object>(source: HistorySource<T
 }
 
 /**
- * 画面が読む履歴。読んだページを古い順に繋ぎ、全部と、今日までと未来の記録に分けた物を返す。上の端へ近づいたら
- * 古いほうのページを読む（`HistoryList` にそのまま渡せる形）。
- * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
- * - resetKey は取得のキーで、変わったら一覧を最初の位置（`HistoryList`）へ戻す合図。ready は出している結果が
- *   そのキーの物か（前の結果を出している間は位置を決めない）
- * - 画面を離れるときは最新のページだけを残す。取り直し（画面に入ったとき・書き込みの後）は
- *   読んだページをすべて順に読み直すので、遡った分を残すと以後ずっとその回数だけ問い合わせる
- */
-export function useHistory<T, F extends object>(source: HistorySource<T, F>, filter: F) {
-  const queryClient = useQueryClient();
-  const options = historyQueryOptions(source, filter);
-  const { data, error, hasNextPage, isFetchingNextPage, isPlaceholderData, fetchNextPage } =
-    useInfiniteQuery({ ...options, placeholderData: keepPreviousData });
-  const resetKey = hashKey(options.queryKey);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: キーが同じなら同じキャッシュを指す
-  useEffect(
-    () => () => {
-      queryClient.setQueryData<HistoryPages<T>>(
-        options.queryKey,
-        (prev) =>
-          prev && { pages: prev.pages.slice(0, 1), pageParams: prev.pageParams.slice(0, 1) },
-      );
-    },
-    [queryClient, resetKey],
-  );
-  // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ
-  const items = data?.pages.toReversed().flatMap((page) => page.items);
-  return {
-    // items は分けない全部（古い順）。今日で分けずに扱う所（タイムライン、立替の金額の列の幅）が繋ぎ直さずに済む
-    query: {
-      data: items && { items, ...splitAtToday(items, source.dayOf, source.todayAtTop) },
-      error,
-    },
-    todayAtTop: source.todayAtTop ?? false,
-    resetKey,
-    ready: data !== undefined && !isPlaceholderData,
-    /** 古いほうのページを読む。読み込み中・読み切ったときは null（`EdgeLoader`） */
-    loadEarlier:
-      hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null,
-  };
-}
-
-/**
  * 古い順の記録を、今日（JST）までと未来に分ける（todayAtTop なら、昨日までと今日から）。未来の記録は末尾に
  * まとまっているので、境目を 1 か所探して切る（記録ごとに日を 2 回ずつ求めない）
  */
-function splitAtToday<T>(
+export function splitAtToday<T>(
   items: T[],
   dayOf: (item: T) => string,
   todayAtTop = false,

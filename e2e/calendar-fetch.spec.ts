@@ -9,7 +9,7 @@ import { changeView, recordViewTransitions } from './view.ts';
  */
 
 test('表示を切り替えても取り直さず、画面に入ったときだけ取り直す', async ({ page }) => {
-  const fetches = countFetches(page, '/api/calendar');
+  const fetches = countFetches(page, 'calendar.get');
   // 表示の切り替えを待つのに使う（`view.ts`）。仕込むのは最初の遷移より前
   await recordViewTransitions(page);
 

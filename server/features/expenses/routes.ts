@@ -1,29 +1,24 @@
-import { Hono } from 'hono';
-import { idParamSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema, withId } from '../../../shared/validation/common.ts';
 import {
   createExpenseRequestSchema,
   expenseListQuerySchema,
   expenseSchema,
 } from '../../../shared/validation/expenses.ts';
-import type { AppEnv } from '../../lib/app-env.ts';
-import { validate } from '../../lib/validator.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
-export const expensesRoutes = new Hono<AppEnv>()
-  .get('/', validate('query', expenseListQuerySchema), async (c) =>
-    c.json(await service.listExpenses(c.req.valid('query'))),
-  )
-  .get('/totals', async (c) => c.json(await service.getTotals()))
-  .post('/', validate('json', createExpenseRequestSchema), async (c) => {
-    const { id, ...input } = c.req.valid('json');
-    await service.addExpense(input, c.get('user').id, id);
-    return c.body(null, 204);
-  })
-  .put('/:id', validate('param', idParamSchema), validate('json', expenseSchema), async (c) => {
-    await service.updateExpense(c.req.valid('param').id, c.req.valid('json'));
-    return c.body(null, 204);
-  })
-  .delete('/:id', validate('param', idParamSchema), async (c) => {
-    await service.deleteExpense(c.req.valid('param').id);
-    return c.body(null, 204);
-  });
+export const expensesRouter = router({
+  list: procedure.input(expenseListQuerySchema).query(({ input }) => service.listExpenses(input)),
+  totals: procedure.query(() => service.getTotals()),
+  create: procedure
+    .input(createExpenseRequestSchema)
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.addExpense(input, (await ctx.user).id, id);
+    }),
+  update: procedure.input(withId(expenseSchema)).mutation(async ({ input: { id, ...input } }) => {
+    await service.updateExpense(id, input);
+  }),
+  delete: procedure.input(idParamSchema).mutation(async ({ input }) => {
+    await service.deleteExpense(input.id);
+  }),
+});

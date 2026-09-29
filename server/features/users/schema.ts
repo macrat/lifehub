@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { DEFAULT_HUE } from '../../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
@@ -85,3 +86,22 @@ export const verifications = pgTable(
   },
   (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
+
+/**
+ * ユーザー・セッション・アカウントの結び付き。better-auth が結合して 1 回の問い合わせで読むのに使う
+ * （`server/lib/auth.ts` の `advanced.database.joins`）: 要求ごとのセッションの確認（セッション → ユーザー）と、
+ * ログイン（ユーザー → アカウント）。結合を有効にすると better-auth はこの 3 つを結合で読むので、
+ * どれかが欠けると問い合わせが組み立てられずに失敗する。
+ */
+export const usersRelations = relations(users, ({ many }) => ({
+  sessions: many(sessions),
+  accounts: many(accounts),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}));

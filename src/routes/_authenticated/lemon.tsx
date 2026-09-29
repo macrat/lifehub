@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { CareLogDetailSheet } from '../../features/lemon/components/CareLogDetailSheet.tsx';
@@ -12,12 +11,13 @@ import {
 } from '../../features/lemon/components/CareStatusGrid.tsx';
 import {
   type CareLog,
+  careLogHistory,
   lemonStatusQueryOptions,
-  useCareLogHistory,
 } from '../../features/lemon/queries.ts';
 import { LEMON_FILTER_CONDITIONS, lemonSearchSchema } from '../../features/lemon/search.ts';
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
+import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -44,8 +44,10 @@ export const Route = createFileRoute('/_authenticated/lemon')({
 function LemonPage() {
   const search = Route.useSearch();
   const filter = useFilterSearch(search, LEMON_FILTER_CONDITIONS);
-  const statusQuery = useQuery(lemonStatusQueryOptions);
-  const history = useCareLogHistory(filter.listFilter);
+  // この画面が読むもの: 項目ごとの状況と、絞り込んだ記録
+  useScreenQueries([lemonStatusQueryOptions]);
+  const history = useScreenHistory(careLogHistory, filter.listFilter);
+  const statusQuery = useStoreQuery(lemonStatusQueryOptions);
   // 追加のフォームと、最初から選んでおく項目（状況のタイルから開くとその項目）
   const adding = useOpenWith<CareType[]>();
   const selection = useRecordSelection<CareLog>();

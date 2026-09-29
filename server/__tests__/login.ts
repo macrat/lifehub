@@ -1,4 +1,5 @@
-import { app } from '../app.ts';
+import { createTRPCClient, httpLink } from '@trpc/client';
+import { type AppRouter, app } from '../app.ts';
 import { createTestUser, TEST_PASSWORD, testEmail } from '../lib/db/test-db.ts';
 
 /** サーバーのテストで、ログインして Cookie を得るための共通の手順 */
@@ -24,4 +25,20 @@ export function cookieOf(response: Response): string {
 export async function loginAs(name: 'A' | 'B'): Promise<{ userId: string; cookie: string }> {
   const userId = await createTestUser(name);
   return { userId, cookie: cookieOf(await signIn(testEmail(name), TEST_PASSWORD)) };
+}
+
+/**
+ * 画面の API（tRPC）のクライアント。要求はネットワークを通さずアプリへそのまま渡す。
+ * cookie を省くとログインしていない要求になる
+ */
+export function apiClient(cookie?: string) {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpLink({
+        url: 'http://localhost/api/trpc',
+        fetch: async (url, init) => app.request(String(url), init as RequestInit),
+        headers: cookie ? { cookie } : {},
+      }),
+    ],
+  });
 }

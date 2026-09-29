@@ -97,10 +97,10 @@ describe('パスワード変更による失効', () => {
     const second = await login(alice.email, alice.password);
     const cookies = [first, second].map(cookieOf);
     for (const cookie of cookies)
-      expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(200);
+      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(200);
     await updateUser(user.id, { password: 'replacement-password-123' }, user.id);
     for (const cookie of cookies)
-      expect((await app.request('/api/me', { headers: { cookie } })).status).toBe(401);
+      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
     expect((await login(alice.email, 'replacement-password-123')).status).toBe(200);
   });
 });

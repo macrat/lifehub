@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 import {
   type ApiKey,
@@ -14,7 +14,7 @@ import {
  * 失効（確かめてから送る）を持つ。フォームに渡すもの（`createForm`）は、閉じていれば null。
  */
 export function useApiKeyList() {
-  const keysQuery = useQuery(apiKeysQueryOptions);
+  const keysQuery = useStoreQuery(apiKeysQueryOptions);
   const createKey = useCreateApiKey();
   const revokeKey = useRevokeApiKey();
   const creating = useToggle();

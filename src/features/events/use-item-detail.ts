@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { type CalendarItem, isCompletedTask } from '../../../shared/calendar.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import type { ItemFormValues } from './form-values.ts';
 import {
   eventQueryOptions,
+  loadEvent,
   useDeleteEvent,
   useToggleCompletion,
   useUpdateEvent,
@@ -21,9 +23,14 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
+  const queryClient = useQueryClient();
   const recurrence = useRecurrenceEditing({
     isRecurring: item.isRecurring,
     editing: initialEditing,
+    // すべての回を直すなら、入力の初期値にする繰り返し元を読む
+    onEdit: (scope) => {
+      if (scope === 'all' && item.isRecurring) loadEvent(queryClient, item.id);
+    },
     onDelete: (scope) => {
       deleteEvent.mutate(writeTarget(item, scope));
       onClose();
@@ -32,7 +39,7 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
   const { editScope } = recurrence;
   // この回だけ／これ以降は開いている回の値から、すべては繰り返し元（先頭の回の日時）の値から始める
   const fromMaster = editScope === 'all' && item.isRecurring;
-  const master = useQuery({ ...eventQueryOptions(item.id), enabled: fromMaster });
+  const master = useStoreQuery(eventQueryOptions(item.id));
   const scope = editScope ?? 'all';
 
   const completed = isCompletedTask(item);

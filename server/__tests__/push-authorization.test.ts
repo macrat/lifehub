@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../app.ts';
 import { isSubscribed, subscribe } from '../features/push/service.ts';
 import { clearTables } from '../lib/db/test-db.ts';
-import { loginAs } from './login.ts';
+import { apiClient, loginAs } from './login.ts';
 
 describe('通知購読の認可', () => {
   beforeEach(clearTables);
@@ -15,12 +14,7 @@ describe('通知購読の認可', () => {
       [other, false],
       [owner, true],
     ] as const) {
-      const response = await app.request('/api/push/subscriptions', {
-        method: 'DELETE',
-        headers: { cookie, 'content-type': 'application/json' },
-        body: JSON.stringify({ endpoint }),
-      });
-      expect(response.status).toBe(204);
+      await apiClient(cookie).push.unsubscribe.mutate({ endpoint });
       expect(await isSubscribed(owner.userId, endpoint)).toBe(!removed);
     }
   });

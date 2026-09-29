@@ -56,7 +56,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ## API
 
-`GET /api/timeline?q&since&until&before`（`server/features/timeline/`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/timeline-source.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `GET /api/calendar` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`sources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
+`timeline.get`（`server/features/timeline/`。入力は絞り込みの `q`・期間の `since` / `until`・続きの `before`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/timeline-source.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `calendar.get` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`sources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
 
 - ページの分け方は立替・レモンの履歴と同じで、日の途中では切らない。記録の種類ごとに新しいほうから 50 件の日時を集め、全体で 50 件目の日からをそのページにする。日数でなく件数で区切るので、記録の無い期間が続いても空のページを読み続けない。未完了のタスクは一番上か 24 時間以内にしか出ないので数えない。繰り返す予定は繰り返し元ごとに、続きの前の 50 回を展開して数える。
 - 最新のページ（`before` なし）の上端は今から 24 時間後、続きのページは `before` の日の始まり。`until` があればその日の終わりで頭打ち、`since` があればその日の始まりで止める。
@@ -65,7 +65,7 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ### キャッシュと書き込み
 
-- クライアントは立替・レモンの履歴と同じ `useHistory`（`src/lib/history.ts`）で読み、繋いだものを逆さにして出す。キーは `['timeline', 絞り込み]`（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）。
+- クライアントは立替・レモンの履歴と同じ `useScreenHistory`（`src/lib/screen-data.ts`）で読み、繋いだものを逆さにして出す。キーは `['timeline', 絞り込み]`（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）。
 - タイムラインは全機能の記録を並べるので、どの機能の書き込みもこのキーを invalidate する（各機能の mutation の `keys`）。立替・レモン・メモの書き込みはタイムラインにも先回りして書き込む（`src/features/timeline/queries.ts` の `timelineRecordCache`。自分の画面の履歴と同じ規則で、両方へ 1 度に書く）。予定・タスクは繰り返しの回ごとに行があり、どの回が変わるかは展開してみないと分からないので、取り直しに任せる。例外はタスクの完了・取り消しで、回 1 つだけが変わるので先回りする（チェックを押したその場で見た目と位置が変わる）。
 - ホームから立替・レモンの記録を直すときは、その機能の履歴を読んでいないことがあるので、編集前の値はタイムラインの控えから取る（残高や状況のタイルを先回りして直すのに使う）。
 

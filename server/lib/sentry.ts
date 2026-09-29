@@ -14,8 +14,8 @@ import { env } from './env.ts';
  *   ハンドラ（`server/app.ts`）、応答の後の処理（`after-response.ts`）、通知の予約と送信でそれぞれ
  *   `console.error` に出しているので、報告の呼び出しを個々に足さずに済み、足し忘れもない。業務エラー（404 や
  *   409 など）は `console.error` に出さないので送られない。
- * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
- *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
+ * - トレース: 要求 1 つにつき、ルート名（`GET /api/trpc/*`）のスパンと、その下のミドルウェア・画面の API の
+ *   手続き（`trpc/timeline.get`。`lib/trpc.ts`）・Neon への問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
  *   最初の要求かどうか（`faas.coldstart`）を付け、最初の要求には起動のスパンを足す（下の `coldStartMarker`）。ブラウザから来たトレースを引き継ぐ。
  *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
@@ -61,7 +61,7 @@ export function initSentry(): void {
 }
 
 /**
- * この要求を送ったユーザーを Sentry に知らせる（`sentryUser`）。ログインが要る経路の認証（`requireSession` と
+ * この要求を送ったユーザーを Sentry に知らせる（`sentryUser`）。ログインが要る経路の認証（画面の API の `authenticate`（`lib/trpc.ts`）と
  * MCP のアクセストークンの検証）が呼ぶ。
  * SDK が要求ごとに作る isolation scope に置くので、同じインスタンスが並べて受けた別の要求には混ざらない。
  */

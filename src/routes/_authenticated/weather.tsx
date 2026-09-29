@@ -4,8 +4,9 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
-import { useHomeWeatherDay, useWeatherDays } from '../../features/weather/queries.ts';
+import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
+import { useScreenHistory } from '../../lib/screen-data.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
 import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
@@ -18,13 +19,14 @@ export const Route = createFileRoute('/_authenticated/weather')({
 
 /**
  * 天気（東京地方）。上が古く下が新しい 1 日 1 行の一覧で、最初は今日を一番上に出し、上へスクロールすると
- * 過ぎた日を読み足す（`useWeatherDays`、`HistoryList`）。下の端は週間予報の終わり。
+ * 過ぎた日を読み足す（`HistoryList`）。下の端は週間予報の終わり。
  * 行を押すとその日の 3 時間ごとの天気が開く（今日と明日は最初から開いている。`useExpandedDays`）。
  * ホームの天気のタイルと、予定画面の日付の横の天気から開く（下部ナビには置かない）ので、AppBar の左に
  * 戻るボタンを置き、その右に地域の名前を出す。
  */
 function WeatherPage() {
-  const history = useWeatherDays();
+  // この画面が読むもの: 天気の日々
+  const history = useScreenHistory(weatherHistory, {});
   const expanded = useExpandedDays();
   const goBack = useGoBack();
   const homeDay = useHomeWeatherDay();

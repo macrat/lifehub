@@ -6,15 +6,18 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ApiKeyList } from '../../features/api-keys/components/ApiKeyList.tsx';
+import { apiKeysQueryOptions } from '../../features/api-keys/queries.ts';
 import { CalendarFeedList } from '../../features/calendar-feeds/components/CalendarFeedList.tsx';
+import { calendarFeedsQueryOptions } from '../../features/calendar-feeds/queries.ts';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
+import { pushStatusQueryOptions, pushSupported } from '../../features/push/queries.ts';
 import { AllDayNotifySection } from '../../features/users/components/AllDayNotifySection.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
+import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { SettingsSection } from '../../lib/ui/SettingsSection.tsx';
 import { useUpdateApp } from '../../lib/update.ts';
 
@@ -30,7 +33,13 @@ export const Route = createFileRoute('/_authenticated/settings')({
  * ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
-  const { data: me } = useQuery(meQueryOptions);
+  // この画面が読むもの: 配信 URL と API キーの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
+  useScreenQueries([
+    calendarFeedsQueryOptions,
+    apiKeysQueryOptions,
+    { ...pushStatusQueryOptions, enabled: pushSupported },
+  ]);
+  const { data: me } = useStoreQuery(meQueryOptions);
   const logout = useLogout();
   return (
     <>

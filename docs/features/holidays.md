@@ -31,8 +31,8 @@
 
 祝日だけを返す API は持たない。祝日を出す画面が読む問い合わせに、その範囲の祝日を載せる。
 
-- 予定画面: `GET /api/calendar` の `holidays`（[calendar.md](calendar.md#api)）。面（`CalendarPane`）が月のキャッシュから読んで月の週の行・週／日の見出しへ渡し、年月の選択（`DatePickerDialog`）は選んでいる月の月グリッドの範囲を読む（選んだ先の月の項目を先に読んでおくことにもなる）。集合を引くのは読む側で、`DayNumber` は `holiday` を受け取って色を決めるだけ（日ごとに購読させない）。
-- 天気の画面: `GET /api/weather` の各日の `holiday`（[weather.md](weather.md#apiserverfeaturesweatherroutests)）。
+- 予定画面: `calendar.get` の `holidays`（[calendar.md](calendar.md#api)）。面（`CalendarPane`）が月のキャッシュから読んで月の週の行・週／日の見出しへ渡し、年月の選択（`DatePickerDialog`）は選んでいる月の月グリッドの範囲を読む（選んだ先の月の項目を先に読んでおくことにもなる）。集合を引くのは読む側で、`DayNumber` は `holiday` を受け取って色を決めるだけ（日ごとに購読させない）。
+- 天気の画面: `weather.page` の各日の `holiday`（[weather.md](weather.md#apiserverfeaturesweatherroutests)）。
 
 ## MCP ツール
 

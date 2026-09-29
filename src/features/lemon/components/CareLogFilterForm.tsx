@@ -21,7 +21,7 @@ type Props = {
  * 1 件が複数の項目を持つので、選んだ項目を含む記録が残る。
  * メモのキーワードは AppBar の検索窓が持つのでここには無い。
  * 「検索」ボタンは置かず、入力するたびに絞り込む。絞り込みはサーバーが掛けるので（手元にあるのは読んだページだけ）、
- * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useHistory`）。
+ * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useScreenHistory`）。
  */
 export function CareLogFilterForm({ open, filters, onChange }: Props) {
   return (

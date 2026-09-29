@@ -1,22 +1,19 @@
-import { Hono } from 'hono';
-import { idParamSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema, withId } from '../../../shared/validation/common.ts';
 import { createMemoRequestSchema, memoSchema } from '../../../shared/validation/memos.ts';
-import type { AppEnv } from '../../lib/app-env.ts';
-import { validate } from '../../lib/validator.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
-/** メモの書き込み。読むのはタイムライン（`GET /api/timeline`）だけなので、一覧の口は持たない */
-export const memosRoutes = new Hono<AppEnv>()
-  .post('/', validate('json', createMemoRequestSchema), async (c) => {
-    const { id, ...input } = c.req.valid('json');
-    await service.addMemo(input, c.get('user').id, id);
-    return c.body(null, 204);
-  })
-  .put('/:id', validate('param', idParamSchema), validate('json', memoSchema), async (c) => {
-    await service.updateMemo(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
-    return c.body(null, 204);
-  })
-  .delete('/:id', validate('param', idParamSchema), async (c) => {
-    await service.deleteMemo(c.req.valid('param').id, c.get('user').id);
-    return c.body(null, 204);
-  });
+/** メモの書き込み。読むのはタイムライン（`timeline.get`）だけなので、一覧の手続きは持たない */
+export const memosRouter = router({
+  create: procedure
+    .input(createMemoRequestSchema)
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.addMemo(input, (await ctx.user).id, id);
+    }),
+  update: procedure.input(withId(memoSchema)).mutation(async ({ ctx, input: { id, ...input } }) => {
+    await service.updateMemo(id, input, (await ctx.user).id);
+  }),
+  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteMemo(input.id, (await ctx.user).id);
+  }),
+});

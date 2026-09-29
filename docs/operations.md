@@ -115,10 +115,11 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
 - 送るのは本番だけ。DSN（`SENTRY_DSN`）は production にしか無く、無ければ SDK は何も送らない（ローカル・テスト・Preview）。ブラウザへはビルド時に `vite.config.ts` の define で埋め込む（`vercel pull` で落とした値を `vercel build` が渡す）。サーバーとブラウザで同じ変数を読む。
 - 送るのはエラー・トレース・ログ。セッションリプレイは無料枠が月 50 件しかなく、プロファイリングは無料枠に無いので使わない。
 - サーバー（`server/lib/sentry.ts`。`api/index.ts` が起動し、Hono アプリを包む）:
-  - エラー: `console.error` に出したものをすべて送る（`captureConsoleIntegration`）。想定外のエラーは共通のエラーハンドラ・応答の後の処理・通知の予約と送信がすでに `console.error` に出しているので、報告の呼び出しを個々に足さない。業務エラー（4xx）は出さないので送られない。`@sentry/hono` のミドルウェアからは送らない（同じエラーが 2 件になり、業務エラーまで送られるため）。
-  - トレース: 要求ごとにルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への問い合わせ・外部への要求のスパン。`@sentry/hono` の案内する `--import` での起動は Vercel Function のエントリに置けないが、それが要るのは依存パッケージを読み込み時に書き換える計測だけで、要求と fetch のスパンは Node 標準の diagnostics_channel で取れる（DB は Neon の HTTP ドライバなので fetch）。`server/app.ts` のアプリはローカルとテストも使うので、Sentry は本番のエントリで包む外側にだけ入れる。
+  - エラー: `console.error` に出したものをすべて送る（`captureConsoleIntegration`）。想定外のエラーは共通のエラーハンドラ（Hono の `onError` と、画面の API の tRPC の `onError`）・応答の後の処理・通知の予約と送信がすでに `console.error` に出しているので、報告の呼び出しを個々に足さない。業務エラー（4xx）は出さないので送られない。`@sentry/hono` のミドルウェアと Sentry の tRPC のミドルウェア（`trpcMiddleware`）からは送らない（同じエラーが 2 件になり、業務エラーまで送られるため）。
+  - トレース: 要求ごとにルート名（`GET /api/trpc/*`）のスパンと、その下のミドルウェア・画面の API の手続き・Neon への問い合わせ・外部への要求のスパン。`@sentry/hono` の案内する `--import` での起動は Vercel Function のエントリに置けないが、それが要るのは依存パッケージを読み込み時に書き換える計測だけで、要求と fetch のスパンは Node 標準の diagnostics_channel で取れる（DB は Neon の HTTP ドライバなので fetch）。`server/app.ts` のアプリはローカルとテストも使うので、Sentry は本番のエントリで包む外側にだけ入れる。
     - Neon への問い合わせは、SQL 文を名前にした DB のスパン（その下に HTTP のスパン）にする。Sentry の Queries で文ごとの回数と時間を見られる。Sentry にも Drizzle にも使える計測が無いので、Neon の HTTP ドライバの fetch（`neonConfig.fetchFunction`）を包み、送る本文から文を取り出す。文は Drizzle が値を `$1` などの置き場所にしたもので、値は送らない。
     - ミドルウェアのスパンの名前は関数名なので、ミドルウェアは名前の付いた変数に入れてから渡す（Biome のプラグイン `lint/named-middleware.grit` が強制する）。`validate` は検証する入力を名前にする（`validate(json)`）。
+    - 画面の API は 1 本の要求にいくつもの手続きが載る（[architecture.md](architecture.md#通信の往復)）ので、要求のスパンの名前（`GET /api/trpc/*`）からはどの手続きかが分からない。手続きごとに `trpc/timeline.get` のような名前の `rpc` のスパンを要求のスパンの下に作る（`server/lib/trpc.ts` の `traced`）。
     - 要求のスパンには、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付け、起動の分だけ遅い要求を普段の遅さと分けて見られるようにする。最初の要求には、プロセスが起きてからモジュールを読み終えるまでのスパン（`function.init`）も子として足す（理由と、最初の要求の見分け方は `server/lib/sentry.ts` の `coldStartMarker`）。
   - ログ: `console` に出したものをすべて送る（`consoleLoggingIntegration`）。
   - Vercel Function は応答の後に止まりうるので、`waitUntil` で送り終わるまで生かす（SDK が自分で待つのは Edge ランタイムだけ）。エラーはすぐ送るので送る直前に、スパンとログは SDK が 5 秒溜めてから送るので、要求のスパンが閉じたら `flush` する。`waitUntil` は要求の文脈の中でしか効かないので、閉じるのを待つ処理はミドルウェアの中で先に登録する。
@@ -129,8 +130,8 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
   - ログ: `console` に出したものをすべて送る。
   - `release` はビルドしたコミット。デプロイのたびに、前のリリースからのコミットを紐付ける（上の `deploy.yml`）。ソースマップは `build.sourcemap: 'hidden'` で作り、デプロイ前に Sentry へ送ってから消す（公開しない）。
 - 誰の操作で起きたかを追えるよう、エラー・スパン・ログに DB のユーザー ID（UUID）を付ける。ID はそれ自体では個人を指さず（仮名）、誰かは DB か、ユーザー管理の編集画面に出る ID と見比べて確かめる。メールアドレス（やそのハッシュ）にしないのは、MCP のアクセストークンがユーザー ID しか持たず、要求のたびに DB から読むことになるため。
-  - サーバー: ログインが要る経路の認証（`requireSession` と MCP のアクセストークンの検証）が、要求ごとのスコープに付ける（`server/lib/sentry.ts` の `setSentryUser`）。
-  - ブラウザ: `/api/me` の `id` を、ログイン中のユーザー（`meQueryOptions` のキャッシュ）が変わるたびに付け直す（`src/lib/sentry.ts` の `watchUser`）。
+  - サーバー: ログインが要る経路の認証（画面の API の `authenticate`（`server/lib/trpc.ts`）と MCP のアクセストークンの検証）が、要求ごとのスコープに付ける（`server/lib/sentry.ts` の `setSentryUser`）。
+  - ブラウザ: `me.get` の `id` を、ログイン中のユーザー（`meQueryOptions` のキャッシュ）が変わるたびに付け直す（`src/lib/sentry.ts` の `watchUser`）。
 - 送らないもの（`shared/sentry.ts` の `SENTRY_DATA_COLLECTION`。サーバーとブラウザで共通）: 要求・応答の本文、クエリ文字列、Cookie、IP アドレス、DB の問い合わせの引数と結果、例外の時点のローカル変数。SDK の既定はこれらも集めるが、家庭の記録（予定・立替の金額・メモ）やパスワード、OAuth の認可コードを外のサービスに渡さない。見出し（ヘッダ）は送るが、`Authorization` などの秘密は SDK が伏せる。何が起きたかはルート名・所要時間・ステータス・スタックトレースで追える。
 - 無料枠（月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ）に収める:
   - エラー: DSN に 150 件/日の上限を掛ける（150 × 31 < 5,000）。無料プランは枠を超えても課金されず捨てられるだけだが、1 つの不具合が月の枠を使い切ると残りのエラーが見えなくなるため、日ごとに区切る。DSN の上限が効くのはエラーだけ。

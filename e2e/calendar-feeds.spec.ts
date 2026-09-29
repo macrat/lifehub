@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
+import { carries } from './network.ts';
 
 /**
  * 配信 URL の発行 → その URL で ics が読める → 名前と参加者を変えても同じ URL のまま
@@ -20,11 +22,8 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   await page.getByRole('checkbox', { name: '相手' }).uncheck();
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText('E2E のカレンダー')).toBeVisible();
-  // 発行の応答は本文を返さないので、画面と同じく一覧から読む
-  const feeds = (await (await page.request.get('/api/calendar/feeds')).json()) as {
-    name: string;
-    url: string;
-  }[];
+  // 発行は値を返さないので、画面と同じく一覧から読む
+  const feeds = await apiOf(page.request).calendarFeeds.list.query();
   const url = feeds.find((feed) => feed.name === 'E2E のカレンダー')?.url ?? '';
   await expect(page.getByText('E2E の予定・', { exact: false })).toBeVisible();
 
@@ -35,12 +34,12 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   expect(await ics.text()).toContain('BEGIN:VCALENDAR');
 
   // 鉛筆から名前と参加者を変える。渡した先が登録し直さずに済むよう、URL は変わらない
-  const updated = page.waitForResponse((res) => res.request().method() === 'PATCH');
+  const updated = page.waitForResponse(carries('calendarFeeds.update'));
   await page.getByRole('button', { name: 'E2E のカレンダー を編集' }).click();
   await page.getByLabel('名前').fill('2 人のカレンダー');
   await page.getByRole('checkbox', { name: '相手' }).check();
   await page.getByRole('button', { name: '保存' }).click();
-  expect((await updated).status()).toBe(204);
+  expect((await updated).ok()).toBe(true);
   await expect(page.getByText('E2E・相手 の予定・', { exact: false })).toBeVisible();
   expect((await anonymous.get(url)).status()).toBe(200);
 

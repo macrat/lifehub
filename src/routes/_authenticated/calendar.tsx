@@ -9,6 +9,8 @@ import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
+import { calendarMonthQueryOptions } from '../../features/events/queries.ts';
+import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
@@ -32,12 +34,13 @@ export const Route = createFileRoute('/_authenticated/calendar')({
 function CalendarPage() {
   const search = Route.useSearch();
   const page = useCalendarPage(search);
+  // この画面が読むもの: 出している月（面・リスト・選択ダイアログ）の項目と祝日・天気
+  useScreenQueries(page.months.map(calendarMonthQueryOptions));
   const { view } = page;
   const add = useCalendarAdd(page, search.add);
   const { draft } = add.composer;
   const selection = useRecordSelection<CalendarItem>();
-  // 年月・週・日の選択ダイアログと、リスト表示の詳細な絞り込み（どちらも URL に載せない）
-  const picker = useToggle();
+  // リスト表示の詳細な絞り込み（URL に載せない）
   const filterPanel = useToggle();
 
   return (
@@ -46,7 +49,7 @@ function CalendarPage() {
         <CalendarToolbar
           view={view}
           title={page.title}
-          onOpenPicker={picker.on}
+          onOpenPicker={page.picker.open}
           onToday={page.goToday}
           onChangeView={add.changeView}
           list={{
@@ -63,6 +66,7 @@ function CalendarPage() {
         <ListView
           date={page.date}
           filters={page.filters}
+          listMonths={page.list}
           filtersOpen={filterPanel.value}
           onChangeFilters={(next) => page.setSearch(next, { replace: true })}
           onSelectItem={selection.open}
@@ -83,13 +87,15 @@ function CalendarPage() {
         />
       )}
 
-      {picker.value && view !== 'list' && (
+      {page.picker.month && view !== 'list' && (
         <DatePickerDialog
           unit={view}
           date={page.date}
-          onClose={picker.off}
+          month={page.picker.month}
+          onChangeMonth={page.picker.setMonth}
+          onClose={page.picker.close}
           onSelect={(date) => {
-            picker.off();
+            page.picker.close();
             page.selectDate(date);
           }}
         />

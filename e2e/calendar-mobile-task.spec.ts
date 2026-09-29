@@ -1,6 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
+import { apiOf } from './api.ts';
 import { dayPoint, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { addItem, deleteItem } from './events.ts';
+import { carries } from './network.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
 
 /** スマホでタスクを長押しでつまんで動かす（時間軸・日の並び）と、その入力のシート */
@@ -131,11 +133,16 @@ test('なぞって開いた予定の入力は上端でタスクに切り替え�
   await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
   await expect(page.getByLabel('終了日', { exact: true })).toHaveValue('2031-06-26');
   await expect(page.getByLabel('終了時刻', { exact: true })).toHaveValue('16:00');
+  // 保存は送信を待たずに画面へ出る（楽観的更新）ので、サーバーに届いてから読み直す
+  const updated = page.waitForResponse(carries('events.update'));
   await page.getByRole('button', { name: '保存' }).click();
   await expect(block).toBeVisible();
+  expect((await updated).ok()).toBe(true);
 
-  const res = await page.request.get('/api/calendar?from=2031-06-26&to=2031-06-26');
-  const { items } = (await res.json()) as { items: { id: string; kind: string; title: string }[] };
+  const { items } = await apiOf(page.request).calendar.get.query({
+    from: '2031-06-26',
+    to: '2031-06-26',
+  });
   const saved = items.find((item) => item.title === title);
   expect(saved?.kind).toBe('event');
   if (saved) await deleteItem(page, saved.id);

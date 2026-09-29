@@ -4,9 +4,8 @@ import type { ZodType } from 'zod';
 
 /**
  * 検証失敗の応答を app.onError の ValidationError と同じ `{ message }` の 400 にそろえるフック
- * （zValidator の既定は Zod の結果をそのまま返し、クライアントの ensureOk が読む message が無い）。
- * 引数と戻り値の型を具体的に書くのは、Hono RPC がこの 400 だけを失敗の応答として型に載せるため
- * （zod-validator の Hook 型をそのまま使うと status が全部の値になり、200 の型が引けなくなる）。
+ * （zValidator の既定は Zod の結果をそのまま返し、呼び出し元（記録投入のデバイスなど）が読む message が無い）。
+ * Hono のまま残る口（記録投入・QStash など）が使う。画面の API の検証は tRPC の `.input`（`lib/trpc.ts`）。
  */
 function validationHook(
   result: { success: boolean; error?: { issues: { message: string }[] } },

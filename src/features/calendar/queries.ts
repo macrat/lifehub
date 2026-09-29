@@ -1,9 +1,10 @@
-import { type UseQueryResult, useQuery } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { CalendarPeriod } from '../../../shared/calendar.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
 import { toMonthString } from '../../lib/date.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { calendarMonthQueryOptions, useCalendarPeriods } from '../events/queries.ts';
 
 /**
@@ -52,5 +53,7 @@ export function useHourlyWeather(date: DateString): readonly HourlyWeather[] {
     ({ weather }: CalendarPeriod) => weather.hourly.filter((w) => w.date === date),
     [date],
   );
-  return useQuery({ ...calendarMonthQueryOptions(toMonthString(date)), select }).data ?? NO_HOURLY;
+  return (
+    useStoreQuery({ ...calendarMonthQueryOptions(toMonthString(date)), select }).data ?? NO_HOURLY
+  );
 }

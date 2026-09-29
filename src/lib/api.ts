@@ -1,6 +1,7 @@
 import { withActiveSpan } from '@sentry/react';
-import { type ClientResponse, hc } from 'hono/client';
-import type { AppType } from '../../server/app.ts';
+import { createTRPCClient, getUntypedClient, httpBatchLink, TRPCClientError } from '@trpc/client';
+import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '../../server/app.ts';
 
 /** API が 401 を返したときに発火する。main.tsx がこれを受けてログイン画面へ遷移する。 */
 export const UNAUTHORIZED_EVENT = 'lifehub:unauthorized';
@@ -9,7 +10,7 @@ export const UNAUTHORIZED_EVENT = 'lifehub:unauthorized';
  * 通信そのものが届かなかった失敗（オフライン・回線の切断）。サーバーが理由を返した失敗と区別する。
  * 送り直せば通る見込みがあるので、書き込みはこれだけを送り直す（`lib/query-client.ts`）。
  */
-export class NetworkError extends Error {}
+class NetworkError extends Error {}
 
 /**
  * API への fetch。Sentry のトレースで、要求 1 つを画面の移動（navigation）のスパンの子にせず、それだけで
@@ -25,7 +26,7 @@ export class NetworkError extends Error {}
 export const apiRequestFetch: typeof fetch = (input, init) =>
   withActiveSpan(null, () => fetch(input, init));
 
-/** fetch に 401 の検知と通信断の判別を足したもの。RPC クライアントと書き込みの送信が共有する。 */
+/** fetch に通信断の判別と 401 の検知を足したもの */
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
@@ -40,78 +41,65 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
 }
 
 /**
- * Hono RPC クライアント。サーバーの AppType を型としてだけ参照し、実行時コードは含まない。
- * 同一オリジンだが、`$url()` が URL を組み立てられるよう baseUrl に自分のオリジンを渡す。
+ * 画面の API（tRPC。`server/lib/trpc.ts`）へ送る口。同じ時点に出た呼び出しを 1 本の要求にまとめる
+ * （読み出しは GET、書き込みは POST）。サーバーの AppRouter を型としてだけ参照し、実行時コードは含まない。
  */
-export const api = hc<AppType>(location.origin, { fetch: apiFetch }).api;
+export const api = createTRPCClient<AppRouter>({
+  links: [httpBatchLink({ url: '/api/trpc', fetch: apiFetch, maxURLLength: 8000 })],
+});
 
-/** 書き込み 1 回分。端末に溜めて後から送れるよう、送る内容だけを持つプレーンな値にする。 */
-export type WriteRequest = {
-  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  /** 同一オリジンのパス。`api.events[':id'].$url({ param }).pathname` のように組み立てる */
-  path: string;
-  body?: unknown;
+/** 画面の API の手続きの入力・出力の型（`ApiOutputs['me']['get']` のように引く） */
+export type ApiInputs = inferRouterInputs<AppRouter>;
+export type ApiOutputs = inferRouterOutputs<AppRouter>;
+
+/** 失敗が通信断によるものか（`apiFetch` が投げた失敗は、tRPC の失敗の `cause` に入って届く） */
+export function isNetworkError(error: unknown): boolean {
+  return error instanceof Error && error.cause instanceof NetworkError;
+}
+
+/** 失敗がログインしていないことによるものか（`server/lib/trpc.ts` の `authed`） */
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED';
+}
+
+type Procedures = AppRouter['_def']['record'];
+
+/** 書き込み 1 回分。端末に溜めて後から送れるよう、手続きの名前（`memos.create` など）と入力だけを持つプレーンな値にする。 */
+export type WriteRequest = { path: string; input: unknown };
+
+/** 書き込みの手続きごとの、入力から送る内容を作る関数（`write.memos.create(input)`） */
+type WriteBuilders = {
+  [R in keyof Procedures & keyof ApiInputs]: {
+    [K in keyof Procedures[R] & keyof ApiInputs[R] as Procedures[R][K] extends {
+      _def: { type: 'mutation' };
+    }
+      ? K
+      : never]: (input: ApiInputs[R][K]) => WriteRequest;
+  };
 };
 
-/** 一覧の口（`api.memos` など）。作成はここへ送る */
-type CollectionRoute = { $url: () => URL };
-/** 1 件の口（`api.memos[':id']` など） */
-type ItemRoute = { $url: (args: { param: { id: string } }) => URL };
-
-/** 作成（POST）の送る内容。入力（クライアントが決めた id を含む）をそのまま本文にする */
-export function createRequest<T>(route: CollectionRoute): (input: T) => WriteRequest {
-  return (input) => ({ method: 'POST', path: route.$url().pathname, body: input });
-}
+/**
+ * 書き込みの送る内容を作る（`useOptimisticMutation` の `request: write.memos.create`）。
+ * 型は API の手続きから導き、実体は名前を `path` にするだけ。
+ * WHY NOT tRPC のクライアントで送る関数をそのまま渡す: 送る内容は端末に溜めて後から（次の起動で）送るので、
+ * 関数ではなく値で持つ必要がある（`lib/query-client.ts` の `Write`）
+ */
+export const write = new Proxy({} as WriteBuilders, {
+  get: (_, router: string) =>
+    new Proxy(
+      {},
+      {
+        get:
+          (_, procedure: string) =>
+          (input: unknown): WriteRequest => ({ path: `${router}.${procedure}`, input }),
+      },
+    ),
+});
 
 /**
- * 1 件への書き込み（置き換え・部分更新・回を指す削除）の送る内容。id を URL に、残りを本文にする。
+ * 書き込みを送る。端末に溜めた書き込みは手続きの名前と入力だけを持つので、名前で呼ぶ。
+ * 失敗はサーバーのメッセージを含む Error（通信断なら `isNetworkError`）になる。
  */
-export function itemRequest<T extends { id: string }>(
-  method: 'PUT' | 'PATCH' | 'DELETE',
-  route: ItemRoute,
-): (input: T) => WriteRequest {
-  return ({ id, ...body }) => ({ method, path: route.$url({ param: { id } }).pathname, body });
-}
-
-/** 1 件の削除（本文なし）の送る内容 */
-export function deleteRequest(route: ItemRoute): (id: string) => WriteRequest {
-  return (id) => ({ method: 'DELETE', path: route.$url({ param: { id } }).pathname });
-}
-
-/** 書き込みを送る。失敗はサーバーのメッセージを含む Error（通信断なら NetworkError）になる。 */
-export async function sendWrite({ method, path, body }: WriteRequest): Promise<void> {
-  const res = await apiFetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!res.ok) throw await errorOf(res);
-}
-
-/** 成功（2xx）のレスポンス型だけを残す（Hono の FilterClientResponseByStatusCode 相当。同型は export されていない） */
-type OkResponse<R> =
-  R extends ClientResponse<infer T, infer S, infer F>
-    ? S extends 200 | 201 | 204
-      ? ClientResponse<T, S, F>
-      : never
-    : never;
-
-/** レスポンスが成功でなければ、サーバーのメッセージを含む Error を投げる。型は成功時のものに絞られる。 */
-export async function ensureOk<R extends ClientResponse<unknown, number, string>>(
-  res: R,
-): Promise<OkResponse<R>> {
-  if (res.ok) return res as unknown as OkResponse<R>;
-  throw await errorOf(res as unknown as Response);
-}
-
-/** 失敗したレスポンスから、サーバーのメッセージを取り出した Error を作る。 */
-async function errorOf(res: Response): Promise<Error> {
-  let message = `リクエストに失敗しました（${res.status}）`;
-  try {
-    const body = (await res.json()) as { message?: string };
-    if (body.message) message = body.message;
-  } catch {
-    // JSON でない本文は無視する
-  }
-  return new Error(message);
+export async function sendWrite({ path, input }: WriteRequest): Promise<void> {
+  await getUntypedClient(api).mutation(path, input);
 }

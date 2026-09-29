@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import {
@@ -17,7 +17,7 @@ import {
  * フォームに渡すもの（`createForm` / `editForm`）は、閉じていれば null。
  */
 export function useCalendarFeedList() {
-  const feedsQuery = useQuery(calendarFeedsQueryOptions);
+  const feedsQuery = useStoreQuery(calendarFeedsQueryOptions);
   const createFeed = useCreateCalendarFeed();
   const updateFeed = useUpdateCalendarFeed();
   const revokeFeed = useRevokeCalendarFeed();

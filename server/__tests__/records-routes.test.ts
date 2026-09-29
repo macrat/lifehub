@@ -64,6 +64,6 @@ describe('記録投入のルート', () => {
   });
 
   it('API キーの管理はログインが要る', async () => {
-    expect((await app.request('/api/api-keys')).status).toBe(401);
+    expect((await app.request('/api/trpc/apiKeys.list')).status).toBe(401);
   });
 });
