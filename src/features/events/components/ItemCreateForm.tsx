@@ -10,7 +10,7 @@ type Props = {
 
 /**
  * 予定・タスクを新しく 1 件作るフォーム。種類に合った追加のフォーム（画面いっぱい）を開き、新規作成として保存する。
- * 何もない所からの追加（`AddForm`）も、既にある項目の複製（`ItemDetailSheet`）も、違うのは初期値だけなのでここを通す。
+ * 今は既にある項目の複製（`ItemDetailSheet`）から開く。
  */
 export function ItemCreateForm({ kind, initial, onClose }: Props) {
   const createEvent = useCreateEvent();

@@ -83,7 +83,7 @@ src/                          # クライアント（Vite + React）
     api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  memos/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
-    add/（右下の追加ボタンと、種類から各機能の追加フォームを選ぶ `AddForm`。機能をまたぐのでどれにも属さない）
+    add/（種類を選ぶ右下の追加ボタン `AddMenu` と、追加できる種類の名前・アイコン。機能をまたぐのでどれにも属さない）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除。直せない記録は読むだけ）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）

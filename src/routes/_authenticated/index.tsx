@@ -2,12 +2,10 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { AddForm } from '../../features/add/components/AddForm.tsx';
-import { AddMenu } from '../../features/add/components/AddMenu.tsx';
-import type { AddFormKind } from '../../features/add/kinds.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
+import { MemoForm } from '../../features/memos/components/MemoForm.tsx';
 import { TimelineEntrySheet } from '../../features/timeline/components/TimelineEntrySheet.tsx';
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
@@ -17,16 +15,17 @@ import {
   timelineSearchSchema,
 } from '../../features/timeline/search.ts';
 import { weatherHistory } from '../../features/weather/queries.ts';
-import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
+import { useAddShortcut } from '../../lib/add-search.ts';
 import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
 import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
 import { ScrollAwayHeader } from '../../lib/ui/ScrollAwayHeader.tsx';
 import { useIsDesktop } from '../../lib/ui/use-breakpoint.ts';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
-import { useOpenWith } from '../../lib/ui/use-toggle.ts';
+import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 import { settingsNavItem } from '../../navigation.ts';
 
 export const Route = createFileRoute('/_authenticated/')({
@@ -37,7 +36,7 @@ export const Route = createFileRoute('/_authenticated/')({
 
 /**
  * ホーム。上から、最新の状態（天気・葉水・水やりのタイル）と、
- * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。メモは右下の追加ボタンから書く。
+ * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。右下の追加ボタンはメモを書く。
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
  * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲でタイムラインを絞り込む
@@ -53,13 +52,12 @@ function HomePage() {
   useScreenHistory(weatherHistory, {});
   useScreenQueries([lemonStatusQueryOptions]);
   const selection = useRecordSelection<TimelineEntry>();
-  // 追加ボタンとタイルから開く入力。世話はタイルの項目にチェックを入れて開く
-  const adding = useOpenWith<AddFormKind>();
+  // 追加ボタンから開くメモの入力と、タイルから開く世話の入力（タイルの項目にチェックを入れて開く）
+  const addingMemo = useToggle();
   const addingCare = useOpenWith<CareType[]>();
-  const addEventOnCalendar = useAddEventOnCalendar();
   const navigate = useNavigate();
 
-  useAddShortcut(search.add, adding.open);
+  useAddShortcut(search.add, addingMemo.on);
 
   return (
     <>
@@ -96,8 +94,8 @@ function HomePage() {
         />
       </Box>
 
-      <AddMenu onSelect={adding.open} onAddEvent={addEventOnCalendar} />
-      {adding.value && <AddForm kind={adding.value} onClose={adding.close} />}
+      <AddFab label="メモを追加" onClick={addingMemo.on} />
+      {addingMemo.value && <MemoForm onClose={addingMemo.off} />}
       {addingCare.value && (
         <CareLogForm initialCareTypes={addingCare.value} onClose={addingCare.close} />
       )}

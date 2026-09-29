@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { defaultTaskValues } from '../../events/form-values.ts';
+import { allDayEventValues } from '../../events/form-values.ts';
 import { type Draft, type DraftRange, itemDraft } from '../draft.ts';
 import { newTaskTimes, taskDraftFromInput, taskTimesOf } from '../task-draft.ts';
 import { composerReducer } from '../use-event-composer.ts';
@@ -158,7 +158,7 @@ describe('composerReducer', () => {
   });
 
   it('「その他のオプション」で下書きを閉じ、直している予定と選んだ種類ごと全項目のフォームへ移す', () => {
-    const values = defaultTaskValues(ME);
+    const values = allDayEventValues(DAY, DAY, ME);
     const state = grab(null, { range, item: event });
     expect(composerReducer(state, { type: 'expand', values })).toEqual({
       mode: 'form',
@@ -171,7 +171,7 @@ describe('composerReducer', () => {
   it('全項目のフォームの間は下書きへの変更を受け付けない', () => {
     const form: State = {
       mode: 'form',
-      values: defaultTaskValues(ME),
+      values: allDayEventValues(DAY, DAY, ME),
       item: null,
       kind: 'task',
     };

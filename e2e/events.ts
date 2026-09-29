@@ -31,3 +31,12 @@ export async function addItem(page: Page, item: Item): Promise<string> {
 export async function deleteItem(page: Page, id: string): Promise<void> {
   await apiOf(page.request).events.delete.mutate({ id, scope: 'all' });
 }
+
+/**
+ * カレンダーの追加ボタンから種類を選んで入力を開く。SpeedDial はホバーでも開くので、ホバーで開く
+ * （click だとホバーで開いた直後の click で閉じてしまうことがある）
+ */
+export async function addOnCalendar(page: Page, kind: '予定' | 'タスク'): Promise<void> {
+  await page.getByRole('button', { name: '予定・タスクを追加' }).hover();
+  await page.getByRole('menuitem', { name: kind }).click();
+}

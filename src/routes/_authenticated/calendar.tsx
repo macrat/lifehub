@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { CalendarItem } from '../../../shared/calendar.ts';
+import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import { CalendarToolbar } from '../../features/calendar/components/CalendarToolbar.tsx';
 import { DatePickerDialog } from '../../features/calendar/components/DatePickerDialog.tsx';
 import { EventComposer } from '../../features/calendar/components/EventComposer.tsx';
@@ -11,7 +12,6 @@ import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
 import { calendarMonthQueryOptions } from '../../features/events/queries.ts';
 import { useScreenQueries } from '../../lib/screen-data.ts';
-import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
@@ -20,6 +20,9 @@ export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
   component: CalendarPage,
 });
+
+/** 追加ボタンで選べる種類（下から順。よく使う予定をボタンのすぐ上に置く） */
+const ADD_MENU_KINDS = ['event', 'task'] as const;
 
 /**
  * カレンダー。予定とタスクを 1 つの画面で、月（グリッド）・週／日（タイムライン）・リストの 4 通りに表示する。
@@ -101,9 +104,10 @@ function CalendarPage() {
         />
       )}
 
-      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める。
-          予定とタスクは入力の上端で切り替えるので、種類を選ばせずに 1 つのボタンで開く */}
-      {!draft && <AddFab label="予定・タスクを追加" onClick={() => add.addItem()} />}
+      {/* 追加ボタンはクイック入力と場所が重なるので、下書きの間は引っ込める */}
+      {!draft && (
+        <AddMenu label="予定・タスクを追加" kinds={ADD_MENU_KINDS} onSelect={add.addItem} />
+      )}
       {selection.selected && (
         <ItemDetailSheet
           item={selection.selected.record}
