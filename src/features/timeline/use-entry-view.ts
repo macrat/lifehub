@@ -7,8 +7,8 @@ import {
 } from '../../../shared/calendar.ts';
 import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
+import { ADD_KINDS } from '../../lib/add-kinds.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
-import { ADD_KINDS } from '../add/kinds.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';

@@ -4,7 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import SpaIcon from '@mui/icons-material/Spa';
 import type { ComponentType } from 'react';
-import type { AddKind } from '../../lib/add-pages.ts';
+import type { AddKind } from './add-pages.ts';
 
 /**
  * 追加できる種類と、その名前・アイコン（追加ボタン・タイムライン・ショートカットの絵が同じ物を使う）。

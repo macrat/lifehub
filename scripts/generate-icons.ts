@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 import { type ComponentType, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ADD_KINDS } from '../src/features/add/kinds.ts';
 import { CARE_TYPE_ICONS } from '../src/features/lemon/care-type-icons.tsx';
+import { ADD_KINDS } from '../src/lib/add-kinds.ts';
 import { SHORTCUTS, shortcutIconSrc } from '../src/lib/shortcuts.ts';
 import { calendarNavItem } from '../src/navigation.ts';
 

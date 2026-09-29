@@ -4,11 +4,11 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { AddKind } from '../../../lib/add-pages.ts';
-import { FAB_SX } from '../../../lib/ui/layout.ts';
-import { CIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
-import { useToggle } from '../../../lib/ui/use-toggle.ts';
-import { ADD_KINDS } from '../kinds.ts';
+import { ADD_KINDS } from '../add-kinds.ts';
+import type { AddKind } from '../add-pages.ts';
+import { FAB_SX } from './layout.ts';
+import { CIRCLE_CLIP_PATH } from './squircle.ts';
+import { useToggle } from './use-toggle.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
@@ -72,10 +72,6 @@ type Props<K extends AddKind> = {
  */
 export function AddMenu<K extends AddKind>({ label, kinds, onSelect }: Props<K>) {
   const { value: expanded, on: expand, off: collapse } = useToggle();
-  const open = (kind: K) => {
-    collapse();
-    onSelect(kind);
-  };
 
   return (
     <>
@@ -103,7 +99,10 @@ export function AddMenu<K extends AddKind>({ label, kinds, onSelect }: Props<K>)
                 </>
               }
               slotProps={{ fab: { variant: 'extended', sx: PILL_SX } }}
-              onClick={() => open(kind)}
+              onClick={() => {
+                collapse();
+                onSelect(kind);
+              }}
             />
           );
         })}

@@ -8,7 +8,7 @@ import { usePatchSearch } from './search.ts';
  * 値は開く物の種類で、受け取れる種類は画面ごとに `ADD_PAGES` が決める。
  * 絞り込みのような画面の状態ではないので、受け取った画面が開くと同時に消す（`useAddShortcut`）。
  * 追加の入力を持つ画面（ホーム・カレンダー・立替・レモン）がそれぞれ読むので、どの機能にも属さない
- * `src/lib` に置く。
+ * `src/lib` に置く（ショートカットの URL を作る `shortcuts.ts` も同じ表 `ADD_PAGES` から作る）。
  */
 export const addSearchSchema = <P extends AddPage>(page: P) => z.enum(ADD_PAGES[page]).optional();
 
