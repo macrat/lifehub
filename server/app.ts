@@ -1,6 +1,7 @@
 import { type Handler, Hono, type MiddlewareHandler } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
+import { batchQuerySchema } from '../shared/validation/batch.ts';
 import { cronRoutes } from './cron.ts';
 import { apiKeysRoutes } from './features/api-keys/routes.ts';
 import { calendarRoutes } from './features/calendar/routes.ts';
@@ -16,9 +17,11 @@ import { meRoutes, usersRoutes } from './features/users/routes.ts';
 import { weatherRoutes } from './features/weather/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { getAuth } from './lib/auth.ts';
+import { runBatchRequests } from './lib/batch.ts';
 import { pingDatabase } from './lib/db/health.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { requireSession } from './lib/middleware.ts';
+import { validate } from './lib/validator.ts';
 import { mcpRoutes } from './mcp.ts';
 import { qstashRoutes } from './qstash.ts';
 
@@ -36,6 +39,21 @@ api.get('/health', async (c) => {
   await pingDatabase();
   return c.json({ ok: true as const, db: true as const });
 });
+/**
+ * 公開鍵の組（JWKS。`/api/auth/jwks`）は Vercel の CDN に持たせ、関数を起こさずに返す。
+ * MCP のアクセストークンの検証（`requireMcpAuth`。server/mcp.ts）は鍵をこの URL から fetch する作りで、
+ * 同じプロセスの中から渡す口が無い（受け取るのは http(s) の URL だけ）。インスタンスが起きるたびに
+ * 自分へ取りに来るので、関数が応えると、呼ばれた側のインスタンスの起動まで待たされる。
+ * 鍵は作り直さない限り変わらない（jwt プラグインの鍵の自動の入れ替えは使っていない。lib/auth.ts）ので、
+ * 1 日持たせる。ブラウザ向けの Cache-Control（vercel.json の no-store）とは別の、Vercel の CDN だけが読む見出し。
+ */
+const cacheJwksOnCdn: MiddlewareHandler<AppEnv> = async (c, next) => {
+  await next();
+  if (!c.res.ok) return;
+  c.res = new Response(c.res.body, c.res);
+  c.res.headers.set('Vercel-CDN-Cache-Control', 'max-age=86400, stale-while-revalidate=86400');
+};
+api.get('/auth/jwks', cacheJwksOnCdn);
 api.on(['GET', 'POST'], '/auth/*', authHandler);
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
@@ -88,6 +106,18 @@ const routes = api
   .route('/push', pushRoutes);
 
 export type AppType = typeof routes;
+
+/**
+ * 同じ時点に出た画面の GET を 1 本で運ぶ（`src/lib/api.ts` の束ね、`lib/batch.ts`）。中の要求はこのアプリに
+ * 内部で送る。AppType には載せない（クライアントは RPC を通さず、束ねの仕組みが直接送る）。
+ */
+api.get('/batch', validate('query', batchQuerySchema), async (c) =>
+  c.json(
+    await runBatchRequests(c.req.valid('query').r, c.var.user, (path, env) =>
+      app.request(path, {}, env),
+    ),
+  ),
+);
 
 /**
  * 公開するアプリ本体。`/api` 配下に加えて、オリジン直下に置くことが仕様で決まっている

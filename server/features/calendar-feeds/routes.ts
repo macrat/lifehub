@@ -10,9 +10,9 @@ import * as service from './service.ts';
  * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も本文を返さない）。
  */
 export const calendarFeedsRoutes = new Hono<AppEnv>()
-  .get('/', async (c) => c.json(await service.listFeeds(c.get('user').id)))
+  .get('/', async (c) => c.json(await service.listFeeds((await c.var.user).id)))
   .post('/', validate('json', calendarFeedSchema), async (c) => {
-    await service.createFeed(c.req.valid('json'), c.get('user').id);
+    await service.createFeed(c.req.valid('json'), (await c.var.user).id);
     return c.body(null, 204);
   })
   .patch(
@@ -20,12 +20,12 @@ export const calendarFeedsRoutes = new Hono<AppEnv>()
     validate('param', idParamSchema),
     validate('json', calendarFeedSchema),
     async (c) => {
-      await service.updateFeed(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+      await service.updateFeed(c.req.valid('param').id, c.req.valid('json'), (await c.var.user).id);
       return c.body(null, 204);
     },
   )
   .delete('/:id', validate('param', idParamSchema), async (c) => {
-    await service.revokeFeed(c.req.valid('param').id, c.get('user').id);
+    await service.revokeFeed(c.req.valid('param').id, (await c.var.user).id);
     return c.body(null, 204);
   });
 

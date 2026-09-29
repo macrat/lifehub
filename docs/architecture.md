@@ -22,7 +22,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
 | バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。Hono RPC でクライアントに API の型が伝わる。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも問い合わせの回数で決まる**。読み取りは 1 エンドポイント 1 問い合わせを基本にし、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも往復の回数で決まる**。同じ時点に投げた読み取りは 1 往復にまとめて送り（下記「通信の往復」）、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator` | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
@@ -111,7 +111,7 @@ server/                       # サーバー（Hono）
         query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・参加者の書き込み）、
         history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
-    auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  errors.ts（NotFound / Forbidden / Conflict / Validation）
+    auth.ts（better-auth）  env.ts  app-env.ts（Hono のコンテキスト型）  middleware.ts（requireSession）  batch.ts（束ねた GET の中の要求を送る）  errors.ts（NotFound / Forbidden / Conflict / Validation）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）
@@ -149,6 +149,20 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
 - パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
 - MCP の認可は OAuth 2.1 のみ。詳細は [features/mcp.md](features/mcp.md)。
+
+## 通信の往復
+
+本番の応答時間は、処理の量より「待つ往復の回数」で決まる（Neon の HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回。関数は要求ごとに起動を待つことがある）。往復を減らす仕組みは、個々の画面や repository ではなく、次の 4 つの層に 1 つずつ置く。どれも呼び出し側の書き方を変えずに効く。
+
+1. **画面の GET を 1 本にまとめる**（`src/lib/batch-get.ts`、サーバーは `server/lib/batch.ts` と `GET /api/batch`）: 画面は機能ごと・月ごとのクエリを並べて読むので、開くと GET が何本も同時に出る（ホームはユーザー・タイムライン・天気・レモン、カレンダーは表示に掛かる月の数）。`apiFetch` は同じ時点（`setTimeout(0)` まで）に出た GET を `GET /api/batch?r=…` の 1 本にまとめ、サーバーは中の要求を同じアプリに内部で送って結果を並べて返す。1 本だけならまとめずにそのまま送る。
+   - キャッシュの単位はクエリ（機能ごと・月ごと）のまま変わらず、まとめるのは運び方だけ。書き込みの後の取り直しも、その時点に取り直すクエリだけがまとまる。WHY NOT 画面ごとに要るものを返す API: キャッシュが画面ごとの大きな塊になり、一部だけの取り直しも、画面の間でのデータの分け合いもできなくなる。
+   - 束ねた要求も GET で、パスを並べ替えて URL を決めるので、同じ組み合わせはブラウザが ETag で確かめ直せる（下記「オフラインと起動速度」）。中の要求には条件付き要求を掛けない。
+   - ログインの検証は束ね全体で 1 回だけ行い、中の要求はその結果を Hono の env で引き継ぐ（外から来た要求には env が無いので、名乗ることはできない）。中の要求に元の要求の見出し（Cookie など）は渡さない。
+2. **読み出しはログインの検証と並べて走らせる**（`server/lib/middleware.ts` の `requireSession`）: GET は検証を待たずにハンドラを走らせ、両方が終わってから検証の結果で応答を決める（通らなければハンドラの結果を捨てて 401）。ユーザーが要るハンドラは `await c.var.user` で待つ。書き込みは検証が通ってから走らせる。
+3. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
+4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、束ねた要求の中の各要求の問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `runBatch` で明示的にまとめる。
+
+問い合わせの結果に次の問い合わせが依るとき（タイムラインのページの区切りを決めてから行を読むなど）は、その依存の数だけ往復が残る。依存を SQL の 1 文に押し込むことはしない（別々に読める表を 1 文の中で結び付けると、読むのも直すのも難しくなる）。
 
 ## オフラインと起動速度
 

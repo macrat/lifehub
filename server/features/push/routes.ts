@@ -9,18 +9,18 @@ export const pushRoutes = new Hono<AppEnv>()
   .get('/vapid-public-key', (c) => c.json({ publicKey: service.vapidPublicKey() }))
   .get('/subscriptions/status', validate('query', pushEndpointRefSchema), async (c) =>
     c.json({
-      subscribed: await service.isSubscribed(c.get('user').id, c.req.valid('query').endpoint),
+      subscribed: await service.isSubscribed((await c.var.user).id, c.req.valid('query').endpoint),
     }),
   )
   .post('/subscriptions', validate('json', pushSubscriptionSchema), async (c) => {
     await service.subscribe(
-      c.get('user').id,
+      (await c.var.user).id,
       c.req.valid('json'),
       c.req.header('user-agent') ?? null,
     );
     return c.body(null, 204);
   })
   .delete('/subscriptions', validate('json', pushEndpointRefSchema), async (c) => {
-    await service.unsubscribe(c.get('user').id, c.req.valid('json').endpoint);
+    await service.unsubscribe((await c.var.user).id, c.req.valid('json').endpoint);
     return c.body(null, 204);
   });

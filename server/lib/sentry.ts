@@ -204,3 +204,19 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   root.route('/', app);
   return root;
 }
+
+/** パスの中の UUID（記録の ID）。スパンの名前を記録ごとに分けないよう `:id` に置き換える */
+const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$)/gi;
+
+/**
+ * 束ねた要求（`/api/batch`）の中の 1 本を、束ねた要求のスパンの下の 1 つのスパン（`GET /api/timeline` のような
+ * 名前）にする。中の要求はアプリの中で送るので要求のスパンができず、これが無いとどのルートに時間が
+ * 掛かったかがトレースに出ない。名前はルートの形に寄せる（クエリを落とし、ID を `:id` にする）。
+ */
+export function traceBatchPart<T>(path: string, run: () => Promise<T>): Promise<T> {
+  const pathname = path.split('?')[0] ?? path;
+  return Sentry.startSpan(
+    { name: `GET ${pathname.replace(UUID_SEGMENT, '/:id')}`, op: 'http.subrequest' },
+    run,
+  );
+}

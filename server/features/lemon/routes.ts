@@ -16,7 +16,7 @@ export const lemonRoutes = new Hono<AppEnv>()
   )
   .post('/logs', validate('json', createCareLogRequestSchema), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    await service.logCare(input, { userId: c.get('user').id }, id);
+    await service.logCare(input, { userId: (await c.var.user).id }, id);
     return c.body(null, 204);
   })
   .put(

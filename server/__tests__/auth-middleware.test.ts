@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { Pool } from 'pg';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../app.ts';
+import { getAuth } from '../lib/auth.ts';
+import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
@@ -25,5 +28,33 @@ describe('認証ミドルウェア', () => {
     const res = await app.request('/api/me', { headers: { cookie } });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ name: 'A', email: 'a@example.com' });
+  });
+
+  it('セッションの確認は、セッションとユーザーを 1 回の問い合わせで読む', async () => {
+    const { cookie, userId } = await loginAs('A');
+    const auth = await getAuth();
+    const query = vi.spyOn((db as unknown as { $client: Pool }).$client, 'query');
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    expect(session?.user.id).toBe(userId);
+    expect(query).toHaveBeenCalledTimes(1);
+    query.mockRestore();
+  });
+
+  it('未認証の読み出しは、ハンドラを走らせても中身を返さず 401', async () => {
+    const res = await app.request('/api/lemon/status');
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe('ログインが必要です');
+  });
+
+  it('未認証の書き込みは、ハンドラを走らせずに 401', async () => {
+    const res = await app.request('/api/memos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: '01a0eb14-0000-7000-8000-000000000000', body: 'x' }),
+    });
+    expect(res.status).toBe(401);
+    const { cookie } = await loginAs('A');
+    const list = await app.request('/api/timeline', { headers: { cookie } });
+    expect(((await list.json()) as { items: unknown[] }).items).toEqual([]);
   });
 });

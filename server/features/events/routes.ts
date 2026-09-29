@@ -18,11 +18,11 @@ export const eventsRoutes = new Hono<AppEnv>()
   )
   .post('/', validate('json', createEventRequestSchema), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    await service.createEvent(input, c.get('user').id, id);
+    await service.createEvent(input, (await c.var.user).id, id);
     return c.body(null, 204);
   })
   .put('/:id', validate('param', idParamSchema), validate('json', updateEventSchema), async (c) => {
-    await service.updateEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+    await service.updateEvent(c.req.valid('param').id, c.req.valid('json'), (await c.var.user).id);
     return c.body(null, 204);
   })
   .delete(
@@ -30,7 +30,11 @@ export const eventsRoutes = new Hono<AppEnv>()
     validate('param', idParamSchema),
     validate('json', occurrenceTargetSchema),
     async (c) => {
-      await service.deleteEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+      await service.deleteEvent(
+        c.req.valid('param').id,
+        c.req.valid('json'),
+        (await c.var.user).id,
+      );
       return c.body(null, 204);
     },
   )
@@ -40,7 +44,12 @@ export const eventsRoutes = new Hono<AppEnv>()
     validate('json', completeEventRequestSchema),
     async (c) => {
       const { completedAt, ...input } = c.req.valid('json');
-      await service.completeEvent(c.req.valid('param').id, input, c.get('user').id, completedAt);
+      await service.completeEvent(
+        c.req.valid('param').id,
+        input,
+        (await c.var.user).id,
+        completedAt,
+      );
       return c.body(null, 204);
     },
   )
@@ -49,7 +58,11 @@ export const eventsRoutes = new Hono<AppEnv>()
     validate('param', idParamSchema),
     validate('json', completeEventSchema),
     async (c) => {
-      await service.uncompleteEvent(c.req.valid('param').id, c.req.valid('json'), c.get('user').id);
+      await service.uncompleteEvent(
+        c.req.valid('param').id,
+        c.req.valid('json'),
+        (await c.var.user).id,
+      );
       return c.body(null, 204);
     },
   );

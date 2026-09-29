@@ -119,6 +119,7 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
   - トレース: 要求ごとにルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への問い合わせ・外部への要求のスパン。`@sentry/hono` の案内する `--import` での起動は Vercel Function のエントリに置けないが、それが要るのは依存パッケージを読み込み時に書き換える計測だけで、要求と fetch のスパンは Node 標準の diagnostics_channel で取れる（DB は Neon の HTTP ドライバなので fetch）。`server/app.ts` のアプリはローカルとテストも使うので、Sentry は本番のエントリで包む外側にだけ入れる。
     - Neon への問い合わせは、SQL 文を名前にした DB のスパン（その下に HTTP のスパン）にする。Sentry の Queries で文ごとの回数と時間を見られる。Sentry にも Drizzle にも使える計測が無いので、Neon の HTTP ドライバの fetch（`neonConfig.fetchFunction`）を包み、送る本文から文を取り出す。文は Drizzle が値を `$1` などの置き場所にしたもので、値は送らない。
     - ミドルウェアのスパンの名前は関数名なので、ミドルウェアは名前の付いた変数に入れてから渡す（Biome のプラグイン `lint/named-middleware.grit` が強制する）。`validate` は検証する入力を名前にする（`validate(json)`）。
+    - 束ねた GET（`/api/batch`。[architecture.md](architecture.md#通信の往復)）の中の要求は、アプリの中で送るので要求のスパンができない。代わりに `GET /api/timeline` のような名前（クエリを落とし、ID を `:id` にした形）の `http.subrequest` のスパンを、束ねた要求のスパンの下に 1 本ずつ作る（`traceBatchPart`）。
     - 要求のスパンには、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付け、起動の分だけ遅い要求を普段の遅さと分けて見られるようにする。最初の要求には、プロセスが起きてからモジュールを読み終えるまでのスパン（`function.init`）も子として足す（理由と、最初の要求の見分け方は `server/lib/sentry.ts` の `coldStartMarker`）。
   - ログ: `console` に出したものをすべて送る（`consoleLoggingIntegration`）。
   - Vercel Function は応答の後に止まりうるので、`waitUntil` で送り終わるまで生かす（SDK が自分で待つのは Edge ランタイムだけ）。エラーはすぐ送るので送る直前に、スパンとログは SDK が 5 秒溜めてから送るので、要求のスパンが閉じたら `flush` する。`waitUntil` は要求の文脈の中でしか効かないので、閉じるのを待つ処理はミドルウェアの中で先に登録する。

@@ -1,6 +1,6 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { openHome } from './auth.ts';
-import { fetchesFromNow, quiet } from './network.ts';
+import { failFetches, fetchesFromNow, quiet } from './network.ts';
 import { touchDrag } from './touch.ts';
 
 /**
@@ -78,7 +78,7 @@ test.describe('ホーム', () => {
 
   test('オフラインと分からないまま取り直せなかったときは、短く知らせる', async ({ page }) => {
     // Wi-Fi には繋がっているが外に出られない、など。ブラウザはオンラインのまま、取得だけが失敗する
-    await page.route(`**${TIMELINE}*`, (route) => route.abort('internetdisconnected'));
+    await failFetches(page, [TIMELINE]);
     await pull(page, 200);
     const notice = page.getByText('更新できませんでした');
     await expect(notice).toBeVisible();

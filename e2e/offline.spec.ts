@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
+import { carriedJson, carriesGet } from './network.ts';
 
 test('オフラインでも 2 回目以降はキャッシュから起動し、記録はオンラインに戻ったときに送られる', async ({
   page,
@@ -43,9 +44,12 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
 
   // 送った後はサーバーの一覧にも入っている
   const listed = await page.waitForResponse(
-    (res) => res.url().endsWith('/api/lemon/logs') && res.request().method() === 'GET' && res.ok(),
+    (res) => carriesGet('/api/lemon/logs')(res) && res.ok(),
   );
-  const { items } = (await listed.json()) as { items: { note: string | null }[] };
+  const { items } = await carriedJson<{ items: { note: string | null }[] }>(
+    listed,
+    '/api/lemon/logs',
+  );
   expect(items.map((log) => log.note)).toContain('オフラインで記録した');
   await expect(page.getByText('オフラインモード', { exact: false })).toBeHidden();
 });

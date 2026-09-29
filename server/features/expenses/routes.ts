@@ -16,7 +16,7 @@ export const expensesRoutes = new Hono<AppEnv>()
   .get('/totals', async (c) => c.json(await service.getTotals()))
   .post('/', validate('json', createExpenseRequestSchema), async (c) => {
     const { id, ...input } = c.req.valid('json');
-    await service.addExpense(input, c.get('user').id, id);
+    await service.addExpense(input, (await c.var.user).id, id);
     return c.body(null, 204);
   })
   .put('/:id', validate('param', idParamSchema), validate('json', expenseSchema), async (c) => {

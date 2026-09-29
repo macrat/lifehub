@@ -4,6 +4,7 @@ import { drizzle as drizzleNodePg } from 'drizzle-orm/node-postgres';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { env } from '../env.ts';
 import { traceNeonFetch } from '../sentry.ts';
+import { coalesceReads } from './coalesce-reads.ts';
 import * as schema from './schema.ts';
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -14,13 +15,13 @@ export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
  * どちらも同じ Drizzle スキーマを共有するので、呼び出し側は差を意識しない。
  *
  * HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になる。応答時間は往復の回数でほぼ決まるので、
- * 読み取りは 1 エンドポイント 1 問い合わせに寄せ、複数文の書き込みは `runBatch` にまとめる。
+ * 同じ時点に投げた読み取りは 1 往復にまとめて送り（`coalesceReads`）、複数文の書き込みは `runBatch` にまとめる。
  * Neon への問い合わせは、SQL 文を Sentry のトレースに残すため fetch を包む（`traceNeonFetch`）。
  */
 function createDatabase(): Database {
   if (env.VERCEL) {
     neonConfig.fetchFunction = traceNeonFetch;
-    return drizzleNeon(neon(env.DATABASE_URL), { schema });
+    return drizzleNeon(coalesceReads(neon(env.DATABASE_URL)), { schema });
   }
   return drizzleNodePg(env.DATABASE_URL, { schema });
 }

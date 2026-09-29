@@ -79,6 +79,9 @@ const options = {
   advanced: {
     database: {
       generateId: newId,
+      // セッションの確認（要求ごとに走る）で、セッションとユーザーを別々に読まず、結合して 1 回で読む。
+      // 結合には Drizzle のリレーション（users/schema.ts の `sessionsRelations`）を使う
+      joins: true,
     },
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。

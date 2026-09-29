@@ -129,7 +129,7 @@ Google カレンダーと同じく「範囲を選ぶ → その場で入力 → 
 
 ## API
 
-`GET /api/calendar?from&to`（`server/features/calendar/`）が `from`〜`to`（JST 日付、両端含む）の 1 期間分（`shared/calendar.ts` の `CalendarPeriod`）を返す: `items` は `CalendarItem[]` を `placementDate` 昇順、`holidays` はその期間の祝日（下記「祝日」）、`weather` はその期間の天気（下記「天気」）。面（月のグリッド・週／日の見出し）は 3 つを必ず一緒に出すので 1 回の問い合わせにまとめ、祝日と天気も表示する期間の分だけを送る。
+`GET /api/calendar?from&to`（`server/features/calendar/`）が `from`〜`to`（JST 日付、両端含む）の 1 期間分（`shared/calendar.ts` の `CalendarPeriod`）を返す: `items` は `CalendarItem[]` を `placementDate` 昇順、`holidays` はその期間の祝日（下記「祝日」）、`weather` はその期間の天気（下記「天気」）。面（月のグリッド・週／日の見出し）は 3 つを必ず一緒に出すので 1 回の問い合わせにまとめ、祝日と天気も表示する期間の分だけを送る。画面は月ごとに 1 回ずつ呼ぶ（キャッシュの単位が月）が、画面に入ったときに取り直す何か月分は同じ時点に出るので、1 本の要求にまとまって届く（[architecture.md](../architecture.md#通信の往復)）。
 
 WHY NOT 祝日と天気を別の問い合わせで丸ごと配る: 面を出すたびに問い合わせが 3 本になり、使うのは表示している期間だけなのに、取っておいた全期間（祝日は 1955 年からの千数百日、天気は取り始めてからの毎日で増え続ける）を送ることになる。祝日と天気は手元の表を読むだけで、配布元へは取りに行かない（配布元が遅い・落ちているときに項目の応答まで待たせない）。
 

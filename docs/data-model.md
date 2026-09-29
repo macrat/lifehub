@@ -9,7 +9,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 - 金額は `integer`（円）。
 - 全テーブルに `created_at`, `updated_at`, `created_by`（users 参照）。`lemon_care_logs.created_by` だけは null（記録した人が不明）を許す（API キーで入れた記録。[features/api-keys.md](features/api-keys.md)）。例外は、台帳の `sent_notifications`、外部の ics を写しただけの `holidays`、気象庁の予報と観測を写しただけの `weather` と `weather_hourly` と `weather_pop`、結合テーブルの `event_participants`、`user_id` が持ち主そのものである `push_subscriptions` と `calendar_feeds` と `api_keys`、better-auth 管理のテーブル（それぞれの規約に従う）。
 - インデックスは実際に絞り込みや結合で使う列だけに張る。全件を読んで並べる小さなテーブル（`expenses`, `lemon_care_logs`）には張らない。データ量は数千行の桁に留まり、この規模では順次走査が 1ms 前後で終わる一方、インデックスは書き込みのたびに更新費用がかかる。
-- **読み取りは 1 エンドポイント 1 問い合わせを基本にする**。本番の Neon は HTTP ドライバで、問い合わせ 1 回が HTTP の往復 1 回になる。行数より往復の回数が応答時間を決めるので、関連する行は結合・集約でまとめて 1 回で読む。書き込みで複数文が要るときは `runBatch`（[architecture.md](architecture.md#技術スタック)）にまとめる。
+- **読み取りは、結果に依らない問い合わせを同じ時点に投げる**。本番の Neon は HTTP ドライバで、問い合わせ 1 回が HTTP の往復 1 回になり、行数より往復の回数が応答時間を決める。同じ時点に投げた読み取りは 1 往復にまとめて送られる（[architecture.md](architecture.md#通信の往復)）ので、互いに依らない問い合わせは `Promise.all` で並べ、`await` で 1 つずつ待たない。1 つの表の中で関連する行は結合・集約でまとめて 1 回で読む。書き込みで複数文が要るときは `runBatch`（[architecture.md](architecture.md#技術スタック)）にまとめる。
 - **画面に出す値が行の集約で決まるなら、行を全部読まずに SQL で畳む**（立替残高、レモンの項目ごとの最新）。計算式そのものは `shared/` に 1 つだけ置き、SQL は集約までを担う。
 - 論理削除は使わない。
 - テーブル名・列名は snake_case、TypeScript 側のキーは camelCase。

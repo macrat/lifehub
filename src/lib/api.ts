@@ -1,6 +1,7 @@
 import { withActiveSpan } from '@sentry/react';
 import { type ClientResponse, hc } from 'hono/client';
 import type { AppType } from '../../server/app.ts';
+import { createGetBatcher } from './batch-get.ts';
 
 /** API が 401 を返したときに発火する。main.tsx がこれを受けてログイン画面へ遷移する。 */
 export const UNAUTHORIZED_EVENT = 'lifehub:unauthorized';
@@ -25,11 +26,26 @@ export class NetworkError extends Error {}
 export const apiRequestFetch: typeof fetch = (input, init) =>
   withActiveSpan(null, () => fetch(input, init));
 
-/** fetch に 401 の検知と通信断の判別を足したもの。RPC クライアントと書き込みの送信が共有する。 */
+/** 同じ時点に出た API の GET を 1 本にまとめて送る（`lib/batch-get.ts`） */
+const batchedGet = createGetBatcher(apiRequestFetch);
+
+/** まとめて送れる要求なら、同じオリジンの API のパス（クエリ付き）。GET だけをまとめる */
+function batchablePath(input: RequestInfo | URL, init?: RequestInit): string | null {
+  if ((init?.method ?? 'GET') !== 'GET' || input instanceof Request) return null;
+  const url = new URL(input, location.origin);
+  if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) return null;
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * fetch に 401 の検知と通信断の判別を足したもの。RPC クライアントと書き込みの送信が共有する。
+ * GET は同じ時点に出たものをまとめて送る（`batchedGet`）。
+ */
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
-    res = await apiRequestFetch(input, init);
+    const path = batchablePath(input, init);
+    res = await (path ? batchedGet(path, init) : apiRequestFetch(input, init));
   } catch (cause) {
     throw new NetworkError('通信できませんでした', { cause });
   }

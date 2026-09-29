@@ -2,6 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
+import { rewriteJson } from './network.ts';
 import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
@@ -64,15 +65,15 @@ const PAGES: Record<string, HistoryPage<WeatherDay>> = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/weather*', (route) => {
-    const before = new URL(route.request().url()).searchParams.get('before');
-    return route.fulfill({ json: PAGES[before ?? 'latest'] });
-  });
-  await page.route('**/api/calendar?*', async (route) => {
-    const res = await route.fetch();
-    const json = await res.json();
-    await route.fulfill({ response: res, json: { ...json, weather: { daily: WEEK, hourly: [] } } });
-  });
+  await rewriteJson(
+    page,
+    '/api/weather',
+    (url) => PAGES[url.searchParams.get('before') ?? 'latest'],
+  );
+  await rewriteJson(page, '/api/calendar', async (_url, real) => ({
+    ...((await real()) as object),
+    weather: { daily: WEEK, hourly: [] },
+  }));
 });
 
 /** 見出しのボタンの名前（"2026年09月27日（日）"）の頭 */

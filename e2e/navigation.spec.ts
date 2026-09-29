@@ -11,7 +11,7 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
   await openHome(page);
 
   // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を 5 秒遅らせる
-  await stall(page, '**/api/expenses', 5000);
+  await stall(page, ['/api/expenses'], 5000);
 
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
