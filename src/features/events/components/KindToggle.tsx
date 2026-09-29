@@ -1,7 +1,7 @@
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { EVENT_KINDS, type EventKind } from '../../../../shared/validation/events.ts';
-import { ADD_KINDS } from '../../add/kinds.ts';
+import { ADD_KINDS } from '../../../lib/add-kinds.ts';
 
 /**
  * 予定・タスクの入力の上端に置く「予定｜タスク」の切り替え。予定とタスクは同じ入れ物・同じ項目で入力し、

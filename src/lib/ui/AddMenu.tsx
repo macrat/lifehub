@@ -4,11 +4,11 @@ import SpeedDial, { speedDialClasses } from '@mui/material/SpeedDial';
 import SpeedDialAction from '@mui/material/SpeedDialAction';
 import SpeedDialIcon from '@mui/material/SpeedDialIcon';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { AddKind } from '../../../lib/add-pages.ts';
-import { FAB_SX } from '../../../lib/ui/layout.ts';
-import { CIRCLE_CLIP_PATH } from '../../../lib/ui/squircle.ts';
-import { useToggle } from '../../../lib/ui/use-toggle.ts';
-import { ADD_KINDS, type AddFormKind } from '../kinds.ts';
+import { ADD_KINDS } from '../add-kinds.ts';
+import type { AddKind } from '../add-pages.ts';
+import { FAB_SX } from './layout.ts';
+import { CIRCLE_CLIP_PATH } from './squircle.ts';
+import { useToggle } from './use-toggle.ts';
 
 /** スクリムと追加ボタンは AppBar・下部ナビ（drawer + 1）より上に出す。展開中は画面全体が暗くなる */
 const SCRIM_Z = (t: Theme) => t.zIndex.drawer + 2;
@@ -54,31 +54,24 @@ const PILL_SX: SxProps<Theme> = {
   '&:hover': { bgcolor: 'grey.A100' },
 };
 
-/** 出す種類と順（SpeedDial は下から上に開くので、先頭が一番下） */
-const KINDS: AddKind[] = ['memo', 'lemon', 'expense', 'task', 'event'];
-
-type Props = {
-  /** その場でフォームが開く種類が選ばれた。フォームを出すのは画面の側（`AddForm`。開いている入力は画面の状態） */
-  onSelect: (kind: AddFormKind) => void;
-  /** 予定が選ばれた。予定はフォームではなくカレンダーの下書きから始まるので、始め方は画面が決める */
-  onAddEvent: () => void;
+type Props<K extends AddKind> = {
+  /** ボタンの名前（読み上げとテスト用） */
+  label: string;
+  /** 出す種類と順（SpeedDial は下から上に開くので、先頭が一番下） */
+  kinds: readonly K[];
+  /** 種類が選ばれた。入力を出すのは画面の側（開いている入力は画面の状態） */
+  onSelect: (kind: K) => void;
 };
 
 /**
- * 右下の追加ボタン（ホームの 5 種）。選ばれた種類を画面へ渡すだけで、
- * 入力を出すのは画面の側。予定だけは、選んだ時間帯を見ながらカレンダーの下書きから入れるので
- * （グリッドをなぞって作るのと同じ流れ）、フォームの種類とは別に `onAddEvent` で渡す。
+ * 右下の追加ボタンのうち、種類を選んでから入力を開くもの（カレンダーの予定・タスク）。
+ * 選ばれた種類を画面へ渡すだけで、入力を出すのは画面の側。種類を選ばない画面は `AddFab`。
  *
  * 展開したときの見た目は Google カレンダーに揃える: 背景をスクリムで暗くし、アイコンとラベルを収めた
  * pill を右揃えで縦に並べる。ラベルはツールチップではなくボタンの中に出すので、タッチでも読める。
  */
-export function AddMenu({ onSelect, onAddEvent }: Props) {
+export function AddMenu<K extends AddKind>({ label, kinds, onSelect }: Props<K>) {
   const { value: expanded, on: expand, off: collapse } = useToggle();
-  const open = (kind: AddKind) => {
-    collapse();
-    if (kind === 'event') onAddEvent();
-    else onSelect(kind);
-  };
 
   return (
     <>
@@ -86,7 +79,7 @@ export function AddMenu({ onSelect, onAddEvent }: Props) {
       {/* transition.appear を切って、マウント時のズームを止める。タブを移動するたびに
           FAB が出現し直して見えるため。hidden を切り替えたときだけアニメーションする */}
       <SpeedDial
-        ariaLabel="追加"
+        ariaLabel={label}
         icon={<SpeedDialIcon icon={<AddIcon />} />}
         open={expanded}
         onOpen={(_, reason) => reason !== 'focus' && expand()}
@@ -94,19 +87,22 @@ export function AddMenu({ onSelect, onAddEvent }: Props) {
         slotProps={{ transition: { appear: false } }}
         sx={MENU_SX}
       >
-        {KINDS.map((kind) => {
-          const { label, icon: Icon } = ADD_KINDS[kind];
+        {kinds.map((kind) => {
+          const { label: kindLabel, icon: Icon } = ADD_KINDS[kind];
           return (
             <SpeedDialAction
               key={kind}
               icon={
                 <>
                   <Icon />
-                  {label}
+                  {kindLabel}
                 </>
               }
               slotProps={{ fab: { variant: 'extended', sx: PILL_SX } }}
-              onClick={() => open(kind)}
+              onClick={() => {
+                collapse();
+                onSelect(kind);
+              }}
             />
           );
         })}

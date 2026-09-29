@@ -6,10 +6,11 @@ import { useState } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 
+import { useCreateEvent } from '../queries.ts';
 import { useItemDetail } from '../use-item-detail.ts';
 import { ItemFields, ScopeChip } from './EventFields.tsx';
-import { ItemCreateForm } from './ItemCreateForm.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
+import { ItemForm } from './ItemForm.tsx';
 import { KindToggle } from './KindToggle.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
 
@@ -23,7 +24,7 @@ type Props = {
 /**
  * 予定・タスクの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーから複製・削除（タスクは完了も）する。
  * 入力欄の上端の切り替えで、予定をタスクに（タスクを予定に）変えて保存できる（繰り返しの 1 回だけのときは出さない）。
- * 複製は同じ内容を初期値にした追加のフォーム（`ItemCreateForm`）を、詳細の代わりに画面いっぱいで開く。
+ * 複製は同じ内容を初期値にした全項目のフォーム（`ItemForm`）を、詳細の代わりに画面いっぱいで開き、新規作成として保存する。
  * 開いている回の値（繰り返しなら繰り返しの設定も）をそのまま写し、完了は状態なので引き継がない。
  * 複製のフォームを閉じれば詳細ごと閉じる。複製している間は詳細（`useItemDetail`）をマウントしない。
  * 繰り返しなら編集・削除の前に範囲（この回だけ／これ以降／すべて）を選ばせる。
@@ -32,8 +33,14 @@ type Props = {
  */
 export function ItemDetailSheet(props: Props) {
   const [duplicating, setDuplicating] = useState(false);
+  const createEvent = useCreateEvent();
   return duplicating ? (
-    <ItemCreateForm kind={props.item.kind} initial={props.item} onClose={props.onClose} />
+    <ItemForm
+      kind={props.item.kind}
+      initial={props.item}
+      onSubmit={createEvent.mutateAsync}
+      onClose={props.onClose}
+    />
   ) : (
     <ItemDetail {...props} onDuplicate={() => setDuplicating(true)} />
   );

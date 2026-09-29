@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
+import { addOnCalendar } from './events.ts';
 import { carries, stall } from './network.ts';
 import { changeView } from './view.ts';
 
@@ -10,23 +11,13 @@ setupMobileCalendar();
 /** AppBar の表示の切替に出ている今の表示（入力のシートが前に出ていても読める） */
 const shownView = (page: Page) => page.getByRole('button', { name: '表示の切替' });
 
-/**
- * ホームの追加ボタンを開く。PC のテスト（events.spec.ts）と同じくホバーで開く: SpeedDial はホバーでも開くので、
- * click だとホバーで開いた直後の click で閉じてしまうことがある
- */
-const openAddMenu = (page: Page) => page.getByRole('button', { name: '追加', exact: true }).hover();
-
-/** カレンダーの追加ボタン（種類を選ばない。予定で始まり、入力の上端でタスクに切り替えられる） */
-const addOnCalendar = (page: Page) =>
-  page.getByRole('button', { name: '予定・タスクを追加' }).click();
-
 test('月表示の追加ボタンは閉じるまで日表示を出し、閉じたら月表示に戻る', async ({ page }) => {
   const title = `E2E 月表示から ${Date.now()}`;
   await page.goto('/calendar?view=month&date=2031-06-15');
   await expect(shownView(page)).toHaveText('月');
 
   // 取り消し: 閉じると月表示に戻る
-  await addOnCalendar(page);
+  await addOnCalendar(page, '予定');
   // 予定には必ずタイトルを入れるので、追加ボタンからはそのまま打てる
   await expect(page.getByLabel('タイトルを追加')).toBeFocused();
   await expect(shownView(page)).toHaveText('日');
@@ -34,7 +25,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(shownView(page)).toHaveText('月');
 
   // 保存: 返事を待たずに月表示へ戻り、下書きの枠は残らない
-  await addOnCalendar(page);
+  await addOnCalendar(page, '予定');
   // 追加ボタンからは全項目の段（画面いっぱい）で開く
   await expect.poll(async () => (await page.locator('[data-sheet]').boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
@@ -65,7 +56,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
 
 test('週表示の追加ボタンは週表示のまま下書きを置く', async ({ page }) => {
   await page.goto('/calendar?view=week&date=2031-06-18');
-  await addOnCalendar(page);
+  await addOnCalendar(page, '予定');
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await expect(shownView(page)).toHaveText('週');
   await expect(page.locator('[data-draft]')).toBeVisible();
@@ -100,50 +91,4 @@ test('カレンダーで「予定」を押すと一段広い表示へ移り、�
   await tab.click();
   await expect(shownView(page)).toHaveText('月');
   await expect(page).toHaveURL(/view=month&date=2031-06-18/);
-});
-
-test('ホームの追加ボタンから始めた予定の入力は、閉じるとホームに戻る', async ({ page }) => {
-  const title = `E2E ホームから ${Date.now()}`;
-  const openFromHome = async () => {
-    await page.goto('/');
-    await openAddMenu(page);
-    await page.getByRole('menuitem', { name: '予定' }).click();
-    await expect(page.getByLabel('タイトルを追加')).toBeVisible();
-    await expect(page).toHaveURL(/\/calendar/);
-  };
-
-  // 取り消し
-  await openFromHome();
-  await page.getByRole('button', { name: '閉じる' }).click();
-  await expect(page).toHaveURL('/');
-
-  // 戻る操作
-  await openFromHome();
-  await page.goBack();
-  await expect(page).toHaveURL('/');
-
-  // 入力中に日付や表示を切り替えて履歴を積んでいても、閉じればホームへ戻る
-  // （全項目の段のシートが AppBar に重なるので、AppBar のボタンは直接押す）
-  await openFromHome();
-  await page.getByRole('button', { name: '今日' }).dispatchEvent('click');
-  await page.getByRole('button', { name: '表示の切替' }).dispatchEvent('click');
-  await page.getByRole('menuitem', { name: '週', exact: true }).click();
-  await expect(page).toHaveURL(/view=week/);
-  await expect(page.getByLabel('タイトルを追加')).toBeVisible();
-  await page.getByRole('button', { name: '閉じる' }).click();
-  await expect(page).toHaveURL('/');
-
-  // 保存
-  await openFromHome();
-  await page.getByLabel('タイトルを追加').fill(title);
-  await page.getByRole('button', { name: '保存' }).click();
-  await expect(page).toHaveURL('/');
-  await expect(page.getByText(title)).toBeVisible();
-
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: title }).click();
-  const deleted = page.waitForResponse(carries('events.delete'));
-  await detailAction(page, '削除');
-  await deleted;
-  await expect(page.getByText(title)).toHaveCount(0);
 });

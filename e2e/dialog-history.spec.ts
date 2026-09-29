@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { myId, openHome } from './auth.ts';
+import { addOnCalendar } from './events.ts';
 import { addRecord, deleteRecord, expenseHistory } from './history.ts';
 
 /**
@@ -71,7 +72,7 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   const title = page.getByRole('button', { name: '2030年03月（年月を選ぶ）' });
 
   // 追加の入力は戻るで閉じ、閉じるまで出していた日表示から元の月表示に戻る
-  await page.getByRole('button', { name: '予定・タスクを追加' }).click();
+  await addOnCalendar(page, '予定');
   await expect(page.getByLabel('タイトルを追加')).toBeVisible();
   await page.goBack();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);

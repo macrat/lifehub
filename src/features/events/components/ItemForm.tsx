@@ -1,6 +1,6 @@
 import type { EventKind, RecurrenceScope } from '../../../../shared/validation/events.ts';
+import { ADD_KINDS } from '../../../lib/add-kinds.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { ADD_KINDS } from '../../add/kinds.ts';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
 import { useAllDay, useItemForm, useKindSwitch } from '../use-item-form.ts';
@@ -23,7 +23,7 @@ type Props = {
 };
 
 /**
- * 予定・タスクの全項目のフォーム。追加（`ItemCreateForm`）のほか、クイック入力の「その他のオプション」から
+ * 予定・タスクの全項目のフォーム。複製（`ItemDetailSheet`）のほか、クイック入力の「その他のオプション」から
  * 直し続けるときもここへ来る（何を保存するかは `onSubmit` を渡す側が決める）。詳細から開く編集は `ItemDetailSheet`。
  * 予定は開始・終了が必須で、通知は開始前だけを扱う。タスクは開始・期限がどちらも任意で、通知は開始前と期限前。
  * 予定とタスクは上端の切り替えで入れ替えられる（繰り返しの 1 回だけを直しているときは出さない）。
