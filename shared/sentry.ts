@@ -21,7 +21,7 @@ export const SENTRY_DATA_COLLECTION = {
 
 /**
  * Sentry に知らせるユーザー（サーバー `server/lib/sentry.ts` とブラウザ `src/lib/sentry.ts` の共通）。
- * 送るのは DB のユーザー ID だけで、名前やメールアドレスは載せない（理由は docs/architecture.md の「監視（Sentry）」）。
+ * 送るのは DB のユーザー ID だけで、名前やメールアドレスは載せない（理由は docs/operations.md の「監視（Sentry）」）。
  * 未ログインなら null（ユーザーを外す）。
  */
 export function sentryUser(userId: string | null): { id: string } | null {

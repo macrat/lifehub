@@ -27,9 +27,9 @@ export const cronRoutes = new Hono<AppEnv>()
   .use(verifyCronSecret)
   // 日次: 翌日分の通知を予約する（docs/features/notifications.md）
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))
-  // 月次: 祝日を配布元から取り直す（docs/features/calendar.md の「祝日」）
+  // 月次: 祝日を配布元から取り直す（docs/features/holidays.md）
   .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
-  // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/calendar.md の「天気」）
+  // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/weather.md の「取得と保存」）
   .get('/weather', async (c) => c.json(await refreshWeather()))
-  // 日次（朝の天気の取り直しと同じ時）: 昨日の最高・最低気温を観測値で上書きする（docs/features/calendar.md の「天気」）
+  // 日次（朝の天気の取り直しと同じ時）: 昨日の最高・最低気温を観測値で上書きする（docs/features/weather.md の「取得と保存」）
   .get('/weather/observed', async (c) => c.json({ row: (await recordObservedTemps()) ?? null }));

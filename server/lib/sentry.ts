@@ -16,7 +16,7 @@ import { env } from './env.ts';
  * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
  *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
  *   最初の要求かどうか（`faas.coldstart`。下の `markColdStart`）を付ける。ブラウザから来たトレースを引き継ぐ。
- *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
+ *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
  * WHY NOT `--import` での起動（`@sentry/hono` の案内）: Vercel Function のエントリに置けない。それが要るのは

@@ -9,7 +9,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
 
 ## チェックリスト
 
-1. **要件を書く**: `docs/features/<name>.md` に目的・画面・データ・API・MCP ツール・通知・ホームでの出し方を 1 ページで書く。
+1. **要件を書く**: `docs/features/<name>.md` を [docs/README.md](../../../docs/README.md) の見出しの順（目的・画面・固有の規則・データ・API・MCP ツール・通知・ホーム）で 1 ページに書く。複数の機能に共通する約束事は機能の文書に書かず、docs/README.md の表に従って共通の文書へ書く。
 2. **Zod スキーマ**: `shared/validation/<name>.ts` に入力スキーマを書く。クライアントのフォームと API で同じスキーマを使う。MCP ツールは API の写しにせず LLM が呼びやすい形に作り、項目の定義がそのまま分かりやすいときだけこのスキーマを共有する（`docs/architecture.md` の「レイヤー構成」）。
 3. **サーバー feature** `server/features/<name>/` を作る:
    - `schema.ts`（Drizzle テーブル。共通規約: uuid v7 主キー、`created_at` / `updated_at` / `created_by`、timestamptz）
@@ -27,7 +27,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - ホームの状態のタイルは `src/features/dashboard/components/StatusCards.tsx` に足す（自分の機能のクエリを読む）
    - ルートに loader は置かない（移動をデータで待たせない）。ページもタイルも自分でクエリを読み、`QueryView`（`src/lib/ui/QueryView.tsx`）で包んで読み込み中の骨組みと取得失敗の表示をまかせる
 7. **テスト**: service のユニットテスト（`server/features/<name>/__tests__/`、実 DB）、必要なら E2E（`e2e/`）。
-8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧。
+8. **ドキュメント更新**: `docs/features/<name>.md`、`docs/data-model.md`、`docs/features/mcp.md` のツール一覧、`docs/README.md` の機能の文書の表。
 
 ## 守ること
 

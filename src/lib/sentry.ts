@@ -12,7 +12,7 @@ import { meQueryOptions } from './auth.ts';
  *   サーバーのエラーはサーバーが送り（`server/lib/sentry.ts`）、通信の失敗はオフラインで使う PWA では不具合ではない。
  * - トレース: 起動と画面の移動（ルート名で。`tanstackRouterBrowserTracingIntegration`）と、その間の API への
  *   要求。API への要求にはトレースの見出しを付け、サーバーのスパンと 1 本のトレースに繋ぐ（同じオリジンなので既定で付く）。
- *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/architecture.md の「監視（Sentry）」）。
+ *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
  * セッションリプレイは無料枠が月 50 件しかないので使わない。

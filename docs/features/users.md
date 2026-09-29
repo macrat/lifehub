@@ -11,7 +11,7 @@
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
 | 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。PC はサイドナビ、スマホはホームの末尾から開く |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
-| 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[architecture.md](../architecture.md#監視sentry)）や DB と見比べるため |
+| 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
 
 - 未認証で保護ページを開くと `/login?redirect=<元のパス>` へ遷移する（UX 目的のガード。防御はサーバーの 401）。
 - API が 401 を返したら、クライアントは `/login` へ遷移する。ログアウトと 401 のどちらでも、端末に溜めた未送信の書き込みは捨てる（別のユーザーのセッションで送らないため。[architecture.md](../architecture.md#オフラインの書き込み)）。
@@ -28,6 +28,12 @@
   - 色域外の色は画面によって少し違って見える（sRGB の画面では切り詰められる）。帯の文字（`FILL_TEXT`）のコントラスト比 7:1 は、そのままの色・sRGB に切り詰めた色・P3 に切り詰めた色のどれでも保てることをテストで確かめる（`shared/__tests__/color.test.ts`。色の計算は開発用の依存の culori を使う）。
 - 登録時に色相を省略すると、既存ユーザーと既定の色相から最も離れた色相を自動で割り当てる（`pickDistinctHue`）。
 
+## 表示名
+
+参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
+
+一覧（`useUsers`）は名前と色を読む全部品の元で、予定の枠から立替の一覧まで画面中に散らばっている。一覧は `/api/me` に載ってくるので、取り直しは `me` と同じく 5 分に 1 度まで（`meQueryOptions` の `staleTime`。既定の 0 のままだと画面を移るたび・カレンダーの表示を切り替えるたびに取り直しが走る）。相手が色や名前を変えても、5 分経てば次に画面を移ったときに映る。自分で変えたときは書き込みが invalidate するので、その時間を待たずに入れ替わる。
+
 ## 認証
 
 - better-auth（メール＋パスワード、Drizzle アダプタ）。テーブルは `server/lib/db/auth-adapter.ts` の `schema` で明示的に対応付ける（OAuth プラグインのテーブルも同じマップで渡すため）。セッション Cookie、同一オリジン。
@@ -36,6 +42,14 @@
 - パスワード変更時は対象ユーザーの全ブラウザセッションを失効させる。即時反映のため Cookie によるセッションキャッシュは使わない。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。
 - ID は UUID v7（`advanced.database.generateId`）。他テーブルの `created_by` 等が `users.id` を参照する。
+
+## 初期ユーザー
+
+最初のユーザーは `pnpm user:create`（`scripts/create-user.ts`）で作る。`DATABASE_URL` に直接接続し、users service で投入する。手順はローカルが [README](../../README.md#ローカル開発)、本番が [operations.md](../operations.md#初回セットアップ人が一度だけ行う手作業)。
+
+## データ
+
+`users` と better-auth 管理のテーブル（[data-model.md](../data-model.md)）。`users.hue`（色）と `users.all_day_notify_minutes`（終日の通知時刻）をアプリが足している。
 
 ## API
 
@@ -51,17 +65,3 @@
 ## MCP ツール
 
 無し。ユーザーの名前とどれが自分かは `get_overview` が返し、ほかのツールは人を名前で受ける（[mcp.md](mcp.md)）。
-
-## 表示名
-
-参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
-
-一覧（`useUsers`）は名前と色を読む全部品の元で、予定の枠から立替の一覧まで画面中に散らばっている。一覧は `/api/me` に載ってくるので、取り直しは `me` と同じく 5 分に 1 度まで（`meQueryOptions` の `staleTime`。既定の 0 のままだと画面を移るたび・カレンダーの表示を切り替えるたびに取り直しが走る）。相手が色や名前を変えても、5 分経てば次に画面を移ったときに映る。自分で変えたときは書き込みが invalidate するので、その時間を待たずに入れ替わる。
-
-## 初期ユーザー
-
-```sh
-pnpm user:create --email you@example.com --name あなた --password 'xxxxxxxxxxxx'
-```
-
-`DATABASE_URL` に直接接続し、users service で投入する。

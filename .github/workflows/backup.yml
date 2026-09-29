@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 # 本番 DB のまるごとのダンプと全予定の ics を暗号化して Artifact に置く。何をなぜ残すかと、
-# なぜ暗号化するかは docs/architecture.md の「デプロイフロー」を参照。
+# なぜ暗号化するかは docs/operations.md の「バックアップ」を参照。
 #
 # クレデンシャルは、それを使うステップの env にだけ置く（deploy.yml と同じ方針）。
 jobs:
