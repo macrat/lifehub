@@ -25,9 +25,15 @@ type Props = InfiniteScrollHeaderProps & {
   /**
    * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
    * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
-   * 省くか要素が見つからなければ末尾を出す
+   * 省くか要素が見つからなければ末尾を出す。
+   * reveal を渡すと、その要素が画面に収まっていなければ、収まる所まで最小限だけ動かす（`scrollIntoView` の
+   * nearest）。見つからない間（まだ読んでいないページにある）は、読み足されるたびに置き直す
    */
-  initial?: { block: 'start' | 'end'; target: (list: HTMLElement) => HTMLElement | null };
+  initial?: {
+    block: 'start' | 'end';
+    target: (list: HTMLElement) => HTMLElement | null;
+    reveal?: (list: HTMLElement) => HTMLElement | null;
+  };
   /** 変わったら最初の位置に戻す（絞り込みを変えたときなど、別の一覧になったとき） */
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
@@ -99,22 +105,39 @@ export function InfiniteScroll({
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
       return;
     }
-    if (initial.block === 'start') {
-      const header = headerRef.current?.offsetHeight ?? 0;
-      target.style.scrollMarginTop = `calc(${STICKY_TOP} + ${header}px)`;
-    }
+    if (initial.block === 'start') clearHeader(target);
     target.scrollIntoView({ block: initial.block, behavior });
+    const shown = initial.reveal?.(list);
+    if (shown) {
+      clearHeader(shown);
+      shown.scrollIntoView({ block: 'nearest', behavior });
+    }
   };
 
-  /** 最初の位置に置けているか（上か下が足りないと途中で止まる） */
+  /** 画面の上端に寄せるとき、貼り付いた見出し（AppBar の下端＋見出しの高さ）に隠れないよう余白を取る */
+  const clearHeader = (element: HTMLElement) => {
+    const header = headerRef.current?.offsetHeight ?? 0;
+    element.style.scrollMarginTop = `calc(${STICKY_TOP} + ${header}px)`;
+  };
+
+  /** 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom） */
+  const viewBottom = () => {
+    const root = document.documentElement;
+    const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
+    return root.clientHeight - padding;
+  };
+
+  /** 最初の位置に置けているか（上か下が足りないと途中で止まる。見せる要素がまだ無いときも） */
   const isPlaced = (list: HTMLElement) => {
+    if (initial?.reveal) {
+      const box = initial.reveal(list)?.getBoundingClientRect();
+      return box !== undefined && box.top >= headerBottom() - 1 && box.bottom <= viewBottom() + 1;
+    }
     const target = initial?.target(list);
     if (!initial || !target) return true;
     const box = target.getBoundingClientRect();
     if (initial.block === 'start') return Math.abs(box.top - headerBottom()) < 1;
-    const root = document.documentElement;
-    const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
-    return Math.abs(box.bottom - (root.clientHeight - padding)) < 1;
+    return Math.abs(box.bottom - viewBottom()) < 1;
   };
 
   // 描画のたびに: 別の一覧になったら（留めている間は毎回）最初の位置へ、そうでなければ見ていた所へ

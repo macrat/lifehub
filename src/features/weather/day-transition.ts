@@ -1,4 +1,5 @@
 import type { DateString } from '../../../shared/types.ts';
+import { createStore } from '../../lib/store.ts';
 
 /**
  * ホームの天気のタイルと、週間天気の同じ日の行に付ける名前（View Transition）。
@@ -22,10 +23,18 @@ export function dayTransitionName(date: DateString, homeDate: DateString): strin
 const WEATHER_TRANSITION_TYPE = 'weather';
 
 /**
- * 1 日の天気のアイコンに付ける名前（View Transition。`WeatherIcon` の `transitionDate` が付ける）。
- * 予定画面の日付の横・週間天気の行・ホームのタイルのどこに出ても同じ日なら同じ名前にし、週間天気と行き来すると
- * アイコンがその日の位置へその場から動く。
- * - 日ごとに分けるのは、予定画面（月・週）にも週間天気にも日が並び、名前は文書の中で一意でなければならないため
+ * 週間天気を開いた日（予定画面で天気を押した日、ホームのタイルの日）。この日のアイコンだけが、週間天気との
+ * 行き来でその場から動く（`iconTransitionName`）。週間天気から戻るときも同じ日が動いて、元の位置へ帰る。
+ * WHY 1 日だけ: View Transition は動いたものを目で追わせて、次に見る所を伝えるためのもの。並んだ日のアイコンが
+ * 一斉に動くと、どれを追えばよいか分からなくなる。
+ * WHY NOT URL に持たせる: 戻った先（予定画面・ホーム）でも同じ日が要るが、戻った先の URL には入らない。
+ */
+export const [useOpenedWeatherDay, openWeatherDay] = createStore<DateString | null>(null);
+
+/**
+ * 1 日の天気のアイコンに付ける名前（View Transition。`WeatherIcon` が `transitionDate` と
+ * `useOpenedWeatherDay` の日が同じときだけ付ける）。予定画面の日付の横・週間天気の行・ホームのタイルの
+ * どこに出ても同じ日なら同じ名前にする。
  * - ホームのタイルのアイコンにも付けるのは、週間天気の行のアイコンにだけ名前があると、ホームと行き来するとき
  *   行（`HOME_WEATHER_TRANSITION`）はタイルから動くのに、行の中のアイコンだけが動かずにその場へ出るため
  * - 名前は週間天気の画面が前後にある遷移の間だけ残す（`ONLY_IN_WEATHER_TRANSITION`）。ホームと予定画面の両方に

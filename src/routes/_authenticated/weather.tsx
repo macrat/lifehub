@@ -6,6 +6,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
 import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
+import { useRevealOpenedDay } from '../../features/weather/use-reveal-opened-day.ts';
 import { useScreenHistory } from '../../lib/screen-data.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
@@ -30,6 +31,7 @@ function WeatherPage() {
   const expanded = useExpandedDays();
   const goBack = useGoBack();
   const homeDay = useHomeWeatherDay();
+  const reveal = useRevealOpenedDay(history);
   return (
     <>
       <AppBarContent>
@@ -41,7 +43,7 @@ function WeatherPage() {
         </Typography>
       </AppBarContent>
       <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
-        <HistoryList history={history} emptyMessage="予報がまだありません">
+        <HistoryList history={history} emptyMessage="予報がまだありません" reveal={reveal}>
           {(days) => (
             <WeatherDayList
               days={days}
