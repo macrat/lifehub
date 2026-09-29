@@ -15,7 +15,7 @@ import { env } from './env.ts';
  *   409 など）は `console.error` に出さないので送られない。
  * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
  *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
- *   最初の要求かどうか（`faas.coldstart`。下の `markColdStart`）を付ける。ブラウザから来たトレースを引き継ぐ。
+ *   最初の要求かどうか（`faas.coldstart`）を付け、最初の要求には起動のスパンを足す（下の `markColdStart`）。ブラウザから来たトレースを引き継ぐ。
  *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
@@ -121,14 +121,33 @@ export const traceNeonFetch: typeof fetch = (input, init) => {
 let coldStart = true;
 
 /**
+ * モジュールを読み終えた時刻（エポックからのミリ秒）。`withSentry` が記録する。エントリ（`api/index.ts`）が
+ * `withSentry` を呼ぶのは、アプリのモジュールをすべて読み込んだ後なので。
+ */
+let loadedAt: number | undefined;
+
+/**
  * 要求のスパンに、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付ける。起動（モジュールの
  * 読み込みや Neon への最初の接続）の分だけ遅い要求を、普段の遅さと分けて見るため。
+ * 最初の要求には、プロセスが起きてからモジュールを読み終えるまでのスパン（`function.init`）も子として足す。
+ * 要求のスパンは要求が届いてから始まるので、その前の起動の時間はこれが無いとどこにも残らない
+ * （ブラウザの計る要求の時間とサーバーの計る時間の差としてしか見えない）。Node の `performance.timeOrigin` は
+ * プロセスが起きた時刻。
  * 計らない要求（Vercel の生存確認。`initSentry` の `httpIntegration`）では印を使わない。
  */
 const markColdStart: MiddlewareHandler = async (_c, next) => {
   const active = Sentry.getActiveSpan();
   if (active?.isRecording()) {
-    Sentry.getRootSpan(active).setAttribute('faas.coldstart', coldStart);
+    const root = Sentry.getRootSpan(active);
+    root.setAttribute('faas.coldstart', coldStart);
+    if (coldStart && loadedAt !== undefined) {
+      Sentry.startInactiveSpan({
+        name: 'function init',
+        op: 'function.init',
+        parentSpan: root,
+        startTime: performance.timeOrigin,
+      }).end(loadedAt);
+    }
     coldStart = false;
   }
   await next();
@@ -176,6 +195,7 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   app: Hono<E, S, B>,
 ): Hono<E, S, B> {
   if (!Sentry.getClient()) return app;
+  loadedAt = performance.timeOrigin + performance.now();
   const root = new Hono<E, S, B>();
   root.use(Sentry.sentry(root, { shouldHandleError: () => false }));
   root.use(markColdStart);
