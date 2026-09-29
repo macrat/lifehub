@@ -1,5 +1,5 @@
 import { StatusTile } from '../../../lib/ui/StatusTile.tsx';
-import { HOME_WEATHER_TRANSITION } from '../day-transition.ts';
+import { HOME_WEATHER_TRANSITION, iconTransitionName } from '../day-transition.ts';
 import { formatTemp } from '../format.ts';
 import type { HomeWeather } from '../queries.ts';
 import { WeatherIcon } from './WeatherIcon.tsx';
@@ -18,11 +18,20 @@ type Props = {
  * 名前が入りきらないとき（「曇時々雨で雷を伴う」など）は末尾を「…」で切り、全文は週間天気で見る。
  * 予報の無い日（取り始める前など）は、ほかのタイルの「記録なし」と同じく値を「—」にする。
  * 週間天気の同じ日の行とは名前を合わせてあり、行き来するとその場から動く（`HOME_WEATHER_TRANSITION`）。
+ * アイコンも行のアイコンと名前を合わせてあり（`iconTransitionName`）、タイルと一緒に動く。
  */
 export function WeatherTile({ home: { label, weather }, onClick }: Props) {
   return (
     <StatusTile
-      icon={weather && <WeatherIcon icon={weather.icon} layout="square" />}
+      icon={
+        weather && (
+          <WeatherIcon
+            icon={weather.icon}
+            layout="square"
+            sx={{ viewTransitionName: iconTransitionName(weather.date) }}
+          />
+        )
+      }
       label={label}
       value={weather ? `${formatTemp(weather.tempMax)} / ${formatTemp(weather.tempMin)}` : '—'}
       sub={weather ? weather.label : '予報なし'}

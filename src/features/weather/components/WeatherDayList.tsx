@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
-import { dayTransitionName } from '../day-transition.ts';
+import { dayTransitionName, iconTransitionName } from '../day-transition.ts';
 import { formatPop, formatTemp } from '../format.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
@@ -38,6 +38,8 @@ type Props = {
  * 行には日付（`data-date`）を持たせる。日付の見出しを持たない行なので、E2E はこれで日の行を探す。
  * ホームのタイルに出ている日の行は、タイルと名前を合わせ、ホームと行き来するとその場から動く。
  * 名前は開いた 3 時間ごとの天気を含まない行の部分に付ける（タイルに当たるのは 1 日の要約なので）。
+ * アイコンにはどの行にも日ごとの名前（`iconTransitionName`）を付け、予定画面の日付の横やホームのタイルの
+ * 同じ日のアイコンとの間で動く。
  */
 export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
   return (
@@ -74,7 +76,11 @@ export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
                 icon={day.icon}
                 layout="wide"
                 aria-hidden
-                sx={{ fontSize: ICON_SIZE, justifySelf: 'center' }}
+                sx={{
+                  fontSize: ICON_SIZE,
+                  justifySelf: 'center',
+                  viewTransitionName: iconTransitionName(day.date),
+                }}
               />
               <Typography variant="body2" color="textSecondary">
                 {day.label}

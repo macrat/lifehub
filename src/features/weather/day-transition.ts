@@ -14,3 +14,14 @@ export const HOME_WEATHER_TRANSITION = 'home-weather';
 export function dayTransitionName(date: DateString, homeDate: DateString): string | undefined {
   return date === homeDate ? HOME_WEATHER_TRANSITION : undefined;
 }
+
+/**
+ * 1 日の天気のアイコンに付ける名前（View Transition）。予定画面の日付の横・週間天気の行・ホームのタイルの
+ * どこに出ても同じ日なら同じ名前にし、画面を行き来するとアイコンがその日の位置へその場から動く。
+ * 日ごとに分けるのは、予定画面（月・週）にも週間天気にも日が並び、名前は文書の中で一意でなければならないため。
+ * ホームのタイルのアイコンにも付けるのは、週間天気の行のアイコンにだけ名前があると、ホームと行き来するとき
+ * 行（`HOME_WEATHER_TRANSITION`）はタイルから動くのに、行の中のアイコンだけが動かずにその場へ出るため。
+ */
+export function iconTransitionName(date: DateString): string {
+  return `weather-icon-${date}`;
+}
