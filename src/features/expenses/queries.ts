@@ -1,4 +1,4 @@
-import { type QueryClient, queryOptions, useQuery } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import {
   BALANCE_NEEDS_TWO_USERS,
   type Balance,
@@ -10,12 +10,13 @@ import {
 } from '../../../shared/expenses.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
-import { type HistorySource, useHistory } from '../../lib/history.ts';
+import type { HistorySource } from '../../lib/history.ts';
 import {
   type QueryState,
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 import { useUsers } from '../users/queries.ts';
 
@@ -34,10 +35,10 @@ const EXPENSES_QUERY_KEY = ['expenses'] as const;
 const WRITE_KEYS = [EXPENSES_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 /**
- * 履歴（`src/lib/history.ts`）。絞り込みはサーバーが掛ける
+ * 立替画面の履歴（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける
  * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
  */
-const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
+export const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
   key: [...EXPENSES_QUERY_KEY, 'list'],
   fetch: async (filter, before, signal) => {
     const query = { ...filter, min: filter.min?.toString(), max: filter.max?.toString(), before };
@@ -50,13 +51,8 @@ const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
 /** 履歴とタイムラインへの先回りの読み書き */
 const expenseCache = timelineRecordCache('expense', expenseHistory);
 
-/** 立替画面の履歴（`useHistory`） */
-export function useExpenseHistory(filter: ExpenseFilter) {
-  return useHistory(expenseHistory, filter);
-}
-
 /** 残高の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `balanceOf` が読む形） */
-const totalsQueryOptions = queryOptions({
+export const totalsQueryOptions = queryOptions({
   queryKey: [...EXPENSES_QUERY_KEY, 'totals'],
   queryFn: async (): Promise<ExpenseTotal[]> =>
     (await ensureOk(await api.expenses.totals.$get())).json(),
@@ -67,7 +63,7 @@ const totalsQueryOptions = queryOptions({
  * 立替ページが読む。
  */
 export function useBalance(): QueryState<Balance> {
-  const totals = useQuery(totalsQueryOptions);
+  const totals = useStoreQuery(totalsQueryOptions);
   const users = useUsers();
   const pair = users.data && balancePair(users.data);
   return {

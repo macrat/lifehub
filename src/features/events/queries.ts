@@ -2,7 +2,6 @@ import {
   type QueryClient,
   queryOptions,
   type UseQueryResult,
-  useQueries,
   useQueryClient,
 } from '@tanstack/react-query';
 import type { InferRequestType } from 'hono/client';
@@ -22,6 +21,7 @@ import {
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
+import { useStoreQueries } from '../../lib/screen-data.ts';
 import { applyToTimeline, findInTimeline, TIMELINE_QUERY_KEY } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
@@ -40,6 +40,14 @@ export function eventQueryOptions(id: string) {
       return res.json();
     },
   });
+}
+
+/**
+ * 繰り返し元の行を読む。繰り返しの「すべて」を編集し始めたとき（利用者の操作）に呼び、
+ * 詳細は store から読む（`useStoreQuery(eventQueryOptions(id))`）。
+ */
+export function loadEvent(client: QueryClient, id: string): void {
+  void client.prefetchQuery(eventQueryOptions(id));
 }
 
 /**
@@ -146,7 +154,8 @@ export function calendarMonthQueryOptions(month: string) {
 }
 
 /**
- * [from, to]（両端含む JST 暦日）に掛かる月のクエリを読み、`combine` でまとめる。
+ * [from, to]（両端含む JST 暦日）に掛かる月のクエリを store から読み、`combine` でまとめる
+ * （購読はカレンダーの画面が、表示に掛かる月をまとめて行う。`use-calendar-page.ts` の `months`）。
  * `combine` は範囲ごとに固定した関数を渡す: TanStack Query は combine が前と別の関数だと、
  * 結果が変わっていなくても描くたびに繋ぎ直し、前の結果と中身を 1 件ずつ比べ直す（replaceEqualDeep）。
  * カレンダーはドラッグの 1 コマごとに描き直すので、そのたびに全項目を繋いで比べることになる。
@@ -156,7 +165,7 @@ export function useCalendarPeriods<T>(
   combine: (results: UseQueryResult<CalendarPeriod>[]) => T,
 ): T {
   const months = range ? monthsInRange(range.from, range.to) : [];
-  return useQueries({ queries: months.map(calendarMonthQueryOptions), combine });
+  return useStoreQueries(months.map(calendarMonthQueryOptions), combine);
 }
 
 /**

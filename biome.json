@@ -14,7 +14,11 @@
     "indentWidth": 2,
     "lineWidth": 100
   },
-  "plugins": ["./lint/mui-color-prop-path.grit", "./lint/named-middleware.grit"],
+  "plugins": [
+    "./lint/mui-color-prop-path.grit",
+    "./lint/named-middleware.grit",
+    "./lint/screen-data.grit"
+  ],
   "linter": {
     "enabled": true,
     "rules": {

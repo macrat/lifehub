@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import type { CareType } from '../../../../shared/validation/lemon.ts';
+import { useStoreQuery } from '../../../lib/screen-data.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
 import { StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { CareStatusTile } from '../../lemon/components/CareStatusTile.tsx';
@@ -19,12 +19,12 @@ type Props = {
 
 /**
  * ホームの上に並べる最新の状態: 天気・葉水・水やりのタイルを横に 3 つ。
- * それぞれの機能の画面と同じクエリを読むので、書き込めばその場で変わる。
+ * それぞれの機能の画面と同じクエリを store から読むので、書き込めばその場で変わる（購読はホームの画面）。
  * 天気のタイルを押すと週間天気が、世話のタイルを押すとその記録の入力が開く（開くのは画面の側）。
  */
 export function StatusCards({ onOpenWeather, onAddCare }: Props) {
   const weather = useHomeWeather();
-  const status = useQuery(lemonStatusQueryOptions);
+  const status = useStoreQuery(lemonStatusQueryOptions);
   return (
     <TileGrid columns={1 + HOME_CARE_TYPES.length} sx={{ px: 2, py: 1 }}>
       <QueryView query={weather} skeleton={<StatusTileSkeleton />}>

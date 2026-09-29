@@ -13,12 +13,7 @@ import {
 } from '../../../shared/timeline.ts';
 import type { TimelineFilter } from '../../../shared/validation/timeline.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import {
-  applyToHistories,
-  findInHistories,
-  type HistorySource,
-  useHistory,
-} from '../../lib/history.ts';
+import { applyToHistories, findInHistories, type HistorySource } from '../../lib/history.ts';
 
 /** 行の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/timeline.ts） */
 export type { TimelineEntry } from '../../../shared/timeline.ts';
@@ -30,10 +25,11 @@ export type { TimelineEntry } from '../../../shared/timeline.ts';
 export const TIMELINE_QUERY_KEY = ['timeline'] as const;
 
 /**
- * タイムライン（`src/lib/history.ts`）。ページの分け方は立替・レモンの履歴と同じで、絞り込みはサーバーが掛ける。
- * 各ページの中は古い順なので、画面は繋いだものを逆さに（新しい順に）出す。
+ * ホームのタイムライン（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。ページの分け方は
+ * 立替・レモンの履歴と同じで、絞り込みはサーバーが掛ける。各ページの中は古い順なので、画面は繋いだものを
+ * 逆さに（新しい順に）出す。
  */
-const timeline: HistorySource<TimelineEntry, TimelineFilter> = {
+export const timelineHistory: HistorySource<TimelineEntry, TimelineFilter> = {
   key: TIMELINE_QUERY_KEY,
   fetch: async (filter, before, signal) =>
     (
@@ -45,14 +41,9 @@ const timeline: HistorySource<TimelineEntry, TimelineFilter> = {
   sort: sortTimeline,
 };
 
-/** ホームのタイムライン（`useHistory`。data は古い順） */
-export function useTimeline(filter: TimelineFilter) {
-  return useHistory(timeline, filter);
-}
-
 /** 読んだタイムラインのどこかにある行（編集・削除の前の値。記録の画面の履歴を読んでいないときの控え） */
 export function findInTimeline(client: QueryClient, id: string): TimelineEntry | undefined {
-  return findInHistories(client, timeline, id);
+  return findInHistories(client, timelineHistory, id);
 }
 
 /** 1 件が 1 行になる記録（立替・レモン・メモ）の種類と、その行が持つ記録 */
@@ -114,5 +105,5 @@ export function timelineRecordCache<K extends keyof TimelineRecords, F>(
  * 書き込み後の取り直し（invalidate）に任せる。回 1 つだけが変わるタスクの完了・取り消しだけは先回りする。
  */
 export function applyToTimeline(client: QueryClient, id: string, next: TimelineEntry | null): void {
-  applyToHistories(client, timeline, id, next);
+  applyToHistories(client, timelineHistory, id, next);
 }

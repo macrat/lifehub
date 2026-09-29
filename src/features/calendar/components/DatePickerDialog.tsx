@@ -7,7 +7,6 @@ import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import { today } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import {
@@ -40,6 +39,9 @@ type Props = {
   unit: PeriodView;
   /** 今表示している日 */
   date: DateString;
+  /** 送っている月（"YYYY-MM"。画面が持ち、その月の祝日を購読する） */
+  month: string;
+  onChangeMonth: (month: string) => void;
   onClose: () => void;
   /** 選んだ月・週・日の最初の日 */
   onSelect: (date: DateString) => void;
@@ -53,8 +55,14 @@ const COLUMNS = 'repeat(7, minmax(0, 1fr))';
  * 見出しが指すものと選べるものを揃える: 月表示は年を ‹ › で送って 12 か月から、
  * 週・日表示は月を ‹ › で送って月グリッドの週・日から選ぶ。
  */
-export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
-  const [month, setMonth] = useState(toMonthString(date));
+export function DatePickerDialog({
+  unit,
+  date,
+  month,
+  onChangeMonth: setMonth,
+  onClose,
+  onSelect,
+}: Props) {
   // 選ぶ範囲が広い月表示は年ごと、週・日表示は月ごとに送る
   const step = unit === 'month' ? 12 : 1;
   return (
@@ -66,7 +74,7 @@ export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
         >
           <IconButton
             aria-label={unit === 'month' ? '前の年' : '前の月'}
-            onClick={() => setMonth((m) => addMonths(m, -step))}
+            onClick={() => setMonth(addMonths(month, -step))}
           >
             <ChevronLeftIcon />
           </IconButton>
@@ -75,7 +83,7 @@ export function DatePickerDialog({ unit, date, onClose, onSelect }: Props) {
           </Typography>
           <IconButton
             aria-label={unit === 'month' ? '次の年' : '次の月'}
-            onClick={() => setMonth((m) => addMonths(m, step))}
+            onClick={() => setMonth(addMonths(month, step))}
           >
             <ChevronRightIcon />
           </IconButton>

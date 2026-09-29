@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { DEFAULT_HUE } from '../../../shared/color.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { previewHue, usePreviewHue } from '../../lib/theme.ts';
 import { useUpdateUser } from './queries.ts';
 
@@ -15,7 +15,7 @@ import { useUpdateUser } from './queries.ts';
  * 使うのをやめた時点（設定画面を離れた時点）で、保存していない色は捨てて保存済みの色に戻す。
  */
 export function useMyColor() {
-  const { data: me } = useQuery(meQueryOptions);
+  const { data: me } = useStoreQuery(meQueryOptions);
   const update = useUpdateUser();
   const picked = usePreviewHue();
 

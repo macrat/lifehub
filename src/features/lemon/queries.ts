@@ -10,7 +10,7 @@ import {
 import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
-import { type HistorySource, useHistory } from '../../lib/history.ts';
+import type { HistorySource } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
@@ -31,10 +31,10 @@ export const lemonStatusQueryOptions = queryOptions({
 });
 
 /**
- * 記録（`src/lib/history.ts`）。絞り込みはサーバーが掛ける
+ * レモン画面の記録（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける
  * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
  */
-const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
+export const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
   key: [...LEMON_QUERY_KEY, 'logs'],
   fetch: async (filter, before, signal) =>
     (
@@ -48,11 +48,6 @@ const careLogHistory: HistorySource<CareLog, CareLogFilter> = {
 
 /** 記録の履歴とタイムラインへの先回りの読み書き */
 const careLogCache = timelineRecordCache('lemon', careLogHistory);
-
-/** レモン画面の記録（`useHistory`） */
-export function useCareLogHistory(filter: CareLogFilter) {
-  return useHistory(careLogHistory, filter);
-}
 
 export function useLogCare() {
   return useCreateMutation<CareLogBody>({

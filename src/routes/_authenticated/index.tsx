@@ -7,15 +7,18 @@ import { AddMenu } from '../../features/add/components/AddMenu.tsx';
 import type { AddFormKind } from '../../features/add/kinds.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
+import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
 import { TimelineEntrySheet } from '../../features/timeline/components/TimelineEntrySheet.tsx';
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
-import { type TimelineEntry, useTimeline } from '../../features/timeline/queries.ts';
+import { type TimelineEntry, timelineHistory } from '../../features/timeline/queries.ts';
 import {
   TIMELINE_FILTER_CONDITIONS,
   timelineSearchSchema,
 } from '../../features/timeline/search.ts';
+import { NO_WEATHER_FILTER, weatherHistory } from '../../features/weather/queries.ts';
 import { useAddEventOnCalendar, useAddShortcut } from '../../lib/add-search.ts';
+import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { FilterSearchField } from '../../lib/ui/FilterSearchField.tsx';
@@ -45,7 +48,10 @@ function HomePage() {
   const search = Route.useSearch();
   const isDesktop = useIsDesktop();
   const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
-  const timeline = useTimeline(filter.listFilter);
+  // この画面が読むもの: 絞り込んだタイムラインと、タイルに出す天気（最新のページ）・レモンの状況
+  const timeline = useScreenHistory(timelineHistory, filter.listFilter);
+  useScreenHistory(weatherHistory, NO_WEATHER_FILTER);
+  useScreenQueries([lemonStatusQueryOptions]);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンとタイルから開く入力。世話はタイルの項目にチェックを入れて開く
   const adding = useOpenWith<AddFormKind>();

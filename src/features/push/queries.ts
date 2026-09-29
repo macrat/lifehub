@@ -1,5 +1,6 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ensureOk } from '../../lib/api.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 
 /**
  * この端末でのプッシュ通知の購読。
@@ -33,8 +34,11 @@ async function currentSubscription(): Promise<PushSubscription | null> {
   return registration.pushManager.getSubscription();
 }
 
-/** この端末が購読済みか（ブラウザの購読があり、サーバーにも自分のものとして登録されているか） */
-const pushStatusQueryOptions = queryOptions({
+/**
+ * この端末が購読済みか（ブラウザの購読があり、サーバーにも自分のものとして登録されているか）。
+ * プッシュに対応していないブラウザでは読まない（画面は `pushSupported` のときだけ購読する）
+ */
+export const pushStatusQueryOptions = queryOptions({
   queryKey: ['push', 'status'],
   queryFn: async () => {
     const subscription = await currentSubscription();
@@ -47,7 +51,7 @@ const pushStatusQueryOptions = queryOptions({
 });
 
 export function usePushStatus() {
-  return useQuery({ ...pushStatusQueryOptions, enabled: pushSupported });
+  return useStoreQuery(pushStatusQueryOptions);
 }
 
 /**

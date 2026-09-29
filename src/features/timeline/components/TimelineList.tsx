@@ -1,13 +1,14 @@
 import Typography from '@mui/material/Typography';
 import { useLayoutEffect } from 'react';
+import type { ScreenHistory } from '../../../lib/screen-data.ts';
 import { EdgeSentinel } from '../../../lib/ui/EdgeSentinel.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import type { TimelineEntry, useTimeline } from '../queries.ts';
+import type { TimelineEntry } from '../queries.ts';
 import { TimelineRow } from './TimelineRow.tsx';
 
 type Props = {
-  /** 読んだ分の行（古い順）と、下の端での読み足しなど（`useTimeline`） */
-  timeline: ReturnType<typeof useTimeline>;
+  /** 読んだ分の行（古い順）と、下の端での読み足しなど（画面が購読した `useScreenHistory`） */
+  timeline: ScreenHistory<TimelineEntry>;
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかは画面が判断する */
   emptyMessage: string;
   /** 行を押したとき。editing は長押し（編集で開く）か */

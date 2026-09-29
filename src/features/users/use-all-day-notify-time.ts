@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 import { meQueryOptions } from '../../lib/auth.ts';
 import { formatMinutesOfDay } from '../../lib/date.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { useUpdateUser } from './queries.ts';
 
 /**
@@ -15,7 +15,7 @@ import { useUpdateUser } from './queries.ts';
  * `me` の通知時刻が無いのは、この項目ができる前に端末へ永続化された `me` を読んだとき（取り直せば入る）。
  */
 export function useAllDayNotifyTime() {
-  const { data: me } = useQuery(meQueryOptions);
+  const { data: me } = useStoreQuery(meQueryOptions);
   const update = useUpdateUser();
   const savedMinutes = me?.allDayNotifyMinutes ?? DEFAULT_ALL_DAY_NOTIFY_MINUTES;
   const [picked, setPicked] = useState<{ value: string; minutes: number } | null>(null);

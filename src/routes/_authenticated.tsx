@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { requireSignedIn } from '../lib/auth.ts';
+import { meQueryOptions, requireSignedIn } from '../lib/auth.ts';
+import { useScreenQueries } from '../lib/screen-data.ts';
 import { AppShell } from '../lib/ui/AppShell.tsx';
 import { primaryNavItems } from '../navigation.ts';
 
@@ -13,6 +14,8 @@ export const Route = createFileRoute('/_authenticated')({
 });
 
 function AuthenticatedLayout() {
+  // どの画面も読むもの: ログイン中のユーザーとユーザーの一覧（名前と色）
+  useScreenQueries([meQueryOptions]);
   return (
     <AppShell navItems={primaryNavItems}>
       <Outlet />

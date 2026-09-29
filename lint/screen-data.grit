@@ -1,0 +1,35 @@
+// 画面のデータの取得は画面（ルート）が 1 か所で決め、部品は store から読むだけにする（src/lib/screen-data.ts）。
+// - TanStack Query の購読（useQuery など）を使ってよいのは src/lib/screen-data.ts だけ。部品が自分で購読すると、
+//   同じ画面の取得があちこちの部品に散らばり、部品を描く・描かないで問い合わせが増減する。
+//   部品は useStoreQuery などで store から読む（取得は始めない）。
+// - 画面の取得（useScreenQueries / useScreenHistory）を呼んでよいのは画面（src/routes/**）だけ。
+language js
+
+or {
+  `import $imports from $source` where {
+    $source <: r".*@tanstack/react-query.*",
+    $filename <: not r".*/src/lib/screen-data\.ts$",
+    $filename <: not r".*/__tests__/.*",
+    $imports <: contains or {
+      `useQuery`,
+      `useQueries`,
+      `useInfiniteQuery`,
+      `useSuspenseQuery`,
+      `useSuspenseQueries`,
+      `useSuspenseInfiniteQuery`,
+      `usePrefetchQuery`,
+      `usePrefetchInfiniteQuery`
+    } as $hook,
+    register_diagnostic(span=$hook, message="TanStack Query の購読は src/lib/screen-data.ts だけが使う。取得は画面（ルート）の useScreenQueries / useScreenHistory で決め、部品は useStoreQuery などで store から読む")
+  },
+  `import $imports from $source` where {
+    $source <: r".*/screen-data\.ts.*",
+    $filename <: not r".*/src/routes/.*",
+    $filename <: not r".*/__tests__/.*",
+    $imports <: contains or {
+      `useScreenQueries`,
+      `useScreenHistory`
+    } as $hook,
+    register_diagnostic(span=$hook, message="画面の取得（useScreenQueries / useScreenHistory）は画面（src/routes/**）だけが呼ぶ。部品は useStoreQuery などで store から読む")
+  }
+}

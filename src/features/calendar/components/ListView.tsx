@@ -8,7 +8,7 @@ import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import { useCalendarItems } from '../../events/queries.ts';
 import { type ListFilters, type ListFiltersPatch, listSections } from '../search.ts';
-import { useListMonths } from '../use-list-months.ts';
+import type { ListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';
 import { ListFilterForm } from './ListFilterForm.tsx';
 
@@ -16,6 +16,8 @@ type Props = {
   /** 最初に一番上へ出す日 */
   date: DateString;
   filters: ListFilters;
+  /** 出している月と、前後へ広げる操作（画面が持つ。`useListMonths`） */
+  listMonths: ListMonths;
   filtersOpen: boolean;
   onChangeFilters: (next: ListFiltersPatch) => void;
   /** 行を押したとき。editing は長押し（編集で開く）か */
@@ -29,8 +31,15 @@ type Props = {
  * 読み続けることがない。基準の日は項目が無くても「予定なし」として出し、今どこにいるかを示す。
  * 引っ張って更新はしない。上下どちらの端でも続きを読み足すので、引っ張って更新に使える端が無い（`EdgeSentinel` の印）。
  */
-export function ListView({ date, filters, filtersOpen, onChangeFilters, onSelectItem }: Props) {
-  const { months, range, extendStart, extendEnd } = useListMonths(date, filters);
+export function ListView({
+  date,
+  filters,
+  listMonths,
+  filtersOpen,
+  onChangeFilters,
+  onSelectItem,
+}: Props) {
+  const { months, range, extendStart, extendEnd } = listMonths;
   // 期間はサーバーに投げ、それ以外の絞り込みは手元で掛ける（打つたびに取り直さない）
   const itemsQuery = useCalendarItems(range);
   // 読み込み中は広げない（空の月が見出しの分しか伸びず、端が見えたまま次々と広げてしまう）

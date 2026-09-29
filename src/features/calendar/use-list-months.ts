@@ -4,12 +4,24 @@ import { addMonths, monthRange, monthsInRange, toMonthString } from '../../lib/d
 
 type Bounds = { from?: DateString | undefined; to?: DateString | undefined };
 
+/** リスト表示で出している月と、その取得範囲・前後へ広げる操作（`useListMonths`） */
+export type ListMonths = {
+  /** 出している月（昇順） */
+  months: string[];
+  /** 取得する範囲。期間の絞り込みがあれば、その内側だけ */
+  range: { from: DateString; to: DateString };
+  /** 前の月へ広げる。広げられなければ undefined */
+  extendStart: (() => void) | undefined;
+  /** 次の月へ広げる。広げられなければ undefined */
+  extendEnd: (() => void) | undefined;
+};
+
 /**
  * リスト表示で出している月（両端含む "YYYY-MM"）。無限スクロールで前後に 1 か月ずつ広げる。
  * 最初は基準の日の月と次の月（基準の日を一番上に置いても下が空かないように）。
  * 絞り込みの期間（bounds）があれば、その外へは広げない。
  */
-export function useListMonths(anchor: DateString, bounds: Bounds) {
+export function useListMonths(anchor: DateString, bounds: Bounds): ListMonths {
   const key = `${anchor}/${bounds.from ?? ''}/${bounds.to ?? ''}`;
   const minMonth = bounds.from && toMonthString(bounds.from);
   const maxMonth = bounds.to && toMonthString(bounds.to);
@@ -28,9 +40,7 @@ export function useListMonths(anchor: DateString, bounds: Bounds) {
   const from = monthRange(state.first).from;
   const to = monthRange(state.last).to;
   return {
-    /** 出している月（昇順） */
     months: monthsInRange(from, to),
-    /** 取得する範囲。期間の絞り込みがあれば、その内側だけ */
     range: { from: maxDate(from, bounds.from), to: minDate(to, bounds.to) },
     extendStart:
       !minMonth || state.first > minMonth

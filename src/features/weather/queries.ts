@@ -1,18 +1,19 @@
-import { type InfiniteData, useInfiniteQuery } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { addDays, minutesOfDay, today } from '../../../shared/date.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
 import { api, ensureOk } from '../../lib/api.ts';
-import { type HistorySource, historyQueryOptions, useHistory } from '../../lib/history.ts';
+import { type HistorySource, historyQueryOptions } from '../../lib/history.ts';
 import type { QueryState } from '../../lib/query-client.ts';
+import { useStoreInfiniteQuery } from '../../lib/screen-data.ts';
 
 /**
- * 天気の画面の日々（`src/lib/history.ts`）。1 ページは `GET /api/weather?before`（before を省くと、今日の 1 週間前から
+ * 天気の日々（`src/lib/history.ts`。天気の画面とホームのタイルが読む。画面は `useScreenHistory` で購読する）。1 ページは `GET /api/weather?before`（before を省くと、今日の 1 週間前から
  * 週間予報の終わりまで）。上へスクロールすると過ぎた日を 2 週間ずつ読み足す。
  * 今日を一番上に出す一覧なので、今日は未来の側に入れる（`todayAtTop`）。絞り込みは無いので、filter はいつも空。
  */
-const weatherHistory: HistorySource<WeatherDay, Record<string, never>> = {
+export const weatherHistory: HistorySource<WeatherDay, Record<string, never>> = {
   key: ['weather', 'days'],
   fetch: async (_filter, before, signal) =>
     (await ensureOk(await api.weather.$get({ query: { before } }, { init: { signal } }))).json(),
@@ -21,12 +22,8 @@ const weatherHistory: HistorySource<WeatherDay, Record<string, never>> = {
   todayAtTop: true,
 };
 
-const NO_FILTER = {};
-
-/** 天気の画面が読む日々（`useHistory`） */
-export function useWeatherDays() {
-  return useHistory(weatherHistory, NO_FILTER);
-}
+/** 天気の日々の絞り込み（無いのでいつも空。購読と読みで同じキーを指すよう 1 つを使い回す） */
+export const NO_WEATHER_FILTER = {};
 
 /** ホームのタイルに出す日と、その呼び方 */
 type HomeWeatherDay = { date: DateString; label: '今日' | '明日' };
@@ -81,5 +78,8 @@ export function useHomeWeather(): QueryState<HomeWeather> {
     }),
     [date, label],
   );
-  return useInfiniteQuery({ ...historyQueryOptions(weatherHistory, NO_FILTER), select });
+  return useStoreInfiniteQuery({
+    ...historyQueryOptions(weatherHistory, NO_WEATHER_FILTER),
+    select,
+  });
 }

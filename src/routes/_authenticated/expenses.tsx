@@ -7,9 +7,15 @@ import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDe
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
 import { ExpenseList } from '../../features/expenses/components/ExpenseList.tsx';
-import { type Expense, useBalance, useExpenseHistory } from '../../features/expenses/queries.ts';
+import {
+  type Expense,
+  expenseHistory,
+  totalsQueryOptions,
+  useBalance,
+} from '../../features/expenses/queries.ts';
 import { EXPENSE_FILTER_CONDITIONS, expenseSearchSchema } from '../../features/expenses/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
+import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -36,8 +42,10 @@ export const Route = createFileRoute('/_authenticated/expenses')({
 function ExpensesPage() {
   const search = Route.useSearch();
   const filter = useFilterSearch(search, EXPENSE_FILTER_CONDITIONS);
+  // この画面が読むもの: 残高の元になる合計と、絞り込んだ履歴
+  useScreenQueries([totalsQueryOptions]);
+  const history = useScreenHistory(expenseHistory, filter.listFilter);
   const balanceQuery = useBalance();
-  const history = useExpenseHistory(filter.listFilter);
   const adding = useToggle();
   const selection = useRecordSelection<Expense>();
 

@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { meQueryOptions } from '../../lib/auth.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { type User, usersOf } from './queries.ts';
 
 /**
@@ -9,7 +9,7 @@ import { type User, usersOf } from './queries.ts';
  */
 export function useUserLabels() {
   // ログイン中のユーザーと一覧は同じ `/api/me` に載っているので、1 つのキャッシュから読む（`useUsers`）
-  const { data: me } = useQuery(meQueryOptions);
+  const { data: me } = useStoreQuery(meQueryOptions);
   const users: User[] = useMemo(
     () => usersOf(me).toSorted((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0)),
     [me],

@@ -1,9 +1,9 @@
 import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { type ColorMode, DEFAULT_HUE, hueColor, SURFACE } from '../../shared/color.ts';
 import { meQueryOptions } from './auth.ts';
+import { useStoreQuery } from './screen-data.ts';
 import { createStore } from './store.ts';
 import { SQUIRCLE_CLIP_PATH } from './ui/squircle.ts';
 
@@ -22,10 +22,10 @@ export const [usePreviewHue, previewHue] = createStore<number | null>(null);
 
 /**
  * アプリのテーマ。アクセントは選んでいる最中の色があればそれ、無ければログイン中のユーザーの色。
- * ユーザーの取得はルートのガードに任せ、ここはキャッシュを読むだけ。
+ * ユーザーの取得はルートのガードとレイアウト（`routes/_authenticated.tsx`）に任せ、ここは store を読むだけ。
  */
 export function useAppTheme(): Theme {
-  const { data: me } = useQuery({ ...meQueryOptions, enabled: false });
+  const { data: me } = useStoreQuery(meQueryOptions);
   const hue = usePreviewHue() ?? me?.hue;
   return useMemo(() => createAppTheme(hue), [hue]);
 }

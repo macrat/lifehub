@@ -17,7 +17,7 @@ type Props = {
  * 立替の詳細な検索（AppBar の絞り込みボタンで開く）。金額の範囲・日付の範囲・To・From で履歴を絞り込む。
  * 内容のキーワードは AppBar の検索窓が持つのでここには無い。
  * 「検索」ボタンは置かず、入力するたびに絞り込む。絞り込みはサーバーが掛けるので（手元にあるのは読んだページだけ）、
- * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useHistory`）。
+ * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useScreenHistory`）。
  */
 export function ExpenseFilterForm({ open, filters, onChange }: Props) {
   const { users } = useUserLabels();
