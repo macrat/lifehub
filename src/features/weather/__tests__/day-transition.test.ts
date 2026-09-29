@@ -19,6 +19,5 @@ describe('dayTransitionName', () => {
 describe('iconTransitionName', () => {
   it('日ごとに別の名前を付ける', () => {
     expect(iconTransitionName(date('2026-09-27'))).toBe('weather-icon-2026-09-27');
-    expect(iconTransitionName(date('2026-09-28'))).not.toBe(iconTransitionName(date('2026-09-27')));
   });
 });

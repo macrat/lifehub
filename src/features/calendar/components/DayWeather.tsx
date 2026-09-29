@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WeatherIcon } from '../../weather/components/WeatherIcon.tsx';
 import { wideRatio } from '../../weather/components/weather-glyphs.ts';
-import { iconTransitionName, ONLY_IN_WEATHER_TRANSITION } from '../../weather/day-transition.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
@@ -37,11 +36,7 @@ type Props = {
  *   気温の幅は字数分の ch と見る（ch は数字 1 字の幅で、「°」「-」はそれより狭いので上限になる）。
  * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
  * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
- *
- * アイコンには週間天気の同じ日のアイコンと同じ名前（`iconTransitionName`）を付け、行き来するとその場から動く。
- * 名前は出ているほうのアイコン（横並びか重ねた形）にだけ付ける。隠れているほうにも付けると、
- * 撮られはしないが文書の中で同じ名前が 2 つになり、一意であることを確かめられなくなる。
- * 名前は週間天気を開く・閉じる遷移の間だけ有効にする（`ONLY_IN_WEATHER_TRANSITION`。ホームとの間では動かさない）。
+ * アイコンは週間天気の同じ日のアイコンとその場で動く（`iconTransitionName`）。
  */
 export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
@@ -49,8 +44,7 @@ export function DayWeather({ weather, size }: Props) {
   const temp = weather.tempMax === null ? null : `${weather.tempMax}°`;
   const tempWidth = temp === null ? '0px' : `${TEMP_GAP}px + ${temp.length}ch`;
   const narrow = `@container (width < calc(${wide}px + ${tempWidth}))`;
-  const common = { icon: weather.icon, titleAccess: weather.label };
-  const name = iconTransitionName(weather.date);
+  const common = { icon: weather.icon, titleAccess: weather.label, transitionDate: weather.date };
   return (
     <Box
       sx={{
@@ -87,22 +81,12 @@ export function DayWeather({ weather, size }: Props) {
         <WeatherIcon
           {...common}
           layout="wide"
-          sx={{
-            fontSize: size,
-            viewTransitionName: name,
-            [narrow]: { display: 'none', viewTransitionName: 'none' },
-            ...ONLY_IN_WEATHER_TRANSITION,
-          }}
+          sx={{ fontSize: size, [narrow]: { display: 'none' } }}
         />
         <WeatherIcon
           {...common}
           layout="square"
-          sx={{
-            fontSize: size,
-            display: 'none',
-            [narrow]: { display: 'inline-block', viewTransitionName: name },
-            ...ONLY_IN_WEATHER_TRANSITION,
-          }}
+          sx={{ fontSize: size, display: 'none', [narrow]: { display: 'inline-block' } }}
         />
         {temp !== null && (
           <Box component="span" sx={{ lineHeight: `${size}px` }}>
