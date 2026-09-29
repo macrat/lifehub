@@ -1,3 +1,4 @@
+import { subscribe } from 'node:diagnostics_channel';
 import * as Sentry from '@sentry/hono/node';
 import { waitUntil } from '@vercel/functions';
 import { type Env, Hono, type MiddlewareHandler, type Schema } from 'hono';
@@ -15,7 +16,7 @@ import { env } from './env.ts';
  *   409 など）は `console.error` に出さないので送られない。
  * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
  *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
- *   最初の要求かどうか（`faas.coldstart`）を付け、最初の要求には起動のスパンを足す（下の `markColdStart`）。ブラウザから来たトレースを引き継ぐ。
+ *   最初の要求かどうか（`faas.coldstart`）を付け、最初の要求には起動のスパンを足す（下の `coldStartMarker`）。ブラウザから来たトレースを引き継ぐ。
  *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
  *
@@ -26,6 +27,8 @@ import { env } from './env.ts';
 export function initSentry(): void {
   // DSN の無い環境（Preview）では SDK を起こさない（console の差し替えや計測だけが動いて何も送らないため）
   if (!env.SENTRY_DSN) return;
+  // エントリがここを呼ぶのは、アプリのモジュールをすべて読み込んだ後（静的な import は本体より先に評価される）
+  const markColdStart = coldStartMarker(Date.now());
   Sentry.init({
     dsn: env.SENTRY_DSN,
     environment: env.VERCEL_ENV,
@@ -36,7 +39,10 @@ export function initSentry(): void {
       Sentry.consoleLoggingIntegration(),
       // Vercel の実行環境が関数の生存確認に送る要求（`/_vercel/ping`）は、関数が起きている間 1 分に 20 回ほど届く。
       // スパンにすると月に 100 万近くになり、アプリの要求より桁違いに多く無料枠を食うので計らない
-      Sentry.httpIntegration({ ignoreIncomingRequests: (path) => path.startsWith('/_vercel/') }),
+      Sentry.httpIntegration({
+        ignoreIncomingRequests: (path) => path.startsWith('/_vercel/'),
+        onSpanCreated: markColdStart,
+      }),
     ],
     // Node の警告（`(node:4) ExperimentalWarning: ...`）は Vercel の実行環境が起動のたびに console.error へ出す。
     // 不具合ではないのに、エラーとして送ると起動のたびに 1 件ずつ日ごとの上限を減らすので送らない
@@ -118,32 +124,35 @@ export const traceNeonFetch: typeof fetch = (input, init) => {
 };
 
 /**
- * 要求のスパンに、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付ける。起動（モジュールの
- * 読み込みや Neon への最初の接続）の分だけ遅い要求を、普段の遅さと分けて見るため。
+ * 要求のスパンに、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付ける関数を作る
+ * （`httpIntegration` の `onSpanCreated`）。起動（モジュールの読み込みや Neon への最初の接続）の分だけ
+ * 遅い要求を、普段の遅さと分けて見るため。
  * 最初の要求には、プロセスが起きた時刻（Node の `performance.timeOrigin`）からモジュールを読み終えた時刻
  * （`loadedAt`）までのスパン（`function.init`）も子として足す。要求のスパンは要求が届いてから始まるので、
  * それより前の起動の時間はこれが無いと残らない。
- * Vercel Function はインスタンスを使い回すので、最初の 1 回だけ真にする。計らない要求（Vercel の生存確認。
- * `initSentry` の `httpIntegration`）では印を使わない。
+ *
+ * 最初の要求は、Node の HTTP サーバーが受けた要求のうち最初のもの（diagnostics_channel の
+ * `http.server.request.start`）。計らない要求（Vercel の生存確認。`initSentry` の `httpIntegration`）も
+ * 数えるので、生存確認にだけ応えていたインスタンスが次に受けた要求を、起きたばかりの要求と取り違えない。
+ * WHY NOT 計った要求のうちの最初: 計らない要求にはスパンが無く、Sentry の口（`onSpanCreated` や
+ * ミドルウェア）からは見えない。
  */
-function markColdStart(loadedAt: number): MiddlewareHandler {
-  let coldStart = true;
-  return async function markColdStart(_c, next) {
-    const active = Sentry.getActiveSpan();
-    if (active?.isRecording()) {
-      const root = Sentry.getRootSpan(active);
-      root.setAttribute('faas.coldstart', coldStart);
-      if (coldStart) {
-        Sentry.startInactiveSpan({
-          name: 'function init',
-          op: 'function.init',
-          parentSpan: root,
-          startTime: performance.timeOrigin,
-        }).end(loadedAt);
-      }
-      coldStart = false;
+function coldStartMarker(loadedAt: number): (span: Sentry.Span, request: unknown) => void {
+  let firstRequest: unknown;
+  subscribe('http.server.request.start', (message) => {
+    firstRequest ??= (message as { request: unknown }).request;
+  });
+  return (span, request) => {
+    const coldStart = request === firstRequest;
+    span.setAttribute('faas.coldstart', coldStart);
+    if (coldStart) {
+      Sentry.startInactiveSpan({
+        name: 'function init',
+        op: 'function.init',
+        parentSpan: span,
+        startTime: performance.timeOrigin,
+      }).end(loadedAt);
     }
-    await next();
   };
 }
 
@@ -191,8 +200,6 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   if (!Sentry.getClient()) return app;
   const root = new Hono<E, S, B>();
   root.use(Sentry.sentry(root, { shouldHandleError: () => false }));
-  // エントリ（`api/index.ts`）がここを呼ぶのは、アプリのモジュールをすべて読み込んだ後
-  root.use(markColdStart(Date.now()));
   root.use(flushAfterRequest);
   root.route('/', app);
   return root;
