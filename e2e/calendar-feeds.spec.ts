@@ -43,9 +43,12 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   await expect(page.getByText('E2E・相手 の予定・', { exact: false })).toBeVisible();
   expect((await anonymous.get(url)).status()).toBe(200);
 
+  // 一覧からは先に消える（書き込みの結果を先に出す）ので、失効がサーバーに届いてから読む
+  const revoked = page.waitForResponse(carries('calendarFeeds.revoke'));
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByRole('button', { name: '2 人のカレンダー を失効' }).click();
   await expect(page.getByText('2 人のカレンダー')).toBeHidden();
+  expect((await revoked).ok()).toBe(true);
   expect((await anonymous.get(url)).status()).toBe(404);
   await anonymous.dispose();
 });

@@ -122,6 +122,41 @@ test('ホームと週間天気を行き来すると、天気のタイルとそ�
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
 
+test('予定画面と週間天気を行き来すると天気のアイコンが日ごとに同じ名前で在り、ホームへ移るときは無い', async ({
+  page,
+}) => {
+  const iconNames = async () =>
+    (await captured(page)).filter((name) => name.startsWith('weather-icon-'));
+  await recordViewTransitions(page);
+  // 週間天気は、キャッシュに天気の日々があるときだけ撮られる時点に行が載って動く（無ければ骨組みでフェードする）。
+  // 使うときの順（ホームがタイルのために同じキャッシュを読む）で開く
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /^(今日|明日)/ })).toContainText('°');
+  await page.getByRole('link', { name: '予定' }).click();
+  await expect(page).toHaveURL(/\/calendar/);
+  await settle(page);
+  await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));
+  await settle(page);
+  expect(await iconNames()).toEqual(
+    expect.arrayContaining([`weather-icon-${TODAY}`, `weather-icon-${TOMORROW}`]),
+  );
+
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL(/\/calendar/);
+  await settle(page);
+  expect(await iconNames()).toEqual(
+    expect.arrayContaining([`weather-icon-${TODAY}`, `weather-icon-${TOMORROW}`]),
+  );
+  // 同じ名前が撮られる要素に 2 つあれば遷移が失敗する
+  expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
+
+  // ホームと予定画面の両方に同じ日のアイコンがあるので、名前があるとタイルのアイコンが日付の横から飛んでくる
+  await page.getByRole('link', { name: 'ホーム' }).click();
+  await expect(page).toHaveURL('/');
+  await settle(page);
+  expect(await iconNames()).toEqual([]);
+});
+
 test('予定画面の日付の横の天気を押すと週間天気が開く（日表示・月表示）', async ({ page }) => {
   await page.goto(`/calendar?view=day&date=${TODAY}`);
   await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));

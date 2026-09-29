@@ -36,6 +36,7 @@ type Props = {
  *   気温の幅は字数分の ch と見る（ch は数字 1 字の幅で、「°」「-」はそれより狭いので上限になる）。
  * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
  * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
+ * アイコンは週間天気の同じ日のアイコンとその場で動く（`iconTransitionName`）。
  */
 export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
@@ -43,7 +44,7 @@ export function DayWeather({ weather, size }: Props) {
   const temp = weather.tempMax === null ? null : `${weather.tempMax}°`;
   const tempWidth = temp === null ? '0px' : `${TEMP_GAP}px + ${temp.length}ch`;
   const narrow = `@container (width < calc(${wide}px + ${tempWidth}))`;
-  const common = { icon: weather.icon, titleAccess: weather.label };
+  const common = { icon: weather.icon, titleAccess: weather.label, transitionDate: weather.date };
   return (
     <Box
       sx={{

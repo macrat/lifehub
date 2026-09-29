@@ -1,7 +1,9 @@
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
 import { useId } from 'react';
+import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherIcon as Icon, WeatherSymbol } from '../../../../shared/weather.ts';
 import { mergeSx } from '../../../lib/ui/merge-sx.ts';
+import { iconTransitionName, ONLY_IN_WEATHER_TRANSITION } from '../day-transition.ts';
 import { GLYPHS, WIDE_WIDTH } from './weather-glyphs.ts';
 
 /**
@@ -43,11 +45,21 @@ type Props = Omit<SvgIconProps, 'children'> & {
    * 天気が 1 つの日は、どちらでも 1 文字分の正方形に 1 つだけ出す。
    */
   layout: 'wide' | 'square';
+  /** 同じ日のアイコンとその場で動く名前を付ける日（`iconTransitionName`）。省くと付けない */
+  transitionDate?: DateString;
 };
 
 /** 1 日の天気のアイコン。色と大きさは文字と同じく `color` と `fontSize` に従う */
-export function WeatherIcon({ icon, layout, sx, ...props }: Props) {
+export function WeatherIcon({ icon, layout, transitionDate, sx: ownSx, ...rest }: Props) {
   const maskId = useId();
+  const props =
+    transitionDate === undefined
+      ? rest
+      : {
+          ...rest,
+          style: { ...rest.style, viewTransitionName: iconTransitionName(transitionDate) },
+        };
+  const sx = transitionDate === undefined ? ownSx : mergeSx(ONLY_IN_WEATHER_TRANSITION, ownSx);
   if (!('change' in icon)) {
     return (
       <SvgIcon {...props} sx={sx}>
