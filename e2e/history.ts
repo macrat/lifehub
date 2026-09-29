@@ -1,17 +1,18 @@
-import { expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { toDateString } from '../shared/date.ts';
+import { mutate } from './api.ts';
 
 /**
  * 立替・レモンの履歴（`src/lib/ui/HistoryList.tsx`）を確かめるテストの道具。
  * 記録は API で置き、最初の位置は「今日の最後の記録が下部ナビのすぐ上」で見る。
  */
 
-/** 記録の出どころ。api に body で作った本文を送ると 1 件増える */
+/** 記録の出どころ。手続き（`expenses` など）の create に body で作った入力を送ると 1 件増える */
 type History = { api: string; body: (me: string, at: Date, text: string) => object };
 
 /** 立替（自分が払った 100 円） */
 export const expenseHistory: History = {
-  api: '/api/expenses',
+  api: 'expenses',
   body: (me, at, text) => ({
     fromUserId: me,
     toUserId: null,
@@ -23,18 +24,17 @@ export const expenseHistory: History = {
 
 /** レモンの世話の記録（水やり） */
 export const careLogHistory: History = {
-  api: '/api/lemon/logs',
+  api: 'lemon',
   body: (_me, at, text) => ({ careTypes: ['water'], doneAt: at.toISOString(), note: text }),
 };
 
 /** 置いた記録。後で `deleteRecord` で消す */
 export type Created = { api: string; id: string };
 
-/** 記録を 1 件置く。ID は送る側が決める（書き込みの応答は本文を返さない） */
+/** 記録を 1 件置く（api は `expenses` などの手続きのまとまり）。ID は送る側が決める（書き込みは値を返さない） */
 export async function postRecord(page: Page, api: string, body: object): Promise<Created> {
   const id = crypto.randomUUID();
-  const res = await page.request.post(api, { data: { id, ...body } });
-  expect(res.ok(), await res.text()).toBe(true);
+  await mutate(page.request, `${api}.create`, { id, ...body });
   return { api, id };
 }
 
@@ -50,7 +50,7 @@ export function addRecord(
 }
 
 export async function deleteRecord(page: Page, { api, id }: Created) {
-  await page.request.delete(`${api}/${id}`);
+  await mutate(page.request, `${api}.delete`, { id });
 }
 
 /** スマホの下部ナビ（画面の最後の navigation） */

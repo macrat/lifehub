@@ -1,15 +1,13 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { InferResponseType } from 'hono/client';
-import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
-import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
+import { type ApiOutputs, api, write } from '../../lib/api.ts';
 import { useOptimisticMutation } from '../../lib/query-client.ts';
 
 /** カレンダーの ics 配信 URL（[docs/features/calendar-feeds.md](../../../docs/features/calendar-feeds.md)） */
-export type CalendarFeed = InferResponseType<typeof api.calendar.feeds.$get>[number];
+export type CalendarFeed = ApiOutputs['calendarFeeds']['list'][number];
 
 export const calendarFeedsQueryOptions = queryOptions({
   queryKey: ['calendar-feeds'],
-  queryFn: async () => (await ensureOk(await api.calendar.feeds.$get())).json(),
+  queryFn: ({ signal }) => api.calendarFeeds.list.query(undefined, { signal }),
 });
 
 /**
@@ -19,7 +17,7 @@ export const calendarFeedsQueryOptions = queryOptions({
  */
 export function useCreateCalendarFeed() {
   return useOptimisticMutation({
-    request: createRequest<CalendarFeedInput>(api.calendar.feeds),
+    request: write.calendarFeeds.create,
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
   });
@@ -32,7 +30,7 @@ export function useCreateCalendarFeed() {
  */
 export function useUpdateCalendarFeed() {
   return useOptimisticMutation({
-    request: itemRequest<CalendarFeedInput & { id: string }>('PATCH', api.calendar.feeds[':id']),
+    request: write.calendarFeeds.update,
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
     apply: (client, { id, ...input }) => {
@@ -49,7 +47,7 @@ export function useUpdateCalendarFeed() {
  */
 export function useRevokeCalendarFeed() {
   return useOptimisticMutation({
-    request: deleteRequest(api.calendar.feeds[':id']),
+    request: (id: string) => write.calendarFeeds.revoke({ id }),
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
     apply: (client, id) => {

@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api } from '../../lib/api.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
 
 /**
@@ -24,7 +24,7 @@ export function isStandalone(): boolean {
 
 const vapidKeyQueryOptions = queryOptions({
   queryKey: ['push', 'vapid'],
-  queryFn: async () => (await ensureOk(await api.push['vapid-public-key'].$get())).json(),
+  queryFn: ({ signal }) => api.push.vapidPublicKey.query(undefined, { signal }),
   staleTime: Number.POSITIVE_INFINITY,
 });
 
@@ -40,13 +40,14 @@ async function currentSubscription(): Promise<PushSubscription | null> {
  */
 export const pushStatusQueryOptions = queryOptions({
   queryKey: ['push', 'status'],
-  queryFn: async () => {
+  queryFn: async ({ signal }) => {
     const subscription = await currentSubscription();
     if (!subscription) return { subscribed: false, permission: Notification.permission };
-    const res = await ensureOk(
-      await api.push.subscriptions.status.$get({ query: { endpoint: subscription.endpoint } }),
+    const { subscribed } = await api.push.status.query(
+      { endpoint: subscription.endpoint },
+      { signal },
     );
-    return { ...(await res.json()), permission: Notification.permission };
+    return { subscribed, permission: Notification.permission };
   },
 });
 
@@ -78,14 +79,10 @@ export function useSubscribePush() {
       const json = subscription.toJSON();
       if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth)
         throw new Error('購読情報を取得できませんでした');
-      await ensureOk(
-        await api.push.subscriptions.$post({
-          json: {
-            endpoint: json.endpoint,
-            keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-          },
-        }),
-      );
+      await api.push.subscribe.mutate({
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: pushStatusQueryOptions.queryKey }),
   });
@@ -99,9 +96,7 @@ export function useUnsubscribePush() {
     mutationFn: async () => {
       const subscription = await currentSubscription();
       if (!subscription) return;
-      await ensureOk(
-        await api.push.subscriptions.$delete({ json: { endpoint: subscription.endpoint } }),
-      );
+      await api.push.unsubscribe.mutate({ endpoint: subscription.endpoint });
       await subscription.unsubscribe();
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: pushStatusQueryOptions.queryKey }),

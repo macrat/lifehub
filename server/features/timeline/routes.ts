@@ -1,12 +1,8 @@
-import { Hono } from 'hono';
 import { timelineQuerySchema } from '../../../shared/validation/timeline.ts';
-import type { AppEnv } from '../../lib/app-env.ts';
-import { validate } from '../../lib/validator.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
-/** ホームのタイムラインの 1 ページ（`/api/timeline?q&since&until&before`） */
-export const timelineRoutes = new Hono<AppEnv>().get(
-  '/',
-  validate('query', timelineQuerySchema),
-  async (c) => c.json(await service.getTimelinePage(c.req.valid('query'))),
-);
+/** ホームのタイムラインの 1 ページ（絞り込み q・期間 since/until・続きの before） */
+export const timelineRouter = router({
+  get: procedure.input(timelineQuerySchema).query(({ input }) => service.getTimelinePage(input)),
+});

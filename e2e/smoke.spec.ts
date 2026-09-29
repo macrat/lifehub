@@ -1,17 +1,17 @@
 import { expect, type Page, test } from '@playwright/test';
+import { query } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
+import { carries } from './network.ts';
 
 /** サーバーに保存されているログイン中のユーザーの色相 */
 async function hue(page: Page): Promise<number> {
-  const res = await page.request.get('/api/me');
-  return (await res.json()).hue;
+  return (await query<{ hue: number }>(page.request, 'me.get')).hue;
 }
 
 /** サーバーに保存されているログイン中のユーザーの終日の通知時刻（0:00 からの分） */
 async function notifyMinutes(page: Page): Promise<number> {
-  const res = await page.request.get('/api/me');
-  return (await res.json()).allDayNotifyMinutes;
+  return (await query<{ allDayNotifyMinutes: number }>(page.request, 'me.get')).allDayNotifyMinutes;
 }
 
 /** 画面上部の取得・保存中インジケータの色。アクセントカラー（primary）がそのまま出る所 */
@@ -87,7 +87,7 @@ test('選んだ色はその場でアクセントカラーになり、保存す�
   // 保存ボタンを押すとサーバーに送られ、その色が保存済みの色になる
   await page.goto('/settings');
   await slider.press('Home');
-  const saving = page.waitForResponse((res) => res.request().method() === 'PATCH');
+  const saving = page.waitForResponse(carries('users.update'));
   const save = page.getByRole('region', { name: '色' }).getByRole('button', { name: '保存' });
   await save.click();
   expect((await saving).ok()).toBe(true);
@@ -111,7 +111,7 @@ test('終日の通知時刻は設定画面で選び、保存ボタンで保存�
       ? { value: '07:15', minutes: 7 * 60 + 15 }
       : { value: '06:30', minutes: 6 * 60 + 30 };
   await time.fill(next.value);
-  const saving = page.waitForResponse((res) => res.request().method() === 'PATCH');
+  const saving = page.waitForResponse(carries('users.update'));
   await save.click();
   expect((await saving).ok()).toBe(true);
   await expect(save).toBeDisabled();

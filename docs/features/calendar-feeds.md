@@ -56,15 +56,18 @@ URL ごとに**載せる参加者**を選ぶ。選んだ人の誰かが入って
 
 ## API
 
+| 手続き | 種類 | 認証 | 内容 |
+|---|---|---|---|
+| `calendarFeeds.list` | 読み出し | セッション | 自分が発行した配信 URL の一覧（id, name, url, participantIds, createdAt, lastAccessedAt） |
+| `calendarFeeds.create` | 書き込み | セッション | 発行（名前と参加者を送る。トークンはサーバーが作る）。値は返さず、発行した URL は画面が書き込み後に取り直す一覧から読む |
+| `calendarFeeds.update` | 書き込み | セッション | 名前と参加者の変更（入力は配信 URL の `id` と名前・参加者。自分のものだけ）。URL は変わらない。値は返さない |
+| `calendarFeeds.revoke` | 書き込み | セッション | 失効（入力は `id`。自分のものだけ） |
+
 | メソッド | パス | 認証 | 内容 |
 |---|---|---|---|
-| GET | `/api/calendar/feeds` | セッション | 自分が発行した配信 URL の一覧（id, name, url, participantIds, createdAt, lastAccessedAt） |
-| POST | `/api/calendar/feeds` | セッション | 発行（名前と参加者を送る。トークンはサーバーが作る）。応答は 204 で、発行した URL は画面が書き込み後に取り直す一覧から読む |
-| PATCH | `/api/calendar/feeds/:id` | セッション | 名前と参加者の変更（自分のものだけ）。URL は変わらない。応答は 204 |
-| DELETE | `/api/calendar/feeds/:id` | セッション | 失効（自分のものだけ） |
 | GET | `/api/calendar/<token>.ics` | **なし** | ics の配信 |
 
-- ics の配信だけ `server/app.ts` の `requireSession` より前に登録する。購読するカレンダーはログインの Cookie を送れないので、**URL のトークンを知っていることだけが資格**になる。`.ics` で終わるパスしか受けないので、同じ `/api/calendar` の下の `feeds` とは衝突しない。
+- ics の配信だけ `server/app.ts` の `requireSession` より前に登録する。購読するカレンダーはログインの Cookie を送れないので、**URL のトークンを知っていることだけが資格**になる。`.ics` で終わるパスしか受けない。
 - 知らないトークンは 404 だけを返し、理由は返さない。
 - 応答は `text/calendar; charset=utf-8` と `Cache-Control: private, no-cache`（内容は今日を軸に毎日変わる）。取り直しの推奨間隔（`REFRESH-INTERVAL` と `X-PUBLISHED-TTL`）は 1 時間。
 

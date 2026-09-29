@@ -4,8 +4,8 @@ import { createFeed, listFeeds } from '../features/calendar-feeds/service.ts';
 import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 
 /**
- * `/api/calendar` の下には、ログインが要る配信 URL の管理（`feeds`）と、ログインの要らない
- * ics の配信（`<token>.ics`）が同居する。取り違えるとカレンダー全体が誰にでも読めるか、
+ * `/api/calendar` の下のログインの要らない ics の配信（`<token>.ics`）と、ログインが要る配信 URL の管理
+ * （画面の API の `calendarFeeds`）。取り違えるとカレンダー全体が誰にでも読めるか、
  * 逆に購読できなくなるので、入口ごとの扱いをここで確かめる。
  */
 describe('カレンダー配信のルート', () => {
@@ -22,7 +22,7 @@ describe('カレンダー配信のルート', () => {
     expect(ics.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
     expect(await ics.text()).toContain('BEGIN:VCALENDAR');
 
-    expect((await app.request('/api/calendar/feeds')).status).toBe(401);
+    expect((await app.request('/api/trpc/calendarFeeds.list')).status).toBe(401);
   });
 
   it('知らないトークンは 404', async () => {

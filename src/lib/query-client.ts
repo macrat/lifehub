@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-query';
 import { del, get, set } from 'idb-keyval';
 import { newId } from '../../shared/id.ts';
-import { NetworkError, sendWrite, type WriteRequest } from './api.ts';
+import { isNetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { signedInUserId } from './auth.ts';
 import { withMoveAnimation } from './move-animation.ts';
 import { notify } from './ui/notice.ts';
@@ -178,7 +178,7 @@ const settleWrite = {
 queryClient.setMutationDefaults<unknown, Error, Write<unknown>, Snapshot>(WRITE_MUTATION_KEY, {
   ...settleWrite,
   scope: { id: 'write' },
-  retry: (failureCount, error) => error instanceof NetworkError && failureCount < 5,
+  retry: (failureCount, error) => isNetworkError(error) && failureCount < 5,
 });
 
 /** 溜めない書き込みの既定。オフラインでも送信を試みてその場で失敗させる（保留にすると結果が出ない） */
@@ -200,7 +200,7 @@ type OptimisticMutationOptions<TInput> = {
   request: (input: TInput) => WriteRequest;
   keys: WriteKeys;
   /** 送信と同時にキャッシュへ書き込む、サーバーが返すはずの値。取得済みのクエリだけを書き換える */
-  apply?: (client: QueryClient, input: TInput) => void;
+  apply?: (client: QueryClient, input: NoInfer<TInput>) => void;
   /**
    * オフラインで溜めずにその場で失敗させる。溜めても意味が無い書き込みを false にする:
    * 端末に残したくないもの（パスワードを含むユーザーの登録・変更）と、

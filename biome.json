@@ -260,7 +260,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   }
                 ]
               }
@@ -280,7 +280,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/features/**"],
@@ -304,7 +304,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**", "!**/server/app.ts"],
-                    "message": "クライアントはサーバーのコードを読まない。API の型（server/app.ts の AppType）だけを import type で読む"
+                    "message": "クライアントはサーバーのコードを読まない。API の型（server/app.ts の AppRouter）だけを import type で読む"
                   },
                   {
                     "group": ["**/features/**"],
@@ -328,7 +328,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/lib/api.ts"],
@@ -352,7 +352,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/lib/api.ts"],
@@ -392,7 +392,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/lib/api.ts"],
@@ -420,7 +420,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/lib/api.ts"],
@@ -460,7 +460,7 @@
                 "patterns": [
                   {
                     "group": ["**/server/**"],
-                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppType を型としてだけ読む）"
+                    "message": "クライアントはサーバーのコードを読まない（API の型は src/lib/api.ts が AppRouter を型としてだけ読む）"
                   },
                   {
                     "group": ["**/calendar/**"],

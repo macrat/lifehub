@@ -4,8 +4,8 @@ import {
   type UseQueryResult,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { InferRequestType } from 'hono/client';
 import { useCallback, useEffect } from 'react';
+import type { z } from 'zod';
 import {
   type CalendarItem,
   type CalendarPeriod,
@@ -14,7 +14,8 @@ import {
 } from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
-import { api, createRequest, ensureOk, itemRequest } from '../../lib/api.ts';
+import type { updateEventSchema } from '../../../shared/validation/events.ts';
+import { type ApiInputs, api, write } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
   type QueryState,
@@ -25,20 +26,17 @@ import { useStoreQueries } from '../../lib/screen-data.ts';
 import { applyToTimeline, findInTimeline, TIMELINE_QUERY_KEY } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
-import { type WriteTarget, writeTarget } from './recurrence-options.ts';
+import { writeTarget } from './recurrence-options.ts';
 
 /** API へ送る形（日時は ISO 文字列）。サーバーの Zod スキーマの入力型から導く。 */
-export type CreateEventBody = InferRequestType<typeof api.events.$post>['json'];
-export type UpdateEventBody = InferRequestType<(typeof api.events)[':id']['$put']>['json'];
+export type CreateEventBody = ApiInputs['events']['create'];
+export type UpdateEventBody = z.input<typeof updateEventSchema>;
 
 /** 保存されている行そのもの。繰り返しの「すべて」を編集するときに使う。 */
 export function eventQueryOptions(id: string) {
   return queryOptions({
     queryKey: [...EVENTS_QUERY_KEY, id],
-    queryFn: async () => {
-      const res = await ensureOk(await api.events[':id'].$get({ param: { id } }));
-      return res.json();
-    },
+    queryFn: ({ signal }) => api.events.get.query({ id }, { signal }),
   });
 }
 
@@ -58,7 +56,7 @@ const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, TIMELINE_QUERY_KEY];
 
 export function useCreateEvent() {
   return useCreateMutation<CreateEventBody>({
-    request: createRequest(api.events),
+    request: write.events.create,
     keys: WRITE_KEYS,
     apply: insertItem,
   });
@@ -66,7 +64,7 @@ export function useCreateEvent() {
 
 export function useUpdateEvent() {
   return useOptimisticMutation({
-    request: itemRequest<UpdateEventBody & { id: string }>('PUT', api.events[':id']),
+    request: write.events.update,
     keys: WRITE_KEYS,
     apply: updateItem,
   });
@@ -74,7 +72,7 @@ export function useUpdateEvent() {
 
 export function useDeleteEvent() {
   return useOptimisticMutation({
-    request: itemRequest<WriteTarget>('DELETE', api.events[':id']),
+    request: write.events.delete,
     keys: WRITE_KEYS,
     apply: removeItem,
   });
@@ -92,14 +90,14 @@ export function useToggleCompletion() {
       occurrenceStart: string | null;
       completed: boolean;
     }) => ({ ...target, completedAt: completed ? new Date().toISOString() : null }),
-    request: ({ id, occurrenceStart, completedAt }) => ({
-      method: completedAt ? ('POST' as const) : ('DELETE' as const),
-      path: api.events[':id'].complete.$url({ param: { id } }).pathname,
-      body: {
-        occurrenceStart: occurrenceStart ?? undefined,
-        completedAt: completedAt ?? undefined,
-      },
-    }),
+    request: ({ id, occurrenceStart, completedAt }) =>
+      completedAt
+        ? write.events.complete({
+            id,
+            occurrenceStart: occurrenceStart ?? undefined,
+            completedAt,
+          })
+        : write.events.uncomplete({ id, occurrenceStart: occurrenceStart ?? undefined }),
     keys: WRITE_KEYS,
     apply: (client, { id, occurrenceStart, completedAt }) => {
       setCompleted(client, writeTarget({ id, occurrenceStart }, 'this'), completedAt);
@@ -146,10 +144,8 @@ export function calendarMonthQueryOptions(month: string) {
      */
     staleTime: Number.POSITIVE_INFINITY,
     // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
-    queryFn: async (): Promise<CalendarPeriod> => {
-      const res = await ensureOk(await api.calendar.$get({ query: monthRange(month) }));
-      return res.json();
-    },
+    queryFn: ({ signal }): Promise<CalendarPeriod> =>
+      api.calendar.get.query(monthRange(month), { signal }),
   });
 }
 

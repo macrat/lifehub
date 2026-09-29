@@ -17,13 +17,13 @@
 
 ## API（`server/features/memos/routes.ts`）
 
-| メソッド | パス | 内容 |
+| 手続き | 種類 | 内容 |
 |---|---|---|
-| POST | `/api/memos` | 作成。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
-| PUT | `/api/memos/:id` | 本文を置き換える。書いた本人以外は 403 |
-| DELETE | `/api/memos/:id` | 削除。書いた本人以外は 403 |
+| `memos.create` | 書き込み | 作成。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない） |
+| `memos.update` | 書き込み | 本文を置き換える（入力はメモの `id` と本文）。書いた本人以外は拒む（`FORBIDDEN`） |
+| `memos.delete` | 書き込み | 削除（入力は `id`）。書いた本人以外は拒む（`FORBIDDEN`） |
 
-読むのはタイムライン（`GET /api/timeline`）だけなので、一覧の口は持たない。
+読むのはタイムライン（`timeline.get`）だけなので、一覧の手続きは持たない。
 
 ## MCP ツール
 

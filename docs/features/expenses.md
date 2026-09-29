@@ -19,7 +19,7 @@
 
 ## 計算ルール
 
-A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。端数は切り捨て）。精算「B が A に払った」も B→A の行として同じ式に入るので、払えば債権が減る。計算式は `shared/expenses.ts` の `balanceOf` 1 箇所に置き、サーバー（`getBalance`）とクライアントが同じものを使う。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても残高の応答は変わらない。クライアントはその合計（`GET /api/expenses/totals`）を受け取って残高を導き（`useBalance`）、書き込みの結果を先に出すとき（楽観的更新）は合計に 1 件分を足し引きする。残高そのものからは折半の端数が分からず正しく足し引きできないため、残高ではなく合計を持つ。
+A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A（X→Y = X が Y のために払った額。端数は切り捨て）。精算「B が A に払った」も B→A の行として同じ式に入るので、払えば債権が減る。計算式は `shared/expenses.ts` の `balanceOf` 1 箇所に置き、サーバー（`getBalance`）とクライアントが同じものを使う。サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても残高の応答は変わらない。クライアントはその合計（`expenses.totals`）を受け取って残高を導き（`useBalance`）、書き込みの結果を先に出すとき（楽観的更新）は合計に 1 件分を足し引きする。残高そのものからは折半の端数が分からず正しく足し引きできないため、残高ではなく合計を持つ。
 
 ## データ
 
@@ -27,13 +27,13 @@ A が B に対して持つ債権 = (Σ A→共有 − Σ B→共有) / 2 + Σ A�
 
 ## API（`server/features/expenses/routes.ts`）
 
-| メソッド | パス | 内容 |
+| 手続き | 種類 | 内容 |
 |---|---|---|
-| GET | `/api/expenses?before=YYYY-MM-DD&q=&min=&max=&since=&until=&to=&from=` | 履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。新しいほうから 50 件ほどで、日の途中では切らない（同じ日の立替は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。絞り込みは画面と同じ（範囲は両端を含み、キーワードは内容の大文字小文字を区別しない部分一致） |
-| GET | `/api/expenses/totals` | 残高の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`。最大 6 行） |
-| POST | `/api/expenses` | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。応答は 204 |
-| PUT | `/api/expenses/:id` | 編集。全項目を置き換える（入力は追加と同じ形）。応答は 204 |
-| DELETE | `/api/expenses/:id` | 削除 |
+| `expenses.list` | 読み出し | 履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。入力は続きの `before`（YYYY-MM-DD）と絞り込み（`q` / `min` / `max` / `since` / `until` / `to` / `from`）。新しいほうから 50 件ほどで、日の途中では切らない（同じ日の立替は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。絞り込みは画面と同じ（範囲は両端を含み、キーワードは内容の大文字小文字を区別しない部分一致） |
+| `expenses.totals` | 読み出し | 残高の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`。最大 6 行） |
+| `expenses.create` | 書き込み | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
+| `expenses.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
+| `expenses.delete` | 書き込み | 削除（入力は `id`） |
 
 入力スキーマは `shared/validation/expenses.ts`。
 

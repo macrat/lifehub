@@ -3,20 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { addDays, minutesOfDay, today } from '../../../shared/date.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api } from '../../lib/api.ts';
 import { type HistorySource, historyQueryOptions } from '../../lib/history.ts';
 import type { QueryState } from '../../lib/query-client.ts';
 import { useStoreInfiniteQuery } from '../../lib/screen-data.ts';
 
 /**
- * 天気の日々（`src/lib/history.ts`。天気の画面とホームのタイルが読む。画面は `useScreenHistory` で購読する）。1 ページは `GET /api/weather?before`（before を省くと、今日の 1 週間前から
+ * 天気の日々（`src/lib/history.ts`。天気の画面とホームのタイルが読む。画面は `useScreenHistory` で購読する）。1 ページは `weather.page`（before を省くと、今日の 1 週間前から
  * 週間予報の終わりまで）。上へスクロールすると過ぎた日を 2 週間ずつ読み足す。
  * 今日を一番上に出す一覧なので、今日は未来の側に入れる（`todayAtTop`）。絞り込みは無いので、filter はいつも空。
  */
 export const weatherHistory: HistorySource<WeatherDay, Record<string, never>> = {
   key: ['weather', 'days'],
-  fetch: async (_filter, before, signal) =>
-    (await ensureOk(await api.weather.$get({ query: { before } }, { init: { signal } }))).json(),
+  fetch: (_filter, before, signal) => api.weather.page.query({ before }, { signal }),
   dayOf: (day) => day.date,
   sort: (days) => days.toSorted((a, b) => a.date.localeCompare(b.date)),
   todayAtTop: true,

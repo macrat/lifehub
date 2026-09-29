@@ -39,7 +39,7 @@ function buildWrite(key: 'write' | 'direct-write' = 'write') {
 function runWrite(author: string | null, key: 'write' | 'direct-write' = 'write') {
   const mutation = buildWrite(key);
   const done = mutation.execute({
-    request: { method: 'POST', path: '/api/lemon/logs', body: {} },
+    request: { path: 'lemon.create', input: {} },
     keys: [],
     input: {},
     author,
@@ -68,7 +68,7 @@ describe('書き込みの送信', () => {
   it('書いた人がログインしたままなら送る', async () => {
     const fetch = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(null, { status: 204 }));
+      .mockResolvedValue(Response.json([{ result: { data: null } }]));
     queryClient.setQueryData(meQueryOptions.queryKey, { id: 'u1' } as Me);
 
     await runWrite('u1').done;
@@ -139,13 +139,26 @@ describe('書き込みの失敗', () => {
   it('投機的に出した値を送信前へ戻して理由を知らせ、次の書き込みは待たされずに送れる', async () => {
     const fetch = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(Response.json({ message: '保存できませんでした' }, { status: 500 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(
+        Response.json(
+          [
+            {
+              error: {
+                message: '保存できませんでした',
+                code: -32600,
+                data: { code: 'BAD_REQUEST', httpStatus: 400 },
+              },
+            },
+          ],
+          { status: 400 },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json([{ result: { data: null } }]));
     queryClient.setQueryData(meQueryOptions.queryKey, { id: 'u1' } as Me);
     queryClient.setQueryData(['items'], ['a']);
     const { read, unmount } = renderHook(() => ({
       write: useOptimisticMutation<string>({
-        request: (text) => ({ method: 'POST', path: '/api/items', body: { text } }),
+        request: (text) => ({ path: 'items.add', input: { text } }),
         keys: [['items']],
         apply: (client, text) =>
           client.setQueryData<string[]>(['items'], (old) => [...(old ?? []), text]),

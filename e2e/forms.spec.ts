@@ -42,7 +42,7 @@ test('スマホでは項目の少ないフォームが画面の下のシート�
   // 開き直して保存する
   await page.getByRole('button', { name: 'レモンの記録を追加' }).click();
   await page.getByLabel('メモ', { exact: true }).fill('楽観的更新のテスト');
-  await stall(page, ['/api/lemon/']);
+  await stall(page, ['lemon.']);
   await page.getByRole('button', { name: '保存' }).click();
 
   // 保存も再取得も返らないうちに、閉じて記録と状態（今日）が出る

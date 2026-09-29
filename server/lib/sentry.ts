@@ -14,8 +14,8 @@ import { env } from './env.ts';
  *   ハンドラ（`server/app.ts`）、応答の後の処理（`after-response.ts`）、通知の予約と送信でそれぞれ
  *   `console.error` に出しているので、報告の呼び出しを個々に足さずに済み、足し忘れもない。業務エラー（404 や
  *   409 など）は `console.error` に出さないので送られない。
- * - トレース: 要求 1 つにつき、ルート名（`GET /api/events/:id`）のスパンと、その下のミドルウェア・Neon への
- *   問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
+ * - トレース: 要求 1 つにつき、ルート名（`GET /api/trpc/*`）のスパンと、その下のミドルウェア・画面の API の
+ *   手続き（`trpc/timeline.get`。`lib/trpc.ts`）・Neon への問い合わせ（SQL 文。下の `traceNeonFetch`）・外部への要求のスパン。要求のスパンには、インスタンスが起きて
  *   最初の要求かどうか（`faas.coldstart`）を付け、最初の要求には起動のスパンを足す（下の `coldStartMarker`）。ブラウザから来たトレースを引き継ぐ。
  *   すべて送る（`tracesSampleRate: 1`。無料枠に収まる見積もりは docs/operations.md の「監視（Sentry）」）。
  * - ログ: `console` に出したものすべて（`consoleLoggingIntegration`）。
@@ -203,20 +203,4 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   root.use(flushAfterRequest);
   root.route('/', app);
   return root;
-}
-
-/** パスの中の UUID（記録の ID）。スパンの名前を記録ごとに分けないよう `:id` に置き換える */
-const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$)/gi;
-
-/**
- * 束ねた要求（`/api/batch`）の中の 1 本を、束ねた要求のスパンの下の 1 つのスパン（`GET /api/timeline` のような
- * 名前）にする。中の要求はアプリの中で送るので要求のスパンができず、これが無いとどのルートに時間が
- * 掛かったかがトレースに出ない。名前はルートの形に寄せる（クエリを落とし、ID を `:id` にする）。
- */
-export function traceBatchPart<T>(path: string, run: () => Promise<T>): Promise<T> {
-  const pathname = path.split('?')[0] ?? path;
-  return Sentry.startSpan(
-    { name: `GET ${pathname.replace(UUID_SEGMENT, '/:id')}`, op: 'http.subrequest' },
-    run,
-  );
 }

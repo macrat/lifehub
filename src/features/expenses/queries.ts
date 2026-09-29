@@ -9,7 +9,7 @@ import {
   sortExpenses,
 } from '../../../shared/expenses.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
-import { api, createRequest, deleteRequest, ensureOk, itemRequest } from '../../lib/api.ts';
+import { api, write } from '../../lib/api.ts';
 import type { HistorySource } from '../../lib/history.ts';
 import {
   type QueryState,
@@ -40,10 +40,7 @@ const WRITE_KEYS = [EXPENSES_QUERY_KEY, TIMELINE_QUERY_KEY];
  */
 export const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
   key: [...EXPENSES_QUERY_KEY, 'list'],
-  fetch: async (filter, before, signal) => {
-    const query = { ...filter, min: filter.min?.toString(), max: filter.max?.toString(), before };
-    return (await ensureOk(await api.expenses.$get({ query }, { init: { signal } }))).json();
-  },
+  fetch: (filter, before, signal) => api.expenses.list.query({ ...filter, before }, { signal }),
   dayOf: (expense) => expense.spentOn,
   sort: sortExpenses,
 };
@@ -54,8 +51,8 @@ const expenseCache = timelineRecordCache('expense', expenseHistory);
 /** 残高の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `balanceOf` が読む形） */
 export const totalsQueryOptions = queryOptions({
   queryKey: [...EXPENSES_QUERY_KEY, 'totals'],
-  queryFn: async (): Promise<ExpenseTotal[]> =>
-    (await ensureOk(await api.expenses.totals.$get())).json(),
+  queryFn: ({ signal }): Promise<ExpenseTotal[]> =>
+    api.expenses.totals.query(undefined, { signal }),
 });
 
 /**
@@ -77,7 +74,7 @@ export function useBalance(): QueryState<Balance> {
 
 export function useAddExpense() {
   return useCreateMutation<ExpenseBody>({
-    request: createRequest(api.expenses),
+    request: write.expenses.create,
     keys: WRITE_KEYS,
     apply: (client, input) => {
       applyChange(client, input.id, null, { ...input, createdAt: new Date().toISOString() });
@@ -86,8 +83,8 @@ export function useAddExpense() {
 }
 
 export function useUpdateExpense() {
-  return useOptimisticMutation({
-    request: itemRequest<ExpenseBody & { id: string }>('PUT', api.expenses[':id']),
+  return useOptimisticMutation<ExpenseBody & { id: string }>({
+    request: write.expenses.update,
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {
       const prev = expenseCache.find(client, id);
@@ -98,7 +95,7 @@ export function useUpdateExpense() {
 
 export function useDeleteExpense() {
   return useOptimisticMutation({
-    request: deleteRequest(api.expenses[':id']),
+    request: (id: string) => write.expenses.delete({ id }),
     keys: WRITE_KEYS,
     apply: (client, id) => {
       const prev = expenseCache.find(client, id);

@@ -1,27 +1,26 @@
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { type Handler, Hono, type MiddlewareHandler } from 'hono';
 import { etag } from 'hono/etag';
 import { HTTPException } from 'hono/http-exception';
-import { batchQuerySchema } from '../shared/validation/batch.ts';
 import { cronRoutes } from './cron.ts';
-import { apiKeysRoutes } from './features/api-keys/routes.ts';
-import { calendarRoutes } from './features/calendar/routes.ts';
-import { calendarFeedsRoutes, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
-import { eventsRoutes } from './features/events/routes.ts';
-import { expensesRoutes } from './features/expenses/routes.ts';
-import { lemonRoutes } from './features/lemon/routes.ts';
-import { memosRoutes } from './features/memos/routes.ts';
-import { pushRoutes } from './features/push/routes.ts';
+import { apiKeysRouter } from './features/api-keys/routes.ts';
+import { calendarRouter } from './features/calendar/routes.ts';
+import { calendarFeedsRouter, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
+import { eventsRouter } from './features/events/routes.ts';
+import { expensesRouter } from './features/expenses/routes.ts';
+import { lemonRouter } from './features/lemon/routes.ts';
+import { memosRouter } from './features/memos/routes.ts';
+import { pushRouter } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
-import { timelineRoutes } from './features/timeline/routes.ts';
-import { meRoutes, usersRoutes } from './features/users/routes.ts';
-import { weatherRoutes } from './features/weather/routes.ts';
+import { timelineRouter } from './features/timeline/routes.ts';
+import { meRouter, usersRouter } from './features/users/routes.ts';
+import { weatherRouter } from './features/weather/routes.ts';
 import type { AppEnv } from './lib/app-env.ts';
 import { getAuth } from './lib/auth.ts';
-import { runBatchRequests } from './lib/batch.ts';
 import { pingDatabase } from './lib/db/health.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './lib/errors.ts';
 import { requireSession } from './lib/middleware.ts';
-import { validate } from './lib/validator.ts';
+import { router } from './lib/trpc.ts';
 import { mcpRoutes } from './mcp.ts';
 import { qstashRoutes } from './qstash.ts';
 
@@ -29,9 +28,29 @@ import { qstashRoutes } from './qstash.ts';
 const authHandler: Handler<AppEnv> = async (c) => (await getAuth()).handler(c.req.raw);
 
 /**
- * `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。
- * `AppType` を Hono RPC クライアント（src/lib/api.ts）が参照するため、ルートは必ずメソッドチェーンで登録する。
+ * 画面専用の API（tRPC。`lib/trpc.ts`）。互換性や REST としての形より通信の本数と量を優先する
+ * （docs/architecture.md）。`AppRouter` をクライアント（src/lib/api.ts）が型として参照する。
+ * 書き込みは値を返さない。画面は送った内容で先に書き換え、後で取り直して揃えるので、返しても読まれない。
+ * 例外は API キーの発行で、キーそのものを見せられるのは発行の応答だけなので返す。
  */
+const appRouter = router({
+  me: meRouter,
+  users: usersRouter,
+  calendar: calendarRouter,
+  events: eventsRouter,
+  calendarFeeds: calendarFeedsRouter,
+  apiKeys: apiKeysRouter,
+  expenses: expensesRouter,
+  lemon: lemonRouter,
+  memos: memosRouter,
+  timeline: timelineRouter,
+  weather: weatherRouter,
+  push: pushRouter,
+});
+
+export type AppRouter = typeof appRouter;
+
+/** `/api` 配下。ルートの登録とミドルウェアの適用だけを行い、業務ロジックは各 feature の service に置く。 */
 const api = new Hono<AppEnv>().basePath('/api');
 
 // 認証不要: ヘルスチェックと better-auth 自身のエンドポイント
@@ -58,8 +77,8 @@ api.on(['GET', 'POST'], '/auth/*', authHandler);
 // MCP は OAuth のアクセストークンで保護する（セッションではない）
 api.route('/mcp', mcpRoutes);
 // ics の配信は URL のトークンだけを資格にする（購読するカレンダーは Cookie を送れない）。
-// この下の /calendar と /calendar/feeds はログイン必須のままにしたいので、ics 側は `.ics` で終わるパスしか
-// 受けない（routes.ts の `:file` の制約）。その制約が両者を分けているので、緩めてはいけない。
+// ログインの要らない口なので、`.ics` で終わるパスしか受けない（routes.ts の `:file` の制約）。
+// 緩めると /calendar の下のほかのパスまでログイン無しで届くので、緩めてはいけない。
 api.route('/calendar', calendarIcsRoutes);
 // 記録投入用エンドポイントは API キーで保護する（デバイスや外部のサービスは Cookie を持てない）
 api.route('/records', recordsRoutes);
@@ -85,38 +104,17 @@ const cacheControl: MiddlewareHandler<AppEnv> = async (c, next) => {
 api.use('*', etag());
 api.use('*', cacheControl);
 
-/**
- * 画面専用の API。互換性や REST としての形より通信の本数と量を優先する（docs/architecture.md）。
- * 書き込みは本文を返さない（204）。画面は送った内容で先に書き換え、後で取り直して揃えるので、
- * 返しても読まれない（`src/lib/api.ts` の `sendWrite` は本文を読まない）。例外は API キーの発行で、
- * キーそのものを見せられるのは発行の応答だけなので本文で返す。
- */
-const routes = api
-  .route('/me', meRoutes)
-  .route('/users', usersRoutes)
-  .route('/calendar', calendarRoutes)
-  .route('/events', eventsRoutes)
-  .route('/calendar/feeds', calendarFeedsRoutes)
-  .route('/api-keys', apiKeysRoutes)
-  .route('/expenses', expensesRoutes)
-  .route('/lemon', lemonRoutes)
-  .route('/memos', memosRoutes)
-  .route('/timeline', timelineRoutes)
-  .route('/weather', weatherRoutes)
-  .route('/push', pushRoutes);
-
-export type AppType = typeof routes;
-
-/**
- * 同じ時点に出た画面の GET を 1 本で運ぶ（`src/lib/api.ts` の束ね、`lib/batch.ts`）。中の要求はこのアプリに
- * 内部で送る。AppType には載せない（クライアントは RPC を通さず、束ねの仕組みが直接送る）。
- */
-api.get('/batch', validate('query', batchQuerySchema), async (c) =>
-  c.json(
-    await runBatchRequests(c.req.valid('query').r, c.var.user, (path, env) =>
-      app.request(path, {}, env),
-    ),
-  ),
+api.on(['GET', 'POST'], '/trpc/*', (c) =>
+  fetchRequestHandler({
+    endpoint: '/api/trpc',
+    req: c.req.raw,
+    router: appRouter,
+    createContext: () => ({ user: c.var.user, userAgent: c.req.header('user-agent') ?? null }),
+    // 想定外の失敗だけを出す（Sentry へ送られる。`lib/sentry.ts`）。業務エラーは `lib/trpc.ts` が種類を付けている
+    onError: ({ error }) => {
+      if (error.code === 'INTERNAL_SERVER_ERROR') console.error(error.cause ?? error);
+    },
+  }),
 );
 
 /**

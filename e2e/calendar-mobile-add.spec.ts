@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
-import { carriesGet, stall } from './network.ts';
+import { carries, stall } from './network.ts';
 import { changeView } from './view.ts';
 
 /** スマホの追加ボタンからの予定の入力: 閉じるまでの日表示と、閉じた後の戻り先 */
@@ -38,11 +38,9 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   // 追加ボタンからは全項目の段（画面いっぱい）で開く
   await expect.poll(async () => (await page.locator('[data-sheet]').boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
-  // 保存（/api/events）とその後の取り直し（/api/calendar）の両方を遅らせる
-  const unstall = await stall(page, ['/api/events', '/api/calendar'], 1500);
-  const saved = page.waitForResponse(
-    (r) => r.request().method() === 'POST' && r.url().endsWith('/api/events'),
-  );
+  // 保存（events.create）とその後の取り直し（calendar.get）の両方を遅らせる
+  const unstall = await stall(page, ['events.create', 'calendar.get'], 1500);
+  const saved = page.waitForResponse(carries('events.create'));
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.locator('[data-sheet]')).toHaveCount(0, { timeout: 1000 });
   await expect(page.locator('[data-draft]')).toHaveCount(0);
@@ -52,14 +50,14 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
 
   // 保存とその後の取り直しが届いても、投機的に出した分と二重にならない
   await saved;
-  await page.waitForResponse(carriesGet('/api/calendar'));
+  await page.waitForResponse(carries('calendar.get'));
   await expect(page.getByRole('button', { name: title })).toHaveCount(1);
 
   // 後片付けは遅らせずに送り、届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
   await unstall();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');
+  const deleted = page.waitForResponse(carries('events.delete'));
   await detailAction(page, '削除');
   await deleted;
   await expect(page.getByRole('button', { name: title })).toHaveCount(0);
@@ -144,7 +142,7 @@ test('ホームの追加ボタンから始めた予定の入力は、閉じる�
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
-  const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE');
+  const deleted = page.waitForResponse(carries('events.delete'));
   await detailAction(page, '削除');
   await deleted;
   await expect(page.getByText(title)).toHaveCount(0);

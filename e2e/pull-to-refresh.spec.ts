@@ -12,7 +12,7 @@ import { touchDrag } from './touch.ts';
 test.use({ ...devices['Pixel 7'] });
 
 /** ホームが取るタイムライン。取り直したかをこの取得の回数で見る */
-const TIMELINE = '/api/timeline';
+const TIMELINE = 'timeline.get';
 
 /** 指を下ろす所。画面の上のほう（AppBar のすぐ下） */
 const FROM = { x: 200, y: 120 };
@@ -107,7 +107,7 @@ test('下が新しい一覧では、上端（古いほうを読み足す端）�
 }) => {
   await page.goto('/expenses');
   await expect(page.getByLabel('立替を検索')).toBeVisible();
-  const fetched = await fetchesFromNow(page, '/api/expenses');
+  const fetched = await fetchesFromNow(page, 'expenses.list');
   await page.evaluate(() => window.scrollTo(0, 0));
   await pull(page, 200);
   await quiet(page, fetched);
@@ -123,7 +123,7 @@ test('天気（今日から下が先の日）も、下端で上へ引けば取�
 }) => {
   await page.goto('/weather');
   await expect(page.getByRole('banner')).toContainText('東京');
-  const fetched = await fetchesFromNow(page, '/api/weather');
+  const fetched = await fetchesFromNow(page, 'weather.page');
   await page.evaluate(() => window.scrollTo(0, 0));
   await pull(page, 200);
   await quiet(page, fetched);
@@ -138,7 +138,7 @@ test('予定のリストでは上端からも下端からも引いても取り�
   // 期間を 1 か月に絞り、前後の月を読み足さずに上端と下端のどちらにもいる短い一覧にする
   await page.goto('/calendar?view=list&date=2032-06-15&from=2032-06-01&to=2032-06-30');
   await expect(page.getByRole('heading', { name: '6/15' })).toBeVisible();
-  const fetched = await fetchesFromNow(page, '/api/calendar');
+  const fetched = await fetchesFromNow(page, 'calendar.get');
   await pull(page, 200);
   await pullUp(page, 200);
   await quiet(page, fetched);
@@ -149,7 +149,7 @@ test('設定では引いても取り直さない', async ({ page }) => {
   await page.goto('/settings');
   await expect(page.getByText('色', { exact: true })).toBeVisible();
   // 設定が表示に使っている自分の情報
-  const fetched = await fetchesFromNow(page, '/api/me');
+  const fetched = await fetchesFromNow(page, 'me.get');
   await pull(page, 200);
   await quiet(page, fetched);
   expect(fetched()).toBe(0);

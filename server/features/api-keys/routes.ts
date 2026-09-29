@@ -1,18 +1,16 @@
-import { Hono } from 'hono';
 import { apiKeySchema } from '../../../shared/validation/api-keys.ts';
 import { idParamSchema } from '../../../shared/validation/common.ts';
-import type { AppEnv } from '../../lib/app-env.ts';
-import { validate } from '../../lib/validator.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
-/** API キーの管理（`/api/api-keys`）。ログイン中のユーザー自身のキーだけを扱う */
-export const apiKeysRoutes = new Hono<AppEnv>()
-  .get('/', async (c) => c.json(await service.listKeys((await c.var.user).id)))
-  .post('/', validate('json', apiKeySchema), async (c) => {
-    const key = await service.createKey(c.req.valid('json'), (await c.var.user).id);
-    return c.json(key, 201);
-  })
-  .delete('/:id', validate('param', idParamSchema), async (c) => {
-    await service.revokeKey(c.req.valid('param').id, (await c.var.user).id);
-    return c.body(null, 204);
-  });
+/** API キーの管理。ログイン中のユーザー自身のキーだけを扱う */
+export const apiKeysRouter = router({
+  list: procedure.query(async ({ ctx }) => service.listKeys((await ctx.user).id)),
+  /** 発行したキーそのものは、この応答でしか見せられないので返す */
+  create: procedure
+    .input(apiKeySchema)
+    .mutation(async ({ ctx, input }) => service.createKey(input, (await ctx.user).id)),
+  revoke: procedure
+    .input(idParamSchema)
+    .mutation(async ({ ctx, input }) => service.revokeKey(input.id, (await ctx.user).id)),
+});

@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { query } from './api.ts';
 import { dayPoint, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { addItem, deleteItem } from './events.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
@@ -134,8 +135,11 @@ test('なぞって開いた予定の入力は上端でタスクに切り替え�
   await page.getByRole('button', { name: '保存' }).click();
   await expect(block).toBeVisible();
 
-  const res = await page.request.get('/api/calendar?from=2031-06-26&to=2031-06-26');
-  const { items } = (await res.json()) as { items: { id: string; kind: string; title: string }[] };
+  const { items } = await query<{ items: { id: string; kind: string; title: string }[] }>(
+    page.request,
+    'calendar.get',
+    { from: '2031-06-26', to: '2031-06-26' },
+  );
   const saved = items.find((item) => item.title === title);
   expect(saved?.kind).toBe('event');
   if (saved) await deleteItem(page, saved.id);

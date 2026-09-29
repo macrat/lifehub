@@ -9,9 +9,8 @@ import {
 } from '@tanstack/react-query';
 import { redirect, useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
-import type { InferResponseType } from 'hono/client';
 import type { LoginInput } from '../../shared/validation/users.ts';
-import { api, apiRequestFetch } from './api.ts';
+import { type ApiOutputs, api, apiRequestFetch, isUnauthorized } from './api.ts';
 
 // ログイン状態に関わることはすべてこの file に置き、画面（routes）はここの関数を呼ぶだけにする。
 // 判定・遷移・キャッシュの扱いが画面ごとに食い違わないようにするため。
@@ -26,8 +25,8 @@ const authClient = createAuthClient({
   plugins: [oauthProviderClient()],
 });
 
-/** ログイン中のユーザーとユーザーの一覧（`users`）。形は API（`/api/me`、サーバーの `getMe`）が決める */
-export type Me = InferResponseType<typeof api.me.$get, 200>;
+/** ログイン中のユーザーとユーザーの一覧（`users`）。形は API（`me.get`、サーバーの `getMe`）が決める */
+export type Me = ApiOutputs['me']['get'];
 
 /**
  * ログイン中のユーザー（ユーザーの一覧も載る。`features/users/queries.ts` の `useUsers`）。未認証なら null。
@@ -35,12 +34,11 @@ export type Me = InferResponseType<typeof api.me.$get, 200>;
  */
 export const meQueryOptions = queryOptions({
   queryKey: ['me'],
-  queryFn: async (): Promise<Me | null> => {
-    const res = await api.me.$get();
-    if (res.status === 401) return null;
-    if (!res.ok) throw new Error('ユーザー情報の取得に失敗しました');
-    return res.json();
-  },
+  queryFn: ({ signal }): Promise<Me | null> =>
+    api.me.get.query(undefined, { signal }).catch((error: unknown) => {
+      if (isUnauthorized(error)) return null;
+      throw error;
+    }),
   staleTime: 1000 * 60 * 5,
 });
 

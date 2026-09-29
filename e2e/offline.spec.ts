@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
-import { carriedJson, carriesGet } from './network.ts';
+import { carriedJson, carries } from './network.ts';
 
 test('オフラインでも 2 回目以降はキャッシュから起動し、記録はオンラインに戻ったときに送られる', async ({
   page,
@@ -36,20 +36,13 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   // アプリを閉じている間にオンラインへ戻っても、次に開いたときに送られる
   await page.goto('about:blank');
   await context.setOffline(false);
-  const sent = page.waitForResponse(
-    (res) => res.url().endsWith('/api/lemon/logs') && res.request().method() === 'POST',
-  );
+  const sent = page.waitForResponse(carries('lemon.create'));
   await page.goto('/lemon');
   expect((await sent).ok()).toBe(true);
 
   // 送った後はサーバーの一覧にも入っている
-  const listed = await page.waitForResponse(
-    (res) => carriesGet('/api/lemon/logs')(res) && res.ok(),
-  );
-  const { items } = await carriedJson<{ items: { note: string | null }[] }>(
-    listed,
-    '/api/lemon/logs',
-  );
+  const listed = await page.waitForResponse((res) => carries('lemon.logs')(res) && res.ok());
+  const { items } = await carriedJson<{ items: { note: string | null }[] }>(listed, 'lemon.logs');
   expect(items.map((log) => log.note)).toContain('オフラインで記録した');
   await expect(page.getByText('オフラインモード', { exact: false })).toBeHidden();
 });

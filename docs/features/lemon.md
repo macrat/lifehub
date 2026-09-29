@@ -20,13 +20,13 @@
 
 ## API（`server/features/lemon/routes.ts`）
 
-| メソッド | パス | 内容 |
+| 手続き | 種類 | 内容 |
 |---|---|---|
-| GET | `/api/lemon/status` | 項目ごとの最終実施日時と経過日数（`shared/validation/lemon.ts` の `CARE_TYPES` の 6 項目） |
-| GET | `/api/lemon/logs?before=YYYY-MM-DD&q=&kind=&since=&until=` | 履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。新しいほうから 50 件ほどで、実施日時の JST の暦日の途中では切らない（件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`。絞り込みは画面と同じ |
-| POST | `/api/lemon/logs` | 記録を追加。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。応答は 204 |
-| PUT | `/api/lemon/logs/:id` | 編集。全項目を置き換える（入力は追加と同じ形）。応答は 204 |
-| DELETE | `/api/lemon/logs/:id` | 記録を削除 |
+| `lemon.status` | 読み出し | 項目ごとの最終実施日時と経過日数（`shared/validation/lemon.ts` の `CARE_TYPES` の 6 項目） |
+| `lemon.logs` | 読み出し | 履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。入力は続きの `before`（YYYY-MM-DD）と絞り込み（`q` / `kind` / `since` / `until`）。新しいほうから 50 件ほどで、実施日時の JST の暦日の途中では切らない（件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`。絞り込みは画面と同じ |
+| `lemon.create` | 書き込み | 記録を追加。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
+| `lemon.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
+| `lemon.delete` | 書き込み | 記録を削除（入力は `id`） |
 
 入力スキーマは `shared/validation/lemon.ts`。状態（最終実施日時と経過日数）の導き方は `shared/lemon.ts` の `careStatusesOf` 1 箇所に置き、サーバー（`getStatus`）とクライアントの楽観的更新が同じものを使う。楽観的更新は、追加・編集ならその記録 1 件で進むタイルだけを進める。項目を外したり日時を戻したり削除したりしたときにタイルがどこまで戻るかは、手元に無い古い記録も含めて決まるので、書き込み後の再取得に任せる。サーバーは `care_types` を `unnest` で 1 項目 1 行にほどいてから項目ごとの最新の記録だけを SQL で読んで渡すので、記録が増えても状態の応答は変わらない。
 

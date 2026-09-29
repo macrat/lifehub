@@ -12,7 +12,7 @@ import {
   timelineEntryId,
 } from '../../../shared/timeline.ts';
 import type { TimelineFilter } from '../../../shared/validation/timeline.ts';
-import { api, ensureOk } from '../../lib/api.ts';
+import { api } from '../../lib/api.ts';
 import { applyToHistories, findInHistories, type HistorySource } from '../../lib/history.ts';
 
 /** 行の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/timeline.ts） */
@@ -31,12 +31,7 @@ export const TIMELINE_QUERY_KEY = ['timeline'] as const;
  */
 export const timelineHistory: HistorySource<TimelineEntry, TimelineFilter> = {
   key: TIMELINE_QUERY_KEY,
-  fetch: async (filter, before, signal) =>
-    (
-      await ensureOk(
-        await api.timeline.$get({ query: { ...filter, before } }, { init: { signal } }),
-      )
-    ).json(),
+  fetch: (filter, before, signal) => api.timeline.get.query({ ...filter, before }, { signal }),
   dayOf: (entry) => entryDay(entry),
   sort: sortTimeline,
 };

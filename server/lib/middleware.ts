@@ -25,15 +25,14 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
  * 読み出し（GET）は、検証を待たずにハンドラを並べて走らせ、両方が終わってから検証の結果で応答を決める
  * （通らなければハンドラの結果を捨てて 401）。検証の問い合わせとハンドラの読み取りが同じ時点に出るので、
  * DB へは 1 往復にまとまり（`lib/db/coalesce-reads.ts`）、検証を待ってから読むより往復が 1 回少ない。
- * ユーザーが要るハンドラは `await c.var.user` で検証を待つ。
+ * ユーザーが要るハンドラは `await c.var.user`（tRPC の手続きは `await ctx.user`）で検証を待つ。
  * 書き込みは今までどおり検証が通ってから走らせる（ログインしていない要求に書き換えさせない）。
  *
  * WHY NOT Cookie に署名付きのセッションを持たせて DB を読まない（better-auth の cookieCache）: 失効
  * （パスワードの変更・ログアウト）が次の要求から効かなくなる（server/lib/auth.ts）。
  */
 export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
-  // 束ねた要求（/api/batch）の中の要求は、束ね全体で済ませた検証を引き継ぐ（lib/batch.ts）
-  const user = c.env?.batchUser ?? authenticate(c.req.raw.headers);
+  const user = authenticate(c.req.raw.headers);
   c.set('user', user);
   if (!SAFE_METHODS.has(c.req.method)) {
     await user;

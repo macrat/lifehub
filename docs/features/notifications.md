@@ -66,12 +66,15 @@ export function resolveNotification(ref, notifyTimes): Promise<NotificationPaylo
 
 ## API
 
+| 手続き | 種類 | 認証 | 内容 |
+|---|---|---|---|
+| `push.vapidPublicKey` | 読み出し | セッション | VAPID 公開鍵 |
+| `push.status` | 読み出し | セッション | この端末が購読中か（入力は `endpoint`。持ち主が本人のときだけ「購読中」） |
+| `push.subscribe` | 書き込み | セッション | この端末の購読を保存する |
+| `push.unsubscribe` | 書き込み | セッション | 購読を解除する（入力は `endpoint`。所有者だけ） |
+
 | メソッド | パス | 認証 | 内容 |
 |---|---|---|---|
-| GET | `/api/push/vapid-public-key` | セッション | VAPID 公開鍵 |
-| POST | `/api/push/subscriptions` | セッション | この端末の購読を保存する |
-| DELETE | `/api/push/subscriptions` | セッション | 購読を解除する（endpoint 指定。所有者だけ） |
-| GET | `/api/push/subscriptions/status?endpoint=` | セッション | この端末が購読中か（持ち主が本人のときだけ「購読中」） |
 | GET | `/api/cron/notifications` | Cron secret | 翌日分の予約（上記「仕組み」の 1） |
 | POST | `/api/qstash/notifications` | QStash の署名 | 配信（上記「仕組み」の 3） |
 

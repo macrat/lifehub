@@ -1,38 +1,33 @@
 import { Hono } from 'hono';
 import { calendarFeedSchema } from '../../../shared/validation/calendar-feeds.ts';
-import { idParamSchema } from '../../../shared/validation/common.ts';
+import { idParamSchema, withId } from '../../../shared/validation/common.ts';
 import type { AppEnv } from '../../lib/app-env.ts';
-import { validate } from '../../lib/validator.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 /**
- * 配信 URL の管理（`/api/calendar/feeds`）。ログイン中のユーザー自身の URL だけを扱う。
- * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も本文を返さない）。
+ * 配信 URL の管理。ログイン中のユーザー自身の URL だけを扱う。
+ * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も何も返さない）。
  */
-export const calendarFeedsRoutes = new Hono<AppEnv>()
-  .get('/', async (c) => c.json(await service.listFeeds((await c.var.user).id)))
-  .post('/', validate('json', calendarFeedSchema), async (c) => {
-    await service.createFeed(c.req.valid('json'), (await c.var.user).id);
-    return c.body(null, 204);
-  })
-  .patch(
-    '/:id',
-    validate('param', idParamSchema),
-    validate('json', calendarFeedSchema),
-    async (c) => {
-      await service.updateFeed(c.req.valid('param').id, c.req.valid('json'), (await c.var.user).id);
-      return c.body(null, 204);
-    },
-  )
-  .delete('/:id', validate('param', idParamSchema), async (c) => {
-    await service.revokeFeed(c.req.valid('param').id, (await c.var.user).id);
-    return c.body(null, 204);
-  });
+export const calendarFeedsRouter = router({
+  list: procedure.query(async ({ ctx }) => service.listFeeds((await ctx.user).id)),
+  create: procedure.input(calendarFeedSchema).mutation(async ({ ctx, input }) => {
+    await service.createFeed(input, (await ctx.user).id);
+  }),
+  update: procedure
+    .input(withId(calendarFeedSchema))
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.updateFeed(id, input, (await ctx.user).id);
+    }),
+  revoke: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.revokeFeed(input.id, (await ctx.user).id);
+  }),
+});
 
 /**
  * ics の配信（`/api/calendar/<token>.ics`）。認証は無く、URL のトークンを知っていることだけが
  * 資格になる（カレンダーを購読するアプリはログインの Cookie を送れない）。
- * `.ics` で終わるパスしか受けないので、同じ `/api/calendar` の下の `feeds`（上記）とは衝突しない。
+ * `.ics` で終わるパスしか受けない。
  */
 export const calendarIcsRoutes = new Hono<AppEnv>().get('/:file{[\\w-]+\\.ics}', async (c) => {
   const token = c.req.param('file').slice(0, -'.ics'.length);

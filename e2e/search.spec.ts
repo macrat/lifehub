@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { query } from './api.ts';
 import { openHome } from './auth.ts';
 import { deleteRecord, postRecord } from './history.ts';
 
@@ -65,12 +66,10 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   const tag = `E2E 絞込 ${Date.now()}`;
   const small = `${tag} 少額`;
   const large = `${tag} 高額`;
-  const me: { id: string; users: { id: string }[] } = await (
-    await page.request.get('/api/me')
-  ).json();
+  const me = await query<{ id: string; users: { id: string }[] }>(page.request, 'me.get');
   const partner = me.users.find((user) => user.id !== me.id)?.id;
   const expense = (body: object) =>
-    postRecord(page, '/api/expenses', { fromUserId: me.id, toUserId: null, ...body });
+    postRecord(page, 'expenses', { fromUserId: me.id, toUserId: null, ...body });
   const records = await Promise.all([
     expense({ amount: 500, description: small, spentOn: '2031-03-01' }),
     expense({ amount: 5000, description: large, spentOn: '2031-03-10', toUserId: partner }),
@@ -118,7 +117,7 @@ test('レモンの詳細検索で種別と日付の範囲で絞り込める', as
   const watered = `${tag} 水やり`;
   const fertilized = `${tag} 施肥`;
   const careLog = (careType: string, note: string, doneAt: string) =>
-    postRecord(page, '/api/lemon/logs', { careTypes: [careType], note, doneAt });
+    postRecord(page, 'lemon', { careTypes: [careType], note, doneAt });
   const records = await Promise.all([
     careLog('water', watered, '2031-04-02T09:00:00+09:00'),
     careLog('fertilize', fertilized, '2031-04-20T09:00:00+09:00'),
