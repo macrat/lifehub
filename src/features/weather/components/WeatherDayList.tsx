@@ -6,7 +6,11 @@ import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
-import { dayTransitionName, iconTransitionName } from '../day-transition.ts';
+import {
+  dayTransitionName,
+  iconTransitionName,
+  ONLY_IN_WEATHER_TRANSITION,
+} from '../day-transition.ts';
 import { formatPop, formatTemp } from '../format.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
@@ -80,6 +84,7 @@ export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
                   fontSize: ICON_SIZE,
                   justifySelf: 'center',
                   viewTransitionName: iconTransitionName(day.date),
+                  ...ONLY_IN_WEATHER_TRANSITION,
                 }}
               />
               <Typography variant="body2" color="textSecondary">

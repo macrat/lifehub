@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WeatherIcon } from '../../weather/components/WeatherIcon.tsx';
 import { wideRatio } from '../../weather/components/weather-glyphs.ts';
-import { iconTransitionName } from '../../weather/day-transition.ts';
+import { iconTransitionName, ONLY_IN_WEATHER_TRANSITION } from '../../weather/day-transition.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
@@ -41,6 +41,7 @@ type Props = {
  * アイコンには週間天気の同じ日のアイコンと同じ名前（`iconTransitionName`）を付け、行き来するとその場から動く。
  * 名前は出ているほうのアイコン（横並びか重ねた形）にだけ付ける。隠れているほうにも付けると、
  * 撮られはしないが文書の中で同じ名前が 2 つになり、一意であることを確かめられなくなる。
+ * 名前は週間天気を開く・閉じる遷移の間だけ有効にする（`ONLY_IN_WEATHER_TRANSITION`。ホームとの間では動かさない）。
  */
 export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
@@ -90,6 +91,7 @@ export function DayWeather({ weather, size }: Props) {
             fontSize: size,
             viewTransitionName: name,
             [narrow]: { display: 'none', viewTransitionName: 'none' },
+            ...ONLY_IN_WEATHER_TRANSITION,
           }}
         />
         <WeatherIcon
@@ -99,6 +101,7 @@ export function DayWeather({ weather, size }: Props) {
             fontSize: size,
             display: 'none',
             [narrow]: { display: 'inline-block', viewTransitionName: name },
+            ...ONLY_IN_WEATHER_TRANSITION,
           }}
         />
         {temp !== null && (

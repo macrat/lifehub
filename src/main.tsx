@@ -6,6 +6,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { WEATHER_TRANSITION_TYPE } from './features/weather/day-transition.ts';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { watchAppBadge } from './lib/app-badge.ts';
 import { markSignedOut } from './lib/auth.ts';
@@ -71,20 +72,24 @@ const router = createRouter({
   defaultPendingComponent: ListSkeleton,
   /**
    * 画面が変わる移動は View Transition で繋ぐ。前後の画面に共通して在るもの（カレンダーの表示を
-   * 切り替えたときの同じ予定、レモンの状況のタイル、ホームの天気のタイルと週間天気のその日の行）は名前を合わせてあり、その場から動く。
+   * 切り替えたときの同じ予定、レモンの状況のタイル、ホームの天気のタイルと週間天気のその日の行、
+   * 週間天気を開く・閉じるときの同じ日の天気のアイコン）は名前を合わせてあり、その場から動く。
    * 名前の無いものはフェードする。
    * 画面が変わるのはパスが変わるときと、カレンダーの表示が変わるとき。
    *
    * 同じ画面の中での更新（スワイプでの前後移動、リストの絞り込み、検索キーワードの入力）では使わない。
    * 指やキーの動きに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える。
    * 戻る・進むを含めどの経路でも同じ判定になるよう、個々の navigate ではなくここで一度だけ決める。
-   * 返す値は「遷移する（種別は付けない）」が `[]`、「遷移しない」が `false`。
+   * 返す値は遷移するなら種別（types）の配列、「遷移しない」が `false`。週間天気の画面を開く・閉じる遷移には
+   * `WEATHER_TRANSITION_TYPE` を付け、天気のアイコンはその間だけ名前を持つ（ホームと予定画面の間では動かさない）。
    */
   defaultViewTransition: {
     types: ({ fromLocation, toLocation }) =>
       fromLocation !== undefined &&
       (fromLocation.pathname !== toLocation.pathname || viewOf(fromLocation) !== viewOf(toLocation))
-        ? []
+        ? [fromLocation, toLocation].some(({ pathname }) => pathname === '/weather')
+          ? [WEATHER_TRANSITION_TYPE]
+          : []
         : false,
   },
 });

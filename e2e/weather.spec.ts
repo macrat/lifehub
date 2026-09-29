@@ -149,6 +149,25 @@ test('予定画面と週間天気を行き来すると、天気のアイコン�
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 });
 
+test('ホームと予定画面を行き来しても、天気のアイコンは名前を持たない（動かずフェードする）', async ({
+  page,
+}) => {
+  // どちらにも同じ日のアイコンがあるので、名前があるとタイルのアイコンが日付の横へ飛んでいく
+  await recordViewTransitions(page);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /^(今日|明日)/ })).toContainText('°');
+  await page.getByRole('link', { name: '予定' }).click();
+  await expect(page).toHaveURL(/\/calendar/);
+  await settle(page);
+  await expect(page.getByRole('link', { name: /^週間天気（晴/ })).toBeVisible();
+  expect((await captured(page)).filter((name) => name.startsWith('weather-icon-'))).toEqual([]);
+
+  await page.getByRole('link', { name: 'ホーム' }).click();
+  await expect(page).toHaveURL('/');
+  await settle(page);
+  expect((await captured(page)).filter((name) => name.startsWith('weather-icon-'))).toEqual([]);
+});
+
 test('予定画面の日付の横の天気を押すと週間天気が開く（日表示・月表示）', async ({ page }) => {
   await page.goto(`/calendar?view=day&date=${TODAY}`);
   await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));
