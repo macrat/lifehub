@@ -13,18 +13,17 @@ export class NetworkError extends Error {}
 
 /**
  * API への fetch。Sentry のトレースで、要求 1 つを画面の移動（navigation）のスパンの子にせず、それだけで
- * 1 つのスパンにする（`src/lib/sentry.ts`）。トレース ID は同じなので、画面の移動とサーバーのスパンとは
- * 1 本のトレースに並ぶ。
+ * 1 つのスパンにする。トレース ID は同じなので、画面の移動とサーバーのスパンとは 1 本のトレースに並ぶ。
+ * API への要求はすべてこれを通す（素の fetch は lint の `noRestrictedGlobals` が止める）。
  *
- * 画面の移動のスパンは、終わる前に次の移動が始まると打ち切られ、そのときまだ応答を待っている子のスパンを
+ * 画面の移動のスパンは、終わる前に次の移動が始まると打ち切られ、そのとき応答を待っている子のスパンを
  * 最後に終わった子の時刻で閉じる（@sentry/core の idle span）。取得中に次の画面へ移ると、要求の所要時間が
  * 実際より短く記録されてしまう。
  * WHY NOT 画面の移動のスパンが取得を待つ形のまま計る: 画面は端末に残したキャッシュですぐに描かれ、取得は
  * 裏で差し替えるだけなので、移動のスパンに取得を含めても画面が出るまでの時間にはならない。
  */
-export function apiRequestFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  return withActiveSpan(null, () => fetch(input, init));
-}
+export const apiRequestFetch: typeof fetch = (input, init) =>
+  withActiveSpan(null, () => fetch(input, init));
 
 /** fetch に 401 の検知と通信断の判別を足したもの。RPC クライアントと書き込みの送信が共有する。 */
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

@@ -117,41 +117,35 @@ export const traceNeonFetch: typeof fetch = (input, init) => {
   );
 };
 
-/** このインスタンスがまだ要求を計っていないか。Vercel Function はインスタンスを使い回すので、最初の 1 回だけ真 */
-let coldStart = true;
-
-/**
- * モジュールを読み終えた時刻（エポックからのミリ秒）。`withSentry` が記録する。エントリ（`api/index.ts`）が
- * `withSentry` を呼ぶのは、アプリのモジュールをすべて読み込んだ後なので。
- */
-let loadedAt: number | undefined;
-
 /**
  * 要求のスパンに、インスタンスが起きて最初の要求かどうか（`faas.coldstart`）を付ける。起動（モジュールの
  * 読み込みや Neon への最初の接続）の分だけ遅い要求を、普段の遅さと分けて見るため。
- * 最初の要求には、プロセスが起きてからモジュールを読み終えるまでのスパン（`function.init`）も子として足す。
- * 要求のスパンは要求が届いてから始まるので、その前の起動の時間はこれが無いとどこにも残らない
- * （ブラウザの計る要求の時間とサーバーの計る時間の差としてしか見えない）。Node の `performance.timeOrigin` は
- * プロセスが起きた時刻。
- * 計らない要求（Vercel の生存確認。`initSentry` の `httpIntegration`）では印を使わない。
+ * 最初の要求には、プロセスが起きた時刻（Node の `performance.timeOrigin`）からモジュールを読み終えた時刻
+ * （`loadedAt`）までのスパン（`function.init`）も子として足す。要求のスパンは要求が届いてから始まるので、
+ * それより前の起動の時間はこれが無いと残らない。
+ * Vercel Function はインスタンスを使い回すので、最初の 1 回だけ真にする。計らない要求（Vercel の生存確認。
+ * `initSentry` の `httpIntegration`）では印を使わない。
  */
-const markColdStart: MiddlewareHandler = async (_c, next) => {
-  const active = Sentry.getActiveSpan();
-  if (active?.isRecording()) {
-    const root = Sentry.getRootSpan(active);
-    root.setAttribute('faas.coldstart', coldStart);
-    if (coldStart && loadedAt !== undefined) {
-      Sentry.startInactiveSpan({
-        name: 'function init',
-        op: 'function.init',
-        parentSpan: root,
-        startTime: performance.timeOrigin,
-      }).end(loadedAt);
+function markColdStart(loadedAt: number): MiddlewareHandler {
+  let coldStart = true;
+  return async function markColdStart(_c, next) {
+    const active = Sentry.getActiveSpan();
+    if (active?.isRecording()) {
+      const root = Sentry.getRootSpan(active);
+      root.setAttribute('faas.coldstart', coldStart);
+      if (coldStart) {
+        Sentry.startInactiveSpan({
+          name: 'function init',
+          op: 'function.init',
+          parentSpan: root,
+          startTime: performance.timeOrigin,
+        }).end(loadedAt);
+      }
+      coldStart = false;
     }
-    coldStart = false;
-  }
-  await next();
-};
+    await next();
+  };
+}
 
 /** 要求のスパンが閉じるのを待つ上限。応答を書き終えれば閉じるので、届かないのは接続が切れたときなど */
 const SEGMENT_END_TIMEOUT_MS = 10_000;
@@ -195,10 +189,10 @@ export function withSentry<E extends Env, S extends Schema, B extends string>(
   app: Hono<E, S, B>,
 ): Hono<E, S, B> {
   if (!Sentry.getClient()) return app;
-  loadedAt = performance.timeOrigin + performance.now();
   const root = new Hono<E, S, B>();
   root.use(Sentry.sentry(root, { shouldHandleError: () => false }));
-  root.use(markColdStart);
+  // エントリ（`api/index.ts`）がここを呼ぶのは、アプリのモジュールをすべて読み込んだ後
+  root.use(markColdStart(Date.now()));
   root.use(flushAfterRequest);
   root.route('/', app);
   return root;
