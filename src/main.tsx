@@ -14,6 +14,7 @@ import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
+import { reloadOnStaleChunk } from './lib/update.ts';
 import { routeTree } from './routeTree.gen.ts';
 
 /**
@@ -127,6 +128,9 @@ initSentry(router, queryClient);
 
 // アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
 registerSW({ immediate: true });
+
+// デプロイで消えた旧版のコードを取りに行って失敗したら、新版で起動し直す
+reloadOnStaleChunk();
 
 // 通知が付けたホーム画面のアイコンの点を、アプリを見た時点で消す
 watchAppBadge();

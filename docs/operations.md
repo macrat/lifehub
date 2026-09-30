@@ -124,7 +124,7 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
   - ログ: `console` に出したものをすべて送る（`consoleLoggingIntegration`）。
   - Vercel Function は応答の後に止まりうるので、`waitUntil` で送り終わるまで生かす（SDK が自分で待つのは Edge ランタイムだけ）。エラーはすぐ送るので送る直前に、スパンとログは SDK が 5 秒溜めてから送るので、要求のスパンが閉じたら `flush` する。`waitUntil` は要求の文脈の中でしか効かないので、閉じるのを待つ処理はミドルウェアの中で先に登録する。
 - ブラウザ（`src/lib/sentry.ts`。`src/main.tsx` が起動）:
-  - エラー: 未処理の例外と、ルートのエラー画面が受け止めた描画中のエラー（`createRoot` の `onCaughtError`）。API のエラーは送らない（サーバーのエラーはサーバーが送り、通信の失敗はオフラインで使う PWA では不具合ではない）。View Transition が飛ばされたときの失敗（途中で次の遷移が始まったときの AbortError と、途中で画面の大きさが変わったときの InvalidStateError）も送らない（アニメーションが省かれるだけで画面は更新される。ルーターが `ready` の失敗を受け取らないので未処理の例外として上がる。上流で直るまでの一時的な対処）。
+  - エラー: 未処理の例外と、ルートのエラー画面が受け止めた描画中のエラー（`createRoot` の `onCaughtError`）。API のエラーは送らない（サーバーのエラーはサーバーが送り、通信の失敗はオフラインで使う PWA では不具合ではない）。View Transition が飛ばされたときの失敗（途中で次の遷移が始まったときの AbortError と、途中で画面の大きさが変わったときの InvalidStateError）も送らない（アニメーションが省かれるだけで画面は更新される。ルーターが `ready` の失敗を受け取らないので未処理の例外として上がる。上流で直るまでの一時的な対処）。読み込み直しを始めた後のエラーとログも送らない（ページごと捨てられて利用者に届かない。デプロイで消えた旧版のコードを読めずに読み込み直すとき。[architecture.md](architecture.md#pwa)）。
   - トレース: 起動と画面の移動をルート名で計り（`tanstackRouterBrowserTracingIntegration`）、API への要求にトレースの見出し（`sentry-trace`・`baggage`。同じオリジンなので既定で付く）を付けてサーバーのスパンと 1 本に繋ぐ。
     - API への要求は画面の移動のスパンの子にせず、それぞれを 1 つのスパンにする（トレースは同じ）。理由は `src/lib/api.ts` の `apiRequestFetch`。
   - ログ: `console` に出したものをすべて送る。
