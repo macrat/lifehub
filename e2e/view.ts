@@ -4,10 +4,7 @@ import { expect, type Page } from '@playwright/test';
 export type Transition = {
   ready: string;
   finished: boolean;
-  /**
-   * 遷移前として撮られる時点（遷移を始めた直後。まだ更新コールバックは走っていない）に在った view-transition-name。
-   * 始める前ではなく直後に数えるのは、遷移の種別（`:active-view-transition-type()`）で付く名前を含めるため
-   */
+  /** 遷移前として撮られる時点（遷移を始めたとき）に在った view-transition-name */
   before: string[];
   /** 遷移後として撮られる時点（更新コールバックの直後）に在った view-transition-name */
   captured: string[];
@@ -39,7 +36,7 @@ export async function recordViewTransitions(page: Page) {
       const record: Transition = {
         ready: 'pending',
         finished: false,
-        before: [],
+        before: collect(),
         captured: [],
       };
       window.viewTransitions.push(record);
@@ -52,7 +49,6 @@ export async function recordViewTransitions(page: Page) {
       const transition = start(
         typeof update === 'object' && update !== null ? { ...update, update: wrapped } : wrapped,
       );
-      record.before = collect();
       transition.ready.then(
         () => {
           record.ready = 'ok';

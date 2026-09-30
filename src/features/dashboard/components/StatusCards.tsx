@@ -1,3 +1,4 @@
+import type { DateString } from '../../../../shared/types.ts';
 import type { CareType } from '../../../../shared/validation/lemon.ts';
 import { useStoreQuery } from '../../../lib/screen-data.ts';
 import { QueryView } from '../../../lib/ui/QueryView.tsx';
@@ -11,8 +12,8 @@ import { useHomeWeather } from '../../weather/queries.ts';
 const HOME_CARE_TYPES: readonly CareType[] = ['mist', 'water'];
 
 type Props = {
-  /** 天気のタイルを押した（週間天気を開く） */
-  onOpenWeather: () => void;
+  /** 天気のタイルを押した（その日を開いた日として週間天気を開く） */
+  onOpenWeather: (day: DateString | undefined) => void;
   /** 世話のタイルを押した（その項目にチェックを入れた記録の入力を開く） */
   onAddCare: (careTypes: CareType[]) => void;
 };

@@ -8,6 +8,7 @@ import type { WeatherDay } from '../../../../shared/weather.ts';
 import { dateColor, formatDate } from '../../../lib/date.ts';
 import { dayTransitionName } from '../day-transition.ts';
 import { formatPop, formatTemp } from '../format.ts';
+import { DAY_ROW_ATTRIBUTE } from './day-row.ts';
 import { HourlyForecast } from './HourlyForecast.tsx';
 import { WeatherIcon } from './WeatherIcon.tsx';
 import { WIDE_RATIO } from './weather-glyphs.ts';
@@ -36,10 +37,10 @@ type Props = {
  * （`HourlyForecast`）。
  * 無い日（明後日から）の行は押せない。
  * 行には日付（`data-date`）を持たせる。日付の見出しを持たない行なので、E2E はこれで日の行を探す。
+ * 開いた 3 時間ごとの天気を含まない行の部分には `DAY_ROW_ATTRIBUTE` を付ける（開いた日を画面に収めるときに探す）。
  * ホームのタイルに出ている日の行は、タイルと名前を合わせ、ホームと行き来するとその場から動く。
  * 名前は開いた 3 時間ごとの天気を含まない行の部分に付ける（タイルに当たるのは 1 日の要約なので）。
- * 週間天気を開いた日（`openWeatherDay`）の行のアイコンは、予定画面の日付の横やホームのタイルの同じ日の
- * アイコンとその場で動く。
+ * 開いた日の行のアイコンは、前の画面の同じ日のアイコンとその場で動く（`useIconMoves`）。
  */
 export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
   return (
@@ -55,6 +56,7 @@ export function WeatherDayList({ days, homeDate, isOpen, onToggle }: Props) {
             sx={{ borderBottom: 1, borderColor: 'divider' }}
           >
             <ListItemButton
+              {...{ [DAY_ROW_ATTRIBUTE]: day.date }}
               disabled={!expandable}
               aria-expanded={expandable ? open : undefined}
               onClick={() => onToggle(day.date)}

@@ -1,5 +1,6 @@
 import type { DateString } from '../../../shared/types.ts';
-import { createStore } from '../../lib/store.ts';
+import { type TransitionEnds, useTransitionEnds } from '../../lib/view-transition.ts';
+import { weatherSearchSchema } from './search.ts';
 
 /**
  * ホームの天気のタイルと、週間天気の同じ日の行に付ける名前（View Transition）。
@@ -17,42 +18,28 @@ export function dayTransitionName(date: DateString, homeDate: DateString): strin
 }
 
 /**
- * 週間天気の画面が前後どちらかにある遷移の種別（View Transition の types。種別は前後の画面の名前で、
- * `src/main.tsx` の defaultViewTransition が付ける）。
- */
-const WEATHER_TRANSITION_TYPE = 'weather';
-
-/**
- * 週間天気を開いた日（予定画面で天気を押した日、ホームのタイルの日）。この日のアイコンだけが、週間天気との
- * 行き来でその場から動く（`iconTransitionName`）。週間天気から戻るときも同じ日が動いて、元の位置へ帰る。
- * WHY 1 日だけ: View Transition は動いたものを目で追わせて、次に見る所を伝えるためのもの。並んだ日のアイコンが
- * 一斉に動くと、どれを追えばよいか分からなくなる。
- * WHY NOT URL に持たせる: 戻った先（予定画面・ホーム）でも同じ日が要るが、戻った先の URL には入らない。
- */
-export const [useOpenedWeatherDay, openWeatherDay] = createStore<DateString | null>(null);
-
-/**
- * 1 日の天気のアイコンに付ける名前（View Transition。`WeatherIcon` が `transitionDate` と
- * `useOpenedWeatherDay` の日が同じときだけ付ける）。予定画面の日付の横・週間天気の行・ホームのタイルの
- * どこに出ても同じ日なら同じ名前にする。
+ * 1 日の天気のアイコンに付ける名前（View Transition。`WeatherIcon` が `useIconMoves` のときだけ付ける）。
+ * 予定画面の日付の横・週間天気の行・ホームのタイルのどこに出ても同じ日なら同じ名前にする。
+ * - 動かすのは週間天気で開いている日だけ（一斉に動かさない。docs/ui.md の「アニメーション」）
  * - ホームのタイルのアイコンにも付けるのは、週間天気の行のアイコンにだけ名前があると、ホームと行き来するとき
  *   行（`HOME_WEATHER_TRANSITION`）はタイルから動くのに、行の中のアイコンだけが動かずにその場へ出るため
- * - 名前は週間天気の画面が前後にある遷移の間だけ残す（`ONLY_IN_WEATHER_TRANSITION`）。ホームと予定画面の両方に
- *   同じ日のアイコンがあるので、いつも残すとホームと予定画面の行き来でもタイルのアイコンが日付の横へ飛んでいく
- *   （その間は画面ごとフェードする。`item-transition.ts`）
  * - 隠れているアイコン（予定画面の横並びと重ねた形の片方）にも付いたままでよい。`display: none` の要素は撮られない
  */
 export function iconTransitionName(date: DateString): string {
   return `weather-icon-${date}`;
 }
 
+/** 移動の前後のうち、週間天気の側で開いている日（`weatherSearchSchema` の day）。週間天気が前後に無ければ null */
+function openedDayOf(ends: TransitionEnds | null): DateString | null {
+  const weather = [ends?.from, ends?.to].find((location) => location?.pathname === '/weather');
+  return weatherSearchSchema.safeParse(weather?.search).data?.day ?? null;
+}
+
 /**
- * `iconTransitionName` を週間天気の画面が前後にある遷移の間だけ残す sx。名前は要素ごとに違うのでインラインの
- * style で付け（日ごとにクラスを作らない）、これは 1 つのクラスで `!important` にしてインラインの名前に勝たせる。
- * WHY NOT `:root`: Emotion は `:` で始まるセレクタの頭に自分のクラスを足すので、`:root` が要素自身に掛かってしまう。
+ * このアイコンの日が、いまの移動で週間天気に開いている日か（そうならそのアイコンだけが動く）。
+ * 週間天気の画面が前後に無い移動（ホームと予定画面の行き来など）では、どのアイコンも動かない。
+ * 移動のたびに、結果が変わったアイコンだけが描き直される（`createStore` の select）
  */
-export const ONLY_IN_WEATHER_TRANSITION = {
-  [`html:not(:active-view-transition-type(${WEATHER_TRANSITION_TYPE})) &`]: {
-    viewTransitionName: 'none !important',
-  },
-} as const;
+export function useIconMoves(date: DateString | undefined): boolean {
+  return useTransitionEnds((ends) => date !== undefined && openedDayOf(ends) === date);
+}

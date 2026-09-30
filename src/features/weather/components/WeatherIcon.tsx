@@ -3,11 +3,7 @@ import { useId } from 'react';
 import type { DateString } from '../../../../shared/types.ts';
 import type { WeatherIcon as Icon, WeatherSymbol } from '../../../../shared/weather.ts';
 import { mergeSx } from '../../../lib/ui/merge-sx.ts';
-import {
-  iconTransitionName,
-  ONLY_IN_WEATHER_TRANSITION,
-  useOpenedWeatherDay,
-} from '../day-transition.ts';
+import { iconTransitionName, useIconMoves } from '../day-transition.ts';
 import { GLYPHS, WIDE_WIDTH } from './weather-glyphs.ts';
 
 /**
@@ -49,22 +45,21 @@ type Props = Omit<SvgIconProps, 'children'> & {
    * 天気が 1 つの日は、どちらでも 1 文字分の正方形に 1 つだけ出す。
    */
   layout: 'wide' | 'square';
-  /**
-   * アイコンの日。週間天気を開いた日（`useOpenedWeatherDay`）なら、同じ日のアイコンとその場で動く名前を付ける
-   * （`iconTransitionName`）。省くと付けない
-   */
+  /** アイコンの日。週間天気で開いている日なら、同じ日のアイコンとその場で動く名前を付ける（`useIconMoves`）。省くと付けない */
   transitionDate?: DateString;
 };
 
 /** 1 日の天気のアイコン。色と大きさは文字と同じく `color` と `fontSize` に従う */
-export function WeatherIcon({ icon, layout, transitionDate, sx: ownSx, ...rest }: Props) {
+export function WeatherIcon({ icon, layout, transitionDate, sx, ...rest }: Props) {
   const maskId = useId();
-  const openedDay = useOpenedWeatherDay();
-  const moves = transitionDate !== undefined && transitionDate === openedDay;
-  const props = moves
-    ? { ...rest, style: { ...rest.style, viewTransitionName: iconTransitionName(transitionDate) } }
-    : rest;
-  const sx = moves ? mergeSx(ONLY_IN_WEATHER_TRANSITION, ownSx) : ownSx;
+  // 名前は日ごとに違うのでインラインの style で付ける（sx に書くと日ごとにクラスが作られる）
+  const props =
+    useIconMoves(transitionDate) && transitionDate !== undefined
+      ? {
+          ...rest,
+          style: { ...rest.style, viewTransitionName: iconTransitionName(transitionDate) },
+        }
+      : rest;
   if (!('change' in icon)) {
     return (
       <SvgIcon {...props} sx={sx}>

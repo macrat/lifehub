@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import type { DailyWeather } from '../../../../shared/weather.ts';
 import { WeatherIcon } from '../../weather/components/WeatherIcon.tsx';
 import { wideRatio } from '../../weather/components/weather-glyphs.ts';
-import { openWeatherDay } from '../../weather/day-transition.ts';
 
 /** 天気と、隣の物（日付の数字）とのあいだの余白（px）。枠の端とのあいだには 2px 取る */
 const GAP = 2;
@@ -37,7 +36,7 @@ type Props = {
  *   気温の幅は字数分の ch と見る（ch は数字 1 字の幅で、「°」「-」はそれより狭いので上限になる）。
  * - 気温は 1 行に入りきらなければ次の行へ折り返し、高さで切れて見えなくなる（入るかどうかはブラウザに任せる）。
  * - アイコンは、枠が正方形のアイコンより狭いときにコンテナクエリで隠す。
- * 押した日のアイコンは週間天気の同じ日のアイコンとその場で動く（`openWeatherDay`）。
+ * 週間天気はその日を開いた日として開き（`weatherSearchSchema` の day）、押した日のアイコンだけがその場で動く。
  */
 export function DayWeather({ weather, size }: Props) {
   // 横並びと気温が一緒に入らない幅。天気が 1 つの日は横並びも正方形なので、切り替えても見た目は変わらない
@@ -63,7 +62,7 @@ export function DayWeather({ weather, size }: Props) {
     >
       <ButtonLink
         to="/weather"
-        onClick={() => openWeatherDay(weather.date)}
+        search={{ day: weather.date }}
         aria-label={`週間天気（${weather.label}${weather.tempMax === null ? '' : `、最高気温 ${weather.tempMax}度`}）`}
         sx={{
           display: 'flex',

@@ -53,11 +53,12 @@ export function HistoryList<T>({
     <InfiniteScroll
       {...headerProps}
       load={{ top: history.loadEarlier }}
-      initial={
-        history.todayAtTop
-          ? { block: 'start', target: () => futureRef.current, reveal }
-          : { block: 'end', target: () => pastRef.current, reveal }
-      }
+      initial={{
+        ...(history.todayAtTop
+          ? { block: 'start', target: () => futureRef.current }
+          : { block: 'end', target: () => pastRef.current }),
+        reveal,
+      }}
       resetKey={history.resetKey}
       ready={history.ready}
     >

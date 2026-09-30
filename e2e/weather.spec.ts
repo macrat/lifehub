@@ -12,6 +12,8 @@ import { captured, recordViewTransitions, settle, transitions } from './view.ts'
  * WHY NOT 時計を止める（`page.clock`）: 偽の Date では JST の暦日の計算（`@date-fns/tz`）が壊れる。
  * 18 時の切り替えはユニットテストで確かめる（`src/features/weather/__tests__/queries.test.ts`）。
  */
+/** 週間天気の画面の URL（開いた日が検索パラメータに付くことがある） */
+const WEEKLY = /\/weather(\?|$)/;
 const TODAY = today();
 const TOMORROW = addDays(TODAY, 1);
 const YESTERDAY = addDays(TODAY, -1);
@@ -87,9 +89,16 @@ test.beforeEach(async ({ page }) => {
 const dateLabel = (date: string) =>
   new RegExp(`^${date.slice(0, 4)}年${date.slice(5, 7)}月${date.slice(8, 10)}日`);
 
+/** 直前の遷移の前後で撮られた、天気のアイコンの名前 */
+async function iconNames(page: Page) {
+  const last = (await transitions(page)).at(-1);
+  const icons = (names: string[] = []) => names.filter((name) => name.startsWith('weather-icon-'));
+  return { before: icons(last?.before), after: icons(last?.captured) };
+}
+
 async function openWeeklyFrom(page: Page, link: ReturnType<Page['getByRole']>) {
   await link.click();
-  await expect(page).toHaveURL('/weather');
+  await expect(page).toHaveURL(WEEKLY);
   // 明日の行に天気の名前と降水確率が並ぶ
   await expect(page.getByRole('listitem').filter({ hasText: '70%' })).toContainText('曇のち雨');
 }
@@ -132,31 +141,25 @@ test('ホームと週間天気を行き来すると、天気のタイルとそ�
 test('予定画面と週間天気を行き来すると押した日のアイコンだけが前後の画面に同じ名前で在り、ホームへ移るときは無い', async ({
   page,
 }) => {
-  // 動くのは押した日だけ（並んだ日が一斉に動くと、どれを追えばよいか分からない）。前後の両方で確かめる
-  const iconNames = async () => {
-    const last = (await transitions(page)).at(-1);
-    const icons = (names: string[] = []) =>
-      names.filter((name) => name.startsWith('weather-icon-'));
-    return { before: icons(last?.before), after: icons(last?.captured) };
-  };
+  // 動くのは押した日だけ。前後の両方で確かめる
   const onlyToday = { before: [`weather-icon-${TODAY}`], after: [`weather-icon-${TODAY}`] };
   await recordViewTransitions(page);
   await openCalendarAfterWeekly(page);
   await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));
   await settle(page);
-  expect(await iconNames()).toEqual(onlyToday);
+  expect(await iconNames(page)).toEqual(onlyToday);
 
   await page.getByRole('button', { name: '戻る' }).click();
   await expect(page).toHaveURL(/\/calendar/);
   await settle(page);
-  expect(await iconNames()).toEqual(onlyToday);
+  expect(await iconNames(page)).toEqual(onlyToday);
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 
   // ホームと予定画面の両方に同じ日のアイコンがあるので、名前があるとタイルのアイコンが日付の横から飛んでくる
   await page.getByRole('link', { name: 'ホーム' }).click();
   await expect(page).toHaveURL('/');
   await settle(page);
-  expect(await iconNames()).toEqual({ before: [], after: [] });
+  expect(await iconNames(page)).toEqual({ before: [], after: [] });
 });
 
 /**
@@ -191,12 +194,13 @@ test('予定画面で過ぎた日の天気を押すと、週間天気はその�
   await openCalendarAfterWeekly(page);
   // 予定画面は最初は月表示（前の日も同じ面に並ぶ）
   await page.getByRole('link', { name: /^週間天気（雨/ }).click();
-  await expect(page).toHaveURL('/weather');
+  await expect(page).toHaveURL(WEEKLY);
   await settle(page);
   await expectRowVisible(page, YESTERDAY);
-  expect((await captured(page)).filter((name) => name.startsWith('weather-icon-'))).toEqual([
-    `weather-icon-${YESTERDAY}`,
-  ]);
+  expect(await iconNames(page)).toEqual({
+    before: [`weather-icon-${YESTERDAY}`],
+    after: [`weather-icon-${YESTERDAY}`],
+  });
 });
 
 test('予定画面でまだ読んでいない古い日の天気を押すと、週間天気はそこまで読み足してその日の行を見せる', async ({
@@ -204,7 +208,7 @@ test('予定画面でまだ読んでいない古い日の天気を押すと、�
 }) => {
   await page.goto(`/calendar?view=day&date=${EARLIER}`);
   await page.getByRole('link', { name: /^週間天気（雪/ }).click();
-  await expect(page).toHaveURL('/weather');
+  await expect(page).toHaveURL(WEEKLY);
   await expect(page.locator(`li[data-date="${EARLIER}"]`)).toContainText('雪');
   await expectRowVisible(page, EARLIER);
 });
@@ -258,7 +262,7 @@ test('今日と明日は 3 時間ごとの天気が開いていて、行を押�
 test('天気の画面の戻るボタンで前の画面へ、直に開いたときはホームへ戻る', async ({ page }) => {
   await page.goto('/calendar?view=day');
   await page.getByRole('link', { name: /^週間天気/ }).click();
-  await expect(page).toHaveURL('/weather');
+  await expect(page).toHaveURL(WEEKLY);
   await expect(page.getByRole('banner')).toContainText('東京');
   await page.getByRole('button', { name: '戻る' }).click();
   await expect(page).toHaveURL(/\/calendar/);
