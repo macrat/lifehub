@@ -1,15 +1,15 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, type Page, test } from '@playwright/test';
 import { myId } from './auth.ts';
 import { addItem } from './events.ts';
 import {
   addRecord,
-  bottomNav,
   type Created,
   careLogHistory,
   deleteRecord,
   expenseHistory,
   isJustAboveBottomNav,
 } from './history.ts';
+import { appBar, bottomNav, bottomOf } from './layout.ts';
 
 /**
  * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
@@ -39,8 +39,7 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
   await expect(page.getByText(`E2E 後日 ${stamp}`)).toBeVisible();
   // 基準の日の見出しが AppBar のすぐ下に来る（上には前の日が隠れている）。
   // 下が足りない間は、前後の月が読まれるたびに合わせ直してそこへ落ち着く
-  const bar = await page.getByRole('banner').boundingBox();
-  const barBottom = (bar?.y ?? 0) + (bar?.height ?? 0);
+  const barBottom = await bottomOf(appBar(page));
   // 2px 未満の差は AppBar の下端の線と端数の分
   await expect
     .poll(async () => Math.abs(((await heading.boundingBox())?.y ?? -100) - barBottom))
@@ -134,15 +133,11 @@ for (const history of histories) {
 
       if (history.scrollsAway) {
         // 下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる
-        const bottom = async (locator: Locator) => {
-          const box = await locator.boundingBox();
-          return (box?.y ?? 0) + (box?.height ?? 0);
-        };
-        const barBottom = await bottom(page.getByRole('banner'));
+        const barBottom = await bottomOf(appBar(page));
         await page.mouse.wheel(0, 300);
-        await expect.poll(() => bottom(sticky)).toBeLessThanOrEqual(barBottom);
+        await expect.poll(() => bottomOf(sticky)).toBeLessThanOrEqual(barBottom);
         await page.mouse.wheel(0, -100);
-        await expect.poll(() => bottom(sticky)).toBeGreaterThan(barBottom);
+        await expect.poll(() => bottomOf(sticky)).toBeGreaterThan(barBottom);
       }
     } finally {
       for (const record of created) await deleteRecord(page, record);

@@ -2,6 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
+import { appBar, bottomOf } from './layout.ts';
 import { rewriteJson } from './network.ts';
 import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
@@ -182,9 +183,7 @@ async function openCalendarAfterWeekly(page: Page) {
 async function expectRowVisible(page: Page, date: string) {
   const row = page.locator(`li[data-date="${date}"]`).getByRole('button').first();
   await expect(row).toBeInViewport({ ratio: 1 });
-  const appBar = await page.getByRole('banner').boundingBox();
-  const box = await row.boundingBox();
-  expect(box && appBar && box.y >= appBar.y + appBar.height - 1).toBe(true);
+  expect((await row.boundingBox())?.y).toBeGreaterThanOrEqual((await bottomOf(appBar(page))) - 1);
 }
 
 test('予定画面で過ぎた日の天気を押すと、週間天気はその日の行が見える位置で開き、アイコンはその行へ動く', async ({
@@ -232,9 +231,8 @@ test('天気の画面は今日を一番上に出し、上へ戻ると過ぎた�
   const today = page.locator(`li[data-date="${TODAY}"]`);
   await expect(today).toBeInViewport();
   // 今日の行の上端は AppBar のすぐ下
-  const appBar = await page.getByRole('banner').boundingBox();
   const row = await today.boundingBox();
-  expect(Math.abs((row?.y ?? 0) - ((appBar?.y ?? 0) + (appBar?.height ?? 0)))).toBeLessThan(2);
+  expect(Math.abs((row?.y ?? 0) - (await bottomOf(appBar(page))))).toBeLessThan(2);
 
   await page.mouse.wheel(0, -2000);
   await expect(page.locator(`li[data-date="${EARLIER}"]`)).toContainText('雪');
@@ -263,7 +261,7 @@ test('天気の画面の戻るボタンで前の画面へ、直に開いたと�
   await page.goto('/calendar?view=day');
   await page.getByRole('link', { name: /^週間天気/ }).click();
   await expect(page).toHaveURL(WEEKLY);
-  await expect(page.getByRole('banner')).toContainText('東京');
+  await expect(appBar(page)).toContainText('東京');
   await page.getByRole('button', { name: '戻る' }).click();
   await expect(page).toHaveURL(/\/calendar/);
 
