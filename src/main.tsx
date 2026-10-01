@@ -14,6 +14,7 @@ import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
+import { setTransitionEnds } from './lib/view-transition.ts';
 import { routeTree } from './routeTree.gen.ts';
 
 /**
@@ -45,9 +46,6 @@ function stringifySearch(search: Record<string, unknown>): string {
 /** カレンダーの表示（月・週・日・リスト）。画面が変わったかの判定に使う */
 const viewOf = ({ searchStr }: { searchStr: string }) => new URLSearchParams(searchStr).get('view');
 
-/** 画面の名前（パスの最初の区切り。ホームは home）。View Transition の種別に使う */
-const screenOf = ({ pathname }: { pathname: string }) => pathname.split('/')[1] || 'home';
-
 const router = createRouter({
   routeTree,
   context: { queryClient },
@@ -73,26 +71,21 @@ const router = createRouter({
   defaultPendingMs: 0,
   defaultPendingComponent: ListSkeleton,
   /**
-   * 画面が変わる移動は View Transition で繋ぐ。前後の画面に共通して在るもの（カレンダーの表示を
-   * 切り替えたときの同じ予定、レモンの状況のタイル、ホームの天気のタイルと週間天気のその日の行、
-   * 同じ日の天気のアイコン）は名前を合わせてあり、その場から動く。
+   * 画面が変わる移動は View Transition で繋ぐ。前後の画面に共通して在るもの（docs/ui.md）は名前を合わせてあり、その場から動く。
    * 名前の無いものはフェードする。
    * 画面が変わるのはパスが変わるときと、カレンダーの表示が変わるとき。
    *
    * 同じ画面の中での更新（スワイプでの前後移動、リストの絞り込み、検索キーワードの入力）では使わない。
    * 指やキーの動きに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える。
    * 戻る・進むを含めどの経路でも同じ判定になるよう、個々の navigate ではなくここで一度だけ決める。
-   * 返す値は遷移するなら種別（types）、遷移しないなら `false`。種別は前後の画面の名前（`screenOf`）で、
-   * 特定の画面との行き来でだけ動かすもの（天気のアイコン。`iconTransitionName`）は、名前をその種別の間だけ残す。
+   * 返す値は「遷移する（種別は付けない）」が `[]`、「遷移しない」が `false`。
    */
   defaultViewTransition: {
-    types: ({ fromLocation, toLocation }) => {
-      if (fromLocation === undefined) return false;
-      const changed =
-        fromLocation.pathname !== toLocation.pathname ||
-        viewOf(fromLocation) !== viewOf(toLocation);
-      return changed ? [screenOf(fromLocation), screenOf(toLocation)] : false;
-    },
+    types: ({ fromLocation, toLocation }) =>
+      fromLocation !== undefined &&
+      (fromLocation.pathname !== toLocation.pathname || viewOf(fromLocation) !== viewOf(toLocation))
+        ? []
+        : false,
   },
 });
 
@@ -121,6 +114,11 @@ window.addEventListener(UNAUTHORIZED_EVENT, () => {
     router.navigate({ to: '/login', search: { redirect: router.state.location.href } });
   }
 });
+
+// 移動の前後の場所を、遷移の前後の画面が撮られるより前に知らせる（`src/lib/view-transition.ts`）
+router.subscribe('onBeforeNavigate', ({ fromLocation, toLocation }) =>
+  setTransitionEnds({ from: fromLocation, to: toLocation }),
+);
 
 // Sentry への報告はルーターができたらすぐ始める（この後の起動処理で起きたエラーも拾い、最初の画面の読み込みも計る）
 initSentry(router, queryClient);

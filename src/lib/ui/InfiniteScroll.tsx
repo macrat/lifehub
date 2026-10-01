@@ -25,9 +25,15 @@ type Props = InfiniteScrollHeaderProps & {
   /**
    * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
    * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
-   * 省くか要素が見つからなければ末尾を出す
+   * 省くか要素が見つからなければ末尾を出す。
+   * reveal を渡すと、その要素が画面に収まっていなければ、収まる所まで最小限だけ動かす（`scrollIntoView` の
+   * nearest）。見つからない間（まだ読んでいないページにある）は、読み足されるたびに置き直す
    */
-  initial?: { block: 'start' | 'end'; target: (list: HTMLElement) => HTMLElement | null };
+  initial?: {
+    block: 'start' | 'end';
+    target: (list: HTMLElement) => HTMLElement | null;
+    reveal?: (list: HTMLElement) => HTMLElement | null;
+  };
   /** 変わったら最初の位置に戻す（絞り込みを変えたときなど、別の一覧になったとき） */
   resetKey: string;
   /** 最初の位置を決めてよいか（中身が揃ったか）。揃う前に決めると、あとから埋まった分だけずれる */
@@ -88,33 +94,49 @@ export function InfiniteScroll({
   }, []);
 
   /**
-   * 最初の位置へ動かす（目当ての要素が無ければ末尾へ）。位置の計算はブラウザの scrollIntoView に任せる。
-   * - start: 要素の上に、貼り付いた見出しの分（AppBar の下端＋見出しの高さ）の scroll-margin-top を取る。
-   *   見出しは貼り付くまでは流れの中にあって今の位置は当てにならないので、貼り付いた後の位置で決める
+   * 最初の位置へ動かし、置けたかを返す（目当ての要素が無ければ末尾へ）。位置の計算はブラウザの scrollIntoView に任せる。
+   * - start: 要素の上に、貼り付いた見出しの分の余白を取る（`clearHeader`）
    * - end: 画面の下端は AppShell の scroll-padding-bottom（下部ナビの分）で決まる
+   * - reveal: target を置いたあと、見せる要素が画面に収まる所まで最小限だけ動かす。置けたかはこの要素が
+   *   収まったかで決める（target の位置からはずれてよい）。まだ読んでいないページにあって見つからない間は置けていない
+   * 上か下が足りないと途中で止まり、置けていない。なめらかに動かすときは動き終わる前に返るので、返り値は当てにならない
    */
-  const place = (list: HTMLElement, behavior: ScrollBehavior) => {
+  const place = (list: HTMLElement, behavior: ScrollBehavior): boolean => {
     const target = initial?.target(list);
     if (!initial || !target) {
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
-      return;
+      return true;
     }
-    if (initial.block === 'start') {
-      const header = headerRef.current?.offsetHeight ?? 0;
-      target.style.scrollMarginTop = `calc(${STICKY_TOP} + ${header}px)`;
-    }
+    if (initial.block === 'start') clearHeader(target);
     target.scrollIntoView({ block: initial.block, behavior });
+    if (initial.reveal) {
+      const shown = initial.reveal(list);
+      if (!shown) return false;
+      clearHeader(shown);
+      shown.scrollIntoView({ block: 'nearest', behavior });
+      const box = shown.getBoundingClientRect();
+      return box.top >= headerBottom() - 1 && box.bottom <= viewBottom() + 1;
+    }
+    const box = target.getBoundingClientRect();
+    return initial.block === 'start'
+      ? Math.abs(box.top - headerBottom()) < 1
+      : Math.abs(box.bottom - viewBottom()) < 1;
   };
 
-  /** 最初の位置に置けているか（上か下が足りないと途中で止まる） */
-  const isPlaced = (list: HTMLElement) => {
-    const target = initial?.target(list);
-    if (!initial || !target) return true;
-    const box = target.getBoundingClientRect();
-    if (initial.block === 'start') return Math.abs(box.top - headerBottom()) < 1;
+  /**
+   * 画面の上端に寄せるとき、貼り付いた見出し（AppBar の下端＋見出しの高さ）に隠れないよう余白を取る。
+   * 見出しは貼り付くまでは流れの中にあって今の位置は当てにならないので、貼り付いた後の位置で決める
+   */
+  const clearHeader = (element: HTMLElement) => {
+    const header = headerRef.current?.offsetHeight ?? 0;
+    element.style.scrollMarginTop = `calc(${STICKY_TOP} + ${header}px)`;
+  };
+
+  /** 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom） */
+  const viewBottom = () => {
     const root = document.documentElement;
     const padding = Number.parseFloat(getComputedStyle(root).scrollPaddingBottom) || 0;
-    return Math.abs(box.bottom - (root.clientHeight - padding)) < 1;
+    return root.clientHeight - padding;
   };
 
   // 描画のたびに: 別の一覧になったら（留めている間は毎回）最初の位置へ、そうでなければ見ていた所へ
@@ -127,8 +149,7 @@ export function InfiniteScroll({
       pinned.current = true;
     }
     if (pinned.current) {
-      place(list, 'instant');
-      pinned.current = !isPlaced(list);
+      pinned.current = !place(list, 'instant');
     } else if (anchor.current?.element.isConnected) {
       const { element, top } = anchor.current;
       window.scrollBy(0, element.getBoundingClientRect().top - top);

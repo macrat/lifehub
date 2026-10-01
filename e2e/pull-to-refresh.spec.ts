@@ -1,5 +1,6 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { openHome } from './auth.ts';
+import { appBar } from './layout.ts';
 import { failFetches, fetchesFromNow, quiet } from './network.ts';
 import { touchDrag } from './touch.ts';
 
@@ -122,7 +123,7 @@ test('天気（今日から下が先の日）も、下端で上へ引けば取�
   page,
 }) => {
   await page.goto('/weather');
-  await expect(page.getByRole('banner')).toContainText('東京');
+  await expect(appBar(page)).toContainText('東京');
   const fetched = await fetchesFromNow(page, 'weather.page');
   await page.evaluate(() => window.scrollTo(0, 0));
   await pull(page, 200);

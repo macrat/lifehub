@@ -1,3 +1,4 @@
+import type { DateString } from '../../../../shared/types.ts';
 import { StatusTile } from '../../../lib/ui/StatusTile.tsx';
 import { HOME_WEATHER_TRANSITION } from '../day-transition.ts';
 import { formatTemp } from '../format.ts';
@@ -6,7 +7,8 @@ import { WeatherIcon } from './WeatherIcon.tsx';
 
 type Props = {
   home: HomeWeather;
-  onClick: () => void;
+  /** 押した（タイルの日を開いた日として週間天気を開く。予報の無い日は日を渡さない） */
+  onClick: (day: DateString | undefined) => void;
 };
 
 /**
@@ -18,7 +20,7 @@ type Props = {
  * 名前が入りきらないとき（「曇時々雨で雷を伴う」など）は末尾を「…」で切り、全文は週間天気で見る。
  * 予報の無い日（取り始める前など）は、ほかのタイルの「記録なし」と同じく値を「—」にする。
  * 週間天気の同じ日の行とは名前を合わせてあり、行き来するとその場から動く（`HOME_WEATHER_TRANSITION`）。
- * アイコンも行のアイコンとその場で動く（`iconTransitionName`）。
+ * 押すとタイルの日を開いた日として週間天気を開き、アイコンも行のアイコンとその場で動く（`useIconMoves`）。
  */
 export function WeatherTile({ home: { label, weather }, onClick }: Props) {
   return (
@@ -30,7 +32,7 @@ export function WeatherTile({ home: { label, weather }, onClick }: Props) {
       value={weather ? `${formatTemp(weather.tempMax)} / ${formatTemp(weather.tempMin)}` : '—'}
       sub={weather ? weather.label : '予報なし'}
       transitionName={HOME_WEATHER_TRANSITION}
-      onClick={onClick}
+      onClick={() => onClick(weather?.date)}
     />
   );
 }

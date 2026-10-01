@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { toDateString } from '../shared/date.ts';
 import { type Api, apiOf } from './api.ts';
+import { bottomNav } from './layout.ts';
 
 /**
  * 立替・レモンの履歴（`src/lib/ui/HistoryList.tsx`）を確かめるテストの道具。
@@ -53,9 +54,6 @@ export async function addRecord(
 export async function deleteRecord(page: Page, { router, id }: Created) {
   await apiOf(page.request)[router].delete.mutate({ id });
 }
-
-/** スマホの下部ナビ（画面の最後の navigation） */
-export const bottomNav = (page: Page) => page.getByRole('navigation').last();
 
 /**
  * text の行が下部ナビのすぐ上にあるか（最初の位置）。行の下端から下部ナビの上端までの隙間が 0 以上で、

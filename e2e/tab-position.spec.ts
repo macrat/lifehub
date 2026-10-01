@@ -1,14 +1,14 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, type Page, test } from '@playwright/test';
 import { myId, openHome } from './auth.ts';
 import {
   addRecord,
-  bottomNav,
   type Created,
   careLogHistory,
   deleteRecord,
   expenseHistory,
   isJustAboveBottomNav,
 } from './history.ts';
+import { appBar, bottomNav, bottomOf } from './layout.ts';
 
 /**
  * 下部ナビのタブの画面は、別のタブからでも戻るでも、来たときは最初の位置で出る（ホームは一番上、立替・レモンは
@@ -90,11 +90,6 @@ function scrollPositions(page: Page): Promise<number[]> {
   );
 }
 
-async function bottomOf(locator: Locator) {
-  const box = await locator.first().boundingBox();
-  return (box?.y ?? 0) + (box?.height ?? 0);
-}
-
 /** タブを押して開き、最初の位置に落ち着くまで待つ */
 async function openTab(page: Page, tab: Tab) {
   await bottomNav(page).getByRole('link', { name: tab.name }).click();
@@ -149,7 +144,7 @@ for (const [index, tab] of tabs.entries()) {
     expect(await atInitial(page, tab)).toBe(true);
     // 下へスクロールすると隠れる帯（ホームのタイル、立替の残高）も、最初に開いたときと同じく出ている
     if (tab.scrollAwayHeader) {
-      const barBottom = await bottomOf(page.getByRole('banner'));
+      const barBottom = await bottomOf(appBar(page));
       await expect
         .poll(() => bottomOf(page.getByText(tab.scrollAwayHeader ?? '')))
         .toBeGreaterThan(barBottom);

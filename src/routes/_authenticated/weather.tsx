@@ -5,7 +5,9 @@ import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
 import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
+import { weatherSearchSchema } from '../../features/weather/search.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
+import { useRevealDay } from '../../features/weather/use-reveal-day.ts';
 import { useScreenHistory } from '../../lib/screen-data.ts';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
@@ -14,6 +16,7 @@ import { useGoBack } from '../../lib/ui/use-go-back.ts';
 
 export const Route = createFileRoute('/_authenticated/weather')({
   staticData: { ownsScroll: true },
+  validateSearch: weatherSearchSchema,
   component: WeatherPage,
 });
 
@@ -30,6 +33,7 @@ function WeatherPage() {
   const expanded = useExpandedDays();
   const goBack = useGoBack();
   const homeDay = useHomeWeatherDay();
+  const reveal = useRevealDay(history, Route.useSearch().day);
   return (
     <>
       <AppBarContent>
@@ -41,7 +45,7 @@ function WeatherPage() {
         </Typography>
       </AppBarContent>
       <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
-        <HistoryList history={history} emptyMessage="予報がまだありません">
+        <HistoryList history={history} emptyMessage="予報がまだありません" reveal={reveal}>
           {(days) => (
             <WeatherDayList
               days={days}

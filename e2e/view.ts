@@ -4,6 +4,8 @@ import { expect, type Page } from '@playwright/test';
 export type Transition = {
   ready: string;
   finished: boolean;
+  /** 遷移前として撮られる時点（遷移を始めたとき）に在った view-transition-name */
+  before: string[];
   /** 遷移後として撮られる時点（更新コールバックの直後）に在った view-transition-name */
   captured: string[];
 };
@@ -24,12 +26,19 @@ export async function recordViewTransitions(page: Page) {
   await page.addInitScript(() => {
     window.viewTransitions = [];
     const start = document.startViewTransition.bind(document);
+    // 撮られるのは描かれている要素だけ（`display: none` の中は名前があっても撮られない）
     const collect = () =>
       [...document.querySelectorAll('*')]
+        .filter((el) => el.getClientRects().length > 0)
         .map((el) => getComputedStyle(el).viewTransitionName)
         .filter((name) => name !== 'none');
     document.startViewTransition = (update) => {
-      const record: Transition = { ready: 'pending', finished: false, captured: [] };
+      const record: Transition = {
+        ready: 'pending',
+        finished: false,
+        before: collect(),
+        captured: [],
+      };
       window.viewTransitions.push(record);
       // 遷移後のスナップショットは更新コールバックが解決したあとに撮られるので、その直後を控える
       const callback = typeof update === 'function' ? update : update?.update;

@@ -83,7 +83,7 @@ function HomePage() {
             onChange={filter.setFilters}
           />
           <StatusCards
-            onOpenWeather={() => void navigate({ to: '/weather' })}
+            onOpenWeather={(day) => void navigate({ to: '/weather', search: { day } })}
             onAddCare={addingCare.open}
           />
         </ScrollAwayHeader>

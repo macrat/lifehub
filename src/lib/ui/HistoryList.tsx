@@ -14,6 +14,8 @@ export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
   emptyMessage: string;
   /** 記録の並び（古い順）の描き方。今日までの記録と未来の記録で 1 回ずつ呼ぶ */
   children: (items: T[]) => ReactNode;
+  /** 開いたときに必ず画面に収める行（`InfiniteScroll` の initial.reveal）。最初の位置から最小限だけ動かす */
+  reveal?: (list: HTMLElement) => HTMLElement | null;
 };
 
 /**
@@ -42,6 +44,7 @@ export function HistoryList<T>({
   history,
   emptyMessage,
   children,
+  reveal,
   ...headerProps
 }: HistoryListProps<T>) {
   const pastRef = useRef<HTMLDivElement>(null);
@@ -50,11 +53,12 @@ export function HistoryList<T>({
     <InfiniteScroll
       {...headerProps}
       load={{ top: history.loadEarlier }}
-      initial={
-        history.todayAtTop
+      initial={{
+        ...(history.todayAtTop
           ? { block: 'start', target: () => futureRef.current }
-          : { block: 'end', target: () => pastRef.current }
-      }
+          : { block: 'end', target: () => pastRef.current }),
+        reveal,
+      }}
       resetKey={history.resetKey}
       ready={history.ready}
     >

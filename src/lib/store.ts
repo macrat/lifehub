@@ -23,11 +23,18 @@ export function createStore<T>(initial: T) {
     };
   }
 
-  function useValue(): T {
+  /**
+   * 値を読む。select を渡すと値から導いた物を読み、それが変わったときだけ描き直す
+   * （たくさんの部品が同じ値を見て、それぞれ自分に関わるかだけを知りたいとき。select は同じ値に同じ結果を返す）
+   */
+  function useValue(): T;
+  function useValue<S>(select: (value: T) => S): S;
+  function useValue<S>(select?: (value: T) => S): T | S {
+    const read = select ?? ((value: T) => value);
     return useSyncExternalStore(
       subscribe,
-      () => current,
-      () => initial,
+      () => read(current),
+      () => read(initial),
     );
   }
 
