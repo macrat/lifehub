@@ -10,6 +10,7 @@ import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { watchAppBadge } from './lib/app-badge.ts';
 import { markSignedOut } from './lib/auth.ts';
 import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
+import { reloadApp, reloadOnStaleChunk } from './lib/reload.ts';
 import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
@@ -123,8 +124,11 @@ router.subscribe('onBeforeNavigate', ({ fromLocation, toLocation }) =>
 // Sentry への報告はルーターができたらすぐ始める（この後の起動処理で起きたエラーも拾い、最初の画面の読み込みも計る）
 initSentry(router, queryClient);
 
-// アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
-registerSW({ immediate: true });
+// アプリシェルを precache する Service Worker。新版が有効になったら読み込み直して切り替える（autoUpdate）
+registerSW({ immediate: true, onNeedReload: reloadApp });
+
+// デプロイで消えた旧版のコードを取りに行って失敗したら、新版で起動し直す
+reloadOnStaleChunk();
 
 // 通知が付けたホーム画面のアイコンの点を、アプリを見た時点で消す
 watchAppBadge();

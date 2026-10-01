@@ -1,0 +1,13 @@
+// アプリの読み込み直しは src/lib/reload.ts の reloadApp だけが行う。読み込み直しを始めたことを reloadApp が持ち、
+// その間のエラーをエラー画面に出さず Sentry にも送らない（docs/architecture.md の「PWA」）。
+// 直接 location.reload() を呼ぶと、ページが離れるまでの間のエラーが画面と報告に出る。
+language js
+
+or {
+  `location.reload()`,
+  `$_.location.reload()`
+} as $call where {
+  $filename <: r".*/src/.*",
+  $filename <: not r".*/src/lib/reload\.ts$",
+  register_diagnostic(span=$call, message="読み込み直しは src/lib/reload.ts の reloadApp を通す（読み込み直しの間のエラーを画面と Sentry に出さないため）")
+}

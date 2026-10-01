@@ -128,7 +128,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ```
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
-- 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（全パス → `index.html`）は `vercel.json` の rewrites で設定する。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
+- 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（画面のパス → `index.html`）は `vercel.json` の rewrites で設定する。フォールバックするのは `.` を含まないパスだけ（画面のパスは `.` を含まない）で、無いファイル（デプロイで消えた旧版の `/assets/*.js` など）には `index.html` を返さず 404 にする。HTML を 200 で返すと、壊れたのは何なのか（無いのか、中身が違うのか）が応答から分からず、ブラウザも MIME の不一致としてしか報告しないため。E2E とローカル確認用の `server/dev.ts` も同じ規則でフォールバックする。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
 - Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/holidays.md](features/holidays.md)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/weather.md](features/weather.md#取得と保存)）と、日次の前日の最高・最低気温の観測値での上書き（`/api/cron/weather/observed`。同）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
 - 2 人だけが使う非公開のアプリなので、検索エンジンに載せない。クロールは `public/robots.txt`（全パスを `Disallow`）で断り、索引は `vercel.json` の全パスへの `X-Robots-Tag: noindex, nofollow` ヘッダで断る。ヘッダは HTML 以外（API の JSON やアイコン）にも効き、`<meta name="robots">` と違って `index.html` を経ない応答も覆えるため、meta タグではなくヘッダで付ける。robots.txt を守らないクローラーでもヘッダで索引から外れ、robots.txt を守るクローラーはそもそも取りに来ない。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
@@ -166,7 +166,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 ## オフラインと起動速度
 
-- アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は「新版を検知したらバックグラウンドで取得し、次回起動で切替」（Workbox の `autoUpdate`）。次の起動を待たずに更新したいときは設定画面の更新ボタン（下記「PWA」）。
+- アプリシェル（HTML/JS/CSS/アイコン）は Service Worker で precache し、2 回目以降はネットワークを待たずに起動する。更新は、起動時に新版を検知したらバックグラウンドで取得し、有効になった時点で読み込み直して切り替える（`autoUpdate`）。次の起動を待たずに更新したいときは設定画面の更新ボタン（下記「PWA」）。
 - TanStack Query のキャッシュを IndexedDB に永続化し、起動直後は前回のデータを即表示してからバックグラウンドで再取得する（stale-while-revalidate）。Neon のコールドスタートはこの仕組みで体感上吸収する。
 - API の GET には ETag と `Cache-Control: private, no-cache` を付ける（`server/app.ts`）。`staleTime: 0` で画面を開くたびに取り直すため、変わっていない一覧をそのたびに丸ごと転送しないようにする。ブラウザが `If-None-Match` を添えて聞き直し、内容が同じなら 304 で本文が流れない（常に最新を出す性質は変わらない）。
 - 既定は `staleTime: 0`（`src/lib/query-client.ts`）。画面を開くたびに裏で取り直して届いたら差し替えるので、起動時だけでなくページ遷移でも手元のデータがそのまま出たままになり、一度空になることがない。永続化の書き込みは 1 秒遅れるため、変更直後に再読み込みすると古い内容が復元されることがあり、staleTime を置くとそれが残ってしまう。取り直しを抑えたいクエリ（`me`（ユーザーの一覧も載る）、VAPID 鍵、カレンダーの項目）だけが個別に staleTime を持つ。カレンダーの項目は表示（月・週・日・リスト）の切り替えで取り直さないよう `staleTime` を無期限にし、画面に入ったときに取り直す（[features/calendar.md](features/calendar.md)）。`me` は 5 分（[features/users.md](features/users.md)）。
@@ -216,4 +216,8 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
 - 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。インストールした PWA は precache から起動するため再読み込みでは版が変わらないので、`registration.update()` で Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で上記 `autoUpdate` の経路が読み込み直す。新版が無いときと、取りに行けなかったとき（オフライン等）だけ自分で読み込み直す（押しても何も起きない状態を作らない）。
+- デプロイで消えた旧版のコード: 旧版のページがまだ読み込んでいない画面のコードは、デプロイ後はサーバーにも、新版の Service Worker が入れ替えた precache にも無い。取りに行って失敗したら（`vite:preloadError`）読み込み直し、新版で開き直す（`src/lib/reload.ts` の `reloadOnStaleChunk`）。
+  - 読み込み直しても同じ失敗がすぐ続く（オフラインで precache にも無い、壊れたデプロイなど）ときは繰り返さず、エラー画面を出す。回数（セッションで 1 度）ではなく間隔（`STALE_CHUNK_RELOAD_INTERVAL_MS`）で止めるのは、同じタブを開いたまま次のデプロイを迎えたときに、また読み込み直せるようにするため。
+  - アプリの読み込み直しはすべて `src/lib/reload.ts` の `reloadApp` を通し、始めたことを持つ（`lint/reload.grit` が強制する）。読み込み直しを始めた後のエラーはページごと捨てられて利用者に届かないので、エラー画面を出さずに骨組みのままにし（`ErrorPage`）、Sentry にも送らない（[operations.md](operations.md#監視sentry)）。
+  - WHY NOT TanStack Router の読み込み直し（`lazyRouteComponent`）に任せる: 同じ失敗で読み込み直すが、ページが離れるまでの描き直しでエラーを投げるので、エラー画面が一瞬出て報告も送られる。こちらが先に読み込み直し、その間のエラーを上のとおり扱う。
 - アイコンは `public/icons/favicon.svg`（アプリのアイコン）、`public/icons/badge.svg`（通知の小さな印）、アプリが使っている MUI のアイコン（ショートカット）を元に `pnpm icons:generate`（Playwright の Chromium でラスタライズ）で生成し、生成物をコミットする。画像ライブラリを増やさないため。ショートカットの絵は、アプリが使っている MUI のアイコン（下部ナビと追加ボタンのもの）を React からそのまま描き出し、アプリのアイコンと同じ角丸の板に白で置く。絵の選択も path も書き写さないので、アプリの表示とショートカットが必ず同じ絵になる。

@@ -16,7 +16,9 @@ const server = new Hono();
 server.route('/', app);
 if (process.env.SERVE_STATIC) {
   server.use('/*', serveStatic({ root: './dist' }));
-  server.get('/*', serveStatic({ root: './dist', path: 'index.html' }));
+  // SPA のフォールバックは画面のパスだけ（vercel.json と同じ規則。docs/architecture.md）
+  const indexHtml = serveStatic({ root: './dist', path: 'index.html' });
+  server.get('/*', (c, next) => (c.req.path.includes('.') ? next() : indexHtml(c, next)));
 }
 
 serve({ fetch: server.fetch, port }, (info) => {

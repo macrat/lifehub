@@ -3,9 +3,15 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import type { ErrorComponentProps } from '@tanstack/react-router';
+import { isReloading, reloadApp } from '../reload.ts';
+import { ListSkeleton } from './QueryView.tsx';
 
-/** ルートの読み込みや描画で例外が起きたときの表示。再読み込みで復帰できることが多い。 */
+/**
+ * ルートの読み込みや描画で例外が起きたときの表示。再読み込みで復帰できることが多い。
+ * 読み込み直しを始めた後は骨組みを出す（docs/architecture.md の「PWA」）。
+ */
 export function ErrorPage({ error, reset }: ErrorComponentProps) {
+  if (isReloading()) return <ListSkeleton />;
   return (
     <Box sx={{ p: 2 }}>
       <Stack spacing={2} sx={{ maxWidth: 480, mx: 'auto', mt: 4 }}>
@@ -16,7 +22,7 @@ export function ErrorPage({ error, reset }: ErrorComponentProps) {
         <Button variant="contained" onClick={() => reset()}>
           再試行
         </Button>
-        <Button onClick={() => window.location.reload()}>再読み込み</Button>
+        <Button onClick={reloadApp}>再読み込み</Button>
       </Stack>
     </Box>
   );

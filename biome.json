@@ -17,6 +17,7 @@
   "plugins": [
     "./lint/mui-color-prop-path.grit",
     "./lint/named-middleware.grit",
+    "./lint/reload.grit",
     "./lint/screen-data.grit"
   ],
   "linter": {
