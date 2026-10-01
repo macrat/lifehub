@@ -16,7 +16,9 @@ const server = new Hono();
 server.route('/', app);
 if (process.env.SERVE_STATIC) {
   server.use('/*', serveStatic({ root: './dist' }));
-  server.get('/*', serveStatic({ root: './dist', path: 'index.html' }));
+  // SPA のフォールバックは画面のパス（`.` を含まない）だけ。無いファイルは 404 のまま返す（vercel.json と同じ）
+  const indexHtml = serveStatic({ root: './dist', path: 'index.html' });
+  server.get('/*', (c, next) => (c.req.path.includes('.') ? next() : indexHtml(c, next)));
 }
 
 serve({ fetch: server.fetch, port }, (info) => {
