@@ -3,7 +3,7 @@ import { type QueryClient, QueryObserver } from '@tanstack/react-query';
 import type { AnyRouter } from '@tanstack/react-router';
 import { SENTRY_DATA_COLLECTION, sentryUser } from '../../shared/sentry.ts';
 import { meQueryOptions } from './auth.ts';
-import { isReloading } from './update.ts';
+import { isReloading } from './reload.ts';
 
 /**
  * ブラウザのエラー・トレース・ログを Sentry に送る。DSN は本番のビルドにだけ埋め込まれる（`vite.config.ts`）ので、
@@ -50,7 +50,7 @@ export function initSentry(router: AnyRouter, client: QueryClient): void {
       'Transition was skipped. New ViewTransition started',
       'Transition was aborted because of invalid state. Viewport size changed',
     ],
-    // 読み込み直しを始めた後のエラーとログは、ページごと捨てられて利用者に届かないので送らない
+    // 読み込み直しを始めた後のエラーとログは送らない（docs/architecture.md の「PWA」）
     beforeSend: (event) => (isReloading() ? null : event),
     beforeSendLog: (log) => (isReloading() ? null : log),
   });

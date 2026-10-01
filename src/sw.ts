@@ -19,7 +19,7 @@ registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api\//] }),
 );
 
-// 新版を検知したら次回起動で切り替える（autoUpdate）
+// 新版はインストールできたらすぐ有効にし、開いているページも受け持つ（ページは src/main.tsx の registerSW が読み込み直す）
 self.skipWaiting();
 clientsClaim();
 
