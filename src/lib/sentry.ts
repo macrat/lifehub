@@ -50,7 +50,7 @@ export function initSentry(router: AnyRouter, client: QueryClient): void {
       'Transition was skipped. New ViewTransition started',
       'Transition was aborted because of invalid state. Viewport size changed',
     ],
-    // 読み込み直しを始めた後のエラーとログは、ページごと捨てられて利用者に届かないので送らない（`isReloading`）
+    // 読み込み直しを始めた後のエラーとログは、ページごと捨てられて利用者に届かないので送らない
     beforeSend: (event) => (isReloading() ? null : event),
     beforeSendLog: (log) => (isReloading() ? null : log),
   });

@@ -14,7 +14,7 @@ import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
-import { reloadOnStaleChunk } from './lib/update.ts';
+import { reloadApp, reloadOnStaleChunk } from './lib/update.ts';
 import { routeTree } from './routeTree.gen.ts';
 
 /**
@@ -127,7 +127,7 @@ window.addEventListener(UNAUTHORIZED_EVENT, () => {
 initSentry(router, queryClient);
 
 // アプリシェルを precache する Service Worker。新版は次回起動時に切り替わる（autoUpdate）。
-registerSW({ immediate: true });
+registerSW({ immediate: true, onNeedReload: reloadApp });
 
 // デプロイで消えた旧版のコードを取りに行って失敗したら、新版で起動し直す
 reloadOnStaleChunk();

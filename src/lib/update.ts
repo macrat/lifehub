@@ -21,49 +21,43 @@ async function updateApp(): Promise<void> {
     // 「押したのに何も起きない」を作らないため、ここで止めない。
   }
   // 新版が無ければ、ただの再読み込みで終わる。
-  location.reload();
+  reloadApp();
 }
 
-/** 読み込み直しを始めたか（`reloadOnStaleChunk`） */
+/** 読み込み直しを始めたか（`reloadApp`） */
 let reloading = false;
 
-/**
- * 読み込み直しを始めた後か。この間に起きたエラーはページごと捨てられ、利用者には届かないので、
- * Sentry に送らない（`src/lib/sentry.ts`）。
- */
+/** 読み込み直しを始めた後か（ページごと捨てられるので、その間のエラーは見せも送りもしない） */
 export function isReloading(): boolean {
   return reloading;
 }
 
+/**
+ * ページを読み込み直す。アプリの読み込み直しはすべてここを通し、始めたことを `isReloading` で読めるようにする
+ * （エラー画面を出さない `src/lib/ui/ErrorPage.tsx`、Sentry に送らない `src/lib/sentry.ts`）。
+ */
+export function reloadApp(): void {
+  reloading = true;
+  location.reload();
+}
+
 /** 古い版のコードを読めずに読み込み直した時刻（sessionStorage のキー） */
-const STALE_CHUNK_RELOADED_AT = 'lifehub:stale-chunk-reloaded-at';
+const STALE_CHUNK_RELOADED_AT = 'lifehub-stale-chunk-reloaded-at';
 
 /** 読み込み直しても同じ失敗が続くときに、読み込み直しを繰り返さない間隔 */
 const STALE_CHUNK_RELOAD_INTERVAL_MS = 10_000;
 
 /**
  * 画面のコードを読めなかったら（`vite:preloadError`）、読み込み直して新版で起動し直す。
- *
- * 新版をデプロイすると旧版のファイルはサーバーから消え、新版の Service Worker も旧版の precache を消す。
- * そのため、旧版のページがまだ読み込んでいない画面のコードを取りに行くと失敗する
- * （Failed to fetch dynamically imported module）。読み込み直せば新版のファイルで開き直せる。
- *
- * 読み込み直しても同じ失敗が続く（オフラインで precache にも無いなど）ときは、読み込み直しを繰り返さず、
- * エラー画面を出して Sentry に送る。回数ではなく間隔で止めるのは、同じタブを開いたまま次のデプロイを
- * 迎えたときに、また読み込み直せるようにするため。
- *
- * WHY NOT TanStack Router の `lazyRouteComponent` の読み込み直しに任せる: あちらも読み込み直すが、
- * ページが離れるまでの間に描き直されるとエラーを投げ、エラー画面が一瞬出て Sentry にも送られる。
- * 読み込み直しを始めたことをここで持ち、その間のエラーを送らない（`isReloading`）。
+ * 仕組みと理由は docs/architecture.md の「PWA」。
  */
 export function reloadOnStaleChunk(): void {
   window.addEventListener('vite:preloadError', () => {
-    if (reloading) return;
+    const now = Date.now();
     const reloadedAt = Number(sessionStorage.getItem(STALE_CHUNK_RELOADED_AT));
-    if (Date.now() - reloadedAt < STALE_CHUNK_RELOAD_INTERVAL_MS) return;
-    sessionStorage.setItem(STALE_CHUNK_RELOADED_AT, String(Date.now()));
-    reloading = true;
-    location.reload();
+    if (now - reloadedAt < STALE_CHUNK_RELOAD_INTERVAL_MS) return;
+    sessionStorage.setItem(STALE_CHUNK_RELOADED_AT, String(now));
+    reloadApp();
   });
 }
 
