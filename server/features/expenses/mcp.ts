@@ -53,13 +53,13 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
       title: '立替を記録する',
       description:
         '2 人の間の立替（どちらかが払ったお金）を記録する。精算（残高の支払い）も同じく記録し、払った人を paidBy、受け取った人を paidFor、内容を「精算」にする。記録した立替と、記録した後の残高（payer が payee に amount 円払えば精算）を返す。',
-      inputSchema: {
+      inputSchema: z.object({
         amount: fields.amount,
         description: fields.description,
         paidFor: fields.paidFor,
         paidBy: fields.paidBy.optional().describe('払った人の名前。省くと自分'),
         date: fields.date.optional().describe('使った日（JST の YYYY-MM-DD）。今日なら省く'),
-      },
+      }),
       annotations: ADDITIVE,
     },
     async ({ amount, description, paidFor, paidBy, date }) => {
@@ -85,26 +85,30 @@ export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
       title: '立替を直す',
       description:
         '立替を ref で直す。変える項目だけを渡し、省いた項目は今のまま。直した立替と、直した後の残高を返す。',
-      inputSchema: {
+      inputSchema: z.object({
         ref: refSchema.describe('立替の ref'),
         amount: fields.amount.optional(),
         description: fields.description.optional(),
         paidFor: fields.paidFor.optional(),
         paidBy: fields.paidBy.optional(),
         date: fields.date.optional(),
-      },
+      }),
       annotations: EDITING,
     },
     async ({ ref, amount, description, paidFor, paidBy, date }) => {
       const { id } = expectType(ref, ['expense']);
       const people = await ctx.people();
-      const expense = await service.patchExpense(id, {
-        amount,
-        description,
-        fromUserId: paidBy && resolvePerson(people, paidBy, ctx.userId),
-        toUserId: paidFor === undefined ? undefined : toUserIdOf(ctx, people, paidFor),
-        spentOn: date,
-      });
+      const expense = await service.patchExpense(
+        id,
+        {
+          amount,
+          description,
+          fromUserId: paidBy && resolvePerson(people, paidBy, ctx.userId),
+          toUserId: paidFor === undefined ? undefined : toUserIdOf(ctx, people, paidFor),
+          spentOn: date,
+        },
+        ctx.userId,
+      );
       return withBalance(people, expense);
     },
   );

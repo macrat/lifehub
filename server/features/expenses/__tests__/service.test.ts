@@ -101,13 +101,17 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    await updateExpense(expense.id, {
-      fromUserId: b,
-      toUserId: a,
-      amount: 500,
-      description: 'A の分',
-      spentOn: dateStringSchema.parse('2026-09-02'),
-    });
+    await updateExpense(
+      expense.id,
+      {
+        fromUserId: b,
+        toUserId: a,
+        amount: 500,
+        description: 'A の分',
+        spentOn: dateStringSchema.parse('2026-09-02'),
+      },
+      a,
+    );
     expect((await listExpenses({})).items).toMatchObject([
       {
         id: expense.id,
@@ -143,7 +147,7 @@ describe('expenses service', () => {
     const id = newId();
     const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
     await addExpense(input, a, id);
-    await updateExpense(id, { ...input, amount: 3000 });
+    await updateExpense(id, { ...input, amount: 3000 }, a);
     const resent = await addExpense(input, b, id);
 
     expect(resent).toMatchObject({ amount: 3000 });

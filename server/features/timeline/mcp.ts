@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { addDays, type DateRange, today } from '../../../shared/date.ts';
 import {
@@ -89,7 +89,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
       title: '今の状況',
       description:
         '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の残高（payer が payee に amount 円払えば精算）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
-      inputSchema: {},
+      inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
     async () => {
@@ -129,7 +129,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
         `一度に返すのは ${MAX_ENTRIES} 件まで。`,
         '各エントリーの ref を update_event・set_task_done・update_expense・update_lemon_log・update_memo・delete_entry に渡す。',
       ].join(' '),
-      inputSchema: {
+      inputSchema: z.object({
         ...range.shape,
         q: z
           .string()
@@ -138,7 +138,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
           .optional()
           .describe('記録の文字の部分一致（大文字小文字は区別しない）'),
         types: z.array(z.enum(ENTRY_TYPES)).min(1).optional().describe('読む種類。省くとすべて'),
-      },
+      }),
       annotations: READ_ONLY,
     },
     async ({ from, to, q, types }) => {
@@ -155,7 +155,7 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
       title: 'エントリーを消す',
       description:
         'タイムラインのエントリー（予定・タスク・立替・レモンの世話・メモ）を ref で消す。取り消せないので、消す物が合っているかを確かめてから呼ぶ。繰り返しの予定・タスクの回（ref に @ を含む）は scope で範囲を選ぶ。メモは書いた本人しか消せない。',
-      inputSchema: { ref: refSchema, scope: scopeSchema },
+      inputSchema: z.object({ ref: refSchema, scope: scopeSchema }),
       annotations: { ...EDITING, idempotentHint: false },
     },
     async ({ ref, scope }) => {

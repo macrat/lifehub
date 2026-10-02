@@ -1,16 +1,22 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { createMcpHandler } from '@modelcontextprotocol/server';
 import { expect } from 'vitest';
 import { createMcpServer } from '../mcp.ts';
 
 /** MCP のテストで、サーバーにつないでツールを呼ぶための共通の手順 */
 
 export async function connect(userId: string): Promise<Client> {
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createMcpServer({ userId });
-  await server.connect(serverTransport);
-  const client = new Client({ name: 'test', version: '0.0.0' });
-  await client.connect(clientTransport);
+  // 本番と同じく HTTP の口（createMcpHandler）を通す。トークンの検証（requireMcpAuth）だけを飛ばす
+  const handler = createMcpHandler(() => createMcpServer({ userId }));
+  const transport = new StreamableHTTPClientTransport(new URL('http://localhost/api/mcp'), {
+    fetch: (url, init) => handler.fetch(new Request(url, init)),
+  });
+  // 2026-07-28 の MCP でつなぐ（つながらなければ失敗させ、黙って 2025 年版に落ちないように）
+  const client = new Client(
+    { name: 'test', version: '0.0.0' },
+    { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+  );
+  await client.connect(transport);
   return client;
 }
 

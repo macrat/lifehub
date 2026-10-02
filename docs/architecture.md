@@ -27,7 +27,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | 画面の API | tRPC（`@trpc/server` / `@trpc/client`） | 画面専用の API を手続き（procedure）として書き、クライアントに型が伝わる。同じ時点に出た呼び出しを `httpBatchLink` が 1 本の要求にまとめ、サーバーはその中の手続きを並べて実行する（下記「通信の往復」）。外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator`（Hono のまま残る口） | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
-| MCP サーバー | `@hono/mcp` + `@modelcontextprotocol/sdk`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。サーバーレスのためセッションを持たない。 |
+| MCP サーバー | `@modelcontextprotocol/server`（v2）の `createMcpHandler`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。MCP 2026-07-28（要求ごとに完結する版）と 2025 年版の両方を 1 つの口で受ける。サーバーレスのためセッションを持たない。 |
 | 繰り返しルール | RFC 5545 RRULE（`rrule` ライブラリ） | 予定・タスクで同じ仕組みを使う。展開ロジックを自作しない。 |
 | プッシュ通知 | Web Push（VAPID）、`web-push` | ブラウザ標準。iOS はホーム画面に追加した PWA で対応。 |
 | 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は 1 日 1 回のため、分単位の配信は QStash の遅延配信で行う。 |
@@ -105,6 +105,7 @@ server/                       # サーバー（Hono）
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
                               #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
+  features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
@@ -139,6 +140,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **MCP**: `server/features/*/mcp.ts` が `ToolRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
 - **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）を invalidate する。
+- **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が `server/features/mcp-events/service.ts` の `publishSaved` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（users の service）だけを読み、記録の feature を読まない。
 - **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 

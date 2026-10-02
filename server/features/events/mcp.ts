@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { defaultEventEnd } from '../../../shared/calendar.ts';
 import {
@@ -137,7 +137,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
     {
       title: '予定・タスクを足す',
       description: `予定（kind: event）かタスク（kind: task）を足す。日時は ${WHEN_FORMAT}。予定は start が必須で、end（終了。終日なら最終日）を省くと開始から 1 時間（終日ならその日 1 日）。タスクは start（この日時から取りかかる）と due（期限）がどちらも任意で、日時の無いタスクは完了まで毎日タイムラインの今日に出る。作った予定・タスク（ref 付き）を返す。`,
-      inputSchema: {
+      inputSchema: z.object({
         kind: kindSchema,
         title: fields.title,
         start: whenFields.start.optional(),
@@ -154,7 +154,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
         remindBeforeStart: whenFields.remindBeforeStart,
         remindBeforeEnd: whenFields.remindBeforeEnd,
         remindBeforeDue: whenFields.remindBeforeDue,
-      },
+      }),
       annotations: ADDITIVE,
     },
     async (input) => {
@@ -200,7 +200,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       title: '予定・タスクを変える',
       description:
         '予定かタスクを ref で変える。変える項目だけを渡し、省いた項目は今のまま（null を渡すと消す）。予定の start だけを渡すと、長さを保ったまま動かす。予定の終了は end、タスクの期限は due。終日と時刻ありを切り替えるには、開始と終了（期限）を両方渡す。kind で予定とタスクを入れ替えられる（引き継ぐ日時は開始だけ: タスクにすると期限は無し、予定にすると開始から 1 時間（終日ならその日 1 日）。end・due を一緒に渡せばそれにする。繰り返しの 1 回だけ（scope が this）は入れ替えられない）。繰り返しの回（ref に @ を含む）は scope で範囲を選ぶ。変えた後の予定・タスク（scope が this ならその回）を返す。',
-      inputSchema: {
+      inputSchema: z.object({
         ref: refSchema.describe('予定かタスクの ref'),
         scope: scopeSchema,
         kind: kindSchema
@@ -217,7 +217,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
         remindBeforeStart: whenFields.remindBeforeStart,
         remindBeforeEnd: whenFields.remindBeforeEnd,
         remindBeforeDue: whenFields.remindBeforeDue,
-      },
+      }),
       annotations: EDITING,
     },
     async (input) => {
@@ -250,10 +250,10 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       title: 'タスクを完了にする',
       description:
         'タスクを ref で完了にする（done=false で完了を取り消す）。繰り返しのタスクは、read_timeline が返した回の ref（@ を含む）が必須で、その回だけが完了になる（繰り返し全体の ref は渡せない）。',
-      inputSchema: {
+      inputSchema: z.object({
         ref: refSchema.describe('タスクの ref。繰り返しのタスクは回の ref（@ を含む）'),
         done: z.boolean().default(true).describe('true で完了、false で未完了に戻す'),
-      },
+      }),
       annotations: EDITING,
     },
     async ({ ref: input, done }) => {

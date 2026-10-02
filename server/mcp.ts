@@ -1,10 +1,10 @@
 import { requireMcpAuth } from '@better-auth/mcp';
-import { StreamableHTTPTransport } from '@hono/mcp';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { Hono } from 'hono';
 import { registerEventTools } from './features/events/mcp.ts';
 import { registerExpenseTools } from './features/expenses/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
+import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
 import { listUsers } from './features/users/service.ts';
@@ -13,7 +13,7 @@ import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, Person, ToolRegistrar } from './lib/mcp/types.ts';
 import { setSentryUser } from './lib/sentry.ts';
 
-/** 全 feature のツール。新しい feature のツールはここに 1 行足す。 */
+/** 全 feature のツール（と MCP Events の購読）。新しい feature のツールはここに 1 行足す。 */
 const registrars: ToolRegistrar[] = [
   registerTimelineTools,
   registerEventTools,
@@ -21,6 +21,7 @@ const registrars: ToolRegistrar[] = [
   registerLemonTools,
   registerMemoTools,
   registerWeatherTools,
+  registerEventSubscriptions,
 ];
 
 /**
@@ -55,28 +56,35 @@ export function createMcpServer({ userId }: { userId: string }): McpServer {
 }
 
 /**
- * MCP エンドポイント（Streamable HTTP、ステートレス）。
+ * 2026-07-28 の MCP（要求ごとに完結する）と、2025 年版のステートレスな Streamable HTTP の両方を受ける。
+ * どちらも要求ごとに `createMcpServer` でサーバーを組み立て、セッションは持たない（サーバーレスのため）。
+ * 誰の要求かは、検証済みのトークンから `authInfo.extra.userId` で渡す。
+ */
+const handler = createMcpHandler(({ authInfo }) => {
+  const userId = authInfo?.extra?.userId;
+  if (typeof userId !== 'string') throw new Error('MCP request without a verified user');
+  return createMcpServer({ userId });
+});
+
+/**
+ * MCP エンドポイント。
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
- * サーバーレスなのでリクエストごとにサーバーとトランスポートを組み立て、セッションは持たない。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
-  const handler = requireMcpAuth(
+  const authorize = requireMcpAuth(
     await getAuth(),
-    async (_request, claims) => {
+    async (request, claims) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
       setSentryUser(userId);
-      const server = createMcpServer({ userId });
-      const transport = new StreamableHTTPTransport({ enableJsonResponse: true });
-      await server.connect(transport);
-      try {
-        return (await transport.handleRequest(c)) ?? new Response(null, { status: 204 });
-      } finally {
-        await server.close();
-      }
+      const token = request.headers.get('authorization')?.replace(/^Bearer /i, '') ?? '';
+      const clientId = typeof claims.azp === 'string' ? claims.azp : '';
+      return handler.fetch(request, {
+        authInfo: { token, clientId, scopes: [], extra: { userId } },
+      });
     },
     { resource: MCP_RESOURCE },
   );
-  return handler(c.req.raw);
+  return authorize(c.req.raw);
 });

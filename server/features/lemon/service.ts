@@ -10,6 +10,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import { publishSaved } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
@@ -53,7 +54,7 @@ export async function logCare(
   source: CareLogSource,
   id: string = newId(),
 ): Promise<CareLog> {
-  return toLog(
+  const log = toLog(
     await repository.insert({
       ...checkRules(input, careLogRulesSchema),
       id,
@@ -61,15 +62,26 @@ export async function logCare(
       apiKeyName: 'apiKeyName' in source ? source.apiKeyName : null,
     }),
   );
+  publishSaved({ type: 'lemon', record: log }, 'added', source);
+  return log;
 }
 
-/** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
-export async function updateLog(id: string, input: CareLogInput): Promise<void> {
-  if (!(await repository.update(id, input))) throw new NotFoundError('記録が見つかりません');
+/** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない。actorId は直した人 */
+export async function updateLog(id: string, input: CareLogInput, actorId: string): Promise<void> {
+  const updated = await repository.update(id, input);
+  if (!updated) throw new NotFoundError('記録が見つかりません');
+  publishSaved({ type: 'lemon', record: toLog(updated) }, 'updated', { userId: actorId });
 }
 
-/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない */
-export async function patchLog(id: string, patch: Partial<CareLogInput>): Promise<CareLog> {
+/**
+ * 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない。
+ * actorId は直した人
+ */
+export async function patchLog(
+  id: string,
+  patch: Partial<CareLogInput>,
+  actorId: string,
+): Promise<CareLog> {
   const current = await repository.findById(id);
   if (!current) throw new NotFoundError('記録が見つかりません');
   // 項目の並びは、保存した値も入力（`careLogFieldsSchema`）も正規化済みなので、重ねたまま書ける
@@ -80,7 +92,9 @@ export async function patchLog(id: string, patch: Partial<CareLogInput>): Promis
   );
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('記録が見つかりません');
-  return toLog(updated);
+  const log = toLog(updated);
+  publishSaved({ type: 'lemon', record: log }, 'updated', { userId: actorId });
+  return log;
 }
 
 export async function deleteLog(id: string): Promise<void> {

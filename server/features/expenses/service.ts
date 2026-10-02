@@ -16,6 +16,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import { publishSaved } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
 
@@ -63,16 +64,28 @@ export async function addExpense(
   id: string = newId(),
 ): Promise<Expense> {
   const values = checkRules(input, expenseRulesSchema);
-  return toExpense(await repository.insert({ ...values, id, createdBy: userId }));
+  const expense = toExpense(await repository.insert({ ...values, id, createdBy: userId }));
+  publishSaved({ type: 'expense', record: expense }, 'added', { userId });
+  return expense;
 }
 
-/** 全項目を置き換える。記録した人（createdBy）は変えない */
-export async function updateExpense(id: string, input: ExpenseInput): Promise<void> {
-  if (!(await repository.update(id, input))) throw new NotFoundError('立替が見つかりません');
+/** 全項目を置き換える。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function updateExpense(
+  id: string,
+  input: ExpenseInput,
+  actorId: string,
+): Promise<void> {
+  const updated = await repository.update(id, input);
+  if (!updated) throw new NotFoundError('立替が見つかりません');
+  publishSaved({ type: 'expense', record: toExpense(updated) }, 'updated', { userId: actorId });
 }
 
-/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない */
-export async function patchExpense(id: string, patch: Partial<ExpenseInput>): Promise<Expense> {
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function patchExpense(
+  id: string,
+  patch: Partial<ExpenseInput>,
+  actorId: string,
+): Promise<Expense> {
   const current = await repository.findById(id);
   if (!current) throw new NotFoundError('立替が見つかりません');
   const { fromUserId, toUserId, amount, description, spentOn } = current;
@@ -83,7 +96,9 @@ export async function patchExpense(id: string, patch: Partial<ExpenseInput>): Pr
   );
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('立替が見つかりません');
-  return toExpense(updated);
+  const expense = toExpense(updated);
+  publishSaved({ type: 'expense', record: expense }, 'updated', { userId: actorId });
+  return expense;
 }
 
 export async function deleteExpense(id: string): Promise<void> {

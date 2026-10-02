@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { careLogFieldsSchema } from '../../../shared/validation/lemon.ts';
 import { formatCareLog } from '../../lib/mcp/entries.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
@@ -26,11 +27,11 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
       title: 'レモンの世話を記録する',
       description:
         '家のレモンの木（1 本）の世話（葉水・水やり・施肥）や、木の様子（開花・落果・収穫）を 1 件記録する。木と関係の無い一言は add_memo。記録した内容（ref 付き）を返す。',
-      inputSchema: {
+      inputSchema: z.object({
         careTypes: fields.careTypes,
         at: fields.at.optional().describe('やった日時（"2030-01-07T09:00"、JST）。今なら省く'),
         note: fields.note.optional(),
-      },
+      }),
       annotations: ADDITIVE,
     },
     async ({ careTypes, at, note }) => {
@@ -52,18 +53,18 @@ export const registerLemonTools: ToolRegistrar = (server, ctx) => {
       title: 'レモンの世話の記録を直す',
       description:
         'レモンの世話の記録を ref で直す。変える項目だけを渡し、省いた項目は今のまま（careTypes は丸ごと置き換える）。直した記録を返す。',
-      inputSchema: {
+      inputSchema: z.object({
         ref: refSchema.describe('レモンの世話の記録の ref'),
         careTypes: fields.careTypes.optional(),
         at: fields.at.optional(),
         note: fields.note.optional(),
-      },
+      }),
       annotations: EDITING,
     },
     async ({ ref, careTypes, at, note }) => {
       const { id } = expectType(ref, ['lemon']);
       const [log, people] = await Promise.all([
-        service.patchLog(id, { careTypes, doneAt: at, note }),
+        service.patchLog(id, { careTypes, doneAt: at, note }, ctx.userId),
         ctx.people(),
       ]);
       return jsonResult(formatCareLog(log, people));

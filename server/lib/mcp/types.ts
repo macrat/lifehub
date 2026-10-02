@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 
 /** MCP の出力に名前を出し、入力の名前を ID に引き当てるためのユーザー（`people.ts`） */
 export type Person = { id: string; name: string };

@@ -6,7 +6,7 @@
 
 ## エンドポイント
 
-- `/api/mcp`、Streamable HTTP、ステートレス（サーバーレスのためセッションを持たない）。
+- `/api/mcp`、Streamable HTTP、ステートレス（サーバーレスのためセッションを持たない）。MCP 2026-07-28（`server/discover` で始まり、要求ごとに完結する版）と 2025 年版（`initialize` で始まる版）の両方を受ける（`createMcpHandler`）。WHY 2026-07-28: MCP Events（下記）を使うクライアント（ChatGPT）がこの版を求める。WHY 2025 年版も: まだ 2026-07-28 に対応していないクライアントがある。
 - 認可は OAuth 2.1 のみ（MCP 仕様の標準。PKCE 必須）。better-auth の `@better-auth/mcp` プラグイン（`@better-auth/oauth-provider` を MCP 向けに設定したもの）で LifeHub 自身を認可サーバーにする。クライアント識別は Client ID Metadata Documents（`@better-auth/cimd`）を優先し、Dynamic Client Registration も有効にする。
 - 認可サーバー（issuer）は `https://lifehub.crat.jp/api/auth`。探索メタデータは RFC 8414 / 9728 のとおりオリジン直下に置く: `/.well-known/oauth-authorization-server/api/auth`、`/.well-known/oauth-protected-resource/api/mcp`。オリジン直下は Vercel では静的配信の領域なので、`vercel.json` の rewrite（ローカルは vite の proxy）で `/api` の 1 関数へ振り向ける。rewrite でも関数が受け取る URL は元のパスのままなので、Hono は `/.well-known/*` をそのパスのまま受けて better-auth のハンドラへ渡す。
 - ログインページ `/login`、同意ページ `/consent`。better-auth は署名付きクエリを付けてこれらへリダイレクトし、クライアントの `oauthProviderClient` がその署名付きクエリを `oauth_query` として API 呼び出しに添える。ログイン後は better-auth が返す URL（同意画面またはクライアントの `redirect_uri`）へ移動する。
@@ -55,7 +55,11 @@
 
 ### 組み立て
 
-各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。タイムラインを読む・消すツール（`get_overview` / `read_timeline` / `delete_entry`）は種類をまたぐので、記録を集める feature の `server/features/timeline/mcp.ts` に置く。LLM 向けの形（ref・日時・人・出力の形）は feature をまたぐので `server/lib/mcp/` に置き、feature の `mcp.ts` は LLM の入力を service の入力に直して呼ぶだけにする。入力スキーマは最上位が平らな Zod オブジェクトで、項目ごとの規則（長さ・選択肢）は `shared/validation` から取り、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@hono/mcp` の `StreamableHTTPTransport`、`enableJsonResponse`）。
+各 feature の `mcp.ts` が `ToolRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。タイムラインを読む・消すツール（`get_overview` / `read_timeline` / `delete_entry`）は種類をまたぐので、記録を集める feature の `server/features/timeline/mcp.ts` に置く。LLM 向けの形（ref・日時・人・出力の形）は feature をまたぐので `server/lib/mcp/` に置き、feature の `mcp.ts` は LLM の入力を service の入力に直して呼ぶだけにする。入力スキーマは最上位が平らな Zod オブジェクトで、項目ごとの規則（長さ・選択肢）は `shared/validation` から取り、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@modelcontextprotocol/server` の `createMcpHandler`）。誰の要求かは、検証したトークンのユーザー ID を `authInfo.extra.userId` で組み立て関数に渡す。
+
+## MCP Events
+
+記録の追加・編集を webhook で知らせる（`events/list`・`events/subscribe`・`events/unsubscribe`）。[mcp-events.md](mcp-events.md)。
 
 ## 接続方法
 

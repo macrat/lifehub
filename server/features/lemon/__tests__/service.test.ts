@@ -97,7 +97,7 @@ describe('lemon service', () => {
     const id = newId();
     const input = { careTypes: ['water' as const], doneAt: jst('2026-09-10T08:00:00'), note: null };
     await logCare(input, { userId }, id);
-    await updateLog(id, { ...input, note: '追肥の予定' });
+    await updateLog(id, { ...input, note: '追肥の予定' }, userId);
     const resent = await logCare(input, { userId }, id);
 
     expect(resent).toMatchObject({ id, note: '追肥の予定' });
@@ -109,11 +109,15 @@ describe('lemon service', () => {
       { careTypes: ['water'], doneAt: jst('2026-09-10T08:00:00'), note: null },
       { userId },
     );
-    await updateLog(log.id, {
-      careTypes: ['fertilize'],
-      doneAt: jst('2026-09-12T08:00:00'),
-      note: 'まちがえて水やりで記録していた',
-    });
+    await updateLog(
+      log.id,
+      {
+        careTypes: ['fertilize'],
+        doneAt: jst('2026-09-12T08:00:00'),
+        note: 'まちがえて水やりで記録していた',
+      },
+      userId,
+    );
 
     expect((await listLogs({})).items).toEqual([
       {

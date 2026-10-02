@@ -4,6 +4,7 @@ import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import { publishSaved } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
@@ -13,13 +14,18 @@ export async function addMemo(
   userId: string,
   id: string = newId(),
 ): Promise<Memo> {
-  return toMemo(await repository.insert({ ...input, id, createdBy: userId }));
+  const memo = toMemo(await repository.insert({ ...input, id, createdBy: userId }));
+  publishSaved({ type: 'memo', record: memo }, 'added', { userId });
+  return memo;
 }
 
 /** 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない） */
 export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<Memo> {
   const updated = await repository.update(id, actorId, input.body);
-  return updated ? toMemo(updated) : rejectWrite(id);
+  if (!updated) return rejectWrite(id);
+  const memo = toMemo(updated);
+  publishSaved({ type: 'memo', record: memo }, 'updated', { userId: actorId });
+  return memo;
 }
 
 export async function deleteMemo(id: string, actorId: string): Promise<void> {
