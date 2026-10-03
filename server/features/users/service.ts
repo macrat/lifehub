@@ -15,11 +15,6 @@ export async function getOAuthClientName(clientId: string): Promise<string | nul
   return repository.findOAuthClientName(clientId);
 }
 
-/** ユーザーの ID と名前（登録順）。MCP の出力に名前を出し、入力の名前を ID に引き当てるのに使う */
-export async function listPeople(): Promise<{ id: string; name: string }[]> {
-  return (await listUsers()).map(({ id, name }) => ({ id, name }));
-}
-
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
 function toPublicUser(user: repository.UserRow): repository.UserRow {
   return { id: user.id, name: user.name, email: user.email, hue: user.hue };

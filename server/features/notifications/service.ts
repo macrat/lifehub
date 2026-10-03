@@ -7,7 +7,9 @@ import {
   type NotificationRef,
   resolveNotification,
 } from '../events/notifications.ts';
+import { publishReminder } from '../mcp-events/service.ts';
 import { sendToUsers } from '../push/service.ts';
+import { listAllDayNotifyMinutes } from '../users/people.ts';
 import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
 
@@ -18,7 +20,7 @@ export async function enqueueRange(
   range: InstantRange,
   publisher: Publisher | null = createPublisher(),
 ): Promise<{ planned: number; published: number }> {
-  const planned = await listNotifications(range, await repository.findAllDayNotifyMinutes());
+  const planned = await listNotifications(range, await listAllDayNotifyMinutes());
   if (!publisher) return { planned: planned.length, published: 0 };
   // 1 件ずつ待つと件数分の往復が直列に積み重なる（日次 Cron の応答や、書き込みの後の予約が長引く）。
   // 並べて投げ、失敗した分だけ記録する（1 件の失敗で他を止めない。重複は deduplicationId で防がれる）
@@ -65,7 +67,8 @@ async function enqueueUpcoming(now: Date): Promise<void> {
 }
 
 /**
- * 配信: 台帳に無いキーだけ、参照を再検証して送る。
+ * 配信: 台帳に無いキーだけ、参照を再検証して送る。プッシュ通知を送れたら、MCP Events の通知も同じ宛先へ配る
+ * （プッシュの失敗で QStash が送り直すときに、MCP Events だけが先に届いて重複しないよう、送れた後に配る）。
  * 台帳への記録（claim）を先に行い、同時に届いた同じキーの配信を 1 つにする。記録した後に失敗したら
  * （送る内容の読み出しでも送信でも）記録を取り消して例外を投げ、QStash の再試行で送り直せるようにする。
  * 取り消さないと、再試行が「送信済み」と判定されて通知が届かないまま終わる。
@@ -78,7 +81,7 @@ export async function deliver(
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   if (!(await repository.claim(key))) return 'duplicate';
   try {
-    const payload = await resolveNotification(ref, await repository.findAllDayNotifyMinutes());
+    const payload = await resolveNotification(ref, await listAllDayNotifyMinutes());
     if (!payload) return 'stale';
     await send(payload.userIds, {
       title: payload.title,
@@ -86,6 +89,7 @@ export async function deliver(
       url: payload.url,
       tag: key,
     });
+    publishReminder(key, payload);
     return 'sent';
   } catch (error) {
     await repository.release(key);

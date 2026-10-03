@@ -8,7 +8,8 @@
 - lint と format は Biome、未使用のファイル・export・依存の検出は knip で、どちらも CI で強制する（`pnpm lint`）。警告ゼロを維持する。
 - **import の循環**は Biome の `noImportCycles` が禁じる（型だけの import は数えない）。
   - WHY: 循環は、どれかのモジュールが読み込みの時点で相手を使う形に変わった途端に初期化の順序で壊れ、原因が import の順に隠れて見つけにくい。
-  - 止められたら、互いに呼び合う片方の読み出しを依存の少ない側へ移す（例: 終日の通知時刻は `features/notifications/repository.ts`）。
+  - 止められたら、互いに呼び合う片方の読み出しを、持ち主の feature の中で repository だけを読む別のモジュールへ分ける（例: 人の一覧と終日の通知時刻は `features/users/people.ts`）。
+    - WHY NOT 読む側の repository で相手の表を読む: 同じ読み出しの写しが feature ごとに増え、持ち主が列や並びを変えても写しは追従しない。
 - **`.tsx` はコンポーネントだけを export する**（Biome の `useComponentExportOnlyModules`）。定数・関数は隣の `.ts` に置く（例: `lib/ui/layout.ts`、`features/expenses/format.ts`）。
   - WHY: Vite の Fast Refresh はコンポーネントだけの module でしか効かず、混ぜると編集のたびに画面ごと読み直しになる。
   - ルートの file（`Route` を export し、コンポーネントは router の `autoCodeSplitting` が別の module に切り出す）と `main.tsx`（入口）は対象外。
