@@ -52,25 +52,21 @@ export function HistoryList<T>({
   ...headerProps
 }: HistoryListProps<T>) {
   const initialRef = useRef<HTMLDivElement>(null);
-  const { oldestFirst, loadEarlier } = history;
   return (
     <InfiniteScroll
       {...headerProps}
-      load={oldestFirst ? { top: loadEarlier } : { bottom: loadEarlier }}
+      load={history.load}
       initial={{ target: () => initialRef.current, reveal }}
       resetKey={history.resetKey}
       ready={history.ready}
     >
       <QueryView query={history.query} skeleton={<ListSkeleton />}>
-        {({ above, below }) => {
-          if (above.length === 0 && below.length === 0) {
-            return (
-              <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
-                {emptyMessage}
-              </Typography>
-            );
-          }
-          return (
+        {({ items, above, below }) =>
+          items.length === 0 ? (
+            <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
+              {emptyMessage}
+            </Typography>
+          ) : (
             <>
               {above.length > 0 && children(above)}
               <Box
@@ -80,8 +76,8 @@ export function HistoryList<T>({
                 {below.length > 0 && children(below)}
               </Box>
             </>
-          );
-        }}
+          )
+        }
       </QueryView>
     </InfiniteScroll>
   );

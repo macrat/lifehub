@@ -46,19 +46,22 @@ export function historyQueryOptions<T, F extends object>(source: HistorySource<T
 }
 
 /**
- * 古い順の記録を、今日（JST）までと未来に分ける（todayInFuture なら、昨日までと今日から）。未来の記録は末尾に
- * まとまっているので、境目を 1 か所探して切る（記録ごとに日を 2 回ずつ求めない）
+ * 古い順の記録を、一覧の最初の位置（今日）より上（above）とそこから下（below）に分け、画面に出す順に並べる。
+ * - oldestFirst（天気）: 古い順のまま。昨日までが上、今日からが下
+ * - そうでなければ（立替・レモン）: 新しい順。未来が上、今日までが下
+ * 未来の記録は末尾にまとまっているので、境目を 1 か所探して切る（記録ごとに日を 2 回ずつ求めない）
  */
-export function splitAtToday<T>(
+export function arrangeAroundToday<T, F>(
   items: T[],
-  dayOf: (item: T) => string,
-  todayInFuture = false,
-): { past: T[]; future: T[] } {
+  { dayOf, oldestFirst = false }: HistorySource<T, F>,
+): { above: T[]; below: T[] } {
   const now = today();
-  const index = items.findIndex((item) => (todayInFuture ? dayOf(item) >= now : dayOf(item) > now));
-  return index < 0
-    ? { past: items, future: [] }
-    : { past: items.slice(0, index), future: items.slice(index) };
+  const found = items.findIndex((item) => (oldestFirst ? dayOf(item) >= now : dayOf(item) > now));
+  const index = found < 0 ? items.length : found;
+  const [earlier, later] = [items.slice(0, index), items.slice(index)];
+  return oldestFirst
+    ? { above: earlier, below: later }
+    : { above: later.toReversed(), below: earlier.toReversed() };
 }
 
 /** 読んだページのどこかにある記録（編集・削除の前の値） */

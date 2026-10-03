@@ -8,7 +8,7 @@ import { type Api, apiOf } from './api.ts';
  */
 
 /** 記録の出どころ。add で ID を決めた記録を 1 件置き、router の delete で消す */
-type History = {
+export type History = {
   router: 'expenses' | 'lemon';
   add: (api: Api, id: string, me: string, at: Date, text: string) => Promise<void>;
   /** 一覧の上に貼り付いた帯の中の物（最初の位置は、今日の最新の記録がこの帯のすぐ下） */

@@ -6,6 +6,7 @@ import {
   careLogHistory,
   deleteRecord,
   expenseHistory,
+  type History,
   isJustBelowHeader,
 } from './history.ts';
 import { appBar, bottomNav, bottomOf } from './layout.ts';
@@ -29,8 +30,7 @@ test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage();
   const me = await myId(page);
   const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2001, 0, 1 + i, 3)));
-  const add = (history: typeof expenseHistory, at: Date, text: string) =>
-    addRecord(page, history, me, at, text);
+  const add = (history: History, at: Date, text: string) => addRecord(page, history, me, at, text);
   created = await Promise.all([
     ...days.map((at, i) => add(expenseHistory, at, `E2E タブ 立替 ${i} ${stamp}`)),
     ...days.map((at, i) => add(careLogHistory, at, `E2E タブ レモン ${i} ${stamp}`)),
@@ -58,7 +58,7 @@ type Tab = {
    * 最初の位置。top は一番上（ホーム）。記録の出どころなら、今日の最新の記録がその貼り付いた帯（`sticky`）の
    * すぐ下（未来の日付の記録はその上に隠れる）
    */
-  initial: 'top' | typeof expenseHistory;
+  initial: 'top' | History;
   /** 下へスクロールすると隠れる帯（の中の物） */
   scrollAwayHeader?: (page: Page) => Locator;
 };
