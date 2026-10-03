@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 import { myId } from './auth.ts';
 import { addItem } from './events.ts';
 import {
@@ -65,14 +65,12 @@ const histories = [
     name: '立替の履歴は今日の最新の記録を精算のすぐ下に出して未来の物を上に隠し、精算は上に貼り付いて下へスクロールすると隠れる',
     path: '/expenses',
     ...expenseHistory,
-    sticky: (page: Page) => page.getByRole('region', { name: '精算' }),
     scrollsAway: true,
   },
   {
     name: 'レモンの記録は今日の最新の記録を状況のタイルのすぐ下に出して未来の物を上に隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
     ...careLogHistory,
-    sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
     scrollsAway: false,
   },
 ];

@@ -11,6 +11,8 @@ import { type Api, apiOf } from './api.ts';
 type History = {
   router: 'expenses' | 'lemon';
   add: (api: Api, id: string, me: string, at: Date, text: string) => Promise<void>;
+  /** 一覧の上に貼り付いた帯の中の物（最初の位置は、今日の最新の記録がこの帯のすぐ下） */
+  sticky: (page: Page) => Locator;
 };
 
 /** 立替（自分が払った 100 円） */
@@ -25,6 +27,7 @@ export const expenseHistory: History = {
       description: text,
       spentOn: toDateString(at),
     }),
+  sticky: (page) => page.getByRole('region', { name: '精算' }),
 };
 
 /** レモンの世話の記録（水やり） */
@@ -32,6 +35,7 @@ export const careLogHistory: History = {
   router: 'lemon',
   add: (api, id, _me, at, text) =>
     api.lemon.create.mutate({ id, careTypes: ['water'], doneAt: at.toISOString(), note: text }),
+  sticky: (page) => page.getByText('水やり', { exact: true }).first(),
 };
 
 /** 置いた記録。後で `deleteRecord` で消す */

@@ -55,10 +55,10 @@ type Tab = {
   path: string;
   today: string;
   /**
-   * 最初の位置。top は一番上（ホーム）。locator を返す関数なら、今日の最新の記録がそれを含む貼り付いた帯の
+   * 最初の位置。top は一番上（ホーム）。記録の出どころなら、今日の最新の記録がその貼り付いた帯（`sticky`）の
    * すぐ下（未来の日付の記録はその上に隠れる）
    */
-  initial: 'top' | ((page: Page) => Locator);
+  initial: 'top' | typeof expenseHistory;
   /** 下へスクロールすると隠れる帯（の中の物） */
   scrollAwayHeader?: (page: Page) => Locator;
 };
@@ -75,21 +75,21 @@ const tabs: Tab[] = [
     name: '立替',
     path: '/expenses',
     today: expenseToday,
-    initial: (page) => page.getByRole('region', { name: '精算' }),
-    scrollAwayHeader: (page) => page.getByRole('region', { name: '精算' }),
+    initial: expenseHistory,
+    scrollAwayHeader: expenseHistory.sticky,
   },
   {
     name: 'レモン',
     path: '/lemon',
     today: lemonToday,
-    initial: (page) => page.getByText('水やり', { exact: true }).first(),
+    initial: careLogHistory,
   },
 ];
 
 async function atInitial(page: Page, tab: Tab) {
   return tab.initial === 'top'
     ? (await page.evaluate(() => window.scrollY)) === 0
-    : isJustBelowHeader(page, tab.today, tab.initial(page));
+    : isJustBelowHeader(page, tab.today, tab.initial.sticky(page));
 }
 
 /** 画面のスクロールが動き終わるまでに通った位置（呼んでから動かし始める） */
