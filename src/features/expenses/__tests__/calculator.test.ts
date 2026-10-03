@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { type CalculatorKey, evaluate, normalizeExpression, pressKey } from '../calculator.ts';
+import {
+  type CalculatorKey,
+  evaluate,
+  formatExpression,
+  normalizeExpression,
+  pressKey,
+} from '../calculator.ts';
 
 /** キーを順に押した後の式 */
 const press = (...keys: CalculatorKey[]) => keys.reduce(pressKey, '');
@@ -61,5 +67,16 @@ describe('normalizeExpression', () => {
   it('キーボードの * / を電卓の記号にし、打てない文字は捨てる', () => {
     expect(normalizeExpression('12*3/4')).toBe('12×3÷4');
     expect(normalizeExpression('1,200 円')).toBe('1200');
+  });
+});
+
+describe('formatExpression', () => {
+  it('式の中のそれぞれの数を桁区切りにする', () => {
+    expect(formatExpression('1200+800×1000')).toBe('1,200+800×1,000');
+    expect(formatExpression('-1234567')).toBe('-1,234,567');
+  });
+
+  it('表示を入力欄から戻しても式は変わらない', () => {
+    expect(normalizeExpression(formatExpression('12345÷6'))).toBe('12345÷6');
   });
 });
