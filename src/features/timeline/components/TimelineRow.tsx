@@ -1,5 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import PushPinIcon from '@mui/icons-material/PushPin';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
@@ -173,6 +174,13 @@ function EntryText({ view }: { view: EntryView }) {
           >
             {view.time}
           </Typography>
+        )}
+        {view.pinned && (
+          // 一番上に固定している理由だけを示す。日時と同じ薄い色で、字より小さくして目立たせない
+          <PushPinIcon
+            titleAccess="ピン止め"
+            sx={{ fontSize: '0.875rem', color: 'text.secondary', flexShrink: 0 }}
+          />
         )}
       </Stack>
       {view.location && <LocationLink location={view.location} noWrap />}

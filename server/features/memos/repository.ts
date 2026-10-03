@@ -1,15 +1,22 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
 import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type MemoRow, memos } from './schema.ts';
 
 /** タイムラインの問い合わせ。置く日時は書いた時刻、キーワードは本文の部分一致 */
-export const timeline = timelineQueries({
-  table: memos,
-  at: memos.createdAt,
-  keyword: (q) => containsKeyword(memos.body, q),
-});
+const timelineOf = (where?: SQL) =>
+  timelineQueries({
+    table: memos,
+    at: memos.createdAt,
+    keyword: (q) => containsKeyword(memos.body, q),
+    where,
+  });
+
+export const timeline = timelineOf();
+
+/** ピン止めしていないメモだけのタイムラインの問い合わせ（絞り込んでいないホームのタイムライン） */
+export const unpinnedTimeline = timelineOf(eq(memos.pinned, false));
 
 /** メモを作る。同じ id で送り直されたら何も書かず、今の行を返す（`insertOnce`） */
 export async function insert(row: {
@@ -37,6 +44,21 @@ export async function update(
     .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
     .returning();
   return updated;
+}
+
+/** メモのピン止めを変える（メモがあったか）。誰が書いたメモでも変えられる */
+export async function setPinned(id: string, pinned: boolean): Promise<boolean> {
+  const updated = await db
+    .update(memos)
+    .set({ pinned })
+    .where(eq(memos.id, id))
+    .returning({ id: memos.id });
+  return updated.length > 0;
+}
+
+/** ピン止めしたメモ。並びは問わない（service が `sortPinnedMemos` で並べる） */
+export async function findPinned(): Promise<MemoRow[]> {
+  return db.select().from(memos).where(eq(memos.pinned, true));
 }
 
 /** createdBy が書いたメモを消す。消した行を返す（無ければ undefined） */

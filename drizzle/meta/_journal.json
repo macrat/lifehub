@@ -120,6 +120,13 @@
       "when": 1790956709543,
       "tag": "0016_mcp_event_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791013417361,
+      "tag": "0017_memo_pinned",
+      "breakpoints": true
     }
   ]
 }

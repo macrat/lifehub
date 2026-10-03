@@ -9,7 +9,7 @@ import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
 import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';
-import { addMemo } from '../../memos/service.ts';
+import { addMemo, setMemoPinned } from '../../memos/service.ts';
 import { getTimelinePage } from '../service.ts';
 
 // 「今」を 2026-09-14（月）の正午に固定する
@@ -297,6 +297,26 @@ describe('timeline service', () => {
     const page = await getTimelinePage({}, realNow);
     expect(page.items).toMatchObject([
       { type: 'memo', memo: { body: 'ひとこと', createdBy: partnerId } },
+    ]);
+  });
+
+  it('ピン止めしたメモは、絞り込んでいなければ出さず（画面が一番上に固定して出す）、絞り込めばほかのメモと同じに出す', async () => {
+    const realNow = new Date();
+    const pinned = await addMemo({ body: '固定のメモ' }, userId);
+    await addMemo({ body: 'ふつうのメモ' }, userId);
+    await setMemoPinned(pinned.id, true);
+    expect(labels((await getTimelinePage({}, realNow)).items)).toEqual(['ふつうのメモ']);
+    expect(labels((await getTimelinePage({ q: 'メモ' }, realNow)).items)).toEqual([
+      'ふつうのメモ',
+      '固定のメモ',
+    ]);
+    expect(labels((await getTimelinePage({ q: 'ふつう' }, realNow)).items)).toEqual([
+      'ふつうのメモ',
+    ]);
+    const today = day(dayOf(realNow.toISOString()));
+    expect(labels((await getTimelinePage({ since: today }, realNow)).items)).toEqual([
+      'ふつうのメモ',
+      '固定のメモ',
     ]);
   });
 });

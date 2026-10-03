@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { addMemo, deleteMemo, timelineSource, updateMemo } from '../service.ts';
+import {
+  addMemo,
+  deleteMemo,
+  listPinnedMemos,
+  setMemoPinned,
+  timelineSource,
+  updateMemo,
+} from '../service.ts';
 
 const everything = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };
 
@@ -50,6 +57,27 @@ describe('memos service', () => {
     await expect(updateMemo(id, { body: '横から' }, otherId)).rejects.toThrow(ForbiddenError);
     await expect(deleteMemo(id, otherId)).rejects.toThrow(ForbiddenError);
     expect(await listForTimeline(undefined)).toMatchObject([{ id, body: '最初' }]);
+  });
+
+  it('ピン止めしたメモを書いた時刻の新しい順に返し、外せば返さない。書いた時刻は動かない', async () => {
+    const older = await addMemo({ body: '古い' }, userId);
+    const newer = await addMemo({ body: '新しい' }, userId);
+    await setMemoPinned(older.id, true);
+    await setMemoPinned(newer.id, true);
+    expect(await listPinnedMemos()).toMatchObject([
+      { id: newer.id, pinned: true },
+      { id: older.id, pinned: true, createdAt: older.createdAt },
+    ]);
+
+    await setMemoPinned(newer.id, false);
+    expect((await listPinnedMemos()).map((m) => m.id)).toEqual([older.id]);
+  });
+
+  it('ピン止めしても書いた人は変わらず、無いメモは見つからない', async () => {
+    const memo = await addMemo({ body: '最初' }, userId);
+    await setMemoPinned(memo.id, true);
+    expect(await listPinnedMemos()).toMatchObject([{ id: memo.id, createdBy: userId }]);
+    await expect(setMemoPinned(newId(), true)).rejects.toThrow(NotFoundError);
   });
 
   it('キーワードは本文の部分一致（大文字小文字を区別しない）', async () => {

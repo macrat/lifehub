@@ -11,6 +11,7 @@ const memo = (id: string, body: string): Memo => ({
   body,
   createdBy: 'u1',
   createdAt: '2030-05-02T03:00:00.000Z',
+  pinned: false,
 });
 
 /** 絞り込みの無い 1 ページだけを読んだ状態 */
