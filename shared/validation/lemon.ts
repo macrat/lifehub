@@ -25,7 +25,11 @@ export function normalizeCareTypes(careTypes: readonly CareType[]): CareType[] {
   return CARE_TYPES.filter((t) => careTypes.includes(t));
 }
 
-/** 1 件の記録の項目（組み合わせの規則を掛ける前）。MCP が一部の項目を省略できる形に変えるのに使う */
+/**
+ * 1 件の記録の項目（組み合わせの規則を掛ける前）。既定値は持たせない: 部分更新（MCP の記録の更新）では
+ * 「省いた（今の値のまま）」と「null にする（消す）」を見分ける必要があり、既定値があると省いた項目が
+ * 既定値で埋まってしまう（zod の optional は既定値を外さない）。既定値は入力の形（`careLogInputSchema`）で足す
+ */
 export const careLogFieldsSchema = z.object({
   /**
    * 1 回の記録に結び付ける項目。葉水と水やりは大抵まとめてやり、その途中で開花や落果に気づくので、
@@ -33,7 +37,12 @@ export const careLogFieldsSchema = z.object({
    */
   careTypes: z.array(z.enum(CARE_TYPES)).transform(normalizeCareTypes),
   doneAt: instantSchema,
-  note: z.string().trim().max(2000).nullable().default(null),
+  note: z.string().trim().max(2000).nullable(),
+});
+
+/** 記録 1 件の入力（画面・記録投入）。メモは省ける */
+export const careLogInputSchema = careLogFieldsSchema.extend({
+  note: careLogFieldsSchema.shape.note.default(null),
 });
 
 /** 記録の組み合わせの規則。追加・編集と MCP の入力が同じ規則を通るよう、スキーマの形とは切り離す */
@@ -48,7 +57,7 @@ export function withCareLogRules<
 }
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
-export const careLogSchema = withCareLogRules(careLogFieldsSchema);
+export const careLogSchema = withCareLogRules(careLogInputSchema);
 export type CareLogInput = z.infer<typeof careLogSchema>;
 
 /** 検証済みの値（MCP が組み立てた入力や、今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
