@@ -13,7 +13,6 @@ import {
   weekDays,
 } from '../../lib/date.ts';
 import { useFilterSearch, usePatchSearch } from '../../lib/search.ts';
-import { useRefreshCalendarItems } from '../events/queries.ts';
 import {
   type CalendarSearch,
   LIST_FILTER_CONDITIONS,
@@ -44,12 +43,9 @@ export type PeriodPage = {
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
  * URL に載せない状態（打ちかけのキーワード、絞り込みのフォームの開閉、時間軸の高さ、追加の間だけの日表示）もここで持つ。
  * 画面の状態を探す所を 1 か所に保つため。
- *
- * 項目の取り直しは画面に入ったときだけ（`useRefreshCalendarItems`）。表示や日付の切り替えは
- * 検索パラメータが変わるだけでこの画面に留まるので、取り直さず手元のキャッシュをそのまま出す。
+
  */
 export function useCalendarPage(search: CalendarSearch) {
-  useRefreshCalendarItems();
   const patchSearch = usePatchSearch();
   // リスト表示の検索と絞り込み（ホーム・立替・レモンと同じ `useFilterSearch`）
   const filter = useFilterSearch(search, LIST_FILTER_CONDITIONS);

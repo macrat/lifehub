@@ -9,7 +9,10 @@ import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
-import { calendarMonthQueryOptions } from '../../features/events/queries.ts';
+import {
+  calendarMonthQueryOptions,
+  useRefreshCalendarItems,
+} from '../../features/events/queries.ts';
 import { ADD_PAGES } from '../../lib/add-pages.ts';
 import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddMenu } from '../../lib/ui/AddMenu.tsx';
@@ -33,8 +36,11 @@ export const Route = createFileRoute('/_authenticated/calendar')({
  */
 function CalendarPage() {
   const search = Route.useSearch();
+  // この画面が読むもの: 出している月（面・リスト・選択ダイアログ）の項目と祝日・天気。
+  // 取り直しは画面に入ったときだけ（`useRefreshCalendarItems`）。表示や日付の切り替えは検索パラメータが
+  // 変わるだけでこの画面に留まるので、取り直さず手元のキャッシュをそのまま出す
+  useRefreshCalendarItems();
   const page = useCalendarPage(search);
-  // この画面が読むもの: 出している月（面・リスト・選択ダイアログ）の項目と祝日・天気
   useScreenQueries(page.months.map(calendarMonthQueryOptions));
   const { view } = page;
   const add = useCalendarAdd(page, search.add);
