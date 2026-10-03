@@ -42,7 +42,7 @@ pnpm dev                          # http://localhost:5173
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
 | `pnpm calendar:export <file>` | `DATABASE_URL` の DB にある全員の全予定を ics に書き出す |
 | `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない）。最後に `pnpm data:refresh` も走る |
-| `pnpm data:refresh` | `DATABASE_URL` の DB に祝日と天気を配布元から取り直して入れる（デプロイでも実行する。カレンダーは表を読むだけで取りに行かないため） |
+| `pnpm data:refresh` | `DATABASE_URL` の DB に祝日と天気を配布元から取り直して入れる（作り直した DB に手で実行する。カレンダーは表を読むだけで取りに行かないため） |
 | `pnpm vapid:generate` | VAPID 鍵ペア生成 |
 | `pnpm icons:generate` | `public/icons/` の SVG と MUI のアイコンから PWA アイコン（アプリ・通知・ショートカット）の PNG を生成 |
 | `pnpm tf:plan` / `pnpm tf:apply` | `infra/` の Terraform（ローカルから手動で実行する場合。通常は CI に任せる） |
