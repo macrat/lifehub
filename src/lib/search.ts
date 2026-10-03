@@ -131,7 +131,7 @@ export function countActiveFilters<S>(search: S, conditions: FilterConditions<S>
  */
 export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
   search: S,
-  conditions: FilterConditions<NoInfer<S>>,
+  conditions: FilterConditions<S>,
 ) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');

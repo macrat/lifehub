@@ -24,7 +24,7 @@ const TIMELINE_QUERY_KEY = ['timeline'] as const;
 /**
  * 記録の書き込みが invalidate するキー（各機能の mutation の `keys`）: 自分のクエリと、タイムライン。
  * タイムラインは全機能の記録を並べるので、どの機能の書き込みもタイムラインを取り直す。
- * キーはここでしか作れないので、記録の書き込みがタイムラインを取り直し忘れることは無い
+ * タイムラインのキーは外に出さないので、記録の書き込みはこの関数でキーを作る
  */
 export function recordWriteKeys(...own: (readonly unknown[])[]): (readonly unknown[])[] {
   return [...own, TIMELINE_QUERY_KEY];

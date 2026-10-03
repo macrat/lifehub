@@ -82,7 +82,7 @@ export type ListFilters = Pick<Filters<CalendarSearch>, ListFilterKey | 'q'>;
 export type ListFiltersPatch = Pick<FiltersPatch<CalendarSearch>, ListFilterKey>;
 
 /** 絞り込みボタンのバッジに数える条件（`FilterConditions`）。期間は両端で 1 つ、キーワードは検索窓に見えているので数えない */
-export const LIST_FILTER_CONDITIONS: FilterConditions<ListFilters> = [
+export const LIST_FILTER_CONDITIONS: FilterConditions<CalendarSearch> = [
   ['kind'],
   ['participant'],
   ['completed'],

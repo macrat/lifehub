@@ -3,6 +3,7 @@ import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { countActiveFilters } from '../../../lib/search.ts';
 import {
+  type CalendarSearch,
   LIST_FILTER_CONDITIONS,
   type ListFilters,
   listSections,
@@ -56,10 +57,11 @@ describe('matchesListFilters', () => {
 
 describe('LIST_FILTER_CONDITIONS', () => {
   it('期間は両端で 1 つに数え、キーワードは数えない', () => {
-    expect(countActiveFilters(NONE, LIST_FILTER_CONDITIONS)).toBe(0);
+    const search: CalendarSearch = { view: 'list' };
+    expect(countActiveFilters(search, LIST_FILTER_CONDITIONS)).toBe(0);
     expect(
       countActiveFilters(
-        { ...NONE, from: DAY, to: DAY, kind: 'task', q: 'a' },
+        { ...search, from: DAY, to: DAY, kind: 'task', q: 'a' },
         LIST_FILTER_CONDITIONS,
       ),
     ).toBe(2);

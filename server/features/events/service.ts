@@ -142,16 +142,10 @@ export async function createEvent(
   id: string = newId(),
 ): Promise<EventMaster> {
   const values = normalizeInput(checkRules(input, eventRulesSchema));
-  const inserted = await repository.insert(
-    { ...values, id, createdBy: userId },
-    input.participantIds,
+  const created = writtenOf(
+    await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
   );
   scheduleUpcoming();
-  // 作ったときは保存した値がすべて手元にあるので読み直さない（往復を 1 回減らす）。送り直しで何も書かなかったときは、
-  // 送られた値ではなく今の行を返す（作った後に編集されていれば、送られた値は古い。`insertOnce` と同じ）
-  const created = inserted
-    ? writtenOf({ ...values, id, participantIds: input.participantIds, completedAt: null })
-    : writtenOf(await findMaster(id));
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
 }
