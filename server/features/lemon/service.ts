@@ -7,10 +7,11 @@ import {
   type CareLogListQuery,
   careLogRulesSchema,
 } from '../../../shared/validation/lemon.ts';
+import type { Actor } from '../../lib/actor.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { type Actor, publishChanged } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
@@ -38,20 +39,13 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
 }
 
 /**
- * 記録がどこから入ったか。画面・MCP からなら記録した人、API キーからならそのキーの名前。
- * API キーで入れた記録は誰が記録したか分からない（キーを持つボタンは家の誰が押しても同じキーで送る）ので、
- * 人の代わりにキーの名前を残す
- */
-export type CareLogSource = Actor;
-
-/**
  * id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
  * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
  * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
  */
 export async function logCare(
   input: CareLogInput,
-  source: CareLogSource,
+  source: Actor,
   id: string = newId(),
 ): Promise<CareLog> {
   const log = toLog(

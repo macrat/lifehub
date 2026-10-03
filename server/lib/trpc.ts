@@ -51,7 +51,7 @@ const t = initTRPC.context<TrpcContext>().create({
  * 読み出しは、検証を待たずに手続きを走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED にする。
  * 検証の問い合わせと手続きの読み取りが同じ時点に出るので、DB へは 1 往復にまとまり
  * （`lib/db/coalesce-reads.ts`）、検証を待ってから読むより往復が 1 回少ない。ユーザーが要る手続きは
- * `await ctx.user` で検証を待つ。書き込みは検証が通ってから走らせる（ログインしていない要求に書き換えさせない）。
+ * `userProcedure` で検証を待つ。書き込みは検証が通ってから走らせる（ログインしていない要求に書き換えさせない）。
  *
  * WHY NOT Cookie に署名付きのセッションを持たせて DB を読まない（better-auth の cookieCache）: 失効
  * （パスワードの変更・ログアウト）が次の要求から効かなくなる（`lib/auth.ts`）。
@@ -95,3 +95,14 @@ const traced = t.middleware(({ path, type, next }) =>
 
 export const router = t.router;
 export const procedure = t.procedure.use(traced).use(authed).use(domainErrors);
+
+/** 検証を待ってから、ログイン中のユーザーの ID を `ctx.userId` に置く */
+const withUserId = t.middleware(async ({ ctx, next }) =>
+  next({ ctx: { userId: (await ctx.user).id } }),
+);
+
+/**
+ * ログイン中のユーザーの ID を使う手続き（書き込みと、自分の物だけを返す読み出し）。
+ * ユーザーが要らない読み出しは、検証と並べて走らせる `procedure` を使う
+ */
+export const userProcedure = procedure.use(withUserId);

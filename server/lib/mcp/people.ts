@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Actor } from '../actor.ts';
 import { ValidationError } from '../errors.ts';
 import type { Person } from './types.ts';
 
@@ -30,10 +31,7 @@ export function resolvePerson(people: Person[], value: string, me: string): stri
 }
 
 /** 記録を書いた人の名前。API キーで入れた記録は人が分からないので、キーの名前で表す */
-export function authorName(
-  people: Person[],
-  author: { userId: string } | { apiKeyName: string },
-): string {
+export function authorName(people: Person[], author: Actor): string {
   return 'userId' in author ? nameOf(people, author.userId) : `API キー「${author.apiKeyName}」`;
 }
 

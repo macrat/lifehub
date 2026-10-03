@@ -112,7 +112,7 @@ server/                       # サーバー（Hono）
         query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・参加者の書き込み）、
         history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
-    auth.ts（better-auth）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
+    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）
@@ -160,7 +160,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
    - キャッシュの単位はクエリ（機能ごと・月ごと）のまま変わらず、まとめるのは運び方だけ。書き込みの後の取り直しも、その時点に取り直すクエリだけがまとまる。WHY NOT 画面ごとに要るものを返す API: キャッシュが画面ごとの大きな塊になり、一部だけの取り直しも、画面の間でのデータの分け合いもできなくなる。
    - WHY tRPC: まとめて運ぶ仕組み・型の伝え方・入力の検証を自分で書かずに済む。WHY NOT GraphQL: 取り出す項目を画面が選ぶ仕組みは、画面専用で応答の形をサーバーが決めているこの API には要らず、スキーマと resolver を別に書く分だけ増える。
    - 手続きごとに Sentry のスパンを作る（`trpc/timeline.get`。1 本の要求に載った手続きのどれに時間が掛かったかを見る。[operations.md](operations.md#監視sentry)）。
-2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `await ctx.user` で待つ。書き込みは検証が通ってから走らせる。
+2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `userProcedure` で検証を待ち、`ctx.userId` で ID を読む。書き込みは検証が通ってから走らせる。
 3. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
 4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `runBatch` で明示的にまとめる。
 

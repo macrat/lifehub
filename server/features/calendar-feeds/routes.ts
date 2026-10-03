@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { calendarFeedSchema } from '../../../shared/validation/calendar-feeds.ts';
 import { idParamSchema, withId } from '../../../shared/validation/common.ts';
-import { procedure, router } from '../../lib/trpc.ts';
+import { router, userProcedure } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 /**
@@ -9,17 +9,17 @@ import * as service from './service.ts';
  * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も何も返さない）。
  */
 export const calendarFeedsRouter = router({
-  list: procedure.query(async ({ ctx }) => service.listFeeds((await ctx.user).id)),
-  create: procedure.input(calendarFeedSchema).mutation(async ({ ctx, input }) => {
-    await service.createFeed(input, (await ctx.user).id);
+  list: userProcedure.query(async ({ ctx }) => service.listFeeds(ctx.userId)),
+  create: userProcedure.input(calendarFeedSchema).mutation(async ({ ctx, input }) => {
+    await service.createFeed(input, ctx.userId);
   }),
-  update: procedure
+  update: userProcedure
     .input(withId(calendarFeedSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateFeed(id, input, (await ctx.user).id);
+      await service.updateFeed(id, input, ctx.userId);
     }),
-  revoke: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
-    await service.revokeFeed(input.id, (await ctx.user).id);
+  revoke: userProcedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.revokeFeed(input.id, ctx.userId);
   }),
 });
 

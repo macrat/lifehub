@@ -1,4 +1,4 @@
-import { arrayContains, arrayOverlaps, desc, eq, gte, lte, or, type SQL, sql } from 'drizzle-orm';
+import { arrayContains, arrayOverlaps, desc, gte, lte, or, type SQL, sql } from 'drizzle-orm';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import {
   CARE_TYPE_LABELS,
@@ -9,7 +9,13 @@ import {
 } from '../../../shared/validation/lemon.ts';
 import { db } from '../../lib/db/client.ts';
 import { findHistoryPage } from '../../lib/db/history.ts';
-import { containsKeyword, findById as findRowById, insertOnce } from '../../lib/db/query.ts';
+import {
+  containsKeyword,
+  deleteById,
+  findById as findRowById,
+  insertOnce,
+  updateById,
+} from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type LemonCareLogRow, lemonCareLogs } from './schema.ts';
 
@@ -105,16 +111,10 @@ export async function update(
   id: string,
   row: { careTypes: CareType[]; doneAt: Date; note: string | null },
 ): Promise<LemonCareLogRow | undefined> {
-  const updated = await db
-    .update(lemonCareLogs)
-    .set(row)
-    .where(eq(lemonCareLogs.id, id))
-    .returning();
-  return updated[0];
+  return updateById(lemonCareLogs, id, row);
 }
 
 /** 消した行（無ければ undefined） */
 export async function remove(id: string): Promise<LemonCareLogRow | undefined> {
-  const [deleted] = await db.delete(lemonCareLogs).where(eq(lemonCareLogs.id, id)).returning();
-  return deleted;
+  return deleteById(lemonCareLogs, id);
 }

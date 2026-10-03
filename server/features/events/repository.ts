@@ -332,35 +332,35 @@ export async function remove(id: string): Promise<void> {
  * 「これ以降すべて」の分割: 元の繰り返しを UNTIL 付きに更新し、以降の回を消し、新しい繰り返し元を作る。
  * 全文を原子的に実行する（runBatch）。新しい行の id を返す
  */
-export async function splitFollowing(input: {
-  masterId: string;
-  masterRRule: string;
-  splitAt: Date;
-  newRow: Omit<NewEventRow, 'id'>;
-  participantIds: string[];
-}): Promise<string> {
+export async function splitFollowing(
+  input: Truncation & {
+    newRow: Omit<NewEventRow, 'id'>;
+    participantIds: string[];
+  },
+): Promise<string> {
   const id = newId();
   await runBatch((tx) => [
-    tx.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
-    tx
-      .delete(events)
-      .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
+    ...truncateWrites(tx, input),
     tx.insert(events).values({ ...input.newRow, id }),
     insertParticipantsWhere(tx, eq(events.id, id), input.participantIds),
   ]);
   return id;
 }
 
-/** 「これ以降すべて」の削除: 元の繰り返しを UNTIL 付きに更新し、以降の回を消す */
-export async function truncateFollowing(input: {
-  masterId: string;
-  masterRRule: string;
-  splitAt: Date;
-}): Promise<void> {
-  await runBatch((tx) => [
+/** 繰り返しをある回の前で打ち切る指定: 繰り返し元・UNTIL を付けた RRULE・打ち切る回 */
+type Truncation = { masterId: string; masterRRule: string; splitAt: Date };
+
+/** 繰り返しを打ち切る 2 文: 元の繰り返しを UNTIL 付きに更新し、以降の回を消す */
+function truncateWrites(tx: Database, input: Truncation) {
+  return [
     tx.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
     tx
       .delete(events)
       .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
-  ]);
+  ] as const;
+}
+
+/** 「これ以降すべて」の削除: 元の繰り返しを打ち切る（`truncateWrites`） */
+export async function truncateFollowing(input: Truncation): Promise<void> {
+  await runBatch((tx) => truncateWrites(tx, input));
 }

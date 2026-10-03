@@ -1,9 +1,10 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { EventMaster } from '../../../shared/calendar.ts';
+import type { WrittenEvent } from '../../../shared/calendar.ts';
 import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import type { Actor } from '../../lib/actor.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
   type FormattedEntry,
@@ -56,15 +57,6 @@ type ChangedRecord =
   | { type: 'lemon'; record: CareLog };
 
 type Action = 'added' | 'updated' | 'deleted';
-
-/**
- * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
- * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
- */
-export type WrittenEvent = EventMaster & { occurrenceStart: string | null };
-
-/** 書いた人。API キーで入れた記録は人が分からないので、キーの名前 */
-export type Actor = { userId: string } | { apiKeyName: string };
 
 /** 届けるイベント 1 件（MCP Events の EventOccurrence） */
 type Occurrence = {

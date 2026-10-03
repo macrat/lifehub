@@ -37,6 +37,12 @@ export type EventMaster = {
   remindEndMinutes: number | null;
 };
 
+/**
+ * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
+ * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
+ */
+export type WrittenEvent = EventMaster & { occurrenceStart: string | null };
+
 /** 1 回の発生（繰り返しを展開し、実体化された回を反映したもの）。id は繰り返し元（単発ならその行）の id */
 export type Occurrence = EventMaster & {
   /** 繰り返しの回を指す元の発生の基準日時。単発では null */

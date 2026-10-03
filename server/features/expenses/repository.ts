@@ -10,7 +10,13 @@ import {
 } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db/client.ts';
 import { findHistoryPage } from '../../lib/db/history.ts';
-import { containsKeyword, findById as findRowById, insertOnce } from '../../lib/db/query.ts';
+import {
+  containsKeyword,
+  deleteById,
+  findById as findRowById,
+  insertOnce,
+  updateById,
+} from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type ExpenseRow, expenses } from './schema.ts';
 
@@ -96,12 +102,10 @@ export async function findById(id: string): Promise<ExpenseRow | undefined> {
 }
 
 export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow | undefined> {
-  const updated = await db.update(expenses).set(row).where(eq(expenses.id, id)).returning();
-  return updated[0];
+  return updateById(expenses, id, row);
 }
 
 /** 消した行（無ければ undefined） */
 export async function remove(id: string): Promise<ExpenseRow | undefined> {
-  const [deleted] = await db.delete(expenses).where(eq(expenses.id, id)).returning();
-  return deleted;
+  return deleteById(expenses, id);
 }

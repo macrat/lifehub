@@ -1,4 +1,9 @@
-import { defaultEventEnd, normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
+import {
+  defaultEventEnd,
+  normalizeInstants,
+  toInputInstants,
+  type WrittenEvent,
+} from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import {
   type CompleteEventInput,
@@ -11,7 +16,7 @@ import {
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
-import { publishChanged, type WrittenEvent } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
