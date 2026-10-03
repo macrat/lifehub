@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { expect, test } from '@playwright/test';
+import { getAuth } from '../server/lib/auth.ts';
 import { AUTH_FILE, SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
 
@@ -14,8 +15,9 @@ function base64url(buffer: Buffer): string {
  * MCP クライアントと同じ手順: 認可（ログイン → 同意）→ PKCE でトークン → MCP 呼び出し。
  * 認可の途中でログインを求められ、ログインすると認可へ戻るところまで通すので、ログインしていない状態から始める。
  * クライアントの登録は、本番で受け付ける Client ID Metadata Documents だと LifeHub が公開の https の URL から
- * メタデータ文書を取りに行くので、E2E の中では用意できない。代わりにログイン中のユーザーが登録する口
- * （`/oauth2/create-client`）で作る。登録した後の認可・トークン・MCP は登録の仕方に依らず同じ。
+ * メタデータ文書を取りに行くので、E2E の中では用意できない。代わりにサーバー内部から better-auth の
+ * `createOAuthClient` で作る（HTTP の口は閉じている。`server/lib/auth.ts` の `disabledPaths`）。
+ * 登録した後の認可・トークン・MCP は登録の仕方に依らず同じ。
  */
 test.use({ storageState: SIGNED_OUT });
 
@@ -29,26 +31,31 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   const clientMetadata = {
     client_name: 'E2E MCP Client',
     redirect_uris: [redirectUri],
-    token_endpoint_auth_method: 'none',
-    application_type: 'native',
-    grant_types: ['authorization_code', 'refresh_token'],
-    response_types: ['code'],
+    token_endpoint_auth_method: 'none' as const,
+    application_type: 'native' as const,
+    grant_types: ['authorization_code' as const, 'refresh_token' as const],
+    response_types: ['code' as const],
   };
   // Dynamic Client Registration は閉じている（誰でもクライアントを登録できる口を開けない）
   const dynamic = await request.post('/api/auth/oauth2/register', { data: clientMetadata });
-  expect(dynamic.ok()).toBe(false);
+  expect(dynamic.status()).toBe(404);
 
   const signedIn = await playwright.request.newContext({
     baseURL: BASE,
     storageState: AUTH_FILE,
     extraHTTPHeaders: { origin: BASE },
   });
-  const registered = await signedIn.post('/api/auth/oauth2/create-client', {
-    data: clientMetadata,
-  });
-  expect(registered.ok(), await registered.text()).toBe(true);
-  const { client_id: clientId } = (await registered.json()) as { client_id: string };
+  // ログイン中のユーザーがクライアントを管理する口も閉じている
+  const managed = await signedIn.post('/api/auth/oauth2/create-client', { data: clientMetadata });
+  expect(managed.status()).toBe(404);
+  const cookie = (await signedIn.storageState()).cookies
+    .map(({ name, value }) => `${name}=${value}`)
+    .join('; ');
   await signedIn.dispose();
+  const { client_id: clientId } = await (await getAuth()).api.createOAuthClient({
+    headers: new Headers({ cookie }),
+    body: clientMetadata,
+  });
 
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());

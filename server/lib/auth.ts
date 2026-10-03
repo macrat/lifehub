@@ -63,8 +63,27 @@ const options = {
     minPasswordLength: PASSWORD_MIN_LENGTH,
     autoSignIn: false,
   },
-  // /token は jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
-  disabledPaths: ['/sign-up/email', '/token'],
+  disabledPaths: [
+    '/sign-up/email',
+    // jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
+    '/token',
+    // oauth-provider の、ログイン中のユーザーが OAuth クライアントと同意を画面から管理する口。
+    // LifeHub はその画面を持たず、クライアントは CIMD だけで識別する（Dynamic Client Registration も閉じる。
+    // docs/features/mcp.md）。使わない口は開けておかない
+    '/oauth2/register',
+    '/oauth2/create-client',
+    '/oauth2/get-client',
+    '/oauth2/get-clients',
+    '/oauth2/update-client',
+    '/oauth2/client/rotate-secret',
+    '/oauth2/delete-client',
+    '/oauth2/public-client',
+    '/oauth2/public-client-prelogin',
+    '/oauth2/get-consent',
+    '/oauth2/get-consents',
+    '/oauth2/update-consent',
+    '/oauth2/delete-consent',
+  ],
   plugins: [
     jwt({ disableSettingJwtHeader: true }),
     mcp({
