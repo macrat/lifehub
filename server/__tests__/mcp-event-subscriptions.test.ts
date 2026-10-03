@@ -16,7 +16,7 @@ describe('MCP server: MCP Events', () => {
     userId = await createTestUser('A');
   });
 
-  it('記録の種類ごとのイベントを、webhook で配れるものとして公開する', async () => {
+  it('記録の種類ごとのイベントと予定・タスクの通知を、webhook で配れるものとして公開する', async () => {
     const client = await connect(userId);
     expect(client.getServerCapabilities()?.extensions).toHaveProperty(
       'io.modelcontextprotocol/events',
@@ -29,13 +29,21 @@ describe('MCP server: MCP Events', () => {
       'event.changed',
       'expense.changed',
       'lemon.changed',
+      'event.reminder',
     ]);
     for (const event of events) {
       expect(event.delivery).toEqual(['webhook']);
-      expect(event.payloadSchema).toMatchObject({
-        properties: { action: { enum: ['added', 'updated', 'deleted'] } },
-        required: ['action', 'by', 'entry'],
-      });
+      expect(event.payloadSchema).toMatchObject(
+        event.name === 'event.reminder'
+          ? {
+              properties: { about: { enum: ['start', 'end', 'due'] } },
+              required: ['about', 'entry'],
+            }
+          : {
+              properties: { action: { enum: ['added', 'updated', 'deleted'] } },
+              required: ['action', 'by', 'entry'],
+            },
+      );
     }
   });
 

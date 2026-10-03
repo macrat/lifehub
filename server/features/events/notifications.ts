@@ -44,6 +44,8 @@ export type NotificationPayload = {
   url: string;
   /** 送信先（参加者） */
   userIds: string[];
+  /** 通知する発生（配信予定時刻の時点のもの）。MCP Events の通知に載せる */
+  item: CalendarItem;
 };
 
 export type PlannedNotification = {
@@ -185,5 +187,6 @@ export async function resolveNotification(
     body: body(item, ref.edge),
     url: `/calendar?date=${item.placementDate}`,
     userIds: target.userId ? [target.userId] : item.participantIds,
+    item,
   };
 }

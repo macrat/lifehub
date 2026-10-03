@@ -7,6 +7,7 @@ import { EVENT_NAMES, type EventName, subscribe, unsubscribe } from './service.t
  * MCP Events（`io.modelcontextprotocol/events`。ドラフトの拡張）の webhook 配信。
  * 記録の種類ごとに、追加・編集・削除されたら購読者の URL へ知らせる。読むのは `read_timeline`、書くのは各ツール。
  * 配る範囲は家族で読めるものと同じで、誰が書いた記録も届く（タイムラインはどちらの記録も読めるため）。
+ * 予定・タスクの通知（`event.reminder`）は、プッシュ通知と同じ時に、同じ宛先の購読へ知らせる。
  * 届かない配り方（poll・push、gap / terminated の知らせ、cursor での遡り）は持たない。
  * WHY webhook だけ: サーバーレスで接続を持ち続けられず（push）、遡れる履歴も持たない（poll と cursor）。
  */
@@ -16,18 +17,10 @@ const NOT_FOUND = -32011;
 const UNSUPPORTED = -32014;
 const CALLBACK_ENDPOINT_ERROR = -32015;
 
-const DESCRIPTIONS: Record<EventName, string> = {
-  'memo.changed': 'メモが書かれた・直された・消されたとき',
-  'event.changed':
-    '予定かタスクが足された・変えられた・消されたとき（タスクの完了・完了の取り消しも含む。繰り返しの 1 回だけを変えた・消したときは、その回）',
-  'expense.changed': '立替（精算を含む）が記録された・直された・消されたとき',
-  'lemon.changed': 'レモンの木の世話が記録された・直された・消されたとき',
-};
+/** 届くエントリー。read_timeline や書くツールが返すものと同じ形 */
+const entrySchema = z.looseObject({ ref: z.string(), type: z.string() });
 
-/** 購読の引数は無い（種類ごとのすべての追加・編集・削除が届く） */
-const INPUT_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
-
-const PAYLOAD_SCHEMA = z.toJSONSchema(
+const CHANGED_PAYLOAD_SCHEMA = z.toJSONSchema(
   z.object({
     action: z
       .enum(['added', 'updated', 'deleted'])
@@ -35,11 +28,9 @@ const PAYLOAD_SCHEMA = z.toJSONSchema(
     by: z
       .string()
       .describe('追加・編集・削除した人の名前（API キーで入れた記録は「API キー「<名前>」」）'),
-    entry: z
-      .looseObject({ ref: z.string(), type: z.string() })
-      .describe(
-        'エントリー。追加・編集は書いた後、削除は消す前のもの。read_timeline が返すエントリーと同じ形で、追加・編集なら ref を update_* / delete_entry に渡せる',
-      ),
+    entry: entrySchema.describe(
+      'エントリー。追加・編集は書いた後、削除は消す前のもの。read_timeline が返すエントリーと同じ形で、追加・編集なら ref を update_* / delete_entry に渡せる',
+    ),
     scope: z
       .enum(['this', 'following'])
       .optional()
@@ -48,6 +39,45 @@ const PAYLOAD_SCHEMA = z.toJSONSchema(
       ),
   }),
 );
+
+const REMINDER_PAYLOAD_SCHEMA = z.toJSONSchema(
+  z.object({
+    about: z
+      .enum(['start', 'end', 'due'])
+      .describe('何の通知か。start は開始、end は予定の終了、due はタスクの期限'),
+    entry: entrySchema.describe(
+      '通知した予定・タスク（繰り返しならその回）。read_timeline が返すエントリーと同じ形で、ref を update_event / set_task_done に渡せる',
+    ),
+  }),
+);
+
+const EVENTS: Record<EventName, { description: string; payloadSchema: object }> = {
+  'memo.changed': {
+    description: 'メモが書かれた・直された・消されたとき',
+    payloadSchema: CHANGED_PAYLOAD_SCHEMA,
+  },
+  'event.changed': {
+    description:
+      '予定かタスクが足された・変えられた・消されたとき（タスクの完了・完了の取り消しも含む。繰り返しの 1 回だけを変えた・消したときは、その回）',
+    payloadSchema: CHANGED_PAYLOAD_SCHEMA,
+  },
+  'expense.changed': {
+    description: '立替（精算を含む）が記録された・直された・消されたとき',
+    payloadSchema: CHANGED_PAYLOAD_SCHEMA,
+  },
+  'lemon.changed': {
+    description: 'レモンの木の世話が記録された・直された・消されたとき',
+    payloadSchema: CHANGED_PAYLOAD_SCHEMA,
+  },
+  'event.reminder': {
+    description:
+      '予定・タスクの通知の時刻になったとき（アプリのプッシュ通知と同じ時。通知を設定した予定・タスクの開始・終了・期限の前で、届くのは参加している予定・タスクの分だけ）',
+    payloadSchema: REMINDER_PAYLOAD_SCHEMA,
+  },
+};
+
+/** 購読の引数は無い（そのイベントのすべてが届く。通知は宛先の人の購読にだけ届く） */
+const INPUT_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
 
 /**
  * 引数の規則はスキーマに書き、外れれば SDK が Invalid Params（-32602）で返す。
@@ -100,10 +130,9 @@ export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
   server.setRequestHandler('events/list', { params: listParams }, () => ({
     events: NAMES.map((name) => ({
       name,
-      description: DESCRIPTIONS[name],
+      ...EVENTS[name],
       delivery: ['webhook'],
       inputSchema: INPUT_SCHEMA,
-      payloadSchema: PAYLOAD_SCHEMA,
     })),
   }));
 

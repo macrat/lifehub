@@ -7,6 +7,7 @@ import {
   type NotificationRef,
   resolveNotification,
 } from '../events/notifications.ts';
+import { publishReminder } from '../mcp-events/service.ts';
 import { sendToUsers } from '../push/service.ts';
 import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
@@ -65,7 +66,8 @@ async function enqueueUpcoming(now: Date): Promise<void> {
 }
 
 /**
- * 配信: 台帳に無いキーだけ、参照を再検証して送る。
+ * 配信: 台帳に無いキーだけ、参照を再検証して送る。プッシュ通知を送れたら、MCP Events の通知も同じ宛先へ配る
+ * （プッシュの失敗で QStash が送り直すときに、MCP Events だけが先に届いて重複しないよう、送れた後に配る）。
  * 台帳への記録（claim）を先に行い、同時に届いた同じキーの配信を 1 つにする。記録した後に失敗したら
  * （送る内容の読み出しでも送信でも）記録を取り消して例外を投げ、QStash の再試行で送り直せるようにする。
  * 取り消さないと、再試行が「送信済み」と判定されて通知が届かないまま終わる。
@@ -86,6 +88,7 @@ export async function deliver(
       url: payload.url,
       tag: key,
     });
+    publishReminder({ key, item: payload.item, edge: ref.edge, userIds: payload.userIds });
     return 'sent';
   } catch (error) {
     await repository.release(key);

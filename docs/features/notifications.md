@@ -32,6 +32,7 @@
    - 予約先の無い環境（ローカル・Preview）では、列挙もせずに終える。
 3. 配信時刻に QStash が `POST /api/qstash/notifications`（`server/qstash.ts`）を呼ぶ。`Upstash-Signature` を検証後、`sent_notifications` に key を挿入し（既にあれば重複として終了）、`resolveNotification(ref)` で対象を再読込する。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら送らない。再読込か送信で失敗したら挿入した key を消して 500 を返し、QStash の再試行で送り直す（残すと再試行が重複と判定され、届かないまま終わる）。
 4. `web-push` で各購読へ送信。410/404 は購読を削除する。Service Worker（`src/sw.ts`）が通知を表示し、タップで該当画面を開く。
+   - 送れたら、同じ宛先の MCP Events の購読へ `event.reminder` も配る（[mcp-events.md](mcp-events.md)）。
 5. 日次 Cron は 30 日より古い `sent_notifications` を削除する。
 
 `VERCEL_ENV !== 'production'` のとき、1 と 2 の QStash への publish を行わない（Preview から本番と同じ通知が二重に飛ぶのを防ぐ）。Preview には本番の通知用秘密情報を渡さず、3 の配信も拒否する。`QSTASH_TOKEN` 未設定（ローカル）でも publish を行わない。
