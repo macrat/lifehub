@@ -21,7 +21,7 @@ test('共有のための立替で「債権者 ← 共有」の精算が出て、
   await card.click();
   await expect(page.getByLabel('From')).toHaveText('共有');
   await expect(page.getByLabel('To')).toHaveText('E2E');
-  await expect(page.getByLabel('金額（円）')).toHaveValue('1000');
+  await expect(page.getByLabel('金額（円）')).toHaveValue('1,000');
   await expect(page.getByLabel('内容', { exact: true })).toHaveValue('精算');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(settlements.getByText('精算済み')).toBeVisible();
