@@ -97,10 +97,8 @@ export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow
   return updated[0];
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const deleted = await db
-    .delete(expenses)
-    .where(eq(expenses.id, id))
-    .returning({ id: expenses.id });
-  return deleted.length > 0;
+/** 消した行（無ければ undefined） */
+export async function remove(id: string): Promise<ExpenseRow | undefined> {
+  const [deleted] = await db.delete(expenses).where(eq(expenses.id, id)).returning();
+  return deleted;
 }

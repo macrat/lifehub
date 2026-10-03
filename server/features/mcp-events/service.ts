@@ -14,28 +14,37 @@ import type { McpEventSubscriptionRow } from './schema.ts';
 import { postWebhook, verifyEndpoint, type WebhookPost, webhookHeaders } from './webhook.ts';
 
 /**
- * MCP Events（webhook 配信）の購読と配信。記録を書いた service が `publishSaved` を呼び、
+ * MCP Events（webhook 配信）の購読と配信。記録を書いた・消した service が `publishChanged` を呼び、
  * 購読があればその記録を LLM 向けの形（ツールが返すエントリーと同じ）にして、購読ごとに POST する。
  * どの経路（画面・MCP・API キー）の書き込みも service を通るので、ここで漏れなく拾える。
  */
 
-/** 購読できるイベント。記録の種類ごとに 1 つで、追加と編集の両方で届く（消したときは届かない） */
+/** 購読できるイベント。記録の種類ごとに 1 つで、追加・編集・削除のどれでも届く */
 export const EVENT_NAMES = {
-  memo: 'memo.saved',
-  event: 'event.saved',
-  expense: 'expense.saved',
-  lemon: 'lemon.saved',
+  memo: 'memo.changed',
+  event: 'event.changed',
+  expense: 'expense.changed',
+  lemon: 'lemon.changed',
 } as const;
 export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES];
 
 type WrittenEvent = Parameters<typeof formatEvent>[0];
 
-/** 書いた記録。予定・タスクは書いた後の値を読み直す必要があるときだけ、読む関数で渡す（購読が無ければ読まない） */
-export type SavedRecord =
+/**
+ * 書いた記録（消したときは消す前の記録）。予定・タスクは書いた後の値を読み直す必要があるときだけ、
+ * 読む関数で渡す（購読が無ければ読まない）。繰り返しの回を消したときは、その回だけか以降すべてか（scope）も添える
+ */
+export type ChangedRecord =
   | { type: 'memo'; record: Memo }
-  | { type: 'event'; record: WrittenEvent | (() => Promise<WrittenEvent>) }
+  | {
+      type: 'event';
+      record: WrittenEvent | (() => Promise<WrittenEvent>);
+      scope?: 'this' | 'following';
+    }
   | { type: 'expense'; record: Expense }
   | { type: 'lemon'; record: CareLog };
+
+export type Action = 'added' | 'updated' | 'deleted';
 
 /** 書いた人。API キーで入れた記録は人が分からないので、キーの名前 */
 export type Actor = { userId: string } | { apiKeyName: string };
@@ -52,57 +61,58 @@ type Occurrence = {
 type DeliveryOptions = { post?: WebhookPost; retryDelaysMs?: number[] };
 
 /**
- * 記録を書いたことを知らせる。応答は待たせず、応答を返した後に配る（`afterResponse`）。
+ * 記録を書いた・消したことを知らせる。応答は待たせず、応答を返した後に配る（`afterResponse`）。
  * 購読が無ければ問い合わせ 1 回で終わる。
  */
-export function publishSaved(
-  saved: SavedRecord,
-  action: 'added' | 'updated',
+export function publishChanged(
+  changed: ChangedRecord,
+  action: Action,
   actor: Actor,
   options?: DeliveryOptions,
 ): void {
-  afterResponse('mcp-events', () => deliverSaved(saved, action, actor, options));
+  afterResponse('mcp-events', () => deliverChanged(changed, action, actor, options));
 }
 
-export async function deliverSaved(
-  saved: SavedRecord,
-  action: 'added' | 'updated',
+export async function deliverChanged(
+  changed: ChangedRecord,
+  action: Action,
   actor: Actor,
   { post = postWebhook, retryDelaysMs = [2_000, 10_000] }: DeliveryOptions = {},
 ): Promise<void> {
-  const name = EVENT_NAMES[saved.type];
+  const name = EVENT_NAMES[changed.type];
   const subscriptions = await repository.findActive(name, new Date());
   if (subscriptions.length === 0) return;
   const people: Person[] = (await listUsers()).map(({ id, name }) => ({ id, name }));
-  const entry = await formatSaved(saved, people);
+  const entry = await formatChanged(changed, people);
   const occurrence: Occurrence = {
-    // 追加は記録ごとに 1 度きりなので記録の ID から決める（オフラインの再送で同じ追加が 2 度書かれても、
-    // 受け手が webhook-id で重複を捨てられる）。編集は毎回別の出来事
-    eventId: action === 'added' ? `evt_${entry.ref}` : `evt_${newId()}`,
+    // 追加と削除は記録（回）ごとに 1 度きりなので、記録の ref から決める（オフラインの再送で同じ追加・削除が
+    // 2 度知らされても、受け手が webhook-id で重複を捨てられる）。編集は毎回別の出来事
+    eventId: action === 'updated' ? `evt_${newId()}` : `evt_${action}_${entry.ref}`,
     name,
     timestamp: new Date().toISOString(),
     data: {
       action,
       by: 'userId' in actor ? nameOf(people, actor.userId) : `API キー「${actor.apiKeyName}」`,
       entry,
+      ...(changed.type === 'event' && changed.scope ? { scope: changed.scope } : {}),
     },
     cursor: null,
   };
   await Promise.all(subscriptions.map((sub) => deliverTo(sub, occurrence, post, retryDelaysMs)));
 }
 
-async function formatSaved(saved: SavedRecord, people: Person[]) {
-  switch (saved.type) {
+async function formatChanged(changed: ChangedRecord, people: Person[]) {
+  switch (changed.type) {
     case 'memo':
-      return formatMemo(saved.record, people);
+      return formatMemo(changed.record, people);
     case 'event': {
-      const { record } = saved;
+      const { record } = changed;
       return formatEvent(typeof record === 'function' ? await record() : record, people);
     }
     case 'expense':
-      return formatExpense(saved.record, people);
+      return formatExpense(changed.record, people);
     case 'lemon':
-      return formatCareLog(saved.record, people);
+      return formatCareLog(changed.record, people);
   }
 }
 

@@ -5,7 +5,7 @@ import { EVENT_NAMES, type EventName, subscribe, unsubscribe } from './service.t
 
 /**
  * MCP Events（`io.modelcontextprotocol/events`。ドラフトの拡張）の webhook 配信。
- * 記録の種類ごとに、追加・編集されたら購読者の URL へ知らせる。読むのは `read_timeline`、書くのは各ツール。
+ * 記録の種類ごとに、追加・編集・削除されたら購読者の URL へ知らせる。読むのは `read_timeline`、書くのは各ツール。
  * 配る範囲は家族で読めるものと同じで、誰が書いた記録も届く（タイムラインはどちらの記録も読めるため）。
  * 届かない配り方（poll・push、gap / terminated の知らせ、cursor での遡り）は持たない。
  * WHY webhook だけ: サーバーレスで接続を持ち続けられず（push）、遡れる履歴も持たない（poll と cursor）。
@@ -18,30 +18,37 @@ const CALLBACK_ENDPOINT_ERROR = -32015;
 const INVALID_PARAMS = -32602;
 
 const DESCRIPTIONS: Record<EventName, string> = {
-  'memo.saved': 'メモが書かれた・直されたとき',
-  'event.saved':
-    '予定かタスクが足された・変えられたとき（タスクの完了・完了の取り消しも含む。繰り返しの 1 回だけを変えたときは、その回）',
-  'expense.saved': '立替（精算を含む）が記録された・直されたとき',
-  'lemon.saved': 'レモンの木の世話が記録された・直されたとき',
+  'memo.changed': 'メモが書かれた・直された・消されたとき',
+  'event.changed':
+    '予定かタスクが足された・変えられた・消されたとき（タスクの完了・完了の取り消しも含む。繰り返しの 1 回だけを変えた・消したときは、その回）',
+  'expense.changed': '立替（精算を含む）が記録された・直された・消されたとき',
+  'lemon.changed': 'レモンの木の世話が記録された・直された・消されたとき',
 };
 
-/** 購読の引数は無い（種類ごとのすべての追加・編集が届く） */
+/** 購読の引数は無い（種類ごとのすべての追加・編集・削除が届く） */
 const INPUT_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
 
-const payloadSchema = (name: EventName) =>
-  z.toJSONSchema(
-    z.object({
-      action: z.enum(['added', 'updated']).describe('added は追加、updated は編集'),
-      by: z
-        .string()
-        .describe('追加・編集した人の名前（API キーで入れた記録は「API キー「<名前>」」）'),
-      entry: z
-        .looseObject({ ref: z.string(), type: z.string() })
-        .describe(
-          `${DESCRIPTIONS[name]}の、書いた後のエントリー。read_timeline が返すエントリーと同じ形で、ref を update_* / delete_entry に渡せる`,
-        ),
-    }),
-  );
+const PAYLOAD_SCHEMA = z.toJSONSchema(
+  z.object({
+    action: z
+      .enum(['added', 'updated', 'deleted'])
+      .describe('added は追加、updated は編集、deleted は削除'),
+    by: z
+      .string()
+      .describe('追加・編集・削除した人の名前（API キーで入れた記録は「API キー「<名前>」」）'),
+    entry: z
+      .looseObject({ ref: z.string(), type: z.string() })
+      .describe(
+        'エントリー。追加・編集は書いた後、削除は消す前のもの。read_timeline が返すエントリーと同じ形で、追加・編集なら ref を update_* / delete_entry に渡せる',
+      ),
+    scope: z
+      .enum(['this', 'following'])
+      .optional()
+      .describe(
+        '繰り返しの予定・タスクの回を消したときだけ付く。this はその回だけ、following はその回以降すべてを消した',
+      ),
+  }),
+);
 
 const nameSchema = z.string();
 const argumentsSchema = z.record(z.string(), z.unknown()).optional();
@@ -114,7 +121,7 @@ export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
       description: DESCRIPTIONS[name],
       delivery: ['webhook'],
       inputSchema: INPUT_SCHEMA,
-      payloadSchema: payloadSchema(name),
+      payloadSchema: PAYLOAD_SCHEMA,
     })),
   }));
 

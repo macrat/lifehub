@@ -165,10 +165,10 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
           await events.deleteEvent(ref.id, occurrenceTargetOf(ref, scope), ctx.userId);
           break;
         case 'expense':
-          await expenses.deleteExpense(ref.id);
+          await expenses.deleteExpense(ref.id, ctx.userId);
           break;
         case 'lemon':
-          await lemon.deleteLog(ref.id);
+          await lemon.deleteLog(ref.id, ctx.userId);
           break;
         case 'memo':
           await memos.deleteMemo(ref.id, ctx.userId);

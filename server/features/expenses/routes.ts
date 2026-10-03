@@ -20,7 +20,7 @@ export const expensesRouter = router({
     .mutation(async ({ ctx, input: { id, ...input } }) => {
       await service.updateExpense(id, input, (await ctx.user).id);
     }),
-  delete: procedure.input(idParamSchema).mutation(async ({ input }) => {
-    await service.deleteExpense(input.id);
+  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteExpense(input.id, (await ctx.user).id);
   }),
 });

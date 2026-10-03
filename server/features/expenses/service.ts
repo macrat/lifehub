@@ -16,7 +16,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { publishSaved } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
 
@@ -65,7 +65,7 @@ export async function addExpense(
 ): Promise<Expense> {
   const values = checkRules(input, expenseRulesSchema);
   const expense = toExpense(await repository.insert({ ...values, id, createdBy: userId }));
-  publishSaved({ type: 'expense', record: expense }, 'added', { userId });
+  publishChanged({ type: 'expense', record: expense }, 'added', { userId });
   return expense;
 }
 
@@ -77,7 +77,7 @@ export async function updateExpense(
 ): Promise<void> {
   const updated = await repository.update(id, input);
   if (!updated) throw new NotFoundError('立替が見つかりません');
-  publishSaved({ type: 'expense', record: toExpense(updated) }, 'updated', { userId: actorId });
+  publishChanged({ type: 'expense', record: toExpense(updated) }, 'updated', { userId: actorId });
 }
 
 /** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */
@@ -97,12 +97,15 @@ export async function patchExpense(
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('立替が見つかりません');
   const expense = toExpense(updated);
-  publishSaved({ type: 'expense', record: expense }, 'updated', { userId: actorId });
+  publishChanged({ type: 'expense', record: expense }, 'updated', { userId: actorId });
   return expense;
 }
 
-export async function deleteExpense(id: string): Promise<void> {
-  if (!(await repository.remove(id))) throw new NotFoundError('立替が見つかりません');
+/** actorId は消した人 */
+export async function deleteExpense(id: string, actorId: string): Promise<void> {
+  const deleted = await repository.remove(id);
+  if (!deleted) throw new NotFoundError('立替が見つかりません');
+  publishChanged({ type: 'expense', record: toExpense(deleted) }, 'deleted', { userId: actorId });
 }
 
 function toExpense(row: ExpenseRow): Expense {

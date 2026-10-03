@@ -59,7 +59,7 @@
 
 ## MCP Events
 
-記録の追加・編集を webhook で知らせる（`events/list`・`events/subscribe`・`events/unsubscribe`）。[mcp-events.md](mcp-events.md)。
+記録の追加・編集・削除を webhook で知らせる（`events/list`・`events/subscribe`・`events/unsubscribe`）。[mcp-events.md](mcp-events.md)。
 
 ## 接続方法
 

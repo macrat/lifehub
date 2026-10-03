@@ -1,9 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { Webhook } from 'standardwebhooks';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { createEvent } from '../../events/service.ts';
 import { addMemo } from '../../memos/service.ts';
-import { deliverSaved, subscribe, unsubscribe } from '../service.ts';
+import { deliverChanged, subscribe, unsubscribe } from '../service.ts';
 import type { WebhookPost } from '../webhook.ts';
 
 const URL_A = 'https://receiver.example.com/hooks/a';
@@ -29,7 +31,7 @@ function receiver(status: (received: Received) => number = () => 200) {
 
 /**
  * 記録は購読より先に作る（購読がある間に service で書くと、応答の後の配信が本物の受け手へ送りに行く）。
- * 配信は deliverSaved に受け手を渡して確かめる。
+ * 配信は deliverChanged に受け手を渡して確かめる。
  */
 describe('MCP Events の購読と配信', () => {
   let userId: string;
@@ -43,7 +45,7 @@ describe('MCP Events の購読と配信', () => {
     const secret = newSecret();
     const result = await subscribe(
       userId,
-      { name: 'memo.saved', url: URL_A, secret, ttlMs: 60 * 60 * 1000 },
+      { name: 'memo.changed', url: URL_A, secret, ttlMs: 60 * 60 * 1000 },
       post,
     );
     expect(result).toMatchObject({ ok: true, id: expect.stringMatching(/^sub_/) });
@@ -59,41 +61,42 @@ describe('MCP Events の購読と配信', () => {
   it('challenge を返さない受け手は購読できず、送られない', async () => {
     const post: WebhookPost = async () => ({ status: 200, body: '{}' });
     const secret = newSecret();
-    expect(await subscribe(userId, { name: 'memo.saved', url: URL_A, secret }, post)).toEqual({
+    expect(await subscribe(userId, { name: 'memo.changed', url: URL_A, secret }, post)).toEqual({
       ok: false,
       reason: 'challenge_failed',
     });
     const memo = await addMemo({ body: '牛乳' }, userId);
     const { post: watch, events } = receiver();
-    await deliverSaved({ type: 'memo', record: memo }, 'added', { userId }, { post: watch });
+    await deliverChanged({ type: 'memo', record: memo }, 'added', { userId }, { post: watch });
     expect(events()).toEqual([]);
   });
 
   it('購読した種類の記録だけを、ツールと同じ形のエントリーで届ける', async () => {
     const memo = await addMemo({ body: '牛乳を買う' }, userId);
     const { post, events } = receiver();
-    await subscribe(userId, { name: 'memo.saved', url: URL_A, secret: newSecret() }, post);
+    await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() }, post);
     await subscribe(
       userId,
-      { name: 'expense.saved', url: `${URL_A}/expense`, secret: newSecret() },
+      { name: 'expense.changed', url: `${URL_A}/expense`, secret: newSecret() },
       post,
     );
 
-    await deliverSaved({ type: 'memo', record: memo }, 'added', { userId }, { post });
-    await deliverSaved({ type: 'memo', record: memo }, 'updated', { userId }, { post });
-    await deliverSaved(
+    await deliverChanged({ type: 'memo', record: memo }, 'added', { userId }, { post });
+    await deliverChanged({ type: 'memo', record: memo }, 'updated', { userId }, { post });
+    await deliverChanged({ type: 'memo', record: memo }, 'deleted', { userId }, { post });
+    await deliverChanged(
       { type: 'lemon', record: lemonLog() },
       'added',
       { apiKeyName: 'ボタン' },
       { post },
     );
 
-    const [added, updated] = events();
-    expect(events()).toHaveLength(2);
+    const [added, updated, deleted] = events();
+    expect(events()).toHaveLength(3);
     expect(added?.url).toBe(URL_A);
     expect(JSON.parse(added?.body ?? '')).toEqual({
-      eventId: `evt_memo:${memo.id}`,
-      name: 'memo.saved',
+      eventId: `evt_added_memo:${memo.id}`,
+      name: 'memo.changed',
       timestamp: expect.any(String),
       data: {
         action: 'added',
@@ -108,26 +111,68 @@ describe('MCP Events の購読と配信', () => {
       },
       cursor: null,
     });
-    expect(added?.headers['webhook-id']).toBe(`evt_memo:${memo.id}`);
+    expect(added?.headers['webhook-id']).toBe(`evt_added_memo:${memo.id}`);
     // 編集は毎回別の出来事なので、別の eventId
     expect(JSON.parse(updated?.body ?? '')).toMatchObject({ data: { action: 'updated' } });
     expect(updated?.headers['webhook-id']).not.toBe(added?.headers['webhook-id']);
+    // 削除は消す前のエントリーを届け、追加と同じく記録ごとに 1 度きりの eventId
+    expect(JSON.parse(deleted?.body ?? '')).toMatchObject({
+      eventId: `evt_deleted_memo:${memo.id}`,
+      data: { action: 'deleted', by: 'A', entry: { ref: `memo:${memo.id}`, body: '牛乳を買う' } },
+    });
+  });
+
+  it('繰り返しの回を消したときは、その回のエントリーと消した範囲を届ける', async () => {
+    const series = await createEvent(
+      createEventSchema.parse({
+        kind: 'event',
+        title: '歯医者',
+        startsAt: '2030-01-07T00:00:00Z',
+        endsAt: '2030-01-07T01:00:00Z',
+        rrule: 'FREQ=WEEKLY',
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const { post, events } = receiver();
+    await subscribe(userId, { name: 'event.changed', url: URL_A, secret: newSecret() }, post);
+    const occurrenceStart = '2030-01-14T00:00:00.000Z';
+    const record = {
+      ...series,
+      startsAt: occurrenceStart,
+      endsAt: '2030-01-14T01:00:00.000Z',
+      occurrenceStart,
+    };
+
+    await deliverChanged(
+      { type: 'event', record, scope: 'following' },
+      'deleted',
+      { userId },
+      { post },
+    );
+
+    const ref = `event:${series.id}@${occurrenceStart}`;
+    expect(JSON.parse(events()[0]?.body ?? '')).toMatchObject({
+      eventId: `evt_deleted_${ref}`,
+      name: 'event.changed',
+      data: { action: 'deleted', scope: 'following', entry: { ref, title: '歯医者' } },
+    });
   });
 
   it('購読し直しは確かめ直さず、鍵が変わればしばらく両方の鍵で署名する', async () => {
     const memo = await addMemo({ body: '牛乳' }, userId);
     const { post, received, events } = receiver();
     const [oldSecret, newerSecret] = [newSecret(), newSecret()];
-    await subscribe(userId, { name: 'memo.saved', url: URL_A, secret: oldSecret }, post);
+    await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: oldSecret }, post);
     const again = await subscribe(
       userId,
-      { name: 'memo.saved', url: URL_A, secret: newerSecret },
+      { name: 'memo.changed', url: URL_A, secret: newerSecret },
       post,
     );
     expect(again.ok).toBe(true);
     expect(received).toHaveLength(1);
 
-    await deliverSaved({ type: 'memo', record: memo }, 'added', { userId }, { post });
+    await deliverChanged({ type: 'memo', record: memo }, 'added', { userId }, { post });
     const [event] = events();
     for (const secret of [oldSecret, newerSecret]) {
       expect(() =>
@@ -139,7 +184,7 @@ describe('MCP Events の購読と配信', () => {
   it('5xx は同じ eventId で送り直し、410 は購読を消し、ほかの 4xx は諦める', async () => {
     const memo = await addMemo({ body: '牛乳' }, userId);
     const deliver = (post: WebhookPost) =>
-      deliverSaved(
+      deliverChanged(
         { type: 'memo', record: memo },
         'updated',
         { userId },
@@ -153,7 +198,7 @@ describe('MCP Events の購読と配信', () => {
     const flaky = receiver((r) =>
       r.body.includes('"verification"') ? 200 : (statuses.shift() ?? 200),
     );
-    await subscribe(userId, { name: 'memo.saved', url: URL_A, secret: newSecret() }, flaky.post);
+    await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() }, flaky.post);
     await deliver(flaky.post);
     const [first, second] = flaky.events();
     expect(flaky.events()).toHaveLength(2);
@@ -171,11 +216,11 @@ describe('MCP Events の購読と配信', () => {
 
   it('購読をやめると届かず、無い購読をやめても失敗しない', async () => {
     const { post, events } = receiver();
-    await subscribe(userId, { name: 'memo.saved', url: URL_A, secret: newSecret() }, post);
-    await unsubscribe(userId, { name: 'memo.saved', url: URL_A });
-    await unsubscribe(userId, { name: 'memo.saved', url: URL_A });
+    await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() }, post);
+    await unsubscribe(userId, { name: 'memo.changed', url: URL_A });
+    await unsubscribe(userId, { name: 'memo.changed', url: URL_A });
     const memo = await addMemo({ body: '牛乳' }, userId);
-    await deliverSaved({ type: 'memo', record: memo }, 'added', { userId }, { post });
+    await deliverChanged({ type: 'memo', record: memo }, 'added', { userId }, { post });
     expect(events()).toEqual([]);
   });
 });

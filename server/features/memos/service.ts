@@ -4,7 +4,7 @@ import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { publishSaved } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
@@ -15,7 +15,7 @@ export async function addMemo(
   id: string = newId(),
 ): Promise<Memo> {
   const memo = toMemo(await repository.insert({ ...input, id, createdBy: userId }));
-  publishSaved({ type: 'memo', record: memo }, 'added', { userId });
+  publishChanged({ type: 'memo', record: memo }, 'added', { userId });
   return memo;
 }
 
@@ -24,12 +24,14 @@ export async function updateMemo(id: string, input: MemoInput, actorId: string):
   const updated = await repository.update(id, actorId, input.body);
   if (!updated) return rejectWrite(id);
   const memo = toMemo(updated);
-  publishSaved({ type: 'memo', record: memo }, 'updated', { userId: actorId });
+  publishChanged({ type: 'memo', record: memo }, 'updated', { userId: actorId });
   return memo;
 }
 
 export async function deleteMemo(id: string, actorId: string): Promise<void> {
-  if (!(await repository.remove(id, actorId))) await rejectWrite(id);
+  const deleted = await repository.remove(id, actorId);
+  if (!deleted) return rejectWrite(id);
+  publishChanged({ type: 'memo', record: toMemo(deleted) }, 'deleted', { userId: actorId });
 }
 
 /**

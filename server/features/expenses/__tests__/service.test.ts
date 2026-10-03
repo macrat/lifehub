@@ -159,7 +159,7 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    await deleteExpense(expense.id);
+    await deleteExpense(expense.id, a);
     expect((await listExpenses({})).items).toHaveLength(0);
   });
 

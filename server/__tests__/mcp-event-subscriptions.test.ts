@@ -25,14 +25,17 @@ describe('MCP server: MCP Events', () => {
       events: { name: string; delivery: string[]; payloadSchema: object }[];
     };
     expect(events.map((e) => e.name)).toEqual([
-      'memo.saved',
-      'event.saved',
-      'expense.saved',
-      'lemon.saved',
+      'memo.changed',
+      'event.changed',
+      'expense.changed',
+      'lemon.changed',
     ]);
     for (const event of events) {
       expect(event.delivery).toEqual(['webhook']);
-      expect(event.payloadSchema).toMatchObject({ required: ['action', 'by', 'entry'] });
+      expect(event.payloadSchema).toMatchObject({
+        properties: { action: { enum: ['added', 'updated', 'deleted'] } },
+        required: ['action', 'by', 'entry'],
+      });
     }
   });
 
@@ -44,23 +47,25 @@ describe('MCP server: MCP Events', () => {
         (error: unknown) => error as ProtocolError,
       );
     const url = 'https://receiver.example.com/hook';
-    expect(await subscribe({ name: 'memo.deleted', delivery: webhook(url) })).toMatchObject({
+    expect(await subscribe({ name: 'memo.removed', delivery: webhook(url) })).toMatchObject({
       code: -32011,
     });
-    expect(await subscribe({ name: 'memo.saved', delivery: webhook(url, 'poll') })).toMatchObject({
-      code: -32014,
-    });
+    expect(await subscribe({ name: 'memo.changed', delivery: webhook(url, 'poll') })).toMatchObject(
+      {
+        code: -32014,
+      },
+    );
     expect(
-      await subscribe({ name: 'memo.saved', delivery: webhook('http://receiver.example.com/') }),
+      await subscribe({ name: 'memo.changed', delivery: webhook('http://receiver.example.com/') }),
     ).toMatchObject({ code: -32602 });
     expect(
       await subscribe({
-        name: 'memo.saved',
+        name: 'memo.changed',
         delivery: { ...webhook(url), secret: 'whsec_c2hvcnQ=' },
       }),
     ).toMatchObject({ code: -32602 });
     expect(
-      await subscribe({ name: 'memo.saved', arguments: { q: '牛乳' }, delivery: webhook(url) }),
+      await subscribe({ name: 'memo.changed', arguments: { q: '牛乳' }, delivery: webhook(url) }),
     ).toMatchObject({ code: -32602 });
   });
 
@@ -73,7 +78,7 @@ describe('MCP server: MCP Events', () => {
     ]) {
       const error = await client
         .request(
-          { method: 'events/subscribe', params: { name: 'memo.saved', delivery: webhook(url) } },
+          { method: 'events/subscribe', params: { name: 'memo.changed', delivery: webhook(url) } },
           anyResult,
         )
         .catch((e: unknown) => e);
@@ -86,7 +91,7 @@ describe('MCP server: MCP Events', () => {
     const result = await client.request(
       {
         method: 'events/unsubscribe',
-        params: { name: 'memo.saved', delivery: { url: 'https://receiver.example.com/hook' } },
+        params: { name: 'memo.changed', delivery: { url: 'https://receiver.example.com/hook' } },
       },
       anyResult,
     );

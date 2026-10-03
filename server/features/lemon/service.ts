@@ -10,7 +10,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { publishSaved } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
@@ -62,7 +62,7 @@ export async function logCare(
       apiKeyName: 'apiKeyName' in source ? source.apiKeyName : null,
     }),
   );
-  publishSaved({ type: 'lemon', record: log }, 'added', source);
+  publishChanged({ type: 'lemon', record: log }, 'added', source);
   return log;
 }
 
@@ -70,7 +70,7 @@ export async function logCare(
 export async function updateLog(id: string, input: CareLogInput, actorId: string): Promise<void> {
   const updated = await repository.update(id, input);
   if (!updated) throw new NotFoundError('記録が見つかりません');
-  publishSaved({ type: 'lemon', record: toLog(updated) }, 'updated', { userId: actorId });
+  publishChanged({ type: 'lemon', record: toLog(updated) }, 'updated', { userId: actorId });
 }
 
 /**
@@ -93,12 +93,15 @@ export async function patchLog(
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('記録が見つかりません');
   const log = toLog(updated);
-  publishSaved({ type: 'lemon', record: log }, 'updated', { userId: actorId });
+  publishChanged({ type: 'lemon', record: log }, 'updated', { userId: actorId });
   return log;
 }
 
-export async function deleteLog(id: string): Promise<void> {
-  if (!(await repository.remove(id))) throw new NotFoundError('記録が見つかりません');
+/** actorId は消した人 */
+export async function deleteLog(id: string, actorId: string): Promise<void> {
+  const deleted = await repository.remove(id);
+  if (!deleted) throw new NotFoundError('記録が見つかりません');
+  publishChanged({ type: 'lemon', record: toLog(deleted) }, 'deleted', { userId: actorId });
 }
 
 function toLog(row: LemonCareLogRow): CareLog {

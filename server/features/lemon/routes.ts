@@ -20,7 +20,7 @@ export const lemonRouter = router({
     .mutation(async ({ ctx, input: { id, ...input } }) => {
       await service.updateLog(id, input, (await ctx.user).id);
     }),
-  delete: procedure.input(idParamSchema).mutation(async ({ input }) => {
-    await service.deleteLog(input.id);
+  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteLog(input.id, (await ctx.user).id);
   }),
 });
