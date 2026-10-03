@@ -3,9 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import type { PlannedNotification } from '../../events/notifications.ts';
 import { createEvent, deleteEvent } from '../../events/service.ts';
 import { logCare } from '../../lemon/service.ts';
 import { addMemo, deleteMemo, updateMemo } from '../../memos/service.ts';
+import { deliver as deliverNotification, enqueueRange } from '../../notifications/service.ts';
 import { subscribe, unsubscribe } from '../service.ts';
 import * as webhook from '../webhook.ts';
 import { holdDeliveries, newSecret, receiver } from './fixtures.ts';
@@ -129,6 +131,53 @@ describe('MCP Events の購読と配信', () => {
       { action: 'deleted', scope: 'following', entry: { ref: refOf(third), title: '歯医者' } },
     ]);
     expect(events()[2]?.json.eventId).toBe(`evt_deleted_${refOf(third)}`);
+  });
+
+  it('プッシュ通知を送ったとき、同じ宛先の購読に通知した予定・タスクを届ける', async () => {
+    const { events } = receiver();
+    const partnerId = await createTestUser('B');
+    await subscribe(userId, { name: 'event.reminder', url: URL_A, secret: newSecret() });
+    await subscribe(partnerId, { name: 'event.reminder', url: URL_A, secret: newSecret() });
+    const task = await createEvent(
+      createEventSchema.parse({
+        kind: 'task',
+        title: '提出',
+        endsAt: iso('2026-09-15T17:00:00'),
+        remindEndMinutes: 0,
+        participantIds: [userId],
+      }),
+      userId,
+    );
+    const planned: PlannedNotification[] = [];
+    await enqueueRange(
+      { from: jst('2026-09-15T00:00:00'), to: jst('2026-09-16T00:00:00') },
+      { publish: async (item) => void planned.push(item) },
+    );
+    const { key, ref } = planned[0] as PlannedNotification;
+    // プッシュの送信に失敗したときは配らない（QStash が送り直すときに配る）
+    const failing = async () => {
+      throw new Error('temporary failure');
+    };
+    await expect(deliverNotification(key, ref, failing)).rejects.toThrow();
+    await deliver();
+    expect(events().filter((e) => e.json.name === 'event.reminder')).toEqual([]);
+
+    expect(await deliverNotification(key, ref, async () => {})).toBe('sent');
+    await deliver();
+    const reminders = events().filter((e) => e.json.name === 'event.reminder');
+    // 宛先（参加者）でない B の購読には届かない
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0]?.headers['x-mcp-subscription-id']).toMatch(/^sub_/);
+    expect(reminders[0]?.json).toEqual({
+      eventId: `evt_reminder_${key}`,
+      name: 'event.reminder',
+      timestamp: expect.any(String),
+      data: {
+        about: 'due',
+        entry: expect.objectContaining({ ref: `task:${task.id}`, type: 'task', title: '提出' }),
+      },
+      cursor: null,
+    });
   });
 
   it('購読し直しは確かめ直さず、鍵が変わればしばらく両方の鍵で署名する', async () => {

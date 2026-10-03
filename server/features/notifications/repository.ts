@@ -1,6 +1,5 @@
 import { eq, lt } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
-import { users } from '../users/schema.ts';
 import { sentNotifications } from './schema.ts';
 
 /**
@@ -24,17 +23,4 @@ export async function release(key: string): Promise<void> {
 /** before より前に記録した行を消す */
 export async function purgeSentBefore(before: Date): Promise<void> {
   await db.delete(sentNotifications).where(lt(sentNotifications.sentAt, before));
-}
-
-/**
- * 全ユーザーの終日の予定・タスクの通知時刻（ユーザー ID → その日の 0:00 からの分）。通知の列挙と再検証が読む。
- * 値は users の行にあり、設定画面から users の service が書く。読むのは通知だけなので、読み出しは通知の側に置き、
- * 列挙・再検証（events/notifications.ts）には引数で渡す。
- * WHY NOT users の service から読む: users の service は通知時刻が変わると通知を予約し直す
- * （notifications の service を呼ぶ）。通知の service がその service を読むと import が一巡する
- * （biome の noImportCycles が禁じる）。
- */
-export async function findAllDayNotifyMinutes(): Promise<Map<string, number>> {
-  const rows = await db.select({ id: users.id, minutes: users.allDayNotifyMinutes }).from(users);
-  return new Map(rows.map((row) => [row.id, row.minutes]));
 }

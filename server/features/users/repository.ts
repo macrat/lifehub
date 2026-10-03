@@ -12,6 +12,12 @@ export async function findAll(): Promise<UserRow[]> {
   return db.select(publicColumns).from(users).orderBy(asc(users.createdAt));
 }
 
+/** 全ユーザーの終日の予定・タスクの通知時刻（ユーザー ID → その日の 0:00 からの分） */
+export async function findAllDayNotifyMinutes(): Promise<Map<string, number>> {
+  const rows = await db.select({ id: users.id, minutes: users.allDayNotifyMinutes }).from(users);
+  return new Map(rows.map((row) => [row.id, row.minutes]));
+}
+
 /** OAuth クライアント（MCP クライアント）の名前。登録の client_name で、無ければ null */
 export async function findOAuthClientName(clientId: string): Promise<string | null> {
   const [row] = await db

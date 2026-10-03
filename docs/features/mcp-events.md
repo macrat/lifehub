@@ -2,11 +2,11 @@
 
 ## 目的
 
-MCP クライアント（ChatGPT など）が、記録が足された・変えられた・消されたことを知らせてもらえるようにする。AI に「メモが書かれたら教えて」「立替が記録されたら精算を見て」のように頼んでおける。MCP Events（`io.modelcontextprotocol/events`）はまだドラフトの拡張で、ChatGPT の実装（[MCP Events](https://developers.openai.com/plugins/build/mcp-events)）が求める形に合わせる。
+MCP クライアント（ChatGPT など）が、記録が足された・変えられた・消されたことと、予定・タスクの通知の時刻が来たことを知らせてもらえるようにする。AI に「メモが書かれたら教えて」「立替が記録されたら精算を見て」「予定の前に持ち物を教えて」のように頼んでおける。MCP Events（`io.modelcontextprotocol/events`）はまだドラフトの拡張で、ChatGPT の実装（[MCP Events](https://developers.openai.com/plugins/build/mcp-events)）が求める形に合わせる。
 
 ## 購読できるイベント
 
-記録の種類ごとに 1 つ。好きなものだけを購読する。
+記録の変化は種類ごとに 1 つと、予定・タスクの通知が 1 つ。好きなものだけを購読する。
 
 | イベント | 届くとき |
 |---|---|
@@ -14,20 +14,32 @@ MCP クライアント（ChatGPT など）が、記録が足された・変え�
 | `event.changed` | 予定・タスク（[events.md](events.md)）が足された・変えられた・消された（タスクの完了・完了の取り消しも。繰り返しの 1 回だけを変えた・消したときは、その回） |
 | `expense.changed` | 立替（[expenses.md](expenses.md)）が記録された・直された・消された |
 | `lemon.changed` | レモンの世話（[lemon.md](lemon.md)）が記録された・直された・消された（API キーからの記録も） |
+| `event.reminder` | 予定・タスクのプッシュ通知（[notifications.md](notifications.md)）を送った |
+
+購読の引数はどのイベントにも無い。
+
+### 記録の変化（`*.changed`）
 
 - 追加・編集・削除は同じイベントで、`data.action`（`added` / `updated` / `deleted`）で見分ける。WHY: 頼まれ方は「メモが書かれたら」のように種類で分かれ、操作で分けると購読を 3 つずつ持たせることになる。
 - 誰が書いた記録も届く。家族の記録はどちらもタイムラインで読めるので、届く範囲もそれに揃える。`data.by` が書いた人（API キーからの記録はキーの名前）。
-- 購読の引数は無い。
 - `data.entry` は追加・編集なら書いた後、削除なら消す前のエントリーで、`read_timeline` や書くツールが返すものと同じ形（`server/lib/mcp/entries.ts`。追加・編集なら ref をそのまま `update_*` に渡せる）。届いた後に AI が別の形を読み直さずに済むように。消した記録はもう読めないので、何を消したかが分かるよう中身ごと届ける。
 - 繰り返しの予定・タスクの回を消したときは、`data.entry` がその回（ref に `@` 付き）で、`data.scope` がその回だけ（`this`）か以降すべて（`following`）かを示す。すべての回を消したときは繰り返し元のエントリーで、`scope` は付かない。
   - 消す前の値は、消した行が返す値（`delete … returning`）から作り、読み直さない。以降すべての回を消すときだけは、その回の行も消えるので、消す前に読む（`server/features/events/service.ts` の `occurrenceOf`）。
+
+### 予定・タスクの通知（`event.reminder`）
+
+- 届く時と宛先はプッシュ通知と同じ。いつ・誰に送るかの規則は通知の側が持ち（[notifications.md](notifications.md)）、届くのはその宛先の人の購読だけ。WHY NOT 記録の変化と同じく家族全員へ: 通知は参加者に宛てたもので、参加していない予定の通知を AI に伝えさせても役に立たない。
+- プッシュ通知を送れた後に配る（`server/features/notifications/service.ts` の `deliver` が `publishReminder` を呼ぶ）。端末が 1 つも無くても配る。
+  - WHY 送れた後: プッシュの送信に失敗すると QStash が配信を送り直すので、その前に配ると同じ通知が 2 度届く。
+- `data.about` が何の通知か（`start` 開始 / `end` 予定の終了 / `due` タスクの期限）、`data.entry` が通知した予定・タスク（繰り返しならその回。配信予定時刻の時点で読み直したもの）で、形は `*.changed` の `entry` と同じ。
+- `eventId` は通知のキーから決める（`evt_reminder_<キー>`）。通知は 1 件ごとに 1 度きりなので、同じ通知が 2 度届いても受け手が重複として捨てられる。
 
 ## 配り方
 
 - webhook だけ（`events/subscribe` で受け手の URL と署名の鍵を受け取り、POST する）。WHY NOT poll・push（`events/poll`・`events/stream`）: サーバーレスで接続を持ち続けられず、遡れる履歴も持たない。同じ理由で `cursor` は常に `null`（遡りを求められたら `truncated: true`）。
 - 書いた・消したことは、その service が知らせる（`publishChanged`）。画面・MCP・API キーのどの書き込みも service を通るので漏れない。応答は配り終えるのを待たず、応答を返した後に配る（`server/lib/after-response.ts`）。購読が無ければ問い合わせ 1 回で終わる。
 - 本文は Standard Webhooks の署名付き（`standardwebhooks`。ヘッダーは `webhook-id`・`webhook-timestamp`・`webhook-signature`・`X-MCP-Subscription-Id`）。`webhook-id` は `eventId` と同じで、送り直しても変えない。
-  - 追加と削除の `eventId` は記録（回）の ref から決める（`evt_added_<ref>` / `evt_deleted_<ref>`）。どちらも記録ごとに 1 度きりなので、オフラインで溜めた書き込みの再送で同じ追加・削除がもう一度知らされても、受け手が重複として捨てられる。編集は毎回別の出来事なので新しく採番する。
+  - 記録の変化の追加と削除の `eventId` は記録（回）の ref から決める（`evt_added_<ref>` / `evt_deleted_<ref>`）。どちらも記録ごとに 1 度きりなので、オフラインで溜めた書き込みの再送で同じ追加・削除がもう一度知らされても、受け手が重複として捨てられる。編集は毎回別の出来事なので新しく採番する。
 - 届かなければ 2 秒後と 10 秒後に送り直す。410 は受け手が購読をやめたので購読を消す。413 とほかの 4xx は送り直しても変わらないので諦める（408 と 429 は送り直す）。WHY NOT QStash で送り直す: 送る先が受け手 1 つにつき 1 回で済み、応答の後の数秒で終わる。
 - 受け手が内部のアドレス（ループバック・プライベート・リンクローカル・クラウドのメタデータなど）なら送らない（`request-filtering-agent`）。名前を引いた後のアドレスで確かめてそこへ繋ぐので、DNS rebinding でも内部へ届かない。HTTPS だけで、リダイレクトは追わない。
 

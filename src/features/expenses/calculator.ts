@@ -3,6 +3,8 @@
  * 変換層を挟まない。金額は整数の円なので、小数点は入力できず結果は四捨五入する。
  */
 
+import { formatGrouped } from './format.ts';
+
 const OPERATORS = ['+', '-', '×', '÷'] as const;
 type Operator = (typeof OPERATORS)[number];
 
@@ -80,4 +82,12 @@ export function normalizeExpression(input: string): string {
     .replace(/[*x]/gi, '×')
     .replace(/\//g, '÷')
     .replace(/[^\d+\-×÷]/g, '');
+}
+
+/**
+ * 金額欄に出す式。式の中の数を桁区切りにする（"1200+800" は "1,200+800"）。状態の式にはカンマを持たない。
+ * WHY BigInt: 数字の並びをそのまま書式に渡し、Number の精度の上限で桁が丸まらないようにする
+ */
+export function formatExpression(expression: string): string {
+  return expression.replace(/\d+/g, (digits) => formatGrouped(BigInt(digits)));
 }

@@ -9,8 +9,8 @@ import {
   resolveNotification,
 } from '../../events/notifications.ts';
 import { completeEvent, createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
+import { listAllDayNotifyMinutes as notifyTimes } from '../../users/people.ts';
 import { updateUser } from '../../users/service.ts';
-import { findAllDayNotifyMinutes as notifyTimes } from '../repository.ts';
 import { deliver, enqueueRange } from '../service.ts';
 
 const tomorrow = { from: jst('2026-09-15T00:00:00'), to: jst('2026-09-16T00:00:00') };
