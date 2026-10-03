@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { devices, expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { offlineIndicator } from './layout.ts';
 import { carriedJson, carries } from './network.ts';
@@ -48,14 +48,30 @@ test('オフラインでも 2 回目以降はキャッシュから起動し、�
   await expect(offlineIndicator(page)).toBeHidden();
 });
 
-test('オフラインの間は AppBar の左端に印が出て、押すと説明が出る', async ({ page, context }) => {
+const OFFLINE_MESSAGE = '現在オフラインになっています。変更はオンラインになったときに同期されます';
+
+test('オフラインの間は AppBar の左端に印が出て、ポインタを重ねると説明が出る', async ({
+  page,
+  context,
+}) => {
   await openHome(page);
   await expect(offlineIndicator(page)).toBeHidden();
   await context.setOffline(true);
-  await offlineIndicator(page).click();
-  await expect(page.getByRole('tooltip')).toHaveText(
-    '現在オフラインになっています。変更はオンラインになったときに同期されます',
-  );
+  await offlineIndicator(page).hover();
+  await expect(page.getByRole('tooltip')).toHaveText(OFFLINE_MESSAGE);
   await context.setOffline(false);
   await expect(offlineIndicator(page)).toBeHidden();
+});
+
+test.describe('スマホ', () => {
+  // defaultBrowserType は describe の中では指定できない（どれも Chromium なので外して足りる）
+  const { defaultBrowserType: _, ...pixel7 } = devices['Pixel 7'];
+  test.use(pixel7);
+
+  test('印を短くタップすると説明が出る', async ({ page, context }) => {
+    await openHome(page);
+    await context.setOffline(true);
+    await offlineIndicator(page).tap();
+    await expect(page.getByRole('tooltip')).toHaveText(OFFLINE_MESSAGE);
+  });
 });
