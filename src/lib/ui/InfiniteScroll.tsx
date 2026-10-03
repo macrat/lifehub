@@ -23,14 +23,12 @@ type Props = InfiniteScrollHeaderProps & {
    */
   load: { top: EdgeLoader } | { bottom: EdgeLoader } | { top: EdgeLoader; bottom: EdgeLoader };
   /**
-   * 最初に出す位置。block が start なら要素を見出しのすぐ下（画面の一番上）へ、end なら要素の下端を
-   * 画面の下端（下部ナビに覆われない所。AppShell の scroll-padding-bottom）へ置く。
+   * 最初に出す位置。target の要素を見出しのすぐ下（画面の一番上）へ置く。
    * 省くか要素が見つからなければ末尾を出す。
    * reveal を渡すと、その要素が画面に収まっていなければ、収まる所まで最小限だけ動かす（`scrollIntoView` の
    * nearest）。見つからない間（まだ読んでいないページにある）は、読み足されるたびに置き直す
    */
   initial?: {
-    block: 'start' | 'end';
     target: (list: HTMLElement) => HTMLElement | null;
     reveal?: (list: HTMLElement) => HTMLElement | null;
   };
@@ -95,8 +93,7 @@ export function InfiniteScroll({
 
   /**
    * 最初の位置へ動かし、置けたかを返す（目当ての要素が無ければ末尾へ）。位置の計算はブラウザの scrollIntoView に任せる。
-   * - start: 要素の上に、貼り付いた見出しの分の余白を取る（`clearHeader`）
-   * - end: 画面の下端は AppShell の scroll-padding-bottom（下部ナビの分）で決まる
+   * - 要素の上に、貼り付いた見出しの分の余白を取る（`clearHeader`）
    * - reveal: target を置いたあと、見せる要素が画面に収まる所まで最小限だけ動かす。置けたかはこの要素が
    *   収まったかで決める（target の位置からはずれてよい）。まだ読んでいないページにあって見つからない間は置けていない
    * 上か下が足りないと途中で止まり、置けていない。なめらかに動かすときは動き終わる前に返るので、返り値は当てにならない
@@ -107,8 +104,8 @@ export function InfiniteScroll({
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
       return true;
     }
-    if (initial.block === 'start') clearHeader(target);
-    target.scrollIntoView({ block: initial.block, behavior });
+    clearHeader(target);
+    target.scrollIntoView({ block: 'start', behavior });
     if (initial.reveal) {
       const shown = initial.reveal(list);
       if (!shown) return false;
@@ -117,10 +114,7 @@ export function InfiniteScroll({
       const box = shown.getBoundingClientRect();
       return box.top >= headerBottom() - 1 && box.bottom <= viewBottom() + 1;
     }
-    const box = target.getBoundingClientRect();
-    return initial.block === 'start'
-      ? Math.abs(box.top - headerBottom()) < 1
-      : Math.abs(box.bottom - viewBottom()) < 1;
+    return Math.abs(target.getBoundingClientRect().top - headerBottom()) < 1;
   };
 
   /**

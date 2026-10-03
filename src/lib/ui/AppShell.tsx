@@ -123,7 +123,7 @@ export function AppShell({ navItems, children }: Props) {
 
         {!isDesktop && (
           // 画面の下端を下部ナビが覆っていることをブラウザに伝える。scrollIntoView などが
-          // 要素をナビの裏ではなくそのすぐ上に置く（履歴の一覧の最初の位置など）
+          // 要素をナビの裏ではなくそのすぐ上に置く（天気の開いた日を画面に収めるときなど）
           <GlobalStyles
             styles={{
               html: { scrollPaddingBottom: BOTTOM_NAV_TOP },

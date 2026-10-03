@@ -7,8 +7,8 @@ import { touchDrag } from './touch.ts';
 /**
  * 引っ張って更新（`src/lib/ui/PullToRefresh.tsx`）。ブラウザのものではなくアプリのものが動き、
  * ページは読み込み直さずに画面のデータ（ホームならタイムライン）を取り直す。
- * 引ける端は無限スクロールで読み足す端の逆だけ（一覧の端の見張り `EdgeSentinel` の印で決まる）。上が古く下が新しい一覧（立替など）は
- * 下端から上へ、上が新しい一覧（ホーム）は上端から下へ引き、上下に読み足す一覧（予定のリスト）は引けない
+ * 引ける端は無限スクロールで読み足す端の逆だけ（一覧の端の見張り `EdgeSentinel` の印で決まる）。上が古く下が新しい一覧（天気）は
+ * 下端から上へ、上が新しい一覧（ホーム・立替・レモン）は上端から下へ引き、上下に読み足す一覧（予定のリスト）は引けない
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -102,19 +102,19 @@ test.describe('ホーム', () => {
   });
 });
 
-test('下が新しい一覧では、上端（古いほうを読み足す端）から引いても取り直さず、下端で上へ引くと取り直す', async ({
+test('上が新しい履歴（立替）では、下端（古いほうを読み足す端）から上へ引いても取り直さず、上端から引くと取り直す', async ({
   page,
 }) => {
   await page.goto('/expenses');
   await expect(page.getByLabel('立替を検索')).toBeVisible();
   const fetched = await fetchesFromNow(page, 'expenses.list');
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await pull(page, 200);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await pullUp(page, 200);
   await quiet(page, fetched);
   expect(fetched()).toBe(0);
 
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await pullUp(page, 200);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await pull(page, 200);
   await expect.poll(fetched).toBeGreaterThan(0);
 });
 
