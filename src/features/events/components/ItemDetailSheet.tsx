@@ -8,8 +8,8 @@ import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx'
 
 import { useCreateEvent } from '../queries.ts';
 import { useItemDetail } from '../use-item-detail.ts';
-import { ItemFields, ScopeChip } from './EventFields.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
+import { ItemFields, ScopeChip } from './ItemFields.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { KindToggle } from './KindToggle.tsx';
 import { RecurrenceScopeDialog } from './RecurrenceScopeDialog.tsx';
