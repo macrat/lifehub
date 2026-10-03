@@ -3,7 +3,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { today } from '../../../../shared/date.ts';
 import { SELECT_NONE, selectValue } from '../../../lib/form.ts';
-import { normalizeExpression, pressKey } from '../calculator.ts';
+import { formatExpression, normalizeExpression, pressKey } from '../calculator.ts';
 import type { ExpenseBody } from '../queries.ts';
 import type { ExpenseFieldsState } from '../use-expense-form.ts';
 import { Calculator } from './Calculator.tsx';
@@ -76,7 +76,7 @@ export function ExpenseFields({
       />
       <TextField
         label="金額（円）"
-        value={amount}
+        value={formatExpression(amount)}
         onChange={(e) => onChangeAmount(normalizeExpression(e.target.value))}
         // 画面の電卓で入力するので、タップしてもソフトキーボードは出さない（物理キーボードでは打てる）
         slotProps={{
