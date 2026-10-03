@@ -17,8 +17,8 @@ import { env, resolveBaseUrl } from './env.ts';
  *   `emailAndPassword.disableSignUp` は内部呼び出しも拒否するため使わない。
  * - ID は全テーブル共通規約に合わせて UUID v7 を生成する。
  * - MCP 向けに LifeHub 自身を OAuth 2.1 認可サーバーにする（@better-auth/mcp = oauth-provider の MCP 向け設定）。
- *   アクセストークンは JWT（jwt プラグイン）。クライアントの識別は Client ID Metadata Documents（cimd）と
- *   Dynamic Client Registration の両方を受け付ける。
+ *   アクセストークンは JWT（jwt プラグイン）。クライアントの識別は Client ID Metadata Documents（cimd）だけを受け付ける
+ *   （Dynamic Client Registration は閉じる。理由は docs/features/mcp.md）。
  */
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
@@ -71,8 +71,6 @@ const options = {
       loginPage: '/login',
       consentPage: '/consent',
       resource: MCP_RESOURCE,
-      allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
     }),
     cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
   ],

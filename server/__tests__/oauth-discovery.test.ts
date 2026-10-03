@@ -10,7 +10,9 @@ describe('OAuth 2.1 / MCP の探索と保護', () => {
     expect(body.authorization_endpoint).toBe('http://localhost:5173/api/auth/oauth2/authorize');
     expect(body.token_endpoint).toBe('http://localhost:5173/api/auth/oauth2/token');
     expect(body.code_challenge_methods_supported).toEqual(['S256']);
-    expect(body.registration_endpoint).toBe('http://localhost:5173/api/auth/oauth2/register');
+    // クライアントの識別は Client ID Metadata Documents だけ（Dynamic Client Registration の口は載せない）
+    expect(body.client_id_metadata_document_supported).toBe(true);
+    expect(body.registration_endpoint).toBeUndefined();
   });
 
   it('保護リソースのメタデータをオリジン直下の /.well-known から返す', async () => {

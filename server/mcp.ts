@@ -50,7 +50,7 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId?: stri
       people ??= listPeople();
       return people;
     },
-    // 名前を登録しないクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す
+    // 名前の無いクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す
     clientName: async () => (clientId && (await getOAuthClientName(clientId))) || 'MCP',
   };
   for (const register of registrars) register(server, ctx);
