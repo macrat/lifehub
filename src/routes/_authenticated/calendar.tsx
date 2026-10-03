@@ -15,7 +15,6 @@ import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddMenu } from '../../lib/ui/AddMenu.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
-import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/calendar')({
   validateSearch: calendarSearchSchema,
@@ -41,8 +40,6 @@ function CalendarPage() {
   const add = useCalendarAdd(page, search.add);
   const { draft } = add.composer;
   const selection = useRecordSelection<CalendarItem>();
-  // リスト表示の詳細な絞り込み（URL に載せない）
-  const filterPanel = useToggle();
 
   return (
     <>
@@ -53,23 +50,17 @@ function CalendarPage() {
           onOpenPicker={page.picker.open}
           onToday={page.goToday}
           onChangeView={add.changeView}
-          list={{
-            query: page.filters.q,
-            onChangeQuery: page.setQuery,
-            filtersOpen: filterPanel.value,
-            onToggleFilters: filterPanel.toggle,
-            activeFilters: page.activeFilters,
-          }}
+          search={page.filter}
         />
       </AppBarContent>
 
       {view === 'list' ? (
         <ListView
           date={page.date}
-          filters={page.filters}
+          filters={page.filter.filters}
           listMonths={page.list}
-          filtersOpen={filterPanel.value}
-          onChangeFilters={(next) => page.setSearch(next, { replace: true })}
+          filtersOpen={page.filter.panelOpen}
+          onChangeFilters={page.filter.setFilters}
           onSelectItem={selection.open}
         />
       ) : (

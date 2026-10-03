@@ -39,7 +39,7 @@ export function filterSearchSchema<A extends z.ZodType, S extends { q: z.ZodType
  * router を通さずに書いても、後の移動（絞り込みや表示の切り替え。`usePatchSearch`）で q は消えない。
  * router は移動のたびに今の URL を読み直してから次の URL を組み立てるため（e2e/search.spec.ts が確かめる）。
  */
-export function useKeywordSearch(initial: string) {
+function useKeywordSearch(initial: string) {
   const [keyword, setKeyword] = useState(initial);
 
   const change = (next: string) => {
@@ -131,7 +131,7 @@ export function countActiveFilters<S>(search: S, conditions: FilterConditions<S>
  */
 export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
   search: S,
-  conditions: FilterConditions<S>,
+  conditions: FilterConditions<NoInfer<S>>,
 ) {
   const patchSearch = usePatchSearch();
   const [keyword, setKeyword] = useKeywordSearch(search.q ?? '');
