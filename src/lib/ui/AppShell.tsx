@@ -22,7 +22,7 @@ import { scrollToInitialPosition } from './initial-position.ts';
 import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP, MAIN_BOTTOM_PADDING } from './layout.ts';
 import type { NavItem } from './nav-item.ts';
 import { closeNotice, useNotice } from './notice.ts';
-import { OfflineBanner } from './OfflineBanner.tsx';
+import { OfflineIndicator } from './OfflineIndicator.tsx';
 import { PullToRefresh } from './PullToRefresh.tsx';
 import { useIsDesktop } from './use-breakpoint.ts';
 
@@ -41,7 +41,7 @@ type Props = {
 /**
  * 全ページ共通の骨格。画面は主役（各ページの内容）に最大の面積を割く:
  * - ページタイトルは出さない（下部ナビ／サイドナビが現在地を示す）
- * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）。それ以外は何も置かない
+ * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）。それ以外はオフラインの印（左端）だけを置く
  * - スマホは AppBar + BottomNavigation、PC は permanent Drawer（アプリ名は出さない）。ページ自体は共通。
  * - 設定は PC のサイドナビにだけ置く。スマホではホームの末尾から開く（下部ナビは主要 4 画面に絞る）。
  */
@@ -71,6 +71,7 @@ export function AppShell({ navItems, children }: Props) {
       <Box ref={shell} sx={{ display: 'flex', minHeight: '100svh' }}>
         <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)', gap: 0.5 }}>
+            <OfflineIndicator />
             <AppBarSlotOutlet />
           </Toolbar>
           <TopProgress />
@@ -115,7 +116,6 @@ export function AppShell({ navItems, children }: Props) {
           }}
         >
           <Toolbar variant="dense" sx={{ pt: 'env(safe-area-inset-top)' }} />
-          <OfflineBanner />
           {children}
         </Box>
 

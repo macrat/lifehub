@@ -1,6 +1,6 @@
 import { devices, expect, type Page, test } from '@playwright/test';
 import { openHome } from './auth.ts';
-import { appBar } from './layout.ts';
+import { appBar, offlineIndicator } from './layout.ts';
 import { failFetches, fetchesFromNow, quiet } from './network.ts';
 import { touchDrag } from './touch.ts';
 
@@ -68,8 +68,7 @@ test.describe('ホーム', () => {
 
   test('オフラインと分かっている間は引けない', async ({ page, context }) => {
     await context.setOffline(true);
-    // オフラインの案内が出て画面がずれ、一覧が続きを読みに行く分は、引いたことによる取得ではない
-    await expect(page.getByText('オフラインモード', { exact: false })).toBeVisible();
+    await expect(offlineIndicator(page)).toBeVisible();
     const fetched = await fetchesFromNow(page, TIMELINE);
     await pull(page, 200);
     await quiet(page, fetched);
