@@ -58,6 +58,13 @@ const sources: TimelineSource[] = [events.timelineSource, ...Object.values(recor
  *
  * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
  * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
+ *
+ * ピン止めしたメモは出さない。画面がタイムラインのさらに上に、絞り込みに関わらず固定して出す（`memos.pinned`）。
+ * WHY NOT このページの一番上に混ぜる: 画面の手元の控えは行を置く日でページに振り分ける（`entryDay`）ので、
+ * 書いた日の古いメモを最新のページに置くには、ホームでだけ置く日を変える規則が要る。MCP の日ごとの読み出し
+ * （`listDays`）は同じ行を書いた日に置くので、規則が 2 つに割れる。
+ * ページの区切りを決める日時（`recentInstants`）にはピン止めしたメモも数えるが、ページの件数が目安より
+ * 少し減るだけで、どの行がどのページに入るかは変わらない。
  */
 export async function getTimelinePage(
   query: TimelineQuery,
@@ -85,14 +92,15 @@ export async function getTimelinePage(
   // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る（`entryStart`）。
   // 終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
   // 続きのページは上のページと行の日時で分け合うので、行の日時で見る（同じ行を 2 つのページに出さない）
-  const inRange = (entry: TimelineEntry) => {
+  const shown = (entry: TimelineEntry) => {
+    if (entry.type === 'memo' && entry.memo.pinned) return false;
     if (entry.at === null) return includeUndated;
     const reach = (before === undefined ? entryStart(entry) : null) ?? entry.at;
     return new Date(entry.at) >= lower && new Date(reach) < upper;
   };
   const entries = (await Promise.all(sources.map((source) => source.entries(range, q, now))))
     .flat()
-    .filter(inRange);
+    .filter(shown);
 
   return {
     items: sortTimeline(entries),

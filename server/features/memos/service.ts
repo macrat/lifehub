@@ -1,5 +1,5 @@
 import { newId } from '../../../shared/id.ts';
-import type { Memo } from '../../../shared/memos.ts';
+import { type Memo, sortPinnedMemos } from '../../../shared/memos.ts';
 import { memoEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
@@ -22,12 +22,23 @@ export async function updateMemo(id: string, input: MemoInput, actorId: string):
   return updated ? toMemo(updated) : rejectWrite(id);
 }
 
+/** ピン止めする（pinned = true）か外す。書いた本人だけができる（直す・消すと同じ） */
+export async function setMemoPinned(id: string, pinned: boolean, actorId: string): Promise<Memo> {
+  const updated = await repository.setPinned(id, actorId, pinned);
+  return updated ? toMemo(updated) : rejectWrite(id);
+}
+
+/** ピン止めしたメモ（書いた時刻の新しい順）。ホームのタイムラインの一番上に固定して出す */
+export async function listPinnedMemos(): Promise<Memo[]> {
+  return sortPinnedMemos((await repository.findPinned()).map(toMemo));
+}
+
 export async function deleteMemo(id: string, actorId: string): Promise<void> {
   if (!(await repository.remove(id, actorId))) await rejectWrite(id);
 }
 
 /**
- * 書き込めなかった理由を返す。メモは書いた人の言葉なので、直す・消すは書いた本人だけができる
+ * 書き込めなかった理由を返す。メモは書いた人の言葉なので、直す・消す・ピン止めは書いた本人だけができる
  * （repository の update/remove が書いた人で絞る。予定・タスク・立替・レモンの記録は家族で管理する
  * 共有の記録なので誰でも直せる）。
  * WHY NOT ほかの人のメモも見つからないことにする（404）: タイムラインで読めるので、在ることは隠せない。
@@ -48,5 +59,6 @@ function toMemo(row: MemoRow): Memo {
     body: row.body,
     createdBy: row.createdBy,
     createdAt: row.createdAt.toISOString(),
+    pinned: row.pinned,
   };
 }

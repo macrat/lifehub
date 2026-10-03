@@ -13,6 +13,8 @@ type Options = {
   /** 削除の前に確かめる文 */
   confirmDelete: string;
   remove: () => void;
+  /** 三点リーダーで削除の上に並べる、その記録だけの操作（メモのピン止め） */
+  actions?: RecordAction[];
   onClose: () => void;
 };
 
@@ -29,6 +31,7 @@ export function useRecordDetail({
   form,
   confirmDelete,
   remove,
+  actions = [],
   onClose,
 }: Options) {
   const [editing, setEditing] = useState(initialEditing && !readOnly);
@@ -46,6 +49,12 @@ export function useRecordDetail({
   };
   return {
     editing,
-    sheet: { ...form, onClose, editing, onEdit: () => setEditing(true), actions: [deleteAction] },
+    sheet: {
+      ...form,
+      onClose,
+      editing,
+      onEdit: () => setEditing(true),
+      actions: [...actions, deleteAction],
+    },
   };
 }

@@ -6,6 +6,8 @@ import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
 import { MemoForm } from '../../features/memos/components/MemoForm.tsx';
+import { pinnedMemosQueryOptions } from '../../features/memos/queries.ts';
+import { PinnedMemoList } from '../../features/timeline/components/PinnedMemoList.tsx';
 import { TimelineEntrySheet } from '../../features/timeline/components/TimelineEntrySheet.tsx';
 import { TimelineFilterForm } from '../../features/timeline/components/TimelineFilterForm.tsx';
 import { TimelineList } from '../../features/timeline/components/TimelineList.tsx';
@@ -35,7 +37,7 @@ export const Route = createFileRoute('/_authenticated/')({
 });
 
 /**
- * ホーム。上から、最新の状態（天気・葉水・水やりのタイル）と、
+ * ホーム。上から、最新の状態（天気・葉水・水やりのタイル）と、ピン止めしたメモ、
  * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。右下の追加ボタンはメモを書く。
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
@@ -47,10 +49,11 @@ function HomePage() {
   const search = Route.useSearch();
   const isDesktop = useIsDesktop();
   const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
-  // この画面が読むもの: 絞り込んだタイムラインと、タイルに出す天気（最新のページ）・レモンの状況
+  // この画面が読むもの: 絞り込んだタイムラインと、その上に固定するピン止めしたメモ、
+  // タイルに出す天気（最新のページ）・レモンの状況
   const timeline = useScreenHistory(timelineHistory, filter.listFilter);
   useScreenHistory(weatherHistory, {});
-  useScreenQueries([lemonStatusQueryOptions]);
+  useScreenQueries([lemonStatusQueryOptions, pinnedMemosQueryOptions]);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンから開くメモの入力と、タイルから開く世話の入力（タイルの項目にチェックを入れて開く）
   const addingMemo = useToggle();
@@ -87,6 +90,7 @@ function HomePage() {
             onAddCare={addingCare.open}
           />
         </ScrollAwayHeader>
+        <PinnedMemoList onSelect={selection.open} />
         <TimelineList
           timeline={timeline}
           emptyMessage={filter.emptyMessage('記録')}

@@ -14,5 +14,8 @@ export const memoSchema = z.object({
 });
 export type MemoInput = z.infer<typeof memoSchema>;
 
+/** ピン止めの入力。ピン止めする（true）か外す（false）かを決め打ちで送る（切り替えにすると、送り直しで元に戻る） */
+export const memoPinSchema = z.object({ pinned: z.boolean() });
+
 /** API（POST /api/memos）が受け取る追加の入力（`clientIdShape`） */
 export const createMemoRequestSchema = memoSchema.safeExtend(clientIdShape);

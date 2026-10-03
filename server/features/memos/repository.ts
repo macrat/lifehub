@@ -39,6 +39,25 @@ export async function update(
   return updated;
 }
 
+/** createdBy が書いたメモのピン止めを変える（変えた行を返す） */
+export async function setPinned(
+  id: string,
+  createdBy: string,
+  pinned: boolean,
+): Promise<MemoRow | undefined> {
+  const [updated] = await db
+    .update(memos)
+    .set({ pinned })
+    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
+    .returning();
+  return updated;
+}
+
+/** ピン止めしたメモ。並びは問わない（service が `sortPinnedMemos` で並べる） */
+export async function findPinned(): Promise<MemoRow[]> {
+  return db.select().from(memos).where(eq(memos.pinned, true));
+}
+
 /** createdBy が書いたメモを消す */
 export async function remove(id: string, createdBy: string): Promise<boolean> {
   const deleted = await db

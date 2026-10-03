@@ -9,7 +9,7 @@ import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
 import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';
-import { addMemo } from '../../memos/service.ts';
+import { addMemo, setMemoPinned } from '../../memos/service.ts';
 import { getTimelinePage } from '../service.ts';
 
 // 「今」を 2026-09-14（月）の正午に固定する
@@ -300,5 +300,14 @@ describe('timeline service', () => {
     expect(page.items).toMatchObject([
       { type: 'memo', memo: { body: 'ひとこと', createdBy: partnerId } },
     ]);
+  });
+
+  it('ピン止めしたメモは、絞り込みに関わらずタイムラインに出さない（画面が一番上に固定して出す）', async () => {
+    const realNow = new Date();
+    const pinned = await addMemo({ body: '固定' }, userId);
+    await addMemo({ body: 'ふつう' }, userId);
+    await setMemoPinned(pinned.id, true, userId);
+    expect(labels((await getTimelinePage({}, realNow)).items)).toEqual(['ふつう']);
+    expect((await getTimelinePage({ q: '固定' }, realNow)).items).toEqual([]);
   });
 });

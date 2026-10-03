@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from '../users/schema.ts';
 
 /**
@@ -8,6 +8,8 @@ import { users } from '../users/schema.ts';
 export const memos = pgTable('memos', {
   id: uuid('id').primaryKey(),
   body: text('body').notNull(),
+  /** ピン止め。ホームのタイムラインの一番上に固定して出す（ピン止めしても書いた時刻は変わらない） */
+  pinned: boolean('pinned').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

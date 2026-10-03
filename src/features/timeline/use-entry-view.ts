@@ -32,6 +32,8 @@ export type EntryView = {
   overdue: boolean;
   /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
+  /** 日時の右に控えめなピンを添える（ピン止めしたメモ） */
+  pinned: boolean;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
   careTypes: CareType[];
   /** 上段の下に場所のアイコンを添えて出す場所（予定・タスク）。無ければその行は詰める */
@@ -49,6 +51,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
   const view = {
     time,
+    pinned: false,
     task: null,
     struck: false,
     overdue: false,
@@ -107,6 +110,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         colors: [colorFor(entry.memo.createdBy).fill],
         icon: ADD_KINDS.memo.icon,
         heading: authorName(entry.memo.createdBy),
+        pinned: entry.memo.pinned,
         body: entry.memo.body,
       };
   }
