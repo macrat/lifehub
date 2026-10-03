@@ -1,8 +1,9 @@
 /**
  * 金額欄をそのまま入力欄にする電卓。式は表示と同じ記号（× ÷）のまま持ち、
- * 表示ではそれぞれの数に桁区切りのカンマを足すだけにする（`formatExpression`）。
- * 金額は整数の円なので、小数点は入力できず結果は四捨五入する。
+ * 変換層を挟まない。金額は整数の円なので、小数点は入力できず結果は四捨五入する。
  */
+
+import { formatGrouped } from './format.ts';
 
 const OPERATORS = ['+', '-', '×', '÷'] as const;
 type Operator = (typeof OPERATORS)[number];
@@ -83,15 +84,10 @@ export function normalizeExpression(input: string): string {
     .replace(/[^\d+\-×÷]/g, '');
 }
 
-/** 桁区切り。数は整数の円だけなので、`formatYen` と同じ書き方で円記号を付けないもの */
-const grouping = new Intl.NumberFormat('en-JP');
-
 /**
- * 金額欄に出す式。式の中のそれぞれの数を桁区切りにする（"1200+800" は "1,200+800"）。
- * 状態の式にはカンマを持たない。入力欄から戻ってきたカンマは `normalizeExpression` が捨てるので、
- * 表示と状態を行き来しても式は変わらない。
+ * 金額欄に出す式。式の中の数を桁区切りにする（"1200+800" は "1,200+800"）。状態の式にはカンマを持たない。
  * WHY BigInt: 数字の並びをそのまま書式に渡し、Number の精度の上限で桁が丸まらないようにする
  */
 export function formatExpression(expression: string): string {
-  return expression.replace(/\d+/g, (digits) => grouping.format(BigInt(digits)));
+  return expression.replace(/\d+/g, (digits) => formatGrouped(BigInt(digits)));
 }
