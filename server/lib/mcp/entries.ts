@@ -1,8 +1,9 @@
 import type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
-import type { Balance, Expense } from '../../../shared/expenses.ts';
+import type { Expense, Settlement } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
+import { SHARED } from '../../../shared/validation/expenses.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import { authorName, nameOf } from './people.ts';
 import { toRef } from './refs.ts';
@@ -66,7 +67,12 @@ export function formatEvent(item: EventLike, people: Person[]) {
   };
 }
 
-/** 立替。paidFor の "shared" は 2 人の共有（折半） */
+/** 立替の当事者の名前。null は共有（共有口座）で "shared" */
+function partyName(people: Person[], id: string | null): string {
+  return id === null ? SHARED : nameOf(people, id);
+}
+
+/** 立替。paidBy・paidFor の "shared" は共有口座 */
 export function formatExpense(expense: Expense, people: Person[]) {
   return {
     ref: toRef('expense', expense.id),
@@ -74,20 +80,18 @@ export function formatExpense(expense: Expense, people: Person[]) {
     date: expense.spentOn,
     amount: expense.amount,
     description: expense.description,
-    paidBy: nameOf(people, expense.fromUserId),
-    paidFor: expense.toUserId === null ? 'shared' : nameOf(people, expense.toUserId),
+    paidBy: partyName(people, expense.fromUserId),
+    paidFor: partyName(people, expense.toUserId),
   };
 }
 
-/** 立替の残高。payer が payee に amount 円を払えば精算される */
-export function formatBalance(balance: Balance, people: Person[]) {
-  if (balance.fromUserId === null) return { settled: true, amount: 0 };
-  return {
-    settled: false,
-    amount: balance.amount,
-    payer: nameOf(people, balance.fromUserId),
-    payee: nameOf(people, balance.toUserId),
-  };
+/** 立替を帳消しにする資金移動。payer が payee に amount 円を払う。空の配列なら精算済み */
+export function formatSettlements(settlements: Settlement[], people: Person[]) {
+  return settlements.map((s) => ({
+    payer: partyName(people, s.debtorId),
+    payee: partyName(people, s.creditorId),
+    amount: s.amount,
+  }));
 }
 
 export function formatCareLog(log: CareLog, people: Person[]) {

@@ -1,10 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { chooseFrom, partiesInOrder, toCandidates } from '../parties.ts';
+import {
+  chooseFrom,
+  fromCandidates,
+  partiesInOrder,
+  settlementExpense,
+  toCandidates,
+} from '../parties.ts';
+
+const users = [{ id: 'a' }, { id: 'b' }];
+
+describe('fromCandidates', () => {
+  it('共有を先頭に、ユーザーを並べる', () => {
+    expect(fromCandidates(users)).toEqual([null, 'a', 'b']);
+  });
+});
 
 describe('toCandidates', () => {
-  it('From の人を外す', () => {
-    const users = [{ id: 'a' }, { id: 'b' }];
-    expect(toCandidates(users, { toUserId: null, fromUserId: 'a' })).toEqual([{ id: 'b' }]);
+  it('From の相手を外す（From が共有なら共有を外す）', () => {
+    expect(toCandidates(users, { toUserId: null, fromUserId: 'a' })).toEqual([null, 'b']);
+    expect(toCandidates(users, { toUserId: 'a', fromUserId: null })).toEqual(['a', 'b']);
   });
 });
 
@@ -26,11 +40,30 @@ describe('chooseFrom', () => {
       fromUserId: 'b',
     });
   });
+
+  it('To が共有のときに From に共有を選んだら、それまでの From を To に回す', () => {
+    expect(chooseFrom({ toUserId: null, fromUserId: 'a' }, null)).toEqual({
+      toUserId: 'a',
+      fromUserId: null,
+    });
+  });
 });
 
 describe('partiesInOrder', () => {
-  it('共有なら払った人だけ、相手がいれば To・From の順', () => {
+  it('共有のための支払いなら払った人だけ、それ以外は To・From の順（共有からの引き出しは「To ← 共有」）', () => {
     expect(partiesInOrder({ toUserId: null, fromUserId: 'a' })).toEqual(['a']);
     expect(partiesInOrder({ toUserId: 'b', fromUserId: 'a' })).toEqual(['b', 'a']);
+    expect(partiesInOrder({ toUserId: 'b', fromUserId: null })).toEqual(['b', null]);
+  });
+});
+
+describe('settlementExpense', () => {
+  it('債務者から債権者への支払いを、内容「精算」で入れる', () => {
+    expect(settlementExpense({ creditorId: null, debtorId: 'a', amount: 1200 })).toEqual({
+      fromUserId: 'a',
+      toUserId: null,
+      amount: 1200,
+      description: '精算',
+    });
   });
 });

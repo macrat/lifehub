@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 /**
  * E2E 用の DB を用意する。テスト DB は playwright.config.ts の webServer と同じ環境変数で接続する。
  * スキーマを適用（drizzle-kit migrate）し、全テーブルを空にしてから E2E ユーザーと相手ユーザーを作る。
- * 立替の残高は登録順の先頭 2 人で計算するため、E2E ユーザーが必ず先頭 2 人に入るようにする。
  * 本番では実行できない（scripts/seed-dev.ts と同じガード）。
  */
 export const E2E_USER = {

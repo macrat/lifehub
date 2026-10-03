@@ -1,0 +1,2 @@
+ALTER TABLE "expenses" ALTER COLUMN "from_user_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "expenses" ADD CONSTRAINT "expenses_parties_check" CHECK (num_nonnulls("expenses"."from_user_id", "expenses"."to_user_id") > 0);

@@ -5,7 +5,7 @@ import { type User, usersOf } from './queries.ts';
 
 /**
  * ユーザーの表示名と一覧。ユーザーはログイン中の人を先頭に並べる（自分も名前で出す）。
- * label(null) は「共有」（立替の To）。
+ * label(null) は「共有」（立替の To・From）。
  */
 export function useUserLabels() {
   // ログイン中のユーザーと一覧は同じ `me.get` に載っているので、1 つのキャッシュから読む（`useUsers`）

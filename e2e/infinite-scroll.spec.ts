@@ -62,10 +62,10 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
  */
 const histories = [
   {
-    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、残高は上に貼り付いて下へスクロールすると隠れる',
+    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、精算は上に貼り付いて下へスクロールすると隠れる',
     path: '/expenses',
     ...expenseHistory,
-    sticky: (page: Page) => page.getByText('残高', { exact: true }),
+    sticky: (page: Page) => page.getByRole('region', { name: '精算' }),
     scrollsAway: true,
   },
   {

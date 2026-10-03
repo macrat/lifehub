@@ -8,8 +8,13 @@ import {
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
-import { listUsers } from '../../users/service.ts';
-import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
+import {
+  addExpense,
+  deleteExpense,
+  getSettlements,
+  listExpenses,
+  updateExpense,
+} from '../service.ts';
 
 let a: string;
 let b: string;
@@ -21,80 +26,51 @@ describe('expenses service', () => {
     ({ userId: a, partnerId: b } = await resetUsers());
   });
 
-  it('利用者がちょうど 2 人でなければ、残高を計算せずに null を返す', async () => {
-    const [first] = await listUsers();
-    expect(await getBalance(first ? [first] : [])).toBeNull();
+  it('立替が無ければ精算済み（移動なし）', async () => {
+    expect(await getSettlements()).toEqual([]);
   });
 
-  it('立替が無ければ精算済み', async () => {
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 0,
-      fromUserId: null,
-      toUserId: null,
-    });
-  });
-
-  it('共有（To なし）は折半で残高を計算し、端数は切り捨てる', async () => {
+  it('共有のために払うと共有の債務、共有から引き出すと引き出した人の債務になる', async () => {
     await addExpense(
-      { fromUserId: a, toUserId: null, amount: 3001, description: '食材', spentOn: on },
+      { fromUserId: a, toUserId: null, amount: 3000, description: '旅行', spentOn: on },
       a,
     );
+    expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 3000 }]);
+
     await addExpense(
-      { fromUserId: b, toUserId: null, amount: 1000, description: '日用品', spentOn: on },
+      { fromUserId: null, toUserId: b, amount: 1000, description: '引き出し', spentOn: on },
       b,
     );
-    // (3001 - 1000) / 2 = 1000.5 → 1000。B が A に払う
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 1000,
-      fromUserId: b,
-      toUserId: a,
-    });
+    // 共有から B へ渡った 1000 は、共有を経由せず B から A へ直接返せば済む
+    expect(await getSettlements()).toEqual([
+      { creditorId: a, debtorId: null, amount: 2000 },
+      { creditorId: a, debtorId: b, amount: 1000 },
+    ]);
   });
 
-  it('To にユーザーを指定すると全額がそのユーザーの負担になる', async () => {
+  it('精算は「払った人 → 受け取った人」の行として記録し、移動が無くなる', async () => {
     await addExpense(
-      { fromUserId: a, toUserId: b, amount: 2000, description: 'B の分', spentOn: on },
+      { fromUserId: b, toUserId: a, amount: 2000, description: 'A の分', spentOn: on },
+      b,
+    );
+    expect(await getSettlements()).toEqual([{ creditorId: b, debtorId: a, amount: 2000 }]);
+    await addExpense(
+      { fromUserId: a, toUserId: b, amount: 2000, description: '精算', spentOn: on },
       a,
     );
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 2000,
-      fromUserId: b,
-      toUserId: a,
-    });
+    expect(await getSettlements()).toEqual([]);
   });
 
-  it('精算は「払った人 → 受け取った人」の行として記録し、残高がゼロに戻る', async () => {
-    await addExpense(
-      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
-      a,
-    );
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 1000,
-      fromUserId: b,
-      toUserId: a,
-    });
-    await addExpense(
-      { fromUserId: b, toUserId: a, amount: 1000, description: '精算', spentOn: on },
-      b,
-    );
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 0,
-      fromUserId: null,
-      toUserId: null,
-    });
-
-    await addExpense(
-      { fromUserId: b, toUserId: null, amount: 500, description: 'コーヒー', spentOn: on },
-      b,
-    );
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 250,
-      fromUserId: a,
-      toUserId: b,
-    });
+  it('From と To に同じ相手（共有から共有を含む）は選べない', async () => {
+    await expect(
+      addExpense(
+        { fromUserId: null, toUserId: null, amount: 100, description: '移し替え', spentOn: on },
+        a,
+      ),
+    ).rejects.toThrow('From と To に同じ相手は選べません');
   });
 
-  it('立替を編集すると全項目が置き換わり、残高に反映される', async () => {
+  it('立替を編集すると全項目が置き換わり、精算に反映される', async () => {
     const expense = await addExpense(
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
@@ -120,11 +96,7 @@ describe('expenses service', () => {
         spentOn: '2026-09-02',
       },
     ]);
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 500,
-      fromUserId: a,
-      toUserId: b,
-    });
+    expect(await getSettlements()).toEqual([{ creditorId: b, debtorId: a, amount: 500 }]);
   });
 
   it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
@@ -134,11 +106,7 @@ describe('expenses service', () => {
     await addExpense(input, a, id);
 
     expect((await listExpenses({})).items).toHaveLength(1);
-    expect(await getBalance(await listUsers())).toEqual({
-      amount: 1000,
-      fromUserId: b,
-      toUserId: a,
-    });
+    expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 2000 }]);
   });
 
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
@@ -230,15 +198,17 @@ describe('expenses service', () => {
       expect(await amounts({ since: day(2), until: day(3) })).toEqual([1000, 1001]);
     });
 
-    it('To は共有とユーザーを選び分け、From は払った人で絞り込む', async () => {
+    it('To・From は共有とユーザーを選び分けて絞り込む', async () => {
       await add({ description: '共有' });
       await add({ description: 'B の分', toUserId: b });
       await add({ description: 'B が払った', fromUserId: b });
+      await add({ description: '引き出し', fromUserId: null, toUserId: b });
       const names = async (query: ExpenseListQuery) =>
         (await listExpenses(query)).items.map((e) => e.description);
       expect(await names({ to: SHARED })).toEqual(['共有', 'B が払った']);
-      expect(await names({ to: b })).toEqual(['B の分']);
+      expect(await names({ to: b })).toEqual(['B の分', '引き出し']);
       expect(await names({ from: b })).toEqual(['B が払った']);
+      expect(await names({ from: SHARED })).toEqual(['引き出し']);
     });
 
     it('キーワードは内容の部分一致で、大文字小文字と % _ をそのまま扱う', async () => {

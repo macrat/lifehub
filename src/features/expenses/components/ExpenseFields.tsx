@@ -4,25 +4,25 @@ import TextField from '@mui/material/TextField';
 import { today } from '../../../../shared/date.ts';
 import { SELECT_NONE, selectValue } from '../../../lib/form.ts';
 import { normalizeExpression, pressKey } from '../calculator.ts';
-import type { Expense } from '../queries.ts';
+import type { ExpenseBody } from '../queries.ts';
 import type { ExpenseFieldsState } from '../use-expense-form.ts';
 import { Calculator } from './Calculator.tsx';
 
 type Props = ExpenseFieldsState & {
-  /** 編集する立替。省略すると追加の既定値（今日） */
-  initial?: Expense;
+  /** 最初に入れておく値（`useExpenseForm` の initial）。省いた項目は追加の既定値（日付は今日） */
+  initial?: Partial<ExpenseBody>;
 };
 
 /**
  * 立替の項目。上から日付・To/From・内容・金額と並べ、いちばん下の電卓で金額欄をそのまま計算する。
- * To は誰のために払ったか（既定は共有 = 折半）、From は払った人（既定はログイン中のユーザー）。
+ * To は誰のために払ったか（既定は共有）、From は払った人（既定はログイン中のユーザー）。どちらにも共有（共有口座）を選べる。
  * 追加のフォームと詳細の編集で同じものを使う。
  */
 export function ExpenseFields({
   initial,
   parties,
-  toUsers,
-  fromUsers,
+  toOptions,
+  fromOptions,
   onChangeTo,
   onChangeFrom,
   amount,
@@ -52,27 +52,18 @@ export function ExpenseFields({
           helperText={errors.toUserId}
           fullWidth
         >
-          <MenuItem value={SELECT_NONE}>共有</MenuItem>
-          {toUsers.map((u) => (
-            <MenuItem key={u.id} value={u.id}>
-              {u.name}
-            </MenuItem>
-          ))}
+          {toOptions.map(partyItem)}
         </TextField>
         <TextField
           label="From"
           select
-          value={parties.fromUserId}
-          onChange={(e) => onChangeFrom(e.target.value)}
+          value={parties.fromUserId ?? SELECT_NONE}
+          onChange={(e) => onChangeFrom(selectValue(e.target.value))}
           error={Boolean(errors.fromUserId)}
           helperText={errors.fromUserId}
           fullWidth
         >
-          {fromUsers.map((u) => (
-            <MenuItem key={u.id} value={u.id}>
-              {u.name}
-            </MenuItem>
-          ))}
+          {fromOptions.map(partyItem)}
         </TextField>
       </Stack>
       <TextField
@@ -97,5 +88,14 @@ export function ExpenseFields({
       />
       <Calculator onPress={(key) => onChangeAmount(pressKey(amount, key))} />
     </>
+  );
+}
+
+/** To・From の選択肢 1 つ。共有（null）は Select の値として SELECT_NONE にする */
+function partyItem({ value, label }: { value: string | null; label: string }) {
+  return (
+    <MenuItem key={value ?? SELECT_NONE} value={value ?? SELECT_NONE}>
+      {label}
+    </MenuItem>
   );
 }

@@ -1,11 +1,9 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import {
-  BALANCE_NEEDS_TWO_USERS,
-  type Balance,
-  balanceOf,
-  balancePair,
   type Expense,
   type ExpenseTotal,
+  type Settlement,
+  settlementsOf,
   sortExpenses,
 } from '../../../shared/expenses.ts';
 import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
@@ -18,7 +16,6 @@ import {
 } from '../../lib/query-client.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
-import { useUsers } from '../users/queries.ts';
 
 /**
  * 追加と編集で同じ形（編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
@@ -26,8 +23,8 @@ import { useUsers } from '../users/queries.ts';
  * （`Expense`）と一致する。
  */
 export type ExpenseBody = ExpenseInput;
-/** 行と残高の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
-export type { Balance, Expense } from '../../../shared/expenses.ts';
+/** 行と精算の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
+export type { Expense, Settlement } from '../../../shared/expenses.ts';
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
@@ -48,28 +45,17 @@ export const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
 /** 履歴とタイムラインへの先回りの読み書き */
 const expenseCache = timelineRecordCache('expense', expenseHistory);
 
-/** 残高の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `balanceOf` が読む形） */
+/** 精算の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `settlementsOf` が読む形） */
 export const totalsQueryOptions = queryOptions({
   queryKey: [...EXPENSES_QUERY_KEY, 'totals'],
   queryFn: ({ signal }): Promise<ExpenseTotal[]> =>
     api.expenses.totals.query(undefined, { signal }),
 });
 
-/**
- * 残高。サーバーの合計とユーザー（登録順の先頭 2 人が A, B。サーバーと同じ）から導く。
- * 立替ページが読む。
- */
-export function useBalance(): QueryState<Balance> {
+/** 立替を帳消しにする資金移動。サーバーの合計から導く（式はサーバーと同じ `settlementsOf`）。立替ページが読む */
+export function useSettlements(): QueryState<Settlement[]> {
   const totals = useStoreQuery(totalsQueryOptions);
-  const users = useUsers();
-  const pair = users.data && balancePair(users.data);
-  return {
-    data: totals.data && pair ? balanceOf(totals.data, pair) : undefined,
-    error:
-      totals.error ??
-      users.error ??
-      (users.data && !pair ? new Error(BALANCE_NEEDS_TWO_USERS) : null),
-  };
+  return { data: totals.data && settlementsOf(totals.data), error: totals.error };
 }
 
 export function useAddExpense() {
@@ -106,7 +92,7 @@ export function useDeleteExpense() {
 
 /**
  * 1 件の変化（prev → next。追加は prev が null、削除は next が null）を先回りして書き込む。
- * - 合計: prev の分を引き、next の分を足す。残高は合計から導くので、端数を含めてサーバーと一致する
+ * - 合計: prev の分を引き、next の分を足す。精算は合計から導くので、サーバーと一致する
  * - 履歴とタイムライン: `timelineRecordCache` の apply
  */
 function applyChange(

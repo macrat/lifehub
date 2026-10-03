@@ -17,10 +17,13 @@ type Props = {
    */
   icon?: ReactNode;
   label: string;
-  /** 大きく出す今の値（「1日前」「24° / 18°」） */
+  /** 大きく出す今の値（「1日前」「24° / 18°」「¥1,200」） */
   value: string;
-  /** 値の下の補足。空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
-  sub: string;
+  /**
+   * 値の下の補足。空でも 1 行分の高さを取り、並んだタイルの高さを揃える。
+   * 省くと補足の行を置かない（どのタイルも補足を持たない並び。立替の精算）
+   */
+  sub?: string;
   /**
    * 別の画面の同じタイルとその場で動く名前（View Transition。タイルごと動く）。相手の画面に同じタイルが無ければ付けない
    */
@@ -29,7 +32,7 @@ type Props = {
 };
 
 /**
- * 最新の状態のタイル（天気、レモンの項目ごとの状況）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
+ * 最新の状態のタイル（天気、レモンの項目ごとの状況、立替の精算）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
  * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く。
  */
 export function StatusTile({ icon, label, value, sub, transitionName, onClick }: Props) {
@@ -54,15 +57,15 @@ export function StatusTile({ icon, label, value, sub, transitionName, onClick }:
  * タイルの文字の大きさや余白を変えても骨組みの高さがずれず、読み込めたときに形も高さも変わらない。
  * WHY NOT 高さを数で書く: タイルは高さを持たず中身で決まるので、数を書くとタイルを直したときに黙ってずれる。
  */
-export function StatusTileSkeleton() {
+export function StatusTileSkeleton({ withSub = true }: { withSub?: boolean }) {
   return (
     <Skeleton variant="rectangular" sx={{ p: TILE_PADDING, mask: TILE_MASK, maxWidth: 'none' }}>
-      <TileLines label={'\u00a0'} value={'\u00a0'} sub="" />
+      <TileLines label={'\u00a0'} value={'\u00a0'} sub={withSub ? '' : undefined} />
     </Skeleton>
   );
 }
 
-/** タイルの中身の 3 段。補足が空でも 1 行分の高さを取り、並んだタイルの高さを揃える */
+/** タイルの中身の 3 段。補足が空でも 1 行分の高さを取り、並んだタイルの高さを揃える（省けば 2 段） */
 function TileLines({
   icon,
   label,
@@ -72,7 +75,7 @@ function TileLines({
   icon?: ReactNode;
   label: string;
   value: string;
-  sub: string;
+  sub?: string;
 }) {
   return (
     <>
@@ -102,9 +105,11 @@ function TileLines({
       >
         {value}
       </Typography>
-      <Typography variant="caption" color="textSecondary" component="p" noWrap>
-        {sub || ' '}
-      </Typography>
+      {sub !== undefined && (
+        <Typography variant="caption" color="textSecondary" component="p" noWrap>
+          {sub || ' '}
+        </Typography>
+      )}
     </>
   );
 }

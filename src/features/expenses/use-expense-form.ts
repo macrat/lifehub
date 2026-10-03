@@ -4,8 +4,8 @@ import { expenseSchema } from '../../../shared/validation/expenses.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
-import { chooseFrom, type Parties, toCandidates } from './parties.ts';
-import type { Expense, ExpenseBody } from './queries.ts';
+import { chooseFrom, fromCandidates, type Parties, type Party, toCandidates } from './parties.ts';
+import type { ExpenseBody } from './queries.ts';
 
 /**
  * 立替フォームの共通処理。追加（`ExpenseForm`）と詳細からの編集（`ExpenseDetailSheet`）で
@@ -19,21 +19,22 @@ export function useExpenseForm({
   onSubmit,
   onSaved,
 }: {
-  /** 編集する立替。省略すると追加 */
-  initial?: Expense;
+  /** 最初に入れておく値。編集なら今の立替、精算のカードから始めた追加ならその精算。省いた項目は追加の既定値 */
+  initial?: Partial<ExpenseBody>;
   onSubmit: (input: ExpenseBody) => Promise<unknown>;
   onSaved: () => void;
 }) {
-  const { users, meId } = useUserLabels();
-  const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
-  // From の null は「まだ選んでいない」。既定のログイン中のユーザーは読み込みを待つので、使う時に決める
-  const [chosen, setChosen] = useState<{ toUserId: string | null; fromUserId: string | null }>({
+  const { users, label, meId } = useUserLabels();
+  const option = (value: Party) => ({ value, label: label(value) });
+  const [amount, setAmount] = useState(initial?.amount === undefined ? '' : String(initial.amount));
+  // From の undefined は「まだ選んでいない」（null は共有）。既定のログイン中のユーザーは読み込みを待つので、使う時に決める
+  const [chosen, setChosen] = useState<{ toUserId: string | null; fromUserId?: string | null }>({
     toUserId: initial?.toUserId ?? null,
-    fromUserId: initial?.fromUserId ?? null,
+    fromUserId: initial?.fromUserId,
   });
   const parties: Parties = {
     toUserId: chosen.toUserId,
-    fromUserId: chosen.fromUserId ?? meId ?? users[0]?.id ?? '',
+    fromUserId: chosen.fromUserId === undefined ? (meId ?? users[0]?.id ?? '') : chosen.fromUserId,
   };
 
   const form = useFormSubmit({
@@ -51,10 +52,10 @@ export function useExpenseForm({
     ...form,
     fields: {
       parties,
-      toUsers: toCandidates(users, parties),
-      fromUsers: users,
-      onChangeTo: (toUserId: string | null) => setChosen((c) => ({ ...c, toUserId })),
-      onChangeFrom: (fromUserId: string) => setChosen(chooseFrom(parties, fromUserId)),
+      toOptions: toCandidates(users, parties).map(option),
+      fromOptions: fromCandidates(users).map(option),
+      onChangeTo: (toUserId: Party) => setChosen((c) => ({ ...c, toUserId })),
+      onChangeFrom: (fromUserId: Party) => setChosen(chooseFrom(parties, fromUserId)),
       amount,
       onChangeAmount: setAmount,
       errors: form.errors,

@@ -3,9 +3,9 @@ import { clientIdShape, cursorShape, dateStringSchema, uuidSchema } from './comm
 
 /** 立替の項目（組み合わせの規則を掛ける前）。MCP が一部の項目を省略できる形に変えるのに使う */
 export const expenseFieldsSchema = z.object({
-  /** From: 払った人 */
-  fromUserId: uuidSchema,
-  /** To: 誰のために払ったか。null は共有（折半）。精算なら受け取った人 */
+  /** From: 払った人（債権者）。null は共有（共有口座から払った）。精算なら払った人 */
+  fromUserId: uuidSchema.nullable(),
+  /** To: 誰のために払ったか（債務者）。null は共有（共有口座のために払った）。精算なら受け取った人 */
   toUserId: uuidSchema.nullable(),
   /** 円。正の整数 */
   amount: z.int().positive('金額は 1 円以上にしてください').max(100_000_000),
@@ -14,12 +14,15 @@ export const expenseFieldsSchema = z.object({
   spentOn: dateStringSchema,
 });
 
-/** 立替の組み合わせの規則。追加・編集と MCP の入力が同じ規則を通るよう、スキーマの形とは切り離す */
-function withExpenseRules<T extends z.ZodType<{ fromUserId: string; toUserId: string | null }>>(
-  schema: T,
-): T {
+/**
+ * 立替の組み合わせの規則。追加・編集と MCP の入力が同じ規則を通るよう、スキーマの形とは切り離す。
+ * 自分から自分へは貸し借りが生じないので、From と To は違う当事者にする（共有から共有へも同じく選べない）
+ */
+function withExpenseRules<
+  T extends z.ZodType<{ fromUserId: string | null; toUserId: string | null }>,
+>(schema: T): T {
   return schema.refine((v) => v.fromUserId !== v.toUserId, {
-    message: 'From と To に同じ人は選べません',
+    message: 'From と To に同じ相手は選べません',
     path: ['toUserId'],
   });
 }
@@ -34,7 +37,7 @@ export const expenseRulesSchema = withExpenseRules(z.custom<ExpenseInput>());
 /** API（POST /api/expenses）が受け取る追加の入力（`clientIdShape`） */
 export const createExpenseRequestSchema = expenseSchema.safeExtend(clientIdShape);
 
-/** To の「共有」。ユーザー ID と混ざらないよう、URL や API の値としても語で置く */
+/** To・From の「共有」。ユーザー ID と混ざらないよう、URL や API の値としても語で置く */
 export const SHARED = 'shared';
 
 /**
@@ -52,8 +55,8 @@ export const expenseFilterSchema = z.object({
   until: dateStringSchema.optional(),
   /** To（誰のために払ったか）: SHARED（共有）かユーザー ID */
   to: z.union([z.literal(SHARED), uuidSchema]).optional(),
-  /** From（払った人）: ユーザー ID（From に共有は無い） */
-  from: uuidSchema.optional(),
+  /** From（払った人）: SHARED（共有）かユーザー ID */
+  from: z.union([z.literal(SHARED), uuidSchema]).optional(),
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 

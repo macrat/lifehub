@@ -8,7 +8,7 @@ import { VennMark } from '../../../lib/ui/VennMark.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
-import { PARTIES_SEPARATOR, partiesInOrder } from '../parties.ts';
+import { partiesInOrder, partiesLabel } from '../parties.ts';
 import type { Expense } from '../queries.ts';
 
 /** 印の枠の幅。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない */
@@ -81,7 +81,7 @@ export function ExpenseList({ onSelect, ...listProps }: Props) {
                 >
                   <Typography sx={{ overflowWrap: 'anywhere' }}>{expense.description}</Typography>
                   <Typography variant="caption" color="textSecondary" component="div" noWrap>
-                    {people.map(label).join(PARTIES_SEPARATOR)}
+                    {partiesLabel(people, label)}
                   </Typography>
                 </MarkedRow>
               );
