@@ -31,20 +31,17 @@ describe('MCP server: MCP Events', () => {
       'lemon.changed',
       'event.reminder',
     ]);
-    for (const event of events) {
-      expect(event.delivery).toEqual(['webhook']);
-      expect(event.payloadSchema).toMatchObject(
-        event.name === 'event.reminder'
-          ? {
-              properties: { about: { enum: ['start', 'end', 'due'] } },
-              required: ['about', 'entry'],
-            }
-          : {
-              properties: { action: { enum: ['added', 'updated', 'deleted'] } },
-              required: ['action', 'by', 'entry'],
-            },
-      );
+    for (const event of events) expect(event.delivery).toEqual(['webhook']);
+    for (const event of events.filter((e) => e.name.endsWith('.changed'))) {
+      expect(event.payloadSchema).toMatchObject({
+        properties: { action: { enum: ['added', 'updated', 'deleted'] } },
+        required: ['action', 'by', 'entry'],
+      });
     }
+    expect(events.find((e) => e.name === 'event.reminder')?.payloadSchema).toMatchObject({
+      properties: { about: { enum: ['start', 'end', 'due'] } },
+      required: ['about', 'entry'],
+    });
   });
 
   it('購読できない求めは、MCP Events のエラーコードで断る', async () => {

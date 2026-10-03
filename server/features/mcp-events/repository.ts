@@ -1,8 +1,6 @@
-import { and, asc, eq, gt, lte } from 'drizzle-orm';
+import { and, eq, gt, lte } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
 import { findById as findRowById } from '../../lib/db/query.ts';
-import type { Person } from '../../lib/mcp/types.ts';
-import { users } from '../users/schema.ts';
 import {
   type McpEventSubscriptionRow,
   mcpEventSubscriptions,
@@ -47,14 +45,4 @@ export async function findActive(name: string, now: Date): Promise<McpEventSubsc
 
 export async function removeExpired(now: Date): Promise<void> {
   await db.delete(mcpEventSubscriptions).where(lte(mcpEventSubscriptions.expiresAt, now));
-}
-
-/**
- * ユーザーの ID と名前（登録順。users の service の `listPeople` と同じもの）。届けるエントリーと書いた人を名前で出すのに使う。
- * WHY NOT users の service から読む: users の service は通知を予約し直す（notifications の service を呼ぶ）。
- * notifications の service は通知を配るときに mcp-events の service（`publishReminder`）を呼ぶので、users の service を読むと
- * import が一巡する（biome の noImportCycles が禁じる）。
- */
-export async function findPeople(): Promise<Person[]> {
-  return db.select({ id: users.id, name: users.name }).from(users).orderBy(asc(users.createdAt));
 }

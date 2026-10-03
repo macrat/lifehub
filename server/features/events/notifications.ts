@@ -36,6 +36,16 @@ export const notificationRefSchema = z.object({
 });
 export type NotificationRef = z.infer<typeof notificationRefSchema>;
 
+/** 何の通知か: 開始・予定の終了・タスクの期限 */
+type About = 'start' | 'end' | 'due';
+
+function aboutOf(item: CalendarItem, edge: Edge): About {
+  if (edge === 'start') return 'start';
+  return item.kind === 'task' ? 'due' : 'end';
+}
+
+const ABOUT_LABELS: Record<About, string> = { start: '開始', end: '終了', due: '期限' };
+
 /** 配信直前の再検証（`resolveNotification`）が返す、送る中身と宛先 */
 export type NotificationPayload = {
   title: string;
@@ -44,8 +54,9 @@ export type NotificationPayload = {
   url: string;
   /** 送信先（参加者） */
   userIds: string[];
-  /** 通知する発生（配信予定時刻の時点のもの）。MCP Events の通知に載せる */
+  /** 通知する発生（配信予定時刻の時点のもの）と、何の通知か。MCP Events の通知に載せる */
   item: CalendarItem;
+  about: About;
 };
 
 export type PlannedNotification = {
@@ -134,7 +145,7 @@ const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
 
 /** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」） */
 function body(item: CalendarItem, edge: Edge): string {
-  const label = edge === 'start' ? '開始' : item.kind === 'task' ? '期限' : '終了';
+  const label = ABOUT_LABELS[aboutOf(item, edge)];
   const anchor = (edge === 'start' ? item.startsAt : item.endsAt) as string;
   const when = item.allDay
     ? `${notificationDateFormatter.format(startOfDate(allDayDate(anchor, edge)))} 終日`
@@ -188,5 +199,6 @@ export async function resolveNotification(
     url: `/calendar?date=${item.placementDate}`,
     userIds: target.userId ? [target.userId] : item.participantIds,
     item,
+    about: aboutOf(item, ref.edge),
   };
 }

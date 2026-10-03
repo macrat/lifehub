@@ -88,7 +88,7 @@ export async function deliver(
       url: payload.url,
       tag: key,
     });
-    publishReminder({ key, item: payload.item, edge: ref.edge, userIds: payload.userIds });
+    publishReminder(key, payload);
     return 'sent';
   } catch (error) {
     await repository.release(key);

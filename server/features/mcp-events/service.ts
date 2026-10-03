@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
+import type { EventMaster } from '../../../shared/calendar.ts';
 import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
@@ -15,6 +15,8 @@ import {
 import { authorName } from '../../lib/mcp/people.ts';
 import type { Person } from '../../lib/mcp/types.ts';
 import { newSecret } from '../../lib/secret.ts';
+import type { NotificationPayload } from '../events/notifications.ts';
+import { listPeople } from '../users/people.ts';
 import * as repository from './repository.ts';
 import type { McpEventSubscriptionRow } from './schema.ts';
 import { postWebhook, webhookHeaders } from './webhook.ts';
@@ -85,7 +87,7 @@ async function deliverChanged(changed: ChangedRecord, action: Action, actor: Act
   const name = EVENT_NAMES[changed.type];
   const subscriptions = await repository.findActive(name, new Date());
   if (subscriptions.length === 0) return;
-  const [people, format] = await Promise.all([repository.findPeople(), formatterOf(changed)]);
+  const [people, format] = await Promise.all([listPeople(), formatterOf(changed)]);
   const entry = format(people);
   await deliverAll(subscriptions, {
     // 追加と削除は記録（回）ごとに 1 度きりなので、記録の ref から決める（オフラインの再送で同じ追加・削除が
@@ -103,39 +105,32 @@ async function deliverChanged(changed: ChangedRecord, action: Action, actor: Act
   });
 }
 
-/** プッシュ通知を送った予定・タスクの通知（通知の service が配信のときに渡す） */
-type Reminder = {
-  /** 通知のキー（送信台帳の主キー）。通知 1 件ごとに一意 */
-  key: string;
-  /** 通知した発生（配信予定時刻の時点で読み直したもの） */
-  item: CalendarItem;
-  edge: 'start' | 'end';
-  /** プッシュ通知の宛先 */
-  userIds: string[];
-};
+/** プッシュ通知を送った予定・タスクの通知のうち、届けるもの（通知した発生・何の通知か・宛先） */
+type Reminder = Pick<NotificationPayload, 'item' | 'about' | 'userIds'>;
 
 /**
  * 予定・タスクの通知を知らせる。プッシュ通知を送った後に呼び、応答の後に配る（`afterResponse`）。
  * 届けるのはプッシュ通知の宛先と同じ人の購読だけ（通知は参加者に宛てたもので、記録の変化と違い家族全員へは送らない）。
  */
-export function publishReminder(reminder: Reminder): void {
-  afterResponse('mcp-events', () => deliverReminder(reminder));
+export function publishReminder(key: string, reminder: Reminder): void {
+  afterResponse('mcp-events', () => deliverReminder(key, reminder));
 }
 
-async function deliverReminder({ key, item, edge, userIds }: Reminder): Promise<void> {
+/** key は通知のキー（送信台帳の主キー）で、通知 1 件ごとに一意 */
+async function deliverReminder(key: string, { item, about, userIds }: Reminder): Promise<void> {
   const name = EVENT_NAMES.reminder;
   const subscriptions = (await repository.findActive(name, new Date())).filter((sub) =>
     userIds.includes(sub.userId),
   );
   if (subscriptions.length === 0) return;
-  const people = await repository.findPeople();
+  const people = await listPeople();
   await deliverAll(subscriptions, {
     // 通知は 1 件ごとに 1 度きりなので、通知のキーから決める（同じ通知を 2 度配っても、受け手が重複を捨てられる）
     eventId: `evt_reminder_${key}`,
     name,
     timestamp: new Date().toISOString(),
     data: {
-      about: edge === 'start' ? 'start' : item.kind === 'task' ? 'due' : 'end',
+      about,
       entry: formatEvent(item, people),
     },
     cursor: null,
