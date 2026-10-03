@@ -21,8 +21,8 @@ export const memosRouter = router({
   update: procedure.input(withId(memoSchema)).mutation(async ({ ctx, input: { id, ...input } }) => {
     await service.updateMemo(id, input, (await ctx.user).id);
   }),
-  pin: procedure.input(withId(memoPinSchema)).mutation(async ({ ctx, input }) => {
-    await service.setMemoPinned(input.id, input.pinned, (await ctx.user).id);
+  pin: procedure.input(withId(memoPinSchema)).mutation(async ({ input }) => {
+    await service.setMemoPinned(input.id, input.pinned);
   }),
   delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
     await service.deleteMemo(input.id, (await ctx.user).id);

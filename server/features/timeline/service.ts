@@ -15,7 +15,7 @@ import {
   type TimelineEntry,
 } from '../../../shared/timeline.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
-import type { TimelineQuery } from '../../../shared/validation/timeline.ts';
+import { isFiltered, type TimelineQuery } from '../../../shared/validation/timeline.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
@@ -59,7 +59,8 @@ const sources: TimelineSource[] = [events.timelineSource, ...Object.values(recor
  * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
  * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
  *
- * ピン止めしたメモは出さない。画面がタイムラインのさらに上に、絞り込みに関わらず固定して出す（`memos.pinned`）。
+ * 絞り込んでいないとき（`isFiltered`）は、ピン止めしたメモを出さない。画面がタイムラインのさらに上に固定して出す
+ * （`memos.pinned`）。絞り込んでいるときはほかのメモと同じく、条件に合えば書いた時刻の位置に出す。
  * WHY NOT このページの一番上に混ぜる: 画面の手元の控えは行を置く日でページに振り分ける（`entryDay`）ので、
  * 書いた日の古いメモを最新のページに置くには、ホームでだけ置く日を変える規則が要る。MCP の日ごとの読み出し
  * （`listDays`）は同じ行を書いた日に置くので、規則が 2 つに割れる。
@@ -89,11 +90,12 @@ export async function getTimelinePage(
   const range = { from: lower, to: upper };
 
   const includeUndated = before === undefined && since === undefined && until === undefined;
+  const pinnedApart = !isFiltered(query);
   // 最新のページの上端（24 時間先・until の終わり）は、行の日時ではなく始まりで見る（`entryStart`）。
   // 終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や、until を越えて続く予定が出なくなる。
   // 続きのページは上のページと行の日時で分け合うので、行の日時で見る（同じ行を 2 つのページに出さない）
   const shown = (entry: TimelineEntry) => {
-    if (entry.type === 'memo' && entry.memo.pinned) return false;
+    if (pinnedApart && entry.type === 'memo' && entry.memo.pinned) return false;
     if (entry.at === null) return includeUndated;
     const reach = (before === undefined ? entryStart(entry) : null) ?? entry.at;
     return new Date(entry.at) >= lower && new Date(reach) < upper;

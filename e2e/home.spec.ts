@@ -99,6 +99,14 @@ test('メモを詳細の三点リーダーからピン止めすると、タイ�
   await page.reload();
   await expectOrder('古い', '新しい');
 
+  // 絞り込むと、ほかのメモと同じく書いた時刻の位置に出る（ピンは付いたまま）
+  await page.getByLabel('記録を検索').fill(body);
+  await expectOrder('新しい', '古い');
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByRole('img', { name: 'ピン止め' })).toHaveCount(1);
+  await page.getByLabel('記録を検索').fill('');
+  await expectOrder('古い', '新しい');
+
   // 外すと書いた時刻の位置に戻る
   await page.getByRole('button', { name: new RegExp(`${body} 古い`) }).click();
   await detailAction(page, 'ピン止め解除');

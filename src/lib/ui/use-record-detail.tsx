@@ -6,14 +6,14 @@ import type { RecordAction } from './RecordSheet.tsx';
 type Options = {
   /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
   initialEditing: boolean;
-  /** 直すことも消すこともできない記録。鉛筆も三点リーダーも出さず、長押しでも入力欄にしない */
+  /** 直すことも消すこともできない記録。鉛筆も削除も出さず、長押しでも入力欄にしない（`actions` は出す） */
   readOnly?: boolean;
   /** 編集のフォーム（`useFormSubmit` の `sheet`） */
   form: FormSheetProps;
   /** 削除の前に確かめる文 */
   confirmDelete: string;
   remove: () => void;
-  /** 三点リーダーで削除の上に並べる、その記録だけの操作（メモのピン止め） */
+  /** 三点リーダーで削除の上に並べる、その記録だけの操作（メモのピン止め）。readOnly でも出す */
   actions?: RecordAction[];
   onClose: () => void;
 };
@@ -35,7 +35,7 @@ export function useRecordDetail({
   onClose,
 }: Options) {
   const [editing, setEditing] = useState(initialEditing && !readOnly);
-  if (readOnly) return { editing, sheet: { ...form, onClose, editing, actions: [] } };
+  if (readOnly) return { editing, sheet: { ...form, onClose, editing, actions } };
 
   const deleteAction: RecordAction = {
     label: '削除',

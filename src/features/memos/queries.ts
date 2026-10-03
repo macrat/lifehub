@@ -32,7 +32,9 @@ function findMemo(client: QueryClient, id: string): Memo | undefined {
 /**
  * メモ 1 件の変化（id のメモが next になる。削除は null）を、手元の控えに先回りして書き込む。
  * サーバーと同じく、ピン止めしたメモはピン止めの並びにだけ、ほかはタイムラインにだけ置く
- * （`server/features/timeline/service.ts` の `getTimelinePage`）。
+ * （`server/features/timeline/service.ts` の `getTimelinePage`）。絞り込んだタイムラインはピン止めしたメモも
+ * 書いた時刻の位置に出すが、どの書き込みでも絞り込んだ控えからは除いて取り直しに任せる（`applyToHistories`）ので、
+ * ここで分ける必要は無い。
  */
 function applyMemo(client: QueryClient, id: string, next: Memo | null): void {
   client.setQueryData(

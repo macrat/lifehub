@@ -62,23 +62,22 @@ describe('memos service', () => {
   it('ピン止めしたメモを書いた時刻の新しい順に返し、外せば返さない。書いた時刻は動かない', async () => {
     const older = await addMemo({ body: '古い' }, userId);
     const newer = await addMemo({ body: '新しい' }, userId);
-    await setMemoPinned(older.id, true, userId);
-    await setMemoPinned(newer.id, true, userId);
+    await setMemoPinned(older.id, true);
+    await setMemoPinned(newer.id, true);
     expect(await listPinnedMemos()).toMatchObject([
       { id: newer.id, pinned: true },
       { id: older.id, pinned: true, createdAt: older.createdAt },
     ]);
 
-    await setMemoPinned(newer.id, false, userId);
+    await setMemoPinned(newer.id, false);
     expect((await listPinnedMemos()).map((m) => m.id)).toEqual([older.id]);
   });
 
-  it('ほかの人のメモはピン止めできない', async () => {
-    const otherId = await createTestUser('B');
+  it('ピン止めしても書いた人は変わらず、無いメモは見つからない', async () => {
     const memo = await addMemo({ body: '最初' }, userId);
-    await expect(setMemoPinned(memo.id, true, otherId)).rejects.toThrow(ForbiddenError);
-    await expect(setMemoPinned(newId(), true, userId)).rejects.toThrow(NotFoundError);
-    expect(await listPinnedMemos()).toEqual([]);
+    await setMemoPinned(memo.id, true);
+    expect(await listPinnedMemos()).toMatchObject([{ id: memo.id, createdBy: userId }]);
+    await expect(setMemoPinned(newId(), true)).rejects.toThrow(NotFoundError);
   });
 
   it('キーワードは本文の部分一致（大文字小文字を区別しない）', async () => {

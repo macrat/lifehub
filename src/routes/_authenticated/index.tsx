@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
+import { isFiltered } from '../../../shared/validation/timeline.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
@@ -90,7 +91,7 @@ function HomePage() {
             onAddCare={addingCare.open}
           />
         </ScrollAwayHeader>
-        <PinnedMemoList onSelect={selection.open} />
+        {!isFiltered(filter.listFilter) && <PinnedMemoList onSelect={selection.open} />}
         <TimelineList
           timeline={timeline}
           emptyMessage={filter.emptyMessage('記録')}
