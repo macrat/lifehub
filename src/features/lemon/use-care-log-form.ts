@@ -42,8 +42,6 @@ export function useCareLogForm({
   });
   return {
     ...form,
-    /** 今チェックしている項目（詳細シートの見出しに出す） */
-    careTypes,
     /** `CareLogFields` に渡す入力欄の状態 */
     fields: {
       careTypes,

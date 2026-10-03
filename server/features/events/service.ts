@@ -161,6 +161,7 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<void> {
+  checkRules(input, eventRulesSchema);
   await writeUpdate(await findMaster(id), input, userId);
 }
 
@@ -183,7 +184,7 @@ async function applyUpdate(
 ): Promise<WrittenEvent> {
   const { id } = master;
   const target = resolveTarget(master, input);
-  const values = normalizeInput(checkRules(input, eventRulesSchema));
+  const values = normalizeInput(input);
   const { participantIds } = input;
   const kindChanged = input.kind !== master.kind;
 

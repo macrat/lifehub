@@ -10,7 +10,7 @@ import { useCareLogForm } from './use-care-log-form.ts';
 export function useCareLogDetail(log: CareLog, initialEditing: boolean, onClose: () => void) {
   const updateLog = useUpdateCareLog();
   const deleteLog = useDeleteCareLog();
-  const { careTypes, fields, sheet } = useCareLogForm({
+  const { fields, sheet } = useCareLogForm({
     initial: log,
     onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
     onSaved: onClose,
@@ -22,5 +22,5 @@ export function useCareLogDetail(log: CareLog, initialEditing: boolean, onClose:
     onClose,
   });
   // 見出しは入力中の項目に合わせて変わる
-  return { ...detail, title: careLogTitle(careTypes), fields };
+  return { ...detail, title: careLogTitle(fields.careTypes), fields };
 }

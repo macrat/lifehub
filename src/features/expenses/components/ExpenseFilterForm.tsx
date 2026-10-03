@@ -19,9 +19,9 @@ type Props = {
  * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useScreenHistory`）。
  */
 export function ExpenseFilterForm({ open, filters, onChange }: Props) {
-  const { users } = useUserLabels();
+  const { users, label } = useUserLabels();
   const parties = [
-    { value: SHARED, label: '共有' },
+    { value: SHARED, label: label(null) },
     ...users.map((u) => ({ value: u.id, label: u.name })),
   ];
   return (

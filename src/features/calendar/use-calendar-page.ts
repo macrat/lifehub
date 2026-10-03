@@ -43,7 +43,6 @@ export type PeriodPage = {
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
  * URL に載せない状態（打ちかけのキーワード、絞り込みのフォームの開閉、時間軸の高さ、追加の間だけの日表示）もここで持つ。
  * 画面の状態を探す所を 1 か所に保つため。
-
  */
 export function useCalendarPage(search: CalendarSearch) {
   const patchSearch = usePatchSearch();
@@ -92,7 +91,7 @@ export function useCalendarPage(search: CalendarSearch) {
 
   /**
    * 検索パラメータの更新。表示や日付の切り替えは履歴に積み（戻るで前の表示に戻れる）、
-   * スワイプでの前後移動と絞り込みの入力は置き換える（戻るが連打の巻き戻しにならない）
+   * スワイプでの前後移動は置き換える（戻るが連打の巻き戻しにならない。絞り込みは `filter.setFilters`）
    */
   // useCallback: この関数から作る openDay は面（CalendarPane）に渡る。毎回別の関数になると
   // 面が props の同一性で描き直しを省けなくなり、スワイプのたびに 3 面すべてを描き直すことになる
@@ -143,7 +142,6 @@ export function useCalendarPage(search: CalendarSearch) {
     zoom,
     /** 月表示から切り替えてきたか（週・日の最初の縦位置を予定に合わせる） */
     fromMonth: arrival.fromMonth,
-    setSearch,
     move,
     goToday: () => setSearch({ date: today() }),
     openDay,
