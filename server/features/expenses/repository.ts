@@ -1,4 +1,5 @@
 import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -47,10 +48,7 @@ function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
 }
 
 /** To・From の絞り込み。SHARED は共有（null） */
-function partyCondition(
-  column: typeof expenses.toUserId | typeof expenses.fromUserId,
-  party: string | undefined,
-): SQL | undefined {
+function partyCondition(column: AnyPgColumn, party: string | undefined): SQL | undefined {
   if (party === undefined) return undefined;
   return party === SHARED ? isNull(column) : eq(column, party);
 }

@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canChooseSharedTo,
   chooseFrom,
+  fromCandidates,
   partiesInOrder,
   settlementExpense,
   toCandidates,
 } from '../parties.ts';
 
-describe('toCandidates', () => {
-  it('From の人を外す', () => {
-    const users = [{ id: 'a' }, { id: 'b' }];
-    expect(toCandidates(users, { toUserId: null, fromUserId: 'a' })).toEqual([{ id: 'b' }]);
+const users = [{ id: 'a' }, { id: 'b' }];
+
+describe('fromCandidates', () => {
+  it('共有を先頭に、ユーザーを並べる', () => {
+    expect(fromCandidates(users)).toEqual([null, 'a', 'b']);
   });
 });
 
-describe('canChooseSharedTo', () => {
-  it('From が共有なら To に共有は選べない', () => {
-    expect(canChooseSharedTo({ toUserId: 'a', fromUserId: null })).toBe(false);
-    expect(canChooseSharedTo({ toUserId: null, fromUserId: 'a' })).toBe(true);
+describe('toCandidates', () => {
+  it('From の相手を外す（From が共有なら共有を外す）', () => {
+    expect(toCandidates(users, { toUserId: null, fromUserId: 'a' })).toEqual([null, 'b']);
+    expect(toCandidates(users, { toUserId: 'a', fromUserId: null })).toEqual(['a', 'b']);
   });
 });
 

@@ -47,8 +47,7 @@ export async function clearTables(): Promise<void> {
 }
 
 /**
- * テスト用: ユーザーを作って ID を返す。A は自分、B は相手として使う（立替の残高は登録順の先頭 2 人で
- * 計算するので、A → B の順に作る）。名前・メール・パスワードそのものを確かめるテストでは使わない。
+ * テスト用: ユーザーを作って ID を返す。A は自分、B は相手として使う。名前・メール・パスワードそのものを確かめるテストでは使わない。
  *
  * users service の createUser と同じ行（ユーザーと、パスワードを持つ credential の account）を直接書く。
  * WHY createUser を通さない: パスワードのハッシュ（scrypt）は 1 回 100ms ほどかかり、ほぼ全テストの
@@ -81,7 +80,6 @@ type TestUserName = 'A' | 'B';
 
 /**
  * DB を空にして、自分（A）と相手（B）のユーザーを作り直し、その ID を返す。各テストの前に呼ぶ。
- * A を先に作る（立替の残高など、登録順で 2 人を選ぶ処理がある）
  */
 export async function resetUsers(): Promise<{ userId: string; partnerId: string }> {
   await clearTables();

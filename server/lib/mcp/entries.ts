@@ -3,6 +3,7 @@ import type { Expense, Settlement } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
+import { SHARED } from '../../../shared/validation/expenses.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import { authorName, nameOf } from './people.ts';
 import { toRef } from './refs.ts';
@@ -68,7 +69,7 @@ export function formatEvent(item: EventLike, people: Person[]) {
 
 /** 立替の当事者の名前。null は共有（共有口座）で "shared" */
 function partyName(people: Person[], id: string | null): string {
-  return id === null ? 'shared' : nameOf(people, id);
+  return id === null ? SHARED : nameOf(people, id);
 }
 
 /** 立替。paidBy・paidFor の "shared" は共有口座 */

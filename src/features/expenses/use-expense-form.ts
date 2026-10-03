@@ -4,7 +4,7 @@ import { expenseSchema } from '../../../shared/validation/expenses.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
-import { canChooseSharedTo, chooseFrom, type Parties, toCandidates } from './parties.ts';
+import { chooseFrom, fromCandidates, type Parties, type Party, toCandidates } from './parties.ts';
 import type { ExpenseBody } from './queries.ts';
 
 /**
@@ -24,7 +24,8 @@ export function useExpenseForm({
   onSubmit: (input: ExpenseBody) => Promise<unknown>;
   onSaved: () => void;
 }) {
-  const { users, meId } = useUserLabels();
+  const { users, label, meId } = useUserLabels();
+  const option = (value: Party) => ({ value, label: label(value) });
   const [amount, setAmount] = useState(initial?.amount === undefined ? '' : String(initial.amount));
   // From の undefined は「まだ選んでいない」（null は共有）。既定のログイン中のユーザーは読み込みを待つので、使う時に決める
   const [chosen, setChosen] = useState<{ toUserId: string | null; fromUserId?: string | null }>({
@@ -51,11 +52,10 @@ export function useExpenseForm({
     ...form,
     fields: {
       parties,
-      toUsers: toCandidates(users, parties),
-      toShared: canChooseSharedTo(parties),
-      fromUsers: users,
-      onChangeTo: (toUserId: string | null) => setChosen((c) => ({ ...c, toUserId })),
-      onChangeFrom: (fromUserId: string | null) => setChosen(chooseFrom(parties, fromUserId)),
+      toOptions: toCandidates(users, parties).map(option),
+      fromOptions: fromCandidates(users).map(option),
+      onChangeTo: (toUserId: Party) => setChosen((c) => ({ ...c, toUserId })),
+      onChangeFrom: (fromUserId: Party) => setChosen(chooseFrom(parties, fromUserId)),
       amount,
       onChangeAmount: setAmount,
       errors: form.errors,

@@ -12,7 +12,7 @@ import { ADD_KINDS } from '../../lib/add-kinds.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
-import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';
+import { partiesInOrder, partiesLabel } from '../expenses/parties.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -86,7 +86,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         ...view,
         colors: people.map((id) => colorFor(id).fill),
         icon: ADD_KINDS.expense.icon,
-        heading: people.map(label).join(PARTIES_SEPARATOR),
+        heading: partiesLabel(people, label),
         body: `${formatYen(amount)} ${description}`,
       };
     }

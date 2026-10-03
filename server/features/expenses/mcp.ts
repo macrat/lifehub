@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { today } from '../../../shared/date.ts';
 import type { Expense } from '../../../shared/expenses.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { expenseFieldsSchema } from '../../../shared/validation/expenses.ts';
+import { expenseFieldsSchema, SHARED } from '../../../shared/validation/expenses.ts';
 import { formatExpense, formatSettlements } from '../../lib/mcp/entries.ts';
 import { personInputSchema, resolvePerson } from '../../lib/mcp/people.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
@@ -26,17 +26,20 @@ const PAID_BY = '払った人の名前。自分なら "me"、共有口座から�
 const PAID_FOR =
   '誰のための支払いか: 共有口座が負担するもの（2 人のための出費など）なら "shared"、その人だけの負担ならその人の名前';
 
+/** 立替の当事者: 共有（共有口座）か人 */
+const partyInputSchema = z.union([z.literal(SHARED), personInputSchema]);
+
 const fields = {
   amount: expenseFieldsSchema.shape.amount.describe('金額（円、正の整数）'),
   description: expenseFieldsSchema.shape.description.describe('内容（「スーパー」「電気代」など）'),
-  paidBy: z.union([z.literal('shared'), personInputSchema]).describe(PAID_BY),
-  paidFor: z.union([z.literal('shared'), personInputSchema]).describe(PAID_FOR),
+  paidBy: partyInputSchema.describe(PAID_BY),
+  paidFor: partyInputSchema.describe(PAID_FOR),
   date: dateStringSchema.describe('使った日（JST の YYYY-MM-DD）'),
 };
 
 /** paidBy・paidFor → 立替の From・To（null は共有） */
 function partyIdOf(ctx: McpContext, people: Person[], party: string): string | null {
-  return party === 'shared' ? null : resolvePerson(people, party, ctx.userId);
+  return party === SHARED ? null : resolvePerson(people, party, ctx.userId);
 }
 
 async function withSettlements(people: Person[], expense: Expense) {

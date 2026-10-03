@@ -2,7 +2,7 @@ import Typography from '@mui/material/Typography';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { formatYen } from '../format.ts';
-import { PARTIES_SEPARATOR } from '../parties.ts';
+import { partiesLabel } from '../parties.ts';
 import type { Settlement } from '../queries.ts';
 
 /**
@@ -29,7 +29,7 @@ export function SettlementGrid({ settlements, onSelect }: Props) {
       {settlements.map((s) => (
         <StatusTile
           key={`${s.creditorId}:${s.debtorId}`}
-          label={[s.creditorId, s.debtorId].map(label).join(PARTIES_SEPARATOR)}
+          label={partiesLabel([s.creditorId, s.debtorId], label)}
           value={formatYen(s.amount)}
           onClick={() => onSelect(s)}
         />

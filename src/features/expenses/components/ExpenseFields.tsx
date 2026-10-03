@@ -21,9 +21,8 @@ type Props = ExpenseFieldsState & {
 export function ExpenseFields({
   initial,
   parties,
-  toUsers,
-  toShared,
-  fromUsers,
+  toOptions,
+  fromOptions,
   onChangeTo,
   onChangeFrom,
   amount,
@@ -53,12 +52,7 @@ export function ExpenseFields({
           helperText={errors.toUserId}
           fullWidth
         >
-          {toShared && <MenuItem value={SELECT_NONE}>共有</MenuItem>}
-          {toUsers.map((u) => (
-            <MenuItem key={u.id} value={u.id}>
-              {u.name}
-            </MenuItem>
-          ))}
+          {toOptions.map(partyItem)}
         </TextField>
         <TextField
           label="From"
@@ -69,12 +63,7 @@ export function ExpenseFields({
           helperText={errors.fromUserId}
           fullWidth
         >
-          <MenuItem value={SELECT_NONE}>共有</MenuItem>
-          {fromUsers.map((u) => (
-            <MenuItem key={u.id} value={u.id}>
-              {u.name}
-            </MenuItem>
-          ))}
+          {fromOptions.map(partyItem)}
         </TextField>
       </Stack>
       <TextField
@@ -99,5 +88,14 @@ export function ExpenseFields({
       />
       <Calculator onPress={(key) => onChangeAmount(pressKey(amount, key))} />
     </>
+  );
+}
+
+/** To・From の選択肢 1 つ。共有（null）は Select の値として SELECT_NONE にする */
+function partyItem({ value, label }: { value: string | null; label: string }) {
+  return (
+    <MenuItem key={value ?? SELECT_NONE} value={value ?? SELECT_NONE}>
+      {label}
+    </MenuItem>
   );
 }
