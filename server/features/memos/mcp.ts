@@ -8,6 +8,7 @@ import * as service from './service.ts';
 /**
  * メモを書く MCP ツール。読むのは `read_timeline`（types=["memo"]）、消すのは `delete_entry`。
  * メモは書いた人の言葉なので、直す・消すは書いた本人だけ（service が確かめる）。
+ * 書いたメモには、呼んでいる MCP クライアントの名前を残す。
  */
 
 const body = memoSchema.shape.body.describe('本文（500 文字まで、プレーンテキスト）');
@@ -23,7 +24,13 @@ export const registerMemoTools: McpRegistrar = (server, ctx) => {
       annotations: ADDITIVE,
     },
     async (input) => {
-      const [memo, people] = await Promise.all([service.addMemo(input, ctx.userId), ctx.people()]);
+      // クライアントの名前とユーザーの一覧は並べて読む（同じ時点の読み取りは 1 往復にまとまる）
+      const [memo, people] = await Promise.all([
+        ctx
+          .clientName()
+          .then((mcpClientName) => service.addMemo(input, { userId: ctx.userId, mcpClientName })),
+        ctx.people(),
+      ]);
       return jsonResult(formatMemo(memo, people));
     },
   );

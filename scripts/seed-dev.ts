@@ -182,8 +182,14 @@ await lemon.logCare(
   { userId: partner.id },
 );
 // メモの日時は書いた時刻（今）になる
-await memos.addMemo({ body: '週末は天気が良さそう。\nベランダの掃除をしたい。' }, partner.id);
-await memos.addMemo({ body: '洗剤の詰め替えが残り少ない' }, me.id);
+await memos.addMemo(
+  { body: '週末は天気が良さそう。\nベランダの掃除をしたい。' },
+  { userId: partner.id },
+);
+await memos.addMemo(
+  { body: '洗剤の詰め替えが残り少ない' },
+  { userId: me.id, mcpClientName: 'Claude' },
+);
 
 console.log('seeded: taro@example.com / hanako@example.com (password-123456)');
 process.exit(0);

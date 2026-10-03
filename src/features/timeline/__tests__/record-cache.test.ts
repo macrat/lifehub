@@ -10,6 +10,7 @@ const memo = (id: string, body: string): Memo => ({
   id,
   body,
   createdBy: 'u1',
+  mcpClientName: null,
   createdAt: '2030-05-02T03:00:00.000Z',
   pinned: false,
 });

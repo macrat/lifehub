@@ -23,6 +23,7 @@ export async function insert(row: {
   id: string;
   body: string;
   createdBy: string;
+  mcpClientName: string | null;
 }): Promise<MemoRow> {
   return insertOnce(memos, row);
 }
@@ -32,7 +33,7 @@ export async function exists(id: string): Promise<boolean> {
   return row !== undefined;
 }
 
-/** createdBy が書いたメモの本文を置き換える（置き換えた行を返す）。書いた人と書いた時刻は変えない */
+/** createdBy が書いたメモの本文を置き換える（置き換えた行を返す）。書いた人・書いた MCP クライアント・書いた時刻は変えない */
 export async function update(
   id: string,
   createdBy: string,

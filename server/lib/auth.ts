@@ -17,8 +17,8 @@ import { env, resolveBaseUrl } from './env.ts';
  *   `emailAndPassword.disableSignUp` は内部呼び出しも拒否するため使わない。
  * - ID は全テーブル共通規約に合わせて UUID v7 を生成する。
  * - MCP 向けに LifeHub 自身を OAuth 2.1 認可サーバーにする（@better-auth/mcp = oauth-provider の MCP 向け設定）。
- *   アクセストークンは JWT（jwt プラグイン）。クライアントの識別は Client ID Metadata Documents（cimd）と
- *   Dynamic Client Registration の両方を受け付ける。
+ *   アクセストークンは JWT（jwt プラグイン）。クライアントの識別は Client ID Metadata Documents（cimd）だけを受け付ける
+ *   （Dynamic Client Registration は閉じる。理由は docs/features/mcp.md）。
  */
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
@@ -63,16 +63,32 @@ const options = {
     minPasswordLength: PASSWORD_MIN_LENGTH,
     autoSignIn: false,
   },
-  // /token は jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
-  disabledPaths: ['/sign-up/email', '/token'],
+  disabledPaths: [
+    '/sign-up/email',
+    // jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
+    '/token',
+    // oauth-provider の、クライアントと同意を画面から管理する口と DCR。使わないので閉じる（docs/features/mcp.md。
+    // 開ける口は server/__tests__/oauth-discovery.test.ts が確かめる）
+    '/oauth2/register',
+    '/oauth2/create-client',
+    '/oauth2/get-client',
+    '/oauth2/get-clients',
+    '/oauth2/update-client',
+    '/oauth2/client/rotate-secret',
+    '/oauth2/delete-client',
+    '/oauth2/public-client',
+    '/oauth2/public-client-prelogin',
+    '/oauth2/get-consent',
+    '/oauth2/get-consents',
+    '/oauth2/update-consent',
+    '/oauth2/delete-consent',
+  ],
   plugins: [
     jwt({ disableSettingJwtHeader: true }),
     mcp({
       loginPage: '/login',
       consentPage: '/consent',
       resource: MCP_RESOURCE,
-      allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
     }),
     cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
   ],

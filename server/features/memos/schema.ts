@@ -19,6 +19,8 @@ export const memos = pgTable('memos', {
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),
+  /** MCP で書いたメモの、書いた MCP クライアントの名前（書いた時点の名前を残す）。画面で書いたメモは null */
+  mcpClientName: text('mcp_client_name'),
 });
 
 export type MemoRow = typeof memos.$inferSelect;

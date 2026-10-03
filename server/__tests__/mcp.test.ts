@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays, today } from '../../shared/date.ts';
+import { newId } from '../../shared/id.ts';
+import { db } from '../lib/db/client.ts';
+import { oauthClients } from '../lib/db/oauth-schema.ts';
 import { resetUsers } from '../lib/db/test-db.ts';
 import { call, connect, type Day, type Entry, fail, readDays, run } from './mcp-client.ts';
 
@@ -145,7 +148,7 @@ describe('MCP server', () => {
     it('メモは書いた本人だけが直せ、タイムラインで q で探せる', async () => {
       const client = await connect(userId);
       const memo = await call<Entry>(client, 'add_memo', { body: '洗剤が切れそう' });
-      expect(memo).toMatchObject({ type: 'memo', body: '洗剤が切れそう', by: 'A' });
+      expect(memo).toMatchObject({ type: 'memo', body: '洗剤が切れそう', by: 'A', via: 'MCP' });
 
       const other = await connect(otherId);
       expect(await fail(other, 'update_memo', { ref: memo.ref, body: '別' })).toContain('ほかの人');
@@ -155,6 +158,17 @@ describe('MCP server', () => {
 
       await run(client, 'delete_entry', { ref: memo.ref });
       expect(await readDays(client, { q: '洗剤', from: today(), to: today() })).toEqual([]);
+    });
+
+    it('メモには書いた MCP クライアントの登録の名前を残す', async () => {
+      await db.insert(oauthClients).values({
+        id: newId(),
+        clientId: 'claude',
+        name: 'Claude',
+        redirectUris: ['https://claude.ai/api/mcp/auth_callback'],
+      });
+      const memo = await call<Entry>(await connect(userId, 'claude'), 'add_memo', { body: 'ねじ' });
+      expect(memo).toMatchObject({ by: 'A', via: 'Claude' });
     });
   });
 

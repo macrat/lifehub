@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
+import { getAuth } from '../lib/auth.ts';
 
 describe('OAuth 2.1 / MCP の探索と保護', () => {
   it('認可サーバーのメタデータをオリジン直下の /.well-known から返す', async () => {
@@ -10,7 +11,9 @@ describe('OAuth 2.1 / MCP の探索と保護', () => {
     expect(body.authorization_endpoint).toBe('http://localhost:5173/api/auth/oauth2/authorize');
     expect(body.token_endpoint).toBe('http://localhost:5173/api/auth/oauth2/token');
     expect(body.code_challenge_methods_supported).toEqual(['S256']);
-    expect(body.registration_endpoint).toBe('http://localhost:5173/api/auth/oauth2/register');
+    // クライアントの識別は Client ID Metadata Documents だけ（Dynamic Client Registration の口は載せない）
+    expect(body.client_id_metadata_document_supported).toBe(true);
+    expect(body.registration_endpoint).toBeUndefined();
   });
 
   it('保護リソースのメタデータをオリジン直下の /.well-known から返す', async () => {
@@ -46,5 +49,36 @@ describe('OAuth 2.1 / MCP の探索と保護', () => {
 
   it('jwt プラグインの /token（セッション → JWT）は閉じている', async () => {
     expect((await app.request('/api/auth/token')).status).toBe(404);
+  });
+
+  it('oauth-provider の口は、MCP の認可フローが使うものだけを HTTP に開ける', async () => {
+    // better-auth を上げて口が増えたら、ここで落ちる。使うなら OPEN に足し、使わないなら disabledPaths に足す
+    const OPEN = [
+      '/oauth2/authorize',
+      '/oauth2/consent',
+      '/oauth2/continue',
+      '/oauth2/token',
+      '/oauth2/introspect',
+      '/oauth2/revoke',
+      '/oauth2/userinfo',
+      '/oauth2/end-session',
+      '/oauth2/end-session/confirm',
+    ];
+    // 口の型は口ごとに違うので、ここで使う所だけの形で読む
+    type Endpoint = {
+      path?: string;
+      options: { method: string | string[]; metadata?: { SERVER_ONLY?: boolean } };
+    };
+    const endpoints = (Object.values((await getAuth()).api) as Endpoint[]).filter(
+      (e): e is Endpoint & { path: string } =>
+        !!e.path?.startsWith('/oauth2/') && !e.options.metadata?.SERVER_ONLY,
+    );
+    const open: string[] = [];
+    for (const { path, options } of endpoints) {
+      const method = [options.method].flat()[0] ?? 'GET';
+      const res = await app.request(`/api/auth${path}`, { method });
+      if (res.status !== 404) open.push(path);
+    }
+    expect(open.sort()).toEqual(OPEN.sort());
   });
 });

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { expect, test } from '@playwright/test';
-import { SIGNED_OUT } from './auth.ts';
+import { AUTH_FILE, SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
 
 const BASE = 'http://localhost:3000';
@@ -11,26 +12,34 @@ function base64url(buffer: Buffer): string {
 }
 
 /**
- * MCP クライアントと同じ手順: Dynamic Client Registration → 認可（ログイン → 同意）→ PKCE でトークン → MCP 呼び出し。
+ * MCP クライアントと同じ手順: 認可（ログイン → 同意）→ PKCE でトークン → MCP 呼び出し。
  * 認可の途中でログインを求められ、ログインすると認可へ戻るところまで通すので、ログインしていない状態から始める。
+ * クライアントの登録は、本番で受け付ける Client ID Metadata Documents だと LifeHub が公開の https の URL から
+ * メタデータ文書を取りに行くので、E2E の中では用意できない。代わりにサーバー内部から better-auth の
+ * `createOAuthClient` で作る（HTTP の口は閉じている）。
+ * 登録した後の認可・トークン・MCP は登録の仕方に依らず同じ。
  */
 test.use({ storageState: SIGNED_OUT });
 
 test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({ page, request }) => {
   // http のループバックへのリダイレクトは native クライアント（Claude Desktop 等と同じ）にだけ許される
   const redirectUri = 'http://127.0.0.1:3000/oauth-callback';
-  const registered = await request.post('/api/auth/oauth2/register', {
-    data: {
+  // 作るのは E2E ユーザー（ログイン状態のファイルの Cookie で名乗る）。サーバーのコードはこのテストでだけ読み込む
+  const { cookies } = JSON.parse(await readFile(AUTH_FILE, 'utf8')) as {
+    cookies: { name: string; value: string }[];
+  };
+  const { getAuth } = await import('../server/lib/auth.ts');
+  const { client_id: clientId } = await (await getAuth()).api.createOAuthClient({
+    headers: new Headers({
+      cookie: cookies.map(({ name, value }) => `${name}=${value}`).join('; '),
+    }),
+    body: {
       client_name: 'E2E MCP Client',
       redirect_uris: [redirectUri],
       token_endpoint_auth_method: 'none',
       application_type: 'native',
-      grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'],
     },
   });
-  expect(registered.ok(), await registered.text()).toBe(true);
-  const { client_id: clientId } = (await registered.json()) as { client_id: string };
 
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());

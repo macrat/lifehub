@@ -50,7 +50,7 @@ describe('MCP Events の購読と配信', () => {
     expect(
       await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() }),
     ).toEqual({ ok: false, reason: 'challenge_failed' });
-    await addMemo({ body: '牛乳' }, userId);
+    await addMemo({ body: '牛乳' }, { userId });
     await deliver();
     expect(post).toHaveBeenCalledTimes(1);
   });
@@ -60,7 +60,7 @@ describe('MCP Events の購読と配信', () => {
     await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() });
     await subscribe(userId, { name: 'expense.changed', url: URL_A, secret: newSecret() });
 
-    const memo = await addMemo({ body: '牛乳を買う' }, userId);
+    const memo = await addMemo({ body: '牛乳を買う' }, { userId });
     await updateMemo(memo.id, { body: '牛乳を 2 本買う' }, userId);
     await deleteMemo(memo.id, userId);
     // 購読していない種類は届かない
@@ -143,7 +143,7 @@ describe('MCP Events の購読と配信', () => {
     expect(again.ok).toBe(true);
     expect(received).toHaveLength(1);
 
-    await addMemo({ body: '牛乳' }, userId);
+    await addMemo({ body: '牛乳' }, { userId });
     await deliver();
     const [event] = events();
     for (const secret of [oldSecret, newerSecret]) {
@@ -159,7 +159,7 @@ describe('MCP Events の購読と配信', () => {
       r.body.includes('"verification"') ? 200 : (statuses.shift() ?? 200),
     );
     await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() });
-    const memo = await addMemo({ body: '牛乳' }, userId);
+    const memo = await addMemo({ body: '牛乳' }, { userId });
     // 送り直しの間（数秒）はフェイクタイマーで飛ばす。1 度目が届いてから、送り直すまでの時間を進める
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     const delivering = deliver();
@@ -193,7 +193,7 @@ describe('MCP Events の購読と配信', () => {
     await subscribe(userId, { name: 'memo.changed', url: URL_A, secret: newSecret() });
     await unsubscribe(userId, { name: 'memo.changed', url: URL_A });
     await unsubscribe(userId, { name: 'memo.changed', url: URL_A });
-    await addMemo({ body: '牛乳' }, userId);
+    await addMemo({ body: '牛乳' }, { userId });
     await deliver();
     expect(events()).toEqual([]);
   });

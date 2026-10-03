@@ -8,18 +8,21 @@ import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
-/** id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
+/**
+ * id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * mcpClientName は MCP で書いたときの MCP クライアントの名前。書いた人はトークンのユーザーなので、直す・消すはその人ができる
+ */
 export async function addMemo(
   input: MemoInput,
-  userId: string,
+  { userId, mcpClientName = null }: { userId: string; mcpClientName?: string | null },
   id: string = newId(),
 ): Promise<Memo> {
-  const memo = toMemo(await repository.insert({ ...input, id, createdBy: userId }));
+  const memo = toMemo(await repository.insert({ ...input, id, createdBy: userId, mcpClientName }));
   publishChanged({ type: 'memo', record: memo }, 'added', { userId });
   return memo;
 }
 
-/** 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない） */
+/** 本文を置き換える。書いた人・書いた MCP クライアント・書いた時刻は変えない（タイムラインの位置は動かない） */
 export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<Memo> {
   const updated = await repository.update(id, actorId, input.body);
   if (!updated) return rejectWrite(id);
@@ -73,6 +76,7 @@ function toMemo(row: MemoRow): Memo {
     id: row.id,
     body: row.body,
     createdBy: row.createdBy,
+    mcpClientName: row.mcpClientName,
     createdAt: row.createdAt.toISOString(),
     pinned: row.pinned,
   };

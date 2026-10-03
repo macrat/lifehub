@@ -7,7 +7,7 @@ import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
-import { listPeople } from './features/users/service.ts';
+import { getOAuthClientName, listPeople } from './features/users/service.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, McpRegistrar, Person } from './lib/mcp/types.ts';
@@ -38,7 +38,7 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-function createMcpServer({ userId }: { userId: string }): McpServer {
+function createMcpServer({ userId, clientId }: { userId: string; clientId?: string }): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -50,6 +50,8 @@ function createMcpServer({ userId }: { userId: string }): McpServer {
       people ??= listPeople();
       return people;
     },
+    // 名前の無いクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す
+    clientName: async () => (clientId && (await getOAuthClientName(clientId))) || 'MCP',
   };
   for (const register of registrars) register(server, ctx);
   return server;
@@ -62,17 +64,17 @@ function createMcpServer({ userId }: { userId: string }): McpServer {
 const handler = createMcpHandler(({ authInfo }) => {
   const userId = authInfo?.extra?.userId;
   if (typeof userId !== 'string') throw new Error('MCP request without a verified user');
-  return createMcpServer({ userId });
+  return createMcpServer({ userId, clientId: authInfo?.clientId });
 });
 
 /**
  * 検証済みのユーザーとして MCP の要求を処理する（MCP エンドポイントとテストが同じ口を通る）。
- * 誰の要求かは `authInfo.extra.userId` で組み立て関数に渡す。ツールが読むのはユーザーだけなので、
- * AuthInfo のほかの項目（トークン・クライアント・スコープ）は空にする。
+ * 誰の要求かは `authInfo.extra.userId`、どの MCP クライアントからかは `authInfo.clientId` で組み立て関数に渡す。
+ * ツールが読むのはユーザーとクライアントだけなので、AuthInfo のほかの項目（トークン・スコープ）は空にする。
  */
-export function serveMcp(request: Request, userId: string): Promise<Response> {
+export function serveMcp(request: Request, userId: string, clientId = ''): Promise<Response> {
   return handler.fetch(request, {
-    authInfo: { token: '', clientId: '', scopes: [], extra: { userId } },
+    authInfo: { token: '', clientId, scopes: [], extra: { userId } },
   });
 }
 
@@ -80,6 +82,7 @@ export function serveMcp(request: Request, userId: string): Promise<Response> {
  * MCP エンドポイント。
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
+ * トークンの sub をユーザー、azp（トークンを受け取った OAuth クライアント）を MCP クライアントとしてツールに渡す。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
   const authorize = requireMcpAuth(
@@ -88,7 +91,7 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
       setSentryUser(userId);
-      return serveMcp(request, userId);
+      return serveMcp(request, userId, typeof claims.azp === 'string' ? claims.azp : undefined);
     },
     { resource: MCP_RESOURCE },
   );

@@ -28,17 +28,26 @@ describe('memos service', () => {
 
   it('同じ id の作成を送り直しても二重に作らず、後から直した本文も巻き戻さない', async () => {
     const id = newId();
-    await addMemo({ body: '最初' }, userId, id);
+    await addMemo({ body: '最初' }, { userId }, id);
     await updateMemo(id, { body: '直した' }, userId);
-    await addMemo({ body: '最初' }, userId, id);
+    await addMemo({ body: '最初' }, { userId }, id);
     expect(await listForTimeline(undefined)).toMatchObject([
-      { id, body: '直した', createdBy: userId },
+      { id, body: '直した', createdBy: userId, mcpClientName: null },
+    ]);
+  });
+
+  it('MCP で書いたメモはクライアントの名前を持ち、本文を直しても名前は残る', async () => {
+    const id = newId();
+    await addMemo({ body: '最初' }, { userId, mcpClientName: 'Claude' }, id);
+    await updateMemo(id, { body: '直した' }, userId);
+    expect(await listForTimeline(undefined)).toMatchObject([
+      { id, body: '直した', createdBy: userId, mcpClientName: 'Claude' },
     ]);
   });
 
   it('編集しても書いた時刻は動かず、消したものは消える', async () => {
     const id = newId();
-    await addMemo({ body: '最初' }, userId, id);
+    await addMemo({ body: '最初' }, { userId }, id);
     const [before] = await listForTimeline(undefined);
     await updateMemo(id, { body: '直した' }, userId);
     const [after] = await listForTimeline(undefined);
@@ -53,15 +62,15 @@ describe('memos service', () => {
   it('ほかの人のメモは直すことも消すこともできない', async () => {
     const otherId = await createTestUser('B');
     const id = newId();
-    await addMemo({ body: '最初' }, userId, id);
+    await addMemo({ body: '最初' }, { userId }, id);
     await expect(updateMemo(id, { body: '横から' }, otherId)).rejects.toThrow(ForbiddenError);
     await expect(deleteMemo(id, otherId)).rejects.toThrow(ForbiddenError);
     expect(await listForTimeline(undefined)).toMatchObject([{ id, body: '最初' }]);
   });
 
   it('ピン止めしたメモを書いた時刻の新しい順に返し、外せば返さない。書いた時刻は動かない', async () => {
-    const older = await addMemo({ body: '古い' }, userId);
-    const newer = await addMemo({ body: '新しい' }, userId);
+    const older = await addMemo({ body: '古い' }, { userId });
+    const newer = await addMemo({ body: '新しい' }, { userId });
     await setMemoPinned(older.id, true);
     await setMemoPinned(newer.id, true);
     expect(await listPinnedMemos()).toMatchObject([
@@ -74,15 +83,15 @@ describe('memos service', () => {
   });
 
   it('ピン止めしても書いた人は変わらず、無いメモは見つからない', async () => {
-    const memo = await addMemo({ body: '最初' }, userId);
+    const memo = await addMemo({ body: '最初' }, { userId });
     await setMemoPinned(memo.id, true);
     expect(await listPinnedMemos()).toMatchObject([{ id: memo.id, createdBy: userId }]);
     await expect(setMemoPinned(newId(), true)).rejects.toThrow(NotFoundError);
   });
 
   it('キーワードは本文の部分一致（大文字小文字を区別しない）', async () => {
-    await addMemo({ body: 'Lemon の新芽' }, userId);
-    await addMemo({ body: '買い物' }, userId);
+    await addMemo({ body: 'Lemon の新芽' }, { userId });
+    await addMemo({ body: '買い物' }, { userId });
     expect((await listForTimeline('lemon')).map((m) => m.body)).toEqual(['Lemon の新芽']);
   });
 });

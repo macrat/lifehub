@@ -10,6 +10,11 @@ export async function listUsers() {
   return repository.findAll();
 }
 
+/** OAuth クライアント（MCP クライアント）の登録の名前。名前を登録しないクライアントは null */
+export async function getOAuthClientName(clientId: string): Promise<string | null> {
+  return repository.findOAuthClientName(clientId);
+}
+
 /** ユーザーの ID と名前（登録順）。MCP の出力に名前を出し、入力の名前を ID に引き当てるのに使う */
 export async function listPeople(): Promise<{ id: string; name: string }[]> {
   return (await listUsers()).map(({ id, name }) => ({ id, name }));

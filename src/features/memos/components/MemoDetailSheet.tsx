@@ -18,7 +18,7 @@ type Props = {
 
 /**
  * メモの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーからピン止め（外す）と削除をする。
- * 直せるのは本文だけで、書いた人と時刻は変わらない。
+ * 直せるのは本文だけで、書いた人と時刻は変わらない。MCP で書いたメモは書いた人の代わりに MCP クライアントの名前を出す。
  * 直す・消すは書いた本人だけで（サーバーも同じ規則で拒む）、ほかの人のメモは鉛筆も削除も出さない。
  * ピン止めはホームの並べ方を変えるだけなので、ほかの人のメモでもできる（三点リーダーにピン止めだけを出す）。
  * ピン止めしてもシートは閉じない（編集の途中でもピン止めでき、打ちかけの本文を失わない）。
@@ -63,7 +63,7 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
       ) : (
         <>
           <Typography color="textSecondary">
-            {[authorName(memo.createdBy), formatDateTime(memo.createdAt)]
+            {[memo.mcpClientName ?? authorName(memo.createdBy), formatDateTime(memo.createdAt)]
               .filter(Boolean)
               .join('・')}
           </Typography>
