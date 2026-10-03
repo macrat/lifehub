@@ -5,7 +5,7 @@ import {
   occurrenceTargetSchema,
   updateEventSchema,
 } from '../../../../shared/validation/events.ts';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
 import { createEvent, deleteEvent, updateEvent } from '../../events/service.ts';
 import {
@@ -45,9 +45,7 @@ let otherId: string;
 
 describe('calendar-feeds service', () => {
   beforeEach(async () => {
-    await clearTables();
-    userId = await createTestUser('A');
-    otherId = await createTestUser('B');
+    ({ userId, partnerId: otherId } = await resetUsers());
   });
 
   it('発行した URL で予定を配信し、最後に読まれた日時を記録する', async () => {
