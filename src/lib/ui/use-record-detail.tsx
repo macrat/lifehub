@@ -33,20 +33,6 @@ export function useRecordDetail({
   onClose,
 }: Options) {
   const [editing, setEditing] = useState(initialEditing && editable);
-  const deleteAction: RecordAction[] = remove
-    ? [
-        {
-          label: '削除',
-          icon: <DeleteIcon />,
-          danger: true,
-          onClick: () => {
-            if (!window.confirm(remove.confirm)) return;
-            remove.run();
-            onClose();
-          },
-        },
-      ]
-    : [];
   return {
     editing,
     sheet: {
@@ -54,7 +40,21 @@ export function useRecordDetail({
       onClose,
       editing,
       ...(editable ? { onEdit: () => setEditing(true) } : {}),
-      actions: [...actions, ...deleteAction],
+      actions: remove ? [...actions, deleteAction(remove, onClose)] : actions,
+    },
+  };
+}
+
+/** 三点リーダーの削除。確かめてから消し、結果を待たずに閉じる */
+function deleteAction(remove: NonNullable<Options['remove']>, onClose: () => void): RecordAction {
+  return {
+    label: '削除',
+    icon: <DeleteIcon />,
+    danger: true,
+    onClick: () => {
+      if (!window.confirm(remove.confirm)) return;
+      remove.run();
+      onClose();
     },
   };
 }

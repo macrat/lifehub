@@ -22,11 +22,7 @@ export async function updateMemo(id: string, input: MemoInput, actorId: string):
   return updated ? toMemo(updated) : rejectWrite(id);
 }
 
-/**
- * ピン止めする（pinned = true）か外す。誰が書いたメモでもできる。
- * WHY 本人に限らない: ピン止めはメモの言葉を変えず、家族で見るホームの並べ方を変えるだけなので、
- * 直す・消す（書いた人の言葉を変える）とは違って共有の記録と同じに扱う。
- */
+/** ピン止めする（pinned = true）か外す。誰が書いたメモでもできる（理由は docs/features/memos.md の「ピン止め」） */
 export async function setMemoPinned(id: string, pinned: boolean): Promise<void> {
   if (!(await repository.setPinned(id, pinned))) throw new NotFoundError('メモが見つかりません');
 }

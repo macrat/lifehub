@@ -49,10 +49,8 @@ const recordSources = {
 const filteredSources: TimelineSource[] = [events.timelineSource, ...Object.values(recordSources)];
 
 /**
- * 絞り込んでいないときの出どころ。ピン止めしたメモは画面がタイムラインの上に固定して出すので、メモはそれを除いたもの。
- * WHY NOT ピン止めしたメモをこのページの一番上に混ぜる: 画面の手元の控えは行を置く日でページに振り分ける（`entryDay`）
- * ので、書いた日の古いメモを最新のページに置くには、ホームでだけ置く日を変える規則が要る。MCP の日ごとの読み出し
- * （`listDays`）は同じ行を書いた日に置くので、規則が 2 つに割れる。
+ * 絞り込んでいないときの出どころ。ピン止めしたメモは画面がタイムラインの上に固定して出すので、メモはそれを除いたもの
+ * （理由は docs/features/home.md の「API」）。
  */
 const unfilteredSources: TimelineSource[] = [
   events.timelineSource,

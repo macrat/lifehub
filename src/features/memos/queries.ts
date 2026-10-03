@@ -57,7 +57,7 @@ export function useAddMemo() {
       // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
       // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
       const createdBy = signedInUserId(client);
-      applyMemo(client, id, {
+      memoCache.apply(client, id, {
         id,
         body,
         createdBy,
