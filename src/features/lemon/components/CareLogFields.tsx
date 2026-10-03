@@ -4,22 +4,12 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import FormLabel from '@mui/material/FormLabel';
 import TextField from '@mui/material/TextField';
-import {
-  CARE_TYPE_LABELS,
-  CARE_TYPES,
-  type CareType,
-} from '../../../../shared/validation/lemon.ts';
+import { CARE_TYPE_LABELS, CARE_TYPES } from '../../../../shared/validation/lemon.ts';
 import { toDateTimeLocalValue } from '../../../lib/date.ts';
-import type { FormErrors } from '../../../lib/form.ts';
+import type { CareLogFieldsState } from '../use-care-log-form.ts';
 
-type Props = {
-  careTypes: CareType[];
-  onToggleCareType: (careType: CareType, checked: boolean) => void;
-  /** 日時の既定値。追加では今、編集ではその記録の日時 */
-  doneAt?: string;
-  note?: string | null;
-  errors: FormErrors;
-};
+/** 日時の既定値（doneAt）は、追加では今、編集ではその記録の日時 */
+type Props = CareLogFieldsState;
 
 /** 世話の記録の項目（やったこと・日時・メモ）。追加のフォームと詳細の編集で同じものを使う。 */
 export function CareLogFields({ careTypes, onToggleCareType, doneAt, note, errors }: Props) {

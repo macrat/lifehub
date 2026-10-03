@@ -6,7 +6,7 @@ import {
 } from '../../../shared/validation/lemon.ts';
 import { fromDateTimeLocalValue } from '../../lib/date.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
-import type { CareLogBody } from './queries.ts';
+import type { CareLog, CareLogBody } from './queries.ts';
 
 /** 追加ボタンから始めたときに最初からチェックを入れておく項目。いちばん高頻度にやるのが葉水 */
 export const DEFAULT_CARE_TYPES: CareType[] = ['mist'];
@@ -17,15 +17,16 @@ export const DEFAULT_CARE_TYPES: CareType[] = ['mist'];
  * FormData から読むのではなくここで状態として持ち、チェックした瞬間に表示へ反映する。
  */
 export function useCareLogForm({
-  initialCareTypes,
+  initial,
   onSubmit,
   onSaved,
 }: {
-  initialCareTypes: CareType[];
+  /** 最初に入れておく値。編集なら今の記録、追加なら最初にチェックを入れておく項目だけ（日時は今、メモは空） */
+  initial: Pick<CareLog, 'careTypes'> & Partial<Pick<CareLog, 'doneAt' | 'note'>>;
   onSubmit: (input: CareLogBody) => Promise<unknown>;
   onSaved: () => void;
 }) {
-  const [careTypes, setCareTypes] = useState(initialCareTypes);
+  const [careTypes, setCareTypes] = useState(initial.careTypes);
   const form = useFormSubmit({
     schema: careLogSchema,
     values: (fd) => {
@@ -41,11 +42,22 @@ export function useCareLogForm({
   });
   return {
     ...form,
+    /** 今チェックしている項目（詳細シートの見出しに出す） */
     careTypes,
-    /** 保存を待たずに正規化する（詳細シートの見出しはこの並びをそのまま出すため） */
-    toggleCareType: (careType: CareType, checked: boolean) =>
-      setCareTypes((prev) =>
-        normalizeCareTypes(checked ? [...prev, careType] : prev.filter((t) => t !== careType)),
-      ),
+    /** `CareLogFields` に渡す入力欄の状態 */
+    fields: {
+      careTypes,
+      /** 保存を待たずに正規化する（詳細シートの見出しはこの並びをそのまま出すため） */
+      onToggleCareType: (careType: CareType, checked: boolean) =>
+        setCareTypes((prev) =>
+          normalizeCareTypes(checked ? [...prev, careType] : prev.filter((t) => t !== careType)),
+        ),
+      doneAt: initial.doneAt,
+      note: initial.note,
+      errors: form.errors,
+    },
   };
 }
+
+/** `CareLogFields` に渡す入力欄の状態 */
+export type CareLogFieldsState = ReturnType<typeof useCareLogForm>['fields'];

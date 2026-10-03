@@ -2,11 +2,10 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import { formatYen } from '../format.ts';
-import { type Expense, useDeleteExpense, useUpdateExpense } from '../queries.ts';
-import { useExpenseForm } from '../use-expense-form.ts';
+import type { Expense } from '../queries.ts';
+import { useExpenseDetail } from '../use-expense-detail.ts';
 import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {
@@ -23,24 +22,12 @@ type Props = {
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }: Props) {
-  const updateExpense = useUpdateExpense();
-  const deleteExpense = useDeleteExpense();
-  const { fields, sheet } = useExpenseForm({
-    initial: expense,
-    onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),
-    onSaved: onClose,
-  });
-  const detail = useRecordDetail({
-    initialEditing,
-    form: sheet,
-    remove: { confirm: 'この立替を削除しますか？', run: () => deleteExpense.mutate(expense.id) },
-    onClose,
-  });
+  const detail = useExpenseDetail(expense, initialEditing, onClose);
 
   return (
     <RecordSheet title={expense.description} {...detail.sheet}>
       {detail.editing ? (
-        <ExpenseFields initial={expense} {...fields} />
+        <ExpenseFields {...detail.fields} />
       ) : (
         <>
           <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>

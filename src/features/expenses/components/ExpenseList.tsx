@@ -50,7 +50,7 @@ type Props = Omit<HistoryListProps<Expense>, 'children'> & {
 
 /**
  * 立替の履歴（上が新しく下が古い）。最初に出す位置は `HistoryList` が決め、下へスクロールすると古いほうのページを
- * 読み足す（`useExpenseHistory`、`HistoryList`）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる
+ * 読み足す（`expenseHistory` を画面が `useScreenHistory` で購読し、`HistoryList` で出す）。使った日ごとに見出しを立て、その下に 1 件 1 行で並べる
  * （日も行も `HistoryList` が渡す順のまま）。
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、中身だけが違う:
  * 印は誰から誰へ渡ったかのベン図、主列は金額、本文は内容と名前。

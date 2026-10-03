@@ -8,13 +8,13 @@ import { MemoField } from './MemoField.tsx';
  */
 export function MemoForm({ onClose }: { onClose: () => void }) {
   const addMemo = useAddMemo();
-  const { body, setBody, errors, sheet } = useMemoForm({
+  const { fields, sheet } = useMemoForm({
     onSubmit: addMemo.mutateAsync,
     onSaved: onClose,
   });
   return (
     <RecordSheet {...sheet} onClose={onClose} title="メモを追加">
-      <MemoField value={body} onChange={setBody} error={errors.body} />
+      <MemoField {...fields} />
     </RecordSheet>
   );
 }

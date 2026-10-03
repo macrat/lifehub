@@ -11,7 +11,7 @@ type Props = {
 
 /**
  * 立替を追加する。保存先（`useAddExpense`）はこの中で持つので、どこから開いても同じ所へ保存する
- * （詳細の `ExpenseDetailSheet` が自分で更新の mutation を持つのと同じ）。編集は詳細から行う。
+ * （詳細の `useExpenseDetail` が更新の mutation を持つのと同じ）。編集は詳細から行う。
  */
 export function ExpenseForm({ initial, onClose }: Props) {
   const addExpense = useAddExpense();
@@ -23,7 +23,7 @@ export function ExpenseForm({ initial, onClose }: Props) {
 
   return (
     <RecordSheet {...sheet} onClose={onClose} title="立替を追加">
-      <ExpenseFields initial={initial} {...fields} />
+      <ExpenseFields {...fields} />
     </RecordSheet>
   );
 }
