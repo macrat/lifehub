@@ -5,9 +5,10 @@ import { createMcpServer } from '../mcp.ts';
 
 /** MCP のテストで、サーバーにつないでツールを呼ぶための共通の手順 */
 
-export async function connect(userId: string): Promise<Client> {
+/** clientId はアクセストークンを受け取った OAuth クライアント（登録していなければ名前は "MCP"） */
+export async function connect(userId: string, clientId = 'test-client'): Promise<Client> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createMcpServer({ userId });
+  const server = createMcpServer({ userId, clientId });
   await server.connect(serverTransport);
   const client = new Client({ name: 'test', version: '0.0.0' });
   await client.connect(clientTransport);

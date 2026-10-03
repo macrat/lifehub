@@ -7,16 +7,29 @@ import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
+/**
+ * メモを書いた所。画面から書いたメモは人だけ、MCP で書いたメモは人と MCP クライアントの名前を持つ。
+ * MCP で書いたメモも書いた人（トークンのユーザー）のものなので、直す・消すはその人ができる
+ */
+export type MemoAuthor = { userId: string; mcpClientName?: string };
+
 /** id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function addMemo(
   input: MemoInput,
-  userId: string,
+  { userId, mcpClientName }: MemoAuthor,
   id: string = newId(),
 ): Promise<Memo> {
-  return toMemo(await repository.insert({ ...input, id, createdBy: userId }));
+  return toMemo(
+    await repository.insert({
+      ...input,
+      id,
+      createdBy: userId,
+      mcpClientName: mcpClientName ?? null,
+    }),
+  );
 }
 
-/** 本文を置き換える。書いた人と書いた時刻は変えない（タイムラインの位置は動かない） */
+/** 本文を置き換える。書いた人・書いた MCP クライアント・書いた時刻は変えない（タイムラインの位置は動かない） */
 export async function updateMemo(id: string, input: MemoInput, actorId: string): Promise<Memo> {
   const updated = await repository.update(id, actorId, input.body);
   return updated ? toMemo(updated) : rejectWrite(id);
@@ -47,6 +60,7 @@ function toMemo(row: MemoRow): Memo {
     id: row.id,
     body: row.body,
     createdBy: row.createdBy,
+    mcpClientName: row.mcpClientName,
     createdAt: row.createdAt.toISOString(),
   };
 }

@@ -295,7 +295,7 @@ describe('timeline service', () => {
 
   it('メモは書いた人と一緒に、書いた時刻に並ぶ', async () => {
     const realNow = new Date();
-    await addMemo({ body: 'ひとこと' }, partnerId);
+    await addMemo({ body: 'ひとこと' }, { userId: partnerId });
     const page = await getTimelinePage({}, realNow);
     expect(page.items).toMatchObject([
       { type: 'memo', memo: { body: 'ひとこと', createdBy: partnerId } },

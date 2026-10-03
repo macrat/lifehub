@@ -8,7 +8,7 @@ export const memosRouter = router({
   create: procedure
     .input(createMemoRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addMemo(input, (await ctx.user).id, id);
+      await service.addMemo(input, { userId: (await ctx.user).id }, id);
     }),
   update: procedure.input(withId(memoSchema)).mutation(async ({ ctx, input: { id, ...input } }) => {
     await service.updateMemo(id, input, (await ctx.user).id);

@@ -7,7 +7,7 @@ import { registerExpenseTools } from './features/expenses/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
-import { listUsers } from './features/users/service.ts';
+import { getOAuthClientName, listUsers } from './features/users/service.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, Person, ToolRegistrar } from './lib/mcp/types.ts';
@@ -37,7 +37,14 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-export function createMcpServer({ userId }: { userId: string }): McpServer {
+export function createMcpServer({
+  userId,
+  clientId,
+}: {
+  userId: string;
+  /** アクセストークンを受け取った OAuth クライアント（JWT の azp） */
+  clientId: string;
+}): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -49,6 +56,7 @@ export function createMcpServer({ userId }: { userId: string }): McpServer {
       people ??= listUsers().then((users) => users.map(({ id, name }) => ({ id, name })));
       return people;
     },
+    clientName: () => getOAuthClientName(clientId),
   };
   for (const register of registrars) register(server, ctx);
   return server;
@@ -58,6 +66,7 @@ export function createMcpServer({ userId }: { userId: string }): McpServer {
  * MCP エンドポイント（Streamable HTTP、ステートレス）。
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
+ * トークンの sub をユーザー、azp（トークンを受け取った OAuth クライアント）を MCP クライアントとしてツールに渡す。
  * サーバーレスなのでリクエストごとにサーバーとトランスポートを組み立て、セッションは持たない。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
@@ -65,9 +74,12 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
     await getAuth(),
     async (_request, claims) => {
       const userId = claims.sub;
-      if (!userId) return new Response('invalid token', { status: 401 });
+      const clientId = claims.azp;
+      if (!userId || typeof clientId !== 'string') {
+        return new Response('invalid token', { status: 401 });
+      }
       setSentryUser(userId);
-      const server = createMcpServer({ userId });
+      const server = createMcpServer({ userId, clientId });
       const transport = new StreamableHTTPTransport({ enableJsonResponse: true });
       await server.connect(transport);
       try {

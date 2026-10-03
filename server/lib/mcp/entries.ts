@@ -101,6 +101,7 @@ export function formatCareLog(log: CareLog, people: Person[]) {
   };
 }
 
+/** via は MCP で書いたメモの、書いた MCP クライアントの名前（画面で書いたメモは省く） */
 export function formatMemo(memo: Memo, people: Person[]) {
   return {
     ref: toRef('memo', memo.id),
@@ -108,6 +109,7 @@ export function formatMemo(memo: Memo, people: Person[]) {
     at: jstDateTime(memo.createdAt),
     body: memo.body,
     by: memo.createdBy ? nameOf(people, memo.createdBy) : '',
+    ...compact({ via: memo.mcpClientName }),
   };
 }
 

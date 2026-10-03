@@ -1,6 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { UpdateUserInput } from '../../../shared/validation/users.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
+import { oauthClients } from '../../lib/db/oauth-schema.ts';
 import { accounts, sessions, users } from './schema.ts';
 
 export type UserRow = { id: string; name: string; email: string; hue: number };
@@ -9,6 +10,15 @@ const publicColumns = { id: users.id, name: users.name, email: users.email, hue:
 
 export async function findAll(): Promise<UserRow[]> {
   return db.select(publicColumns).from(users).orderBy(asc(users.createdAt));
+}
+
+/** OAuth クライアント（MCP クライアント）の名前。登録の client_name で、無ければ null */
+export async function findOAuthClientName(clientId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ name: oauthClients.name })
+    .from(oauthClients)
+    .where(eq(oauthClients.clientId, clientId));
+  return row?.name ?? null;
 }
 
 export async function findByEmail(email: string): Promise<UserRow | undefined> {

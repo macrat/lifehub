@@ -19,9 +19,15 @@ export function useAddMemo() {
     keys: WRITE_KEYS,
     apply: (client, { id, body }) => {
       // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
-      // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
+      // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる。画面で書くので MCP クライアントは無い
       const createdBy = signedInUserId(client);
-      memoCache.apply(client, id, { id, body, createdBy, createdAt: new Date().toISOString() });
+      memoCache.apply(client, id, {
+        id,
+        body,
+        createdBy,
+        mcpClientName: null,
+        createdAt: new Date().toISOString(),
+      });
     },
   });
 }

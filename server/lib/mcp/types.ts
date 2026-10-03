@@ -9,6 +9,8 @@ export type McpContext = {
   userId: string;
   /** ユーザーの一覧（登録順）。1 回の要求の中では 1 度だけ読む */
   people(): Promise<Person[]>;
+  /** ツールを呼んでいる MCP クライアントの名前（書いたメモに残す）。読むのは要る時だけ */
+  clientName(): Promise<string>;
 };
 
 /** 各 feature の mcp.ts が export する登録関数。server/mcp.ts が列挙する。 */

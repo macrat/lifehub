@@ -1,0 +1,1 @@
+ALTER TABLE "memos" ADD COLUMN "mcp_client_name" text;

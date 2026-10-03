@@ -12,6 +12,7 @@ import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';
+import { MCP_MEMO_ICON, memoAuthorLabel } from '../memos/author.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -20,11 +21,11 @@ import type { TimelineEntry } from './queries.ts';
 export type EntryView = {
   /** 左の丸の背景。人の色（複数なら塗り分ける）、誰のものでもない記録は無彩色 */
   colors: string[];
-  /** 左の丸に置くアイコン。追加ボタンと同じもの（レモンは下部ナビとも同じ） */
+  /** 左の丸に置くアイコン。追加ボタンと同じもの（レモンは下部ナビとも同じ。MCP で書いたメモはロボット） */
   icon: ComponentType<SvgIconProps>;
   /** タスクなら左の丸が完了のチェックボックスになる（中にチェックの印を出す） */
   task: CalendarTaskItem | null;
-  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人 */
+  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人（MCP で書いたメモはクライアントの名前） */
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
@@ -101,14 +102,17 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         body: note,
       };
     }
-    case 'memo':
+    case 'memo': {
+      const { memo } = entry;
       return {
         ...view,
-        colors: [colorFor(entry.memo.createdBy).fill],
-        icon: ADD_KINDS.memo.icon,
-        heading: authorName(entry.memo.createdBy),
-        body: entry.memo.body,
+        // 書いた人の色。MCP で書いたメモはその上にロボットのアイコンを置き、名前の代わりに MCP クライアントの名前を出す
+        colors: [colorFor(memo.createdBy).fill],
+        icon: memo.mcpClientName ? MCP_MEMO_ICON : ADD_KINDS.memo.icon,
+        heading: memoAuthorLabel(memo, authorName),
+        body: memo.body,
       };
+    }
   }
 }
 

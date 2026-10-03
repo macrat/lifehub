@@ -113,6 +113,13 @@
       "when": 1790466724993,
       "tag": "0015_weather_hourly_temp_pop",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791010260174,
+      "tag": "0016_memo_mcp_client_name",
+      "breakpoints": true
     }
   ]
 }

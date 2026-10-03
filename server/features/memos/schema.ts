@@ -17,6 +17,11 @@ export const memos = pgTable('memos', {
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),
+  /**
+   * MCP で書いたメモの、書いた MCP クライアントの名前（書いた時点の名前を残す）。画面で書いたメモは null。
+   * タイムラインでは書いた人の名前の代わりにこの名前を、書いた人の色の上のロボットのアイコンと一緒に出す
+   */
+  mcpClientName: text('mcp_client_name'),
 });
 
 export type MemoRow = typeof memos.$inferSelect;

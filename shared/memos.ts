@@ -10,5 +10,7 @@ export type Memo = {
    * まだ手元に無いとき（取り直すと埋まる。レモンの記録の先回りと同じ）
    */
   createdBy: string | null;
+  /** MCP で書いたメモの、書いた MCP クライアントの名前。画面で書いたメモは null */
+  mcpClientName: string | null;
   createdAt: string;
 };
