@@ -1,11 +1,11 @@
-import AirplanemodeActiveIcon from '@mui/icons-material/AirplanemodeActive';
+import CloudOffIcon from '@mui/icons-material/CloudOff';
 import Tooltip from '@mui/material/Tooltip';
 import { useMutationState } from '@tanstack/react-query';
 import { useOnline } from '../online.ts';
 import { useToggle } from './use-toggle.ts';
 
 /**
- * オフライン中の印。AppBar の左端に機内モードのアイコンを出し、説明はツールチップにだけ置く。
+ * オフライン中の印。AppBar の左端に雲に斜線のアイコン（CloudOff）を出し、説明はツールチップにだけ置く。
  * 閲覧はキャッシュから続けられ、記録もそのまま行える（送れない書き込みは端末に溜まり、オンラインに
  * 戻ったときに送られる。`lib/query-client.ts`）ので、オフラインであることは知らせても画面の場所は取らない。
  * 色は warning（MUI の Alert の warning のアイコンと同じ `palette.warning.main`）。
@@ -22,7 +22,7 @@ export function OfflineIndicator() {
   const message = `現在オフラインになっています。変更はオンラインになったときに同期されます${queued > 0 ? `（未送信 ${queued} 件）` : ''}`;
   return (
     <Tooltip title={message} open={tooltip.value} onOpen={tooltip.on} onClose={tooltip.off}>
-      <AirplanemodeActiveIcon
+      <CloudOffIcon
         color="warning"
         role="img"
         aria-hidden={false}
