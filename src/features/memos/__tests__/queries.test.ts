@@ -7,7 +7,7 @@ import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { memoEntry } from '../../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../../shared/types.ts';
 import { queryClient } from '../../../lib/query-client.ts';
-import { TIMELINE_QUERY_KEY } from '../../timeline/queries.ts';
+import { timelineHistory } from '../../timeline/queries.ts';
 import { pinnedMemosQueryOptions, useAddMemo, usePinMemo } from '../queries.ts';
 
 // React の act を使う（テスト用の描画ライブラリは入れていない）
@@ -19,13 +19,13 @@ afterEach(() => {
 });
 
 const timelineOf = () =>
-  queryClient.getQueryData<{ pages: HistoryPage<TimelineEntry>[] }>([...TIMELINE_QUERY_KEY, {}])
+  queryClient.getQueryData<{ pages: HistoryPage<TimelineEntry>[] }>([...timelineHistory.key, {}])
     ?.pages[0]?.items ?? [];
 
 test('ログイン中のユーザーがまだ手元に無くても、書いたメモを先にタイムラインへ出す', async () => {
   // オフラインにして送らずに溜める（先回りだけを見る）
   onlineManager.setOnline(false);
-  queryClient.setQueryData([...TIMELINE_QUERY_KEY, {}], {
+  queryClient.setQueryData([...timelineHistory.key, {}], {
     pages: [{ items: [], nextCursor: null }],
     pageParams: [undefined],
   });
@@ -59,7 +59,7 @@ test('ピン止めするとタイムラインから一番上の並び（書い�
   onlineManager.setOnline(false);
   const old = memo('old', '2030-05-01T00:00:00.000Z', true);
   const target = memo('target', '2030-05-02T00:00:00.000Z');
-  queryClient.setQueryData([...TIMELINE_QUERY_KEY, {}], {
+  queryClient.setQueryData([...timelineHistory.key, {}], {
     pages: [{ items: [memoEntry(target)], nextCursor: null }],
     pageParams: [undefined],
   });
