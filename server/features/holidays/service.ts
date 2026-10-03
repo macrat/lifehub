@@ -44,7 +44,7 @@ export async function refreshHolidays(): Promise<DateString[]> {
 
 /**
  * [from, to]（両端含む）の祝日（昇順）。手元の表を読むだけで、配布元へは取りに行かない
- * （取るのは月次の Cron とデプロイ。`scripts/refresh-calendar-data.ts`）。
+ * （取るのは月次の Cron と、手で実行する `scripts/refresh-calendar-data.ts`）。
  */
 export async function listHolidays(range: DateRange): Promise<DateString[]> {
   return repository.findInRange(range);
