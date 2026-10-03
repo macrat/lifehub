@@ -48,7 +48,7 @@ export function ListView({
     <InfiniteScroll
       header={<ListFilterForm open={filtersOpen} filters={filters} onChange={onChangeFilters} />}
       load={{ top: (loaded && extendStart) || null, bottom: (loaded && extendEnd) || null }}
-      initial={{ block: 'start', target: (list) => firstDayFrom(list, date) }}
+      initial={{ target: (list) => firstDayFrom(list, date) }}
       resetKey={JSON.stringify({ date, filters })}
       // 最初の位置は出している月が揃ってから決める
       ready={loaded}

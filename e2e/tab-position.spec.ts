@@ -6,13 +6,13 @@ import {
   careLogHistory,
   deleteRecord,
   expenseHistory,
-  isJustAboveBottomNav,
+  isJustBelowHeader,
 } from './history.ts';
 import { appBar, bottomNav, bottomOf } from './layout.ts';
 
 /**
  * 下部ナビのタブの画面は、別のタブからでも戻るでも、来たときは最初の位置で出る（ホームは一番上、立替・レモンは
- * 今日の最後の記録が下部ナビのすぐ上）。来たときの位置はルートの `staticData.ownsScroll` による
+ * 今日の最新の記録が貼り付いた帯のすぐ下）。来たときの位置はルートの `staticData.ownsScroll` による
  * （ルーターは移動の後にスクロール位置を戻すので、それが止まっていないと一番上や前にいた位置へ戻される）。
  * 今いる画面のタブをもう一度押すと、そこまでなめらかに戻る（`scrollToInitialPosition`）。
  */
@@ -50,12 +50,15 @@ test.beforeEach(async ({ page }) => {
   await openHome(page);
 });
 
-/** 最初の位置が一番上の画面（top）か、今日の最後の記録が下部ナビのすぐ上の画面（bottom）か */
 type Tab = {
   name: string;
   path: string;
   today: string;
-  initial: 'top' | 'bottom';
+  /**
+   * 最初の位置。top は一番上（ホーム）。locator を返す関数なら、今日の最新の記録がそれを含む貼り付いた帯の
+   * すぐ下（未来の日付の記録はその上に隠れる）
+   */
+  initial: 'top' | ((page: Page) => Locator);
   /** 下へスクロールすると隠れる帯（の中の物） */
   scrollAwayHeader?: (page: Page) => Locator;
 };
@@ -72,16 +75,21 @@ const tabs: Tab[] = [
     name: '立替',
     path: '/expenses',
     today: expenseToday,
-    initial: 'bottom',
+    initial: (page) => page.getByRole('region', { name: '精算' }),
     scrollAwayHeader: (page) => page.getByRole('region', { name: '精算' }),
   },
-  { name: 'レモン', path: '/lemon', today: lemonToday, initial: 'bottom' },
+  {
+    name: 'レモン',
+    path: '/lemon',
+    today: lemonToday,
+    initial: (page) => page.getByText('水やり', { exact: true }).first(),
+  },
 ];
 
 async function atInitial(page: Page, tab: Tab) {
   return tab.initial === 'top'
     ? (await page.evaluate(() => window.scrollY)) === 0
-    : isJustAboveBottomNav(page, tab.today);
+    : isJustBelowHeader(page, tab.today, tab.initial(page));
 }
 
 /** 画面のスクロールが動き終わるまでに通った位置（呼んでから動かし始める） */
@@ -104,10 +112,10 @@ async function openTab(page: Page, tab: Tab) {
   await expect.poll(() => atInitial(page, tab)).toBe(true);
 }
 
-/** 利用者の操作で最初の位置から離れ（一番上なら下へ、一番下なら上へ）、動き終わるまで待つ */
+/** 利用者の操作で最初の位置から離れ（どの画面も古いほうへ、下へ）、動き終わるまで待つ */
 async function moveAway(page: Page, tab: Tab) {
   const settled = scrollPositions(page);
-  await page.mouse.wheel(0, tab.initial === 'top' ? 2000 : -2000);
+  await page.mouse.wheel(0, 2000);
   await settled;
   expect(await atInitial(page, tab)).toBe(false);
 }

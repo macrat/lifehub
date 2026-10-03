@@ -51,7 +51,7 @@ type Props = Omit<HistoryListProps<CareLog>, 'children'> & {
 };
 
 /**
- * 世話の記録（上が古く下が新しい）。最初に出す位置は `HistoryList` が決め、上へスクロールすると古いほうのページを
+ * 世話の記録（上が新しく下が古い）。最初に出す位置は `HistoryList` が決め、下へスクロールすると古いほうのページを
  * 読み足す（`useCareLogHistory`、`HistoryList`）。1 行が 1 回の記録で、その日付・そのときやったこと・
  * メモを 3 列に並べる。行は単押しで閲覧（時刻を含む全文）、長押しで編集（`PressableRow`）。
  * 削除は詳細の三点リーダーに集める。

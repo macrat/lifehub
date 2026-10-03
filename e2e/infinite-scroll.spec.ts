@@ -7,13 +7,13 @@ import {
   careLogHistory,
   deleteRecord,
   expenseHistory,
-  isJustAboveBottomNav,
+  isJustBelowHeader,
 } from './history.ts';
-import { appBar, bottomNav, bottomOf } from './layout.ts';
+import { appBar, bottomOf } from './layout.ts';
 
 /**
- * 予定のリストと立替・レモンの履歴は、上が古く下が新しい無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
- * 最初に出す位置（予定は基準の日が一番上、立替・レモンは今日の記録が一番下）と、上へ戻ると古いほうを読み足すことを確かめる。
+ * 予定のリストは上が古く下が新しく、立替・レモンの履歴は上が新しく下が古い無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。
+ * 最初に出す位置（予定は基準の日、立替・レモンは今日の最新の記録が一番上）と、古い側の端へ近づくと古いほうを読み足すことを確かめる。
  */
 test.use({ ...devices['Pixel 7'] });
 
@@ -62,14 +62,14 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
  */
 const histories = [
   {
-    name: '立替の履歴は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、精算は上に貼り付いて下へスクロールすると隠れる',
+    name: '立替の履歴は今日の最新の記録を精算のすぐ下に出して未来の物を上に隠し、精算は上に貼り付いて下へスクロールすると隠れる',
     path: '/expenses',
     ...expenseHistory,
     sticky: (page: Page) => page.getByRole('region', { name: '精算' }),
     scrollsAway: true,
   },
   {
-    name: 'レモンの記録は今日の記録を下部ナビのすぐ上に出して未来の物を隠し、状況のタイルは上に貼り付いたまま',
+    name: 'レモンの記録は今日の最新の記録を状況のタイルのすぐ下に出して未来の物を上に隠し、状況のタイルは上に貼り付いたまま',
     path: '/lemon',
     ...careLogHistory,
     sticky: (page: Page) => page.getByText('水やり', { exact: true }).first(),
@@ -109,36 +109,39 @@ for (const history of histories) {
 
       await page.goto(history.path);
       const sticky = history.sticky(page);
-      // 今日の記録はすべて見え、未来の記録はその下に隠れている
+      // 今日の記録はすべて見え、新しいほうが上。未来の記録はその上に隠れている
       await expect(page.getByText(todayFirst)).toBeInViewport();
       await expect(page.getByText(todayLast)).toBeInViewport();
       await expect(sticky).toBeInViewport();
       await expect(page.getByText(oldest)).toHaveCount(0);
-      // 今日の最後の記録が下部ナビのすぐ上（間に別の行が入る隙間が無い）。
-      // 未来の記録はその下で、下部ナビに覆われているか画面の外にある
-      expect(await isJustAboveBottomNav(page, todayLast)).toBe(true);
-      const nav = await bottomNav(page).boundingBox();
-      const next = await page.getByText(future).boundingBox();
-      expect(next?.y ?? 0).toBeGreaterThanOrEqual(nav?.y ?? 0);
+      const firstBox = await page.getByText(todayFirst).boundingBox();
+      const lastBox = await page.getByText(todayLast).boundingBox();
+      expect(lastBox?.y ?? 0).toBeLessThan(firstBox?.y ?? 0);
+      // 今日の最新の記録が貼り付いた帯のすぐ下（間に別の行が入る隙間が無い）。その上にある未来の記録は、
+      // 帯に覆われているか画面の外にある（覆われた物も toBeInViewport は画面の中と見るので、帯との間で見る）
+      await expect.poll(() => isJustBelowHeader(page, todayLast, sticky)).toBe(true);
 
-      // 上へ戻ると古いほうのページを読む。読み足した分を戻すスクロールでは隠れない
+      // 下へ進むと古いほうのページを読む
       await expect(async () => {
-        await page.mouse.wheel(0, -3000);
+        await page.mouse.wheel(0, 3000);
         await expect(page.getByText(oldest)).toBeInViewport({ timeout: 500 });
       }).toPass();
-      await expect(sticky).toBeInViewport();
-      const oldestBox = await page.getByText(oldest).boundingBox();
-      const stickyBox = await sticky.boundingBox();
-      expect(stickyBox?.y ?? 0).toBeLessThan(oldestBox?.y ?? 0);
-
+      const barBottom = await bottomOf(appBar(page));
       if (history.scrollsAway) {
         // 下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる
-        const barBottom = await bottomOf(appBar(page));
-        await page.mouse.wheel(0, 300);
         await expect.poll(() => bottomOf(sticky)).toBeLessThanOrEqual(barBottom);
         await page.mouse.wheel(0, -100);
         await expect.poll(() => bottomOf(sticky)).toBeGreaterThan(barBottom);
+      } else {
+        await expect(sticky).toBeInViewport();
       }
+
+      // 一番上まで戻ると、隠れていた未来の記録が今日の記録の上に見える
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(page.getByText(future)).toBeInViewport();
+      const futureBox = await page.getByText(future).boundingBox();
+      const todayBox = await page.getByText(todayLast).boundingBox();
+      expect(futureBox?.y ?? 0).toBeLessThan(todayBox?.y ?? 0);
     } finally {
       for (const record of created) await deleteRecord(page, record);
     }

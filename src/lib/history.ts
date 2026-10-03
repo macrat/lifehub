@@ -5,7 +5,7 @@ import type { HistoryPage } from '../../shared/types.ts';
 
 /**
  * 履歴（立替・レモンの記録）の、サーバーから読んだページ。pages[0] が最新のページで、各ページの中は古い順
- * （shared/types.ts の `HistoryPage`）。上へスクロールすると古いほうのページを足す（`src/lib/screen-data.ts` の `useScreenHistory`）。
+ * （shared/types.ts の `HistoryPage`）。古いほうのページは一覧の古い側の端で足す（`src/lib/screen-data.ts` の `useScreenHistory`）。
  */
 export type HistoryPages<T> = InfiniteData<HistoryPage<T>>;
 
@@ -20,10 +20,12 @@ export type HistorySource<T, F> = {
   /** 1 ページの中の並び（古い順） */
   sort: (items: T[]) => T[];
   /**
-   * 今日の記録を未来の側に入れ、一覧の最初の位置を今日の頭（画面の一番上）にする（天気）。
-   * 省くと今日の記録は過去の側に入り、最初の位置は今日の最後の記録（画面の一番下）になる（立替・レモン）
+   * 一覧を上から古い順に並べる（天気）。今日の記録は未来の側に入り、最初の位置は今日の頭（画面の一番上）で、
+   * 過ぎた日はその上に続く。
+   * 省くと上から新しい順（立替・レモン。ホームのタイムラインと同じ向き）。今日の記録は過去の側に入り、
+   * 最初の位置は今日の最新の記録（画面の一番上）で、未来の日付の記録はその上に続く
    */
-  todayAtTop?: boolean;
+  oldestFirst?: boolean;
 };
 
 /**
@@ -44,16 +46,16 @@ export function historyQueryOptions<T, F extends object>(source: HistorySource<T
 }
 
 /**
- * 古い順の記録を、今日（JST）までと未来に分ける（todayAtTop なら、昨日までと今日から）。未来の記録は末尾に
+ * 古い順の記録を、今日（JST）までと未来に分ける（todayInFuture なら、昨日までと今日から）。未来の記録は末尾に
  * まとまっているので、境目を 1 か所探して切る（記録ごとに日を 2 回ずつ求めない）
  */
 export function splitAtToday<T>(
   items: T[],
   dayOf: (item: T) => string,
-  todayAtTop = false,
+  todayInFuture = false,
 ): { past: T[]; future: T[] } {
   const now = today();
-  const index = items.findIndex((item) => (todayAtTop ? dayOf(item) >= now : dayOf(item) > now));
+  const index = items.findIndex((item) => (todayInFuture ? dayOf(item) >= now : dayOf(item) > now));
   return index < 0
     ? { past: items, future: [] }
     : { past: items.slice(0, index), future: items.slice(index) };
