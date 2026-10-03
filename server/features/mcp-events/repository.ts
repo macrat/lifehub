@@ -1,18 +1,14 @@
 import { and, eq, gt, lte } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
+import { findById as findRowById } from '../../lib/db/query.ts';
 import {
   type McpEventSubscriptionRow,
   mcpEventSubscriptions,
   type NewMcpEventSubscriptionRow,
 } from './schema.ts';
 
-export async function findById(id: string): Promise<McpEventSubscriptionRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(mcpEventSubscriptions)
-    .where(eq(mcpEventSubscriptions.id, id))
-    .limit(1);
-  return row;
+export function findById(id: string): Promise<McpEventSubscriptionRow | undefined> {
+  return findRowById(mcpEventSubscriptions, id);
 }
 
 /** 購読を作るか、同じ id の購読を書き換える（購読し直し） */

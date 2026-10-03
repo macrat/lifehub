@@ -10,7 +10,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { publishChanged } from '../mcp-events/service.ts';
+import { type Actor, publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { LemonCareLogRow } from './schema.ts';
 
@@ -42,7 +42,7 @@ export async function getStatus(now: Date = new Date()): Promise<CareStatus[]> {
  * API キーで入れた記録は誰が記録したか分からない（キーを持つボタンは家の誰が押しても同じキーで送る）ので、
  * 人の代わりにキーの名前を残す
  */
-export type CareLogSource = { userId: string } | { apiKeyName: string };
+export type CareLogSource = Actor;
 
 /**
  * id はクライアントが決めて送ってくる（`createCareLogRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
@@ -68,9 +68,7 @@ export async function logCare(
 
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない。actorId は直した人 */
 export async function updateLog(id: string, input: CareLogInput, actorId: string): Promise<void> {
-  const updated = await repository.update(id, input);
-  if (!updated) throw new NotFoundError('記録が見つかりません');
-  publishChanged({ type: 'lemon', record: toLog(updated) }, 'updated', { userId: actorId });
+  await write(id, input, actorId);
 }
 
 /**
@@ -90,6 +88,11 @@ export async function patchLog(
     patch,
     careLogRulesSchema,
   );
+  return write(id, values, actorId);
+}
+
+/** 書き換えて、書いた後の記録を返す（直したことを MCP Events で知らせる） */
+async function write(id: string, values: CareLogInput, actorId: string): Promise<CareLog> {
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('記録が見つかりません');
   const log = toLog(updated);

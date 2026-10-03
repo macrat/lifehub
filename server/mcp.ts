@@ -38,7 +38,7 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-export function createMcpServer({ userId }: { userId: string }): McpServer {
+function createMcpServer({ userId }: { userId: string }): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -58,13 +58,23 @@ export function createMcpServer({ userId }: { userId: string }): McpServer {
 /**
  * 2026-07-28 の MCP（要求ごとに完結する）と、2025 年版のステートレスな Streamable HTTP の両方を受ける。
  * どちらも要求ごとに `createMcpServer` でサーバーを組み立て、セッションは持たない（サーバーレスのため）。
- * 誰の要求かは、検証済みのトークンから `authInfo.extra.userId` で渡す。
  */
 const handler = createMcpHandler(({ authInfo }) => {
   const userId = authInfo?.extra?.userId;
   if (typeof userId !== 'string') throw new Error('MCP request without a verified user');
   return createMcpServer({ userId });
 });
+
+/**
+ * 検証済みのユーザーとして MCP の要求を処理する（MCP エンドポイントとテストが同じ口を通る）。
+ * 誰の要求かは `authInfo.extra.userId` で組み立て関数に渡す。ツールが読むのはユーザーだけなので、
+ * AuthInfo のほかの項目（トークン・クライアント・スコープ）は空にする。
+ */
+export function serveMcp(request: Request, userId: string): Promise<Response> {
+  return handler.fetch(request, {
+    authInfo: { token: '', clientId: '', scopes: [], extra: { userId } },
+  });
+}
 
 /**
  * MCP エンドポイント。
@@ -78,11 +88,7 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
       const userId = claims.sub;
       if (!userId) return new Response('invalid token', { status: 401 });
       setSentryUser(userId);
-      const token = request.headers.get('authorization')?.replace(/^Bearer /i, '') ?? '';
-      const clientId = typeof claims.azp === 'string' ? claims.azp : '';
-      return handler.fetch(request, {
-        authInfo: { token, clientId, scopes: [], extra: { userId } },
-      });
+      return serveMcp(request, userId);
     },
     { resource: MCP_RESOURCE },
   );

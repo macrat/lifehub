@@ -15,7 +15,6 @@ import { EVENT_NAMES, type EventName, subscribe, unsubscribe } from './service.t
 const NOT_FOUND = -32011;
 const UNSUPPORTED = -32014;
 const CALLBACK_ENDPOINT_ERROR = -32015;
-const INVALID_PARAMS = -32602;
 
 const DESCRIPTIONS: Record<EventName, string> = {
   'memo.changed': 'メモが書かれた・直された・消されたとき',
@@ -50,23 +49,33 @@ const PAYLOAD_SCHEMA = z.toJSONSchema(
   }),
 );
 
-const nameSchema = z.string();
-const argumentsSchema = z.record(z.string(), z.unknown()).optional();
+/**
+ * 引数の規則はスキーマに書き、外れれば SDK が Invalid Params（-32602）で返す。
+ * 購読の引数は無い。通知先は https。署名の鍵は `whsec_` に続く base64 で、24〜64 バイト（MCP Events）。
+ */
+const argumentsSchema = z.strictObject({}).optional();
+const secretSchema = z
+  .string()
+  .regex(/^whsec_[A-Za-z0-9+/]+={0,2}$/)
+  .refine((secret) => {
+    const size = Buffer.from(secret.slice('whsec_'.length), 'base64').length;
+    return size >= 24 && size <= 64;
+  }, 'delivery.secret must be whsec_ + base64 of 24-64 bytes');
 
 const listParams = z.looseObject({ cursor: z.string().optional() });
 const subscribeParams = z.looseObject({
-  name: nameSchema,
+  name: z.string(),
   arguments: argumentsSchema,
   delivery: z.looseObject({
     mode: z.string(),
-    url: z.string(),
-    secret: z.string(),
+    url: z.url({ protocol: /^https$/ }),
+    secret: secretSchema,
   }),
   cursor: z.string().nullable().optional(),
   ttlMs: z.number().int().positive().nullable().optional(),
 });
 const unsubscribeParams = z.looseObject({
-  name: nameSchema,
+  name: z.string(),
   arguments: argumentsSchema,
   delivery: z.looseObject({ url: z.string() }),
 });
@@ -79,37 +88,10 @@ function eventNameOf(name: string): EventName {
   return found;
 }
 
-function requireNoArguments(args: Record<string, unknown> | undefined): void {
-  if (args && Object.keys(args).length > 0) {
-    throw new ProtocolError(INVALID_PARAMS, 'events of LifeHub take no arguments');
-  }
-}
-
-function webhookUrlOf(url: string): string {
-  if (!URL.canParse(url) || new URL(url).protocol !== 'https:') {
-    throw new ProtocolError(INVALID_PARAMS, 'delivery.url must be an https URL');
-  }
-  return url;
-}
-
-/** 署名の鍵は `whsec_` に続く base64 で、24〜64 バイト（MCP Events） */
-const SECRET = /^whsec_([A-Za-z0-9+/]+={0,2})$/;
-function secretOf(secret: string): string {
-  const encoded = SECRET.exec(secret)?.[1];
-  const size = encoded ? Buffer.from(encoded, 'base64').length : 0;
-  if (size < 24 || size > 64) {
-    throw new ProtocolError(
-      INVALID_PARAMS,
-      'delivery.secret must be whsec_ + base64 of 24-64 bytes',
-    );
-  }
-  return secret;
-}
-
 export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
   const { server } = mcp;
-  // 仕様のドラフトは capabilities.events で、拡張としての名前は extensions に出す。
-  // SDK の型は events を知らないので、型を通すために広げて渡す
+  // 仕様のドラフトと ChatGPT は capabilities.events を読み、拡張としての名前は extensions に出す。
+  // SDK の型は events を知らないので広げて渡す（SDK は capabilities をそのまま返すので、events も届く）
   server.registerCapabilities({
     extensions: { 'io.modelcontextprotocol/events': {} },
     ...({ events: {} } as object),
@@ -127,7 +109,6 @@ export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
 
   server.setRequestHandler('events/subscribe', { params: subscribeParams }, async (params) => {
     const name = eventNameOf(params.name);
-    requireNoArguments(params.arguments);
     const { delivery } = params;
     if (delivery.mode !== 'webhook') {
       throw new ProtocolError(UNSUPPORTED, 'only webhook delivery is supported', {
@@ -137,8 +118,8 @@ export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
     }
     const result = await subscribe(ctx.userId, {
       name,
-      url: webhookUrlOf(delivery.url),
-      secret: secretOf(delivery.secret),
+      url: delivery.url,
+      secret: delivery.secret,
       ttlMs: params.ttlMs,
     });
     if (!result.ok) {
@@ -157,7 +138,6 @@ export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
 
   server.setRequestHandler('events/unsubscribe', { params: unsubscribeParams }, async (params) => {
     const name = eventNameOf(params.name);
-    requireNoArguments(params.arguments);
     await unsubscribe(ctx.userId, { name, url: params.delivery.url });
     return {};
   });

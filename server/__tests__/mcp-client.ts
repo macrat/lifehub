@@ -1,15 +1,13 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { createMcpHandler } from '@modelcontextprotocol/server';
 import { expect } from 'vitest';
-import { createMcpServer } from '../mcp.ts';
+import { serveMcp } from '../mcp.ts';
 
 /** MCP のテストで、サーバーにつないでツールを呼ぶための共通の手順 */
 
 export async function connect(userId: string): Promise<Client> {
-  // 本番と同じく HTTP の口（createMcpHandler）を通す。トークンの検証（requireMcpAuth）だけを飛ばす
-  const handler = createMcpHandler(() => createMcpServer({ userId }));
+  // 本番と同じ口（serveMcp）を通す。トークンの検証（requireMcpAuth）だけを飛ばす
   const transport = new StreamableHTTPClientTransport(new URL('http://localhost/api/mcp'), {
-    fetch: (url, init) => handler.fetch(new Request(url, init)),
+    fetch: (url, init) => serveMcp(new Request(url, init), userId),
   });
   // 2026-07-28 の MCP でつなぐ（つながらなければ失敗させ、黙って 2025 年版に落ちないように）
   const client = new Client(

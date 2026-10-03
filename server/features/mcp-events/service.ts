@@ -5,8 +5,14 @@ import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import { afterResponse } from '../../lib/after-response.ts';
-import { formatCareLog, formatEvent, formatExpense, formatMemo } from '../../lib/mcp/entries.ts';
-import { nameOf } from '../../lib/mcp/people.ts';
+import {
+  type FormattedEntry,
+  formatCareLog,
+  formatEvent,
+  formatExpense,
+  formatMemo,
+} from '../../lib/mcp/entries.ts';
+import { authorName } from '../../lib/mcp/people.ts';
 import type { Person } from '../../lib/mcp/types.ts';
 import { listUsers } from '../users/service.ts';
 import * as repository from './repository.ts';
@@ -34,7 +40,7 @@ type WrittenEvent = Parameters<typeof formatEvent>[0];
  * 書いた記録（消したときは消す前の記録）。予定・タスクは書いた後の値を読み直す必要があるときだけ、
  * 読む関数で渡す（購読が無ければ読まない）。繰り返しの回を消したときは、その回だけか以降すべてか（scope）も添える
  */
-export type ChangedRecord =
+type ChangedRecord =
   | { type: 'memo'; record: Memo }
   | {
       type: 'event';
@@ -44,7 +50,7 @@ export type ChangedRecord =
   | { type: 'expense'; record: Expense }
   | { type: 'lemon'; record: CareLog };
 
-export type Action = 'added' | 'updated' | 'deleted';
+type Action = 'added' | 'updated' | 'deleted';
 
 /** 書いた人。API キーで入れた記録は人が分からないので、キーの名前 */
 export type Actor = { userId: string } | { apiKeyName: string };
@@ -58,19 +64,15 @@ type Occurrence = {
   cursor: null;
 };
 
+/** 配り方。テストは受け手を差し替え、送り直しの間を縮める */
 type DeliveryOptions = { post?: WebhookPost; retryDelaysMs?: number[] };
 
 /**
  * 記録を書いた・消したことを知らせる。応答は待たせず、応答を返した後に配る（`afterResponse`）。
  * 購読が無ければ問い合わせ 1 回で終わる。
  */
-export function publishChanged(
-  changed: ChangedRecord,
-  action: Action,
-  actor: Actor,
-  options?: DeliveryOptions,
-): void {
-  afterResponse('mcp-events', () => deliverChanged(changed, action, actor, options));
+export function publishChanged(changed: ChangedRecord, action: Action, actor: Actor): void {
+  afterResponse('mcp-events', () => deliverChanged(changed, action, actor));
 }
 
 export async function deliverChanged(
@@ -82,8 +84,9 @@ export async function deliverChanged(
   const name = EVENT_NAMES[changed.type];
   const subscriptions = await repository.findActive(name, new Date());
   if (subscriptions.length === 0) return;
-  const people: Person[] = (await listUsers()).map(({ id, name }) => ({ id, name }));
-  const entry = await formatChanged(changed, people);
+  const [users, format] = await Promise.all([listUsers(), formatterOf(changed)]);
+  const people: Person[] = users.map(({ id, name }) => ({ id, name }));
+  const entry = format(people);
   const occurrence: Occurrence = {
     // 追加と削除は記録（回）ごとに 1 度きりなので、記録の ref から決める（オフラインの再送で同じ追加・削除が
     // 2 度知らされても、受け手が webhook-id で重複を捨てられる）。編集は毎回別の出来事
@@ -92,7 +95,7 @@ export async function deliverChanged(
     timestamp: new Date().toISOString(),
     data: {
       action,
-      by: 'userId' in actor ? nameOf(people, actor.userId) : `API キー「${actor.apiKeyName}」`,
+      by: authorName(people, actor),
       entry,
       ...(changed.type === 'event' && changed.scope ? { scope: changed.scope } : {}),
     },
@@ -101,22 +104,27 @@ export async function deliverChanged(
   await Promise.all(subscriptions.map((sub) => deliverTo(sub, occurrence, post, retryDelaysMs)));
 }
 
-async function formatChanged(changed: ChangedRecord, people: Person[]) {
+/** 記録をエントリーの形にする関数。予定・タスクを読み直すときは、人の一覧と並べて読めるよう先に読む */
+async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) => FormattedEntry> {
   switch (changed.type) {
     case 'memo':
-      return formatMemo(changed.record, people);
+      return (people) => formatMemo(changed.record, people);
     case 'event': {
       const { record } = changed;
-      return formatEvent(typeof record === 'function' ? await record() : record, people);
+      const written = typeof record === 'function' ? await record() : record;
+      return (people) => formatEvent(written, people);
     }
     case 'expense':
-      return formatExpense(changed.record, people);
+      return (people) => formatExpense(changed.record, people);
     case 'lemon':
-      return formatCareLog(changed.record, people);
+      return (people) => formatCareLog(changed.record, people);
   }
 }
 
-/** 受け手が受け取れる本文の上限（MCP Events）。記録 1 件は収まるので、越えたら送らずにログに残す */
+/**
+ * 受け手が受け取れる本文の上限（MCP Events）。記録の本文は短い（メモでも 500 文字まで）ので普通は越えないが、
+ * 越えた本文は受け手が 413 で断るだけなので、送らずにログに残す
+ */
 const MAX_BODY_BYTES = 256 * 1024;
 
 /**
@@ -137,7 +145,7 @@ async function deliverTo(
   }
   for (const delay of [0, ...retryDelaysMs]) {
     if (delay > 0) await sleep(delay);
-    const headers = webhookHeaders(sub.id, secretsOf(sub, new Date()), occurrence.eventId, body);
+    const headers = webhookHeaders(sub.id, secretsOf(sub), occurrence.eventId, body);
     const response = await post(sub.url, headers, body);
     if ('status' in response) {
       const { status } = response;
@@ -150,9 +158,9 @@ async function deliverTo(
 }
 
 /** 署名に使う鍵。鍵を入れ替えた直後は前の鍵でも署名する（入れ替えの前に送り始めた配信も受け手が確かめられる） */
-function secretsOf(sub: McpEventSubscriptionRow, now: Date): string[] {
+function secretsOf(sub: McpEventSubscriptionRow): string[] {
   const { secret, previousSecret, previousSecretExpiresAt } = sub;
-  return previousSecret && previousSecretExpiresAt && previousSecretExpiresAt > now
+  return previousSecret && previousSecretExpiresAt && previousSecretExpiresAt > new Date()
     ? [secret, previousSecret]
     : [secret];
 }
@@ -175,7 +183,7 @@ function subscriptionIdOf(userId: string, url: string, name: EventName): string 
   return `sub_${digest.slice(0, 32)}`;
 }
 
-export type SubscribeInput = {
+type SubscribeInput = {
   name: EventName;
   url: string;
   secret: string;

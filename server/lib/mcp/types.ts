@@ -11,7 +11,7 @@ export type McpContext = {
   people(): Promise<Person[]>;
 };
 
-/** 各 feature の mcp.ts が export する登録関数。server/mcp.ts が列挙する。 */
+/** 各 feature の mcp.ts が export する登録関数（ツールと、MCP Events のメソッド）。server/mcp.ts が列挙する。 */
 export type ToolRegistrar = (server: McpServer, ctx: McpContext) => void;
 
 /**

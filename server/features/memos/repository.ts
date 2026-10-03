@@ -39,8 +39,7 @@ export async function update(
   return updated;
 }
 
-/** createdBy が書いたメモを消す */
-/** 消した行（無ければ undefined） */
+/** createdBy が書いたメモを消す。消した行を返す（無ければ undefined） */
 export async function remove(id: string, createdBy: string): Promise<MemoRow | undefined> {
   const [deleted] = await db
     .delete(memos)

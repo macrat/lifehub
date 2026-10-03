@@ -1,7 +1,9 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { request } from 'node:https';
 import { globalHttpsAgent } from 'request-filtering-agent';
 import { Webhook } from 'standardwebhooks';
+import { newId } from '../../../shared/id.ts';
+import { newSecret } from '../../lib/secret.ts';
 
 /**
  * MCP Events の webhook の送り方: Standard Webhooks の署名と、受け手の URL へ安全に POST すること。
@@ -33,8 +35,8 @@ export function webhookHeaders(
   secrets: string[],
   id: string,
   body: string,
-  now: Date = new Date(),
 ): Record<string, string> {
+  const now = new Date();
   return {
     'content-type': 'application/json',
     'webhook-id': id,
@@ -55,9 +57,9 @@ export async function verifyEndpoint(
   url: string,
   secret: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const challenge = randomBytes(24).toString('base64url');
+  const challenge = newSecret();
   const body = JSON.stringify({ type: 'verification', challenge });
-  const id = `msg_verification_${randomBytes(12).toString('hex')}`;
+  const id = `msg_verification_${newId()}`;
   const response = await post(url, webhookHeaders(subscriptionId, [secret], id, body), body);
   if ('failure' in response) return { ok: false, reason: response.failure };
   if (response.status >= 500) return { ok: false, reason: 'http_5xx' };

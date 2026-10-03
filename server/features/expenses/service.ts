@@ -75,9 +75,7 @@ export async function updateExpense(
   input: ExpenseInput,
   actorId: string,
 ): Promise<void> {
-  const updated = await repository.update(id, input);
-  if (!updated) throw new NotFoundError('立替が見つかりません');
-  publishChanged({ type: 'expense', record: toExpense(updated) }, 'updated', { userId: actorId });
+  await write(id, input, actorId);
 }
 
 /** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */
@@ -94,6 +92,11 @@ export async function patchExpense(
     patch,
     expenseRulesSchema,
   );
+  return write(id, values, actorId);
+}
+
+/** 書き換えて、書いた後の立替を返す（直したことを MCP Events で知らせる） */
+async function write(id: string, values: ExpenseInput, actorId: string): Promise<Expense> {
   const updated = await repository.update(id, values);
   if (!updated) throw new NotFoundError('立替が見つかりません');
   const expense = toExpense(updated);
