@@ -1,14 +1,15 @@
 import type { DateString } from './types.ts';
 
 /**
- * 立替の行と、そこから導かれる残高。
- * サーバーの一覧・残高と、クライアントの楽観的更新が同じ式を使うため、共通に置く。
+ * 立替の行と、そこから導かれる精算。
+ * サーバーの一覧・精算と、クライアントの楽観的更新が同じ式を使うため、共通に置く。
  */
 
 export type Expense = {
   id: string;
-  fromUserId: string;
-  /** null は共有（折半） */
+  /** null は共有（共有口座から払った） */
+  fromUserId: string | null;
+  /** null は共有（共有口座のために払った） */
   toUserId: string | null;
   amount: number;
   description: string;
@@ -16,49 +17,73 @@ export type Expense = {
   createdAt: string;
 };
 
-/** 「誰が誰のために払ったか」ごとの合計。toUserId が null なら共有（折半） */
+/** 「誰が誰のために払ったか」ごとの合計。null は共有 */
 export type ExpenseTotal = {
-  fromUserId: string;
+  fromUserId: string | null;
   toUserId: string | null;
   amount: number;
 };
 
-/** 残高。fromUserId が toUserId に amount 円を支払うと精算される。0 なら両方 null */
-export type Balance =
-  | { amount: 0; fromUserId: null; toUserId: null }
-  | { amount: number; fromUserId: string; toUserId: string };
+/** 帳消しにするための資金移動 1 つ。debtorId が creditorId に amount 円を払う。null は共有 */
+export type Settlement = {
+  creditorId: string | null;
+  debtorId: string | null;
+  amount: number;
+};
 
 /**
- * 立替残高（借方・貸方）。A が B に対して持つ債権 =
- *   (Σ A→共有 − Σ B→共有) / 2 + Σ A→B − Σ B→A
- * （X→Y = X が Y のために払った額。共有は折半。端数は切り捨て）
- * 精算も「B が A に払った」= B→A の行として同じ式に入るので、払えば債権が減る。
- * 利用者は 2 人固定で、登録順の先頭 2 人を A, B とする（`balancePair`）。
+ * 立替を帳消しにする最小限の資金移動。立替はユーザーと共有（共有口座）の間の資金の貸し借りとみなす:
+ * X が Y のために払うと、X に債権が、Y に債務が amount 円生じる（共有のために払えば共有の債務、
+ * 共有から引き出せば引き出した人の債務）。精算も「債務者が債権者のために払った」行として同じ式に入るので、払えば債務が減る。
  *
+ * 当事者ごとに債権と債務を差し引いた額（正味）を出してから、最も大きい債権者と最も大きい債務者を
+ * 突き合わせて移動を決めていく。正味にしてから組むので、循環（A→B→共有→A のような貸し借り）は打ち消される。
+ * 正味が 0 でない当事者が n 人なら移動は高々 n − 1 回で、当事者が 3 者（ユーザー 2 人と共有）なら
+ * これが最小になる（2 者なら 1 回、3 者とも 0 でなければ 2 回より少なくはできない）。
+ * WHY NOT 一般の最小化: 当事者が増えると最小の組み方を探すのは組み合わせの問題になるが、利用者は 2 人なので要らない。
+ *
+ * 並びは額の大きい順（同じ額なら ID 順で、サーバーとクライアントで並びが揺れない）。
  * 式はここ 1 か所だけに置く。サーバーは SQL で出した合計を渡し（全行を読まずに済む）、
- * クライアントは同じ合計（`GET /api/expenses/totals`）に楽観的更新の分を足して渡すので、答えは必ず一致する。
+ * クライアントは同じ合計（`expenses.totals`）に楽観的更新の分を足して渡すので、答えは必ず一致する。
  */
-export function balanceOf(totals: ExpenseTotal[], [a, b]: [string, string]): Balance {
-  const total = (from: string, to: string | null) =>
-    sum(totals.filter((t) => t.fromUserId === from && t.toUserId === to).map((t) => t.amount));
-  const claimOfA = Math.trunc((total(a, null) - total(b, null)) / 2) + total(a, b) - total(b, a);
-  if (claimOfA === 0) return { amount: 0, fromUserId: null, toUserId: null };
-  return claimOfA > 0
-    ? { amount: claimOfA, fromUserId: b, toUserId: a }
-    : { amount: -claimOfA, fromUserId: a, toUserId: b };
+export function settlementsOf(totals: ExpenseTotal[]): Settlement[] {
+  const net = new Map<string | null, number>();
+  const add = (party: string | null, delta: number) =>
+    net.set(party, (net.get(party) ?? 0) + delta);
+  for (const t of totals) {
+    add(t.fromUserId, t.amount);
+    add(t.toUserId, -t.amount);
+  }
+  const byAmount = (x: Balance, y: Balance) =>
+    y.amount - x.amount || (x.party ?? '').localeCompare(y.party ?? '');
+  const parties = [...net].map(([party, amount]) => ({ party, amount }));
+  const creditors = parties.filter((p) => p.amount > 0).sort(byAmount);
+  const debtors = parties
+    .filter((p) => p.amount < 0)
+    .map((p) => ({ ...p, amount: -p.amount }))
+    .sort(byAmount);
+
+  const settlements: Settlement[] = [];
+  let creditor = creditors.shift();
+  let debtor = debtors.shift();
+  while (creditor && debtor) {
+    const amount = Math.min(creditor.amount, debtor.amount);
+    settlements.push({ creditorId: creditor.party, debtorId: debtor.party, amount });
+    creditor.amount -= amount;
+    debtor.amount -= amount;
+    if (creditor.amount === 0) creditor = creditors.shift();
+    if (debtor.amount === 0) debtor = debtors.shift();
+  }
+  return settlements.sort(
+    (x, y) =>
+      y.amount - x.amount ||
+      (x.creditorId ?? '').localeCompare(y.creditorId ?? '') ||
+      (x.debtorId ?? '').localeCompare(y.debtorId ?? ''),
+  );
 }
 
-/**
- * 残高の A, B（登録順のユーザーの先頭 2 人）。ちょうど 2 人でなければ null
- * （3 人以上のとき先頭 2 人だけで黙って計算しない）。サーバーとクライアントが同じ規則で選ぶ
- */
-export function balancePair(users: { id: string }[]): [string, string] | null {
-  const [a, b] = users;
-  return a && b && users.length === 2 ? [a.id, b.id] : null;
-}
-
-/** 残高を計算できないときの理由（`balancePair` が null のとき） */
-export const BALANCE_NEEDS_TWO_USERS = '立替の計算はユーザーが 2 人のときだけ行えます';
+/** 当事者 1 人（null は共有）の正味の債権・債務の大きさ */
+type Balance = { party: string | null; amount: number };
 
 /**
  * 一覧の並び: 使った日の古い順、同じ日なら登録の古い順（アプリの一覧はどれも上が古く下が新しい）。
@@ -68,8 +93,4 @@ export function sortExpenses(expenses: Expense[]): Expense[] {
   return [...expenses].sort(
     (x, y) => x.spentOn.localeCompare(y.spentOn) || x.createdAt.localeCompare(y.createdAt),
   );
-}
-
-function sum(values: number[]): number {
-  return values.reduce((acc, v) => acc + v, 0);
 }

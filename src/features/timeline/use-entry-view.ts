@@ -80,7 +80,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
     }
     case 'expense': {
       const { fromUserId, toUserId, amount, description } = entry.expense;
-      // 名前と色の並びは立替の履歴と同じ「To ← From」。共有なら払った人だけ
+      // 名前と色の並びは立替の履歴と同じ（`partiesInOrder`）
       const people = partiesInOrder({ toUserId, fromUserId });
       return {
         ...view,

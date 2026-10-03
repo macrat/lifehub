@@ -46,7 +46,7 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   await page.goBack();
   await expect(page).toHaveURL('/');
 
-  // 残高は他のテストと共有するので片付ける
+  // 精算は他のテストと共有するので片付ける
   await deleteRecord(page, expense);
 });
 

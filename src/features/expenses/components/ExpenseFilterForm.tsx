@@ -64,6 +64,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         onChange={(e) => onChange({ from: optionOrUndefined(e.target.value) })}
       >
         <MenuItem value={ALL}>すべて</MenuItem>
+        <MenuItem value={SHARED}>共有</MenuItem>
         {users.map((u) => (
           <MenuItem key={u.id} value={u.id}>
             {u.name}

@@ -72,7 +72,7 @@ const RECORD_ENTRY: {
  *   （ホームから直すときは、その機能の画面の履歴を読んでいないことがあるため）
  * - apply: 記録 1 件の変化（id の記録が next になる。削除は null）を、履歴（`applyToHistories`）と
  *   タイムライン（`applyToTimeline`）に書き込む
- * 残高の合計や状況のタイルのような、機能ごとの書き込みは各機能が足す。
+ * 立替の合計や状況のタイルのような、機能ごとの書き込みは各機能が足す。
  */
 export function timelineRecordCache<K extends keyof TimelineRecords, F>(
   type: K,

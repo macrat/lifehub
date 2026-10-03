@@ -116,7 +116,7 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   await expect(page.getByRole('button', { name: '絞り込み' })).toContainText('1');
   await expect(largeRow).toHaveCount(0);
 
-  // 残高は他のテストと共有するので片付ける
+  // 精算は他のテストと共有するので片付ける
   await Promise.all(records.map((record) => deleteRecord(page, record)));
 });
 

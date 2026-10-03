@@ -64,7 +64,7 @@ describe('MCP server', () => {
       now: string;
       users: { name: string; isMe: boolean }[];
       days: Day[];
-      expenseBalance: { settled: boolean };
+      expenseSettlements: unknown[];
       lemon: { careType: string }[];
     }>(client, 'get_overview');
     expect(overview.today).toBe(today());
@@ -74,45 +74,46 @@ describe('MCP server', () => {
       ['B', false],
     ]);
     expect(overview.days.map((d) => d.date)).toEqual([today(), addDays(today(), 1)]);
-    expect(overview.expenseBalance.settled).toBe(true);
+    expect(overview.expenseSettlements).toEqual([]);
     expect(overview.lemon.map((s) => s.careType)).toContain('water');
   });
 
   describe('立替', () => {
-    it('名前と "shared" で記録し、日付を省くと今日、記録した後の残高を返す', async () => {
+    it('名前と "shared" で記録し、日付を省くと今日、記録した後の精算を返す', async () => {
       const client = await connect(userId);
-      const result = await call<{ entry: Entry; balance: Record<string, unknown> }>(
-        client,
-        'add_expense',
-        { amount: 1000, description: 'スーパー', paidFor: 'shared' },
-      );
+      const result = await call<{ entry: Entry; settlements: unknown[] }>(client, 'add_expense', {
+        amount: 1000,
+        description: 'スーパー',
+        paidFor: 'shared',
+      });
       expect(result.entry).toMatchObject({
         date: today(),
         paidBy: 'A',
         paidFor: 'shared',
         amount: 1000,
       });
-      expect(result.balance).toEqual({ settled: false, amount: 500, payer: 'B', payee: 'A' });
+      expect(result.settlements).toEqual([{ payer: 'shared', payee: 'A', amount: 1000 }]);
 
-      const updated = await call<{ entry: Entry; balance: Record<string, unknown> }>(
+      const updated = await call<{ entry: Entry; settlements: unknown[] }>(
         client,
         'update_expense',
         { ref: result.entry.ref, amount: 2000 },
       );
       expect(updated.entry).toMatchObject({ amount: 2000, description: 'スーパー' });
-      expect(updated.balance).toMatchObject({ amount: 1000, payer: 'B' });
+      expect(updated.settlements).toEqual([{ payer: 'shared', payee: 'A', amount: 2000 }]);
       expect(await fail(client, 'update_expense', { ref: result.entry.ref, paidFor: 'me' })).toBe(
-        'From と To に同じ人は選べません',
+        'From と To に同じ相手は選べません',
       );
 
-      // 精算は、払った人から受け取った人への立替として記録する
-      const settled = await call<{ balance: Record<string, unknown> }>(client, 'add_expense', {
-        amount: 1000,
+      // 精算は、払った側から受け取った側への立替として記録する（共有口座からの引き出しは paidBy が "shared"）
+      const settled = await call<{ entry: Entry; settlements: unknown[] }>(client, 'add_expense', {
+        amount: 2000,
         description: '精算',
-        paidBy: 'B',
-        paidFor: 'A',
+        paidBy: 'shared',
+        paidFor: 'me',
       });
-      expect(settled.balance).toEqual({ settled: true, amount: 0 });
+      expect(settled.entry).toMatchObject({ paidBy: 'shared', paidFor: 'A' });
+      expect(settled.settlements).toEqual([]);
     });
 
     it('知らない人の名前は、選べる名前を文で返す', async () => {

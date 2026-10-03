@@ -15,7 +15,7 @@ import { type ExpenseRow, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
 type ExpenseValues = {
-  fromUserId: string;
+  fromUserId: string | null;
   toUserId: string | null;
   amount: number;
   description: string;
@@ -41,13 +41,18 @@ function filterConditions(f: ExpenseFilter): (SQL | undefined)[] {
     f.max !== undefined ? lte(expenses.amount, f.max) : undefined,
     f.since !== undefined ? gte(expenses.spentOn, f.since) : undefined,
     f.until !== undefined ? lte(expenses.spentOn, f.until) : undefined,
-    f.to === SHARED
-      ? isNull(expenses.toUserId)
-      : f.to !== undefined
-        ? eq(expenses.toUserId, f.to)
-        : undefined,
-    f.from !== undefined ? eq(expenses.fromUserId, f.from) : undefined,
+    partyCondition(expenses.toUserId, f.to),
+    partyCondition(expenses.fromUserId, f.from),
   ];
+}
+
+/** To・From の絞り込み。SHARED は共有（null） */
+function partyCondition(
+  column: typeof expenses.toUserId | typeof expenses.fromUserId,
+  party: string | undefined,
+): SQL | undefined {
+  if (party === undefined) return undefined;
+  return party === SHARED ? isNull(column) : eq(column, party);
 }
 
 /**
@@ -67,8 +72,8 @@ export const timeline = timelineQueries({
 });
 
 /**
- * 「誰が誰のために払ったか」ごとの合計。残高はこれだけで決まるので、行を全部読まずに DB で畳む
- * （利用者は 2 人なので、返る行は最大 6 つ）。
+ * 「誰が誰のために払ったか」ごとの合計。精算はこれだけで決まるので、行を全部読まずに DB で畳む
+ * （当事者はユーザー 2 人と共有なので、返る行は最大 6 つ）。
  */
 export async function sumByDirection(): Promise<ExpenseTotal[]> {
   return db

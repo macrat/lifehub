@@ -68,7 +68,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
-- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（残高・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 残高、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
+- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 精算、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/calendar` が返す `CalendarItem[]`（と、同じ応答に載るその期間の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
@@ -120,7 +120,7 @@ shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
-  calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と残高の式）  lemon.ts（世話の記録と状態）
+  calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と精算の式）  lemon.ts（世話の記録と状態）
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
 .github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml

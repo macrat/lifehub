@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { myId, openHome } from './auth.ts';
 import {
   addRecord,
@@ -56,18 +56,24 @@ type Tab = {
   path: string;
   today: string;
   initial: 'top' | 'bottom';
-  /** 下へスクロールすると隠れる帯の中の文字 */
-  scrollAwayHeader?: string;
+  /** 下へスクロールすると隠れる帯（の中の物） */
+  scrollAwayHeader?: (page: Page) => Locator;
 };
 
 const tabs: Tab[] = [
-  { name: 'ホーム', path: '/', today: lemonToday, initial: 'top', scrollAwayHeader: '葉水' },
+  {
+    name: 'ホーム',
+    path: '/',
+    today: lemonToday,
+    initial: 'top',
+    scrollAwayHeader: (page) => page.getByText('葉水'),
+  },
   {
     name: '立替',
     path: '/expenses',
     today: expenseToday,
     initial: 'bottom',
-    scrollAwayHeader: '残高',
+    scrollAwayHeader: (page) => page.getByRole('region', { name: '精算' }),
   },
   { name: 'レモン', path: '/lemon', today: lemonToday, initial: 'bottom' },
 ];
@@ -142,12 +148,11 @@ for (const [index, tab] of tabs.entries()) {
     const between = positions.filter((y) => y !== from && y !== positions.at(-1));
     expect(between.length).toBeGreaterThan(2);
     expect(await atInitial(page, tab)).toBe(true);
-    // 下へスクロールすると隠れる帯（ホームのタイル、立替の残高）も、最初に開いたときと同じく出ている
+    // 下へスクロールすると隠れる帯（ホームのタイル、立替の精算）も、最初に開いたときと同じく出ている
     if (tab.scrollAwayHeader) {
+      const header = tab.scrollAwayHeader(page);
       const barBottom = await bottomOf(appBar(page));
-      await expect
-        .poll(() => bottomOf(page.getByText(tab.scrollAwayHeader ?? '')))
-        .toBeGreaterThan(barBottom);
+      await expect.poll(() => bottomOf(header)).toBeGreaterThan(barBottom);
     }
   });
 }

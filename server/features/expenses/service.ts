@@ -1,9 +1,8 @@
 import {
-  type Balance,
-  balanceOf,
-  balancePair,
   type Expense,
   type ExpenseTotal,
+  type Settlement,
+  settlementsOf,
 } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import { expenseEntry } from '../../../shared/timeline.ts';
@@ -34,20 +33,15 @@ export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
   expenseEntry(toExpense(row)),
 );
 
-/**
- * 立替残高（借方・貸方）。式は shared/expenses.ts。users は利用者の一覧（登録順。`balancePair` が先頭 2 人を選ぶ）で、
- * 呼び出し側が手元に持っているものを渡す（MCP は要求ごとに 1 度だけ読む）。
- * ちょうど 2 人でなければ計算できないので null（呼び出し側が残高を出さずに済ませられるよう、例外ではなく値で返す）
- */
-export async function getBalance(users: { id: string }[]): Promise<Balance | null> {
-  const pair = balancePair(users);
-  return pair && balanceOf(await repository.sumByDirection(), pair);
+/** 立替を帳消しにする最小限の資金移動（式は shared/expenses.ts の `settlementsOf`）。空なら精算済み */
+export async function getSettlements(): Promise<Settlement[]> {
+  return settlementsOf(await repository.sumByDirection());
 }
 
 /**
- * 残高の元になる「誰が誰のために払ったか」ごとの合計（最大 6 行）。クライアントはこれと
- * ユーザーから残高を導く。書き込みの結果を先に出すとき（楽観的更新）、残高そのものからは
- * 折半の端数が分からず正しく足し引きできないが、合計なら 1 件分を足し引きするだけで済む
+ * 精算の元になる「誰が誰のために払ったか」ごとの合計（最大 6 行）。クライアントはこれから精算を導く。
+ * 書き込みの結果を先に出すとき（楽観的更新）、精算の組み方からは 1 件分を足し引きできないが、
+ * 合計なら 1 件分を足し引きするだけで済む
  */
 export async function getTotals(): Promise<ExpenseTotal[]> {
   return repository.sumByDirection();

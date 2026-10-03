@@ -30,7 +30,7 @@
 
 ## 表示名
 
-参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
+参加者・立替の相手は常にユーザー名で表示する（「自分」とは表示しない）。立替の To・From が未指定なら「共有」。選択肢はログイン中のユーザーを先頭にする（`src/features/users/use-user-labels.ts`）。参加者の複数選択は `src/features/users/components/ParticipantsField.tsx`。
 
 一覧（`useUsers`）は名前と色を読む全部品の元で、予定の枠から立替の一覧まで画面中に散らばっている。一覧は `me.get` に載ってくるので、取り直しは `me` と同じく 5 分に 1 度まで（`meQueryOptions` の `staleTime`。既定の 0 のままだと画面を移るたび・カレンダーの表示を切り替えるたびに取り直しが走る）。相手が色や名前を変えても、5 分経てば次に画面を移ったときに映る。自分で変えたときは書き込みが invalidate するので、その時間を待たずに入れ替わる。
 

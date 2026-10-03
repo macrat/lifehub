@@ -4,7 +4,7 @@ import { useUserColor } from '../use-user-color.ts';
 import { useUserLabels } from '../use-user-labels.ts';
 
 type Props = {
-  /** null は「共有」（立替の To）で、無彩色になる */
+  /** null は「共有」（立替の To・From）で、無彩色になる */
   userId: string | null;
   /** 名前の前に添える役割（立替の「To」「From」など） */
   prefix?: string;

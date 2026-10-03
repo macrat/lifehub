@@ -111,6 +111,6 @@ test('記録の行は長押しすると編集で開く（立替・レモンと�
   const editedRow = page.getByRole('button', { name: new RegExp(`¥1,500.*${note}`) });
   await expect(editedRow).toBeVisible();
 
-  // 残高はテスト間で共有の DB から計算されるので、作った立替は消しておく
+  // 精算はテスト間で共有の DB から計算されるので、作った立替は消しておく
   await Promise.all(records.map((record) => deleteRecord(page, record)));
 });

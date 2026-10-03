@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { addDays, type DateRange, today } from '../../../shared/date.ts';
 import {
   type FormattedEntry,
-  formatBalance,
   formatEntry,
+  formatSettlements,
   weatherSummary,
 } from '../../lib/mcp/entries.ts';
 import {
@@ -88,17 +88,17 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     {
       title: '今の状況',
       description:
-        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の残高（payer が payee に amount 円払えば精算）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
+        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
     async () => {
       const now = new Date();
       const date = today(now);
-      const [people, timeline, balance, lemonStatus] = await Promise.all([
+      const [people, timeline, settlements, lemonStatus] = await Promise.all([
         ctx.people(),
         readDays(ctx, { from: date, to: addDays(date, 1) }, {}),
-        ctx.people().then(expenses.getBalance),
+        expenses.getSettlements(),
         lemon.getStatus(now),
       ]);
       return jsonResult({
@@ -107,7 +107,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
         weekday: weekdayOf(date),
         users: people.map((p) => ({ name: p.name, id: p.id, isMe: p.id === ctx.userId })),
         days: timeline.days,
-        expenseBalance: balance && formatBalance(balance, people),
+        expenseSettlements: formatSettlements(settlements, people),
         lemon: lemonStatus.map(({ careType, lastDoneAt, daysSince }) =>
           compact({ careType, lastDoneAt: lastDoneAt && jstDateTime(lastDoneAt), daysSince }),
         ),

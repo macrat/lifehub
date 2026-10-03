@@ -2,7 +2,7 @@
 
 ## 目的
 
-MCP クライアント（ChatGPT など）が、記録が足された・変えられた・消されたことを知らせてもらえるようにする。AI に「メモが書かれたら教えて」「立替が記録されたら残高を見て」のように頼んでおける。MCP Events（`io.modelcontextprotocol/events`）はまだドラフトの拡張で、ChatGPT の実装（[MCP Events](https://developers.openai.com/plugins/build/mcp-events)）が求める形に合わせる。
+MCP クライアント（ChatGPT など）が、記録が足された・変えられた・消されたことを知らせてもらえるようにする。AI に「メモが書かれたら教えて」「立替が記録されたら精算を見て」のように頼んでおける。MCP Events（`io.modelcontextprotocol/events`）はまだドラフトの拡張で、ChatGPT の実装（[MCP Events](https://developers.openai.com/plugins/build/mcp-events)）が求める形に合わせる。
 
 ## 購読できるイベント
 
