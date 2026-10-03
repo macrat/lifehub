@@ -1,4 +1,4 @@
-import { type PointerEvent, useEffect, useState } from 'react';
+import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { clamp } from '../math.ts';
 
 /**
@@ -69,9 +69,16 @@ function startsFollowing(press: Press, event: PointerEvent<HTMLElement>): boolea
  * 中身のスクロールもここで面倒を見る: 指の下がまだスクロールできるならそちらを先に動かし、
  * 端まで行ってからシートが動く。ブラウザに任せる（`touch-action: pan-y`）と、スクロールできない
  * 所でもブラウザがなぞりを取り上げて pointercancel を送るため、シートを動かせなくなる。
+ *
+ * 押している指（`Press`）は ref に持ち、描くのに要るシートの位置だけを state にする。
+ * pointermove は連続するイベントなので React は 1 回ごとには描き直さず、state に持つと
+ * 同じフレームに来た 2 回目以降が古い値を読んで、その間の動きを落とす（遅い端末や速いなぞりで、
+ * 指の動きの一部がシートにも `onRelease` にも届かない）。
  */
 export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
-  const [press, setPress] = useState<Press | null>(null);
+  const press = useRef<Press | null>(null);
+  /** 指に追従している間のシートの位置。追従していなければ null */
+  const [following, setFollowing] = useState<number | null>(null);
   /** 離した瞬間の位置。1 フレームだけ保ってから段へ滑らせる（同じ更新で transition を戻すと効かない） */
   const [released, setReleased] = useState<number | null>(null);
 
@@ -88,50 +95,62 @@ export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
     // それらの上の操作をドラッグにすると指を離す先を奪ってしまうので、DOM で中身かを確かめる
     if (!event.currentTarget.contains(event.target)) return;
     // ここではまだ捕まえない。動かさずに離せばタップとして中身に届く
-    setPress({
+    press.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       scroller: scrollerAt(event.target, event.currentTarget),
       follow: null,
-    });
+    };
   };
 
   const onPointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (press?.pointerId !== event.pointerId) return;
-    const follow = press.follow;
+    const current = press.current;
+    if (current?.pointerId !== event.pointerId) return;
+    const follow = current.follow;
     if (!follow) {
-      if (!startsFollowing(press, event)) return;
+      if (!startsFollowing(current, event)) return;
       // ここで捕まえると、この指の click は中身ではなくシートに向くので、押したことにはならない
       event.currentTarget.setPointerCapture(event.pointerId);
-      setPress({ ...press, follow: { last: event.clientY, at: resting, moved: 0 } });
+      current.follow = { last: event.clientY, at: resting, moved: 0 };
+      setFollowing(resting);
       return;
     }
     const dy = event.clientY - follow.last;
+    follow.last = event.clientY;
     // 指の下がまだスクロールできるなら、シートより先にそちらを動かす
-    if (press.scroller && scrolls(press.scroller, dy)) {
-      press.scroller.scrollTop -= dy;
-      setPress({ ...press, follow: { ...follow, last: event.clientY } });
+    if (current.scroller && scrolls(current.scroller, dy)) {
+      current.scroller.scrollTop -= dy;
       return;
     }
-    const at = clamp(follow.at + dy, 0, max);
-    setPress({ ...press, follow: { last: event.clientY, at, moved: follow.moved + dy } });
+    follow.at = clamp(follow.at + dy, 0, max);
+    follow.moved += dy;
+    setFollowing(follow.at);
   };
 
-  /** 指を離したとき。動かしていなければ（タップなら）何もせず、中身に任せたままにする */
+  /**
+   * 指が離れた・取り上げられたとき。追従していたら離した位置を 1 フレーム保ち、その動きを返す。
+   * 動かしていなければ（タップなら）何もせず、中身に任せたままにする
+   */
+  const endPress = (event: PointerEvent<HTMLElement>) => {
+    const current = press.current;
+    if (current?.pointerId !== event.pointerId) return null;
+    press.current = null;
+    if (!current.follow) return null;
+    setFollowing(null);
+    setReleased(current.follow.at);
+    return current.follow;
+  };
+
+  /** 指を離したとき。動かしていれば次の段を決めさせる */
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
-    if (press?.pointerId !== event.pointerId) return;
-    setPress(null);
-    if (!press.follow) return;
-    setReleased(press.follow.at);
-    onRelease(press.follow.moved);
+    const follow = endPress(event);
+    if (follow) onRelease(follow.moved);
   };
 
   /** ブラウザがスクロールを始めたときなど。段は変えず、今の段へ戻す */
   const onPointerCancel = (event: PointerEvent<HTMLElement>) => {
-    if (press?.pointerId !== event.pointerId) return;
-    if (press.follow) setReleased(press.follow.at);
-    setPress(null);
+    endPress(event);
   };
 
   return {
@@ -139,9 +158,9 @@ export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
      * 今のシートの位置（translateY の px）。指で動かしている間は指に、離した後は `resting` に従う。
      * 動かせない（止まる位置が決まっていない）間は null
      */
-    position: enabled ? (press?.follow?.at ?? released ?? resting) : null,
+    position: enabled ? (following ?? released ?? resting) : null,
     /** 指に追従している最中か（その間は transition を切る） */
-    dragging: press?.follow != null,
+    dragging: following !== null,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel },
   };
 }
