@@ -17,7 +17,7 @@
 `memos`（[data-model.md](../data-model.md)）。本文と書いた人・書いた時刻、MCP で書いたメモは書いた MCP クライアントの名前（`mcp_client_name`）を持つ。本文の規則（空でない・500 文字まで）は `shared/validation/memos.ts`。
 
 - MCP クライアントの名前は、アクセストークンを受け取った OAuth クライアント（JWT の `azp`）の登録の `client_name`（`server/features/users/service.ts` の `getOAuthClientName`。名前を登録しないクライアントは `MCP`）。
-  - WHY NOT MCP の initialize の `clientInfo.name`: MCP サーバーはステートレス（[mcp.md](mcp.md#エンドポイント)）で、ツールを呼ぶ要求には initialize の内容が届かない。トークンはどの要求にも付く。
+  - WHY NOT MCP の initialize の `clientInfo.name`: MCP サーバーはステートレス（[mcp.md](mcp.md#エンドポイント)）で、2025 年版の接続ではツールを呼ぶ要求に initialize の内容が届かない。トークンは版を問わずどの要求にも付く。
 - 名前は書いた時点のものを残し、本文を直しても変えない。WHY NOT クライアントを参照する: クライアントの登録が消えても、誰が書いたかは残したい（レモンの記録の API キーの名前と同じ）。
 
 ## API（`server/features/memos/routes.ts`）

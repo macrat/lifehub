@@ -117,8 +117,15 @@
     {
       "idx": 16,
       "version": "7",
-      "when": 1791010260174,
-      "tag": "0016_memo_mcp_client_name",
+      "when": 1790956709543,
+      "tag": "0016_mcp_event_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791011743404,
+      "tag": "0017_memo_mcp_client_name",
       "breakpoints": true
     }
   ]

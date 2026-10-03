@@ -1,6 +1,6 @@
 {
-  "id": "e012465f-524e-456a-9497-08e9975c38b6",
-  "prevId": "9798c66a-2e9c-4610-be6a-815671be2017",
+  "id": "07d311c8-99d2-43d8-8237-ed4f189fd584",
+  "prevId": "e012465f-524e-456a-9497-08e9975c38b6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -847,6 +847,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "mcp_client_name": {
+          "name": "mcp_client_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

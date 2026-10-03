@@ -4,7 +4,7 @@ import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
-import { nameOf } from './people.ts';
+import { authorName, nameOf } from './people.ts';
 import { toRef } from './refs.ts';
 import { jstDateTime, whenOutput } from './time.ts';
 import { compact, type Person } from './types.ts';
@@ -97,7 +97,10 @@ export function formatCareLog(log: CareLog, people: Person[]) {
     at: jstDateTime(log.doneAt),
     careTypes: log.careTypes,
     ...compact({ note: log.note }),
-    by: log.createdBy ? nameOf(people, log.createdBy) : `API キー「${log.apiKeyName}」`,
+    by: authorName(
+      people,
+      log.createdBy ? { userId: log.createdBy } : { apiKeyName: log.apiKeyName ?? '' },
+    ),
   };
 }
 

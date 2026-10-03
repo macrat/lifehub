@@ -11,6 +11,7 @@ import {
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
+import { publishChanged, type WrittenEvent } from '../mcp-events/service.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -43,6 +44,7 @@ export async function patchEvent(
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
   const result = await applyUpdate(master, { ...merged, ...target }, userId);
   scheduleUpcoming();
+  publishChanged({ type: 'event', record: result }, 'updated', { userId });
   return result;
 }
 
@@ -146,7 +148,14 @@ export async function createEvent(
   await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
   scheduleUpcoming();
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  return toMaster({ ...values, id, participantIds: input.participantIds, completedAt: null });
+  const created = writtenOf({
+    ...values,
+    id,
+    participantIds: input.participantIds,
+    completedAt: null,
+  });
+  publishChanged({ type: 'event', record: created }, 'added', { userId });
+  return created;
 }
 
 export async function updateEvent(
@@ -154,15 +163,10 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<void> {
-  await applyUpdate(await findMaster(id), input, userId);
+  const written = await applyUpdate(await findMaster(id), input, userId);
   scheduleUpcoming();
+  publishChanged({ type: 'event', record: written }, 'updated', { userId });
 }
-
-/**
- * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
- * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
- */
-type WrittenEvent = EventMaster & { occurrenceStart: string | null };
 
 async function applyUpdate(
   master: EventWithParticipants,
@@ -202,10 +206,7 @@ async function applyUpdate(
       newRow: { ...values, createdBy: userId },
       participantIds,
     });
-    return {
-      ...toMaster({ ...values, id: splitId, participantIds, completedAt: null }),
-      occurrenceStart: null,
-    };
+    return writtenOf({ ...values, id: splitId, participantIds, completedAt: null });
   }
 
   // 種別を変えると完了は意味を失う（予定は完了を持てない）ので外す。変えないときは完了に触らない
@@ -215,10 +216,7 @@ async function applyUpdate(
     participantIds,
     dropOccurrences: occurrencesToDrop(master, values),
   });
-  return {
-    ...toMaster({ ...values, id, participantIds, completedAt }),
-    occurrenceStart: null,
-  };
+  return writtenOf({ ...values, id, participantIds, completedAt });
 }
 
 export async function deleteEvent(
@@ -228,20 +226,29 @@ export async function deleteEvent(
 ): Promise<void> {
   const master = await findMaster(id);
   const target = resolveTarget(master, input);
+  const actor = { userId };
 
   if (target.scope === 'this') {
-    await materialize(master, target.occurrenceStart, { cancelled: true }, undefined, userId);
+    const { occurrenceStart } = target;
+    await materialize(master, occurrenceStart, { cancelled: true }, undefined, userId);
+    // 取り消した回の行は残るので、届ける先があるときだけ読む
+    const record = () => occurrenceOf(master, occurrenceStart);
+    publishChanged({ type: 'event', record, scope: 'this' }, 'deleted', actor);
     return;
   }
   if (target.scope === 'following') {
+    // 以降の回の行は消えるので、消す前に読んでおく
+    const record = await occurrenceOf(master, target.occurrenceStart);
     await repository.truncateFollowing({
       masterId: id,
       masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
       splitAt: target.occurrenceStart,
     });
+    publishChanged({ type: 'event', record, scope: 'following' }, 'deleted', actor);
     return;
   }
   await repository.remove(id);
+  publishChanged({ type: 'event', record: writtenOf(master) }, 'deleted', actor);
 }
 
 /** タスクの回を完了にする。完了日時は押した時刻（画面が送る。`completeEventRequestSchema`）で、無ければ今 */
@@ -251,7 +258,8 @@ export async function completeEvent(
   userId: string,
   completedAt: Date = new Date(),
 ): Promise<void> {
-  await setCompletedAt(id, input, completedAt, userId);
+  const record = await setCompletedAt(id, input, completedAt, userId);
+  publishChanged({ type: 'event', record }, 'updated', { userId });
 }
 
 export async function uncompleteEvent(
@@ -259,9 +267,33 @@ export async function uncompleteEvent(
   input: CompleteEventInput,
   userId: string,
 ): Promise<void> {
-  await setCompletedAt(id, input, null, userId);
+  const record = await setCompletedAt(id, input, null, userId);
   // 完了していた間は日次 Cron が列挙しないので、当日の通知はここで予約し直さないと届かない
   scheduleUpcoming();
+  publishChanged({ type: 'event', record }, 'updated', { userId });
+}
+
+/** 書いた行（回でないもの）を、書き込んだ予定・タスクの形にする */
+function writtenOf(row: Parameters<typeof toMaster>[0]): WrittenEvent {
+  return { ...toMaster(row), occurrenceStart: null };
+}
+
+/**
+ * 繰り返しの回の今の値（MCP Events で届ける形）。実体化されていればその行、無ければ繰り返し元をずらした値で、
+ * 一覧が回を出すときと同じく id と繰り返しは繰り返し元のもの（`buildOccurrence`）
+ */
+async function occurrenceOf(
+  master: EventWithParticipants,
+  occurrenceStart: Date,
+): Promise<WrittenEvent> {
+  const row = (await repository.findOccurrence(master.id, occurrenceStart)) ?? {
+    ...master,
+    ...shiftTo(master, occurrenceStart),
+  };
+  return {
+    ...toMaster({ ...row, id: master.id, rrule: master.rrule }),
+    occurrenceStart: occurrenceStart.toISOString(),
+  };
 }
 
 // ---- 内部 ----
@@ -272,24 +304,29 @@ async function findMaster(id: string): Promise<EventWithParticipants> {
   return row;
 }
 
+/**
+ * 完了日時を変え、変えた後の予定・タスク（MCP Events で届ける形）を返す。
+ * 繰り返しの回は、実体化した回の行が返るのは完了日時だけなので、届ける先があるときだけ読む関数で返す。
+ */
 async function setCompletedAt(
   id: string,
   input: CompleteEventInput,
   completedAt: Date | null,
   userId: string,
-): Promise<void> {
+): Promise<WrittenEvent | (() => Promise<WrittenEvent>)> {
   const master = await findMaster(id);
   if (master.kind !== 'task') throw new ValidationError('予定は完了にできません');
   // 単発は行そのもの。繰り返しのタスクで完了にするのは常に 1 つの回
   if (!master.rrule) {
     await repository.update(id, { completedAt });
-    return;
+    return writtenOf({ ...master, completedAt });
   }
   const { occurrenceStart } = input;
   if (!occurrenceStart)
     throw new ValidationError('繰り返しのタスクは、完了にする回を指定してください');
   if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   await materialize(master, occurrenceStart, { completedAt }, undefined, userId);
+  return () => occurrenceOf(master, occurrenceStart);
 }
 
 /**

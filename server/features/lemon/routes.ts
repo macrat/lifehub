@@ -15,10 +15,12 @@ export const lemonRouter = router({
     .mutation(async ({ ctx, input: { id, ...input } }) => {
       await service.logCare(input, { userId: (await ctx.user).id }, id);
     }),
-  update: procedure.input(withId(careLogSchema)).mutation(async ({ input: { id, ...input } }) => {
-    await service.updateLog(id, input);
-  }),
-  delete: procedure.input(idParamSchema).mutation(async ({ input }) => {
-    await service.deleteLog(input.id);
+  update: procedure
+    .input(withId(careLogSchema))
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.updateLog(id, input, (await ctx.user).id);
+    }),
+  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteLog(input.id, (await ctx.user).id);
   }),
 });

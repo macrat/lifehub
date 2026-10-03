@@ -113,10 +113,8 @@ export async function update(
   return updated[0];
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const deleted = await db
-    .delete(lemonCareLogs)
-    .where(eq(lemonCareLogs.id, id))
-    .returning({ id: lemonCareLogs.id });
-  return deleted.length > 0;
+/** 消した行（無ければ undefined） */
+export async function remove(id: string): Promise<LemonCareLogRow | undefined> {
+  const [deleted] = await db.delete(lemonCareLogs).where(eq(lemonCareLogs.id, id)).returning();
+  return deleted;
 }

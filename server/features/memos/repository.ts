@@ -40,11 +40,11 @@ export async function update(
   return updated;
 }
 
-/** createdBy が書いたメモを消す */
-export async function remove(id: string, createdBy: string): Promise<boolean> {
-  const deleted = await db
+/** createdBy が書いたメモを消す。消した行を返す（無ければ undefined） */
+export async function remove(id: string, createdBy: string): Promise<MemoRow | undefined> {
+  const [deleted] = await db
     .delete(memos)
     .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
-    .returning({ id: memos.id });
-  return deleted.length > 0;
+    .returning();
+  return deleted;
 }

@@ -12,11 +12,16 @@ export async function listUsers() {
 
 /**
  * MCP クライアントの名前（OAuth クライアントの登録の client_name）。名前を登録しないクライアントは "MCP" にする。
- * WHY NOT MCP の initialize の clientInfo.name: MCP サーバーはステートレスで、ツールを呼ぶ要求には
- * initialize の内容が届かない。アクセストークンはどの要求にも付き、どのクライアントに出したか（azp）を持つ。
+ * WHY NOT MCP の initialize の clientInfo.name: MCP サーバーはステートレスで、2025 年版の接続ではツールを呼ぶ
+ * 要求に initialize の内容が届かない。アクセストークンは版を問わずどの要求にも付き、どのクライアントに出したか（azp）を持つ。
  */
 export async function getOAuthClientName(clientId: string): Promise<string> {
   return (await repository.findOAuthClientName(clientId)) ?? 'MCP';
+}
+
+/** ユーザーの ID と名前（登録順）。MCP の出力に名前を出し、入力の名前を ID に引き当てるのに使う */
+export async function listPeople(): Promise<{ id: string; name: string }[]> {
+  return (await listUsers()).map(({ id, name }) => ({ id, name }));
 }
 
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */

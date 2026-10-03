@@ -7,7 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { listUsers } from '../../users/service.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
@@ -18,9 +18,7 @@ const on = dateStringSchema.parse('2026-09-01');
 
 describe('expenses service', () => {
   beforeEach(async () => {
-    await clearTables();
-    a = await createTestUser('A');
-    b = await createTestUser('B');
+    ({ userId: a, partnerId: b } = await resetUsers());
   });
 
   it('利用者がちょうど 2 人でなければ、残高を計算せずに null を返す', async () => {
@@ -101,13 +99,17 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    await updateExpense(expense.id, {
-      fromUserId: b,
-      toUserId: a,
-      amount: 500,
-      description: 'A の分',
-      spentOn: dateStringSchema.parse('2026-09-02'),
-    });
+    await updateExpense(
+      expense.id,
+      {
+        fromUserId: b,
+        toUserId: a,
+        amount: 500,
+        description: 'A の分',
+        spentOn: dateStringSchema.parse('2026-09-02'),
+      },
+      a,
+    );
     expect((await listExpenses({})).items).toMatchObject([
       {
         id: expense.id,
@@ -143,7 +145,7 @@ describe('expenses service', () => {
     const id = newId();
     const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
     await addExpense(input, a, id);
-    await updateExpense(id, { ...input, amount: 3000 });
+    await updateExpense(id, { ...input, amount: 3000 }, a);
     const resent = await addExpense(input, b, id);
 
     expect(resent).toMatchObject({ amount: 3000 });
@@ -155,7 +157,7 @@ describe('expenses service', () => {
       { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
       a,
     );
-    await deleteExpense(expense.id);
+    await deleteExpense(expense.id, a);
     expect((await listExpenses({})).items).toHaveLength(0);
   });
 
