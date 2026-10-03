@@ -9,25 +9,15 @@ import * as repository from './repository.ts';
 import type { MemoRow } from './schema.ts';
 
 /**
- * メモを書いた所。画面から書いたメモは人だけ、MCP で書いたメモは人と MCP クライアントの名前を持つ。
- * MCP で書いたメモも書いた人（トークンのユーザー）のものなので、直す・消すはその人ができる
+ * id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * mcpClientName は MCP で書いたときの MCP クライアントの名前。書いた人はトークンのユーザーなので、直す・消すはその人ができる
  */
-export type MemoAuthor = { userId: string; mcpClientName?: string };
-
-/** id はクライアントが決めて送ってくる（`createMemoRequestSchema`）。省略された呼び出し（MCP）はここで採番する */
 export async function addMemo(
   input: MemoInput,
-  { userId, mcpClientName }: MemoAuthor,
+  { userId, mcpClientName = null }: { userId: string; mcpClientName?: string | null },
   id: string = newId(),
 ): Promise<Memo> {
-  const memo = toMemo(
-    await repository.insert({
-      ...input,
-      id,
-      createdBy: userId,
-      mcpClientName: mcpClientName ?? null,
-    }),
-  );
+  const memo = toMemo(await repository.insert({ ...input, id, createdBy: userId, mcpClientName }));
   publishChanged({ type: 'memo', record: memo }, 'added', { userId });
   return memo;
 }

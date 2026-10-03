@@ -10,13 +10,9 @@ export async function listUsers() {
   return repository.findAll();
 }
 
-/**
- * MCP クライアントの名前（OAuth クライアントの登録の client_name）。名前を登録しないクライアントは "MCP" にする。
- * WHY NOT MCP の initialize の clientInfo.name: MCP サーバーはステートレスで、2025 年版の接続ではツールを呼ぶ
- * 要求に initialize の内容が届かない。アクセストークンは版を問わずどの要求にも付き、どのクライアントに出したか（azp）を持つ。
- */
-export async function getOAuthClientName(clientId: string): Promise<string> {
-  return (await repository.findOAuthClientName(clientId)) ?? 'MCP';
+/** OAuth クライアント（MCP クライアント）の登録の名前。名前を登録しないクライアントは null */
+export async function getOAuthClientName(clientId: string): Promise<string | null> {
+  return repository.findOAuthClientName(clientId);
 }
 
 /** ユーザーの ID と名前（登録順）。MCP の出力に名前を出し、入力の名前を ID に引き当てるのに使う */

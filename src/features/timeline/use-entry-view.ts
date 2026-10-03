@@ -1,3 +1,4 @@
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ComponentType } from 'react';
 import {
@@ -12,7 +13,6 @@ import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
 import { formatYen } from '../expenses/format.ts';
 import { PARTIES_SEPARATOR, partiesInOrder } from '../expenses/parties.ts';
-import { MCP_MEMO_ICON, memoAuthorLabel } from '../memos/author.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -106,10 +106,10 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       const { memo } = entry;
       return {
         ...view,
-        // 書いた人の色。MCP で書いたメモはその上にロボットのアイコンを置き、名前の代わりに MCP クライアントの名前を出す
         colors: [colorFor(memo.createdBy).fill],
-        icon: memo.mcpClientName ? MCP_MEMO_ICON : ADD_KINDS.memo.icon,
-        heading: memoAuthorLabel(memo, authorName),
+        // MCP で書いたメモは、AI が書いたことをロボットのアイコンと MCP クライアントの名前で示す（人は丸の色で分かる）
+        icon: memo.mcpClientName ? SmartToyIcon : ADD_KINDS.memo.icon,
+        heading: memo.mcpClientName ?? authorName(memo.createdBy),
         body: memo.body,
       };
     }

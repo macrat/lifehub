@@ -38,14 +38,7 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-function createMcpServer({
-  userId,
-  clientId,
-}: {
-  userId: string;
-  /** アクセストークンを受け取った OAuth クライアント（JWT の azp） */
-  clientId: string;
-}): McpServer {
+function createMcpServer({ userId, clientId }: { userId: string; clientId?: string }): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -57,7 +50,8 @@ function createMcpServer({
       people ??= listPeople();
       return people;
     },
-    clientName: () => getOAuthClientName(clientId),
+    // 名前を登録しないクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す
+    clientName: async () => (clientId && (await getOAuthClientName(clientId))) || 'MCP',
   };
   for (const register of registrars) register(server, ctx);
   return server;
@@ -69,10 +63,8 @@ function createMcpServer({
  */
 const handler = createMcpHandler(({ authInfo }) => {
   const userId = authInfo?.extra?.userId;
-  if (typeof userId !== 'string' || !authInfo?.clientId) {
-    throw new Error('MCP request without a verified user');
-  }
-  return createMcpServer({ userId, clientId: authInfo.clientId });
+  if (typeof userId !== 'string') throw new Error('MCP request without a verified user');
+  return createMcpServer({ userId, clientId: authInfo?.clientId });
 });
 
 /**
@@ -80,7 +72,7 @@ const handler = createMcpHandler(({ authInfo }) => {
  * 誰の要求かは `authInfo.extra.userId`、どの MCP クライアントからかは `authInfo.clientId` で組み立て関数に渡す。
  * ツールが読むのはユーザーとクライアントだけなので、AuthInfo のほかの項目（トークン・スコープ）は空にする。
  */
-export function serveMcp(request: Request, userId: string, clientId: string): Promise<Response> {
+export function serveMcp(request: Request, userId: string, clientId = ''): Promise<Response> {
   return handler.fetch(request, {
     authInfo: { token: '', clientId, scopes: [], extra: { userId } },
   });
@@ -97,12 +89,9 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
     await getAuth(),
     async (request, claims) => {
       const userId = claims.sub;
-      const clientId = claims.azp;
-      if (!userId || typeof clientId !== 'string') {
-        return new Response('invalid token', { status: 401 });
-      }
+      if (!userId) return new Response('invalid token', { status: 401 });
       setSentryUser(userId);
-      return serveMcp(request, userId, clientId);
+      return serveMcp(request, userId, typeof claims.azp === 'string' ? claims.azp : undefined);
     },
     { resource: MCP_RESOURCE },
   );

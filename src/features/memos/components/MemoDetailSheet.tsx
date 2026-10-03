@@ -3,7 +3,6 @@ import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { memoAuthorLabel } from '../author.ts';
 import { type Memo, useDeleteMemo, useUpdateMemo } from '../queries.ts';
 import { useMemoForm } from '../use-memo-form.ts';
 import { MemoField } from './MemoField.tsx';
@@ -46,7 +45,7 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
       ) : (
         <>
           <Typography color="textSecondary">
-            {[memoAuthorLabel(memo, authorName), formatDateTime(memo.createdAt)]
+            {[memo.mcpClientName ?? authorName(memo.createdBy), formatDateTime(memo.createdAt)]
               .filter(Boolean)
               .join('・')}
           </Typography>
