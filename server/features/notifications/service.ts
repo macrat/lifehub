@@ -9,6 +9,7 @@ import {
 } from '../events/notifications.ts';
 import { publishReminder } from '../mcp-events/service.ts';
 import { sendToUsers } from '../push/service.ts';
+import { listAllDayNotifyMinutes } from '../users/people.ts';
 import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
 
@@ -19,7 +20,7 @@ export async function enqueueRange(
   range: InstantRange,
   publisher: Publisher | null = createPublisher(),
 ): Promise<{ planned: number; published: number }> {
-  const planned = await listNotifications(range, await repository.findAllDayNotifyMinutes());
+  const planned = await listNotifications(range, await listAllDayNotifyMinutes());
   if (!publisher) return { planned: planned.length, published: 0 };
   // 1 件ずつ待つと件数分の往復が直列に積み重なる（日次 Cron の応答や、書き込みの後の予約が長引く）。
   // 並べて投げ、失敗した分だけ記録する（1 件の失敗で他を止めない。重複は deduplicationId で防がれる）
@@ -80,7 +81,7 @@ export async function deliver(
 ): Promise<'sent' | 'duplicate' | 'stale'> {
   if (!(await repository.claim(key))) return 'duplicate';
   try {
-    const payload = await resolveNotification(ref, await repository.findAllDayNotifyMinutes());
+    const payload = await resolveNotification(ref, await listAllDayNotifyMinutes());
     if (!payload) return 'stale';
     await send(payload.userIds, {
       title: payload.title,

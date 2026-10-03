@@ -140,7 +140,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 
 - **MCP**: `server/features/*/mcp.ts` が `McpRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
 - **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）を invalidate する。
-- **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（users の service）だけを読み、記録の feature を読まない。
+- **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（`server/features/users/people.ts`）だけを読み、記録の feature を読まない。予定・タスクの通知（`event.reminder`）は、通知の service が配信のときに `publishReminder` を呼ぶ。
 - **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 
