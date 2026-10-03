@@ -67,9 +67,8 @@ const options = {
     '/sign-up/email',
     // jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）
     '/token',
-    // oauth-provider の、ログイン中のユーザーが OAuth クライアントと同意を画面から管理する口。
-    // LifeHub はその画面を持たず、クライアントは CIMD だけで識別する（Dynamic Client Registration も閉じる。
-    // docs/features/mcp.md）。使わない口は開けておかない
+    // oauth-provider の、クライアントと同意を画面から管理する口と DCR。使わないので閉じる（docs/features/mcp.md。
+    // 開ける口は server/__tests__/oauth-discovery.test.ts が確かめる）
     '/oauth2/register',
     '/oauth2/create-client',
     '/oauth2/get-client',
