@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { isSubscribed, subscribe, unsubscribe } from '../service.ts';
 
 const endpoint = 'https://fcm.googleapis.com/fcm/send/test';
@@ -9,9 +9,7 @@ describe('push service', () => {
   let aliceId: string;
   let bobId: string;
   beforeEach(async () => {
-    await clearTables();
-    aliceId = await createTestUser('A');
-    bobId = await createTestUser('B');
+    ({ userId: aliceId, partnerId: bobId } = await resetUsers());
   });
 
   it('購読しているのは持ち主だけで、同じ端末で別の人が購読し直すとその人のものになる', async () => {

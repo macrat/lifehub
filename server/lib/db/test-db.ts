@@ -79,6 +79,16 @@ export async function createTestUser(name: TestUserName): Promise<string> {
 
 type TestUserName = 'A' | 'B';
 
+/**
+ * DB を空にして、自分（A）と相手（B）のユーザーを作り直し、その ID を返す。各テストの前に呼ぶ。
+ * A を先に作る（立替の残高など、登録順で 2 人を選ぶ処理がある）
+ */
+export async function resetUsers(): Promise<{ userId: string; partnerId: string }> {
+  await clearTables();
+  const userId = await createTestUser('A');
+  return { userId, partnerId: await createTestUser('B') };
+}
+
 /** テスト用のユーザーのパスワード（createTestUser で作ったユーザーでログインするのに使う） */
 export const TEST_PASSWORD = 'password-123456';
 
