@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays, today } from '../../shared/date.ts';
-import { clearTables, createTestUser } from '../lib/db/test-db.ts';
+import { resetUsers } from '../lib/db/test-db.ts';
 import { call, connect, type Day, type Entry, fail, readDays, run } from './mcp-client.ts';
 
 describe('MCP server', () => {
   let userId: string;
   let otherId: string;
   beforeEach(async () => {
-    await clearTables();
-    userId = await createTestUser('A');
-    otherId = await createTestUser('B');
+    ({ userId, partnerId: otherId } = await resetUsers());
   });
 
   it('タイムラインを中心にしたツールを、説明と性質（読むだけか）付きで公開する', async () => {

@@ -1,7 +1,8 @@
+import { z } from 'zod';
 import { memoSchema } from '../../../shared/validation/memos.ts';
 import { formatMemo } from '../../lib/mcp/entries.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
-import { ADDITIVE, EDITING, jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
+import { ADDITIVE, EDITING, jsonResult, type McpRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
 /**
@@ -11,14 +12,14 @@ import * as service from './service.ts';
 
 const body = memoSchema.shape.body.describe('本文（500 文字まで、プレーンテキスト）');
 
-export const registerMemoTools: ToolRegistrar = (server, ctx) => {
+export const registerMemoTools: McpRegistrar = (server, ctx) => {
   server.registerTool(
     'add_memo',
     {
       title: 'メモを書く',
       description:
         '家のことで思いついた一言を、今の日時でタイムラインに書き留める（X に投稿するような短いメモ）。予定やタスクにするものは add_event、レモンの木のことは log_lemon_care。書いたメモ（ref 付き）を返す。',
-      inputSchema: { body },
+      inputSchema: z.object({ body }),
       annotations: ADDITIVE,
     },
     async (input) => {
@@ -33,7 +34,7 @@ export const registerMemoTools: ToolRegistrar = (server, ctx) => {
       title: 'メモを直す',
       description:
         'メモの本文を ref で置き換える。書いた日時は変わらない。書いた本人のメモしか直せない。直したメモを返す。',
-      inputSchema: { ref: refSchema.describe('メモの ref'), body },
+      inputSchema: z.object({ ref: refSchema.describe('メモの ref'), body }),
       annotations: EDITING,
     },
     async ({ ref, body }) => {

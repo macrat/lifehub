@@ -16,6 +16,7 @@ import {
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
 
@@ -63,16 +64,26 @@ export async function addExpense(
   id: string = newId(),
 ): Promise<Expense> {
   const values = checkRules(input, expenseRulesSchema);
-  return toExpense(await repository.insert({ ...values, id, createdBy: userId }));
+  const expense = toExpense(await repository.insert({ ...values, id, createdBy: userId }));
+  publishChanged({ type: 'expense', record: expense }, 'added', { userId });
+  return expense;
 }
 
-/** 全項目を置き換える。記録した人（createdBy）は変えない */
-export async function updateExpense(id: string, input: ExpenseInput): Promise<void> {
-  if (!(await repository.update(id, input))) throw new NotFoundError('立替が見つかりません');
+/** 全項目を置き換える。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function updateExpense(
+  id: string,
+  input: ExpenseInput,
+  actorId: string,
+): Promise<void> {
+  await write(id, input, actorId);
 }
 
-/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない */
-export async function patchExpense(id: string, patch: Partial<ExpenseInput>): Promise<Expense> {
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function patchExpense(
+  id: string,
+  patch: Partial<ExpenseInput>,
+  actorId: string,
+): Promise<Expense> {
   const current = await repository.findById(id);
   if (!current) throw new NotFoundError('立替が見つかりません');
   const { fromUserId, toUserId, amount, description, spentOn } = current;
@@ -81,13 +92,23 @@ export async function patchExpense(id: string, patch: Partial<ExpenseInput>): Pr
     patch,
     expenseRulesSchema,
   );
-  const updated = await repository.update(id, values);
-  if (!updated) throw new NotFoundError('立替が見つかりません');
-  return toExpense(updated);
+  return write(id, values, actorId);
 }
 
-export async function deleteExpense(id: string): Promise<void> {
-  if (!(await repository.remove(id))) throw new NotFoundError('立替が見つかりません');
+/** 書き換えて、書いた後の立替を返す（直したことを MCP Events で知らせる） */
+async function write(id: string, values: ExpenseInput, actorId: string): Promise<Expense> {
+  const updated = await repository.update(id, values);
+  if (!updated) throw new NotFoundError('立替が見つかりません');
+  const expense = toExpense(updated);
+  publishChanged({ type: 'expense', record: expense }, 'updated', { userId: actorId });
+  return expense;
+}
+
+/** actorId は消した人 */
+export async function deleteExpense(id: string, actorId: string): Promise<void> {
+  const deleted = await repository.remove(id);
+  if (!deleted) throw new NotFoundError('立替が見つかりません');
+  publishChanged({ type: 'expense', record: toExpense(deleted) }, 'deleted', { userId: actorId });
 }
 
 function toExpense(row: ExpenseRow): Expense {

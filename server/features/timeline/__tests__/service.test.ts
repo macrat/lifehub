@@ -5,7 +5,7 @@ import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { expenseSchema } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
 import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';
@@ -39,9 +39,7 @@ function label(entry: TimelineEntry): string {
 
 describe('timeline service', () => {
   beforeEach(async () => {
-    await clearTables();
-    userId = await createTestUser('A');
-    partnerId = await createTestUser('B');
+    ({ userId, partnerId } = await resetUsers());
   });
 
   it('予定・タスク・立替・レモンを 1 本に新しい順で並べ、24 時間より先の予定は出さない', async () => {

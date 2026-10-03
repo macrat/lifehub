@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { today } from '../../shared/date.ts';
-import { clearTables, createTestUser } from '../lib/db/test-db.ts';
+import { resetUsers } from '../lib/db/test-db.ts';
 import { call, connect, type Entry, fail, readDays, run } from './mcp-client.ts';
 
 const WEEKLY_DENTIST = {
@@ -15,10 +15,8 @@ const WEEKLY_DENTIST = {
 describe('MCP server: 予定・タスク', () => {
   let userId: string;
   beforeEach(async () => {
-    await clearTables();
-    userId = await createTestUser('A');
-    // 参加者に名前で指す相手
-    await createTestUser('B');
+    // 相手は参加者に名前で指す
+    ({ userId } = await resetUsers());
   });
 
   it('タイムゾーンを省いた日時は JST で、人は名前で受け、JST と名前で返す', async () => {

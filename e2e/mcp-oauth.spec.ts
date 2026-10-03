@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { expect, test } from '@playwright/test';
 import { SIGNED_OUT } from './auth.ts';
 import { E2E_USER } from './global-setup.ts';
@@ -71,36 +72,24 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   expect(token.ok(), await token.text()).toBe(true);
   const { access_token: accessToken } = (await token.json()) as { access_token: string };
 
-  const listTools = await request.post('/api/mcp', {
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      accept: 'application/json, text/event-stream',
-      'content-type': 'application/json',
-    },
-    data: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
-  });
-  expect(listTools.ok(), await listTools.text()).toBe(true);
-  const body = (await listTools.json()) as { result: { tools: { name: string }[] } };
-  expect(body.result.tools.map((t) => t.name)).toContain('read_timeline');
-
-  const whoami = await request.post('/api/mcp', {
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      accept: 'application/json, text/event-stream',
-      'content-type': 'application/json',
-    },
-    data: {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: { name: 'get_overview', arguments: {} },
-    },
-  });
-  const { users } = JSON.parse(
-    ((await whoami.json()) as { result: { content: { text: string }[] } }).result.content[0]
-      ?.text ?? '{}',
-  ) as { users: { name: string; isMe: boolean }[] };
-  expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
+  // 2026-07-28 の MCP（MCP Events を使うクライアント）と 2025 年版の両方で、本番と同じ口を通して呼べる
+  for (const mode of [{ pin: '2026-07-28' } as const, 'legacy' as const]) {
+    const client = new Client({ name: 'e2e', version: '0.0.0' }, { versionNegotiation: { mode } });
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${BASE}/api/mcp`), {
+        requestInit: { headers: { authorization: `Bearer ${accessToken}` } },
+      }),
+    );
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toContain('read_timeline');
+    const overview = await client.callTool({ name: 'get_overview', arguments: {} });
+    const [content] = overview.content as { text?: string }[];
+    const { users } = JSON.parse(content?.text ?? '{}') as {
+      users: { name: string; isMe: boolean }[];
+    };
+    expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
+    await client.close();
+  }
 
   // トークン無しは 401 と RFC 9728 の案内
   const anonymous = await request.post('/api/mcp', {

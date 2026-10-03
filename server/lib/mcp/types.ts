@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 
 /** MCP の出力に名前を出し、入力の名前を ID に引き当てるためのユーザー（`people.ts`） */
 export type Person = { id: string; name: string };
@@ -11,8 +11,8 @@ export type McpContext = {
   people(): Promise<Person[]>;
 };
 
-/** 各 feature の mcp.ts が export する登録関数。server/mcp.ts が列挙する。 */
-export type ToolRegistrar = (server: McpServer, ctx: McpContext) => void;
+/** 各 feature の mcp.ts が export する登録関数（ツールと、MCP Events のメソッド）。server/mcp.ts が列挙する。 */
+export type McpRegistrar = (server: McpServer, ctx: McpContext) => void;
 
 /**
  * ツールの結果をテキスト（JSON）で返す。字下げはしない（LLM は字下げが無くても読め、字下げの分だけ文脈を食う）。

@@ -5,6 +5,7 @@ import { newId } from '../../../../shared/id.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { db } from '../../../lib/db/client.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError, ValidationError } from '../../../lib/errors.ts';
 import { events } from '../schema.ts';
 import {
@@ -15,7 +16,7 @@ import {
   listItems,
   updateEvent,
 } from '../service.ts';
-import { now, resetUsers, september } from './service-fixtures.ts';
+import { now, september } from './service-fixtures.ts';
 
 let userId: string;
 let partnerId: string;
