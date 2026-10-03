@@ -1,12 +1,12 @@
-import { randomBytes } from 'node:crypto';
 import type { ProtocolError } from '@modelcontextprotocol/client';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { newSecret } from '../features/mcp-events/__tests__/fixtures.ts';
 import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 import { connect } from './mcp-client.ts';
 
 const anyResult = z.looseObject({});
-const secret = `whsec_${randomBytes(32).toString('base64')}`;
+const secret = newSecret();
 const webhook = (url: string, mode = 'webhook') => ({ mode, url, secret });
 
 describe('MCP server: MCP Events', () => {

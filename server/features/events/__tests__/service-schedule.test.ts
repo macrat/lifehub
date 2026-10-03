@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import * as notifications from '../../notifications/service.ts';
 import { updateUser } from '../../users/service.ts';
 import {
@@ -10,7 +11,7 @@ import {
   uncompleteEvent,
   updateEvent,
 } from '../service.ts';
-import { now, resetUsers } from './service-fixtures.ts';
+import { now } from './service-fixtures.ts';
 
 /**
  * 通知を増やしうる書き込みの後に、当日〜翌日の通知の予約（scheduleUpcoming）が必ず呼ばれること。

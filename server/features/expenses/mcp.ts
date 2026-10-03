@@ -11,8 +11,8 @@ import {
   EDITING,
   jsonResult,
   type McpContext,
+  type McpRegistrar,
   type Person,
-  type ToolRegistrar,
 } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -46,7 +46,7 @@ async function withBalance(people: Person[], expense: Expense) {
   });
 }
 
-export const registerExpenseTools: ToolRegistrar = (server, ctx) => {
+export const registerExpenseTools: McpRegistrar = (server, ctx) => {
   server.registerTool(
     'add_expense',
     {

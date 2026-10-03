@@ -4,9 +4,10 @@ import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { newId } from '../../../../shared/id.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { db } from '../../../lib/db/client.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { events } from '../schema.ts';
 import { completeEvent, createEvent, listItems, updateEvent } from '../service.ts';
-import { now, resetUsers, september } from './service-fixtures.ts';
+import { now, september } from './service-fixtures.ts';
 
 /** 繰り返しの回の実体化（「この回だけ」の変更・完了）で、回の行と参加者が必ず一緒に書かれること */
 

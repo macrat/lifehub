@@ -1,6 +1,6 @@
 import { ProtocolError } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import type { ToolRegistrar } from '../../lib/mcp/types.ts';
+import type { McpRegistrar } from '../../lib/mcp/types.ts';
 import { EVENT_NAMES, type EventName, subscribe, unsubscribe } from './service.ts';
 
 /**
@@ -88,7 +88,7 @@ function eventNameOf(name: string): EventName {
   return found;
 }
 
-export const registerEventSubscriptions: ToolRegistrar = (mcp, ctx) => {
+export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
   const { server } = mcp;
   // 仕様のドラフトと ChatGPT は capabilities.events を読み、拡張としての名前は extensions に出す。
   // SDK の型は events を知らないので広げて渡す（SDK は capabilities をそのまま返すので、events も届く）

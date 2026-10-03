@@ -11,15 +11,23 @@ export function findById(id: string): Promise<McpEventSubscriptionRow | undefine
   return findRowById(mcpEventSubscriptions, id);
 }
 
-/** 購読を作るか、同じ id の購読を書き換える（購読し直し） */
-export async function upsert(row: NewMcpEventSubscriptionRow): Promise<void> {
-  const { id: _id, userId: _u, name: _n, url: _url, ...set } = row;
+/**
+ * 購読を作るか、同じ id の購読の鍵と期限を書き換える（購読し直し）。
+ * 購読の素性（id・人・イベント名・URL）は id から決まるので書き換えない
+ */
+export async function upsert(
+  identity: Pick<NewMcpEventSubscriptionRow, 'id' | 'userId' | 'name' | 'url'>,
+  values: Pick<
+    NewMcpEventSubscriptionRow,
+    'secret' | 'expiresAt' | 'previousSecret' | 'previousSecretExpiresAt'
+  >,
+): Promise<void> {
   await db
     .insert(mcpEventSubscriptions)
-    .values(row)
+    .values({ ...identity, ...values })
     .onConflictDoUpdate({
       target: mcpEventSubscriptions.id,
-      set: { ...set, updatedAt: new Date() },
+      set: { ...values, updatedAt: new Date() },
     });
 }
 

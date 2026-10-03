@@ -3,7 +3,7 @@ import { careLogFieldsSchema } from '../../../shared/validation/lemon.ts';
 import { formatCareLog } from '../../lib/mcp/entries.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
 import { instantInputSchema } from '../../lib/mcp/time.ts';
-import { ADDITIVE, EDITING, jsonResult, type ToolRegistrar } from '../../lib/mcp/types.ts';
+import { ADDITIVE, EDITING, jsonResult, type McpRegistrar } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
 /**
@@ -20,7 +20,7 @@ const fields = {
   note: careLogFieldsSchema.shape.note.describe('メモ（木の様子など）'),
 };
 
-export const registerLemonTools: ToolRegistrar = (server, ctx) => {
+export const registerLemonTools: McpRegistrar = (server, ctx) => {
   server.registerTool(
     'log_lemon_care',
     {

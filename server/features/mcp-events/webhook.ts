@@ -1,9 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
 import { request } from 'node:https';
 import { globalHttpsAgent } from 'request-filtering-agent';
 import { Webhook } from 'standardwebhooks';
-import { newId } from '../../../shared/id.ts';
-import { newSecret } from '../../lib/secret.ts';
 
 /**
  * MCP Events の webhook の送り方: Standard Webhooks の署名と、受け手の URL へ安全に POST すること。
@@ -14,13 +11,6 @@ import { newSecret } from '../../lib/secret.ts';
 type WebhookResponse =
   | { status: number; body: string }
   | { failure: 'connection_refused' | 'timeout' | 'tls_error' };
-
-/** 本文を URL へ POST する口。service はこれを受け取って使う（テストは受け手を差し替える） */
-export type WebhookPost = (
-  url: string,
-  headers: Record<string, string>,
-  body: string,
-) => Promise<WebhookResponse>;
 
 const TIMEOUT_MS = 10_000;
 /** 受け手の応答は検証の challenge を読むだけなので、それより大きい本文は読まずに切る */
@@ -47,47 +37,17 @@ export function webhookHeaders(
 }
 
 /**
- * 受け手が購読を望んでいるかを確かめる（challenge を送り、同じ値が返ること）。
- * 他人の URL を通知先に書いて、LifeHub から無関係なサーバーへ POST させることを防ぐ。
- * 失敗は MCP Events の CallbackEndpointError の reason で返す。
- */
-export async function verifyEndpoint(
-  post: WebhookPost,
-  subscriptionId: string,
-  url: string,
-  secret: string,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const challenge = newSecret();
-  const body = JSON.stringify({ type: 'verification', challenge });
-  const id = `msg_verification_${newId()}`;
-  const response = await post(url, webhookHeaders(subscriptionId, [secret], id, body), body);
-  if ('failure' in response) return { ok: false, reason: response.failure };
-  if (response.status >= 500) return { ok: false, reason: 'http_5xx' };
-  if (response.status < 200 || response.status >= 300) return { ok: false, reason: 'http_4xx' };
-  if (!echoes(response.body, challenge)) return { ok: false, reason: 'challenge_failed' };
-  return { ok: true };
-}
-
-function echoes(body: string, challenge: string): boolean {
-  let echoed: unknown;
-  try {
-    echoed = (JSON.parse(body) as { challenge?: unknown }).challenge;
-  } catch {
-    return false;
-  }
-  if (typeof echoed !== 'string') return false;
-  const [a, b] = [Buffer.from(echoed), Buffer.from(challenge)];
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/**
  * HTTPS で POST する。受け手の URL は MCP クライアントが決めるので、内部のサーバーやクラウドのメタデータ
  * （169.254.169.254）を叩かせないよう、名前を引いた後のアドレスが内部・予約のものなら繋がない
  * （`request-filtering-agent`。確かめたアドレスにそのまま繋ぐので、DNS rebinding でも内部に届かない）。
  * WHY NOT fetch: Node の fetch は http.Agent を受けず、繋ぐアドレスを確かめられない。
  * リダイレクトは追わない（3xx はそのまま返す。追うと確かめていない宛先へ送ることになる）。
  */
-export const postWebhook: WebhookPost = (url, headers, body) => {
+export function postWebhook(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<WebhookResponse> {
   if (new URL(url).protocol !== 'https:') return Promise.resolve({ failure: 'connection_refused' });
   return new Promise((resolve) => {
     const req = request(
@@ -116,4 +76,4 @@ export const postWebhook: WebhookPost = (url, headers, body) => {
     });
     req.end(body);
   });
-};
+}

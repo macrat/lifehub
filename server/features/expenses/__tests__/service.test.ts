@@ -7,7 +7,7 @@ import {
   type ExpenseListQuery,
   SHARED,
 } from '../../../../shared/validation/expenses.ts';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { listUsers } from '../../users/service.ts';
 import { addExpense, deleteExpense, getBalance, listExpenses, updateExpense } from '../service.ts';
 
@@ -18,9 +18,7 @@ const on = dateStringSchema.parse('2026-09-01');
 
 describe('expenses service', () => {
   beforeEach(async () => {
-    await clearTables();
-    a = await createTestUser('A');
-    b = await createTestUser('B');
+    ({ userId: a, partnerId: b } = await resetUsers());
   });
 
   it('利用者がちょうど 2 人でなければ、残高を計算せずに null を返す', async () => {

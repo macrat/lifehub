@@ -12,7 +12,7 @@ export type McpContext = {
 };
 
 /** 各 feature の mcp.ts が export する登録関数（ツールと、MCP Events のメソッド）。server/mcp.ts が列挙する。 */
-export type ToolRegistrar = (server: McpServer, ctx: McpContext) => void;
+export type McpRegistrar = (server: McpServer, ctx: McpContext) => void;
 
 /**
  * ツールの結果をテキスト（JSON）で返す。字下げはしない（LLM は字下げが無くても読め、字下げの分だけ文脈を食う）。

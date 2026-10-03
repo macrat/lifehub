@@ -3,7 +3,7 @@ import { fromMinutesOfDay } from '../../../shared/date.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
 import { weatherSummary } from '../../lib/mcp/entries.ts';
 import { dateRangeInput, jstTime, weekdayOf } from '../../lib/mcp/time.ts';
-import { compact, jsonResult, READ_ONLY, type ToolRegistrar } from '../../lib/mcp/types.ts';
+import { compact, jsonResult, type McpRegistrar, READ_ONLY } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
 /** get_weather の期間: 既定は 8 日（今日と週間予報の 7 日）、最大 31 日 */
@@ -26,7 +26,7 @@ function formatDay(day: WeatherDay) {
   });
 }
 
-export const registerWeatherTools: ToolRegistrar = (server) => {
+export const registerWeatherTools: McpRegistrar = (server) => {
   server.registerTool(
     'get_weather',
     {

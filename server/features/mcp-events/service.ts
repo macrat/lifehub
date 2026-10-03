@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { setTimeout as sleep } from 'node:timers/promises';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import type { EventMaster } from '../../../shared/calendar.ts';
 import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
@@ -14,10 +14,11 @@ import {
 } from '../../lib/mcp/entries.ts';
 import { authorName } from '../../lib/mcp/people.ts';
 import type { Person } from '../../lib/mcp/types.ts';
-import { listUsers } from '../users/service.ts';
+import { newSecret } from '../../lib/secret.ts';
+import { listPeople } from '../users/service.ts';
 import * as repository from './repository.ts';
 import type { McpEventSubscriptionRow } from './schema.ts';
-import { postWebhook, verifyEndpoint, type WebhookPost, webhookHeaders } from './webhook.ts';
+import { postWebhook, webhookHeaders } from './webhook.ts';
 
 /**
  * MCP Events（webhook 配信）の購読と配信。記録を書いた・消した service が `publishChanged` を呼び、
@@ -33,8 +34,6 @@ export const EVENT_NAMES = {
   lemon: 'lemon.changed',
 } as const;
 export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES];
-
-type WrittenEvent = Parameters<typeof formatEvent>[0];
 
 /**
  * 書いた記録（消したときは消す前の記録）。予定・タスクは書いた後の値を読み直す必要があるときだけ、
@@ -52,6 +51,12 @@ type ChangedRecord =
 
 type Action = 'added' | 'updated' | 'deleted';
 
+/**
+ * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
+ * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
+ */
+export type WrittenEvent = EventMaster & { occurrenceStart: string | null };
+
 /** 書いた人。API キーで入れた記録は人が分からないので、キーの名前 */
 export type Actor = { userId: string } | { apiKeyName: string };
 
@@ -64,9 +69,6 @@ type Occurrence = {
   cursor: null;
 };
 
-/** 配り方。テストは受け手を差し替え、送り直しの間を縮める */
-type DeliveryOptions = { post?: WebhookPost; retryDelaysMs?: number[] };
-
 /**
  * 記録を書いた・消したことを知らせる。応答は待たせず、応答を返した後に配る（`afterResponse`）。
  * 購読が無ければ問い合わせ 1 回で終わる。
@@ -75,17 +77,11 @@ export function publishChanged(changed: ChangedRecord, action: Action, actor: Ac
   afterResponse('mcp-events', () => deliverChanged(changed, action, actor));
 }
 
-export async function deliverChanged(
-  changed: ChangedRecord,
-  action: Action,
-  actor: Actor,
-  { post = postWebhook, retryDelaysMs = [2_000, 10_000] }: DeliveryOptions = {},
-): Promise<void> {
+async function deliverChanged(changed: ChangedRecord, action: Action, actor: Actor): Promise<void> {
   const name = EVENT_NAMES[changed.type];
   const subscriptions = await repository.findActive(name, new Date());
   if (subscriptions.length === 0) return;
-  const [users, format] = await Promise.all([listUsers(), formatterOf(changed)]);
-  const people: Person[] = users.map(({ id, name }) => ({ id, name }));
+  const [people, format] = await Promise.all([listPeople(), formatterOf(changed)]);
   const entry = format(people);
   const occurrence: Occurrence = {
     // 追加と削除は記録（回）ごとに 1 度きりなので、記録の ref から決める（オフラインの再送で同じ追加・削除が
@@ -101,7 +97,7 @@ export async function deliverChanged(
     },
     cursor: null,
   };
-  await Promise.all(subscriptions.map((sub) => deliverTo(sub, occurrence, post, retryDelaysMs)));
+  await Promise.all(subscriptions.map((sub) => deliverTo(sub, occurrence)));
 }
 
 /** 記録をエントリーの形にする関数。予定・タスクを読み直すときは、人の一覧と並べて読めるよう先に読む */
@@ -127,26 +123,24 @@ async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) =
  */
 const MAX_BODY_BYTES = 256 * 1024;
 
+/** 届かなかったときに送り直すまでの間 */
+const RETRY_DELAYS_MS = [2_000, 10_000];
+
 /**
  * 1 つの購読に届ける。届かなければ間を空けて送り直す（eventId は変えないので、受け手が重複を捨てられる）。
  * 410 は受け手が購読をやめたので購読を消す。413 とほかの 4xx は送り直しても変わらないので諦める
  * （408 と 429 だけは時間を置けば通りうるので送り直す）。
  */
-async function deliverTo(
-  sub: McpEventSubscriptionRow,
-  occurrence: Occurrence,
-  post: WebhookPost,
-  retryDelaysMs: number[],
-): Promise<void> {
+async function deliverTo(sub: McpEventSubscriptionRow, occurrence: Occurrence): Promise<void> {
   const body = JSON.stringify(occurrence);
   if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
     console.error('mcp-events: event payload too large', sub.id, occurrence.eventId);
     return;
   }
-  for (const delay of [0, ...retryDelaysMs]) {
-    if (delay > 0) await sleep(delay);
+  for (const delay of [0, ...RETRY_DELAYS_MS]) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     const headers = webhookHeaders(sub.id, secretsOf(sub), occurrence.eventId, body);
-    const response = await post(sub.url, headers, body);
+    const response = await postWebhook(sub.url, headers, body);
     if ('status' in response) {
       const { status } = response;
       if (status >= 200 && status < 300) return;
@@ -199,33 +193,64 @@ type SubscribeInput = {
 export async function subscribe(
   userId: string,
   { name, url, secret, ttlMs }: SubscribeInput,
-  post: WebhookPost = postWebhook,
 ): Promise<{ ok: true; id: string; refreshBefore: Date } | { ok: false; reason: string }> {
   const now = new Date();
   const id = subscriptionIdOf(userId, url, name);
   const [current] = await Promise.all([repository.findById(id), repository.removeExpired(now)]);
   if (!current) {
-    const verified = await verifyEndpoint(post, id, url, secret);
+    const verified = await verifyEndpoint(id, url, secret);
     if (!verified.ok) return verified;
   }
   const ttl = Math.min(Math.max(ttlMs ?? MAX_TTL_MS, MIN_TTL_MS), MAX_TTL_MS);
   const expiresAt = new Date(now.getTime() + ttl);
   const rotated = current && current.secret !== secret;
-  await repository.upsert({
-    id,
-    userId,
-    name,
-    url,
-    secret,
-    expiresAt,
-    ...(rotated
-      ? {
-          previousSecret: current.secret,
-          previousSecretExpiresAt: new Date(now.getTime() + SECRET_ROTATION_GRACE_MS),
-        }
-      : {}),
-  });
+  await repository.upsert(
+    { id, userId, name, url },
+    {
+      secret,
+      expiresAt,
+      ...(rotated
+        ? {
+            previousSecret: current.secret,
+            previousSecretExpiresAt: new Date(now.getTime() + SECRET_ROTATION_GRACE_MS),
+          }
+        : {}),
+    },
+  );
   return { ok: true, id, refreshBefore: expiresAt };
+}
+
+/**
+ * 受け手が購読を望んでいるかを確かめる（challenge を送り、同じ値が返ること）。
+ * 他人の URL を通知先に書いて、LifeHub から無関係なサーバーへ POST させることを防ぐ。
+ * 失敗は MCP Events の CallbackEndpointError の reason で返す。
+ */
+async function verifyEndpoint(
+  subscriptionId: string,
+  url: string,
+  secret: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const challenge = newSecret();
+  const body = JSON.stringify({ type: 'verification', challenge });
+  const id = `msg_verification_${newId()}`;
+  const response = await postWebhook(url, webhookHeaders(subscriptionId, [secret], id, body), body);
+  if ('failure' in response) return { ok: false, reason: response.failure };
+  if (response.status >= 500) return { ok: false, reason: 'http_5xx' };
+  if (response.status < 200 || response.status >= 300) return { ok: false, reason: 'http_4xx' };
+  if (!echoes(response.body, challenge)) return { ok: false, reason: 'challenge_failed' };
+  return { ok: true };
+}
+
+function echoes(body: string, challenge: string): boolean {
+  let echoed: unknown;
+  try {
+    echoed = (JSON.parse(body) as { challenge?: unknown }).challenge;
+  } catch {
+    return false;
+  }
+  if (typeof echoed !== 'string') return false;
+  const [a, b] = [Buffer.from(echoed), Buffer.from(challenge)];
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** 購読をやめる。無い購読をやめても何もしない（冪等） */

@@ -20,8 +20,8 @@ import {
   EDITING,
   jsonResult,
   type McpContext,
+  type McpRegistrar,
   READ_ONLY,
-  type ToolRegistrar,
   textResult,
 } from '../../lib/mcp/types.ts';
 import * as events from '../events/service.ts';
@@ -179,7 +179,7 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
   );
 }
 
-export const registerTimelineTools: ToolRegistrar = (server, ctx) => {
+export const registerTimelineTools: McpRegistrar = (server, ctx) => {
   registerOverview(server, ctx);
   registerReadTimeline(server, ctx);
   registerDeleteEntry(server, ctx);

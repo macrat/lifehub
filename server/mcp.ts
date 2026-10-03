@@ -7,14 +7,14 @@ import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
-import { listUsers } from './features/users/service.ts';
+import { listPeople } from './features/users/service.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
-import type { McpContext, Person, ToolRegistrar } from './lib/mcp/types.ts';
+import type { McpContext, McpRegistrar, Person } from './lib/mcp/types.ts';
 import { setSentryUser } from './lib/sentry.ts';
 
 /** 全 feature のツール（と MCP Events の購読）。新しい feature のツールはここに 1 行足す。 */
-const registrars: ToolRegistrar[] = [
+const registrars: McpRegistrar[] = [
   registerTimelineTools,
   registerEventTools,
   registerExpenseTools,
@@ -47,7 +47,7 @@ function createMcpServer({ userId }: { userId: string }): McpServer {
   const ctx: McpContext = {
     userId,
     people: () => {
-      people ??= listUsers().then((users) => users.map(({ id, name }) => ({ id, name })));
+      people ??= listPeople();
       return people;
     },
   };

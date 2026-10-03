@@ -23,8 +23,8 @@ import {
   EDITING,
   jsonResult,
   type McpContext,
+  type McpRegistrar,
   type Person,
-  type ToolRegistrar,
 } from '../../lib/mcp/types.ts';
 import * as service from './service.ts';
 
@@ -266,7 +266,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
   );
 }
 
-export const registerEventTools: ToolRegistrar = (server, ctx) => {
+export const registerEventTools: McpRegistrar = (server, ctx) => {
   registerAdd(server, ctx);
   registerUpdate(server, ctx);
 };

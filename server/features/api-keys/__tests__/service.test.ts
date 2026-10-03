@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
+import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
 import { authenticate, createKey, listKeys, revokeKey } from '../service.ts';
 
@@ -10,9 +10,7 @@ let otherId: string;
 
 describe('api-keys service', () => {
   beforeEach(async () => {
-    await clearTables();
-    userId = await createTestUser('A');
-    otherId = await createTestUser('B');
+    ({ userId, partnerId: otherId } = await resetUsers());
   });
 
   it('発行したキーで持ち主と名前が分かり、最後に使われた日時を記録する', async () => {
