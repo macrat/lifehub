@@ -1,22 +1,22 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
 import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type MemoRow, memos } from './schema.ts';
 
 /** タイムラインの問い合わせ。置く日時は書いた時刻、キーワードは本文の部分一致 */
-export const timeline = timelineQueries({
-  table: memos,
-  at: memos.createdAt,
-  keyword: (q) => containsKeyword(memos.body, q),
-});
+const timelineOf = (where?: SQL) =>
+  timelineQueries({
+    table: memos,
+    at: memos.createdAt,
+    keyword: (q) => containsKeyword(memos.body, q),
+    where,
+  });
+
+export const timeline = timelineOf();
 
 /** ピン止めしていないメモだけのタイムラインの問い合わせ（絞り込んでいないホームのタイムライン） */
-export const unpinnedTimeline = timelineQueries({
-  table: memos,
-  at: memos.createdAt,
-  keyword: (q) => and(eq(memos.pinned, false), containsKeyword(memos.body, q)),
-});
+export const unpinnedTimeline = timelineOf(eq(memos.pinned, false));
 
 /** メモを作る。同じ id で送り直されたら何も書かず、今の行を返す（`insertOnce`） */
 export async function insert(row: {

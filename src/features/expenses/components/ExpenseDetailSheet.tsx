@@ -33,8 +33,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
   const detail = useRecordDetail({
     initialEditing,
     form: sheet,
-    confirmDelete: 'この立替を削除しますか？',
-    remove: () => deleteExpense.mutate(expense.id),
+    remove: { confirm: 'この立替を削除しますか？', run: () => deleteExpense.mutate(expense.id) },
     onClose,
   });
 
