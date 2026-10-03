@@ -8,9 +8,13 @@ import type { Locator, Page } from '@playwright/test';
 /** 画面の上の AppBar */
 export const appBar = (page: Page) => page.getByRole('banner');
 
-/** AppBar の左端に出るオフラインの印（説明はツールチップ＝アクセシブルな名前） */
+/** オフラインの印のツールチップ（未送信の書き込みが無いとき） */
+export const OFFLINE_MESSAGE =
+  '現在オフラインになっています。変更はオンラインになったときに同期されます';
+
+/** AppBar の左端に出るオフラインの印（ツールチップの文がそのままアクセシブルな名前になる） */
 export const offlineIndicator = (page: Page) =>
-  appBar(page).getByRole('img', { name: /現在オフラインになっています/ });
+  appBar(page).getByRole('button', { name: OFFLINE_MESSAGE, exact: false });
 
 /** スマホの下部ナビ（画面の最後の navigation） */
 export const bottomNav = (page: Page) => page.getByRole('navigation').last();
