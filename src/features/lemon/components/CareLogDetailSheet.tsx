@@ -31,8 +31,7 @@ export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Pro
   const detail = useRecordDetail({
     initialEditing,
     form: sheet,
-    confirmDelete: 'この記録を削除しますか？',
-    remove: () => deleteLog.mutate(log.id),
+    remove: { confirm: 'この記録を削除しますか？', run: () => deleteLog.mutate(log.id) },
     onClose,
   });
 

@@ -12,6 +12,7 @@ const memo = (id: string, body: string): Memo => ({
   createdBy: 'u1',
   mcpClientName: null,
   createdAt: '2030-05-02T03:00:00.000Z',
+  pinned: false,
 });
 
 /** 絞り込みの無い 1 ページだけを読んだ状態 */

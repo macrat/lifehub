@@ -1,5 +1,6 @@
 import type { InfiniteData, QueryClient, QueryKey } from '@tanstack/react-query';
 import { today } from '../../shared/date.ts';
+import { isFiltered } from '../../shared/search.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 
 /**
@@ -31,7 +32,7 @@ export type HistorySource<T, F> = {
  * 同じキャッシュを読むようこれを使う。
  */
 export function historyQueryOptions<T, F extends object>(source: HistorySource<T, F>, filter: F) {
-  const filtered = Object.values(filter).some((value) => value !== undefined);
+  const filtered = isFiltered(filter);
   return {
     queryKey: [...source.key, filter],
     queryFn: ({ pageParam, signal }: { pageParam: string | undefined; signal: AbortSignal }) =>

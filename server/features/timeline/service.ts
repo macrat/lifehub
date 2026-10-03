@@ -7,6 +7,7 @@ import {
   startOfDay,
   toDateString,
 } from '../../../shared/date.ts';
+import { isFiltered } from '../../../shared/search.ts';
 import {
   entryDay,
   entryStart,
@@ -44,8 +45,17 @@ const recordSources = {
   memo: memos.timelineSource,
 } satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
 
-/** タイムラインに並べる記録の出どころ */
-const sources: TimelineSource[] = [events.timelineSource, ...Object.values(recordSources)];
+/** 絞り込んでいるときにタイムラインに並べる記録の出どころ（ピン止めしたメモも含む） */
+const filteredSources: TimelineSource[] = [events.timelineSource, ...Object.values(recordSources)];
+
+/**
+ * 絞り込んでいないときの出どころ。ピン止めしたメモは画面がタイムラインの上に固定して出すので、メモはそれを除いたもの
+ * （理由は docs/features/home.md の「API」）。
+ */
+const unfilteredSources: TimelineSource[] = [
+  events.timelineSource,
+  ...Object.values({ ...recordSources, memo: memos.unpinnedTimelineSource }),
+];
 
 /**
  * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・立替・レモン・メモを 1 本に並べる。
@@ -58,12 +68,17 @@ const sources: TimelineSource[] = [events.timelineSource, ...Object.values(recor
  *
  * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたか日時を持たないタスクを一番上に置く
  * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
+ *
+ * 絞り込んでいないとき（`isFiltered`）は、ピン止めしたメモを出さない（`unfilteredSources`）。
+ * 絞り込んでいるときはほかのメモと同じく、条件に合えば書いた時刻の位置に出す。
  */
 export async function getTimelinePage(
   query: TimelineQuery,
   now: Date = new Date(),
 ): Promise<HistoryPage<TimelineEntry>> {
-  const { q, since, until, before } = query;
+  const { before, ...filter } = query;
+  const { q, since, until } = filter;
+  const sources = isFiltered(filter) ? filteredSources : unfilteredSources;
   const upper = earliest(
     before ? startOfDate(before) : new Date(now.getTime() + LOOKAHEAD_MS),
     until ? startOfDate(addDays(until, 1)) : null,

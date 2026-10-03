@@ -69,6 +69,52 @@ test('メモを書いて、詳細から直して消せる', async ({ page }) => 
   await expect(page.getByRole('button', { name: /E2E ホーム/ })).toHaveCount(0);
 });
 
+test('メモを詳細の三点リーダーからピン止めすると、タイムラインの一番上に固定され、外すと戻る', async ({
+  page,
+}) => {
+  await openHome(page);
+  const body = `E2E ピン ${Date.now()}`;
+  for (const suffix of ['古い', '新しい']) {
+    await page.getByRole('button', { name: 'メモを追加' }).click();
+    await page.getByRole('textbox', { name: 'メモ', exact: true }).fill(`${body} ${suffix}`);
+    await page.getByRole('button', { name: '保存' }).click();
+    await expect(page.getByText(`${body} ${suffix}`)).toBeVisible();
+  }
+  const rows = page.getByRole('button', { name: new RegExp(body) });
+  // 行の並び（画面の上から）。行は押せる範囲に中身の文字を名前として付けている
+  const expectOrder = async (first: string, second: string) => {
+    await expect(rows.nth(0)).toHaveAccessibleName(new RegExp(`${body} ${first}`));
+    await expect(rows.nth(1)).toHaveAccessibleName(new RegExp(`${body} ${second}`));
+  };
+  await expectOrder('新しい', '古い');
+
+  // 古いほうをピン止めすると、新しいほうより上に出て、日時の右にピンが付く
+  await page.getByRole('button', { name: new RegExp(`${body} 古い`) }).click();
+  await detailAction(page, 'ピン止め');
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expectOrder('古い', '新しい');
+  await expect(page.getByRole('img', { name: 'ピン止め' })).toHaveCount(1);
+
+  // 読み直しても一番上のまま
+  await page.reload();
+  await expectOrder('古い', '新しい');
+
+  // 絞り込むと、ほかのメモと同じく書いた時刻の位置に出る（ピンは付いたまま）
+  await page.getByLabel('記録を検索').fill(body);
+  await expectOrder('新しい', '古い');
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByRole('img', { name: 'ピン止め' })).toHaveCount(1);
+  await page.getByLabel('記録を検索').fill('');
+  await expectOrder('古い', '新しい');
+
+  // 外すと書いた時刻の位置に戻る
+  await page.getByRole('button', { name: new RegExp(`${body} 古い`) }).click();
+  await detailAction(page, 'ピン止め解除');
+  await page.getByRole('button', { name: '閉じる' }).click();
+  await expectOrder('新しい', '古い');
+  await expect(page.getByRole('img', { name: 'ピン止め' })).toHaveCount(0);
+});
+
 test('場所のある予定は、タイトルの下・メモの上に地図を開く場所が出る', async ({ page }) => {
   const title = `E2E 場所 ${Date.now()}`;
   const id = await addItem(page, {

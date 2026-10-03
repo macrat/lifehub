@@ -33,6 +33,8 @@ export type EntryView = {
   overdue: boolean;
   /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
+  /** 日時の右に控えめなピンを添える（ピン止めしたメモ） */
+  pinned: boolean;
   /** 下段の前に並べる項目のアイコン（レモン）。無ければその行は詰める */
   careTypes: CareType[];
   /** 上段の下に場所のアイコンを添えて出す場所（予定・タスク）。無ければその行は詰める */
@@ -50,6 +52,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
   const view = {
     time,
+    pinned: false,
     task: null,
     struck: false,
     overdue: false,
@@ -110,6 +113,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         // MCP で書いたメモは、AI が書いたことをロボットのアイコンと MCP クライアントの名前で示す（人は丸の色で分かる）
         icon: memo.mcpClientName ? SmartToyIcon : ADD_KINDS.memo.icon,
         heading: memo.mcpClientName ?? authorName(memo.createdBy),
+        pinned: memo.pinned,
         body: memo.body,
       };
     }

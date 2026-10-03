@@ -124,8 +124,15 @@
     {
       "idx": 17,
       "version": "7",
-      "when": 1791011743404,
-      "tag": "0017_memo_mcp_client_name",
+      "when": 1791013417361,
+      "tag": "0017_memo_pinned",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791016951176,
+      "tag": "0018_memo_mcp_client_name",
       "breakpoints": true
     }
   ]

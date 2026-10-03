@@ -66,12 +66,11 @@ Neon ブランチ `preview/pr-<番号>` を削除。Free プランのブラン�
 
 1. `terraform apply -auto-approve`
 2. `drizzle-kit migrate`（`DATABASE_URL` は `terraform output`）
-3. `pnpm data:refresh`（祝日と天気を表に入れる。[features/holidays.md](features/holidays.md)・[features/weather.md](features/weather.md#取得と保存)。失敗してもデプロイは続ける）
-4. `vercel pull --environment=production` → `vercel build --prod`
-5. ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）
-6. ソースマップを消す（公開しない）
-7. `vercel deploy --prebuilt --prod`
-8. Sentry のリリースに前のリリースからのコミットを紐付ける（`sentry-cli releases new` → `set-commits --auto` → `finalize`。失敗してもデプロイは続ける）。Sentry の GitHub 連携に登録済みのリポジトリのコミットとして紐付くので、コミットメッセージの `Fixes <Issue>` でそのリリースが出たときに Issue が解決済みになる
+3. `vercel pull --environment=production` → `vercel build --prod`
+4. ソースマップを Sentry へ送る（`sentry-cli sourcemaps inject` / `upload`。失敗してもデプロイは続ける）
+5. ソースマップを消す（公開しない）
+6. `vercel deploy --prebuilt --prod`
+7. Sentry のリリースに前のリリースからのコミットを紐付ける（`sentry-cli releases new` → `set-commits --auto` → `finalize`。失敗してもデプロイは続ける）。Sentry の GitHub 連携に登録済みのリポジトリのコミットとして紐付くので、コミットメッセージの `Fixes <Issue>` でそのリリースが出たときに Issue が解決済みになる
 
 ### Preview 環境の挙動
 

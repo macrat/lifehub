@@ -6,13 +6,14 @@ import type { RecordAction } from './RecordSheet.tsx';
 type Options = {
   /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
   initialEditing: boolean;
-  /** 直すことも消すこともできない記録。鉛筆も三点リーダーも出さず、長押しでも入力欄にしない */
-  readOnly?: boolean;
   /** 編集のフォーム（`useFormSubmit` の `sheet`） */
   form: FormSheetProps;
-  /** 削除の前に確かめる文 */
-  confirmDelete: string;
-  remove: () => void;
+  /** 直せるか。false なら鉛筆を出さず、長押しでも入力欄にしない（ほかの人のメモ） */
+  editable?: boolean;
+  /** 削除の前に確かめる文と、消す処理。無ければ三点リーダーに削除を出さない（ほかの人のメモ） */
+  remove?: { confirm: string; run: () => void } | undefined;
+  /** 三点リーダーで削除の上に並べる、その記録だけの操作（メモのピン止め） */
+  actions?: RecordAction[];
   onClose: () => void;
 };
 
@@ -25,27 +26,35 @@ type Options = {
  */
 export function useRecordDetail({
   initialEditing,
-  readOnly = false,
   form,
-  confirmDelete,
+  editable = true,
   remove,
+  actions = [],
   onClose,
 }: Options) {
-  const [editing, setEditing] = useState(initialEditing && !readOnly);
-  if (readOnly) return { editing, sheet: { ...form, onClose, editing, actions: [] } };
+  const [editing, setEditing] = useState(initialEditing && editable);
+  return {
+    editing,
+    sheet: {
+      ...form,
+      onClose,
+      editing,
+      ...(editable ? { onEdit: () => setEditing(true) } : {}),
+      actions: remove ? [...actions, deleteAction(remove, onClose)] : actions,
+    },
+  };
+}
 
-  const deleteAction: RecordAction = {
+/** 三点リーダーの削除。確かめてから消し、結果を待たずに閉じる */
+function deleteAction(remove: NonNullable<Options['remove']>, onClose: () => void): RecordAction {
+  return {
     label: '削除',
     icon: <DeleteIcon />,
     danger: true,
     onClick: () => {
-      if (!window.confirm(confirmDelete)) return;
-      remove();
+      if (!window.confirm(remove.confirm)) return;
+      remove.run();
       onClose();
     },
-  };
-  return {
-    editing,
-    sheet: { ...form, onClose, editing, onEdit: () => setEditing(true), actions: [deleteAction] },
   };
 }

@@ -1,6 +1,6 @@
 import { newId } from '../../../shared/id.ts';
-import type { Memo } from '../../../shared/memos.ts';
-import { memoEntry } from '../../../shared/timeline.ts';
+import { type Memo, sortPinnedMemos } from '../../../shared/memos.ts';
+import { memoEntry, type TimelineEntry } from '../../../shared/timeline.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
@@ -31,6 +31,16 @@ export async function updateMemo(id: string, input: MemoInput, actorId: string):
   return memo;
 }
 
+/** ピン止めする（pinned = true）か外す。誰が書いたメモでもできる（理由は docs/features/memos.md の「ピン止め」） */
+export async function setMemoPinned(id: string, pinned: boolean): Promise<void> {
+  if (!(await repository.setPinned(id, pinned))) throw new NotFoundError('メモが見つかりません');
+}
+
+/** ピン止めしたメモ（書いた時刻の新しい順）。ホームのタイムラインの一番上に固定して出す */
+export async function listPinnedMemos(): Promise<Memo[]> {
+  return sortPinnedMemos((await repository.findPinned()).map(toMemo));
+}
+
 export async function deleteMemo(id: string, actorId: string): Promise<void> {
   const deleted = await repository.remove(id, actorId);
   if (!deleted) return rejectWrite(id);
@@ -49,9 +59,17 @@ async function rejectWrite(id: string): Promise<never> {
 }
 
 /** タイムラインに並べるメモ（置く日時は書いた時刻。キーワードは本文の部分一致） */
-export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
-  memoEntry(toMemo(row)),
-);
+export const timelineSource = recordTimelineSource(repository.timeline, toEntry);
+
+/**
+ * 絞り込んでいないホームのタイムラインに並べるメモ。ピン止めしたものは画面がタイムラインの上に固定して出すので
+ * 除く（`listPinnedMemos`）。絞り込んでいるときと MCP の日ごとの読み出しは `timelineSource`（ピン止めも含む）を読む。
+ */
+export const unpinnedTimelineSource = recordTimelineSource(repository.unpinnedTimeline, toEntry);
+
+function toEntry(row: MemoRow): TimelineEntry {
+  return memoEntry(toMemo(row));
+}
 
 function toMemo(row: MemoRow): Memo {
   return {
@@ -60,5 +78,6 @@ function toMemo(row: MemoRow): Memo {
     createdBy: row.createdBy,
     mcpClientName: row.mcpClientName,
     createdAt: row.createdAt.toISOString(),
+    pinned: row.pinned,
   };
 }

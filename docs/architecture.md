@@ -85,7 +85,7 @@ src/                          # クライアント（Vite + React）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
-    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除。直せない記録は読むだけ）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
 server/                       # サーバー（Hono）
@@ -186,7 +186,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
   - 規則は lint で強制する（`lint/screen-data.grit`）: TanStack Query の購読を使えるのは `src/lib/screen-data.ts` だけ、画面の購読を呼べるのは `src/routes/**` だけ。
   - WHY: 部品が自分でクエリを出すと、同じ画面の取得があちこちの部品に散らばり、何を読む画面なのかを画面から読み取れず、部品を描く・描かないで問い合わせが増減する。
 - ログイン状態（`me`）はキャッシュにあれば信じて即起動し、期限切れはサーバーの 401 で検出する。キャッシュが「未ログイン」でもオンラインなら取り直す（ログイン直後は永続化が追いつかないことがある）。ログイン画面だけは、キャッシュにユーザーがいてもオンラインならサーバーに確かめてから「済んでいるので見せない」を決める（期限の切れたキャッシュでアプリへ送り返さないため）。ログイン状態に関わる判定と操作は `src/lib/auth.ts` に集め、画面（routes）はそれを呼ぶだけにする。
-- オンラインかどうかの判定は TanStack Query の `onlineManager` に一本化する（`useOnline`）。表示（`OfflineBanner`）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。`onlineManager` は「オンラインとみなす」から始まり online/offline イベントでしか変わらないので、起動時に `navigator.onLine` を 1 度だけ反映する（`src/lib/query-client.ts`）。オフラインのまま起動しても正しく判定できる。
+- オンラインかどうかの判定は TanStack Query の `onlineManager` に一本化する（`useOnline`）。表示（`OfflineIndicator`）と実際の振る舞い（取得の一時停止・書き込みの保留）が必ず一致する。`onlineManager` は「オンラインとみなす」から始まり online/offline イベントでしか変わらないので、起動時に `navigator.onLine` を 1 度だけ反映する（`src/lib/query-client.ts`）。オフラインのまま起動しても正しく判定できる。
 
 ## 書き込み
 
@@ -202,7 +202,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - **送る内容だけを値として持つ**。書き込み 1 回分は `{ path, input }`（`WriteRequest`。path は `memos.create` のような手続きの名前）というプレーンな値で、mutation の引数になる。関数は保存できないので、送り方は `mutationKey` に紐づけた 1 つの既定（`setMutationDefaults`）に置く。復元した書き込みも同じ既定で送られるので、feature ごとの送信コードを起動時に読み込む必要がない。値は `lib/api.ts` の `write`（`write.memos.create(input)`）で作り、手続きの名前と入力の型を API の型から導いて守る。送るときは名前で手続きを呼ぶ（`sendWrite`）。
 - **溜める**: `networkMode: 'online'`（既定）なのでオフラインでは送らずに保留し、保留中の書き込みは永続化キャッシュに含まれる（`persistOptions` の dehydrateOptions が、保留中の mutation のうち書き込みのキーを持つものだけを残す。既定を持たないほかの mutation は、残すと送り方の無いまま復元されるため）。アプリを閉じても消えず、次の起動で復元して送る（`main.tsx` の `resumeWrites`）。
 - **順序**: すべての書き込みが同じ `scope` を持つので 1 つずつ順に走り、「追加してから直す」が操作した順でサーバーに届く。
-- **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数は `OfflineBanner` に出す（帯は「オフラインモード」の一言と、未送信があるときだけその件数）。
+- **表示**: 楽観的更新の結果も同じ永続化キャッシュに入るので、オフラインで記録したものは再読み込みしても画面に出たままになる。未送信の件数はオフラインの印のツールチップに出す（未送信があるときだけ。見え方は [ui.md](ui.md#appbar-と検索)）。
 - **送り直し**: 通信断（`isNetworkError`）だけ送り直す。サーバーが理由を返した失敗（検証エラーなど）は送り直しても変わらないので、その場で諦めて楽観的更新を戻し、通知で伝える。
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成が既にあれば何も書かない（送られた値で上書きしない。作った後に編集してから古い作成が再送されると、上書きでは編集が巻き戻るため）。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
 - **未ログインになったら捨てる**: ログアウトしたとき、API が 401 を返したときは、溜めた書き込みを捨てる（`src/lib/auth.ts` の `markSignedOut`）。書き込みは送る時点のセッションで送られるので、残すと次にログインした別のユーザーとして送られてしまう。401 のときに残して同じユーザーの再ログインを待つことはしない: 401 はオンラインでしか起きず、オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗するので、残しても通る見込みが無い。

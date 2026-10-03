@@ -62,12 +62,6 @@ jobs:
       - run: pnpm db:migrate
         env:
           DATABASE_URL: ${{ steps.tf.outputs.database_url }}
-      # 祝日と天気を表に入れる。カレンダーは表を読むだけで配布元へ取りに行かないので、表が空の初回に要る。
-      # 配布元（webcal.jp・気象庁）が落ちていてもデプロイは止めない（Cron が後で取り直す）
-      - run: pnpm data:refresh
-        continue-on-error: true
-        env:
-          DATABASE_URL: ${{ steps.tf.outputs.database_url }}
       - run: pnpm exec vercel pull --yes --environment=production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
