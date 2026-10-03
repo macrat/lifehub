@@ -6,7 +6,7 @@
 
 ## 通知内容
 
-- 開始の `remind_start_minutes` 前と、終了（期限）の `remind_end_minutes` 前。項目ごとに選択し、既定はどちらも通知なし。予定のフォームは開始前だけ、タスクのフォームは「開始日時に通知」「期限日時に通知」（= 0 分前）を出す。完了したタスクには送らない。
+- 開始の `remind_start_minutes` 前と、終了（期限）の `remind_end_minutes` 前。項目ごとに選択し、既定はどちらも通知なし（フォームでの選び方は [events.md](events.md#画面)）。完了したタスクには送らない。
 - 終日の予定・タスクは、開始日／終了日（期限日）の **各参加者の通知時刻**（`users.all_day_notify_minutes`、既定 7:00）に送る。終日の n は 0（当日）か 1440（前日）だけを許す（`shared/validation/events.ts` の `ALL_DAY_REMIND_OPTIONS` と CHECK 制約）。予定のフォームは終日なら「当日」「前日」だけを出し、時刻のある予定を終日に切り替えたときは 0 分前を当日、それ以外を前日に寄せる（`toAllDayRemind`）。
   - WHY: 終日には「n 分前」の瞬間が無い（0:00 の n 分前では夜中に届く）。何時に知りたいかは人によって違うので、項目ではなくユーザーの設定（`/settings` の「終日の通知」）で選ぶ。
   - 宛先はユーザーごとに時刻が違うので、終日の項目は参加者ごとに予約する（`ref.userId`）。時刻のある項目は `userId: null` で参加者全員に 1 つ。
@@ -81,4 +81,4 @@ export function resolveNotification(ref, notifyTimes): Promise<NotificationPaylo
 
 ## MCP ツール
 
-無し。通知の要否は予定・タスクの項目（`remind_start_minutes` / `remind_end_minutes`）で、MCP の `add_event` / `add_task` / `update_event` から設定できる（[mcp.md](mcp.md)）。
+無し。通知の要否は予定・タスクの項目（`remind_start_minutes` / `remind_end_minutes`）で、MCP の `add_event` / `update_event` の `remindBeforeStart` / `remindBeforeEnd` / `remindBeforeDue` で設定できる（[mcp.md](mcp.md)）。

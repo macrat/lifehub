@@ -1,4 +1,3 @@
-
 ---
 name: refactoring-architecture
 description: コードベース全体を大きくリファクタリングする。
