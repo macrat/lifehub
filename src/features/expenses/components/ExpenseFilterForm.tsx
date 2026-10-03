@@ -1,9 +1,8 @@
-import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { SHARED } from '../../../../shared/validation/expenses.ts';
-import { ALL, optionOrUndefined } from '../../../lib/search.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
+import { FilterSelect } from '../../../lib/ui/FilterSelect.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
 
@@ -21,6 +20,10 @@ type Props = {
  */
 export function ExpenseFilterForm({ open, filters, onChange }: Props) {
   const { users } = useUserLabels();
+  const parties = [
+    { value: SHARED, label: '共有' },
+    ...users.map((u) => ({ value: u.id, label: u.name })),
+  ];
   return (
     <FilterPanel open={open}>
       <TextField
@@ -41,36 +44,18 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
       />
       <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
       {/* フォームと同じく To（貸方）を先、From（借方）を後に並べる */}
-      <TextField
+      <FilterSelect
         label="To"
-        select
-        size="small"
-        value={filters.to ?? ALL}
-        onChange={(e) => onChange({ to: optionOrUndefined(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        <MenuItem value={SHARED}>共有</MenuItem>
-        {users.map((u) => (
-          <MenuItem key={u.id} value={u.id}>
-            {u.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
+        value={filters.to}
+        options={parties}
+        onChange={(to) => onChange({ to })}
+      />
+      <FilterSelect
         label="From"
-        select
-        size="small"
-        value={filters.from ?? ALL}
-        onChange={(e) => onChange({ from: optionOrUndefined(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        <MenuItem value={SHARED}>共有</MenuItem>
-        {users.map((u) => (
-          <MenuItem key={u.id} value={u.id}>
-            {u.name}
-          </MenuItem>
-        ))}
-      </TextField>
+        value={filters.from}
+        options={parties}
+        onChange={(from) => onChange({ from })}
+      />
     </FilterPanel>
   );
 }

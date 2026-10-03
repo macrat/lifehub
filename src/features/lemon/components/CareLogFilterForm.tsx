@@ -1,13 +1,7 @@
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import {
-  CARE_TYPE_LABELS,
-  CARE_TYPES,
-  type CareType,
-} from '../../../../shared/validation/lemon.ts';
-import { ALL, optionOrUndefined } from '../../../lib/search.ts';
+import { CARE_TYPE_LABELS, CARE_TYPES } from '../../../../shared/validation/lemon.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
+import { FilterSelect } from '../../../lib/ui/FilterSelect.tsx';
 import type { LemonFilters, LemonFiltersPatch } from '../search.ts';
 
 type Props = {
@@ -26,20 +20,12 @@ type Props = {
 export function CareLogFilterForm({ open, filters, onChange }: Props) {
   return (
     <FilterPanel open={open}>
-      <TextField
+      <FilterSelect
         label="種別"
-        select
-        size="small"
-        value={filters.kind ?? ALL}
-        onChange={(e) => onChange({ kind: optionOrUndefined<CareType>(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        {CARE_TYPES.map((t) => (
-          <MenuItem key={t} value={t}>
-            {CARE_TYPE_LABELS[t]}
-          </MenuItem>
-        ))}
-      </TextField>
+        value={filters.kind}
+        options={CARE_TYPES.map((t) => ({ value: t, label: CARE_TYPE_LABELS[t] }))}
+        onChange={(kind) => onChange({ kind })}
+      />
       <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
     </FilterPanel>
   );

@@ -1,10 +1,20 @@
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import { ALL, optionOrUndefined } from '../../../lib/search.ts';
+import { ADD_KINDS } from '../../../lib/add-kinds.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
+import { FilterSelect } from '../../../lib/ui/FilterSelect.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { ListFilters, ListFiltersPatch } from '../search.ts';
+
+/** 種別の選択肢。名前は追加ボタンなどと同じもの（`ADD_KINDS`） */
+const KIND_OPTIONS = (['event', 'task'] as const).map((kind) => ({
+  value: kind,
+  label: ADD_KINDS[kind].label,
+}));
+
+const COMPLETED_OPTIONS = [
+  { value: 'open', label: '未完了' },
+  { value: 'done', label: '完了済み' },
+] as const;
 
 type Props = {
   open: boolean;
@@ -14,7 +24,7 @@ type Props = {
 
 /**
  * リスト表示の詳細な絞り込み（期間・種別・参加者・完了状態）。キーワードは AppBar の検索窓が持つ。
- * 「すべて」と空欄は絞り込まない状態として URL に残さない（`optionOrUndefined`・`dateOrUndefined`）。
+ * 「すべて」と空欄は絞り込まない状態として URL に残さない（`FilterSelect`・`DateRangeFilter`）。
  */
 export function ListFilterForm({ open, filters, onChange }: Props) {
   const { users } = useUserLabels();
@@ -25,42 +35,24 @@ export function ListFilterForm({ open, filters, onChange }: Props) {
         until={filters.to}
         onChange={(next) => onChange('since' in next ? { from: next.since } : { to: next.until })}
       />
-      <TextField
+      <FilterSelect
         label="種別"
-        select
-        size="small"
-        value={filters.kind ?? ALL}
-        onChange={(e) => onChange({ kind: optionOrUndefined(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        <MenuItem value="event">予定</MenuItem>
-        <MenuItem value="task">タスク</MenuItem>
-      </TextField>
-      <TextField
+        value={filters.kind}
+        options={KIND_OPTIONS}
+        onChange={(kind) => onChange({ kind })}
+      />
+      <FilterSelect
         label="参加者"
-        select
-        size="small"
-        value={filters.participant ?? ALL}
-        onChange={(e) => onChange({ participant: optionOrUndefined(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        {users.map((u) => (
-          <MenuItem key={u.id} value={u.id}>
-            {u.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
+        value={filters.participant}
+        options={users.map((u) => ({ value: u.id, label: u.name }))}
+        onChange={(participant) => onChange({ participant })}
+      />
+      <FilterSelect
         label="完了"
-        select
-        size="small"
-        value={filters.completed ?? ALL}
-        onChange={(e) => onChange({ completed: optionOrUndefined(e.target.value) })}
-      >
-        <MenuItem value={ALL}>すべて</MenuItem>
-        <MenuItem value="open">未完了</MenuItem>
-        <MenuItem value="done">完了済み</MenuItem>
-      </TextField>
+        value={filters.completed}
+        options={COMPLETED_OPTIONS}
+        onChange={(completed) => onChange({ completed })}
+      />
     </FilterPanel>
   );
 }
