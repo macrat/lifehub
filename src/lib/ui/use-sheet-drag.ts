@@ -73,7 +73,7 @@ function startsFollowing(press: Press, event: PointerEvent<HTMLElement>): boolea
  * 押している指（`Press`）は ref に持ち、描くのに要るシートの位置だけを state にする。
  * pointermove は連続するイベントなので React は 1 回ごとには描き直さず、state に持つと
  * 同じフレームに来た 2 回目以降が古い値を読んで、その間の動きを落とす（遅い端末や速いなぞりで、
- * 指を `STEP_DISTANCE` 以上動かしても段が変わらない）。
+ * 指の動きの一部がシートにも `onRelease` にも届かない）。
  */
 export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
   const press = useRef<Press | null>(null);
@@ -128,25 +128,29 @@ export function useSheetDrag({ enabled, resting, max, onRelease }: Options) {
     setFollowing(follow.at);
   };
 
-  /** 指を離したとき。動かしていなければ（タップなら）何もせず、中身に任せたままにする */
-  const onPointerUp = (event: PointerEvent<HTMLElement>) => {
+  /**
+   * 指が離れた・取り上げられたとき。追従していたら離した位置を 1 フレーム保ち、その動きを返す。
+   * 動かしていなければ（タップなら）何もせず、中身に任せたままにする
+   */
+  const endPress = (event: PointerEvent<HTMLElement>) => {
     const current = press.current;
-    if (current?.pointerId !== event.pointerId) return;
+    if (current?.pointerId !== event.pointerId) return null;
     press.current = null;
-    if (!current.follow) return;
+    if (!current.follow) return null;
     setFollowing(null);
     setReleased(current.follow.at);
-    onRelease(current.follow.moved);
+    return current.follow;
+  };
+
+  /** 指を離したとき。動かしていれば次の段を決めさせる */
+  const onPointerUp = (event: PointerEvent<HTMLElement>) => {
+    const follow = endPress(event);
+    if (follow) onRelease(follow.moved);
   };
 
   /** ブラウザがスクロールを始めたときなど。段は変えず、今の段へ戻す */
   const onPointerCancel = (event: PointerEvent<HTMLElement>) => {
-    const current = press.current;
-    if (current?.pointerId !== event.pointerId) return;
-    press.current = null;
-    if (!current.follow) return;
-    setFollowing(null);
-    setReleased(current.follow.at);
+    endPress(event);
   };
 
   return {
