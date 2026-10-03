@@ -11,6 +11,13 @@ export const timeline = timelineQueries({
   keyword: (q) => containsKeyword(memos.body, q),
 });
 
+/** ピン止めしていないメモだけのタイムラインの問い合わせ（絞り込んでいないホームのタイムライン） */
+export const unpinnedTimeline = timelineQueries({
+  table: memos,
+  at: memos.createdAt,
+  keyword: (q) => and(eq(memos.pinned, false), containsKeyword(memos.body, q)),
+});
+
 /** メモを作る。同じ id で送り直されたら何も書かず、今の行を返す（`insertOnce`） */
 export async function insert(row: {
   id: string;
@@ -39,10 +46,14 @@ export async function update(
   return updated;
 }
 
-/** メモのピン止めを変える（変えた行を返す）。誰が書いたメモでも変えられる */
-export async function setPinned(id: string, pinned: boolean): Promise<MemoRow | undefined> {
-  const [updated] = await db.update(memos).set({ pinned }).where(eq(memos.id, id)).returning();
-  return updated;
+/** メモのピン止めを変える（メモがあったか）。誰が書いたメモでも変えられる */
+export async function setPinned(id: string, pinned: boolean): Promise<boolean> {
+  const updated = await db
+    .update(memos)
+    .set({ pinned })
+    .where(eq(memos.id, id))
+    .returning({ id: memos.id });
+  return updated.length > 0;
 }
 
 /** ピン止めしたメモ。並びは問わない（service が `sortPinnedMemos` で並べる） */

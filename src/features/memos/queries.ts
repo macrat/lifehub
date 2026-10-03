@@ -4,6 +4,7 @@ import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
 
 /** メモの形はサーバーと共有する（shared/memos.ts） */
@@ -17,8 +18,12 @@ export const pinnedMemosQueryOptions = queryOptions({
   queryFn: ({ signal }): Promise<Memo[]> => api.memos.pinned.query(undefined, { signal }),
 });
 
-/** メモを読むのはタイムラインとピン止めの並びだけなので、書き込みが変えるのもその 2 つだけ */
+/**
+ * メモを読むのはタイムラインとピン止めの並びだけなので、書き込みが変えるのもその 2 つだけ。
+ * 追加したメモはピン止めしていないので、追加はタイムラインだけを変える
+ */
 const WRITE_KEYS = [TIMELINE_QUERY_KEY, MEMOS_QUERY_KEY];
+const ADD_KEYS = [TIMELINE_QUERY_KEY];
 
 /** タイムラインへの先回りの読み書き（メモを読む画面の履歴は無い） */
 const memoCache = timelineRecordCache('memo');
@@ -32,9 +37,7 @@ function findMemo(client: QueryClient, id: string): Memo | undefined {
 /**
  * メモ 1 件の変化（id のメモが next になる。削除は null）を、手元の控えに先回りして書き込む。
  * サーバーと同じく、ピン止めしたメモはピン止めの並びにだけ、ほかはタイムラインにだけ置く
- * （`server/features/timeline/service.ts` の `getTimelinePage`）。絞り込んだタイムラインはピン止めしたメモも
- * 書いた時刻の位置に出すが、どの書き込みでも絞り込んだ控えからは除いて取り直しに任せる（`applyToHistories`）ので、
- * ここで分ける必要は無い。
+ * （`server/features/timeline/service.ts` の `unfilteredSources`。絞り込んだ控えは取り直しに任せる）。
  */
 function applyMemo(client: QueryClient, id: string, next: Memo | null): void {
   client.setQueryData(
@@ -49,7 +52,7 @@ function applyMemo(client: QueryClient, id: string, next: Memo | null): void {
 export function useAddMemo() {
   return useCreateMutation<MemoInput>({
     request: write.memos.create,
-    keys: WRITE_KEYS,
+    keys: ADD_KEYS,
     apply: (client, { id, body }) => {
       // 画面から書くのはログイン中の人（サーバーもセッションのユーザーを書いた人にする）。
       // まだ手元に無ければ分からないまま先に出し、取り直しで埋まる
@@ -74,6 +77,15 @@ export function useUpdateMemo() {
       if (prev) applyMemo(client, id, { ...prev, body });
     },
   });
+}
+
+/**
+ * 開いているメモを今ピン止めしているか。詳細は開いたときのメモを持つので、ピン止めの並びの控えから読む
+ * （まだ読んでいなければ開いたときの値）
+ */
+export function useIsPinned(memo: Memo): boolean {
+  const { data } = useStoreQuery(pinnedMemosQueryOptions);
+  return data ? data.some(({ id }) => id === memo.id) : memo.pinned;
 }
 
 /** ピン止めする（pinned = true）か外す。ピン止めの並びとタイムラインの間を行が移る */

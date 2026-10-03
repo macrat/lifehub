@@ -35,8 +35,6 @@ export function useRecordDetail({
   onClose,
 }: Options) {
   const [editing, setEditing] = useState(initialEditing && !readOnly);
-  if (readOnly) return { editing, sheet: { ...form, onClose, editing, actions } };
-
   const deleteAction: RecordAction = {
     label: '削除',
     icon: <DeleteIcon />,
@@ -53,8 +51,8 @@ export function useRecordDetail({
       ...form,
       onClose,
       editing,
-      onEdit: () => setEditing(true),
-      actions: [...actions, deleteAction],
+      ...(readOnly ? {} : { onEdit: () => setEditing(true) }),
+      actions: readOnly ? actions : [...actions, deleteAction],
     },
   };
 }

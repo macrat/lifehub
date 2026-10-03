@@ -27,10 +27,8 @@ export async function updateMemo(id: string, input: MemoInput, actorId: string):
  * WHY 本人に限らない: ピン止めはメモの言葉を変えず、家族で見るホームの並べ方を変えるだけなので、
  * 直す・消す（書いた人の言葉を変える）とは違って共有の記録と同じに扱う。
  */
-export async function setMemoPinned(id: string, pinned: boolean): Promise<Memo> {
-  const updated = await repository.setPinned(id, pinned);
-  if (!updated) throw new NotFoundError('メモが見つかりません');
-  return toMemo(updated);
+export async function setMemoPinned(id: string, pinned: boolean): Promise<void> {
+  if (!(await repository.setPinned(id, pinned))) throw new NotFoundError('メモが見つかりません');
 }
 
 /** ピン止めしたメモ（書いた時刻の新しい順）。ホームのタイムラインの一番上に固定して出す */
@@ -55,6 +53,14 @@ async function rejectWrite(id: string): Promise<never> {
 
 /** タイムラインに並べるメモ（置く日時は書いた時刻。キーワードは本文の部分一致） */
 export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
+  memoEntry(toMemo(row)),
+);
+
+/**
+ * 絞り込んでいないホームのタイムラインに並べるメモ。ピン止めしたものは画面がタイムラインの上に固定して出すので
+ * 除く（`listPinnedMemos`）。絞り込んでいるときと MCP の日ごとの読み出しは `timelineSource`（ピン止めも含む）を読む。
+ */
+export const unpinnedTimelineSource = recordTimelineSource(repository.unpinnedTimeline, (row) =>
   memoEntry(toMemo(row)),
 );
 

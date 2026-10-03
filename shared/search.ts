@@ -11,3 +11,11 @@ export function matchesKeyword(
   const q = keyword?.trim().toLowerCase() ?? '';
   return q === '' || texts.some((text) => text?.toLowerCase().includes(q));
 }
+
+/**
+ * 絞り込みの条件が 1 つでも入っているか（undefined でない値があるか）。条件を足しても判定を直さずに済むよう、
+ * 項目の名前では見ない。空のキーワードは画面が条件から落とす（`src/lib/search.ts` の `toListFilter`）。
+ */
+export function isFiltered(filter: object): boolean {
+  return Object.values(filter).some((value) => value !== undefined);
+}
