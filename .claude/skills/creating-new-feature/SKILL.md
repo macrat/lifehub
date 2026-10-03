@@ -16,7 +16,7 @@ description: LifeHub に新しい機能（feature）を追加するときの手�
    - `server/lib/db/schema.ts` に `export * from '../../features/<name>/schema.ts'` を追加
    - `pnpm db:generate` でマイグレーションを生成し、`drizzle/` をコミットする
 4. **`repository.ts` → `service.ts` → `routes.ts`** の順に実装する。
-   - repository は Drizzle クエリのみ（キーワードの部分一致・作成の冪等な insert（`insertOnce`）・参加者の書き込みは `server/lib/db/query.ts` の部品を使う）。service に業務ロジック。routes は `server/lib/trpc.ts` の `router` / `procedure` で `<name>Router` を作り、手続きごとに `.input(schema)` で検証して service を呼ぶだけ（読み出しは `.query`、書き込みは `.mutation` で値を返さない。service の業務エラーは `trpc.ts` が tRPC の失敗の種類に置き換える）。1 件への書き込みの入力は `shared/validation/common.ts` の `withId(schema)`（記録の ID と入力を 1 つにしたもの）、1 件の読み出し・削除は `idParamSchema`。
+   - repository は Drizzle クエリのみ（キーワードの部分一致・作成の冪等な insert（`insertOnce`）・id での更新・削除（`updateById` / `deleteById`）・参加者の書き込みは `server/lib/db/query.ts` の部品を使う）。service に業務ロジック。routes は `server/lib/trpc.ts` の `router` / `procedure`（ログイン中のユーザーの ID を使う手続きは `userProcedure` で、`ctx.userId` で読む）で `<name>Router` を作り、手続きごとに `.input(schema)` で検証して service を呼ぶだけ（読み出しは `.query`、書き込みは `.mutation` で値を返さない。service の業務エラーは `trpc.ts` が tRPC の失敗の種類に置き換える）。1 件への書き込みの入力は `shared/validation/common.ts` の `withId(schema)`（記録の ID と入力を 1 つにしたもの）、1 件の読み出し・削除は `idParamSchema`。
    - `server/app.ts` の `appRouter` に `<name>: <name>Router` を足す（型が `AppRouter` 経由でクライアントへ伝わる）。
 5. **MCP に登録する**: `mcp.ts` → `server/mcp.ts`。通知を出す機能なら `server/features/events/notifications.ts` と同じ形（列挙と再検証）を作り、`server/features/notifications/service.ts` から呼ぶ。
 6. **クライアント feature** `src/features/<name>/` を作る:
