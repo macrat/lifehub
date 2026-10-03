@@ -224,12 +224,14 @@ export async function findRecurringEventsBefore(
  * WHY NOT 送られた値で上書き: 作った後に編集してから古い作成が再送されると、編集が巻き戻る。
  * 参加者も、行が参加者を持たないとき（この文で作ったばかりの行）だけ入れる。行が既にあるのに
  * 参加者だけ足すと、編集で外した人が戻ってしまう（参加者は 1 人以上なので 0 人は作る前だけ）。
+ * 作ったかどうか（送り直しで何も書かなかったら false）を返す。
  */
-export async function insert(row: NewEventRow, participantIds: string[]): Promise<void> {
-  await runBatch((tx) => [
-    tx.insert(events).values(row).onConflictDoNothing(),
+export async function insert(row: NewEventRow, participantIds: string[]): Promise<boolean> {
+  const [inserted] = await runBatch((tx) => [
+    tx.insert(events).values(row).onConflictDoNothing().returning({ id: events.id }),
     insertParticipantsWhere(tx, and(eq(events.id, row.id), hasNoParticipants(tx)), participantIds),
   ]);
+  return inserted.length > 0;
 }
 
 /**

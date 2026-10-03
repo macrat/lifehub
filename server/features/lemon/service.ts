@@ -62,7 +62,7 @@ export async function logCare(
 
 /** 全項目を置き換える。記録した人（createdBy）と入れた API キー（apiKeyName）は変えない。actorId は直した人 */
 export async function updateLog(id: string, input: CareLogInput, actorId: string): Promise<void> {
-  await write(id, input, actorId);
+  await write(id, checkRules(input, careLogRulesSchema), actorId);
 }
 
 /**

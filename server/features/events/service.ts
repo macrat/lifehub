@@ -47,10 +47,7 @@ export async function patchEvent(
   const current = switchedKind(await currentInput(master, target), patch);
   requireBothEnds(current, patch);
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
-  const result = await applyUpdate(master, { ...merged, ...target }, userId);
-  scheduleUpcoming();
-  publishChanged({ type: 'event', record: result }, 'updated', { userId });
-  return result;
+  return writeUpdate(master, { ...merged, ...target }, userId);
 }
 
 /**
@@ -119,12 +116,7 @@ async function currentInput(
 ): Promise<CreateEventInput> {
   const target = resolveTarget(master, input);
   const row =
-    target.scope === 'all'
-      ? master
-      : ((await repository.findOccurrence(master.id, target.occurrenceStart)) ?? {
-          ...master,
-          ...shiftTo(master, target.occurrenceStart),
-        });
+    target.scope === 'all' ? master : await occurrenceRowOf(master, target.occurrenceStart);
   return {
     kind: master.kind,
     title: row.title,
@@ -150,15 +142,16 @@ export async function createEvent(
   id: string = newId(),
 ): Promise<EventMaster> {
   const values = normalizeInput(checkRules(input, eventRulesSchema));
-  await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
+  const inserted = await repository.insert(
+    { ...values, id, createdBy: userId },
+    input.participantIds,
+  );
   scheduleUpcoming();
-  // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  const created = writtenOf({
-    ...values,
-    id,
-    participantIds: input.participantIds,
-    completedAt: null,
-  });
+  // 作ったときは保存した値がすべて手元にあるので読み直さない（往復を 1 回減らす）。送り直しで何も書かなかったときは、
+  // 送られた値ではなく今の行を返す（作った後に編集されていれば、送られた値は古い。`insertOnce` と同じ）
+  const created = inserted
+    ? writtenOf({ ...values, id, participantIds: input.participantIds, completedAt: null })
+    : writtenOf(await findMaster(id));
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
 }
@@ -168,9 +161,19 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<void> {
-  const written = await applyUpdate(await findMaster(id), input, userId);
+  await writeUpdate(await findMaster(id), input, userId);
+}
+
+/** 書き換え、通知を予約し直し、直したことを MCP Events で知らせる。書いた後の予定・タスクを返す */
+async function writeUpdate(
+  master: EventWithParticipants,
+  input: UpdateEventInput,
+  userId: string,
+): Promise<WrittenEvent> {
+  const written = await applyUpdate(master, input, userId);
   scheduleUpcoming();
   publishChanged({ type: 'event', record: written }, 'updated', { userId });
+  return written;
 }
 
 async function applyUpdate(
@@ -180,7 +183,7 @@ async function applyUpdate(
 ): Promise<WrittenEvent> {
   const { id } = master;
   const target = resolveTarget(master, input);
-  const values = normalizeInput(input);
+  const values = normalizeInput(checkRules(input, eventRulesSchema));
   const { participantIds } = input;
   const kindChanged = input.kind !== master.kind;
 
@@ -291,14 +294,21 @@ async function occurrenceOf(
   master: EventWithParticipants,
   occurrenceStart: Date,
 ): Promise<WrittenEvent> {
-  const row = (await repository.findOccurrence(master.id, occurrenceStart)) ?? {
-    ...master,
-    ...shiftTo(master, occurrenceStart),
-  };
+  const row = await occurrenceRowOf(master, occurrenceStart);
   return {
     ...toMaster({ ...row, id: master.id, rrule: master.rrule }),
     occurrenceStart: occurrenceStart.toISOString(),
   };
+}
+
+/** 繰り返しの回の行。実体化されていればその行、無ければ繰り返し元をその回へずらした値 */
+async function occurrenceRowOf(master: EventWithParticipants, occurrenceStart: Date) {
+  return (
+    (await repository.findOccurrence(master.id, occurrenceStart)) ?? {
+      ...master,
+      ...shiftTo(master, occurrenceStart),
+    }
+  );
 }
 
 // ---- 内部 ----
