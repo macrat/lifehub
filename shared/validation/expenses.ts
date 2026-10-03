@@ -34,7 +34,7 @@ export type ExpenseInput = z.infer<typeof expenseSchema>;
 /** 検証済みの値（MCP が組み立てた入力や、今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const expenseRulesSchema = withExpenseRules(z.custom<ExpenseInput>());
 
-/** API（POST /api/expenses）が受け取る追加の入力（`clientIdShape`） */
+/** API（`expenses.create`）が受け取る追加の入力（`clientIdShape`） */
 export const createExpenseRequestSchema = expenseSchema.safeExtend(clientIdShape);
 
 /** To・From の「共有」。ユーザー ID と混ざらないよう、URL や API の値としても語で置く */
@@ -60,6 +60,6 @@ export const expenseFilterSchema = z.object({
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 
-/** 履歴の 1 ページの取得（GET /api/expenses。`cursorShape`） */
+/** 履歴の 1 ページの取得（`expenses.list`。`cursorShape`） */
 export const expenseListQuerySchema = expenseFilterSchema.extend(cursorShape);
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

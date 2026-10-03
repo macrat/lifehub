@@ -1,4 +1,5 @@
 import { diffDays, toDateString } from './date.ts';
+import { compareKeys } from './sort.ts';
 import { CARE_TYPE_LABELS, CARE_TYPES, type CareType } from './validation/lemon.ts';
 
 /**
@@ -35,7 +36,10 @@ export type CareStatus = {
  * サーバーは SQL で項目ごとの最新だけを読んでこれに渡し（全行を読まずに済む）、
  * クライアントは手元の記録から最新を選んで渡すので、両者の答えは必ず一致する。
  */
-export function careStatusesOf(lastDoneAt: Partial<Record<CareType, string>>, now: Date) {
+export function careStatusesOf(
+  lastDoneAt: Partial<Record<CareType, string>>,
+  now: Date,
+): CareStatus[] {
   const todayDate = toDateString(now);
   return CARE_TYPES.map((careType) => {
     const last = lastDoneAt[careType] ?? null;
@@ -63,9 +67,9 @@ export function careStatuses(logs: CareLog[], now: Date): CareStatus[] {
 }
 
 /**
- * 一覧の並び: 実施日時の古い順（アプリの一覧はどれも上が古く下が新しい）。同じ日時は元の並びのまま。
- * サーバーのページ（`findPage`）も同じ並びで返す
+ * ページの中の並び: 実施日時の古い順。同じ日時は元の並びのまま。サーバーのページ（`findPage`）も同じ並びで返す
+ * （画面に出す向きは `src/lib/screen-data.ts` の `useScreenHistory` が決める）
  */
 export function sortCareLogs(logs: CareLog[]): CareLog[] {
-  return [...logs].sort((a, b) => a.doneAt.localeCompare(b.doneAt));
+  return [...logs].sort((a, b) => compareKeys(a.doneAt, b.doneAt));
 }

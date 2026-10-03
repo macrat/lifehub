@@ -43,7 +43,7 @@ export type HourlyWeather = {
   label: string;
 };
 
-/** 期間の天気（`GET /api/calendar` の `weather`）。日ごとの天気と 3 時間ごとの天気 */
+/** 期間の天気（`calendar.get` の `weather`）。日ごとの天気と 3 時間ごとの天気 */
 export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };
 
 /**
@@ -61,7 +61,7 @@ export type WeatherSlot = {
 export type PopSlot = { startMin: number; pop: number };
 
 /**
- * 天気の画面の 1 日（`GET /api/weather` のページの行）。日ごとの天気と、祝日か、その日の 3 時間ごとの天気（時刻順）と
+ * 天気の画面の 1 日（`weather.page` のページの行）。日ごとの天気と、祝日か、その日の 3 時間ごとの天気（時刻順）と
  * 6 時間ごとの降水確率（時刻順）。予報の無い日（明後日から）と取り始める前の日は、どちらも空。
  */
 export type WeatherDay = DailyWeather & {

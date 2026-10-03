@@ -1,4 +1,4 @@
-import { compareKeys } from './calendar.ts';
+import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
 /**
@@ -91,11 +91,11 @@ function compareParty(x: string | null, y: string | null): number {
 }
 
 /**
- * 一覧の並び: 使った日の古い順、同じ日なら登録の古い順（アプリの一覧はどれも上が古く下が新しい）。
- * サーバーのページ（`findPage`）も同じ並びで返す
+ * ページの中の並び: 使った日の古い順、同じ日なら登録の古い順。サーバーのページ（`findPage`）も同じ並びで返す
+ * （画面に出す向きは `src/lib/screen-data.ts` の `useScreenHistory` が決める）
  */
 export function sortExpenses(expenses: Expense[]): Expense[] {
   return [...expenses].sort(
-    (x, y) => x.spentOn.localeCompare(y.spentOn) || x.createdAt.localeCompare(y.createdAt),
+    (x, y) => compareKeys(x.spentOn, y.spentOn) || compareKeys(x.createdAt, y.createdAt),
   );
 }

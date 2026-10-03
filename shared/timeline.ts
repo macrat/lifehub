@@ -1,8 +1,9 @@
-import { type CalendarItem, compareKeys, occurrenceKey } from './calendar.ts';
+import { type CalendarItem, occurrenceKey } from './calendar.ts';
 import { addDays, startOfDate, toDateString, today } from './date.ts';
 import type { Expense } from './expenses.ts';
 import type { CareLog } from './lemon.ts';
 import type { Memo } from './memos.ts';
+import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
 /**

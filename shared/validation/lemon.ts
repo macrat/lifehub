@@ -63,7 +63,7 @@ export type CareLogInput = z.infer<typeof careLogSchema>;
 /** 検証済みの値（MCP が組み立てた入力や、今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
 export const careLogRulesSchema = withCareLogRules(z.custom<CareLogInput>());
 
-/** API（POST /api/lemon/logs）が受け取る追加の入力（`clientIdShape`） */
+/** API（`lemon.create`）が受け取る追加の入力（`clientIdShape`） */
 export const createCareLogRequestSchema = careLogSchema.safeExtend(clientIdShape);
 
 /**
@@ -81,6 +81,6 @@ export const careLogFilterSchema = z.object({
 });
 export type CareLogFilter = z.infer<typeof careLogFilterSchema>;
 
-/** 記録の 1 ページの取得（GET /api/lemon/logs。`cursorShape`） */
+/** 記録の 1 ページの取得（`lemon.logs`。`cursorShape`） */
 export const careLogListQuerySchema = careLogFilterSchema.extend(cursorShape);
 export type CareLogListQuery = z.infer<typeof careLogListQuerySchema>;

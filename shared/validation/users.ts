@@ -9,7 +9,7 @@ const passwordSchema = z
   .max(128);
 
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
-const hueSchema = z.coerce.number().int().min(0).max(HUE_MAX);
+const hueSchema = z.number().int().min(0).max(HUE_MAX);
 
 /** 終日の予定・タスクを通知する時刻（その日の 0:00 からの分） */
 const allDayNotifyMinutesSchema = z
