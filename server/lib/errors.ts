@@ -12,6 +12,14 @@ export class ConflictError extends Error {}
 
 export class ValidationError extends Error {}
 
+/** 入力の検証の失敗を伝える文。最初の問題の文言だけにする（Zod の既定の文は問題の一覧を JSON にしたもの） */
+export function issueMessage(issues: readonly { message: string }[] | undefined): string {
+  return issues?.[0]?.message ?? '入力が正しくありません';
+}
+
+/** 想定外の失敗を伝える文。中身（SQL 文など）は見せない */
+export const INTERNAL_ERROR_MESSAGE = 'サーバーエラーが発生しました';
+
 /** 業務エラーと、それを伝える失敗の種類（tRPC のコード・HTTP ステータス）の対応。置き換える所はすべてここを引く */
 const DOMAIN_ERRORS = [
   { type: NotFoundError, code: 'NOT_FOUND', status: 404 },

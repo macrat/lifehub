@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/hono/node';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { ZodError } from 'zod';
 import { type AuthUser, getAuth } from './auth.ts';
-import { domainErrorOf } from './errors.ts';
+import { domainErrorOf, INTERNAL_ERROR_MESSAGE, issueMessage } from './errors.ts';
 import { setSentryUser } from './sentry.ts';
 
 /**
@@ -40,9 +40,9 @@ const t = initTRPC.context<TrpcContext>().create({
    */
   errorFormatter: ({ shape, error }) =>
     error.cause instanceof ZodError
-      ? { ...shape, message: error.cause.issues[0]?.message ?? '入力が正しくありません' }
+      ? { ...shape, message: issueMessage(error.cause.issues) }
       : error.code === 'INTERNAL_SERVER_ERROR'
-        ? { ...shape, message: 'サーバーエラーが発生しました' }
+        ? { ...shape, message: INTERNAL_ERROR_MESSAGE }
         : shape,
 });
 
