@@ -5,7 +5,6 @@ import type { DateString } from '../../../shared/types.ts';
 import { type EventKind, toAllDayRemind } from '../../../shared/validation/events.ts';
 import {
   fromDateTimeLocalValue,
-  fromDateValue,
   isDateTimeLocalValue,
   toDateTimeLocalValue,
 } from '../../lib/date.ts';
@@ -88,8 +87,8 @@ export function allDayEventValues(
     participantIds,
     kind: 'event',
     allDay: true,
-    startsAt: fromDateValue(from),
-    endsAt: fromDateValue(addDays(to, 1)),
+    startsAt: fromMinutesOfDay(from, 0),
+    endsAt: fromMinutesOfDay(addDays(to, 1), 0),
     remindEndMinutes: null,
   };
 }
@@ -277,7 +276,7 @@ function toInstant(
 ): string | null {
   if (raw === '') throw new FormFieldError(name, '日付と時刻を入力してください');
   if (raw === null) return null;
-  return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+  return allDay && isDateString(raw) ? fromMinutesOfDay(raw, 0) : fromDateTimeLocalValue(raw);
 }
 
 /**

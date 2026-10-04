@@ -148,11 +148,6 @@ export function fromDateTimeLocalValue(value: string): string {
   return new Date(new TZDate(y, mo - 1, d, h, mi, TIME_ZONE).getTime()).toISOString();
 }
 
-/** JST の暦日 → ISO 日時（その日の 0:00 JST） */
-export function fromDateValue(value: DateString): string {
-  return startOfDate(value).toISOString();
-}
-
 /** 0:00 からの分 → "09:00"（24:00 はそのまま出す。時間帯の終わりの表示に使う） */
 export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;

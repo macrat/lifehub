@@ -1,6 +1,6 @@
 import { type CalendarTaskItem, TASK_TIME_LABELS } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
-import { formatStart, fromDateValue } from '../../lib/date.ts';
+import { formatStart } from '../../lib/date.ts';
 import { carriedValues, type ItemFormValues, type WhenInput } from '../events/form-values.ts';
 import { normalizeIsoInstants } from '../events/instants.ts';
 import {
@@ -26,7 +26,7 @@ export function taskTimesOf(task: CalendarTaskItem, fallback: DraftRange): TaskT
  */
 export function newTaskTimes(range: DraftRange): TaskTimes {
   const startsAt = range.allDay
-    ? fromDateValue(range.from)
+    ? fromMinutesOfDay(range.from, 0)
     : fromMinutesOfDay(range.date, range.startMin);
   return { allDay: range.allDay, startsAt, frame: toTaskFrame(range) };
 }
@@ -51,7 +51,7 @@ export function taskTimesAt(
 function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
-  if (times.allDay) return { allDay: true, startsAt: fromDateValue(range.from) };
+  if (times.allDay) return { allDay: true, startsAt: fromMinutesOfDay(range.from, 0) };
   return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(times.startsAt)) };
 }
 
