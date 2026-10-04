@@ -23,7 +23,7 @@ type EventLike = EventMaster &
   };
 
 export function formatEvent(item: EventLike, people: Person[]) {
-  const { allDay, startsAt, endsAt } = item;
+  const { allDay, startsAt } = item;
   const ref = toRef(item.kind, item.id, item.occurrenceStart);
   const start = whenOutput(allDay, startsAt, 'start');
   const details = {
@@ -41,7 +41,7 @@ export function formatEvent(item: EventLike, people: Person[]) {
       title: item.title,
       ...compact({
         start,
-        end: endsAt && whenOutput(allDay, endsAt, 'end'),
+        end: whenOutput(allDay, item.endsAt, 'end'),
         allDay: allDay || undefined,
         day: dayCount && dayCount > 1 ? `${dayIndex}/${dayCount}` : undefined,
         ...details,

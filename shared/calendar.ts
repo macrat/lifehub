@@ -21,24 +21,30 @@ import type { WeatherInRange } from './weather.ts';
  * （`src/features/events/optimistic.ts`）が同じ規則を使うため、共通に置く。
  */
 
-/** 保存されている行そのもの（単発、繰り返し元、または実体化された回） */
-export type EventMaster = {
+/** 予定とタスクで共通の項目 */
+type EventCommon = {
   id: string;
-  kind: EventKind;
   title: string;
   allDay: boolean;
   /** 予定・タスクの開始（終日は JST 0:00） */
   startsAt: string;
-  /** 予定の排他的な終端（終日は翌日 JST 0:00）。タスクは持たない（null） */
-  endsAt: string | null;
   completedAt: string | null;
   location: string | null;
   note: string | null;
   participantIds: string[];
   rrule: string | null;
   remindStartMinutes: number | null;
-  remindEndMinutes: number | null;
 };
+
+/**
+ * 保存されている行そのもの（単発、繰り返し元、または実体化された回）。種別 kind で分ける:
+ * 予定は終了（排他的な終端。終日は翌日 JST 0:00）とその前の通知を持ち、タスクは終わりを持たない（null）。
+ * 入力の形（`shared/validation/events.ts` の `eventSchemaWith`）・DB の CHECK と同じ分け方で、
+ * 行を読む所が種別で絞れば終わりの有無が型で決まる。
+ */
+export type EventMaster =
+  | (EventCommon & { kind: 'event'; endsAt: string; remindEndMinutes: number | null })
+  | (EventCommon & { kind: 'task'; endsAt: null; remindEndMinutes: null });
 
 /**
  * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
@@ -62,18 +68,12 @@ export type Occurrence = EventMaster & {
 export type CalendarItem =
   | (Occurrence & {
       kind: 'event';
-      endsAt: string;
       placementDate: DateString;
       /** 複数日の予定での何日目か（1 始まり）と総日数 */
       dayIndex: number;
       dayCount: number;
     })
-  | (Occurrence & {
-      kind: 'task';
-      endsAt: null;
-      remindEndMinutes: null;
-      placementDate: DateString;
-    });
+  | (Occurrence & { kind: 'task'; placementDate: DateString });
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
@@ -172,7 +172,20 @@ export function toInputInstants(
 /** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。終了の無いもの（タスク）は null */
 type IsoInstants = { startsAt: string; endsAt: string | null };
 
-/** `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる */
+/**
+ * `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる。
+ * 終了を渡せば（予定）終了のある組が返る
+ */
+export function normalizeIsoInstants(
+  allDay: boolean,
+  startsAt: string,
+  endsAt: string,
+): { startsAt: string; endsAt: string };
+export function normalizeIsoInstants(
+  allDay: boolean,
+  startsAt: string,
+  endsAt: string | null,
+): IsoInstants;
 export function normalizeIsoInstants(
   allDay: boolean,
   startsAt: string,
@@ -309,7 +322,10 @@ export function sortItems(items: CalendarItem[]): CalendarItem[] {
  * - 未完了で開始が未来の日 → 開始の日。未完了で開始が過去／今日 → 今日（完了まで繰り越し）
  * - 完了 → 完了した日
  */
-function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { kind: 'task' }> {
+function placeTask(
+  occurrence: Extract<Occurrence, { kind: 'task' }>,
+  now: Date,
+): Extract<CalendarItem, { kind: 'task' }> {
   const { completedAt, startsAt } = occurrence;
   // 開始が今より前なら今日（暦日に直すのは置く日の 1 回だけ）
   const placementDate = completedAt
@@ -317,16 +333,14 @@ function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { k
     : Date.parse(startsAt) <= now.getTime()
       ? today(now)
       : toDateString(new Date(startsAt));
-  // タスクは終わりを持たない（保存の規則で null。型でも予定の項目と分ける）
-  return { ...occurrence, kind: 'task', endsAt: null, remindEndMinutes: null, placementDate };
+  return { ...occurrence, placementDate };
 }
 
 /** 予定の発生を日ごとの項目にする（範囲外の日は除く） */
 function placeEvent(
-  occurrence: Occurrence,
+  occurrence: Extract<Occurrence, { kind: 'event' }>,
   range: DateRange,
 ): Extract<CalendarItem, { kind: 'event' }>[] {
-  if (!occurrence.endsAt) return [];
   const startsAt = new Date(occurrence.startsAt);
   const endsAt = new Date(occurrence.endsAt);
   const firstDay = toDateString(startsAt);
@@ -340,9 +354,6 @@ function placeEvent(
     if (day < range.from || day > range.to) continue;
     result.push({
       ...occurrence,
-      kind: 'event',
-      startsAt: occurrence.startsAt,
-      endsAt: occurrence.endsAt,
       placementDate: day,
       dayIndex: i + 1,
       dayCount,

@@ -23,8 +23,8 @@ export function toIcs(occurrences: Occurrence[], now: Date): string {
     ttl: REFRESH_SECONDS,
   });
   for (const occurrence of occurrences) {
-    // 渡されるのは予定だけ（終了を必ず持つ）。型はタスクと共通なので終了の有無で絞る
-    if (!occurrence.endsAt) continue;
+    // 渡されるのは予定だけ（呼び出し側が kind で絞る）。種別で絞って終了を読む
+    if (occurrence.kind !== 'event') continue;
     const startsAt = new Date(occurrence.startsAt);
     const endsAt = new Date(occurrence.endsAt);
     calendar.createEvent({

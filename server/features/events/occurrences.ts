@@ -84,21 +84,30 @@ export async function listOccurrences(
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */
 type MasterFields = Pick<EventWithParticipants, keyof EventMaster>;
 
-/** 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選ぶ） */
+/**
+ * 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選び、種別の形に分ける）。
+ * 行は平らな列で読むので、種別ごとの形（予定は終了を持ち、タスクは持たない）はここで型にする。
+ * 規則そのものは DB の CHECK（`events_end_only_event_check` など）が守る。
+ */
 export function toMaster(row: MasterFields): EventMaster {
-  return {
+  const common = {
     id: row.id,
-    kind: row.kind,
     title: row.title,
     allDay: row.allDay,
     startsAt: row.startsAt.toISOString(),
-    endsAt: row.endsAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     location: row.location,
     note: row.note,
     participantIds: row.participantIds,
     rrule: row.rrule,
     remindStartMinutes: row.remindStartMinutes,
+  };
+  if (row.kind === 'task') return { ...common, kind: 'task', endsAt: null, remindEndMinutes: null };
+  if (!row.endsAt) throw new Error(`終了の無い予定の行です（CHECK で守っているはず）: ${row.id}`);
+  return {
+    ...common,
+    kind: 'event',
+    endsAt: row.endsAt.toISOString(),
     remindEndMinutes: row.remindEndMinutes,
   };
 }
@@ -151,9 +160,7 @@ function buildOccurrence(
   if (!row) {
     const shifted = occurrenceStart ? shiftTo(master, occurrenceStart) : master;
     return {
-      ...toMaster(master),
-      startsAt: shifted.startsAt.toISOString(),
-      endsAt: shifted.endsAt?.toISOString() ?? null,
+      ...toMaster({ ...master, ...shifted }),
       occurrenceStart: occurrenceStart?.toISOString() ?? null,
       isRecurring: master.rrule !== null,
       isModified: false,
@@ -217,7 +224,8 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const push = (occurrenceStart: Date | null, row: EventWithParticipants | undefined) => {
     if (row?.cancelled) return;
     const occurrence = buildOccurrence(ctx, occurrenceStart, row);
-    if (!occurrence.endsAt) return;
+    // 予定の繰り返し元から作った回は予定（種別で絞って終了を読む）
+    if (occurrence.kind !== 'event') return;
     if (!overlaps(new Date(occurrence.startsAt), new Date(occurrence.endsAt), range)) return;
     result.push(occurrence);
   };
