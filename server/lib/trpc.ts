@@ -30,10 +30,18 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
   return session.user;
 }
 
-/** 要求 1 本ぶんのコンテキスト。検証は始めるだけで待たない（待つかどうかは `authed` と各手続き） */
+/**
+ * 要求 1 本ぶんのコンテキスト。検証は始めるだけで待たない（待つかどうかは `authed` と各手続き）。
+ * 検証の失敗を待つ手続きが無いこともある（無い手続きの呼び出しは、tRPC がコンテキストを作った後に
+ * NOT_FOUND にする）ので、何もしない catch を付けて取りこぼしの reject（unhandledRejection）にしない。
+ * catch は別の Promise を返すだけで、`ctx.user` を待つ側には元のとおり失敗が届く。
+ * WHY NOT 検証を手続きが始まってから始める: 読み出しと検証が同じ時点に出なくなり、DB への往復が 1 回増える。
+ */
 export function createContext(req: Request): TrpcContext {
+  const user = authenticate(req.headers);
+  user.catch(() => {});
   return {
-    user: authenticate(req.headers),
+    user,
     userAgent: req.headers.get('user-agent'),
     scope: new Map(),
   };
