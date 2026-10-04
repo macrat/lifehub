@@ -30,7 +30,7 @@ function unnestIds(ids: string[], alias: string): SQL.Aliased<string> {
  * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
  * ID の順に並べる。WHY: 並びを指定しない array_agg は実行計画で順が変わり、同じ行が読むたびに違う配列になる。
  */
-export function idArrayAgg(column: PgColumn): SQL<string[]> {
+function idArrayAgg(column: PgColumn): SQL<string[]> {
   return sql`coalesce(array_agg(${column}::text order by ${column}) filter (where ${column} is not null), '{}')`;
 }
 
