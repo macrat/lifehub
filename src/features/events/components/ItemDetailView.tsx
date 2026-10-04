@@ -2,7 +2,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { type CalendarItem, TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
-import { formatDateTime, formatEdge, formatEventRange } from '../../../lib/date.ts';
+import { formatDateTime, formatEventRange, formatStart } from '../../../lib/date.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
 import { describeRRule } from '../recurrence-options.ts';
 import { LocationLink, NoteLabel } from './ItemLabels.tsx';
@@ -27,7 +27,7 @@ function ItemWhen({ item }: { item: CalendarItem }) {
   return (
     <>
       <Typography>
-        {TASK_TIME_LABELS.start}: {formatEdge(item.startsAt, 'start', item.allDay)}
+        {TASK_TIME_LABELS.start}: {formatStart(item.startsAt, item.allDay)}
       </Typography>
       {item.completedAt && (
         <Typography color="textSecondary">

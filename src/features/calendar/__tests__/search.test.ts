@@ -9,8 +9,8 @@ import {
   listSections,
   matchesListFilters,
 } from '../search.ts';
+import { DAY, task as savedTask } from './draft-fixtures.ts';
 
-const DAY = '2031-06-05' as DateString;
 const NONE: ListFilters = {
   from: undefined,
   to: undefined,
@@ -21,23 +21,12 @@ const NONE: ListFilters = {
 };
 
 const task = (completedAt: string | null): CalendarItem => ({
+  ...savedTask,
   id: 't',
-  kind: 'task',
   title: '買い物',
-  allDay: false,
-  startsAt: '2031-06-05T00:00:00.000Z',
-  endsAt: null,
-  completedAt,
   location: 'スーパー',
-  note: null,
   participantIds: ['me'],
-  rrule: null,
-  remindStartMinutes: null,
-  remindEndMinutes: null,
-  occurrenceStart: null,
-  isRecurring: false,
-  isModified: false,
-  placementDate: DAY,
+  completedAt,
 });
 
 describe('matchesListFilters', () => {

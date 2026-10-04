@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EDGE_LABELS } from '../../../shared/calendar.ts';
 import {
   DAY_MINUTES,
   DEFAULT_ALL_DAY_NOTIFY_MINUTES,
@@ -36,8 +37,6 @@ export const notificationRefSchema = z.object({
 });
 export type NotificationRef = z.infer<typeof notificationRefSchema>;
 
-const EDGE_LABELS: Record<Edge, string> = { start: '開始', end: '終了' };
-
 /** 配信直前の再検証（`resolveNotification`）が返す、送る中身と宛先 */
 export type NotificationPayload = {
   title: string;
@@ -71,32 +70,30 @@ function keyOf(ref: NotificationRef): string {
 export type NotifyTimes = Map<string, number>;
 
 /**
- * 開始／予定の終了の通知の宛先と配信予定時刻。完了したタスクには送らない（タスクは終了を持たない）。
+ * 開始／予定の終了の通知の宛先と配信予定時刻と、通知する端の日時（anchor。本文に出す）。
+ * 完了したタスクには送らない（タスクは終了を持たない）。
  * - 時刻のある項目: n 分前に参加者全員へ
  * - 終日の項目: その日（n = 1440 なら前日。終日の n は 0 か 1440 だけ）の、参加者それぞれの通知時刻に。
  *   終日の項目には「n 分前」の瞬間が無く（0:00 の n 分前では夜中に届く）、朝に知りたい時刻は人それぞれなので
  */
-/** 通知する端の日時。終了は予定だけが持つ（タスクは null） */
-function anchorOf(item: CalendarItem, edge: Edge): string | null {
-  if (edge === 'start') return item.startsAt;
-  return item.kind === 'event' ? item.endsAt : null;
-}
-
 function remindTargets(
   item: CalendarItem,
   edge: Edge,
   notifyTimes: NotifyTimes,
-): { at: Date; userId: string | null }[] {
+): { at: Date; userId: string | null; anchor: string }[] {
   if (item.completedAt !== null) return [];
   const minutes = edge === 'start' ? item.remindStartMinutes : item.remindEndMinutes;
-  const anchor = anchorOf(item, edge);
+  const anchor = edge === 'start' ? item.startsAt : item.endsAt;
   if (minutes === null || anchor === null) return [];
   if (!item.allDay)
-    return [{ at: new Date(new Date(anchor).getTime() - minutes * 60 * 1000), userId: null }];
+    return [
+      { at: new Date(new Date(anchor).getTime() - minutes * 60 * 1000), userId: null, anchor },
+    ];
   const day = addDays(allDayDate(anchor, edge), -minutes / DAY_MINUTES);
   return item.participantIds.map((userId) => ({
     at: new Date(fromMinutesOfDay(day, notifyTimes.get(userId) ?? DEFAULT_ALL_DAY_NOTIFY_MINUTES)),
     userId,
+    anchor,
   }));
 }
 
@@ -141,10 +138,9 @@ const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
   day: 'numeric',
 });
 
-/** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」） */
-function body(item: CalendarItem, edge: Edge): string {
+/** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」）。anchor は通知する端の日時 */
+function body(item: CalendarItem, edge: Edge, anchor: string): string {
   const label = EDGE_LABELS[edge];
-  const anchor = anchorOf(item, edge) ?? item.startsAt;
   const when = item.allDay
     ? `${notificationDateFormatter.format(startOfDate(allDayDate(anchor, edge)))} 終日`
     : notificationTimeFormatter.format(new Date(anchor));
@@ -193,7 +189,7 @@ export async function resolveNotification(
   if (!target) return null;
   return {
     title: item.kind === 'task' ? `タスク: ${item.title}` : item.title,
-    body: body(item, ref.edge),
+    body: body(item, ref.edge, target.anchor),
     url: `/calendar?date=${item.placementDate}`,
     userIds: target.userId ? [target.userId] : item.participantIds,
     item,

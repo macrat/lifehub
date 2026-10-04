@@ -16,6 +16,9 @@ import { now, september } from './service-fixtures.ts';
 
 let userId: string;
 
+const task = (input: Record<string, unknown>) =>
+  createEventSchema.parse({ kind: 'task', participantIds: [userId], ...input });
+
 const weeklyTask = () =>
   createEventSchema.parse({
     kind: 'task',
@@ -31,9 +34,6 @@ describe('events service', () => {
   });
 
   describe('タスク', () => {
-    const task = (input: Record<string, unknown>) =>
-      createEventSchema.parse({ kind: 'task', participantIds: [userId], ...input });
-
     it('開始が未来のタスクは開始日、過去・今日は今日に置く', async () => {
       await createEvent(task({ title: '未来', startsAt: iso('2026-09-20T10:00:00') }), userId);
       await createEvent(task({ title: '過去', startsAt: iso('2026-09-01T10:00:00') }), userId);
@@ -173,12 +173,6 @@ describe('events service', () => {
       ]);
     });
 
-    it('タスクに終了は付けられない', async () => {
-      await expect(
-        createEvent({ ...weeklyTask(), endsAt: jst('2026-09-07T10:00:00') }, userId),
-      ).rejects.toBeInstanceOf(ValidationError);
-    });
-
     it('存在しない回は完了にできず、繰り返しでは回の指定が要る', async () => {
       const created = await createEvent(weeklyTask(), userId);
       await expect(
@@ -278,12 +272,7 @@ describe('events service', () => {
 
     it('完了したタスクを予定に変えると完了が外れる', async () => {
       const created = await createEvent(
-        createEventSchema.parse({
-          kind: 'task',
-          title: '買い物',
-          startsAt: iso('2026-09-01T10:00:00'),
-          participantIds: [userId],
-        }),
+        task({ title: '買い物', startsAt: iso('2026-09-01T10:00:00') }),
         userId,
       );
       await completeEvent(created.id, {}, userId, jst('2026-09-10T18:00:00'));

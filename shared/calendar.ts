@@ -209,10 +209,13 @@ function onIso(
  */
 export type TaskTime = { kind: 'done' | 'start'; date: DateString; at: string | null };
 
-/** タスクの日時の呼び名。行の見出し・詳細・入力欄・クイック入力の見出しで同じ言葉を使う */
+/** 予定・タスクの端（開始・予定の終了）の呼び名。入力欄・通知の本文・詳細で同じ言葉を使う */
+export const EDGE_LABELS = { start: '開始', end: '終了' } as const;
+
+/** タスクの日時の呼び名。行の見出し・詳細・クイック入力の見出しで同じ言葉を使う */
 export const TASK_TIME_LABELS: Record<TaskTime['kind'], string> = {
   done: '完了',
-  start: '開始',
+  start: EDGE_LABELS.start,
 };
 
 /**
@@ -307,13 +310,15 @@ export function sortItems(items: CalendarItem[]): CalendarItem[] {
  * - 完了 → 完了した日
  */
 function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { kind: 'task' }> {
+  const { completedAt, startsAt } = occurrence;
+  // 開始が今より前なら今日（暦日に直すのは置く日の 1 回だけ）
+  const placementDate = completedAt
+    ? toDateString(new Date(completedAt))
+    : Date.parse(startsAt) <= now.getTime()
+      ? today(now)
+      : toDateString(new Date(startsAt));
   // タスクは終わりを持たない（保存の規則で null。型でも予定の項目と分ける）
-  const task = { ...occurrence, kind: 'task' as const, endsAt: null, remindEndMinutes: null };
-  const { completedAt } = occurrence;
-  if (completedAt) return { ...task, placementDate: toDateString(new Date(completedAt)) };
-  const startDate = toDateString(new Date(occurrence.startsAt));
-  const todayDate = today(now);
-  return { ...task, placementDate: startDate > todayDate ? startDate : todayDate };
+  return { ...occurrence, kind: 'task', endsAt: null, remindEndMinutes: null, placementDate };
 }
 
 /** 予定の発生を日ごとの項目にする（範囲外の日は除く） */
@@ -356,8 +361,8 @@ function placeEvent(
  */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
-  const anchor = taskAnchor(item);
-  return anchor.allDay ? '!' : anchor.iso;
+  // `taskAnchor` と同じ規則を、比べるたびに物を作らずに読む（並べ替えは件数 × log 回呼ばれる）
+  return item.completedAt ?? (item.allDay ? '!' : item.startsAt);
 }
 
 function compareItems(a: CalendarItem, b: CalendarItem): number {

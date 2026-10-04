@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { defaultTaskStart } from '../shared/calendar.ts';
 import { apiOf } from './api.ts';
 import { myId } from './auth.ts';
 
@@ -26,14 +27,16 @@ type Item = (
 export async function addItem(page: Page, item: Item): Promise<string> {
   const id = crypto.randomUUID();
   const participantIds = item.participantIds ?? [await myId(page)];
-  // 開始を省いたタスクだけが今日の終日になる（予定は開始を必ず持つ）
-  const allDay = item.allDay ?? item.startsAt === undefined;
-  const startsAt = item.startsAt ?? new Date().toISOString();
+  // 開始を省いたタスクは、画面・MCP と同じく今日の終日（予定は開始を必ず持つ）
+  const { allDay, startsAt } =
+    item.startsAt === undefined
+      ? defaultTaskStart()
+      : { allDay: item.allDay ?? false, startsAt: new Date(item.startsAt) };
   await apiOf(page.request).events.create.mutate({
     id,
     ...item,
     allDay,
-    startsAt,
+    startsAt: startsAt.toISOString(),
     participantIds,
   });
   return id;

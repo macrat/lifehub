@@ -137,26 +137,17 @@ test('タスクを予定にすると、開始から 1 時間（終日ならそ�
     remindStartMinutes: 30,
     remindEndMinutes: null,
   });
-  // 2/4 JST の終日
+  // 2/4 JST の終日。終日でも日時以外の項目は引き継ぐ
   expect(
     switchKindValues(task, { allDay: true, startsAt: '2030-02-03T15:00:00.000Z' }, 'event'),
   ).toMatchObject({
     allDay: true,
     startsAt: '2030-02-03T15:00:00.000Z',
     endsAt: '2030-02-04T15:00:00.000Z',
+    location: '駅前',
+    note: '保険証',
+    remindStartMinutes: 30,
   });
-});
-
-test('終日の予定にするときも、日時以外の項目は引き継ぐ', () => {
-  const task = { ...saved, endsAt: null };
-  expect(switchKindValues(task, { allDay: true, startsAt: saved.startsAt }, 'event')).toMatchObject(
-    {
-      allDay: true,
-      location: '駅前',
-      note: '保険証',
-      remindStartMinutes: 30,
-    },
-  );
 });
 
 test('開始の欄が空（書きかけ）のまま切り替えると、今日の終日になる', () => {

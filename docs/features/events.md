@@ -69,12 +69,13 @@
 `events`, `event_participants`（[data-model.md](../data-model.md)）。
 
 - `starts_at` は予定・タスクとも必須（NOT NULL）。`ends_at`（終了）と `remind_end_minutes`（終了前の通知）は予定だけが持ち、予定では `ends_at` が必須、タスクではどちらも null（CHECK）。`completed_at` はタスクだけが持つ（CHECK）。
+- 通知の分は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし（終日は 0 / 1440 だけ。CHECK。[notifications.md](notifications.md)）。
 - 終日は `all_day=true` かつ `starts_at`=JST 0:00、予定の `ends_at`=翌日 JST 0:00（終端は排他的）。API 入力の `endsAt` は終日では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00 に正規化する。レスポンスの `endsAt` は常に排他的。
 - API の入力でタスクに `endsAt` か `remindEndMinutes` を渡すと拒否する（`shared/validation/events.ts` の `taskHasNoEnd`）。WHY NOT 黙って捨てる: 送った側は終わりを保存したと思い込む。
 - 繰り返しは RRULE 文字列（`rrule` 列、DTSTART を含まない正規形）。DTSTART（基準日時）は `starts_at`。UNTIL は JST の壁時計として解釈する（`UNTIL=20261231T235959` = JST 12/31 23:59:59）。頻度は日以上（HOURLY 以下は拒否）。繰り返しでは開始と終了の両方が回ごとに同じ間隔でずれる。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、触っていない回の行は作らない（繰り返し元 + 実体化した回 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。rrule ライブラリの走査は必ず DTSTART から始まるため、1 つのルールにつき走査は 1 回だけにし、必要な窓の外は瞬間に戻さず読み飛ばす（`expandOccurrences` の `lookbehind` / `lookahead`）。
 - フォームは頻度（毎日／毎週／毎月／毎年）と終了日だけを扱う。BYDAY などの詳細ルールは API / MCP から RRULE で直接指定でき、フォームでは表示のみ。
-- **繰り返しの回の実体化**: 「この回だけ」の変更・取り消し・完了は、その回を繰り返し元の全項目の複製として作った行で表す（`series_id` = 繰り返し元、`occurrence_start` = 元の発生の基準日時、取り消しは `cancelled`）。実効値は行そのもので、繰り返し元との合成はしない。繰り返し元を「すべて」で編集しても、実体化済みの回には反映されない（Google カレンダーと同じ）。ただし基準日時か繰り返しのルールが変わったときは、回の照合キー（元の発生日時）が意味を失うので、未完了の実体化済みの回を消す（完了した回は履歴として残す）。
+- **繰り返しの回の実体化**: 「この回だけ」の変更・取り消し・完了は、その回を繰り返し元の全項目の複製として作った行で表す（`series_id` = 繰り返し元（繰り返し元を消すと ON DELETE CASCADE で消える）、`occurrence_start` = 元の発生の基準日時、取り消しは `cancelled`。`series_id` と `occurrence_start` は揃って持ち、回の行は `rrule` を持たず、`cancelled` は回の行だけ。いずれも CHECK）。実効値は行そのもので、繰り返し元との合成はしない。繰り返し元を「すべて」で編集しても、実体化済みの回には反映されない（Google カレンダーと同じ）。ただし基準日時か繰り返しのルールが変わったときは、回の照合キー（元の発生日時）が意味を失うので、未完了の実体化済みの回を消す（完了した回は履歴として残す）。
 - 「これ以降すべて」は元の `rrule` に `UNTIL`（対象回の直前）を付け、対象回以降の実体化された回を消し、対象回以降を新しい繰り返し元として作る。
 
 ## API（`server/features/events/routes.ts`）

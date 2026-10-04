@@ -87,8 +87,7 @@ function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
  */
 function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
   const { startsAt, endsAt } = current;
-  if (current.kind !== 'event' || !patch.startsAt || patch.endsAt !== undefined) return patch;
-  if (!endsAt) return patch;
+  if (!endsAt || !patch.startsAt || patch.endsAt !== undefined) return patch;
   const duration = endsAt.getTime() - startsAt.getTime();
   return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };
 }

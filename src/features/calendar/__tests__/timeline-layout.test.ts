@@ -68,14 +68,13 @@ describe('partitionTimeline', () => {
     dayCount: 1,
     ...extra,
   });
-  const task = (id: string, startsAt: string, allDay = false): CalendarItem => ({
-    ...BASE,
+  /** 6/5 に置かれた未完了のタスク（fixtures の `task` の開始と終日かを変えたもの） */
+  const placedTask = (id: string, startsAt: string, allDay = false): CalendarItem => ({
+    ...task,
     id,
-    kind: 'task',
     title: id,
     allDay,
     startsAt,
-    endsAt: null,
   });
 
   const items = [
@@ -87,11 +86,11 @@ describe('partitionTimeline', () => {
       dayIndex: 2,
       dayCount: 2,
     }),
-    task('afternoon', '2031-06-05T15:00:00+09:00'),
-    task('started', '2031-06-05T11:00:00+09:00'),
+    placedTask('afternoon', '2031-06-05T15:00:00+09:00'),
+    placedTask('started', '2031-06-05T11:00:00+09:00'),
     // 開始が別の日（繰り越し）なら、時間軸には置かない
-    task('carried', '2031-06-01T11:00:00+09:00'),
-    task('dated', '2031-06-05T00:00:00+09:00', true),
+    placedTask('carried', '2031-06-01T11:00:00+09:00'),
+    placedTask('dated', '2031-06-05T00:00:00+09:00', true),
   ];
   const { allDayByDate, timedByDate } = partitionTimeline([DAY], new Map([[DAY, items]]));
 

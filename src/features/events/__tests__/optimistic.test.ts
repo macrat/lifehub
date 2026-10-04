@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { expect, test } from 'vitest';
 import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
-import { today } from '../../../../shared/date.ts';
+import { addDays, startOfDate, today } from '../../../../shared/date.ts';
 import { toMonthString } from '../../../lib/date.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
@@ -60,7 +60,7 @@ test('その月に掛からない予定は置かれない', () => {
 test('開始を過ぎたタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
   const todayDate = today();
   const client = clientWith(toMonthString(todayDate));
-  const started = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const started = startOfDate(addDays(todayDate, -3)).toISOString();
   insertItem(client, { ...EVENT, kind: 'task', startsAt: started, endsAt: null, allDay: false });
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 

@@ -5,7 +5,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import type { ChangeEvent } from 'react';
-import { TASK_TIME_LABELS } from '../../../../shared/calendar.ts';
+import { EDGE_LABELS } from '../../../../shared/calendar.ts';
 import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
@@ -155,7 +155,7 @@ export function WhenFields({
       />
       <WhenField
         name="startsAt"
-        edge={TASK_TIME_LABELS.start}
+        edge={EDGE_LABELS.start}
         defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
         allDay={allDay}
         error={errors.startsAt}
@@ -164,8 +164,8 @@ export function WhenFields({
       {isEvent && (
         <WhenField
           name="endsAt"
-          edge="終了"
-          // 終了が無ければ（書き始め）開始から始める
+          edge={EDGE_LABELS.end}
+          // 予定の値は終了を必ず持つ（型はタスクと共通なので null を開始で埋める）
           defaultValue={inputValue(
             initial.endsAt ?? initial.startsAt,
             'end',
@@ -219,7 +219,7 @@ function RemindField({ saved, allDay }: { saved: number | null; allDay: boolean 
     ? ALL_DAY_REMIND_OPTIONS.map((m) => ({ value: m, label: ALL_DAY_REMIND_LABELS[m] }))
     : REMIND_BEFORE_OPTIONS.map((m) => ({
         value: m,
-        label: m === 0 ? `${TASK_TIME_LABELS.start}時刻` : REMIND_LABELS[m],
+        label: m === 0 ? `${EDGE_LABELS.start}時刻` : REMIND_LABELS[m],
       }));
   return (
     <TextField

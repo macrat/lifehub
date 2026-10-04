@@ -23,7 +23,7 @@ export function toIcs(occurrences: Occurrence[], now: Date): string {
     ttl: REFRESH_SECONDS,
   });
   for (const occurrence of occurrences) {
-    // 終了を持たないもの（タスク）は書かない
+    // 渡されるのは予定だけ（終了を必ず持つ）。型はタスクと共通なので終了の有無で絞る
     if (!occurrence.endsAt) continue;
     const startsAt = new Date(occurrence.startsAt);
     const endsAt = new Date(occurrence.endsAt);

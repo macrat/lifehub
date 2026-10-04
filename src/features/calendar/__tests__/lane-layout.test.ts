@@ -11,7 +11,6 @@ const days = ['2026-09-21', '2026-09-22', '2026-09-23'].map((d) => dateStringSch
 const BASE = {
   occurrenceStart: null,
   allDay: false,
-  startsAt: null,
   endsAt: null,
   completedAt: null,
   location: null,

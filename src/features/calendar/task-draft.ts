@@ -1,6 +1,6 @@
-import { type CalendarTaskItem, TASK_TIME_LABELS, taskTime } from '../../../shared/calendar.ts';
+import { type CalendarTaskItem, TASK_TIME_LABELS } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
-import { formatEdge, fromDateValue } from '../../lib/date.ts';
+import { formatStart, fromDateValue } from '../../lib/date.ts';
 import { carriedValues, type ItemFormValues } from '../events/form-values.ts';
 import {
   type Draft,
@@ -60,10 +60,8 @@ export function taskTimesAt(
 function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
-  // 時刻はタスクの開始のもの（`taskTime`。動かすのは未完了のタスク）。終日では時刻が無い
-  const { at } = taskTime({ ...times, completedAt: null });
-  if (!at) return { allDay: true, startsAt: fromDateValue(range.from) };
-  return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(at)) };
+  if (times.allDay) return { allDay: true, startsAt: fromDateValue(range.from) };
+  return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(times.startsAt)) };
 }
 
 /**
@@ -115,5 +113,5 @@ export function taskDraftText({
   allDay,
   startsAt,
 }: Pick<ItemFormValues, 'allDay' | 'startsAt'>): string {
-  return `${TASK_TIME_LABELS.start} ${formatEdge(startsAt, 'start', allDay)}`;
+  return `${TASK_TIME_LABELS.start} ${formatStart(startsAt, allDay)}`;
 }
