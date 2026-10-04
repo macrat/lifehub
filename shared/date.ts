@@ -119,13 +119,17 @@ export function monthsInRange(from: DateString, to: DateString): string[] {
 
 /** 月を n か月ずらす */
 export function addMonths(month: string, n: number): string {
-  const [y, m] = month.split('-').map(Number) as [number, number];
-  const total = y * 12 + (m - 1) + n;
+  const total = monthIndex(month) + n;
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
 /** 年月 a から b まで何か月か（b が後なら正） */
 export function diffMonths(a: string, b: string): number {
-  const index = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
-  return index(b) - index(a);
+  return monthIndex(b) - monthIndex(a);
+}
+
+/** 年月（YYYY-MM）の通し番号（0 年 1 月が 0） */
+function monthIndex(month: string): number {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return y * 12 + (m - 1);
 }
