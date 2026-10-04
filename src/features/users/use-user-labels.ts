@@ -21,10 +21,12 @@ export function useUserLabels() {
   };
 
   /**
-   * 記録を書いた人の名前。null（先回りで出した記録の、まだ分からない書いた人）は空にする
-   * （`label` の null は立替の「共有」で、書いた人には当てはまらない）
+   * 記録がどこから書かれたか。人の代わりに入口（レモンの記録の API キー、メモの MCP クライアント）の名前を
+   * 持つ記録はそれを、持たなければ書いた人の名前を出す。書いた人の null（先回りで出した記録の、まだ分からない
+   * 書いた人）は空にする（`label` の null は立替の「共有」で、書いた人には当てはまらない）
    */
-  const authorName = (userId: string | null): string => (userId === null ? '' : label(userId));
+  const writerName = (createdBy: string | null, via: string | null): string =>
+    via ?? (createdBy === null ? '' : label(createdBy));
 
-  return { users, label, authorName, meId: me?.id ?? null };
+  return { users, label, writerName, meId: me?.id ?? null };
 }
