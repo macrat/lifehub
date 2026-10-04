@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EDGE_LABELS } from '../../../shared/calendar.ts';
+import { type CalendarItem, EDGE_LABELS, occurrenceKey } from '../../../shared/calendar.ts';
 import {
   DAY_MINUTES,
   DEFAULT_ALL_DAY_NOTIFY_MINUTES,
@@ -14,7 +14,7 @@ import {
   toDateString,
 } from '../../../shared/date.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
-import { type CalendarItem, listItems } from './occurrences.ts';
+import { listItems } from './occurrences.ts';
 
 const EDGES = ['start', 'end'] as const;
 type Edge = (typeof EDGES)[number];
@@ -114,7 +114,7 @@ async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem
   );
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.id}:${item.occurrenceStart}`;
+    const key = occurrenceKey(item);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

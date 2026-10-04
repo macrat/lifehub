@@ -18,8 +18,6 @@ import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 
-export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
-
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
 

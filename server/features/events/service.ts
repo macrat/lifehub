@@ -1,4 +1,5 @@
 import {
+  type EventMaster,
   normalizeInstants,
   switchedEnds,
   toInputInstants,
@@ -19,7 +20,7 @@ import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
-import { type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
+import { occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 import type { NewEventRow } from './schema.ts';
