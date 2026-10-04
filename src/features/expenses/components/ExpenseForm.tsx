@@ -1,11 +1,12 @@
+import type { ExpenseInput } from '../../../../shared/validation/expenses.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { type ExpenseBody, useAddExpense } from '../queries.ts';
+import { useAddExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
 import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {
   /** 最初に入れておく値（精算のカードから始めたときはその精算）。省いた項目は追加の既定値 */
-  initial?: Partial<ExpenseBody>;
+  initial?: Partial<ExpenseInput>;
   onClose: () => void;
 };
 

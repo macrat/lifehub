@@ -5,6 +5,7 @@ import Skeleton from '@mui/material/Skeleton';
 import type { Breakpoint, SxProps, Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
+import { mergeSx } from './merge-sx.ts';
 import { TILE_MASK } from './squircle.ts';
 
 /** タイルの内側の余白（タイルと骨組みで同じ高さにする） */
@@ -132,5 +133,5 @@ export function TileGrid({
     typeof columns === 'number'
       ? repeat(columns)
       : Object.fromEntries(Object.entries(columns).map(([bp, n]) => [bp, repeat(n)]));
-  return <Box sx={{ display: 'grid', gridTemplateColumns, gap: 1, ...sx }}>{children}</Box>;
+  return <Box sx={mergeSx({ display: 'grid', gridTemplateColumns, gap: 1 }, sx)}>{children}</Box>;
 }

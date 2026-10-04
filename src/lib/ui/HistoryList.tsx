@@ -1,10 +1,9 @@
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import { type ReactNode, useRef } from 'react';
 import type { ScreenHistory } from '../screen-data.ts';
 import { InfiniteScroll, type InfiniteScrollHeaderProps } from './InfiniteScroll.tsx';
 import { MAIN_BOTTOM_PADDING, STICKY_TOP } from './layout.ts';
-import { ListSkeleton, QueryView } from './QueryView.tsx';
+import { EmptyMessage, ListSkeleton, QueryView } from './QueryView.tsx';
 
 /** 画面ごとの一覧（`ExpenseList` など）は、行の描き方（children）以外をこのまま受けて渡す */
 export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
@@ -63,9 +62,7 @@ export function HistoryList<T>({
       <QueryView query={history.query} skeleton={<ListSkeleton />}>
         {({ items, above, below }) =>
           items.length === 0 ? (
-            <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
-              {emptyMessage}
-            </Typography>
+            <EmptyMessage>{emptyMessage}</EmptyMessage>
           ) : (
             <>
               {above.length > 0 && children(above)}
