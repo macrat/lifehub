@@ -1,73 +1,40 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { type Database, db, runBatch } from '../../lib/db/client.ts';
+import { db } from '../../lib/db/client.ts';
 import { weather, weatherHourly, weatherPop } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
 export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
 export type PopRow = typeof weatherPop.$inferSelect;
 
-/** [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）の問い合わせ */
-function dailyIn(tx: Database, range: DateRange) {
-  return tx
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
+export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
+  return db
     .select()
     .from(weather)
     .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
     .orderBy(asc(weather.date));
 }
 
-/** [from, to] の日々の 3 時間ごとの天気（時刻順）の問い合わせ */
-function hourlyIn(tx: Database, range: DateRange) {
+/** [from, to]（両端を含む JST 暦日）の日々の 3 時間ごとの天気（時刻順） */
+export async function findHourly(range: DateRange): Promise<HourlyWeatherRow[]> {
   const { from, to } = instantRange(range);
-  return tx
+  return db
     .select()
     .from(weatherHourly)
     .where(and(gte(weatherHourly.startsAt, from), lt(weatherHourly.startsAt, to)))
     .orderBy(asc(weatherHourly.startsAt));
 }
 
-/** [from, to] の日々の 6 時間ごとの降水確率（時刻順）の問い合わせ */
-function popsIn(tx: Database, range: DateRange) {
+/** [from, to]（両端を含む JST 暦日）の日々の 6 時間ごとの降水確率（時刻順） */
+export async function findPops(range: DateRange): Promise<PopRow[]> {
   const { from, to } = instantRange(range);
-  return tx
+  return db
     .select()
     .from(weatherPop)
     .where(and(gte(weatherPop.startsAt, from), lt(weatherPop.startsAt, to)))
     .orderBy(asc(weatherPop.startsAt));
-}
-
-/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
-export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
-  return dailyIn(db, range);
-}
-
-/**
- * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
- * 1 回の往復で読む（カレンダー）。
- */
-export async function findBetween(
-  range: DateRange,
-): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const [daily, hourly] = await runBatch((tx) => [dailyIn(tx, range), hourlyIn(tx, range)]);
-  return { daily, hourly };
-}
-
-/**
- * [from, to]（両端を含む JST 暦日）の天気を 1 回の往復で読む（天気の画面・MCP）: 日ごとの天気（日付順）、
- * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。
- */
-export async function findDays(range: DateRange): Promise<{
-  daily: WeatherRow[];
-  hourly: HourlyWeatherRow[];
-  pops: PopRow[];
-}> {
-  const [daily, hourly, pops] = await runBatch((tx) => [
-    dailyIn(tx, range),
-    hourlyIn(tx, range),
-    popsIn(tx, range),
-  ]);
-  return { daily, hourly, pops };
 }
 
 /** date より前に取っておいた日があるか（天気の画面の続きのページの有無） */

@@ -122,10 +122,13 @@ export async function listDailyWeather(range: DateRange): Promise<DailyWeather[]
  * 表に無い天気の区間は前後の区間ともつなげない。
  */
 export async function listWeather(range: DateRange): Promise<WeatherInRange> {
-  const rows = await repository.findBetween(range);
-  const daily = toDaily(rows.daily);
+  const [dailyRows, hourlyRows] = await Promise.all([
+    repository.findDaily(range),
+    repository.findHourly(range),
+  ]);
+  const daily = toDaily(dailyRows);
   const hourly: HourlyWeather[] = [];
-  for (const row of rows.hourly) {
+  for (const row of hourlyRows) {
     const slot = toSlot(row);
     if (!slot) continue;
     const { date, startMin, symbol, label } = slot;
@@ -175,17 +178,22 @@ export async function listWeatherPage(
  * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
  * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
  * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
- * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
+ * 手元の表を読むだけで、気象庁へは取りに行かない（カレンダーの `calendarLoader` と同じ）。
  */
 export async function listWeatherDays(range: DateRange): Promise<WeatherDay[]> {
-  const [rows, holidays] = await Promise.all([repository.findDays(range), listHolidays(range)]);
+  const [dailyRows, hourlyRows, popRows, holidays] = await Promise.all([
+    repository.findDaily(range),
+    repository.findHourly(range),
+    repository.findPops(range),
+    listHolidays(range),
+  ]);
   const holidaySet = new Set(holidays);
   const slots = Map.groupBy(
-    rows.hourly.flatMap((row) => toSlot(row) ?? []),
+    hourlyRows.flatMap((row) => toSlot(row) ?? []),
     (slot) => slot.date,
   );
-  const pops = Map.groupBy(rows.pops, ({ startsAt }) => toDateString(startsAt));
-  return toDaily(rows.daily).map((day) => ({
+  const pops = Map.groupBy(popRows, ({ startsAt }) => toDateString(startsAt));
+  return toDaily(dailyRows).map((day) => ({
     ...day,
     holiday: holidaySet.has(day.date),
     slots: (slots.get(day.date) ?? []).map(({ date: _, ...slot }) => slot),

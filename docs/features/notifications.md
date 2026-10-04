@@ -81,4 +81,4 @@ export function resolveNotification(ref, notifyTimes): Promise<NotificationPaylo
 
 ## MCP ツール
 
-無し。通知の要否は予定・タスクの項目（`remind_start_minutes` / `remind_end_minutes`）で、MCP の `add_event` / `update_event` の `remindBeforeStart` / `remindBeforeEnd` / `remindBeforeDue` で設定できる（[mcp.md](mcp.md)）。
+無し。通知の要否は予定・タスクの項目（`remind_start_minutes` / `remind_end_minutes`）で、MCP の `add_event` / `update_event` の `remindBeforeStart` / `remindBeforeEnd`（予定の終了だけ）で設定できる（[mcp.md](mcp.md)）。

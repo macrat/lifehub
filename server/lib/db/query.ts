@@ -28,9 +28,10 @@ function unnestIds(ids: string[], alias: string): SQL.Aliased<string> {
  * 結合した子テーブルの ID を配列にまとめる（参加者のような多対多の相手）。
  * left join と組にすると、子が 0 件でも親の行が消えない。
  * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
+ * ID の順に並べる。WHY: 並びを指定しない array_agg は実行計画で順が変わり、同じ行が読むたびに違う配列になる。
  */
 export function idArrayAgg(column: PgColumn): SQL<string[]> {
-  return sql`coalesce(array_agg(${column}::text) filter (where ${column} is not null), '{}')`;
+  return sql`coalesce(array_agg(${column}::text order by ${column}) filter (where ${column} is not null), '{}')`;
 }
 
 /** `id` 列を主キーに持つ表 */

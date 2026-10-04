@@ -98,15 +98,18 @@ function isCandidate(
       and(
         lt(table.startsAt, to),
         or(
-          // 繰り返し元: 回が範囲に入りうる
-          isNotNull(table.rrule),
+          // 繰り返しの予定: 回が範囲に入りうる
+          and(isNotNull(table.rrule), eq(table.kind, 'event')),
           // 単発の未完了タスク: 完了するまで「今日」に繰り越されるので、過去の開始では絞れない
           // （開始が範囲の後なら開始の日に置かれて範囲に入らないので、上の条件で除ける）
-          and(eq(table.kind, 'task'), isNull(table.completedAt)),
+          and(isNull(table.rrule), eq(table.kind, 'task'), isNull(table.completedAt)),
           // 単発の予定: 期間と重なるもの
-          and(eq(table.kind, 'event'), gt(table.endsAt, from)),
+          and(isNull(table.rrule), eq(table.kind, 'event'), gt(table.endsAt, from)),
         ),
       ),
+      // 繰り返しのタスク: 表示する回は範囲によらない（`occurrences.ts` の `expandTask`）。先の回を早めに
+      // 完了すれば完了した日（開始より前の範囲）に置かれるので、日時では絞れない
+      and(isNotNull(table.rrule), eq(table.kind, 'task')),
       // 単発の完了したタスク: 完了した日にだけ置かれる（開始の日とは関わらない）
       and(
         isNull(table.rrule),
