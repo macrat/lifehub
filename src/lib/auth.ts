@@ -11,6 +11,7 @@ import { redirect, useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
 import type { LoginInput } from '../../shared/validation/users.ts';
 import { type ApiOutputs, api, apiRequestFetch, isUnauthorized } from './api.ts';
+import { notify } from './ui/notice.ts';
 
 // ログイン状態に関わることはすべてこの file に置き、画面（routes）はここの関数を呼ぶだけにする。
 // 判定・遷移・キャッシュの扱いが画面ごとに食い違わないようにするため。
@@ -157,12 +158,20 @@ export function markSignedOut(client: QueryClient): void {
 /**
  * ログアウト。キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残し、
  * 次回起動で即ログイン画面に出す）。
+ * サーバーがログアウトを受け付けなかったとき（オフラインなど）は、知らせを出して何も変えない。
+ * WHY NOT 手元だけログアウトした状態にする: セッションの Cookie は有効なまま残るので、
+ * ログイン画面の確かめ直しがすぐアプリへ戻してしまい、ログアウトできたように見えて実はできていない。
  */
 export function useLogout() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return async () => {
-    await authClient.signOut();
+    // 通信の失敗は例外で、サーバーの拒否は error で返る。どちらもログアウトできていない
+    const result = await authClient.signOut().catch(() => null);
+    if (!result || result.error) {
+      notify('error', 'ログアウトできませんでした。通信できる所でもう一度試してください');
+      return;
+    }
     markSignedOut(queryClient);
     queryClient.removeQueries({
       predicate: (q) => !partialMatchKey(q.queryKey, meQueryOptions.queryKey),

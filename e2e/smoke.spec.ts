@@ -30,6 +30,7 @@ test.describe('ログインしていないとき', () => {
 
   test('ログイン画面に送られ、ログインするとホームが表示され、ログアウトで戻る', async ({
     page,
+    context,
   }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login/);
@@ -50,8 +51,15 @@ test.describe('ログインしていないとき', () => {
     await expect(page).toHaveURL('/admin/users');
     await expect(page.getByText(E2E_USER.email)).toBeVisible();
 
-    // 設定からログアウトするとログイン画面に戻る
+    // 通信できないときはログアウトできず、知らせが出て設定に留まる
     await page.getByRole('link', { name: '設定' }).click();
+    await context.setOffline(true);
+    await page.getByRole('button', { name: /ログアウト/ }).click();
+    await expect(page.getByText('ログアウトできませんでした', { exact: false })).toBeVisible();
+    await expect(page).toHaveURL('/settings');
+    await context.setOffline(false);
+
+    // 設定からログアウトするとログイン画面に戻る
     await page.getByRole('button', { name: /ログアウト/ }).click();
     await expect(page).toHaveURL(/\/login/);
   });
