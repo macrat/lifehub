@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { countFetches, quiet } from './network.ts';
+import { expect, test } from './test.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /**
@@ -31,13 +31,11 @@ test('表示を切り替えても取り直さず、画面に入ったときだ�
   await expect(page).toHaveURL('/');
   await page.getByRole('link', { name: '予定' }).click();
   await expect(page).toHaveURL(/\/calendar/);
+  await expect.poll(fetches).toBeGreaterThan(afterEnter);
   await quiet(page, fetches);
   const afterReturn = fetches();
-  expect(afterReturn).toBeGreaterThan(afterEnter);
 
   // 再読み込みでも取り直す
   await page.reload();
-  await expect(page.getByRole('button', { name: '表示の切替' })).toBeVisible();
-  await quiet(page, fetches);
-  expect(fetches()).toBeGreaterThan(afterReturn);
+  await expect.poll(fetches).toBeGreaterThan(afterReturn);
 });

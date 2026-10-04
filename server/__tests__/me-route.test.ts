@@ -11,6 +11,7 @@ describe('me.get', () => {
     const partnerId = await createTestUser('B');
     expect(await apiClient(cookie).me.get.query()).toMatchObject({
       id: userId,
+      email: 'a@example.com',
       users: [
         { id: userId, name: 'A' },
         { id: partnerId, name: 'B' },

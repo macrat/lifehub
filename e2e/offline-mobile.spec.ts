@@ -1,6 +1,7 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { OFFLINE_MESSAGE, offlineIndicator } from './layout.ts';
+import { expect, test } from './test.ts';
 
 test.use({ ...devices['Pixel 7'] });
 

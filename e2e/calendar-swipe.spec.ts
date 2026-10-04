@@ -1,4 +1,5 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
+import { expect, test } from './test.ts';
 import { touchDrag } from './touch.ts';
 
 /** スワイプはタッチのみ。デスクトップの設定ではなくスマホの設定で動かす */
@@ -57,10 +58,25 @@ test('カレンダーを左右にスワイプすると前後の月・週へ 1 �
     )
     .toBe(420);
 
-  // 縦になぞるのは時間軸のスクロール。日付は動かない（動かないことは待つ当てが無いので、
-  // 慣性と吸着が確かに終わる長さだけ待ってから見る）
+  // 縦になぞるのは時間軸のスクロール。時間軸の慣性が終わる（scrollend）まで待ち、横に並べた面が
+  // 少しも動いていない（スワイプに化けていない）ことと、日付が動いていないことを見る
   const before = date();
+  const pagerLeft = () =>
+    page.evaluate(
+      () =>
+        [...document.querySelectorAll('*')].find((el) =>
+          getComputedStyle(el).scrollSnapType.startsWith('x'),
+        )?.scrollLeft,
+    );
+  const leftBefore = await pagerLeft();
+  const scrolled = timeGrid.evaluate(
+    (el) =>
+      new Promise<void>((resolve) =>
+        el.addEventListener('scrollend', () => resolve(), { once: true }),
+      ),
+  );
   await touchDrag(page, { x: 300, y: 600 }, { x: 290, y: 300 }, { steps: 12, delay: 16 });
-  await page.waitForTimeout(800);
+  await scrolled;
+  expect(await pagerLeft()).toBe(leftBefore);
   expect(date()).toBe(before);
 });

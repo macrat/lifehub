@@ -1,5 +1,6 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
 import { stall } from './network.ts';
+import { expect, test } from './test.ts';
 import { touchDrag } from './touch.ts';
 
 test.use({ ...devices['Pixel 7'] });

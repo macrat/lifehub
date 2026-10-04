@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test.ts';
 
 // 画面のコードの取得を横取りして失敗させるので、Service Worker の precache を通さない
 test.use({ serviceWorkers: 'block' });

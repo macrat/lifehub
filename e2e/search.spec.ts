@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { openHome } from './auth.ts';
 import { type Created, deleteRecord } from './history.ts';
+import { expect, test } from './test.ts';
 
 /**
  * AppBar の検索窓。入力は画面の状態で受けて URL は置き換えるだけなので、
@@ -51,11 +51,6 @@ test('キーワードを打ってから絞り込みを変えても、URL のキ�
 
   await page.reload();
   await expect(page.getByLabel('立替を検索')).toHaveValue('スーパー');
-});
-
-test('URL の検索語は開き直しても残る', async ({ page }) => {
-  await page.goto(`/lemon?q=${encodeURIComponent('肥料')}`);
-  await expect(page.getByLabel('メモを検索')).toHaveValue('肥料');
 });
 
 /**

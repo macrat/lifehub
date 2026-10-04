@@ -1,8 +1,9 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { dayPoint, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { addItem, deleteItem } from './events.ts';
 import { carries } from './network.ts';
+import { expect, test } from './test.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
 
 /** スマホでタスクを長押しでつまんで動かす（時間軸・日の並び）と、その入力のシート */

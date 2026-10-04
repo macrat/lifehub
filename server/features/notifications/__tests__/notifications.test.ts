@@ -98,6 +98,8 @@ describe('notifications', () => {
     expect(await resolveNotification(taskRef, await notifyTimes())).toMatchObject({
       title: 'タスク: 提出',
       body: '期限 9/15 17:00',
+      // 繰り越されるタスクの位置は「今日」で決まるので、再検証が 1 日前の状態を見ていると前日になる
+      url: '/calendar?date=2026-09-15',
     });
 
     // 開始時刻を変えると配信時刻がずれるので、古い予約は送らない
@@ -191,26 +193,6 @@ describe('notifications', () => {
 
     expect(await deliver(key, ref, send)).toBe('sent');
     expect(sent).toEqual(['タスク: 提出']);
-  });
-
-  it('タスクの通知は配信予定時刻の日を指す', async () => {
-    await createEvent(
-      createEventSchema.parse({
-        kind: 'task',
-        title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
-        participantIds: [userId],
-      }),
-      userId,
-    );
-    const [planned] = await listNotifications(tomorrow, await notifyTimes());
-    // 繰り越されるタスクの位置は「今日」で決まるので、再検証が 1 日前の状態を見ていると前日になる
-    expect(
-      await resolveNotification((planned as PlannedNotification).ref, await notifyTimes()),
-    ).toMatchObject({
-      url: '/calendar?date=2026-09-15',
-    });
   });
 
   it('繰り返しタスクをためても、その日の回の通知は予約される', async () => {

@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { detailAction } from './detail.ts';
 import { addItem, deleteItem } from './events.ts';
+import { expect, test } from './test.ts';
 
 test('タスクとレモンの記録がタイムラインとタイルに反映される', async ({ page }) => {
   const title = `E2E ホーム ${Date.now()}`;

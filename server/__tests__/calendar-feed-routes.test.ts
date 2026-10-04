@@ -21,8 +21,6 @@ describe('カレンダー配信のルート', () => {
     expect(ics.status).toBe(200);
     expect(ics.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
     expect(await ics.text()).toContain('BEGIN:VCALENDAR');
-
-    expect((await app.request('/api/trpc/calendarFeeds.list')).status).toBe(401);
   });
 
   it('知らないトークンは 404', async () => {

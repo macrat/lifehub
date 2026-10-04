@@ -1,4 +1,5 @@
-import { expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect } from './test.ts';
 
 /** 起きた遷移 1 つ分。ready は名前が重複していると失敗する（＝遷移が飛ばされる） */
 export type Transition = {

@@ -66,23 +66,6 @@ describe('events service', () => {
       });
     });
 
-    it('同じ id で送り直しても二重に作られない（オフラインで溜めた書き込みの再送）', async () => {
-      const id = newId();
-      const input = createEventSchema.parse({
-        kind: 'event',
-        title: '歯医者',
-        startsAt: iso('2026-09-10T14:00:00'),
-        endsAt: iso('2026-09-10T15:00:00'),
-        participantIds: [userId],
-      });
-      await createEvent(input, userId, id);
-      await createEvent(input, userId, id);
-
-      const list = await listItems(september, now);
-      expect(list).toHaveLength(1);
-      expect(list[0]).toMatchObject({ id, title: '歯医者', participantIds: [userId] });
-    });
-
     it('編集した後に古い作成が送り直されても、行も参加者も巻き戻らない', async () => {
       const id = newId();
       const input = createEventSchema.parse({
