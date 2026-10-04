@@ -97,13 +97,17 @@ type MasterFields = Pick<EventWithParticipants, keyof EventMaster>;
  * 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選び、種別の形に分ける）。
  * 行は平らな列で読むので、種別ごとの形（予定は終了を持ち、タスクは持たない）はここで型にする。
  * 規則そのものは DB の CHECK（`events_end_only_event_check` など）が守る。
+ * when を渡すと日時だけをそれにする（繰り返しの回は繰り返し元をずらした日時。行を写して上書きせずに済む）。
  */
-export function toMaster(row: MasterFields): EventMaster {
+export function toMaster(
+  row: MasterFields,
+  when: { startsAt: Date; endsAt: Date | null } = row,
+): EventMaster {
   const common = {
     id: row.id,
     title: row.title,
     allDay: row.allDay,
-    startsAt: row.startsAt.toISOString(),
+    startsAt: when.startsAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
     location: row.location,
     note: row.note,
@@ -112,11 +116,11 @@ export function toMaster(row: MasterFields): EventMaster {
     remindStartMinutes: row.remindStartMinutes,
   };
   if (row.kind === 'task') return { ...common, kind: 'task', endsAt: null, remindEndMinutes: null };
-  if (!row.endsAt) throw new Error(`終了の無い予定の行です（CHECK で守っているはず）: ${row.id}`);
+  if (!when.endsAt) throw new Error(`終了の無い予定の行です（CHECK で守っているはず）: ${row.id}`);
   return {
     ...common,
     kind: 'event',
-    endsAt: row.endsAt.toISOString(),
+    endsAt: when.endsAt.toISOString(),
     remindEndMinutes: row.remindEndMinutes,
   };
 }
@@ -167,9 +171,8 @@ function buildOccurrence(
 ): Occurrence {
   const { master } = ctx;
   if (!row) {
-    const shifted = occurrenceStart ? shiftTo(master, occurrenceStart) : master;
     return {
-      ...toMaster({ ...master, ...shifted }),
+      ...toMaster(master, occurrenceStart ? shiftTo(master, occurrenceStart) : master),
       occurrenceStart: occurrenceStart?.toISOString() ?? null,
       isRecurring: master.rrule !== null,
       isModified: false,
@@ -269,7 +272,8 @@ function expandTask(ctx: ExpandContext, now: Date): Occurrence[] {
   // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
   // 後ろは、飛ばす回（完了・取り消した回。今より後の実体化された回の数を超えない）と未完了の 2 つに、
   // 最後の未完了の回の放棄を判定する 2 つ先までを足した数だけ読めば足りる。
-  const ahead = [...ctx.occurrences.keys()].filter((at) => at >= now.getTime()).length;
+  let ahead = 0;
+  for (const at of ctx.occurrences.keys()) if (at >= now.getTime()) ahead++;
   const bases = expandOccurrences({
     rrule: master.rrule,
     dtstart: master.startsAt,
