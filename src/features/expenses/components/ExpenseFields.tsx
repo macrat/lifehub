@@ -4,14 +4,11 @@ import TextField from '@mui/material/TextField';
 import { today } from '../../../../shared/date.ts';
 import { SELECT_NONE, selectValue } from '../../../lib/form.ts';
 import { formatExpression, normalizeExpression, pressKey } from '../calculator.ts';
-import type { ExpenseBody } from '../queries.ts';
 import type { ExpenseFieldsState } from '../use-expense-form.ts';
 import { Calculator } from './Calculator.tsx';
 
-type Props = ExpenseFieldsState & {
-  /** 最初に入れておく値（`useExpenseForm` の initial）。省いた項目は追加の既定値（日付は今日） */
-  initial?: Partial<ExpenseBody>;
-};
+/** 最初に入れておく値（initial）は `useExpenseForm` に渡したもの。省いた項目は追加の既定値（日付は今日） */
+type Props = ExpenseFieldsState;
 
 /**
  * 立替の項目。上から日付・To/From・内容・金額と並べ、いちばん下の電卓で金額欄をそのまま計算する。

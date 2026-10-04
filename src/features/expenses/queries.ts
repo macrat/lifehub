@@ -15,7 +15,7 @@ import {
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
-import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
+import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /**
  * 追加と編集で同じ形（編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
@@ -29,7 +29,7 @@ export type { Expense, Settlement } from '../../../shared/expenses.ts';
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
 /** 書き込みが変えるクエリ（立替の履歴・合計と、全機能の記録を並べるタイムライン） */
-const WRITE_KEYS = [EXPENSES_QUERY_KEY, TIMELINE_QUERY_KEY];
+const WRITE_KEYS = recordWriteKeys(EXPENSES_QUERY_KEY);
 
 /**
  * 立替画面の履歴（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける

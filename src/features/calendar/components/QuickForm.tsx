@@ -17,7 +17,7 @@ import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
-import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/EventFields.tsx';
+import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/ItemFields.tsx';
 import { KindToggle } from '../../events/components/KindToggle.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
 import { draftKind, type GridDraft } from '../draft.ts';

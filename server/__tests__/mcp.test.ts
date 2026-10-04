@@ -143,6 +143,11 @@ describe('MCP server', () => {
 
       const updated = await call<Entry>(client, 'update_lemon_log', { ref: log.ref, note: '新芽' });
       expect(updated).toMatchObject({ careTypes: ['mist', 'water'], note: '新芽', at: log.at });
+      const retyped = await call<Entry>(client, 'update_lemon_log', {
+        ref: log.ref,
+        careTypes: ['water'],
+      });
+      expect(retyped).toMatchObject({ careTypes: ['water'], note: '新芽', at: log.at });
       expect(await fail(client, 'log_lemon_care', { careTypes: [] })).toContain('メモ');
     });
 

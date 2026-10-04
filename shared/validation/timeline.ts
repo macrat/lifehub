@@ -14,6 +14,6 @@ export const timelineFilterSchema = z.object({
 });
 export type TimelineFilter = z.infer<typeof timelineFilterSchema>;
 
-/** タイムラインの 1 ページの取得（GET /api/timeline。`cursorShape`。最新のページは 24 時間先まで） */
+/** タイムラインの 1 ページの取得（`timeline.get`。`cursorShape`。最新のページは 24 時間先まで） */
 export const timelineQuerySchema = timelineFilterSchema.extend(cursorShape);
 export type TimelineQuery = z.infer<typeof timelineQuerySchema>;

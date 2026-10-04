@@ -1,4 +1,4 @@
-import { compareKeys } from './calendar.ts';
+import { compareKeys } from './sort.ts';
 
 /**
  * メモ（一言の書き留め）。サーバーの応答と、クライアントの楽観的更新が同じ形を使うため、共通に置く。

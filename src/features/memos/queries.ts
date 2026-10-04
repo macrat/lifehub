@@ -5,7 +5,7 @@ import { api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
-import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
+import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /** メモの形はサーバーと共有する（shared/memos.ts） */
 export type { Memo } from '../../../shared/memos.ts';
@@ -22,8 +22,8 @@ export const pinnedMemosQueryOptions = queryOptions({
  * メモを読むのはタイムラインとピン止めの並びだけなので、書き込みが変えるのもその 2 つだけ。
  * 追加したメモはピン止めしていないので、追加はタイムラインだけを変える
  */
-const WRITE_KEYS = [TIMELINE_QUERY_KEY, MEMOS_QUERY_KEY];
-const ADD_KEYS = [TIMELINE_QUERY_KEY];
+const WRITE_KEYS = recordWriteKeys(MEMOS_QUERY_KEY);
+const ADD_KEYS = recordWriteKeys();
 
 /** タイムラインへの先回りの読み書き（メモを読む画面の履歴は無い） */
 const memoCache = timelineRecordCache('memo');

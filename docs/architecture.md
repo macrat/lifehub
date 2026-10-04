@@ -68,8 +68,8 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
-- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 精算、`lemon.ts` = 世話の状態）。繰り返しの展開だけはサーバーにしか無い。
-- 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `GET /api/calendar` が返す `CalendarItem[]`（と、同じ応答に載るその期間の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
+- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 精算、`lemon.ts` = 世話の状態、`memos.ts` = ピン止めの並び、`timeline.ts` = タイムラインの行と日時）。繰り返しの展開だけはサーバーにしか無い。
+- 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `calendar.get` が返す `CalendarItem[]`（と、同じ応答に載るその期間の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
 
@@ -84,7 +84,7 @@ src/                          # クライアント（Vite + React）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
-    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useKeywordSearch`・`useFilterSearch`）  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  view-transition.ts + move-animation.ts（画面と記録の動き）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
@@ -109,23 +109,26 @@ server/                       # サーバー（Hono）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
-        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・参加者の書き込み）、
+        coalesce-reads.ts = 同じ時点の読み取りを 1 往復にまとめる、
+        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での更新と削除・参加者の書き込み）、
         history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
-    auth.ts（better-auth）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
+    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
-    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）
+    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）  fetch.ts（外部への GET。2xx 以外は失敗）  secret.ts（推測できない秘密の値 `newSecret`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
   calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と精算の式）  lemon.ts（世話の記録と状態）
+  memos.ts（メモの形とピン止めの並び）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
+  search.ts（キーワードの一致と絞り込みの有無）  sort.ts（並べ替えのキーの比べ方）  sentry.ts
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
-.github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml
-scripts/                      # create-user.ts / seed-dev.ts / generate-vapid-keys.ts / generate-icons.ts
-e2e/                          # Playwright（global-setup.ts で DB を用意し、login.ts・detail.ts・touch.ts・view.ts をテストが共有する）
+.github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml / backup.yml
+scripts/                      # package.json の scripts から呼ぶ（README.md のコマンド一覧）
+e2e/                          # Playwright（global-setup.ts で DB を用意する。テストが共有する手順は development.md の「テスト」）
 ```
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
@@ -139,7 +142,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 ## 横断機能との接続
 
 - **MCP**: `server/features/*/mcp.ts` が `McpRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
-- **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`GET /api/timeline`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインのキー（`src/features/timeline/queries.ts` の `TIMELINE_QUERY_KEY`）を invalidate する。
+- **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`timeline.get`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインを invalidate する（タイムラインのキーは外に出さず、記録の書き込みのキーは `src/features/timeline/queries.ts` の `recordWriteKeys` で作る）。
 - **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（`server/features/users/people.ts`）だけを読み、記録の feature を読まない。予定・タスクの通知（`event.reminder`）は、通知の service が配信のときに `publishReminder` を呼ぶ。
 - **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
@@ -149,7 +152,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
 - Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）・記録投入 `/api/records`（API キーだけを資格にする。[features/api-keys.md](features/api-keys.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
-- パスワード: better-auth 標準のハッシュ。最低 12 文字。`scripts/create-user.ts` は better-auth のハッシュ関数を使い、`DATABASE_URL` に直接接続して投入する。
+- パスワードとセッションの扱いは [features/users.md](features/users.md#認証)。
 - MCP の認可は OAuth 2.1 のみ。詳細は [features/mcp.md](features/mcp.md)。
 
 ## 通信の往復
@@ -160,7 +163,7 @@ e2e/                          # Playwright（global-setup.ts で DB を用意し
    - キャッシュの単位はクエリ（機能ごと・月ごと）のまま変わらず、まとめるのは運び方だけ。書き込みの後の取り直しも、その時点に取り直すクエリだけがまとまる。WHY NOT 画面ごとに要るものを返す API: キャッシュが画面ごとの大きな塊になり、一部だけの取り直しも、画面の間でのデータの分け合いもできなくなる。
    - WHY tRPC: まとめて運ぶ仕組み・型の伝え方・入力の検証を自分で書かずに済む。WHY NOT GraphQL: 取り出す項目を画面が選ぶ仕組みは、画面専用で応答の形をサーバーが決めているこの API には要らず、スキーマと resolver を別に書く分だけ増える。
    - 手続きごとに Sentry のスパンを作る（`trpc/timeline.get`。1 本の要求に載った手続きのどれに時間が掛かったかを見る。[operations.md](operations.md#監視sentry)）。
-2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `await ctx.user` で待つ。書き込みは検証が通ってから走らせる。
+2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `userProcedure` で検証を待ち、`ctx.userId` で ID を読む。書き込みは検証が通ってから走らせる。
 3. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
 4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `runBatch` で明示的にまとめる。
 

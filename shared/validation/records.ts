@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { clientIdShape, instantSchema } from './common.ts';
-import { careLogFieldsSchema, withCareLogRules } from './lemon.ts';
+import { careLogInputSchema, withCareLogRules } from './lemon.ts';
 
 /**
  * 記録投入用エンドポイント（POST /api/records。[docs/features/api-keys.md](../../docs/features/api-keys.md)）の入力。
@@ -13,7 +13,7 @@ import { careLogFieldsSchema, withCareLogRules } from './lemon.ts';
  */
 export const recordSchema = z.discriminatedUnion('type', [
   withCareLogRules(
-    careLogFieldsSchema.extend({
+    careLogInputSchema.extend({
       type: z.literal('lemon'),
       ...clientIdShape,
       doneAt: instantSchema.default(() => new Date()),

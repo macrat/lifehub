@@ -18,11 +18,17 @@ import { applyToHistories, findInHistories, type HistorySource } from '../../lib
 /** 行の形はサーバーと共有する（楽観的更新もこの形で組み立てる。shared/timeline.ts） */
 export type { TimelineEntry } from '../../../shared/timeline.ts';
 
+/** タイムラインのクエリのキー */
+const TIMELINE_QUERY_KEY = ['timeline'] as const;
+
 /**
- * タイムラインのクエリのキー。タイムラインは全機能の記録を並べるので、どの機能の書き込みも
- * このキーを invalidate する（各機能の mutation の `keys`）。
+ * 記録の書き込みが invalidate するキー（各機能の mutation の `keys`）: 自分のクエリと、タイムライン。
+ * タイムラインは全機能の記録を並べるので、どの機能の書き込みもタイムラインを取り直す。
+ * タイムラインのキーは外に出さないので、記録の書き込みはこの関数でキーを作る
  */
-export const TIMELINE_QUERY_KEY = ['timeline'] as const;
+export function recordWriteKeys(...own: (readonly unknown[])[]): (readonly unknown[])[] {
+  return [...own, TIMELINE_QUERY_KEY];
+}
 
 /**
  * ホームのタイムライン（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。ページの分け方は

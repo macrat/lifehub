@@ -4,7 +4,7 @@ import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
 import type { CreateEventBody } from '../queries.ts';
 import { useAllDay, useItemForm, useKindSwitch } from '../use-item-form.ts';
-import { ItemFields } from './EventFields.tsx';
+import { ItemFields } from './ItemFields.tsx';
 import { KindToggle } from './KindToggle.tsx';
 
 type Props = {

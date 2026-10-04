@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
+import { issueMessage } from './errors.ts';
 
 /**
  * 検証失敗の応答を app.onError の ValidationError と同じ `{ message }` の 400 にそろえるフック
@@ -12,7 +13,7 @@ function validationHook(
   c: Context,
 ) {
   if (result.success) return;
-  return c.json({ message: result.error?.issues[0]?.message ?? '入力が正しくありません' }, 400);
+  return c.json({ message: issueMessage(result.error?.issues) }, 400);
 }
 
 /**

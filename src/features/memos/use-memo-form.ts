@@ -18,5 +18,9 @@ export function useMemoForm({
 }) {
   const [body, setBody] = useState(initialBody);
   const form = useFormSubmit({ schema: memoSchema, values: () => ({ body }), onSubmit, onSaved });
-  return { ...form, body, setBody };
+  return {
+    ...form,
+    /** `MemoField` に渡す入力欄の状態 */
+    fields: { value: body, onChange: setBody, error: form.errors.body },
+  };
 }

@@ -9,6 +9,7 @@ import {
   toDateString,
   today,
 } from './date.ts';
+import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 import type { EventKind } from './validation/events.ts';
 import type { WeatherInRange } from './weather.ts';
@@ -36,6 +37,12 @@ export type EventMaster = {
   remindStartMinutes: number | null;
   remindEndMinutes: number | null;
 };
+
+/**
+ * 書き込んだ予定・タスク。回だけを変えたときはその回（id は繰り返し元、occurrenceStart が回）、
+ * それ以外は書いた行（occurrenceStart は null）。一覧の項目と同じ見方で、書いた物を指し示せる
+ */
+export type WrittenEvent = EventMaster & { occurrenceStart: string | null };
 
 /** 1 回の発生（繰り返しを展開し、実体化された回を反映したもの）。id は繰り返し元（単発ならその行）の id */
 export type Occurrence = EventMaster & {
@@ -80,7 +87,7 @@ export function inRange(date: DateString, { from, to }: DateRange): boolean {
 }
 
 /**
- * カレンダーの 1 期間分（`GET /api/calendar`）: 項目と、その期間の祝日（昇順）・天気（日ごとと 3 時間ごと）。
+ * カレンダーの 1 期間分（`calendar.get`）: 項目と、その期間の祝日（昇順）・天気（日ごとと 3 時間ごと）。
  * どれも期間の外の日は含まない。
  */
 export type CalendarPeriod = {
@@ -347,15 +354,6 @@ function sortKey(item: CalendarItem): string {
   const anchor = taskAnchor(item);
   if (!anchor) return '~';
   return anchor.allDay ? '!' : anchor.iso;
-}
-
-/**
- * キーは符号位置で比べる（localeCompare を使わない）。ICU の照合は記号の重みが弱く、
- * 時刻の無いタスクの番兵 '~' が ISO 日時より前に来てしまう。並びはサーバーとクライアントで
- * 同じでなければならず、ロケールに左右されてもいけない。
- */
-export function compareKeys(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function compareItems(a: CalendarItem, b: CalendarItem): number {

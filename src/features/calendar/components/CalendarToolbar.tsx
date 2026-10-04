@@ -4,9 +4,9 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import type { ComponentProps } from 'react';
 import { useState } from 'react';
-import { FilterButton } from '../../../lib/ui/FilterButton.tsx';
-import { SearchField } from '../../../lib/ui/SearchField.tsx';
+import { FilterSearchField } from '../../../lib/ui/FilterSearchField.tsx';
 import type { PeriodView } from '../use-calendar-page.ts';
 import type { CalendarView } from '../view.ts';
 
@@ -31,32 +31,27 @@ type Props = {
   onOpenPicker: () => void;
   onToday: () => void;
   onChangeView: (view: CalendarView) => void;
-  /** リスト表示の検索と絞り込み */
-  list: {
-    query: string;
-    onChangeQuery: (q: string) => void;
-    filtersOpen: boolean;
-    onToggleFilters: () => void;
-    activeFilters: number;
-  };
+  /** リスト表示の検索と絞り込み（`useFilterSearch` の戻り値） */
+  search: ComponentProps<typeof FilterSearchField>['search'];
 };
 
 /**
  * AppBar に収めるカレンダーの操作。前後への移動はスワイプ（スマホ）や表示切替に任せ、ボタンは置かない。
  * 左: 見出し（タップで選択ダイアログ）／リスト表示では検索。右: 今日、表示の切替。
  */
-export function CalendarToolbar({ view, title, onOpenPicker, onToday, onChangeView, list }: Props) {
+export function CalendarToolbar({
+  view,
+  title,
+  onOpenPicker,
+  onToday,
+  onChangeView,
+  search,
+}: Props) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
       {view === 'list' ? (
-        <SearchField label="検索" value={list.query} onChange={list.onChangeQuery}>
-          <FilterButton
-            open={list.filtersOpen}
-            count={list.activeFilters}
-            onToggle={list.onToggleFilters}
-          />
-        </SearchField>
+        <FilterSearchField label="検索" search={search} />
       ) : (
         <>
           <Button

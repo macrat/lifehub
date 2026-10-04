@@ -17,7 +17,7 @@ import { meRouter, usersRouter } from './features/users/routes.ts';
 import { weatherRouter } from './features/weather/routes.ts';
 import { getAuth } from './lib/auth.ts';
 import { pingDatabase } from './lib/db/health.ts';
-import { domainErrorOf } from './lib/errors.ts';
+import { domainErrorOf, INTERNAL_ERROR_MESSAGE } from './lib/errors.ts';
 import { createContext, router } from './lib/trpc.ts';
 import { mcpRoutes } from './mcp.ts';
 import { qstashRoutes } from './qstash.ts';
@@ -122,7 +122,7 @@ export const app = new Hono()
     const known = domainErrorOf(error);
     if (known) return c.json({ message: error.message }, known.status);
     console.error(error);
-    return c.json({ message: 'サーバーエラーが発生しました' }, 500);
+    return c.json({ message: INTERNAL_ERROR_MESSAGE }, 500);
   })
   .get('/.well-known/*', authHandler)
   .route('/', api);

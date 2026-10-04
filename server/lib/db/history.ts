@@ -10,7 +10,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import type { HistoryPage } from '../../../shared/types.ts';
+import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import { db } from './client.ts';
 
 /**
@@ -28,7 +28,7 @@ type PageQuery<T extends PgTable> = {
   /** 絞り込みの条件（undefined は条件にしない） */
   conditions: (SQL | undefined)[];
   /** この日より前を読む（省けば最新のページ） */
-  before: string | undefined;
+  before: DateString | undefined;
 };
 
 /**
@@ -62,7 +62,8 @@ export async function findHistoryPage<T extends PgTable>({
     .with(boundary)
     .select({
       ...getTableColumns(table as PgTable),
-      pageBoundary: sql<string | null>`${boundaryDay}::text`,
+      // date 型を text にした値は必ず YYYY-MM-DD
+      pageBoundary: sql<DateString | null>`${boundaryDay}::text`,
       hasOlder: sql<boolean>`exists (${db
         .select({ one: sql`1` })
         .from(table as PgTable)

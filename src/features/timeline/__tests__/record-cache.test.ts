@@ -4,7 +4,7 @@ import type { Memo } from '../../../../shared/memos.ts';
 import { memoEntry, type TimelineEntry } from '../../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../../shared/types.ts';
 import type { HistorySource } from '../../../lib/history.ts';
-import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../queries.ts';
+import { timelineHistory, timelineRecordCache } from '../queries.ts';
 
 const memo = (id: string, body: string): Memo => ({
   id,
@@ -29,13 +29,13 @@ const memoHistory: HistorySource<Memo, object> = {
 
 function clientWith(timeline: Memo[], history?: Memo[]) {
   const client = new QueryClient();
-  client.setQueryData([...TIMELINE_QUERY_KEY, {}], pagesOf(timeline.map(memoEntry)));
+  client.setQueryData([...timelineHistory.key, {}], pagesOf(timeline.map(memoEntry)));
   if (history) client.setQueryData([...memoHistory.key, {}], pagesOf(history));
   return client;
 }
 
 const timelineOf = (client: QueryClient) =>
-  client.getQueryData<{ pages: HistoryPage<TimelineEntry>[] }>([...TIMELINE_QUERY_KEY, {}])
+  client.getQueryData<{ pages: HistoryPage<TimelineEntry>[] }>([...timelineHistory.key, {}])
     ?.pages[0]?.items;
 
 test('前の値は自分の履歴を先に探し、無ければタイムラインの控えを使う', () => {

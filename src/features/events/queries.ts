@@ -23,7 +23,7 @@ import {
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
 import { useStoreQueries } from '../../lib/screen-data.ts';
-import { applyToTimeline, findInTimeline, TIMELINE_QUERY_KEY } from '../timeline/queries.ts';
+import { applyToTimeline, findInTimeline, recordWriteKeys } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';
 import { writeTarget } from './recurrence-options.ts';
@@ -52,7 +52,7 @@ export function loadEvent(client: QueryClient, id: string): void {
  * 書き込みが変えるクエリ（カレンダーの各期間と、繰り返し元の行と、全機能の記録を並べるタイムライン）。
  * タイムラインには先回りして書かず、取り直しに任せる（`applyToTimeline` の理由）
  */
-const WRITE_KEYS = [CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY, TIMELINE_QUERY_KEY];
+const WRITE_KEYS = recordWriteKeys(CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY);
 
 export function useCreateEvent() {
   return useCreateMutation<CreateEventBody>({

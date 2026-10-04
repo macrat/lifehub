@@ -14,6 +14,7 @@ import {
 import type { DateString } from '../../../shared/types.ts';
 import { dateRangeQuerySchema, dateStringSchema } from '../../../shared/validation/common.ts';
 import { ValidationError } from '../errors.ts';
+import { checkRules } from '../patch.ts';
 
 /**
  * MCP で受け渡す日付・日時。LLM が読み書きしやすいよう、日時はいつも JST（+09:00）の壁時計で出し、
@@ -99,8 +100,7 @@ export function dateRangeInput(days: number, max: number) {
   const resolve = (input: { from?: DateRange['from']; to?: DateRange['to'] }): DateRange => {
     const from = input.from ?? (input.to ? addDays(input.to, 1 - days) : today());
     const range = { from, to: input.to ?? addDays(from, days - 1) };
-    const checked = dateRangeQuerySchema.safeParse(range);
-    if (!checked.success) throw new ValidationError(checked.error.issues[0]?.message);
+    checkRules(range, dateRangeQuerySchema);
     if (diffDays(range.from, range.to) >= max) {
       throw new ValidationError(`期間は ${max} 日までです。分けて読んでください`);
     }

@@ -105,7 +105,11 @@ describe('events service', () => {
         }),
         userId,
       );
-      await createEvent(input, userId, id);
+      // 送り直しの戻り値（MCP の応答・MCP Events で届ける値）も、送られた古い値ではなく今の行
+      expect(await createEvent(input, userId, id)).toMatchObject({
+        title: '矯正歯科',
+        participantIds: [partnerId],
+      });
 
       expect(await getEvent(id)).toMatchObject({ title: '矯正歯科', participantIds: [partnerId] });
     });

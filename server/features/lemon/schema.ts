@@ -45,7 +45,7 @@ export const lemonCareLogs = pgTable(
       'lemon_care_logs_memo_has_note_check',
       sql`cardinality(${table.careTypes}) > 0 or (${table.note} is not null and ${table.note} <> '')`,
     ),
-    // どこから入ったかは、記録した人か API キーの名前のちょうど一方（`CareLogSource`）
+    // どこから入ったかは、記録した人か API キーの名前のちょうど一方（`lib/actor.ts` の `Actor`）
     check(
       'lemon_care_logs_source_check',
       sql`num_nonnulls(${table.createdBy}, ${table.apiKeyName}) = 1`,

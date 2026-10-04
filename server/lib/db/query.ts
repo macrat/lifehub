@@ -66,6 +66,33 @@ export async function findById<T extends TableWithId>(
   return row;
 }
 
+/** id の行の項目を置き換え、書いた後の行を返す（無ければ undefined） */
+export async function updateById<T extends TableWithId>(
+  table: T,
+  id: string,
+  values: Partial<T['$inferInsert']>,
+): Promise<T['$inferSelect'] | undefined> {
+  // update の set は総称の表から項目の型を導けないので、ここだけ具体的な表の型に広げる
+  const [row] = await db
+    .update(table as TableWithId)
+    .set(values)
+    .where(eq(table.id, id))
+    .returning();
+  return row as T['$inferSelect'] | undefined;
+}
+
+/** id の行を消し、消した行を返す（無ければ undefined） */
+export async function deleteById<T extends TableWithId>(
+  table: T,
+  id: string,
+): Promise<T['$inferSelect'] | undefined> {
+  const [row] = await db
+    .delete(table as TableWithId)
+    .where(eq(table.id, id))
+    .returning();
+  return row as T['$inferSelect'] | undefined;
+}
+
 /**
  * 参加者（親の行とユーザーの多対多）を書く文の組。予定（events）と配信 URL（calendar_feeds）が同じ形で使う。
  * どの文も親の行を where で引き当てて書くので、ID を手元に持たない条件（回の実体化）でも、

@@ -4,7 +4,7 @@ import {
   memoPinSchema,
   memoSchema,
 } from '../../../shared/validation/memos.ts';
-import { procedure, router } from '../../lib/trpc.ts';
+import { procedure, router, userProcedure } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 /**
@@ -13,18 +13,20 @@ import * as service from './service.ts';
  */
 export const memosRouter = router({
   pinned: procedure.query(() => service.listPinnedMemos()),
-  create: procedure
+  create: userProcedure
     .input(createMemoRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addMemo(input, { userId: (await ctx.user).id }, id);
+      await service.addMemo(input, { userId: ctx.userId }, id);
     }),
-  update: procedure.input(withId(memoSchema)).mutation(async ({ ctx, input: { id, ...input } }) => {
-    await service.updateMemo(id, input, (await ctx.user).id);
-  }),
+  update: userProcedure
+    .input(withId(memoSchema))
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.updateMemo(id, input, ctx.userId);
+    }),
   pin: procedure.input(withId(memoPinSchema)).mutation(async ({ input }) => {
     await service.setMemoPinned(input.id, input.pinned);
   }),
-  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
-    await service.deleteMemo(input.id, (await ctx.user).id);
+  delete: userProcedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteMemo(input.id, ctx.userId);
   }),
 });

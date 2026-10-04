@@ -1,4 +1,9 @@
-import { defaultEventEnd, normalizeInstants, toInputInstants } from '../../../shared/calendar.ts';
+import {
+  defaultEventEnd,
+  normalizeInstants,
+  toInputInstants,
+  type WrittenEvent,
+} from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import {
   type CompleteEventInput,
@@ -11,7 +16,7 @@ import {
 import { NotFoundError, ValidationError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
-import { publishChanged, type WrittenEvent } from '../mcp-events/service.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -42,10 +47,7 @@ export async function patchEvent(
   const current = switchedKind(await currentInput(master, target), patch);
   requireBothEnds(current, patch);
   const merged = applyPatch(current, keepDuration(current, patch), eventRulesSchema);
-  const result = await applyUpdate(master, { ...merged, ...target }, userId);
-  scheduleUpcoming();
-  publishChanged({ type: 'event', record: result }, 'updated', { userId });
-  return result;
+  return writeUpdate(master, { ...merged, ...target }, userId);
 }
 
 /**
@@ -114,12 +116,7 @@ async function currentInput(
 ): Promise<CreateEventInput> {
   const target = resolveTarget(master, input);
   const row =
-    target.scope === 'all'
-      ? master
-      : ((await repository.findOccurrence(master.id, target.occurrenceStart)) ?? {
-          ...master,
-          ...shiftTo(master, target.occurrenceStart),
-        });
+    target.scope === 'all' ? master : await occurrenceRowOf(master, target.occurrenceStart);
   return {
     kind: master.kind,
     title: row.title,
@@ -145,15 +142,10 @@ export async function createEvent(
   id: string = newId(),
 ): Promise<EventMaster> {
   const values = normalizeInput(checkRules(input, eventRulesSchema));
-  await repository.insert({ ...values, id, createdBy: userId }, input.participantIds);
+  const created = writtenOf(
+    await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
+  );
   scheduleUpcoming();
-  // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  const created = writtenOf({
-    ...values,
-    id,
-    participantIds: input.participantIds,
-    completedAt: null,
-  });
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
 }
@@ -163,9 +155,20 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ): Promise<void> {
-  const written = await applyUpdate(await findMaster(id), input, userId);
+  checkRules(input, eventRulesSchema);
+  await writeUpdate(await findMaster(id), input, userId);
+}
+
+/** 書き換え、通知を予約し直し、直したことを MCP Events で知らせる。書いた後の予定・タスクを返す */
+async function writeUpdate(
+  master: EventWithParticipants,
+  input: UpdateEventInput,
+  userId: string,
+): Promise<WrittenEvent> {
+  const written = await applyUpdate(master, input, userId);
   scheduleUpcoming();
   publishChanged({ type: 'event', record: written }, 'updated', { userId });
+  return written;
 }
 
 async function applyUpdate(
@@ -286,14 +289,21 @@ async function occurrenceOf(
   master: EventWithParticipants,
   occurrenceStart: Date,
 ): Promise<WrittenEvent> {
-  const row = (await repository.findOccurrence(master.id, occurrenceStart)) ?? {
-    ...master,
-    ...shiftTo(master, occurrenceStart),
-  };
+  const row = await occurrenceRowOf(master, occurrenceStart);
   return {
     ...toMaster({ ...row, id: master.id, rrule: master.rrule }),
     occurrenceStart: occurrenceStart.toISOString(),
   };
+}
+
+/** 繰り返しの回の行。実体化されていればその行、無ければ繰り返し元をその回へずらした値 */
+async function occurrenceRowOf(master: EventWithParticipants, occurrenceStart: Date) {
+  return (
+    (await repository.findOccurrence(master.id, occurrenceStart)) ?? {
+      ...master,
+      ...shiftTo(master, occurrenceStart),
+    }
+  );
 }
 
 // ---- 内部 ----

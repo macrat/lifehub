@@ -1,12 +1,10 @@
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { careLogTitle } from '../../../../shared/lemon.ts';
 import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useRecordDetail } from '../../../lib/ui/use-record-detail.tsx';
 import { UserChip } from '../../users/components/UserChip.tsx';
-import { type CareLog, useDeleteCareLog, useUpdateCareLog } from '../queries.ts';
-import { useCareLogForm } from '../use-care-log-form.ts';
+import type { CareLog } from '../queries.ts';
+import { useCareLogDetail } from '../use-care-log-detail.ts';
 import { CareLogFields } from './CareLogFields.tsx';
 
 type Props = {
@@ -21,30 +19,12 @@ type Props = {
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function CareLogDetailSheet({ log, initialEditing = false, onClose }: Props) {
-  const updateLog = useUpdateCareLog();
-  const deleteLog = useDeleteCareLog();
-  const { careTypes, toggleCareType, errors, sheet } = useCareLogForm({
-    initialCareTypes: log.careTypes,
-    onSubmit: (input) => updateLog.mutateAsync({ id: log.id, ...input }),
-    onSaved: onClose,
-  });
-  const detail = useRecordDetail({
-    initialEditing,
-    form: sheet,
-    remove: { confirm: 'この記録を削除しますか？', run: () => deleteLog.mutate(log.id) },
-    onClose,
-  });
+  const detail = useCareLogDetail(log, initialEditing, onClose);
 
   return (
-    <RecordSheet title={careLogTitle(careTypes)} {...detail.sheet}>
+    <RecordSheet title={detail.title} {...detail.sheet}>
       {detail.editing ? (
-        <CareLogFields
-          careTypes={careTypes}
-          onToggleCareType={toggleCareType}
-          doneAt={log.doneAt}
-          note={log.note}
-          errors={errors}
-        />
+        <CareLogFields {...detail.fields} />
       ) : (
         <>
           <Typography>{formatDateTime(log.doneAt)}</Typography>

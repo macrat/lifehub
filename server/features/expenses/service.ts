@@ -69,7 +69,7 @@ export async function updateExpense(
   input: ExpenseInput,
   actorId: string,
 ): Promise<void> {
-  await write(id, input, actorId);
+  await write(id, checkRules(input, expenseRulesSchema), actorId);
 }
 
 /** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */

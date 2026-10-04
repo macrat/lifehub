@@ -12,12 +12,10 @@ import {
   toMonthString,
   weekDays,
 } from '../../lib/date.ts';
-import { countActiveFilters, useKeywordSearch, usePatchSearch } from '../../lib/search.ts';
-import { useRefreshCalendarItems } from '../events/queries.ts';
+import { useFilterSearch, usePatchSearch } from '../../lib/search.ts';
 import {
   type CalendarSearch,
   LIST_FILTER_CONDITIONS,
-  type ListFilters,
   type SearchPatch,
   storeView,
 } from './search.ts';
@@ -43,17 +41,13 @@ export type PeriodPage = {
 /**
  * カレンダー画面の状態は検索パラメータで決まる（表示・日付・絞り込み）。
  * ここでパラメータから「表示する期間」「見出し」「前後への移動」を導き、ページは描画に専念する。
- * URL に載せない状態（打ちかけのキーワード、時間軸の高さ、追加の間だけの日表示）もここで持つ。
+ * URL に載せない状態（打ちかけのキーワード、絞り込みのフォームの開閉、時間軸の高さ、追加の間だけの日表示）もここで持つ。
  * 画面の状態を探す所を 1 か所に保つため。
- *
- * 項目の取り直しは画面に入ったときだけ（`useRefreshCalendarItems`）。表示や日付の切り替えは
- * 検索パラメータが変わるだけでこの画面に留まるので、取り直さず手元のキャッシュをそのまま出す。
  */
 export function useCalendarPage(search: CalendarSearch) {
-  useRefreshCalendarItems();
   const patchSearch = usePatchSearch();
-  // キーワードは打つたびに反映するので、URL を往復させず手元に持つ（URL は置き換えるだけ）
-  const [query, setQuery] = useKeywordSearch(search.q ?? '');
+  // リスト表示の検索と絞り込み（ホーム・立替・レモンと同じ `useFilterSearch`）
+  const filter = useFilterSearch(search, LIST_FILTER_CONDITIONS);
   // 時間軸の高さ（週・日）。3 面で 1 つの値を使う（`use-hour-zoom.ts`）
   const { hourHeight, zoom } = useHourZoom();
   // 開いた表示を覚える（URL の表示だけ。戻る・進むで開いた表示も含み、追加の間だけの日表示は含まない）
@@ -77,9 +71,8 @@ export function useCalendarPage(search: CalendarSearch) {
   const date: DateString = search.date ?? today();
   const month = toMonthString(date);
 
-  const filters: ListFilters = { ...search, q: query };
   // リスト表示で出している月（無限スクロールで前後に広げる）
-  const list = useListMonths(date, filters);
+  const list = useListMonths(date, filter.filters);
   // 年月・週・日の選択ダイアログで送っている月。開いていなければ null
   const [pickerMonth, setPickerMonth] = useState<string | null>(null);
 
@@ -98,7 +91,7 @@ export function useCalendarPage(search: CalendarSearch) {
 
   /**
    * 検索パラメータの更新。表示や日付の切り替えは履歴に積み（戻るで前の表示に戻れる）、
-   * スワイプでの前後移動と絞り込みの入力は置き換える（戻るが連打の巻き戻しにならない）
+   * スワイプでの前後移動は置き換える（戻るが連打の巻き戻しにならない。絞り込みは `filter.setFilters`）
    */
   // useCallback: この関数から作る openDay は面（CalendarPane）に渡る。毎回別の関数になると
   // 面が props の同一性で描き直しを省けなくなり、スワイプのたびに 3 面すべてを描き直すことになる
@@ -143,14 +136,12 @@ export function useCalendarPage(search: CalendarSearch) {
       setMonth: setPickerMonth,
     },
     title,
-    filters,
-    activeFilters: countActiveFilters(filters, LIST_FILTER_CONDITIONS),
-    setQuery,
+    /** リスト表示の検索と絞り込み（`useFilterSearch`） */
+    filter,
     hourHeight,
     zoom,
     /** 月表示から切り替えてきたか（週・日の最初の縦位置を予定に合わせる） */
     fromMonth: arrival.fromMonth,
-    setSearch,
     move,
     goToday: () => setSearch({ date: today() }),
     openDay,

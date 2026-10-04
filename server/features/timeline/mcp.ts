@@ -173,6 +173,11 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
         case 'memo':
           await memos.deleteMemo(ref.id, ctx.userId);
           break;
+        default: {
+          // 種類を増やして消し方を足し忘れたら型エラーにする（何も消さずに「消しました」と返さない）
+          const unhandled: never = ref.type;
+          throw new Error(`unknown entry type: ${unhandled}`);
+        }
       }
       return textResult('消しました');
     },

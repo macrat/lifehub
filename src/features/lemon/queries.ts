@@ -11,7 +11,7 @@ import { type ApiInputs, api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import type { HistorySource } from '../../lib/history.ts';
 import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
-import { TIMELINE_QUERY_KEY, timelineRecordCache } from '../timeline/queries.ts';
+import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */
 export type CareLogBody = ApiInputs['lemon']['create'];
@@ -21,7 +21,7 @@ export type { CareLog, CareStatus } from '../../../shared/lemon.ts';
 const LEMON_QUERY_KEY = ['lemon'] as const;
 
 /** 書き込みが変えるクエリ（レモンの状態・記録と、全機能の記録を並べるタイムライン） */
-const WRITE_KEYS = [LEMON_QUERY_KEY, TIMELINE_QUERY_KEY];
+const WRITE_KEYS = recordWriteKeys(LEMON_QUERY_KEY);
 
 export const lemonStatusQueryOptions = queryOptions({
   queryKey: [...LEMON_QUERY_KEY, 'status'],

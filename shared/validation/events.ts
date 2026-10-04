@@ -130,7 +130,7 @@ export type EventPatch = Partial<CreateEventInput>;
 export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
-/** API（POST /api/events）が受け取る作成の入力（`clientIdShape`） */
+/** API（`events.create`）が受け取る作成の入力（`clientIdShape`） */
 export const createEventRequestSchema = createEventSchema.safeExtend(clientIdShape);
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
@@ -164,7 +164,7 @@ export const completeEventSchema = z.object({
 export type CompleteEventInput = z.infer<typeof completeEventSchema>;
 
 /**
- * API（POST /api/events/:id/complete）が受け取る完了の入力。完了日時は押した端末が決めて送る。
+ * API（`events.complete`）が受け取る完了の入力。完了日時は押した端末が決めて送る。
  * WHY: 送れない書き込みは端末に溜めて後で送る（docs/architecture.md「オフラインの書き込み」）ので、
  * サーバーが受け取った時刻にすると、オフラインで押した完了や送り直した完了が実際より後の日時になる。
  * 省略はサーバーの今（MCP は今の日時を正確に知らないので渡させない）。

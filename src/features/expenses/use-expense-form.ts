@@ -51,6 +51,7 @@ export function useExpenseForm({
   return {
     ...form,
     fields: {
+      initial,
       parties,
       toOptions: toCandidates(users, parties).map(option),
       fromOptions: fromCandidates(users).map(option),
