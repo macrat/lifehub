@@ -61,7 +61,7 @@ function switchedKind(current: EventValues, patch: EventPatch): EventValues {
   if (kind === undefined || kind === current.kind) return current;
   const allDay = patch.allDay ?? current.allDay;
   const startsAt = patch.startsAt ?? current.startsAt;
-  return { ...current, kind, allDay, startsAt, ...switchedEnds(kind, allDay, startsAt) };
+  return { ...current, allDay, startsAt, ...switchedEnds(kind, allDay, startsAt) };
 }
 
 /**

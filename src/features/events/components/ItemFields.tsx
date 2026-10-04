@@ -10,7 +10,6 @@ import { allDayDate, toDateString } from '../../../../shared/date.ts';
 import {
   ALL_DAY_REMIND_OPTIONS,
   type AllDayRemind,
-  type EventKind,
   REMIND_BEFORE_OPTIONS,
   type RecurrenceScope,
   toAllDayRemind,
@@ -83,14 +82,13 @@ type AllDayProps = { allDay: boolean; onChangeAllDay: (allDay: boolean) => void 
  * 直すつもりで開いたのか分からないので焦点は当てない。
  */
 export function ItemFields({
-  kind,
   initial,
   errors,
   allDay,
   onChangeAllDay,
   thisOnly,
   autoFocus = false,
-}: ScopedProps & AllDayProps & { kind: EventKind; autoFocus?: boolean }) {
+}: ScopedProps & AllDayProps & { autoFocus?: boolean }) {
   return (
     <>
       <TextField
@@ -104,8 +102,7 @@ export function ItemFields({
       />
       <WhenFields
         // 種類を切り替えたら、切り替えた既定値（`switchKindValues`）の日時で入力欄を作り直す
-        key={kind}
-        kind={kind}
+        key={initial.kind}
         initial={initial}
         errors={errors}
         allDay={allDay}
@@ -129,14 +126,7 @@ export function ItemFields({
  * 終日かどうかは状態として呼び出し側から受け取る。
  * 開始はどちらも必須。予定は終了も必須で、開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
  */
-export function WhenFields({
-  kind,
-  initial,
-  errors,
-  allDay,
-  onChangeAllDay,
-}: Props & AllDayProps & { kind: EventKind }) {
-  const isEvent = kind === 'event';
+export function WhenFields({ initial, errors, allDay, onChangeAllDay }: Props & AllDayProps) {
   return (
     <Box
       sx={{
@@ -159,19 +149,13 @@ export function WhenFields({
         defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
         allDay={allDay}
         error={errors.startsAt}
-        onChange={isEvent ? endFollowsStart : undefined}
+        onChange={initial.kind === 'event' ? endFollowsStart : undefined}
       />
-      {isEvent && (
+      {initial.kind === 'event' && (
         <WhenField
           name="endsAt"
           edge={EDGE_LABELS.end}
-          // 予定の値は終了を必ず持つ（型はタスクと共通なので null を開始で埋める）
-          defaultValue={inputValue(
-            initial.endsAt ?? initial.startsAt,
-            'end',
-            initial.allDay,
-            allDay,
-          )}
+          defaultValue={inputValue(initial.endsAt, 'end', initial.allDay, allDay)}
           allDay={allDay}
           error={errors.endsAt}
         />

@@ -35,12 +35,7 @@ export function ItemDetailSheet(props: Props) {
   const [duplicating, setDuplicating] = useState(false);
   const createEvent = useCreateEvent();
   return duplicating ? (
-    <ItemForm
-      kind={props.item.kind}
-      initial={props.item}
-      onSubmit={createEvent.mutateAsync}
-      onClose={props.onClose}
-    />
+    <ItemForm initial={props.item} onSubmit={createEvent.mutateAsync} onClose={props.onClose} />
   ) : (
     <ItemDetail {...props} onDuplicate={() => setDuplicating(true)} />
   );
@@ -82,7 +77,7 @@ function ItemDetail({
         headerMiddle={
           fields && (
             <KindToggle
-              kind={fields.kind}
+              kind={fields.initial.kind}
               thisOnly={fields.thisOnly}
               onChange={detail.switchKind}
             />

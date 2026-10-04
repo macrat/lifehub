@@ -1,4 +1,4 @@
-import type { EventKind, RecurrenceScope } from '../../../../shared/validation/events.ts';
+import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { ADD_KINDS } from '../../../lib/add-kinds.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
@@ -8,8 +8,7 @@ import { ItemFields } from './ItemFields.tsx';
 import { KindToggle } from './KindToggle.tsx';
 
 type Props = {
-  /** 開いたときの種類。上端の切り替え（`KindToggle`）で入力の途中から変えられる */
-  kind: EventKind;
+  /** 入力の既定値。種類も持ち、上端の切り替え（`KindToggle`）で入力の途中から変えられる */
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
@@ -30,10 +29,10 @@ type Props = {
  */
 export function ItemForm(props: Props) {
   const { scope, editing = false, onSubmit, onClose } = props;
-  const { kind, initial, switchTo } = useKindSwitch(props.kind, props.initial);
+  const { initial, switchTo } = useKindSwitch(props.initial);
+  const { kind } = initial;
   const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const { thisOnly, errors, sheet, readInput } = useItemForm({
-    kind,
     initial,
     allDay,
     scope,
@@ -52,7 +51,6 @@ export function ItemForm(props: Props) {
       }
     >
       <ItemFields
-        kind={kind}
         initial={initial}
         errors={errors}
         allDay={allDay}

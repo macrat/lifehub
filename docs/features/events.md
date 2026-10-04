@@ -73,7 +73,7 @@
 - 終日は `all_day=true` かつ `starts_at`=JST 0:00、予定の `ends_at`=翌日 JST 0:00（終端は排他的）。API 入力の `endsAt` は終日では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00 に正規化する。レスポンスの `endsAt` は常に排他的。
 - 入力の形は `kind` の判別共用体（`shared/validation/events.ts` の `eventSchemaWith`）: 予定は `endsAt` が必須、タスクは `endsAt`・`remindEndMinutes` を持たず、渡すと拒否する。WHY NOT 黙って捨てる: 送った側は終わりを保存したと思い込む。
   - 同じ形を、API の入力（日時は ISO 文字列）と、MCP の部分更新を今の値に重ねた後の値（日時は Date。`eventRulesSchema`）の 2 つに作る。形と項目をまたぐ規則（終了は開始以降、終日の通知は日単位）を 1 か所に保ち、どの経路の書き込みも同じ検証を通って種別の形になる。
-  - 応答の行（`shared/calendar.ts` の `EventMaster`。一覧の発生・項目も）も同じく `kind` で分けた型で、平らな DB の行からはサーバーの `toMaster` 1 か所で分ける。読む側は種別で絞れば終了の有無が型で決まる。
+  - 応答の行（`shared/calendar.ts` の `EventMaster`。一覧の発生・項目も）も同じく `kind` で分けた型で、平らな DB の行からはサーバーの `toMaster` 1 か所で分ける。読む側は種別で絞れば終了の有無が型で決まる。画面のフォームの値（`src/features/events/form-values.ts` の `ItemFormValues`）も行と同じ分け方で種別を値の中に持ち、フォームは種別を別に受け取らない（予定の値なら終了を必ず持つ）。
 - 繰り返しは RRULE 文字列（`rrule` 列、DTSTART を含まない正規形）。DTSTART（基準日時）は `starts_at`。UNTIL は JST の壁時計として解釈する（`UNTIL=20261231T235959` = JST 12/31 23:59:59）。頻度は日以上（HOURLY 以下は拒否）。繰り返しでは開始と終了の両方が回ごとに同じ間隔でずれる。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、触っていない回の行は作らない（繰り返し元 + 実体化した回 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。rrule ライブラリの走査は必ず DTSTART から始まるため、1 つのルールにつき走査は 1 回だけにし、必要な窓の外は瞬間に戻さず読み飛ばす（`expandOccurrences` の `lookbehind` / `lookahead`）。
 - フォームは頻度（毎日／毎週／毎月／毎年）と終了日だけを扱う。BYDAY などの詳細ルールは API / MCP から RRULE で直接指定でき、フォームでは表示のみ。

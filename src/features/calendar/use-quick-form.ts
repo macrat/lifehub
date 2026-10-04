@@ -3,7 +3,6 @@ import type { EventKind } from '../../../shared/validation/events.ts';
 import type { ItemFormValues } from '../events/form-values.ts';
 import { grabbedScope } from '../events/recurrence-options.ts';
 import { useItemForm } from '../events/use-item-form.ts';
-import { draftKind } from './draft.ts';
 import { eventDraftOps } from './event-draft.ts';
 import { taskDraftOps } from './task-draft.ts';
 import type { QuickProps } from './use-event-composer.ts';
@@ -67,7 +66,6 @@ export function useQuickForm({
   const initial = { ...ops.values, participantIds };
   const { allDay } = initial;
   const form = useItemForm({
-    kind: draftKind(draft),
     initial,
     allDay,
     scope: grabbedScope(item),

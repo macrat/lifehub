@@ -164,7 +164,6 @@ describe('composerReducer', () => {
       mode: 'form',
       values,
       item: event,
-      kind: 'event',
     });
   });
 
@@ -173,7 +172,6 @@ describe('composerReducer', () => {
       mode: 'form',
       values: allDayEventValues(DAY, DAY, ME),
       item: null,
-      kind: 'task',
     };
     expect(composerReducer(form, { type: 'change', range })).toBe(form);
     expect(composerReducer(form, { type: 'switchKind', kind: 'event' })).toBe(form);

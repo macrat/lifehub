@@ -44,13 +44,11 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
 
   const completed = isCompletedTask(item);
   // 編集の途中で種類（予定・タスク）を切り替えられる。切り替えたら、その既定値から入力し直す
-  const { kind, initial, switchTo } = useKindSwitch(
-    item.kind,
+  const { initial, switchTo } = useKindSwitch(
     ((fromMaster ? master.data : undefined) ?? item) satisfies ItemFormValues,
   );
   const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const form = useItemForm({
-    kind,
     initial,
     allDay,
     scope,
@@ -64,7 +62,6 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
     /** 入力欄に渡すもの。閲覧中は null */
     fields: editing
       ? {
-          kind,
           initial,
           errors: form.errors,
           allDay,

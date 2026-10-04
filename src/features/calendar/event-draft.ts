@@ -6,8 +6,9 @@ import {
   carriedValues,
   eventValuesForRange,
   type ItemFormValues,
+  type WhenInput,
 } from '../events/form-values.ts';
-import { type Draft, type DraftOps, type DraftRange, type WhenInput, withAllDay } from './draft.ts';
+import { type Draft, type DraftOps, type DraftRange, withAllDay } from './draft.ts';
 import { timedMinutes } from './timeline-layout.ts';
 
 /**
@@ -29,9 +30,9 @@ export function draftText(draft: DraftRange): string {
 
 /**
  * クイック入力と全項目のフォーム（「その他のオプション」）に渡す既定値。
- * 保存済みの予定を直しているときは、その予定の内容に枠の日時だけを重ねる
+ * 保存済みの予定・タスクを直しているときは、その内容に枠の日時だけを重ねる
  * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない。参加者は呼び出し側が重ねる）。
- * 直しているのがタスク（入力で予定に切り替えた）なら、終了前の通知は持ち越さない（`carriedValues`）。
+ * 終了前の通知は予定から持ち越し、タスク（入力で予定に切り替えた）には無いので通知なし。
  */
 function draftValues(draft: DraftRange, item: CalendarItem | null): ItemFormValues {
   const when = draft.allDay
@@ -40,10 +41,9 @@ function draftValues(draft: DraftRange, item: CalendarItem | null): ItemFormValu
   return item === null
     ? when
     : {
-        ...carriedValues(item, 'event'),
-        allDay: when.allDay,
-        startsAt: when.startsAt,
-        endsAt: when.endsAt,
+        ...when,
+        ...carriedValues(item),
+        remindEndMinutes: item.kind === 'event' ? item.remindEndMinutes : null,
       };
 }
 

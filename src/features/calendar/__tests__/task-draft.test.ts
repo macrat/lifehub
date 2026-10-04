@@ -76,8 +76,8 @@ describe('taskTimesAt（保存済みのタスクを動かす）', () => {
 
 describe('taskDraftFromInput', () => {
   it('入力した日時をそのまま返す枠とタスクになる', () => {
-    const input = { allDay: false, startsAt: iso('2031-06-10T08:15:00'), endsAt: null };
-    const next = taskDraftFromInput(input);
+    const input = { allDay: false, startsAt: iso('2031-06-10T08:15:00') };
+    const next = taskDraftFromInput({ ...input, endsAt: null });
     expect(next?.frame).toEqual(timedAt('2031-06-10', 8 * 60 + 15));
     expect(next && taskTimesAt(next, next.frame)).toEqual(input);
   });
@@ -92,7 +92,6 @@ describe('taskDraftFromInput', () => {
     expect(next && taskTimesAt(next, next.frame)).toEqual({
       allDay: true,
       startsAt: iso('2031-06-10T00:00:00'),
-      endsAt: null,
     });
   });
 
@@ -108,7 +107,6 @@ describe('newTaskTimes', () => {
     expect(taskTimesAt(next, next.frame)).toEqual({
       allDay: false,
       startsAt: iso('2031-06-05T09:00:00'),
-      endsAt: null,
     });
   });
 
@@ -118,16 +116,6 @@ describe('newTaskTimes', () => {
     expect(taskTimesAt(next, next.frame)).toEqual({
       allDay: true,
       startsAt: iso('2031-06-05T00:00:00'),
-      endsAt: null,
-    });
-  });
-
-  it('動かすと開始が付いてくる', () => {
-    const next = newTaskTimes(allDay(DAY, DAY));
-    expect(taskTimesAt(next, timedAt('2031-06-06', 20 * 60))).toEqual({
-      allDay: false,
-      startsAt: iso('2031-06-06T20:00:00'),
-      endsAt: null,
     });
   });
 });

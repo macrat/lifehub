@@ -28,7 +28,8 @@ test('書きかけで空の値や、形の揃わない値なら終了は触ら�
 });
 
 /** 保存されている予定（場所・メモ・通知を持つ） */
-const saved: ItemFormValues = {
+const saved = {
+  kind: 'event',
   title: '歯医者',
   allDay: false,
   startsAt: '2030-02-04T00:00:00.000Z',
@@ -39,7 +40,15 @@ const saved: ItemFormValues = {
   rrule: null,
   remindStartMinutes: 30,
   remindEndMinutes: null,
-};
+} satisfies ItemFormValues;
+
+/** saved と同じ項目のタスク（終わりを持たない） */
+const savedTask = {
+  ...saved,
+  kind: 'task',
+  endsAt: null,
+  remindEndMinutes: null,
+} satisfies ItemFormValues;
 
 /** PC の吹き出しの入力欄（タイトルと参加者だけ） */
 function bubble(title: string): FormData {
@@ -50,27 +59,23 @@ function bubble(title: string): FormData {
 }
 
 test('残りの項目の欄が無いフォーム（PC の吹き出し）は、場所・メモ・通知を既定値のまま送る', () => {
-  expect(
-    itemInputFromForm('event', bubble('歯科'), { initial: saved, allDay: false }),
-  ).toMatchObject({
+  expect(itemInputFromForm(bubble('歯科'), { initial: saved, allDay: false })).toMatchObject({
     title: '歯科',
     location: '駅前',
     note: '保険証',
     remindStartMinutes: 30,
   });
-  const task = { ...saved, endsAt: null, remindStartMinutes: 0 };
-  expect(itemInputFromForm('task', bubble('歯科'), { initial: task, allDay: false })).toMatchObject(
-    {
-      location: '駅前',
-      note: '保険証',
-      remindStartMinutes: 0,
-    },
-  );
+  const task = { ...savedTask, remindStartMinutes: 0 };
+  expect(itemInputFromForm(bubble('歯科'), { initial: task, allDay: false })).toMatchObject({
+    location: '駅前',
+    note: '保険証',
+    remindStartMinutes: 0,
+  });
   // 予定の終了前の通知（MCP から入れたもの）は欄が無いので既定値のまま
   const ending = { ...saved, remindEndMinutes: 5 };
-  expect(
-    itemInputFromForm('event', bubble('歯科'), { initial: ending, allDay: false }),
-  ).toMatchObject({ remindEndMinutes: 5 });
+  expect(itemInputFromForm(bubble('歯科'), { initial: ending, allDay: false })).toMatchObject({
+    remindEndMinutes: 5,
+  });
 });
 
 test('残りの項目の欄があれば、空にした欄・外したチェックは消したものとして送る', () => {
@@ -79,8 +84,8 @@ test('残りの項目の欄があれば、空にした欄・外したチェッ�
   formData.set('location', '');
   formData.set('note', '');
   formData.set('rrule', '');
-  const task = { ...saved, endsAt: null, remindStartMinutes: 0 };
-  expect(itemInputFromForm('task', formData, { initial: task, allDay: false })).toMatchObject({
+  const task = { ...savedTask, remindStartMinutes: 0 };
+  expect(itemInputFromForm(formData, { initial: task, allDay: false })).toMatchObject({
     location: null,
     note: null,
     remindStartMinutes: null,
@@ -92,8 +97,8 @@ test('タスクは終了と終了前の通知を送らない', () => {
   formData.set('startsAtDate', '2030-02-04');
   formData.set('endsAtDate', '2030-02-05');
   expect(
-    itemInputFromForm('task', formData, {
-      initial: { ...saved, remindEndMinutes: 5 },
+    itemInputFromForm(formData, {
+      initial: savedTask,
       allDay: true,
     }),
   ).toMatchObject({ endsAt: null, remindEndMinutes: null });
@@ -103,13 +108,11 @@ test('タスクの通知は予定と同じく何分前かを選び、終日な�
   const formData = bubble('歯医者');
   formData.set(EXTRA_FIELDS_MARKER, '1');
   formData.set('remindStartMinutes', '30');
-  expect(itemInputFromForm('task', formData, { initial: saved, allDay: false })).toMatchObject({
+  expect(itemInputFromForm(formData, { initial: savedTask, allDay: false })).toMatchObject({
     remindStartMinutes: 30,
   });
   // 欄の無い吹き出しで終日にしたら、30 分前は前日に寄せる（終日では n 分前を選べない）
-  expect(
-    itemInputFromForm('task', bubble('歯医者'), { initial: saved, allDay: true }),
-  ).toMatchObject({
+  expect(itemInputFromForm(bubble('歯医者'), { initial: savedTask, allDay: true })).toMatchObject({
     remindStartMinutes: 1440,
   });
 });
@@ -120,6 +123,7 @@ test('予定をタスクにすると開始だけを引き継ぎ、終了と終�
     switchKindValues(event, { allDay: false, startsAt: '2030-02-04T02:00:00.000Z' }, 'task'),
   ).toEqual({
     ...event,
+    kind: 'task',
     startsAt: '2030-02-04T02:00:00.000Z',
     endsAt: null,
     remindEndMinutes: null,
@@ -127,7 +131,7 @@ test('予定をタスクにすると開始だけを引き継ぎ、終了と終�
 });
 
 test('タスクを予定にすると、開始から 1 時間（終日ならその日 1 日）の予定になる', () => {
-  const task = { ...saved, endsAt: null };
+  const task = savedTask;
   expect(
     switchKindValues(task, { allDay: false, startsAt: '2030-02-04T02:00:00.000Z' }, 'event'),
   ).toMatchObject({
@@ -165,7 +169,7 @@ test('日付と時刻に分けた欄を 1 つの日時にし、終日では日�
   formData.set('startsAtTime', '09:30');
   formData.set('endsAtDate', '2030-02-04');
   formData.set('endsAtTime', '10:00');
-  expect(itemInputFromForm('event', formData, { initial: saved, allDay: false })).toMatchObject({
+  expect(itemInputFromForm(formData, { initial: saved, allDay: false })).toMatchObject({
     startsAt: '2030-02-04T00:30:00.000Z',
     endsAt: '2030-02-04T01:00:00.000Z',
   });
@@ -173,7 +177,7 @@ test('日付と時刻に分けた欄を 1 つの日時にし、終日では日�
   const allDay = bubble('旅行');
   allDay.set('startsAtDate', '2030-02-04');
   allDay.set('endsAtDate', '2030-02-05');
-  expect(itemInputFromForm('event', allDay, { initial: saved, allDay: true })).toMatchObject({
+  expect(itemInputFromForm(allDay, { initial: saved, allDay: true })).toMatchObject({
     allDay: true,
     startsAt: '2030-02-03T15:00:00.000Z',
     endsAt: '2030-02-04T15:00:00.000Z',
@@ -184,11 +188,11 @@ test('開始の日時は両方空なら未設定（検証で止まる）、日�
   const formData = bubble('提出');
   formData.set('startsAtDate', '');
   formData.set('startsAtTime', '');
-  expect(itemInputFromForm('task', formData, { initial: saved, allDay: false })).toMatchObject({
+  expect(itemInputFromForm(formData, { initial: savedTask, allDay: false })).toMatchObject({
     startsAt: null,
   });
   formData.set('startsAtDate', '2030-02-04');
-  expect(() => itemInputFromForm('task', formData, { initial: saved, allDay: false })).toThrow(
+  expect(() => itemInputFromForm(formData, { initial: savedTask, allDay: false })).toThrow(
     expect.objectContaining({ field: 'startsAt', message: '日付と時刻を入力してください' }),
   );
 });

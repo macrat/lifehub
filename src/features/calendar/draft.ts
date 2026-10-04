@@ -7,7 +7,7 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
-import type { ItemFormValues } from '../events/form-values.ts';
+import type { ItemFormValues, WhenInput } from '../events/form-values.ts';
 import type { ItemEnds } from './item-shape.ts';
 import type { TaskTimes } from './task-draft.ts';
 import { taskBlock, timedSlot, timelineSlot } from './timeline-layout.ts';
@@ -59,9 +59,6 @@ export type GridDraft = Draft & {
  * `frame` ごと）。直している物（item）は変わらない
  */
 export type DraftChange = { range: DraftRange } | { task: TaskTimes };
-
-/** 入力欄の日時（検証前。`itemInputFromForm` の日時の部分）。終日の終わりは含む日 */
-export type WhenInput = { allDay: boolean; startsAt: string | null; endsAt: string | null };
 
 /**
  * 下書きの種類ごとの扱い（予定は `eventDraftOps`、タスクは `taskDraftOps`）。クイック入力（`useQuickForm`）は

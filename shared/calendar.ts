@@ -149,11 +149,12 @@ export function switchedEnds(
   kind: EventKind,
   allDay: boolean,
   startsAt: Date,
-): { endsAt: Date | null; remindEndMinutes: null } {
-  return {
-    endsAt: kind === 'event' ? defaultEventEnd(allDay, startsAt) : null,
-    remindEndMinutes: null,
-  };
+):
+  | { kind: 'event'; endsAt: Date; remindEndMinutes: null }
+  | { kind: 'task'; endsAt: null; remindEndMinutes: null } {
+  return kind === 'event'
+    ? { kind, endsAt: defaultEventEnd(allDay, startsAt), remindEndMinutes: null }
+    : { kind, endsAt: null, remindEndMinutes: null };
 }
 
 /**

@@ -17,15 +17,31 @@ import {
 } from '../../lib/date.ts';
 import { FormFieldError, formList, formSelect, formText } from '../../lib/form.ts';
 
+/** 種別の判別共用体のまま項目を除く（`Omit` は共用体を 1 つの平らな形にしてしまう） */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
 /**
  * 予定・タスクのフォームが扱う値（日時は ISO 文字列）。保存されている行（`EventMaster`）の入力できる項目なので、
- * カレンダーの項目や保存されている行をそのまま渡せる。endsAt は予定の終了（排他的）で、タスクでは null。
+ * カレンダーの項目や保存されている行をそのまま渡せる。行と同じく種別 kind の判別共用体で、予定は終了
+ * （排他的）を持ち、タスクは終わりを持たない。種別は値が持つので、フォームは値と別に種別を受け取らない。
  * participantIds は 1 人以上（空は検証で弾かれる。新規作成の既定は `defaultParticipants`）。
  */
-export type ItemFormValues = Omit<EventMaster, 'id' | 'kind' | 'completedAt'>;
+export type ItemFormValues = DistributiveOmit<EventMaster, 'id' | 'completedAt'>;
 
-/** 日時を除いた項目。日時は必ず呼び出し側が決めて重ねる */
-type ItemDetails = Omit<ItemFormValues, 'allDay' | 'startsAt' | 'endsAt'>;
+/** 予定のフォームの値（終了を必ず持つ） */
+type EventFormValues = Extract<ItemFormValues, { kind: 'event' }>;
+
+/** 予定とタスクで共通の、日時と終わり以外の項目。日時と種別は必ず呼び出し側が決めて重ねる */
+type ItemDetails = Omit<
+  ItemFormValues,
+  'kind' | 'allDay' | 'startsAt' | 'endsAt' | 'remindEndMinutes'
+>;
+
+/**
+ * 入力欄の日時（検証前。`itemInputFromForm` の日時の部分）。終日の終わりは含む日。
+ * 開始・終了が空（書きかけ）なら null
+ */
+export type WhenInput = { allDay: boolean; startsAt: string | null; endsAt: string | null };
 
 const EMPTY: ItemDetails = {
   title: '',
@@ -34,7 +50,6 @@ const EMPTY: ItemDetails = {
   note: null,
   rrule: null,
   remindStartMinutes: null,
-  remindEndMinutes: null,
 };
 
 /**
@@ -52,13 +67,15 @@ export function eventValuesForRange(
   startMin: number,
   endMin: number,
   participantIds: string[],
-): ItemFormValues {
+): EventFormValues {
   return {
     ...EMPTY,
     participantIds,
+    kind: 'event',
     allDay: false,
     startsAt: fromMinutesOfDay(date, startMin),
     endsAt: fromMinutesOfDay(date, endMin),
+    remindEndMinutes: null,
   };
 }
 
@@ -70,13 +87,15 @@ export function allDayEventValues(
   from: DateString,
   to: DateString,
   participantIds: string[],
-): ItemFormValues {
+): EventFormValues {
   return {
     ...EMPTY,
     participantIds,
+    kind: 'event',
     allDay: true,
     startsAt: fromDateValue(from),
     endsAt: fromDateValue(addDays(to, 1)),
+    remindEndMinutes: null,
   };
 }
 
@@ -89,7 +108,7 @@ export function allDayEventValues(
  */
 export function switchKindValues(
   values: ItemFormValues,
-  input: { allDay: boolean; startsAt: string | null },
+  input: Pick<WhenInput, 'allDay' | 'startsAt'>,
   to: EventKind,
   now: Date = new Date(),
 ): ItemFormValues {
@@ -97,28 +116,28 @@ export function switchKindValues(
     input.startsAt === null
       ? defaultTaskStart(now)
       : { allDay: input.allDay, startsAt: new Date(input.startsAt) };
-  const { endsAt, remindEndMinutes } = switchedEnds(to, allDay, startsAt);
-  return {
-    ...values,
-    allDay,
-    // 終わりは入力の形（終日なら含む日）で決まるので、保存の形へ直す
-    ...normalizeIsoInstants(allDay, startsAt.toISOString(), endsAt?.toISOString() ?? null),
-    remindEndMinutes,
-  };
+  const ends = switchedEnds(to, allDay, startsAt);
+  const common = { ...carriedValues(values), allDay };
+  // 終わりは入力の形（終日なら含む日）で決まるので、保存の形へ直す
+  const start = startsAt.toISOString();
+  return ends.kind === 'event'
+    ? {
+        ...common,
+        ...ends,
+        ...normalizeIsoInstants(allDay, start, ends.endsAt.toISOString()),
+      }
+    : { ...common, ...ends, startsAt: normalizeIsoInstants(allDay, start, null).startsAt };
 }
 
 /**
- * 直している項目から持ち越す、日時以外の既定値（グリッドの下書きで種類を切り替えたとき）。
- * 項目がその種類のままなら全部、種類が違えば終了前の通知を消す（`switchKindValues` と同じ理由）。
- * 追加の下書き（項目なし）なら空の値。日時と参加者は呼び出し側が重ねる。
+ * 直している項目から持ち越す、予定とタスクで共通の項目（種類を切り替えたとき・グリッドの下書き）。
+ * 追加の下書き（項目なし）なら空の値。種別・日時・終わり（終了とその前の通知）は呼び出し側が重ねる
+ * （型が種別ごとに求めるので、終わりを持ち越し忘れる・タスクへ持ち込むことは起きない）。
  */
-export function carriedValues(
-  item: (ItemFormValues & { kind: EventKind }) | null,
-  kind: EventKind,
-): ItemDetails {
+export function carriedValues(item: ItemFormValues | null): ItemDetails {
   if (item === null) return EMPTY;
-  const { allDay: _a, startsAt: _s, endsAt: _e, kind: _k, ...details } = item;
-  return item.kind === kind ? details : { ...details, remindEndMinutes: null };
+  const { title, participantIds, location, note, rrule, remindStartMinutes } = item;
+  return { title, participantIds, location, note, rrule, remindStartMinutes };
 }
 
 /**
@@ -130,7 +149,6 @@ export function carriedValues(
  * 予定の終了前の通知は MCP から入れたもので、フォームに出さないので既定値のまま送る。
  */
 export function itemInputFromForm(
-  kind: EventKind,
   formData: FormData,
   {
     initial,
@@ -138,8 +156,9 @@ export function itemInputFromForm(
     thisOnly = false,
   }: { initial: ItemFormValues; allDay: boolean; thisOnly?: boolean },
 ) {
+  const { kind } = initial;
   const startsRaw = whenRaw(formData, 'startsAt');
-  const when =
+  const when: WhenInput =
     startsRaw === undefined
       ? savedInstants(initial)
       : {
@@ -158,7 +177,8 @@ export function itemInputFromForm(
     remindStartMinutes: extras
       ? remindSelected(formData)
       : savedRemind(initial.remindStartMinutes, allDay),
-    remindEndMinutes: kind === 'event' ? savedRemind(initial.remindEndMinutes, allDay) : null,
+    remindEndMinutes:
+      initial.kind === 'event' ? savedRemind(initial.remindEndMinutes, allDay) : null,
   };
 }
 

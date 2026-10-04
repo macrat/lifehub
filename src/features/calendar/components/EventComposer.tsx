@@ -35,7 +35,6 @@ export function EventComposer({ composer, onClose, onChangeInset }: Props) {
   if (expanded) {
     return (
       <ItemForm
-        kind={expanded.kind}
         initial={expanded.values}
         scope={grabbedScope(expanded.item)}
         editing={expanded.item !== null}
