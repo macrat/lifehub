@@ -11,17 +11,18 @@ import { expect, test } from './test.ts';
 test('タブの切り替えはデータを待たず、届くまで骨組みを出す', async ({ page }) => {
   await openHome(page);
 
-  // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を 5 秒遅らせる
-  await stall(page, ['expenses.'], 5000);
+  // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を、確かめ終わるまで止める
+  const release = await stall(page, ['expenses.']);
 
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
   // 立替の画面（AppBar の検索窓）が出て、ホームの検索窓は残っていない
-  await expect(page.getByLabel('立替を検索')).toBeVisible({ timeout: 3000 });
+  await expect(page.getByLabel('立替を検索')).toBeVisible();
   await expect(page.getByLabel('記録を検索')).toHaveCount(0);
   // 履歴の場所には骨組みが出ていて、届いたら消える
   await expect(page.locator('[aria-busy="true"]')).toBeVisible();
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 });
+  await release();
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
 });
 
 /**

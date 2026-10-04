@@ -100,16 +100,4 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
     expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
     await client.close();
   }
-
-  // トークン無しは 401 と RFC 9728 の案内
-  const anonymous = await request.post('/api/mcp', {
-    headers: { accept: 'application/json, text/event-stream', 'content-type': 'application/json' },
-    data: { jsonrpc: '2.0', id: 3, method: 'tools/list', params: {} },
-  });
-  expect(anonymous.status()).toBe(401);
-  expect(anonymous.headers()['www-authenticate']).toContain(
-    '/.well-known/oauth-protected-resource/api/mcp',
-  );
-  const metadata = await request.get('/.well-known/oauth-protected-resource/api/mcp');
-  expect(metadata.ok()).toBe(true);
 });

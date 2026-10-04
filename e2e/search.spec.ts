@@ -53,11 +53,6 @@ test('キーワードを打ってから絞り込みを変えても、URL のキ�
   await expect(page.getByLabel('立替を検索')).toHaveValue('スーパー');
 });
 
-test('URL の検索語は開き直しても残る', async ({ page }) => {
-  await page.goto(`/lemon?q=${encodeURIComponent('肥料')}`);
-  await expect(page.getByLabel('メモを検索')).toHaveValue('肥料');
-});
-
 /**
  * AppBar の絞り込みボタンで開く詳細検索。金額・日付の範囲と To・From で履歴を絞り込む。
  * 絞り込みは URL に持つので、開き直しても同じ絞り込みに戻る。

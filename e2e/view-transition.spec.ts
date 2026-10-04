@@ -9,7 +9,7 @@ import { captured, changeView, recordViewTransitions, settle, transitions } from
  * 動きそのものは見た目なので、壊れると静かに何も動かなくなる次の 2 点だけを確かめる。
  * - 同じ `view-transition-name` が 2 つあると、遷移そのものが行われない（`ready` が失敗する）
  * - 前後の画面で同じものに同じ名前が付いていなければ、動かずに消えて出るだけになる
- * 併せて、同じ画面の中の更新（日付の移動）では遷移しないことも確かめる。
+ * どの移動で遷移するか（同じ画面の中の更新では遷移しない）は `src/lib/__tests__/view-transition.test.ts`。
  *
  * 名前は遷移が終わったあとの DOM ではなく、ブラウザが遷移後として撮る時点
  * （更新コールバックが解決した直後）で数える。あとから足される物は動かないので、
@@ -29,39 +29,44 @@ const names = (page: Page) =>
   );
 
 test('カレンダーの表示を切り替えると、同じ予定が同じ名前で前後の画面に在る', async ({ page }) => {
-  // 画面からの追加は他のテストで確かめているので、ここは API で用意する
-  const add = (item: Parameters<typeof addItem>[1]) => addItem(page, item);
+  // 画面からの追加は他のテストで確かめているので、ここは API で用意する。
+  // 題に印を付けて、CI で再試行したときに前の試行の予定と見分ける
+  const stamp = Date.now();
+  const add = (item: Parameters<typeof addItem>[1]) =>
+    addItem(page, { ...item, title: `${item.title} ${stamp}` });
   // 時刻のある予定、週をまたぐ終日の予定（月グリッドでは週の行ごとに帯が分かれる）、
   // 毎週の繰り返し（月グリッドに同じ id が 4 回出る）、タスク
-  await add({
-    kind: 'event',
-    title: 'VT 単発',
-    startsAt: '2030-03-13T01:00:00.000Z',
-    endsAt: '2030-03-13T02:00:00.000Z',
-  });
-  await add({
-    kind: 'event',
-    title: 'VT 連泊',
-    allDay: true,
-    startsAt: '2030-03-11T15:00:00.000Z',
-    endsAt: '2030-03-18T15:00:00.000Z',
-  });
-  await add({
-    kind: 'event',
-    title: 'VT 毎週',
-    startsAt: '2030-03-11T00:00:00.000Z',
-    endsAt: '2030-03-11T01:00:00.000Z',
-    rrule: 'FREQ=WEEKLY',
-  });
-  await add({
-    kind: 'task',
-    title: 'VT タスク',
-    startsAt: '2030-03-13T03:00:00.000Z',
-    endsAt: '2030-03-13T04:00:00.000Z',
-  });
+  await Promise.all([
+    add({
+      kind: 'event',
+      title: 'VT 単発',
+      startsAt: '2030-03-13T01:00:00.000Z',
+      endsAt: '2030-03-13T02:00:00.000Z',
+    }),
+    add({
+      kind: 'event',
+      title: 'VT 連泊',
+      allDay: true,
+      startsAt: '2030-03-11T15:00:00.000Z',
+      endsAt: '2030-03-18T15:00:00.000Z',
+    }),
+    add({
+      kind: 'event',
+      title: 'VT 毎週',
+      startsAt: '2030-03-11T00:00:00.000Z',
+      endsAt: '2030-03-11T01:00:00.000Z',
+      rrule: 'FREQ=WEEKLY',
+    }),
+    add({
+      kind: 'task',
+      title: 'VT タスク',
+      startsAt: '2030-03-13T03:00:00.000Z',
+      endsAt: '2030-03-13T04:00:00.000Z',
+    }),
+  ]);
 
   await page.goto('/calendar?view=month&date=2030-03-13');
-  await expect(page.getByText('VT 単発')).toBeVisible();
+  await expect(page.getByText(`VT 単発 ${stamp}`)).toBeVisible();
   const month = await names(page);
   // 前後の月の面（inert）にも同じ予定が描かれているが、名前が重複してはいけない
   expect(new Set(month).size).toBe(month.length);
@@ -91,21 +96,20 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
   const done = await transitions(page);
   expect(done.length).toBeGreaterThan(0);
   expect(done.every((t) => t.ready === 'ok' && t.finished)).toBe(true);
-
-  // 日付だけが変わる移動（今日へ）は同じ画面の中の更新なので遷移しない
-  await changeView(page, '週');
-  const before = (await transitions(page)).length;
-  await page.getByRole('button', { name: '今日' }).click();
-  await expect(page).toHaveURL(/date=/);
-  expect((await transitions(page)).length).toBe(before);
 });
 
 test('ホームとレモンを行き来すると、タイルが同じ名前で前後の画面に在る', async ({ page }) => {
+  // ホームのタイムラインの予定・タスクには名前が無い（予定画面との間では動かずフェードする）。
+  // 名前を付けると、スクロールの外にある項目まで画面の外から飛んでくる（`item-transition.ts`）
+  const title = `VT ホーム ${Date.now()}`;
+  await addItem(page, { kind: 'task', title });
   await openHome(page);
   await expect(page.getByRole('button', { name: /^水やり/ })).toBeVisible();
+  await expect(page.getByText(title)).toBeVisible();
   const home = await names(page);
   expect(home).toContain('care-water');
   expect(new Set(home).size).toBe(home.length);
+  expect(home.filter((name) => name.startsWith('item-'))).toEqual([]);
 
   await page.getByRole('link', { name: 'レモン' }).click();
   await expect(page).toHaveURL('/lemon');
@@ -113,14 +117,4 @@ test('ホームとレモンを行き来すると、タイルが同じ名前で�
   expect(await names(page)).toContain('care-water');
 
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
-});
-
-test('ホームのタイムラインの予定・タスクには名前が無い（予定画面との間では動かずフェードする）', async ({
-  page,
-}) => {
-  // 名前を付けると、スクロールの外にある項目まで画面の外から飛んでくる（`item-transition.ts`）
-  await addItem(page, { kind: 'task', title: 'VT ホーム' });
-  await page.goto('/');
-  await expect(page.getByText('VT ホーム')).toBeVisible();
-  expect((await names(page)).filter((name) => name.startsWith('item-'))).toEqual([]);
 });

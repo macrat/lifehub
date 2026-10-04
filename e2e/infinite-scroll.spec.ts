@@ -21,18 +21,22 @@ test.use({ ...devices['Pixel 7'] });
 test('予定のリストは基準の日を一番上に出し、上へ戻ると前の月を読み足す', async ({ page }) => {
   const stamp = Date.now();
   // 他のテストが使わない年に、前の月・基準の日・後の日の 3 件を置く
-  for (const [date, title] of [
-    ['2032-04-10', `E2E 前々月 ${stamp}`],
-    ['2032-06-15', `E2E 当日 ${stamp}`],
-    ['2032-06-20', `E2E 後日 ${stamp}`],
-  ] as const) {
-    await addItem(page, {
-      kind: 'event',
-      title,
-      startsAt: `${date}T01:00:00.000Z`,
-      endsAt: `${date}T02:00:00.000Z`,
-    });
-  }
+  await Promise.all(
+    (
+      [
+        ['2032-04-10', `E2E 前々月 ${stamp}`],
+        ['2032-06-15', `E2E 当日 ${stamp}`],
+        ['2032-06-20', `E2E 後日 ${stamp}`],
+      ] as const
+    ).map(([date, title]) =>
+      addItem(page, {
+        kind: 'event',
+        title,
+        startsAt: `${date}T01:00:00.000Z`,
+        endsAt: `${date}T02:00:00.000Z`,
+      }),
+    ),
+  );
 
   await page.goto('/calendar?view=list&date=2032-06-15');
   const heading = page.getByRole('heading', { name: '6/15' });
@@ -142,7 +146,7 @@ for (const history of histories) {
       const todayBox = await page.getByText(todayLast).boundingBox();
       expect(futureBox?.y ?? 0).toBeLessThan(todayBox?.y ?? 0);
     } finally {
-      for (const record of created) await deleteRecord(page, record);
+      await Promise.all(created.map((record) => deleteRecord(page, record)));
     }
   });
 }

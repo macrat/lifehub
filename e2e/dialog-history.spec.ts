@@ -17,7 +17,9 @@ function settled(page: Page) {
  * ダイアログは開いている間だけ履歴に項目を持つ（`useDialogHistory`）。
  * 戻る操作で閉じるのはダイアログだけで、その後ろのページは飛び越さない。
  */
-test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない', async ({ page }) => {
+test('立替の詳細・編集は戻るで閉じ、画面の操作で閉じたダイアログも含めて一覧は飛び越さない', async ({
+  page,
+}) => {
   const description = `E2E 履歴 ${Date.now()}`;
   const expense = await addRecord(page, expenseHistory, await myId(page), new Date(), description);
   // 戻る先（前の画面）としてホームを開いておく
@@ -43,18 +45,6 @@ test('立替の詳細・編集は戻るで閉じ、一覧は飛び越さない',
   await expect(row).toBeVisible();
   await settled(page);
 
-  // ここでようやく前の画面へ戻る（ダイアログのぶんの履歴は残っていない）
-  await page.goBack();
-  await expect(page).toHaveURL('/');
-
-  // 精算は他のテストと共有するので片付ける
-  await deleteRecord(page, expense);
-});
-
-test('画面の操作で閉じたダイアログは履歴に残らない', async ({ page }) => {
-  await openHome(page);
-  await page.goto('/expenses');
-
   // 開いて閉じるを繰り返しても、戻る先は前の画面のまま
   for (const amount of ['100', '200']) {
     await page.getByRole('button', { name: '立替を追加' }).click();
@@ -64,8 +54,12 @@ test('画面の操作で閉じたダイアログは履歴に残らない', async
     await settled(page);
   }
 
+  // ここでようやく前の画面へ戻る（ダイアログのぶんの履歴は残っていない）
   await page.goBack();
   await expect(page).toHaveURL('/');
+
+  // 精算は他のテストと共有するので片付ける
+  await deleteRecord(page, expense);
 });
 
 test('カレンダーの追加フォームは戻るで閉じ、日付の選択は履歴を積まない', async ({ page }) => {

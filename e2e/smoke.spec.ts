@@ -57,16 +57,6 @@ test.describe('ログインしていないとき', () => {
   });
 });
 
-test('設定画面が表示される', async ({ page }) => {
-  await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
-  await expect(page.getByRole('switch', { name: 'この端末で通知を受け取る' })).toBeVisible();
-  await expect(page.getByRole('slider', { name: '色' })).toBeVisible();
-  // バージョンはビルド時の define で埋め込む。埋め込みが外れると値ごと消えるので中身まで見る
-  await expect(page.getByRole('heading', { name: 'バージョン' })).toBeVisible();
-  await expect(page.getByText(/^[0-9a-f]{7}$/)).toBeVisible();
-});
-
 test('選んだ色はその場でアクセントカラーになり、保存するまで保存されない', async ({ page }) => {
   await page.goto('/settings');
   const slider = page.getByRole('slider', { name: '色' });
@@ -98,8 +88,14 @@ test('選んだ色はその場でアクセントカラーになり、保存す�
   expect(await hue(page)).toBe(0);
 });
 
-test('終日の通知時刻は設定画面で選び、保存ボタンで保存する', async ({ page }) => {
+test('設定画面が表示され、終日の通知時刻を選んで保存ボタンで保存する', async ({ page }) => {
   await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'プッシュ通知' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'この端末で通知を受け取る' })).toBeVisible();
+  // バージョンはビルド時の define で埋め込む。埋め込みが外れると値ごと消えるので中身まで見る
+  await expect(page.getByRole('heading', { name: 'バージョン' })).toBeVisible();
+  await expect(page.getByText(/^[0-9a-f]{7}$/)).toBeVisible();
+
   const section = page.getByRole('region', { name: '終日の通知' });
   const time = section.getByLabel('時刻');
   const save = section.getByRole('button', { name: '保存' });

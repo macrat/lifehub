@@ -1,4 +1,5 @@
 import type { Page, Request, Response, Route } from '@playwright/test';
+import { expect } from './test.ts';
 
 /**
  * 画面の API は tRPC で、同じ時点に出た呼び出しが 1 本の要求にまとめて送られる
@@ -29,21 +30,24 @@ function carriesAny(url: URL | string, prefixes: readonly string[]): boolean {
 }
 
 /**
- * 名前が prefixes のどれか（`lemon.` や `events.create`）で始まる手続きの呼び出しを遅らせる（保存も再取得も
- * 返ってこない状況を作る）。まとめた要求は、中に当たるものがあれば全体を遅らせる。返り値を呼ぶと遅らせるのをやめる
+ * 名前が prefixes のどれか（`lemon.` や `events.create`）で始まる手続きの呼び出しを止める（保存も再取得も
+ * 返ってこない状況を作る）。まとめた要求は、中に当たるものがあれば全体を止める。
+ * 返り値を呼ぶと、止めていた呼び出しを送り、それからは止めない。呼ばなければページを閉じるまで止めたまま。
+ * WHY 時間ではなく呼ぶまで止める: 決まった時間だけ遅らせると、その時間はテストが必ず待つことになり、
+ * 遅い環境では確かめ終わる前に届いてしまう。
  */
-export async function stall(
-  page: Page,
-  prefixes: readonly string[],
-  ms = 10_000,
-): Promise<() => Promise<void>> {
+export async function stall(page: Page, prefixes: readonly string[]): Promise<() => Promise<void>> {
   const match = (url: URL) => carriesAny(url, prefixes);
+  const { promise: released, resolve: release } = Promise.withResolvers<void>();
   const handler = async (route: Route) => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    await released;
     await route.continue().catch(() => {});
   };
   await page.route(match, handler);
-  return () => page.unroute(match, handler);
+  return async () => {
+    release();
+    await page.unroute(match, handler);
+  };
 }
 
 /** 名前が prefixes のどれかで始まる手続きの呼び出しを、通信が切れたことにして失敗させる（まとめた要求は全体） */
@@ -113,12 +117,10 @@ export async function quiet(page: Page, fetches: () => number) {
 }
 
 /**
- * 取得が落ち着いてから手続き procedure の呼び出しを数え始め、それからの回数を返す。
+ * 画面の最初の取得が届いて骨組みが消えてから、手続き procedure の呼び出しを数え始め、それからの回数を返す。
  * 開いた直後の取得を、操作したことによる取得と取り違えないようにする
  */
-export async function fetchesFromNow(page: Page, procedure: string): Promise<() => number> {
-  const fetches = countFetches(page, procedure);
-  await quiet(page, fetches);
-  const before = fetches();
-  return () => fetches() - before;
+export async function fetchesAfterLoad(page: Page, procedure: string): Promise<() => number> {
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  return countFetches(page, procedure);
 }
