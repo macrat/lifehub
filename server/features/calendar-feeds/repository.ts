@@ -1,34 +1,32 @@
-import { and, asc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db, runBatch } from '../../lib/db/client.ts';
-import { idArrayAgg, participantWrites } from '../../lib/db/query.ts';
+import { participantsOf } from '../../lib/db/query.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
 export type CalendarFeedWithParticipants = CalendarFeedRow & { participantIds: string[] };
 
+/**
+ * 参加者の読み書き。書き込みは作成（ID で引き当てる）と変更（ID と持ち主で引き当てる。他人の URL には
+ * 入らない）が同じ形を使い、行と同じ runBatch に入れる。
+ */
+const {
+  selectWithParticipants,
+  participantIdsOfRow,
+  insertWhere: insertParticipantsWhere,
+  replaceWhere: replaceParticipantsWhere,
+} = participantsOf({
+  parent: calendarFeeds,
+  participants: calendarFeedParticipants,
+  parentKey: 'feedId',
+});
+
 export async function findByUser(userId: string): Promise<CalendarFeedWithParticipants[]> {
-  return db
-    .select({
-      ...getTableColumns(calendarFeeds),
-      participantIds: idArrayAgg(calendarFeedParticipants.userId),
-    })
-    .from(calendarFeeds)
-    .leftJoin(calendarFeedParticipants, eq(calendarFeedParticipants.feedId, calendarFeeds.id))
+  return selectWithParticipants()
     .where(eq(calendarFeeds.userId, userId))
     .groupBy(calendarFeeds.id)
     .orderBy(asc(calendarFeeds.createdAt));
 }
-
-/**
- * 参加者の書き込み。作成（ID で引き当てる）と変更（ID と持ち主で引き当てる。他人の URL には入らない）が
- * 同じ形を使い、行と同じ runBatch に入れる。
- */
-const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsWhere } =
-  participantWrites({
-    parent: calendarFeeds,
-    participants: calendarFeedParticipants,
-    parentKey: 'feedId',
-  });
 
 /** 行と参加者を原子的に作る */
 export async function insert(
@@ -86,10 +84,6 @@ export async function touchByToken(
     .update(calendarFeeds)
     .set({ lastAccessedAt: now })
     .where(eq(calendarFeeds.token, token))
-    .returning({
-      participantIds: sql<
-        string[]
-      >`(select ${idArrayAgg(calendarFeedParticipants.userId)} from ${calendarFeedParticipants} where ${calendarFeedParticipants.feedId} = ${calendarFeeds.id})`,
-    });
+    .returning({ participantIds: participantIdsOfRow() });
   return touched[0];
 }

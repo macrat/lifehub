@@ -2,7 +2,6 @@ import {
   and,
   desc,
   eq,
-  getTableColumns,
   gt,
   gte,
   inArray,
@@ -19,22 +18,23 @@ import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { type Database, db, runBatch } from '../../lib/db/client.ts';
-import { containsKeyword, idArrayAgg, participantWrites } from '../../lib/db/query.ts';
+import { containsKeyword, participantsOf } from '../../lib/db/query.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
 export type EventWithParticipants = EventRow & { participantIds: string[] };
 
-/** 参加者を配列にまとめた行を読む（`idArrayAgg`。参加者が 0 人でも行は消えない） */
-function selectRows() {
-  return db
-    .select({
-      ...getTableColumns(events),
-      participantIds: idArrayAgg(eventParticipants.userId),
-    })
-    .from(events)
-    .leftJoin(eventParticipants, eq(eventParticipants.eventId, events.id));
-}
+/**
+ * 参加者の読み書き。読むときは参加者を配列にまとめた行を読む（`selectRows`。参加者が 0 人でも行は消えない）。
+ * 書き込みはすべて insert/replace の形にし、行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、
+ * ID を手元に持たない条件（回の実体化の (series_id, occurrence_start)）でも引き当てられ、
+ * 条件を足せば「作れたときだけ」入れられる。
+ */
+const {
+  selectWithParticipants: selectRows,
+  insertWhere: insertParticipantsWhere,
+  replaceWhere: replaceParticipantsWhere,
+} = participantsOf({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** 条件に合う行を 1 つ、参加者と一緒に読む */
 async function findOne(where: SQL | undefined): Promise<EventWithParticipants | undefined> {
@@ -330,14 +330,6 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
       .where(and(isTarget, hasNoParticipants(tx))),
   );
 }
-
-/**
- * 参加者の書き込み。すべてこの形にし、行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、
- * ID を手元に持たない条件（回の実体化の (series_id, occurrence_start)）でも引き当てられ、
- * 条件を足せば「作れたときだけ」入れられる。
- */
-const { insertWhere: insertParticipantsWhere, replaceWhere: replaceParticipantsWhere } =
-  participantWrites({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
 function hasNoParticipants(tx: Database): SQL {
