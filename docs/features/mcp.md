@@ -58,7 +58,7 @@
 
 各 feature の `mcp.ts` が `McpRegistrar`（`(server, ctx) => void`）を export し、`server/mcp.ts` で登録する。タイムラインを読む・消すツール（`get_overview` / `read_timeline` / `delete_entry`）は種類をまたぐので、記録を集める feature の `server/features/timeline/mcp.ts` に置く。LLM 向けの形（ref・日時・人・出力の形）は feature をまたぐので `server/lib/mcp/` に置き、feature の `mcp.ts` は LLM の入力を service の入力に直して呼ぶだけにする。入力スキーマは最上位が平らな Zod オブジェクトで、項目ごとの規則（長さ・選択肢）は `shared/validation` から取り、API の都合（クライアントが決める ID、省略させない範囲の指定など）は持ち込まない。MCP サーバーはリクエストごとに組み立てるステートレス構成（`@modelcontextprotocol/server` の `createMcpHandler`）。誰の要求かは、検証したトークンのユーザー ID を `authInfo.extra.userId` で、どの MCP クライアントからかはトークンの `azp`（OAuth クライアント ID）を `authInfo.clientId` で組み立て関数に渡す。
 
-ツールを呼んでいる MCP クライアントの名前（`McpContext.clientName`）は、`azp` の OAuth クライアントの登録の `client_name`（`server/features/users/service.ts` の `getOAuthClientName`）。名前が無いとき（トークンが `azp` を持たない要求など）は `MCP` とする（名前は表示に使うだけなので、無くても要求は拒まない）。WHY NOT MCP の initialize の `clientInfo.name`: 2025 年版の接続ではツールを呼ぶ要求に initialize の内容が届かない。トークンは版を問わずどの要求にも付く。
+ツールを呼んでいる MCP クライアントの名前（`McpContext.clientName`）は、`azp` の OAuth クライアントの登録の `client_name`（`server/features/users/people.ts` の `getOAuthClientName`）。名前が無いとき（トークンが `azp` を持たない要求など）は `MCP` とする（名前は表示に使うだけなので、無くても要求は拒まない）。WHY NOT MCP の initialize の `clientInfo.name`: 2025 年版の接続ではツールを呼ぶ要求に initialize の内容が届かない。トークンは版を問わずどの要求にも付く。
 
 ## MCP Events
 

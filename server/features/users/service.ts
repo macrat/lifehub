@@ -10,11 +10,6 @@ export async function listUsers() {
   return repository.findAll();
 }
 
-/** OAuth クライアント（MCP クライアント）の登録の名前。名前を登録しないクライアントは null */
-export async function getOAuthClientName(clientId: string): Promise<string | null> {
-  return repository.findOAuthClientName(clientId);
-}
-
 /** 外に出すユーザーの形（better-auth のセッションが持つユーザーからも作れる） */
 function toPublicUser(user: repository.UserRow): repository.UserRow {
   return { id: user.id, name: user.name, email: user.email, hue: user.hue };
