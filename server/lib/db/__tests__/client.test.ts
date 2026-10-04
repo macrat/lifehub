@@ -23,4 +23,11 @@ describe('runBatch', () => {
     const [row] = await db.select().from(users).where(eq(users.id, userId));
     expect(row?.name).toBe('A');
   });
+
+  it('読み取りの文は型で拒む（読み取りは coalesceReads がまとめる）', () => {
+    // 型だけを確かめる。呼ぶと DB に問い合わせるので呼ばない
+    void (() =>
+      // @ts-expect-error select は runBatch に入れられない
+      runBatch((tx) => [tx.select().from(users)]));
+  });
 });

@@ -76,9 +76,7 @@ export async function listOccurrences(
   for (const master of masters) {
     if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
-    result.push(
-      ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
-    );
+    result.push(...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now)));
   }
   return result.filter((o) => matchesKeyword(q, o.title, o.note));
 }
@@ -245,25 +243,27 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
  * 放棄を時刻ではなく暦日で判定するのは、未完了のタスクが今日の位置に繰り越される規則と揃えるため。
  * 時刻で判定すると、今日の回が来るまでの間だけ 2 日前と 1 日前の回が並び、今日の回が出ない。
  */
-function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence[] {
+function expandTask(ctx: ExpandContext, now: Date): Occurrence[] {
   const { master } = ctx;
   if (!master.rrule) return [buildOccurrence(ctx, null, undefined)];
   const base = baseOf(master);
   if (!base) return [];
 
-  // 取り出すのは「今より後、範囲の終わりまで」の発生と、その前後 2 つ（1 回の走査で済ませる）。
+  // 表示する回は今と繰り返しだけで決まり、読む範囲によらない（暦日に置いた後で範囲に絞る）。
+  // 取り出すのは今の前 2 つと後ろの数個（1 回の走査で済ませる）。
   // 2 つ前まで遡れば足りるのは、放棄されずに残る最初の回が「今日以前の最後の発生の 1 つ前」で、
   // 今以後の最初の発生はそこから高々 2 つ先にあるため（今日の回がまだ来ていなければ 2 つ先、
   // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
-  // 2 つ先まで先読みするのは、範囲の終わり際の回の放棄を判定するため。
-  const rangeEnd = instantRange(range).to;
+  // 後ろは、飛ばす回（完了・取り消した回。今より後の実体化された回の数を超えない）と未完了の 2 つに、
+  // 最後の未完了の回の放棄を判定する 2 つ先までを足した数だけ読めば足りる。
+  const ahead = [...ctx.occurrences.keys()].filter((at) => at >= now.getTime()).length;
   const bases = expandOccurrences({
     rrule: master.rrule,
     dtstart: base,
     from: now,
-    to: rangeEnd,
+    to: now,
     lookbehind: MAX_VISIBLE_UNCOMPLETED,
-    lookahead: MAX_VISIBLE_UNCOMPLETED,
+    lookahead: ahead + MAX_VISIBLE_UNCOMPLETED * 2,
   });
 
   const result: Occurrence[] = [];
@@ -272,7 +272,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   let visibleUncompleted = 0;
   for (let n = 0; visibleUncompleted < MAX_VISIBLE_UNCOMPLETED; n++) {
     const at = bases[n];
-    if (!at || at.getTime() >= rangeEnd.getTime()) break;
+    if (!at) break;
     const row = ctx.occurrences.get(at.getTime());
     if (row?.cancelled) continue;
     if (row?.completedAt) {
