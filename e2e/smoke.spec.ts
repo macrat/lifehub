@@ -1,8 +1,9 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
-import { E2E_USER } from './global-setup.ts';
 import { carries } from './network.ts';
+import { expect, test } from './test.ts';
+import { E2E_USER } from './users.ts';
 
 /** サーバーに保存されているログイン中のユーザーの色相 */
 async function hue(page: Page): Promise<number> {

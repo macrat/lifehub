@@ -1,6 +1,7 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { addItem } from './events.ts';
+import { expect, test } from './test.ts';
 import { captured, changeView, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**

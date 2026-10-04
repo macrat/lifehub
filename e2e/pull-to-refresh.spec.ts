@@ -1,7 +1,8 @@
-import { devices, expect, type Page, test } from '@playwright/test';
+import { devices, type Page } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { appBar, offlineIndicator } from './layout.ts';
 import { failFetches, fetchesFromNow, quiet } from './network.ts';
+import { expect, test } from './test.ts';
 import { touchDrag } from './touch.ts';
 
 /**

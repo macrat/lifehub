@@ -1,6 +1,7 @@
-import { expect, type Locator, test } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { countFetches, quiet, stall } from './network.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 画面の移動はデータの到着を待たない（ルートに loader を置かない。src/main.tsx と各ページ）。

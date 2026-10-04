@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { scroller, scrollHeightOf, setupMobileCalendar, timePoint } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
 import { addItem, deleteItem } from './events.ts';
+import { expect, test } from './test.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag, touchPinch } from './touch.ts';
 import { changeView } from './view.ts';
 

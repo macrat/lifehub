@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
   scroller,
   scrollHeightOf,
@@ -7,6 +7,7 @@ import {
   timePoint,
 } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
+import { expect, test } from './test.ts';
 import { settledBox, touchDrag } from './touch.ts';
 import { changeView } from './view.ts';
 

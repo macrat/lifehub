@@ -1,7 +1,8 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { myId, openHome } from './auth.ts';
 import { addOnCalendar } from './events.ts';
 import { addRecord, deleteRecord, expenseHistory } from './history.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 閉じたダイアログのぶんの履歴が戻りきるのを待つ（重なったダイアログを一度に閉じると 1 つ余る）。

@@ -510,6 +510,26 @@
           }
         }
       }
+    },
+    {
+      "includes": ["e2e/**", "!e2e/test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@playwright/test": {
+                    "importNames": ["test", "expect"],
+                    "message": "E2E の test と expect は e2e/test.ts から読む（ワーカーのサーバーとログイン状態に繋がる）"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

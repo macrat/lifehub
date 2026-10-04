@@ -1,4 +1,4 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, type Locator, type Page } from '@playwright/test';
 import { myId, openHome } from './auth.ts';
 import {
   addRecord,
@@ -10,6 +10,7 @@ import {
   isJustBelowHeader,
 } from './history.ts';
 import { appBar, bottomNav, bottomOf } from './layout.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 下部ナビのタブの画面は、別のタブからでも戻るでも、来たときは最初の位置で出る（ホームは一番上、立替・レモンは
@@ -25,9 +26,8 @@ const lemonToday = `E2E タブ レモン 今日 ${stamp}`;
 let created: Created[] = [];
 
 /** スクロールできるだけの記録を、立替とレモンに古い日付で 30 件ずつと、今日の分を 1 件ずつ置く */
-test.beforeAll(async ({ browser }) => {
-  // テストの外で作るページにもログイン状態が載る（`playwright.config.ts` の storageState）
-  const page = await browser.newPage();
+test.beforeAll(async ({ browser, server, signedIn }) => {
+  const page = await browser.newPage({ baseURL: server.url, storageState: signedIn });
   const me = await myId(page);
   const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2001, 0, 1 + i, 3)));
   const add = (history: History, at: Date, text: string) => addRecord(page, history, me, at, text);
@@ -40,8 +40,8 @@ test.beforeAll(async ({ browser }) => {
   await page.close();
 });
 
-test.afterAll(async ({ browser }) => {
-  const page = await browser.newPage();
+test.afterAll(async ({ browser, server, signedIn }) => {
+  const page = await browser.newPage({ baseURL: server.url, storageState: signedIn });
   await Promise.all(created.map((record) => deleteRecord(page, record)));
   await page.close();
 });

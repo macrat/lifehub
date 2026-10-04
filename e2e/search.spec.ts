@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { openHome } from './auth.ts';
 import { type Created, deleteRecord } from './history.ts';
+import { expect, test } from './test.ts';
 
 /**
  * AppBar の検索窓。入力は画面の状態で受けて URL は置き換えるだけなので、

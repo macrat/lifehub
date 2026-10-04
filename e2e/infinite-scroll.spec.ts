@@ -1,4 +1,4 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
 import { myId } from './auth.ts';
 import { addItem } from './events.ts';
 import {
@@ -10,6 +10,7 @@ import {
   isJustBelowHeader,
 } from './history.ts';
 import { appBar, bottomOf } from './layout.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 予定のリストは上が古く下が新しく、立替・レモンの履歴は上が新しく下が古い無限スクロール（`src/lib/ui/InfiniteScroll.tsx`）。

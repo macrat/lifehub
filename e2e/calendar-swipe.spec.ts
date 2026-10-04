@@ -1,4 +1,5 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
+import { expect, test } from './test.ts';
 import { touchDrag } from './touch.ts';
 
 /** スワイプはタッチのみ。デスクトップの設定ではなくスマホの設定で動かす */

@@ -1,11 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { expect, test } from '@playwright/test';
-import { AUTH_FILE, SIGNED_OUT } from './auth.ts';
-import { E2E_USER } from './global-setup.ts';
-
-const BASE = 'http://localhost:3000';
+import { SIGNED_OUT } from './auth.ts';
+import { expect, test } from './test.ts';
+import { E2E_USER } from './users.ts';
 
 function base64url(buffer: Buffer): string {
   return buffer.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
@@ -21,13 +18,17 @@ function base64url(buffer: Buffer): string {
  */
 test.use({ storageState: SIGNED_OUT });
 
-test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({ page, request }) => {
+test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({
+  page,
+  request,
+  server,
+  signedIn,
+}) => {
+  const BASE = server.url;
   // http のループバックへのリダイレクトは native クライアント（Claude Desktop 等と同じ）にだけ許される
-  const redirectUri = 'http://127.0.0.1:3000/oauth-callback';
-  // 作るのは E2E ユーザー（ログイン状態のファイルの Cookie で名乗る）。サーバーのコードはこのテストでだけ読み込む
-  const { cookies } = JSON.parse(await readFile(AUTH_FILE, 'utf8')) as {
-    cookies: { name: string; value: string }[];
-  };
+  const redirectUri = `http://127.0.0.1:${server.port}/oauth-callback`;
+  // 作るのは E2E ユーザー（ワーカーのログイン状態の Cookie で名乗る。`test.ts`）。サーバーのコードはこのテストでだけ読み込む
+  const { cookies } = signedIn;
   const { getAuth } = await import('../server/lib/auth.ts');
   const { client_id: clientId } = await (await getAuth()).api.createOAuthClient({
     headers: new Headers({

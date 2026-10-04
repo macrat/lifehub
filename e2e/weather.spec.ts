@@ -1,9 +1,10 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
 import { appBar, bottomOf } from './layout.ts';
 import { rewriteJson } from './network.ts';
+import { expect, test } from './test.ts';
 import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**

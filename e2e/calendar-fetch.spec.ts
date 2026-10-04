@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { countFetches, quiet } from './network.ts';
+import { expect, test } from './test.ts';
 import { changeView, recordViewTransitions } from './view.ts';
 
 /**

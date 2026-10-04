@@ -1,8 +1,9 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
 import { addOnCalendar } from './events.ts';
 import { carries, stall } from './network.ts';
+import { expect, test } from './test.ts';
 import { changeView } from './view.ts';
 
 /** スマホの追加ボタンからの予定の入力: 閉じるまでの日表示と、閉じた後の戻り先 */

@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { openHome } from './auth.ts';
 import { OFFLINE_MESSAGE, offlineIndicator } from './layout.ts';
 import { carriedJson, carries } from './network.ts';
+import { expect, test } from './test.ts';
 
 test('オフラインでも 2 回目以降はキャッシュから起動し、記録はオンラインに戻ったときに送られる', async ({
   page,
