@@ -107,7 +107,7 @@ function QuickSheet({
       onChangeInset={onChangeInset}
     >
       <QuickFormBox
-        formRef={quick.form.formRef}
+        formRef={form.formRef}
         onSubmit={form.handleSubmit}
         sx={{ flexGrow: 1, minHeight: 0 }}
       >
@@ -208,7 +208,7 @@ function QuickBubble({
             }}
             sx={{ width: 340 }}
           >
-            <QuickFormBox formRef={quick.form.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
+            <QuickFormBox formRef={form.formRef} onSubmit={form.handleSubmit} sx={{ pt: 1 }}>
               <Stack direction="row" sx={{ pl: 2, pr: 1, alignItems: 'center' }}>
                 <Box sx={{ flexGrow: 1 }}>
                   <Switcher draft={draft} quick={quick} />
