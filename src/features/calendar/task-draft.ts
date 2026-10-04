@@ -1,9 +1,4 @@
-import {
-  type CalendarTaskItem,
-  normalizeIsoInstants,
-  TASK_TIME_LABELS,
-  taskTime,
-} from '../../../shared/calendar.ts';
+import { type CalendarTaskItem, TASK_TIME_LABELS, taskTime } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatEdge, fromDateValue } from '../../lib/date.ts';
 import { carriedValues, type ItemFormValues } from '../events/form-values.ts';
@@ -80,10 +75,9 @@ function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; star
 export function taskDraftFromInput(input: WhenInput): TaskTimes | null {
   const { allDay, startsAt } = input;
   if (startsAt === null) return null;
-  return withTaskAllDay(
-    { startsAt: normalizeIsoInstants(allDay, startsAt, null).startsAt },
-    allDay,
-  );
+  // 終日はその日の 0:00（保存形式）にそろえる
+  const start = allDay ? fromDateValue(toDateString(new Date(startsAt))) : startsAt;
+  return withTaskAllDay({ startsAt: start }, allDay);
 }
 
 /**
@@ -101,7 +95,7 @@ function withTaskAllDay({ startsAt }: Pick<TaskTimes, 'startsAt'>, allDay: boole
  * 終日かどうかも元の日時が持つので、予定と同じく入力の側には状態を持たない。
  */
 export function taskDraftOps(task: TaskTimes, { range, item }: Draft): DraftOps {
-  const values = { ...carriedValues(item, 'task'), ...taskTimesAt(task, range) };
+  const values = { ...carriedValues(item, 'task'), ...taskTimesAt(task, range), endsAt: null };
   return {
     values,
     rangeText: taskDraftText(values),

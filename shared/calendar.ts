@@ -67,7 +67,12 @@ export type CalendarItem =
       dayIndex: number;
       dayCount: number;
     })
-  | (Occurrence & { kind: 'task'; placementDate: DateString });
+  | (Occurrence & {
+      kind: 'task';
+      endsAt: null;
+      remindEndMinutes: null;
+      placementDate: DateString;
+    });
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
@@ -278,13 +283,13 @@ export function sortItems(items: CalendarItem[]): CalendarItem[] {
  * - 完了 → 完了した日
  */
 function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { kind: 'task' }> {
-  const todayDate = today(now);
+  // タスクは終わりを持たない（保存の規則で null。型でも予定の項目と分ける）
+  const task = { ...occurrence, kind: 'task' as const, endsAt: null, remindEndMinutes: null };
   const { completedAt } = occurrence;
+  if (completedAt) return { ...task, placementDate: toDateString(new Date(completedAt)) };
   const startDate = toDateString(new Date(occurrence.startsAt));
-  let placementDate: DateString;
-  if (completedAt) placementDate = toDateString(new Date(completedAt));
-  else placementDate = startDate > todayDate ? startDate : todayDate;
-  return { ...occurrence, kind: 'task', placementDate };
+  const todayDate = today(now);
+  return { ...task, placementDate: startDate > todayDate ? startDate : todayDate };
 }
 
 /** 予定の発生を日ごとの項目にする（範囲外の日は除く） */

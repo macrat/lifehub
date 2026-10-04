@@ -126,7 +126,8 @@ export function carriedValues(
   kind: EventKind,
 ): ItemDetails {
   if (item === null) return EMPTY;
-  return item.kind === kind ? item : { ...item, remindEndMinutes: null };
+  const { allDay: _a, startsAt: _s, endsAt: _e, kind: _k, ...details } = item;
+  return item.kind === kind ? details : { ...details, remindEndMinutes: null };
 }
 
 /**
@@ -163,31 +164,26 @@ export function itemInputFromForm(
     kind,
     ...when,
     ...commonInput(formData, initial, { extras, thisOnly }),
-    remindStartMinutes: remindInput(formData, 'remindStartMinutes', initial, { extras, allDay }),
-    remindEndMinutes:
-      kind === 'event'
-        ? remindInput(formData, 'remindEndMinutes', initial, { extras: false, allDay })
-        : null,
+    remindStartMinutes: extras
+      ? remindSelected(formData)
+      : savedRemind(initial.remindStartMinutes, allDay),
+    remindEndMinutes: kind === 'event' ? savedRemind(initial.remindEndMinutes, allDay) : null,
   };
 }
 
+/** 開始前の通知の欄で選んだ値（何分前か。「通知しない」は null） */
+function remindSelected(formData: FormData): number | null {
+  const selected = formSelect(formData, 'remindStartMinutes');
+  return selected === null ? null : Number(selected);
+}
+
 /**
- * 通知（何分前か）の入力。欄を出していれば（`extras`）選んだ値、出していなければ既定値。
- * 既定値は、終日なら日単位（当日・前日）に寄せる（入力欄の既定値と同じ。`toAllDayRemind`）。
+ * 欄を出していない通知の値（既定値のまま）。終日なら日単位（当日・前日）に寄せる（入力欄の既定値と同じ。`toAllDayRemind`）。
  * 欄を出さずに終日へ切り替えた（PC の吹き出しで、つまんだ予定を終日欄へ動かした）ときに、
  * 終日では選べない「n 分前」のまま送って検証で止まらないように。
  */
-function remindInput(
-  formData: FormData,
-  name: 'remindStartMinutes' | 'remindEndMinutes',
-  initial: ItemFormValues,
-  { extras, allDay }: { extras: boolean; allDay: boolean },
-): number | null {
-  if (extras) {
-    const selected = formSelect(formData, name);
-    return selected === null ? null : Number(selected);
-  }
-  return allDay ? toAllDayRemind(initial[name]) : initial[name];
+function savedRemind(minutes: number | null, allDay: boolean): number | null {
+  return allDay ? toAllDayRemind(minutes) : minutes;
 }
 
 /**

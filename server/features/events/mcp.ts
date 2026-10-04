@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { defaultEventEnd } from '../../../shared/calendar.ts';
 import { today } from '../../../shared/date.ts';
 import {
-  type CreateEventInput,
   type EventKind,
   type EventPatch,
   eventFieldTypes,
@@ -58,9 +57,9 @@ const fields = {
     ),
 };
 
-/** 日付か日時の組から、終日かどうかを決める。日付と日時が混ざっていれば、揃えるよう文で返す */
-function allDayOf(...whens: (When | null | undefined)[]): boolean | undefined {
-  const given = whens.filter((w): w is When => w != null);
+/** 日付か日時の組から、終日かどうかを決める（どれも省かれていれば undefined）。日付と日時が混ざっていれば、揃えるよう文で返す */
+function allDayOf(...whens: (When | undefined)[]): boolean | undefined {
+  const given = whens.filter((w): w is When => w !== undefined);
   if (given.length === 0) return undefined;
   const allDay = given[0]?.date !== undefined;
   if (given.some((w) => (w.date !== undefined) !== allDay)) {
@@ -90,22 +89,19 @@ const whenFields = {
 };
 
 /**
- * 種類 kind の終わり（予定の終了とその前の通知）。タスクに渡されていれば文で返す
+ * 種類 kind がタスクなのに終わり（予定の終了とその前の通知）が渡されていれば文で返す。
+ * 規則そのものは書き込みの検証（`taskHasNoEnd`）が守るが、ここでは LLM が渡した項目の名前で直し方を返す
  * （黙って捨てると、LLM は締め切りを入れたつもりになる）。
  */
-function endOf(
+function rejectTaskEnd(
   kind: EventKind,
-  input: {
-    end?: When | undefined;
-    remindBeforeEnd?: CreateEventInput['remindEndMinutes'] | undefined;
-  },
-) {
+  input: { end?: When | undefined; remindBeforeEnd?: number | null | undefined },
+): void {
   if (kind === 'task' && (input.end !== undefined || input.remindBeforeEnd !== undefined)) {
     throw new ValidationError(
       'タスクは終了（期限）を持てません。end・remindBeforeEnd を外し、start（取りかかる日か日時）だけを渡してください',
     );
   }
-  return { endsAt: input.end, remind: input.remindBeforeEnd };
 }
 
 function registerAdd(server: McpServer, ctx: McpContext) {
@@ -133,7 +129,8 @@ function registerAdd(server: McpServer, ctx: McpContext) {
       annotations: ADDITIVE,
     },
     async (input) => {
-      const { endsAt: end, remind } = endOf(input.kind, input);
+      rejectTaskEnd(input.kind, input);
+      const { end } = input;
       if (input.kind === 'event' && !input.start) {
         throw new ValidationError('予定には start（開始）を指定してください');
       }
@@ -156,7 +153,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
           note: input.note ?? null,
           rrule: input.repeat ?? null,
           remindStartMinutes: input.remindBeforeStart ?? null,
-          remindEndMinutes: remind ?? null,
+          remindEndMinutes: input.remindBeforeEnd ?? null,
         },
         ctx.userId,
       );
@@ -194,20 +191,21 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       const ref = expectType(input.ref, ['event', 'task']);
       const target = occurrenceTargetOf(ref, input.scope);
       // 終わりを持てるかは変えた後の種類で決める（タスクを予定にするなら end を渡せる）
-      const { endsAt, remind } = endOf(input.kind ?? ref.type, input);
+      rejectTaskEnd(input.kind ?? ref.type, input);
+      const { end } = input;
       const people = await ctx.people();
       const patch: EventPatch = {
         kind: input.kind,
         title: input.title,
-        allDay: allDayOf(input.start, endsAt),
+        allDay: allDayOf(input.start, end),
         startsAt: input.start && instantOf(input.start),
-        endsAt: endsAt && instantOf(endsAt),
+        endsAt: end && instantOf(end),
         participantIds: input.participants && participantIdsOf(ctx, people, input.participants),
         location: input.location,
         note: input.note,
         rrule: input.repeat,
         remindStartMinutes: input.remindBeforeStart,
-        remindEndMinutes: remind,
+        remindEndMinutes: input.remindBeforeEnd,
       };
       const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
       return jsonResult(formatEvent(updated, people));

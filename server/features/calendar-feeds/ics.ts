@@ -23,7 +23,8 @@ export function toIcs(occurrences: Occurrence[], now: Date): string {
     ttl: REFRESH_SECONDS,
   });
   for (const occurrence of occurrences) {
-    if (!occurrence.startsAt || !occurrence.endsAt) continue;
+    // 終了を持たないもの（タスク）は書かない
+    if (!occurrence.endsAt) continue;
     const startsAt = new Date(occurrence.startsAt);
     const endsAt = new Date(occurrence.endsAt);
     calendar.createEvent({

@@ -76,6 +76,12 @@ export type NotifyTimes = Map<string, number>;
  * - 終日の項目: その日（n = 1440 なら前日。終日の n は 0 か 1440 だけ）の、参加者それぞれの通知時刻に。
  *   終日の項目には「n 分前」の瞬間が無く（0:00 の n 分前では夜中に届く）、朝に知りたい時刻は人それぞれなので
  */
+/** 通知する端の日時。終了は予定だけが持つ（タスクは null） */
+function anchorOf(item: CalendarItem, edge: Edge): string | null {
+  if (edge === 'start') return item.startsAt;
+  return item.kind === 'event' ? item.endsAt : null;
+}
+
 function remindTargets(
   item: CalendarItem,
   edge: Edge,
@@ -83,8 +89,8 @@ function remindTargets(
 ): { at: Date; userId: string | null }[] {
   if (item.completedAt !== null) return [];
   const minutes = edge === 'start' ? item.remindStartMinutes : item.remindEndMinutes;
-  const anchor = edge === 'start' ? item.startsAt : item.endsAt;
-  if (minutes === null || !anchor) return [];
+  const anchor = anchorOf(item, edge);
+  if (minutes === null || anchor === null) return [];
   if (!item.allDay)
     return [{ at: new Date(new Date(anchor).getTime() - minutes * 60 * 1000), userId: null }];
   const day = addDays(allDayDate(anchor, edge), -minutes / DAY_MINUTES);
@@ -138,7 +144,7 @@ const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
 /** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」） */
 function body(item: CalendarItem, edge: Edge): string {
   const label = EDGE_LABELS[edge];
-  const anchor = (edge === 'start' ? item.startsAt : item.endsAt) as string;
+  const anchor = anchorOf(item, edge) ?? item.startsAt;
   const when = item.allDay
     ? `${notificationDateFormatter.format(startOfDate(allDayDate(anchor, edge)))} 終日`
     : notificationTimeFormatter.format(new Date(anchor));

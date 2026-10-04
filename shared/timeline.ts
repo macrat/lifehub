@@ -97,7 +97,7 @@ export function memoEntry(memo: Memo): TimelineEntry {
   };
 }
 
-/** 行を置く日（JST の暦日）。日時を持たない行は今日にいる（最新のページに入る） */
+/** 行を置く日（JST の暦日）。日時を持たない行（開始を過ぎた未完了のタスク）は今日にいる（最新のページに入る） */
 export function entryDay(entry: TimelineEntry, now: Date = new Date()): DateString {
   return entry.at ? toDateString(new Date(entry.at)) : today(now);
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { clientIdShape, instantSchema, participantIdsSchema } from './common.ts';
+import { clientIdShape, instantSchema, instantSchemaWith, participantIdsSchema } from './common.ts';
 
 export const EVENT_KINDS = ['event', 'task'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -42,13 +42,8 @@ export const eventFieldTypes = {
   kind: z.enum(EVENT_KINDS),
   title: z.string().trim().min(1, 'タイトルを入力してください').max(200),
   allDay: z.boolean(),
-  /**
-   * 予定もタスクも必須。タスクは開始の日（終日）か日時だけを持つ。
-   * 形は `instantSchema` と同じで、空のときに入力欄へ出す言葉だけを足す
-   */
-  startsAt: z.iso
-    .datetime({ offset: true, error: '開始日時を入力してください' })
-    .transform((v) => new Date(v)),
+  /** 予定もタスクも必須。タスクは開始の日（終日）か日時だけを持つ */
+  startsAt: instantSchemaWith('開始日時を入力してください'),
   /** 予定の終了（必須）。タスクは持たない（null） */
   endsAt: instantSchema.nullable(),
   /** 1 人以上 */
