@@ -87,8 +87,8 @@ export function inRange(date: DateString, { from, to }: DateRange): boolean {
 }
 
 /**
- * カレンダーの 1 期間分（`calendar.get`）: 項目と、その期間の祝日（昇順）・天気（日ごとと 3 時間ごと）。
- * どれも期間の外の日は含まない。
+ * カレンダーの 1 か月分（`calendar.get` が月ごとに返す中身）: 項目と、その月の祝日（昇順）・天気（日ごとと 3 時間ごと）。
+ * どれもその月の外の日は含まない。
  */
 export type CalendarPeriod = {
   items: CalendarItem[];

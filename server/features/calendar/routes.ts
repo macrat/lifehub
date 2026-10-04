@@ -1,8 +1,8 @@
-import { dateRangeQuerySchema } from '../../../shared/validation/common.ts';
+import { calendarQuerySchema } from '../../../shared/validation/calendar.ts';
 import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 export const calendarRouter = router({
-  /** カレンダーの 1 期間分（項目と、その期間の祝日・天気） */
-  get: procedure.input(dateRangeQuerySchema).query(({ input }) => service.getCalendar(input)),
+  /** カレンダーの月ごとの中身（項目と、その月の祝日・天気）。頼んだ月をまとめて 1 回で返す */
+  get: procedure.input(calendarQuerySchema).query(({ input }) => service.getCalendar(input.months)),
 });

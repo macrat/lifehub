@@ -1,6 +1,7 @@
 import {
   type CalendarItem,
   type EventMaster,
+  inRange,
   type Occurrence,
   placeOccurrence,
   sortItems,
@@ -36,8 +37,35 @@ export async function listItems(
   now: Date = new Date(),
   filter: OccurrenceFilter = {},
 ): Promise<CalendarItem[]> {
-  const occurrences = await listOccurrences(range, now, filter);
-  return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
+  const rows = await readRows(range, filter.q);
+  return sortItems(place(expandRows(rows, range, now, filter), range, now));
+}
+
+/**
+ * 互いに重ならない期間ごとの項目（`listItems` と同じ並び）。行は全期間を覆う範囲で 1 度だけ読み、
+ * 予定はその範囲で 1 度だけ展開して期間ごとに分ける（カレンダーの月ごとの中身。`calendar/service.ts`）。
+ * 予定の項目は日ごとに置くので、広い範囲で展開して日で分けても、期間ごとに展開したものと同じになる。
+ * タスクは期間ごとに展開する: 繰り返しのタスクは期間の終わりまでの回から表示する回を選ぶ（`expandTask`）ので、
+ * 広い範囲で展開すると、どの期間と一緒に読んだかで期間の中身が変わってしまう。
+ * WHY NOT 期間ごとに `listItems` を呼ぶ: 同じ形の問い合わせが期間の数だけ走り（N+1）、
+ * 繰り返しの予定の展開も期間の数だけやり直す。
+ */
+export async function listItemsByRange(
+  ranges: readonly DateRange[],
+  now: Date = new Date(),
+): Promise<CalendarItem[][]> {
+  const [first] = ranges;
+  const last = ranges.at(-1);
+  if (!first || !last) return [];
+  const whole = { from: first.from, to: last.to };
+  const rows = await readRows(whole);
+  const events = place(expandRows(rows, whole, now, { kind: 'event' }), whole, now);
+  return ranges.map((range) =>
+    sortItems([
+      ...events.filter((item) => inRange(item.placementDate, range)),
+      ...place(expandRows(rows, range, now, { kind: 'task' }), range, now),
+    ]),
+  );
 }
 
 /**
@@ -54,12 +82,21 @@ export async function listItems(
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  { kind, q }: OccurrenceFilter = {},
+  filter: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
+  return expandRows(await readRows(range, filter.q), range, now, filter);
+}
+
+/** 展開の材料: 繰り返し元・単発の行と、繰り返し元ごとの実体化された回（基準日時のミリ秒 → 行） */
+type CalendarRows = {
+  masters: EventWithParticipants[];
+  bySeries: Map<string, Map<number, EventWithParticipants>>;
+};
+
+/** [from, to]（両端含む JST 暦日）に発生を持ちうる行を読み、繰り返し元・単発の行と実体化された回に仕分ける */
+async function readRows(range: DateRange, q?: string): Promise<CalendarRows> {
   const instants = instantRange(range);
   const rows = await repository.findCalendarRows(instants.from, instants.to, q);
-
-  // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
   const masters: EventWithParticipants[] = [];
   const bySeries = new Map<string, Map<number, EventWithParticipants>>();
   for (const row of rows) {
@@ -71,7 +108,20 @@ export async function listOccurrences(
     inner.set(row.occurrenceStart.getTime(), row);
     bySeries.set(row.seriesId, inner);
   }
+  return { masters, bySeries };
+}
 
+/**
+ * 読んだ行から [from, to]（両端含む JST 暦日）に掛かる発生を組み立てる（`listOccurrences`）。
+ * 行は range を覆う範囲で読んだものなら、range より広い範囲で読んだものでもよい（範囲の外の発生は除く）
+ */
+function expandRows(
+  { masters, bySeries }: CalendarRows,
+  range: DateRange,
+  now: Date,
+  { kind, q }: OccurrenceFilter,
+): Occurrence[] {
+  const instants = instantRange(range);
   const result: Occurrence[] = [];
   for (const master of masters) {
     if (kind && master.kind !== kind) continue;
@@ -81,6 +131,11 @@ export async function listOccurrences(
     );
   }
   return result.filter((o) => matchesKeyword(q, o.title, o.note));
+}
+
+/** 発生を [from, to]（両端含む JST 暦日）の暦日に置く（範囲の外の日は除く） */
+function place(occurrences: Occurrence[], range: DateRange, now: Date): CalendarItem[] {
+  return occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */

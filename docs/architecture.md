@@ -69,7 +69,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
 - クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 精算、`lemon.ts` = 世話の状態、`memos.ts` = ピン止めの並び、`timeline.ts` = タイムラインの行と日時）。繰り返しの展開だけはサーバーにしか無い。
-- 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `calendar.get` が返す `CalendarItem[]`（と、同じ応答に載るその期間の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
+- 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `calendar.get` が月ごとに返す `CalendarItem[]`（と、同じ応答に載るその月の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
 
@@ -84,7 +84,7 @@ src/                          # クライアント（Vite + React）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
-    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  view-transition.ts + move-animation.ts（画面と記録の動き）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  view-transition.ts + move-animation.ts（画面と記録の動き）  batch.ts（batchLoads: 同じ時点に頼まれた鍵をまとめて 1 回で読む）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
@@ -120,7 +120,7 @@ server/                       # サーバー（Hono）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
-  types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
+  types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換と年月（YYYY-MM）の計算）  color.ts（OKLCH の色）
   calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と精算の式）  lemon.ts（世話の記録と状態）
   memos.ts（メモの形とピン止めの並び）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
   search.ts（キーワードの一致と絞り込みの有無）  sort.ts（並べ替えのキーの比べ方）  sentry.ts
@@ -159,8 +159,9 @@ e2e/                          # Playwright（global-setup.ts で DB を用意す
 
 本番の応答時間は、処理の量より「待つ往復の回数」で決まる（Neon の HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回。関数は要求ごとに起動を待つことがある）。往復を減らす仕組みは、個々の画面や repository ではなく、次の 4 つの層に 1 つずつ置く。どれも呼び出し側の書き方を変えずに効く。
 
-1. **画面の API の呼び出しを 1 本にまとめる**（tRPC の `httpBatchLink`。`src/lib/api.ts`、サーバーは `server/lib/trpc.ts` と `server/app.ts` の `/api/trpc`）: 画面は機能ごと・月ごとのクエリを並べて読むので、開くと呼び出しが何本も同時に出る（ホームはユーザー・タイムライン・天気・レモン、カレンダーは表示に掛かる月の数）。同じ時点に出た呼び出しは 1 本の要求（読み出しは GET、書き込みは POST）で送られ、サーバーはその中の手続きを並べて実行する。
+1. **画面の API の呼び出しを 1 本にまとめる**（tRPC の `httpBatchLink`。`src/lib/api.ts`、サーバーは `server/lib/trpc.ts` と `server/app.ts` の `/api/trpc`）: 画面は機能ごと・月ごとのクエリを並べて読むので、開くと呼び出しが何本も同時に出る（ホームはユーザー・タイムライン・天気・レモン）。同じ時点に出た呼び出しは 1 本の要求（読み出しは GET、書き込みは POST）で送られ、サーバーはその中の手続きを並べて実行する。
    - キャッシュの単位はクエリ（機能ごと・月ごと）のまま変わらず、まとめるのは運び方だけ。書き込みの後の取り直しも、その時点に取り直すクエリだけがまとまる。WHY NOT 画面ごとに要るものを返す API: キャッシュが画面ごとの大きな塊になり、一部だけの取り直しも、画面の間でのデータの分け合いもできなくなる。
+   - 運び方をまとめても、サーバーでは手続きごとに問い合わせが走る。同じ手続きを鍵（カレンダーの月）だけ変えて並べると、往復は 1 回でも同じ形の問い合わせが鍵の数だけ走る（N+1。文の数と DB の負荷が鍵の数に比例する）。そうなるクエリは、キャッシュの単位を鍵ごとに保ったまま、同じ時点に要る鍵をクライアントでまとめて 1 回の手続きで頼み（`src/lib/batch.ts` の `batchLoads`）、サーバーは鍵をすべて覆う範囲を 1 組の問い合わせで読んで鍵ごとに分ける（[features/calendar.md](features/calendar.md#api)）。
    - WHY tRPC: まとめて運ぶ仕組み・型の伝え方・入力の検証を自分で書かずに済む。WHY NOT GraphQL: 取り出す項目を画面が選ぶ仕組みは、画面専用で応答の形をサーバーが決めているこの API には要らず、スキーマと resolver を別に書く分だけ増える。
    - 手続きごとに Sentry のスパンを作る（`trpc/timeline.get`。1 本の要求に載った手続きのどれに時間が掛かったかを見る。[operations.md](operations.md#監視sentry)）。
 2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `userProcedure` で検証を待ち、`ctx.userId` で ID を読む。書き込みは検証が通ってから走らせる。
