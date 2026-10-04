@@ -71,7 +71,8 @@
 - `starts_at` は予定・タスクとも必須（NOT NULL）。`ends_at`（終了）と `remind_end_minutes`（終了前の通知）は予定だけが持ち、予定では `ends_at` が必須、タスクではどちらも null（CHECK）。`completed_at` はタスクだけが持つ（CHECK）。
 - 通知の分は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし（終日は 0 / 1440 だけ。CHECK。[notifications.md](notifications.md)）。
 - 終日は `all_day=true` かつ `starts_at`=JST 0:00、予定の `ends_at`=翌日 JST 0:00（終端は排他的）。API 入力の `endsAt` は終日では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00 に正規化する。レスポンスの `endsAt` は常に排他的。
-- API の入力でタスクに `endsAt` か `remindEndMinutes` を渡すと拒否する（`shared/validation/events.ts` の `taskHasNoEnd`）。WHY NOT 黙って捨てる: 送った側は終わりを保存したと思い込む。
+- 入力の形は `kind` の判別共用体（`shared/validation/events.ts` の `eventSchemaWith`）: 予定は `endsAt` が必須、タスクは `endsAt`・`remindEndMinutes` を持たず、渡すと拒否する。WHY NOT 黙って捨てる: 送った側は終わりを保存したと思い込む。
+  - 同じ形を、API の入力（日時は ISO 文字列）と、MCP の部分更新を今の値に重ねた後の値（日時は Date。`eventRulesSchema`）の 2 つに作る。形と項目をまたぐ規則（終了は開始以降、終日の通知は日単位）を 1 か所に保ち、どの経路の書き込みも同じ検証を通って種別の形になる。
 - 繰り返しは RRULE 文字列（`rrule` 列、DTSTART を含まない正規形）。DTSTART（基準日時）は `starts_at`。UNTIL は JST の壁時計として解釈する（`UNTIL=20261231T235959` = JST 12/31 23:59:59）。頻度は日以上（HOURLY 以下は拒否）。繰り返しでは開始と終了の両方が回ごとに同じ間隔でずれる。
 - **繰り返しの展開**は `server/lib/recurrence` で行い、触っていない回の行は作らない（繰り返し元 + 実体化した回 で表現する）。展開は要求された期間内に限り、RRULE の `UNTIL`/`COUNT` を尊重する。RRULE は `Asia/Tokyo` の壁時計で評価する（DST なし）。rrule ライブラリの走査は必ず DTSTART から始まるため、1 つのルールにつき走査は 1 回だけにし、必要な窓の外は瞬間に戻さず読み飛ばす（`expandOccurrences` の `lookbehind` / `lookahead`）。
 - フォームは頻度（毎日／毎週／毎月／毎年）と終了日だけを扱う。BYDAY などの詳細ルールは API / MCP から RRULE で直接指定でき、フォームでは表示のみ。

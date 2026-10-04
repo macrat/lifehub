@@ -9,6 +9,7 @@ import {
   type CompleteEventInput,
   type CreateEventInput,
   type EventPatch,
+  type EventValues,
   eventRulesSchema,
   type OccurrenceTarget,
   type UpdateEventInput,
@@ -55,7 +56,7 @@ export async function patchEvent(
  * patch に end があれば、後で重ねるそれになる）。開始は patch に渡されていればそれを引き継ぐ
  * （「このタスクを明日 10 時の予定にして」で、終了が 10 時の 1 時間後になるように）。
  */
-function switchedKind(current: CreateEventInput, patch: EventPatch): CreateEventInput {
+function switchedKind(current: EventValues, patch: EventPatch): EventValues {
   const { kind } = patch;
   if (kind === undefined || kind === current.kind) return current;
   const allDay = patch.allDay ?? current.allDay;
@@ -68,7 +69,7 @@ function switchedKind(current: CreateEventInput, patch: EventPatch): CreateEvent
  * WHY: 終日の日時は保存のときに 0:00 に丸める（`normalizeInstants`）ので、省いた端を今のまま残すと、
  * 「終了を日付にして」で開始の時刻が 0:00 に切り詰められるように、省いた項目が黙って変わる。
  */
-function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
+function requireBothEnds(current: EventValues, patch: EventPatch): void {
   if (patch.allDay === undefined || patch.allDay === current.allDay) return;
   const omitted =
     patch.startsAt === undefined || (current.endsAt !== null && patch.endsAt === undefined);
@@ -85,7 +86,7 @@ function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
  * 開始が終了を追い越して規則の誤りになるか、予定が意図せず伸び縮みする。
  * 終日と時刻ありの切り替えでは両端が指定されている（`requireBothEnds`）ので、ここには来ない。
  */
-function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
+function keepDuration(current: EventValues, patch: EventPatch): EventPatch {
   const { startsAt, endsAt } = current;
   if (!endsAt || !patch.startsAt || patch.endsAt !== undefined) return patch;
   const duration = endsAt.getTime() - startsAt.getTime();
@@ -93,14 +94,14 @@ function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch 
 }
 
 /**
- * 書き込みの対象の今の値を、作成・更新の入力の形で返す。
+ * 書き込みの対象の今の値を、作成・更新の入力の項目で返す（種別で分ける前の平らな値。分けるのは規則を掛ける所）。
  * all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
  * 繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう。
  */
 async function currentInput(
   master: EventWithParticipants,
   input: OccurrenceTarget,
-): Promise<CreateEventInput> {
+): Promise<EventValues> {
   const target = resolveTarget(master, input);
   const row =
     target.scope === 'all' ? master : await occurrenceRowOf(master, target.occurrenceStart);
@@ -120,11 +121,12 @@ async function currentInput(
 
 /**
  * id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
- * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
- * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ * 形と組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた平らな値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめて種別の形にする
+ * （部分更新の `applyPatch` と同じ）。
  */
 export async function createEvent(
-  input: CreateEventInput,
+  input: EventValues,
   userId: string,
   id: string = newId(),
 ): Promise<EventMaster> {
@@ -139,11 +141,15 @@ export async function createEvent(
 
 export async function updateEvent(
   id: string,
-  input: UpdateEventInput,
+  input: EventValues & OccurrenceTarget,
   userId: string,
 ): Promise<void> {
-  checkRules(input, eventRulesSchema);
-  await writeUpdate(await findMaster(id), input, userId);
+  // 回の指定（scope・occurrenceStart）は入力のまま、項目は規則を通した種別の形にする
+  await writeUpdate(
+    await findMaster(id),
+    { ...input, ...checkRules(input, eventRulesSchema) },
+    userId,
+  );
 }
 
 /** 書き換え、通知を予約し直し、直したことを MCP Events で知らせる。書いた後の予定・タスクを返す */

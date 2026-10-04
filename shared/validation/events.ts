@@ -33,19 +33,16 @@ const rruleSchema = z
 const remindMinutesSchema = z.union(REMIND_BEFORE_OPTIONS.map((v) => z.literal(v))).nullable();
 
 /**
- * 予定・タスクの項目の型。既定値は持たせない: 部分更新（MCP の予定の更新）では
+ * 予定・タスクの日時以外の項目の型。既定値は持たせない: 部分更新（MCP の予定の更新）では
  * 「省いた（今の値のまま）」と「null にする（消す）」を見分ける必要があり、既定値があると
  * 省いた項目が既定値で埋まってしまう（zod の partial は既定値を外さない）。
  * MCP は項目の名前と日時の形を LLM に合わせて変えるが、項目ごとの規則（長さ・選択肢）はここから取る。
+ * 日時は形（入力の文字列か、検証済みの Date か）で型が変わるので `eventSchemaWith` が組む。
  */
 export const eventFieldTypes = {
   kind: z.enum(EVENT_KINDS),
   title: z.string().trim().min(1, 'タイトルを入力してください').max(200),
   allDay: z.boolean(),
-  /** 予定もタスクも必須。タスクは開始の日（終日）か日時だけを持つ */
-  startsAt: instantSchemaWith('開始日時を入力してください'),
-  /** 予定の終了（必須）。タスクは持たない（null） */
-  endsAt: instantSchema.nullable(),
   /** 1 人以上 */
   participantIds: participantIdsSchema,
   location: z.string().trim().max(200).nullable(),
@@ -54,42 +51,61 @@ export const eventFieldTypes = {
   rrule: rruleSchema.nullable(),
   /** 開始の n 分前に通知 */
   remindStartMinutes: remindMinutesSchema,
-  /** 予定の終了の n 分前に通知。タスクは持たない（null） */
+  /** 予定の終了の n 分前に通知 */
   remindEndMinutes: remindMinutesSchema,
 };
 
-/** 作成・更新（全項目の置き換え）の項目。省いた項目は既定（終日でない・終了なし・通知なし など）になる */
-const eventFields = {
-  ...eventFieldTypes,
-  allDay: eventFieldTypes.allDay.default(false),
-  endsAt: eventFieldTypes.endsAt.default(null),
-  location: eventFieldTypes.location.default(null),
-  note: eventFieldTypes.note.default(null),
-  rrule: eventFieldTypes.rrule.default(null),
-  remindStartMinutes: eventFieldTypes.remindStartMinutes.default(null),
-  remindEndMinutes: eventFieldTypes.remindEndMinutes.default(null),
-};
-
-/** 予定・タスクの項目（検証後）。規則（下の refine）はこの形を読む */
-type EventFieldsOutput = z.output<z.ZodObject<typeof eventFields>>;
-
-const eventHasEnd = (v: EventFieldsOutput) => v.kind !== 'event' || v.endsAt !== null;
-const eventEndMessage = { message: '終了日時を入力してください', path: ['endsAt'] };
 /**
- * タスクは終わり（終了・その前の通知）を持たない。開始の日（終日）か日時だけで、完了するまで今日に繰り越される。
- * WHY NOT 黙って捨てる: 渡された終わりを消して保存すると、送った側は保存されたと思い込む。
+ * 予定・タスクの形（種別 kind の判別共用体）。作成・更新（全項目の置き換え）の項目で、省いた項目は既定
+ * （終日でない・通知なし など）になる。予定は終了を必ず持ち、タスクは終わり（終了・その前の通知）を持たない。
+ * WHY 判別共用体: 予定とタスクで違う項目を形そのもので分け、検証を通った値の型からも
+ * 「タスクの終了」を読めなくする。
+ * WHY NOT 黙って捨てる（タスクの終わり）: 渡された終わりを消して保存すると、送った側は保存されたと思い込む。
+ * 日時の型を引数にするのは、API の入力（ISO 文字列 → Date）と、部分更新を今の値に重ねた後の値（Date のまま）を
+ * 同じ形と規則で確かめるため（`createEventSchema` / `eventRulesSchema`）。
  */
-const taskHasNoEnd = (v: EventFieldsOutput) =>
-  v.kind !== 'task' || (v.endsAt === null && v.remindEndMinutes === null);
-const taskEndMessage = { message: 'タスクは終了日時を持てません', path: ['endsAt'] };
-const endAfterStart = (v: EventFieldsOutput) =>
+function eventSchemaWith<I extends z.ZodType<Date>>(
+  /** 日時の型を、空や形の誤りのときに入力欄へ出す言葉ごとに作る */
+  instant: (error: string) => I,
+) {
+  const common = {
+    title: eventFieldTypes.title,
+    allDay: eventFieldTypes.allDay.default(false),
+    /** 予定もタスクも必須。タスクは開始の日（終日）か日時だけを持つ */
+    startsAt: instant('開始日時を入力してください'),
+    participantIds: eventFieldTypes.participantIds,
+    location: eventFieldTypes.location.default(null),
+    note: eventFieldTypes.note.default(null),
+    rrule: eventFieldTypes.rrule.default(null),
+    remindStartMinutes: eventFieldTypes.remindStartMinutes.default(null),
+  };
+  return z.discriminatedUnion('kind', [
+    z.object({
+      ...common,
+      kind: z.literal('event'),
+      endsAt: instant('終了日時を入力してください'),
+      remindEndMinutes: eventFieldTypes.remindEndMinutes.default(null),
+    }),
+    z.object({
+      ...common,
+      kind: z.literal('task'),
+      endsAt: z.null({ error: 'タスクは終了日時を持てません' }).default(null),
+      remindEndMinutes: z.null({ error: 'タスクは終了前の通知を持てません' }).default(null),
+    }),
+  ]);
+}
+
+/** 予定・タスクの項目（検証後）。組み合わせの規則（下の refine）はこの形を読む */
+export type CreateEventInput = z.output<typeof inputEventSchema>;
+
+const endAfterStart = (v: CreateEventInput) =>
   v.endsAt === null || v.endsAt.getTime() >= v.startsAt.getTime();
 const endMessage = { message: '終了日時は開始日時以降にしてください', path: ['endsAt'] };
 /** 終日の通知は日単位だけ（`ALL_DAY_REMIND_OPTIONS`）。誤りはその通知の欄に出す */
 const allDayRemindRule = (
   field: 'remindStartMinutes' | 'remindEndMinutes',
-): [(v: EventFieldsOutput) => boolean, { message: string; path: string[] }] => [
-  (v: EventFieldsOutput) => {
+): [(v: CreateEventInput) => boolean, { message: string; path: string[] }] => [
+  (v: CreateEventInput) => {
     const minutes = v[field];
     return (
       !v.allDay ||
@@ -102,34 +118,42 @@ const allDayRemindRule = (
     path: [field],
   },
 ];
+
 /**
- * 予定・タスクの項目の組み合わせの規則。作成と更新（と MCP の部分更新を重ねた後の値）が同じ規則を通るよう、
+ * 予定・タスクの項目をまたぐ規則。作成と更新（と MCP の部分更新を重ねた後の値）が同じ規則を通るよう、
  * 規則はここ 1 か所に並べ、スキーマの形（回の指定の有無）とは切り離す。
  */
-function withEventRules<T extends z.ZodType<EventFieldsOutput>>(schema: T): T {
+function withEventRules<T extends z.ZodType<CreateEventInput>>(schema: T): T {
   return schema
-    .refine(eventHasEnd, eventEndMessage)
-    .refine(taskHasNoEnd, taskEndMessage)
     .refine(endAfterStart, endMessage)
     .refine(...allDayRemindRule('remindStartMinutes'))
     .refine(...allDayRemindRule('remindEndMinutes'));
 }
 
-export const createEventSchema = withEventRules(z.object(eventFields));
+const inputEventSchema = eventSchemaWith(instantSchemaWith);
+
+export const createEventSchema = withEventRules(inputEventSchema);
+
+/**
+ * 種別で分ける前の平らな値。予定とタスクの項目を 1 つの形に並べたもので、DB の行から組み立てた今の値や、
+ * MCP が LLM の入力から組み立てた値はこの形で持ち、書き込む所で `eventRulesSchema` を通して種別の形にする。
+ */
+export type EventValues = { [K in keyof CreateEventInput]: CreateEventInput[K] };
 
 /**
  * 部分更新（MCP の予定の更新）。省いた項目は今の値のまま、null は消す。
  * 種別を変えるときは、画面と同じく開始だけを引き継ぐ（`patchEvent`）。
- * 組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
+ * 形と組み合わせの規則は、今の値に重ねた後で `eventRulesSchema` が確かめる。
  */
-export type EventPatch = Partial<CreateEventInput>;
+export type EventPatch = Partial<EventValues>;
 
-/** 検証済みの値（今の値に部分更新を重ねたもの）に組み合わせの規則だけを掛ける */
-export const eventRulesSchema = withEventRules(z.custom<EventFieldsOutput>());
-export type CreateEventInput = z.infer<typeof createEventSchema>;
+/** 検証済みの日時（Date）の値を、API の入力と同じ形と規則で確かめて種別の形にする（部分更新を重ねた後の値など） */
+export const eventRulesSchema = withEventRules(eventSchemaWith((error) => z.date({ error })));
 
 /** API（`events.create`）が受け取る作成の入力（`clientIdShape`） */
-export const createEventRequestSchema = createEventSchema.safeExtend(clientIdShape);
+export const createEventRequestSchema = withEventRules(
+  inputEventSchema.and(z.object(clientIdShape)),
+);
 
 /** 繰り返しの編集・削除の範囲。単発では `all` 扱い。 */
 const recurrenceScopeSchema = z.enum(['all', 'this', 'following']);
@@ -151,7 +175,7 @@ export const occurrenceTargetSchema = z.discriminatedUnion('scope', [
 ]);
 export type OccurrenceTarget = z.infer<typeof occurrenceTargetSchema>;
 
-export const updateEventSchema = withEventRules(z.object(eventFields).and(occurrenceTargetSchema));
+export const updateEventSchema = withEventRules(inputEventSchema.and(occurrenceTargetSchema));
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 
 /** 完了・完了取り消し（タスクのみ）。繰り返しでは occurrenceStart で回を指定する（完了は常に 1 つの回に対して行う） */

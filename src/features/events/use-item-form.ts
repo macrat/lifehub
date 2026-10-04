@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  type CreateEventInput,
   createEventSchema,
   type EventKind,
   type RecurrenceScope,
@@ -39,12 +40,7 @@ export function useItemForm({
   const form = useFormSubmit({
     schema: createEventSchema,
     values: inputFromForm,
-    onSubmit: (data) =>
-      onSubmit({
-        ...data,
-        startsAt: data.startsAt.toISOString(),
-        endsAt: data.endsAt?.toISOString() ?? null,
-      }),
+    onSubmit: (data) => onSubmit(toBody(data)),
     onSaved,
   });
 
@@ -69,6 +65,14 @@ export function useItemForm({
     /** `RecordSheet` にそのまま広げる props（`useFormSubmit` の sheet と form） */
     sheet: { ...form.sheet, formRef },
   };
+}
+
+/** 検証済みの値 → API に送る形（日時を ISO 文字列に戻す。終了を持つのは予定だけ） */
+function toBody(data: CreateEventInput): CreateEventBody {
+  const startsAt = data.startsAt.toISOString();
+  return data.kind === 'event'
+    ? { ...data, startsAt, endsAt: data.endsAt.toISOString() }
+    : { ...data, startsAt };
 }
 
 /**
