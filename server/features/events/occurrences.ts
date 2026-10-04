@@ -13,6 +13,7 @@ import {
   today,
 } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -50,6 +51,16 @@ export async function listItems(
  * 展開は繰り返し 1 つにつき期間の長さぶん走るので、片方しか要らない呼び出し（ics の配信は 1 年以上を読み、
  * 予定しか出さない）が、捨てるものを読んで展開してから捨てずに済む。
  */
+export async function listOccurrences<K extends EventKind>(
+  range: DateRange,
+  now: Date,
+  filter: OccurrenceFilter & { kind: K },
+): Promise<Extract<Occurrence, { kind: K }>[]>;
+export async function listOccurrences(
+  range: DateRange,
+  now?: Date,
+  filter?: OccurrenceFilter,
+): Promise<Occurrence[]>;
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
@@ -206,8 +217,10 @@ function overlaps(startsAt: Date, endsAt: Date, range: InstantRange): boolean {
 /** 予定: [from, to) と重なる発生 */
 function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const { master } = ctx;
-  if (!master.endsAt) return [];
-  const duration = master.endsAt.getTime() - master.startsAt.getTime();
+  // 行を種別の形にして終了を読む（予定は終了を必ず持つ。持たない行は `toMaster` が知らせる）
+  const shape = toMaster(master);
+  if (shape.kind !== 'event') return [];
+  const duration = Date.parse(shape.endsAt) - master.startsAt.getTime();
   const starts = master.rrule
     ? expandOccurrences({
         rrule: master.rrule,

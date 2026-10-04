@@ -72,7 +72,7 @@ function switchedKind(current: EventValues, patch: EventPatch): EventValues {
 function requireBothEnds(current: EventValues, patch: EventPatch): void {
   if (patch.allDay === undefined || patch.allDay === current.allDay) return;
   const omitted =
-    patch.startsAt === undefined || (current.endsAt !== null && patch.endsAt === undefined);
+    patch.startsAt === undefined || (current.kind === 'event' && patch.endsAt === undefined);
   if (omitted) {
     throw new ValidationError(
       '終日と時刻ありを切り替えるときは、開始（予定なら終了も）を指定してください',
@@ -88,6 +88,7 @@ function requireBothEnds(current: EventValues, patch: EventPatch): void {
  */
 function keepDuration(current: EventValues, patch: EventPatch): EventPatch {
   const { startsAt, endsAt } = current;
+  // 終了を持つのは予定だけ（平らな値なので、終了の有無で絞る）
   if (!endsAt || !patch.startsAt || patch.endsAt !== undefined) return patch;
   const duration = endsAt.getTime() - startsAt.getTime();
   return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };

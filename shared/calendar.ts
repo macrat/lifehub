@@ -266,8 +266,9 @@ function taskAnchor(task: TaskTimeSource): {
  */
 export function taskTimeOnPlacementDate(
   task: Extract<CalendarItem, { kind: 'task' }>,
+  /** 求め済みの `taskTime`（無ければここで求める） */
+  time: TaskTime = taskTime(task),
 ): TaskTime | null {
-  const time = taskTime(task);
   return time.date === task.placementDate ? time : null;
 }
 
@@ -303,13 +304,15 @@ export function placeOccurrence(
  *   （今日を含む予定は、終わるまで今日の予定として出す）
  * - タスク: 表示規則（`placeTask`）の日
  */
-export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem | null {
+export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem {
   if (occurrence.kind === 'task') return placeTask(occurrence, now);
   const first = toDateString(new Date(occurrence.startsAt));
   const todayDate = today(now);
   // 始まる日から今日までの項目の最後の日。期間の外の日は placeEvent が除くので、終わる日で止まる
   const to = occurrence.allDay && todayDate > first ? todayDate : first;
-  return placeEvent(occurrence, { from: first, to }).at(-1) ?? null;
+  const items = placeEvent(occurrence, { from: first, to });
+  // 始まる日は必ず期間に入るので、少なくとも 1 件ある
+  return items[items.length - 1] as CalendarItem;
 }
 
 /** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 */

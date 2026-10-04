@@ -38,7 +38,7 @@ async function entries(
 ): Promise<TimelineEntry[]> {
   const days = { from: toDateString(range.from), to: inclusiveEndDate(range.to.toISOString()) };
   return (await listOccurrences(days, now, { q }))
-    .flatMap((o) => placeOnce(o, now) ?? [])
+    .map((o) => placeOnce(o, now))
     .map((item) => eventEntry(item, now));
 }
 

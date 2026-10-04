@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
 import { dateRangeQuerySchema } from '../../../../shared/validation/common.ts';
-import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, listItems } from '../service.ts';
-import { now, september } from './service-fixtures.ts';
+import { now, september, taskInput } from './service-fixtures.ts';
 
 /** 繰り返しのタスクの表示する回は、今と繰り返しだけで決まり、読む範囲によらない（docs/features/events.md） */
 describe('繰り返しのタスクの表示は読む範囲によらない', () => {
@@ -16,13 +15,7 @@ describe('繰り返しのタスクの表示は読む範囲によらない', () =
   /** 毎月のタスク（開始の回が未来ならその日、過去なら今日に置く） */
   const monthly = (startsAt: string) =>
     createEvent(
-      createEventSchema.parse({
-        kind: 'task',
-        title: '支払い',
-        startsAt: iso(startsAt),
-        participantIds: [userId],
-        rrule: 'FREQ=MONTHLY',
-      }),
+      taskInput(userId, { title: '支払い', startsAt: iso(startsAt), rrule: 'FREQ=MONTHLY' }),
       userId,
     );
 

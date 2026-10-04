@@ -12,12 +12,11 @@ import {
   uncompleteEvent,
   updateEvent,
 } from '../service.ts';
-import { now, september } from './service-fixtures.ts';
+import { now, september, taskInput } from './service-fixtures.ts';
 
 let userId: string;
 
-const task = (input: Record<string, unknown>) =>
-  createEventSchema.parse({ kind: 'task', participantIds: [userId], ...input });
+const task = (input: Record<string, unknown>) => taskInput(userId, input);
 
 const weeklyTask = () =>
   createEventSchema.parse({

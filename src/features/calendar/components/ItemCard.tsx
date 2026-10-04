@@ -7,6 +7,7 @@ import {
   isCompletedTask,
   TASK_TIME_LABELS,
   taskTime,
+  taskTimeOnPlacementDate,
 } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
@@ -121,7 +122,7 @@ function taskTimeLabel(item: CalendarTaskItem): TimeLabel {
   const caption = TASK_TIME_LABELS[time.kind];
   if (time.at === null)
     return { caption, main: isToday(time.date) ? '今日' : formatDate(time.date) };
-  return time.date === item.placementDate
+  return taskTimeOnPlacementDate(item, time)
     ? { caption, main: formatTime(time.at) }
     : { caption, main: formatDate(time.at), sub: formatTime(time.at) };
 }
