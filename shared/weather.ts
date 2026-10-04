@@ -43,7 +43,7 @@ export type HourlyWeather = {
   label: string;
 };
 
-/** 期間の天気（`calendar.get` の各月の `weather`）。日ごとの天気と 3 時間ごとの天気 */
+/** 期間の天気（`calendar.get` の `weather`）。日ごとの天気と 3 時間ごとの天気 */
 export type WeatherInRange = { daily: DailyWeather[]; hourly: HourlyWeather[] };
 
 /**

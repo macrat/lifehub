@@ -17,8 +17,6 @@ test('表示を切り替えても取り直さず、画面に入ったときだ�
   await page.goto('/calendar?view=month&date=2030-05-15');
   await expect(page.getByText('2030年05月')).toBeVisible();
   await quiet(page, fetches);
-  // 出している月（前後の月の面に掛かる 5 か月）は、まとめて 1 回で頼む（`batchLoads`）
-  expect(fetches()).toBe(1);
 
   // 表示の切り替えでは 1 件も取りに行かない（リストは端へ近づくと前後の月を読み足す無限スクロールなので数えない）
   const afterEnter = fetches();

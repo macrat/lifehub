@@ -139,10 +139,11 @@ test('なぞって開いた予定の入力は上端でタスクに切り替え�
   await expect(block).toBeVisible();
   expect((await updated).ok()).toBe(true);
 
-  const { '2031-06': june } = await apiOf(page.request).calendar.get.query({
-    months: ['2031-06'],
+  const { items } = await apiOf(page.request).calendar.get.query({
+    from: '2031-06-26',
+    to: '2031-06-26',
   });
-  const saved = june?.items.find((item) => item.title === title);
+  const saved = items.find((item) => item.title === title);
   expect(saved?.kind).toBe('event');
   if (saved) await deleteItem(page, saved.id);
 });

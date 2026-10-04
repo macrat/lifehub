@@ -4,12 +4,11 @@ import { TIME_ZONE } from '../../shared/constants.ts';
 import {
   addDays,
   allDayDate,
-  firstDayOfMonth,
+  type DateRange,
   isDateString,
   startOfDate,
   toDateString,
   today,
-  toMonthString,
 } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
 
@@ -158,6 +157,30 @@ export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/** "YYYY-MM" */
+export function toMonthString(date: DateString): string {
+  return date.slice(0, 7);
+}
+
+/** 年月（YYYY-MM）の 1 日 */
+export function firstDayOfMonth(month: string): DateString {
+  const date = `${month}-01`;
+  if (!isDateString(date)) throw new Error(`invalid month: ${month}`);
+  return date;
+}
+
+/** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
+export function monthRange(month: string): DateRange {
+  return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
+}
+
+/** [from, to]（両端含む）に掛かる年月（YYYY-MM）を昇順で */
+export function monthsInRange(from: DateString, to: DateString): string[] {
+  const months: string[] = [];
+  for (let m = toMonthString(from); m <= toMonthString(to); m = addMonths(m, 1)) months.push(m);
+  return months;
+}
+
 /** 月表示のグリッドの 6 週。各要素はその週の月曜で、先頭はその月の 1 日を含む週。 */
 export function monthGridWeeks(month: string): DateString[] {
   const first = firstDayOfMonth(month);
@@ -174,6 +197,13 @@ export function monthGridDays(month: string): DateString[] {
 export function weekDays(date: DateString): DateString[] {
   const start = addDays(date, -weekdayIndex(date));
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+/** 月を n か月ずらす */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
 /**

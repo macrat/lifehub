@@ -12,11 +12,11 @@ import {
   inRange,
   occurrenceKey,
 } from '../../../shared/calendar.ts';
-import { type DateRange, monthsInRange } from '../../../shared/date.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import { eventEntry } from '../../../shared/timeline.ts';
 import type { updateEventSchema } from '../../../shared/validation/events.ts';
 import { type ApiInputs, api, write } from '../../lib/api.ts';
-import { batchLoads } from '../../lib/batch.ts';
+import { monthRange, monthsInRange } from '../../lib/date.ts';
 import {
   type QueryState,
   useCreateMutation,
@@ -122,17 +122,11 @@ function toggleOnTimeline(
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----
 
-/** 月ごとの中身の取得。同じ時点に要る月をまとめて 1 回の `calendar.get` で頼む（`batchLoads`） */
-const loadCalendarMonth = batchLoads((months, signal) =>
-  api.calendar.get.query({ months }, { signal }),
-);
-
 /**
  * 1 か月（JST 暦月）分の項目と、その月の祝日・天気。キャッシュの単位を表示範囲ではなく暦月に固定する。
  * 月・週・日・リストのどの表示も、同じ日を見ているなら同じ月のキャッシュに当たるので、
  * 表示や日付を切り替えても手元の内容をそのまま出したまま裏で取り直せる
  * （範囲をキーにすると切り替えのたびに別のキーになり、必ず一度空になる）。
- * キャッシュは月ごとでも、取得は同じ時点に要る月をまとめる（`loadCalendarMonth`）。
  * 予定・タスクの書き込み後は CALENDAR_QUERY_KEY を invalidate する。
  */
 export function calendarMonthQueryOptions(month: string) {
@@ -148,7 +142,8 @@ export function calendarMonthQueryOptions(month: string) {
      */
     staleTime: Number.POSITIVE_INFINITY,
     // 返り値を共通の型で受けることで、サーバーの応答と楽観的更新の形がずれたら型検査で気づける
-    queryFn: ({ signal }): Promise<CalendarPeriod> => loadCalendarMonth(month, signal),
+    queryFn: ({ signal }): Promise<CalendarPeriod> =>
+      api.calendar.get.query(monthRange(month), { signal }),
   });
 }
 

@@ -1,4 +1,4 @@
-import { createTRPCClient, httpLink } from '@trpc/client';
+import { createTRPCClient, httpBatchLink, httpLink } from '@trpc/client';
 import { type AppRouter, app } from '../app.ts';
 import { createTestUser, TEST_PASSWORD, testEmail } from '../lib/db/test-db.ts';
 
@@ -38,6 +38,22 @@ export function apiClient(cookie?: string) {
         url: 'http://localhost/api/trpc',
         fetch: async (url, init) => app.request(String(url), init as RequestInit),
         headers: cookie ? { cookie } : {},
+      }),
+    ],
+  });
+}
+
+/**
+ * 画面と同じく、同じ時点の呼び出しを 1 本の要求にまとめるクライアント（`src/lib/api.ts` の `httpBatchLink`）。
+ * 1 本の要求に載った手続きの間で読み取りがまとまるかを確かめるのに使う
+ */
+export function batchedApiClient(cookie: string) {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: 'http://localhost/api/trpc',
+        fetch: async (url, init) => app.request(String(url), init as RequestInit),
+        headers: { cookie },
       }),
     ],
   });

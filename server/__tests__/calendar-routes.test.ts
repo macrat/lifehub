@@ -6,9 +6,9 @@ import { refreshHolidays } from '../features/holidays/service.ts';
 import { weather, weatherHourly } from '../features/weather/schema.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
-import { apiClient, loginAs } from './login.ts';
+import { apiClient, batchedApiClient, loginAs } from './login.ts';
 
-/** 祝日の配布元の応答（2030-05-06 と、2030-07-15） */
+/** 祝日の配布元の応答（2030-05-06 と、期間の外の 2030-07-15） */
 const ICS = [
   'BEGIN:VCALENDAR',
   'VERSION:2.0',
@@ -25,7 +25,7 @@ const ICS = [
   'END:VCALENDAR',
 ].join('\r\n');
 
-/** 期間の終わり際から次の月の初めまでの天気（日ごと・3 時間ごと） */
+/** 月の終わり際から次の月の初めまでの天気（日ごと・3 時間ごと） */
 async function insertWeather() {
   await db
     .insert(weather)
@@ -51,13 +51,22 @@ function recordStatements(): string[] {
   return statements;
 }
 
+/** 月の全日（画面は月ごとに 1 回ずつ呼ぶ。`calendarMonthQueryOptions`） */
+const MONTHS = {
+  april: { from: '2030-04-01', to: '2030-04-30' },
+  may: { from: '2030-05-01', to: '2030-05-31' },
+  june: { from: '2030-06-01', to: '2030-06-30' },
+  july: { from: '2030-07-01', to: '2030-07-31' },
+  august: { from: '2030-08-01', to: '2030-08-31' },
+};
+
 /**
- * カレンダーの面が読む月ごとの中身（`calendar.get`）。項目・祝日・天気を 1 回で返し、どの月もその月の外の日を含まない。
- * 面ごとに 3 本問い合わせていた形へ戻ったり、祝日や天気を全期間ぶん送り始めたり、
- * 月の数だけ同じ形の問い合わせを繰り返し始めたりしたら（N+1）、ここで気づける。
+ * カレンダーの面が読む 1 期間分（`calendar.get`）。項目・祝日・天気を 1 回で返し、どれも期間の外の日を含まない。
+ * 面ごとに 3 本問い合わせていた形へ戻ったり、祝日や天気を全期間ぶん送り始めたりしたら、ここで気づける。
  */
-describe('カレンダーの月ごとの中身', () => {
+describe('カレンダーの 1 期間分', () => {
   let api: ReturnType<typeof apiClient>;
+  let batched: ReturnType<typeof batchedApiClient>;
   let userId: string;
 
   beforeEach(async () => {
@@ -65,7 +74,8 @@ describe('カレンダーの月ごとの中身', () => {
     let cookie: string;
     ({ userId, cookie } = await loginAs('A'));
     api = apiClient(cookie);
-    // 祝日を表に入れておく。この後は外のサイトへ行けば失敗する
+    batched = batchedApiClient(cookie);
+    // 祝日だけを表に入れておく（天気は空）。この後は外のサイトへ行けば失敗する
     vi.stubGlobal('fetch', async () => new Response(ICS));
     await refreshHolidays();
     vi.stubGlobal('fetch', async () => {
@@ -77,60 +87,46 @@ describe('カレンダーの月ごとの中身', () => {
     vi.restoreAllMocks();
   });
 
-  const addEvent = (title: string, startsAt: string, endsAt: string, rrule?: string) =>
-    api.events.create.mutate({
-      kind: 'event',
-      title,
-      startsAt,
-      endsAt,
-      participantIds: [userId],
-      ...(rrule && { rrule }),
-    });
+  const addEvent = (title: string, startsAt: string, endsAt: string) =>
+    api.events.create.mutate({ kind: 'event', title, startsAt, endsAt, participantIds: [userId] });
 
-  it('月の項目と祝日と天気を 1 回で返し、外のサイトへは取りに行かない', async () => {
+  it('期間の項目と祝日と天気を 1 回で返し、外のサイトへは取りに行かない', async () => {
     // 書き込みは値を返さない
     expect(
       await addEvent('5 月', '2030-05-10T01:00:00.000Z', '2030-05-10T02:00:00.000Z'),
     ).toBeUndefined();
     await addEvent('6 月', '2030-06-10T01:00:00.000Z', '2030-06-10T02:00:00.000Z');
 
-    const { '2030-05': may } = await api.calendar.get.query({ months: ['2030-05'] });
-    expect(may?.items.map((item) => item.title)).toEqual(['5 月']);
-    expect(may?.holidays).toEqual(['2030-05-06']);
-    expect(may?.weather).toEqual({ daily: [], hourly: [] });
+    const period = await api.calendar.get.query({ from: '2030-05-01', to: '2030-05-31' });
+    expect(period.items.map((item) => item.title)).toEqual(['5 月']);
+    expect(period.holidays).toEqual(['2030-05-06']);
+    expect(period.weather).toEqual({ daily: [], hourly: [] });
   });
 
-  it('複数の月を月ごとに分けて返し、月をまたぐ予定はどちらの月にも日ごとに出る', async () => {
+  it('1 本の要求に載った月ごとの呼び出しは、それぞれ自分の月の分だけを返す', async () => {
     await insertWeather();
     await addEvent('またぐ', iso('2030-05-31T22:00'), iso('2030-06-01T02:00'));
-
-    const {
-      '2030-05': may,
-      '2030-06': june,
-      '2030-07': july,
-    } = await api.calendar.get.query({ months: ['2030-06', '2030-05', '2030-07'] });
-    expect(may?.items.map((item) => [item.placementDate, item.title])).toEqual([
-      ['2030-05-31', 'またぐ'],
+    const [may, june] = await Promise.all([
+      batched.calendar.get.query(MONTHS.may),
+      batched.calendar.get.query(MONTHS.june),
     ]);
-    expect(june?.items.map((item) => [item.placementDate, item.title])).toEqual([
-      ['2030-06-01', 'またぐ'],
-    ]);
-    expect(july?.items).toEqual([]);
-    expect([may?.holidays, june?.holidays, july?.holidays]).toEqual([
-      ['2030-05-06'],
-      [],
-      ['2030-07-15'],
-    ]);
-    expect(may?.weather.daily.map((w) => w.date)).toEqual(['2030-05-31']);
-    expect(june?.weather.daily.map((w) => w.date)).toEqual(['2030-06-01']);
-    expect(may?.weather.hourly.map((w) => w.date)).toEqual(['2030-05-31']);
-    expect(june?.weather.hourly.map((w) => w.date)).toEqual(['2030-06-01']);
+    expect(may.items.map((item) => item.placementDate)).toEqual(['2030-05-31']);
+    expect(june.items.map((item) => item.placementDate)).toEqual(['2030-06-01']);
+    expect([may.holidays, june.holidays]).toEqual([['2030-05-06'], []]);
+    expect(may.weather.daily.map((w) => w.date)).toEqual(['2030-05-31']);
+    expect(june.weather.hourly.map((w) => w.date)).toEqual(['2030-06-01']);
   });
 
   it('まとめて読んだ月は、1 か月ずつ読んだ月と同じ中身になる', async () => {
     await insertWeather();
-    await addEvent('毎週', iso('2030-04-29T10:00'), iso('2030-04-29T11:00'), 'FREQ=WEEKLY');
-    await addEvent('またぐ', iso('2030-05-31T22:00'), iso('2030-06-01T02:00'));
+    await api.events.create.mutate({
+      kind: 'event',
+      title: '毎週',
+      startsAt: iso('2030-04-29T10:00'),
+      endsAt: iso('2030-04-29T11:00'),
+      participantIds: [userId],
+      rrule: 'FREQ=WEEKLY',
+    });
     await api.events.create.mutate({
       kind: 'task',
       title: '毎月のタスク',
@@ -139,20 +135,16 @@ describe('カレンダーの月ごとの中身', () => {
       participantIds: [userId],
       rrule: 'FREQ=MONTHLY',
     });
-
-    const months = ['2030-04', '2030-05', '2030-06', '2030-07'];
-    const together = await api.calendar.get.query({ months });
-    for (const month of months) {
-      expect(together[month]).toEqual((await api.calendar.get.query({ months: [month] }))[month]);
+    const ranges = Object.values(MONTHS);
+    const together = await Promise.all(ranges.map((range) => batched.calendar.get.query(range)));
+    for (const [i, range] of ranges.entries()) {
+      expect(together[i]).toEqual(await api.calendar.get.query(range));
     }
   });
 
-  it('5 か月分を読んでも、天気・祝日・予定はそれぞれ 1 組の範囲の問い合わせで読む', async () => {
+  it('1 本の要求で 5 か月分を読んでも、天気・祝日・予定はそれぞれ 1 組の範囲の問い合わせで読む', async () => {
     const statements = recordStatements();
-    const periods = await api.calendar.get.query({
-      months: ['2030-04', '2030-05', '2030-06', '2030-07', '2030-08'],
-    });
-    expect(Object.keys(periods)).toHaveLength(5);
+    await Promise.all(Object.values(MONTHS).map((range) => batched.calendar.get.query(range)));
     const reading = (table: string) =>
       statements.filter((text) => new RegExp(`from "${table}"(?!\\w)`).test(text)).length;
     expect(reading('weather')).toBe(1);
@@ -161,11 +153,5 @@ describe('カレンダーの月ごとの中身', () => {
     expect(reading('events')).toBe(1);
     // 読み取りだけなので、明示的なトランザクション（本番では別の往復）にしない
     expect(statements.filter((text) => /^(begin|commit)\b/i.test(text))).toEqual([]);
-  });
-
-  it('幅の広すぎる月の組は読まずに断る（間の月もすべて読んで展開することになる）', async () => {
-    await expect(api.calendar.get.query({ months: ['2020-01', '2030-01'] })).rejects.toThrow(
-      '120 か月の幅まで',
-    );
   });
 });

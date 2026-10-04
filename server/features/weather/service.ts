@@ -175,7 +175,7 @@ export async function listWeatherPage(
  * （カレンダーと違い、同じ天気が続いてもまとめない。枠ごとに気温が違うため）と、6 時間ごとの降水確率を添える。
  * 表に無い天気の枠は、アイコンを決められないので除く（`listWeather` と同じ）。
  * 予報の無い日と表に無い天気の日は含まない（`listWeather`）。
- * 手元の表を読むだけで、気象庁へは取りに行かない（`getCalendar` と同じ）。
+ * 手元の表を読むだけで、気象庁へは取りに行かない（カレンダーの `calendarLoader` と同じ）。
  */
 export async function listWeatherDays(range: DateRange): Promise<WeatherDay[]> {
   const [rows, holidays] = await Promise.all([repository.findDays(range), listHolidays(range)]);

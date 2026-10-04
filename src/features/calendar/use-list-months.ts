@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { addMonths, monthRange, monthsInRange, toMonthString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { addMonths, monthRange, monthsInRange, toMonthString } from '../../lib/date.ts';
 
 type Bounds = { from?: DateString | undefined; to?: DateString | undefined };
 

@@ -1,7 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
 import { expect, test } from 'vitest';
 import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
-import { today, toMonthString } from '../../../../shared/date.ts';
+import { today } from '../../../../shared/date.ts';
+import { toMonthString } from '../../../lib/date.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
 import { CALENDAR_QUERY_KEY } from '../query-keys.ts';
