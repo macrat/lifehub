@@ -1,5 +1,5 @@
-import { addDays } from 'date-fns';
-import { type InstantRange, startOfDay } from '../../../shared/date.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
+import { addDays, type InstantRange, startOfDate, today } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
@@ -42,10 +42,10 @@ export async function enqueueRange(
 export async function enqueueTomorrow(
   now: Date = new Date(),
 ): Promise<{ planned: number; published: number }> {
-  const from = addDays(startOfDay(now), 1);
-  const to = addDays(from, 1);
-  await repository.purgeSentBefore(addDays(now, -SENT_RETENTION_DAYS));
-  return enqueueRange({ from, to });
+  await repository.purgeSentBefore(
+    new Date(now.getTime() - SENT_RETENTION_DAYS * DAY_MINUTES * 60_000),
+  );
+  return enqueueRange({ from: dayStartAfter(now, 1), to: dayStartAfter(now, 2) });
 }
 
 /**
@@ -63,7 +63,16 @@ async function enqueueUpcoming(now: Date): Promise<void> {
   // 予約先が無い環境（ローカル・Preview）では、列挙（予定の読み出しと繰り返しの展開）もしない
   const publisher = createPublisher();
   if (!publisher) return;
-  await enqueueRange({ from: now, to: addDays(startOfDay(now), 2) }, publisher);
+  await enqueueRange({ from: now, to: dayStartAfter(now, 2) }, publisher);
+}
+
+/**
+ * 今日（JST）から days 日後の 0:00（JST）。
+ * WHY NOT date-fns の addDays（Date に足す）: 実行環境のタイムゾーンの暦で足すので、夏時間のある
+ * タイムゾーンで動かすと 1 日が 24 時間にならない日がある。暦日の計算は JST の日付の文字列で行う（shared/date.ts）。
+ */
+function dayStartAfter(now: Date, days: number): Date {
+  return startOfDate(addDays(today(now), days));
 }
 
 /**
