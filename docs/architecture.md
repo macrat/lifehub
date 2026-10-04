@@ -20,11 +20,11 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | フロントエンド | React + TypeScript（strict）、Vite ビルドの SPA | オフライン対応と積極的キャッシュを単純に実現するため、SSR ではなく静的なアプリシェルにする。 |
 | ルーティング | TanStack Router（ファイルベース） | 型安全なルート・検索パラメータ。TanStack Query と統合できる。 |
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
-| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリをそのまま default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う）。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
+| バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリを Sentry で包んで default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う。包み方は [operations.md](operations.md#監視sentry)）。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも往復の回数で決まる**。同じ時点に投げた読み取りは 1 往復にまとめて送り（下記「通信の往復」）、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも往復の回数で決まる**。同じ時点に投げた読み取りは 1 往復にまとめて送り（[通信の往復](#通信の往復)）、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
-| 画面の API | tRPC（`@trpc/server` / `@trpc/client`） | 画面専用の API を手続き（procedure）として書き、クライアントに型が伝わる。同じ時点に出た呼び出しを `httpBatchLink` が 1 本の要求にまとめ、サーバーはその中の手続きを並べて実行する（下記「通信の往復」）。外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま。 |
+| 画面の API | tRPC（`@trpc/server` / `@trpc/client`） | 画面専用の API を手続き（procedure）として書き、クライアントに型が伝わる。同じ時点に出た呼び出しを `httpBatchLink` が 1 本の要求にまとめ、サーバーはその中の手続きを並べて実行する（[通信の往復](#通信の往復)）。外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator`（Hono のまま残る口） | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
 | 認証 | better-auth（メール＋パスワード、Drizzle アダプタ） | Hono 対応。MCP 向け OAuth 2.1 プラグインを持つ。 |
 | MCP サーバー | `@modelcontextprotocol/server`（v2）の `createMcpHandler`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。MCP 2026-07-28（要求ごとに完結する版）と 2025 年版の両方を 1 つの口で受ける。サーバーレスのためセッションを持たない。 |
@@ -59,11 +59,11 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 ```
 
 - UI・MCP・通知処理は同じ Service 層を呼ぶ。業務ロジックを複数箇所に書かない。
-- Hono のルートと MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
+- tRPC の手続き・Hono のルート・MCP ツールは「入力を Zod で検証して Service を呼ぶ薄い層」に留める。
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
-  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めず、入力の検証は `lib/validator.ts` の `validate` だけを使う。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
+  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
@@ -75,7 +75,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 
 ```
 api/
-  index.ts                    # Vercel Function のエントリ。server/app.ts の Hono アプリをそのまま export するだけ
+  index.ts                    # Vercel Function のエントリ。server/app.ts の Hono アプリを Sentry で包んで export する
 src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
@@ -89,7 +89,7 @@ src/                          # クライアント（Vite + React）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
 server/                       # サーバー（Hono）
-  app.ts                      # ルート登録・ミドルウェア（認証）。ここと下の 3 つが各 feature を組み立てる所
+  app.ts                      # ルート登録（画面の API の tRPC と外からの入口）・ETag。ここと下の 3 つが各 feature を組み立てる所
   cron.ts                     # Vercel Cron の入口（/api/cron/*。Cron secret を全体に 1 度だけ検査する）
   qstash.ts                   # QStash の配信コールバックの入口（/api/qstash/*。署名を全体に 1 度だけ検査する）
   mcp.ts                      # MCP の入口（/api/mcp。OAuth で保護）と、全 feature の mcp.ts の登録
@@ -98,7 +98,7 @@ server/                       # サーバー（Hono）
     schema.ts                 # Drizzle テーブル定義
     repository.ts             # DB アクセス
     service.ts                # 業務ロジック
-    routes.ts                 # Hono ルート（Zod 検証 → service）
+    routes.ts                 # 画面の API の tRPC router（`.input` の Zod 検証 → service）。外と約束した口を持つ feature は Hono のルートも置く
     mcp.ts                    # MCP ツール定義
     <関心ごと>.ts             # service が大きくなる feature だけ、関心ごとに分けた業務ロジック:
                               #   events/occurrences.ts（繰り返しの回の展開）・events/timeline.ts（タイムラインの口）・
@@ -149,9 +149,18 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。Hono の認証ミドルウェアで `/api/*`（`/api/auth/*`・`/api/health`・Vercel Cron（`/api/cron/*`）・QStash の配信コールバック（`/api/qstash/*`）・MCP・カレンダーの ics 配信 `/api/calendar/<token>.ics`（URL のトークンだけを資格にする。[features/calendar-feeds.md](features/calendar-feeds.md)）・記録投入 `/api/records`（API キーだけを資格にする。[features/api-keys.md](features/api-keys.md)）を除く。`/.well-known/*` はそもそも `/api` の外）を保護し、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。画面の API（tRPC。`/api/trpc/*`）は手続きごとにログインを確かめ（`server/lib/trpc.ts` の `authed`）、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- `/api` の下の tRPC 以外の口は、それぞれが自分の資格を検査する。`/api` 全体に掛かる認証のミドルウェアは無いので、口を足すときは、その口に保護を付ける。
+  - better-auth 自身（`/api/auth/*`。OAuth の探索メタデータ `/.well-known/*` は `/api` の外）: better-auth が扱う。
+  - `/api/health`: 認証不要（下記）。
+  - Vercel Cron（`/api/cron/*`）: Cron secret（`server/cron.ts`）。
+  - QStash の配信コールバック（`/api/qstash/*`）: QStash の署名（`server/qstash.ts`）。
+  - MCP（`/api/mcp`）: OAuth のアクセストークン（[features/mcp.md](features/mcp.md)）。
+  - カレンダーの ics 配信 `/api/calendar/<token>.ics`: URL のトークンだけ（[features/calendar-feeds.md](features/calendar-feeds.md)）。
+  - 記録投入 `/api/records`: API キーだけ（[features/api-keys.md](features/api-keys.md)）。
+  - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。画面の API はログインの検証を読み出しと並べて走らせる（[通信の往復](#通信の往復)）ので、先に検証を待つミドルウェアは往復も 1 回増やす。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
-- `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。E2E の起動確認にも使う。
+- `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。Sentry の稼働監視が使う（[operations.md](operations.md#監視sentry)）。
 - パスワードとセッションの扱いは [features/users.md](features/users.md#認証)。
 - MCP の認可は OAuth 2.1 のみ。詳細は [features/mcp.md](features/mcp.md)。
 
@@ -183,7 +192,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 - ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `resolveMe`（`src/lib/auth.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、待つと完了しない）。
 - ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に購読を始め、部品は `QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（[ui.md](ui.md#移動と読み込み)）。
 - **データの取得は画面が 1 か所で決め、部品は store から読むだけにする**（`src/lib/screen-data.ts`）。サーバーの状態は TanStack Query のキャッシュ（store）に 1 つだけ置く。
-  - 画面（`src/routes/**`）が、その画面で読むクエリをすべて 1 か所で購読する（`useScreenQueries` / `useScreenHistory`）。どの画面も読むもの（ログイン中のユーザーとユーザーの一覧）はログインが要る画面をまとめるレイアウト（`routes/_authenticated.tsx`）が購読する。画面を開いている間の取り直し（入ったとき・フォーカス・再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、まとめて 1 本の要求で届く（下記「通信の往復」）。
+  - 画面（`src/routes/**`）が、その画面で読むクエリをすべて 1 か所で購読する（`useScreenQueries` / `useScreenHistory`）。どの画面も読むもの（ログイン中のユーザーとユーザーの一覧）はログインが要る画面をまとめるレイアウト（`routes/_authenticated.tsx`）が購読する。画面を開いている間の取り直し（入ったとき・フォーカス・再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、まとめて 1 本の要求で届く（[通信の往復](#通信の往復)）。
   - 部品は store から読むだけで、自分では取得を始めない（`useStoreQuery` など。取得を止めた購読なので、キャッシュが変われば描き直されるが問い合わせは出ない）。画面が購読していないクエリを読むと骨組みのまま出続けるので、画面に出すものを足したら画面の購読にも足す。
   - 取得を決める画面の状態（カレンダーで出している月、リストで広げた月、選択ダイアログで送っている月）は、部品ではなく画面の状態として持つ（`src/features/calendar/use-calendar-page.ts` の `months`）。
   - 利用者の操作で読み足すもの（古いほうのページ、繰り返しの予定の繰り返し元）は操作の中で読む（`useScreenHistory` の `loadEarlier`、`src/features/events/queries.ts` の `loadEvent`）。

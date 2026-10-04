@@ -19,8 +19,8 @@ const verifyCronSecret: MiddlewareHandler = env.CRON_SECRET
 /**
  * Vercel Cron（`vercel.json` の `crons`）が呼ぶ入口をすべてここに集める。
  * セッションではなく Cron secret（Vercel は `CRON_SECRET` を Bearer トークンとして送る）で保護する。
- * 検査はこの集まり全体に 1 度だけ掛けるので、Cron を足しても保護を付け忘れることがない。
- * server/app.ts で認証ミドルウェアより前に `/cron` へ登録する。
+ * 検査はこの集まり全体に 1 度だけ掛けるので、Cron を足しても保護を付け忘れることがない
+ * （`/api` の下の外からの入口は、それぞれが自分を守る。docs/architecture.md の「認証・認可」）。
  */
 export const cronRoutes = new Hono()
   .use(verifyCronSecret)

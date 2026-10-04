@@ -7,7 +7,7 @@ import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
-describe('認証ミドルウェア', () => {
+describe('ログインと認証の口', () => {
   beforeEach(clearTables);
 
   it('公開のサインアップ経路は閉じている', async () => {
