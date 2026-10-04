@@ -122,10 +122,7 @@ function toggleOnTimeline(
 
 // ---- カレンダーに並ぶ項目（予定とタスクを暦日に置いたもの） ----
 
-/**
- * 月ごとの中身の取得。同じ時点に要る月（画面に入ったときに出す月、書き込みの後に取り直す月）を
- * まとめて 1 回で頼む（`batchLoads`）。サーバーは頼まれた月を 1 組の範囲の問い合わせで読む（`calendar.get`）。
- */
+/** 月ごとの中身の取得。同じ時点に要る月をまとめて 1 回の `calendar.get` で頼む（`batchLoads`） */
 const loadCalendarMonth = batchLoads((months, signal) =>
   api.calendar.get.query({ months }, { signal }),
 );

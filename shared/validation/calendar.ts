@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { isDateString } from '../date.ts';
 
-/** 年月（YYYY-MM） */
+/** 年月（YYYY-MM）。月の 1 日が実在する暦日か（`firstDayOfMonth` と同じ規則）で確かめる */
 const monthSchema = z
   .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '年月は YYYY-MM 形式で指定してください');
+  .refine((month) => isDateString(`${month}-01`), '年月は YYYY-MM 形式で指定してください');
 
 /**
  * 一度に読める月の数。カレンダーが一度に出す月（面の前後のページ・リストで広げた月・選択ダイアログの月）は

@@ -1,5 +1,5 @@
 import type { CalendarPeriod } from '../../../shared/calendar.ts';
-import { monthRange, toMonthString } from '../../../shared/date.ts';
+import { coveringRange, monthRange, toMonthString } from '../../../shared/date.ts';
 import { listItemsByRange } from '../events/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import { listWeather } from '../weather/service.ts';
@@ -24,10 +24,8 @@ export async function getCalendar(
 ): Promise<Record<string, CalendarPeriod>> {
   const sorted = [...new Set(months)].sort();
   const ranges = sorted.map(monthRange);
-  const [first] = ranges;
-  const last = ranges.at(-1);
-  if (!first || !last) return {};
-  const whole = { from: first.from, to: last.to };
+  const whole = coveringRange(ranges);
+  if (!whole) return {};
   const [items, holidays, weather] = await Promise.all([
     listItemsByRange(ranges),
     listHolidays(whole),

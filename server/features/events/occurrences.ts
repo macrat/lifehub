@@ -7,6 +7,7 @@ import {
   sortItems,
 } from '../../../shared/calendar.ts';
 import {
+  coveringRange,
   type DateRange,
   type InstantRange,
   instantRange,
@@ -37,8 +38,7 @@ export async function listItems(
   now: Date = new Date(),
   filter: OccurrenceFilter = {},
 ): Promise<CalendarItem[]> {
-  const rows = await readRows(range, filter.q);
-  return sortItems(place(expandRows(rows, range, now, filter), range, now));
+  return sortItems(place(await listOccurrences(range, now, filter), range, now));
 }
 
 /**
@@ -54,10 +54,8 @@ export async function listItemsByRange(
   ranges: readonly DateRange[],
   now: Date = new Date(),
 ): Promise<CalendarItem[][]> {
-  const [first] = ranges;
-  const last = ranges.at(-1);
-  if (!first || !last) return [];
-  const whole = { from: first.from, to: last.to };
+  const whole = coveringRange(ranges);
+  if (!whole) return [];
   const rows = await readRows(whole);
   const events = place(expandRows(rows, whole, now, { kind: 'event' }), whole, now);
   return ranges.map((range) =>

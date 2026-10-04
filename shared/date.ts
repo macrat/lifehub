@@ -105,6 +105,13 @@ export function firstDayOfMonth(month: string): DateString {
   return date;
 }
 
+/** 昇順に並んだ期間をすべて覆う範囲（最初の期間の初日から最後の期間の末日）。期間が無ければ undefined */
+export function coveringRange(ranges: readonly DateRange[]): DateRange | undefined {
+  const [first] = ranges;
+  const last = ranges.at(-1);
+  return first && last ? { from: first.from, to: last.to } : undefined;
+}
+
 /** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
 export function monthRange(month: string): DateRange {
   return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
