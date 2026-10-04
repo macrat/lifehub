@@ -26,7 +26,7 @@ pnpm user:create --email you@example.com --name あなた --password 'xxxxxxxxxx
 pnpm dev                          # http://localhost:5173
 ```
 
-`vite dev` が `/api` を `server/dev.ts`（http://localhost:3000）へプロキシする。`vercel dev` は使わない。
+サーバーへのプロキシと `vercel dev` を使わない理由は [docs/architecture.md](docs/architecture.md#ディレクトリ構成機能単位で凝集) の構成の説明にある。
 
 ## コマンド一覧
 

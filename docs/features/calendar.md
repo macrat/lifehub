@@ -97,7 +97,7 @@ Google カレンダーと同じく「範囲を選ぶ → その場で入力 → 
 
 ## 祝日
 
-祝日（[holidays.md](holidays.md)）は、日付の数字（`DayNumber`。月・週・日の表示と年月の選択で共通）を日曜と同じ赤で出す。祝日の一覧は項目と同じ `calendar.get` の結果（月のキャッシュ）から `useCalendarDays` で受け取る（上記「API」）。
+祝日（[holidays.md](holidays.md)）は、日付の数字（`DayNumber`。月・週・日の表示と年月の選択で共通）を日曜と同じ赤で出す。祝日の一覧は項目と同じ `calendar.get` の結果（月のキャッシュ）から `useCalendarDays` で受け取る（[API](#api)）。
 
 ## 天気
 
@@ -125,7 +125,7 @@ Google カレンダーと同じく「範囲を選ぶ → その場で入力 → 
 
 ## API
 
-`calendar.get`（`server/features/calendar/`）が入力の `from`〜`to`（JST 日付、両端含む）の 1 期間分（`shared/calendar.ts` の `CalendarPeriod`）を返す: `items` は `CalendarItem[]` を `placementDate` 昇順、`holidays` はその期間の祝日（下記「祝日」）、`weather` はその期間の天気（下記「天気」）。面（月のグリッド・週／日の見出し）は 3 つを必ず一緒に出すので 1 回の問い合わせにまとめ、祝日と天気も表示する期間の分だけを送る。画面は月ごとに 1 回ずつ呼ぶ（キャッシュの単位が月）が、画面に入ったときに取り直す何か月分は同じ時点に出るので、1 本の要求にまとまって届く（[architecture.md](../architecture.md#通信の往復)）。サーバーは 1 本の要求に載った呼び出しをまとめて読む（`service.ts` の `calendarLoader`。同じ時点の呼び出しを集めるのは DataLoader）: すべての期間を覆う範囲を、項目・祝日・天気のそれぞれ 1 組の問い合わせで読み、期間ごとに分ける。項目は日ごとに置いてあり、繰り返しのタスクが表示する回も読む範囲によらない（[events.md](events.md) の表示規則）ので、まとめて読んで分けても 1 期間ずつ読んだものと同じになる。
+`calendar.get`（`server/features/calendar/`）が入力の `from`〜`to`（JST 日付、両端含む）の 1 期間分（`shared/calendar.ts` の `CalendarPeriod`）を返す: `items` は `CalendarItem[]` を `placementDate` 昇順、`holidays` はその期間の祝日（[祝日](#祝日)）、`weather` はその期間の天気（[天気](#天気)）。面（月のグリッド・週／日の見出し）は 3 つを必ず一緒に出すので 1 回の問い合わせにまとめ、祝日と天気も表示する期間の分だけを送る。画面は月ごとに 1 回ずつ呼ぶ（キャッシュの単位が月）が、画面に入ったときに取り直す何か月分は同じ時点に出るので、1 本の要求にまとまって届く（[architecture.md](../architecture.md#通信の往復)）。サーバーは 1 本の要求に載った呼び出しをまとめて読む（`service.ts` の `calendarLoader`。同じ時点の呼び出しを集めるのは DataLoader）: すべての期間を覆う範囲を、項目・祝日・天気のそれぞれ 1 組の問い合わせで読み、期間ごとに分ける。項目は日ごとに置いてあり、繰り返しのタスクが表示する回も読む範囲によらない（[events.md](events.md) の表示規則）ので、まとめて読んで分けても 1 期間ずつ読んだものと同じになる。
 
 WHY NOT 呼び出しごとに読む: 要求も DB の往復も 1 回にまとまるが、同じ形の問い合わせが月の数だけ走り（N+1）、文の数と DB の負荷、繰り返しの予定の展開が月の数に比例する。WHY NOT 何か月分をまとめて頼む手続きにする: キャッシュの単位（月）はそのままなので、クライアントに月をまとめて頼む層と、月ごとに分けて返す応答の形が要る。既に 1 本の要求にまとまって届いているので、まとめるのはその要求の中で足りる。
 
@@ -137,29 +137,15 @@ WHY NOT 祝日と天気を別の問い合わせで丸ごと配る: 面を出す�
 
 ### CalendarItem
 
-```ts
-type Occurrence = {
-  id: string;                    // 繰り返し元（単発ならその行）の id
-  kind: 'event' | 'task';
-  occurrenceStart: string | null; // 繰り返しの回を指す基準日時。単発は null
-  title: string; allDay: boolean; startsAt: string | null; endsAt: string | null;
-  completedAt: string | null; location: string | null; note: string | null;
-  participantIds: string[]; rrule: string | null;
-  remindStartMinutes: number | null; remindEndMinutes: number | null;
-  isRecurring: boolean; isModified: boolean;
-};
-type CalendarItem =
-  | (Occurrence & { kind: 'event'; startsAt: string; endsAt: string; placementDate: string; dayIndex: number; dayCount: number })
-  | (Occurrence & { kind: 'task'; placementDate: string });
-```
+型は `shared/calendar.ts` の `Occurrence`（繰り返しを展開した 1 回の発生）と `CalendarItem`（それを日に置いたもの）。
 
 `placementDate` は JST の `YYYY-MM-DD`。予定は開始日（複数日にまたがる予定は日ごとに 1 件）、タスクは [events.md](events.md) の表示規則で決める。
 
 ### キャッシュ
 
-- 取得のキャッシュは JST の暦月単位（`calendarMonthQueryOptions`。キーは `['calendar', 'YYYY-MM']`）で、表示に必要な範囲は `useCalendarItems(range)` が範囲に掛かる月を繋いで返す。祝日と天気は同じ月のキャッシュから `useCalendarDays(range)`（`src/features/calendar/queries.ts`）が読むので、項目を出している面なら問い合わせは増えない。表示範囲をキーにすると月・週・日・リストの切り替えごとに別のキーになり、必ず一度空になってしまう。暦月なら同じ日を見ているどの表示も同じキャッシュに当たるので、切り替えても手元の内容がそのまま出る。
+- 取得のキャッシュは JST の暦月単位（`src/features/events/queries.ts` の `calendarMonthQueryOptions`。キーは `['calendar', 'YYYY-MM']`）で、表示に必要な範囲は同じファイルの `useCalendarItems(range)` が範囲に掛かる月を繋いで返す。祝日と天気は同じ月のキャッシュから `useCalendarDays(days)`（`src/features/calendar/queries.ts`）が読むので、項目を出している面なら問い合わせは増えない。表示範囲をキーにすると月・週・日・リストの切り替えごとに別のキーになり、必ず一度空になってしまう。暦月なら同じ日を見ているどの表示も同じキャッシュに当たるので、切り替えても手元の内容がそのまま出る。
 - 月のキャッシュは古くならない（`staleTime` は無期限）。サーバーに問い合わせるのは「まだその月を持っていないとき」「画面に入ったとき」「予定・タスクを書き込んだ後」（`useOptimisticMutation` の invalidate）だけで、表示（月・週・日・リスト）の切り替えでは取り直さない。既定の `staleTime: 0` だと、切り替えのたびに月を読む側（面・リスト）が付け替わるのでそこで毎回取り直しになる。
-- 画面に入ったときの取り直しは `useRefreshCalendarItems`（`queries.ts`）がマウントの 1 回だけ行う。カレンダー画面（`src/routes/_authenticated/calendar.tsx`）が月の購読（`useScreenQueries`）と並べて呼ぶので、別の画面との行き来と再読み込みでは取り直し、同じ画面に留まる間（表示の切り替え）は取り直さない。出している月はその場で取り直し、キャッシュにあるだけの月には古い印を付けて、その月を次に出すとき（スワイプで移った先など）に取り直す。
+- 画面に入ったときの取り直しは `useRefreshCalendarItems`（`src/features/events/queries.ts`）がマウントの 1 回だけ行う。カレンダー画面（`src/routes/_authenticated/calendar.tsx`）が月の購読（`useScreenQueries`）と並べて呼ぶので、別の画面との行き来と再読み込みでは取り直し、同じ画面に留まる間（表示の切り替え）は取り直さない。出している月はその場で取り直し、キャッシュにあるだけの月には古い印を付けて、その月を次に出すとき（スワイプで移った先など）に取り直す。
 - 月は互いに重ならず、サーバーが月をまたぐ予定を日ごとの項目にして返すため、繋ぐときは範囲で絞るだけでよい（重複せず `placementDate` 順も保たれる）。タスクの表示規則も「未完了の先頭 2 件」を発生の先頭から数えるので、月に分けても結果は変わらない。
 
 ## MCP ツール

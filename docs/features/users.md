@@ -9,7 +9,7 @@
 | 画面 | パス | 内容 |
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
-| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。PC はサイドナビ、スマホはホームの末尾から開く |
+| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、ユーザー管理へのリンク、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
 | 管理 | `/admin/users` | ユーザー一覧（色付きのアバター）、登録（名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
 
