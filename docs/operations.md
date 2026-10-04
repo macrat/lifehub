@@ -19,7 +19,7 @@
 1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、Sentry（Developer）、GitHub リポジトリ。いずれもカード登録不要。Sentry の組織の slug が `blanktar` でなければ `infra/variables.tf` の `sentry_organization` を書き換える。
 2. ID の確認: Neon の組織 ID（コンソールの Organization settings。`org-...`）と Vercel のチーム slug または ID（Team Settings → General。Hobby でもアカウントはチームとして扱われる）。
 3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。Sentry の **User Auth Token**（User Settings → Personal Tokens。権限は Organization: Read、Team: Admin、Project: Admin、Release: Admin、Alerts: Read & Write。Terraform がチーム・プロジェクト・DSN・稼働監視を作り、デプロイがソースマップを送る。Organization Token はソースマップの送信にしか使えない）。
-4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`）。
+4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`。US を選ぶのは日本から近いため。SDK の既定は EU）。
 5. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
 6. 上記を GitHub Secrets に登録する:
    `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
@@ -143,4 +143,4 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
 
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
 - ロールバックはアプリ側は `vercel rollback`、インフラ側は Terraform の変更を revert してプッシュ。
-- 無料枠の制約: Vercel Hobby は Cron の式 1 つにつき日次まで（時は最大 59 分ずれる）・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日、Sentry Developer は月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ・ユーザー 1 人。
+- 無料枠の制約: Vercel Hobby は Cron の頻度に上限（[architecture.md](architecture.md#ディレクトリ構成機能単位で凝集) の Cron）・Cron の時刻は最大 59 分ずれる・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日、Sentry Developer は月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ・ユーザー 1 人。

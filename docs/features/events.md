@@ -69,7 +69,9 @@
 `events`, `event_participants`（[data-model.md](../data-model.md)）。
 
 - `starts_at` は予定・タスクとも必須（NOT NULL）。`ends_at`（終了）と `remind_end_minutes`（終了前の通知）は予定だけが持ち、予定では `ends_at` が必須、タスクではどちらも null（CHECK）。`completed_at` はタスクだけが持つ（CHECK）。
-- 通知の分は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし（終日は 0 / 1440 だけ。CHECK。[notifications.md](notifications.md)）。
+- 通知の分（`remind_start_minutes` / `remind_end_minutes`）は 0 / 5 / 10 / 15 / 30 / 60 / 120 / 1440、null は通知なし（既定）。終日は 0（当日）か 1440（前日）だけ（`shared/validation/events.ts` の `ALL_DAY_REMIND_OPTIONS` と CHECK。終日の分がいつ届くかは [notifications.md](notifications.md#通知内容)）。
+  - 予定のフォームは終日なら「当日」「前日」だけを出し、時刻のある予定を終日に切り替えたときは 0 分前を当日、それ以外を前日に寄せる（`toAllDayRemind`）。
+  - 終了前の通知（`remind_end_minutes`）は MCP からだけ入れられる。フォームは保存済みの値をそのまま保つ。
 - 終日は `all_day=true` かつ `starts_at`=JST 0:00、予定の `ends_at`=翌日 JST 0:00（終端は排他的）。API 入力の `endsAt` は終日では「終了日（含む）」のどこかの時刻でよく、サーバーが翌日 JST 0:00 に正規化する。レスポンスの `endsAt` は常に排他的。
 - 入力の形は `kind` の判別共用体（`shared/validation/events.ts` の `eventSchemaWith`）: 予定は `endsAt` が必須、タスクは `endsAt`・`remindEndMinutes` を持たず、渡すと拒否する。WHY NOT 黙って捨てる: 送った側は終わりを保存したと思い込む。
   - 同じ形を、API の入力（日時は ISO 文字列）と、MCP の部分更新を今の値に重ねた後の値（日時は Date。`eventRulesSchema`）の 2 つに作る。形と項目をまたぐ規則（終了は開始以降、終日の通知は日単位）を 1 か所に保ち、どの経路の書き込みも同じ検証を通って種別の形になる。
@@ -107,7 +109,7 @@
 
 ## 通知
 
-開始の `remind_start_minutes` 前と、予定の終了の `remind_end_minutes` 前（MCP からだけ入れられる）に、参加者の全端末へ送る。既定はどちらも通知なし。終日の項目の扱い・予約と配信の仕組みは [notifications.md](notifications.md)。
+開始の前と予定の終了の前に通知する（分の列は [データ](#データ)）。いつ・誰に届くか（終日の項目を含む）と、予約と配信の仕組みは [notifications.md](notifications.md)。
 
 ## ホーム
 

@@ -22,7 +22,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | データ取得・キャッシュ | TanStack Query + `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister`（ストレージは `idb-keyval` で IndexedDB） | サーバー状態の標準的な管理。永続化によりオフライン閲覧と即時起動を実現する。 |
 | バックエンド | Hono（Vercel Function 1 つ、Node ランタイム） | `api/index.ts` が `server/app.ts` の Hono アプリを Sentry で包んで default export する（Vercel の Node ランタイムは `fetch` を持つオブジェクトを Web 標準ハンドラとして扱う。包み方は [operations.md](operations.md#監視sentry)）。1 関数にまとめることで Hobby の関数数上限を気にしなくてよい。 |
 | DB | Neon（Postgres, Free）。Terraform で直接管理（Vercel Marketplace 連携は使わない） | アイドル時のコンピュート停止によるコールドスタートは、起動時にキャッシュから描画する設計で吸収する。 |
-| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回になるので、**応答時間は読む行数よりも往復の回数で決まる**。同じ時点に投げた読み取りは 1 往復にまとめて送り（[通信の往復](#通信の往復)）、複数文の書き込みは `server/lib/db/client.ts` の `runBatch()` にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
+| DB ドライバ / ORM | `@neondatabase/serverless`（HTTP）+ Drizzle ORM + drizzle-kit | サーバーレスに適した接続方式。スキーマが TypeScript で単一情報源。HTTP ドライバで往復を増やさない読み書きのまとめ方は [通信の往復](#通信の往復)。ローカル／テストは `drizzle-orm/node-postgres`（`server/lib/db/client.ts` で `VERCEL` 環境変数により切替）。 |
 | ランタイム | Node.js 最新 LTS（`.node-version` と `package.json#engines` で固定） | Vercel Function と CI で同じバージョンを使う。 |
 | 画面の API | tRPC（`@trpc/server` / `@trpc/client`） | 画面専用の API を手続き（procedure）として書き、クライアントに型が伝わる。同じ時点に出た呼び出しを `httpBatchLink` が 1 本の要求にまとめ、サーバーはその中の手続きを並べて実行する（[通信の往復](#通信の往復)）。外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま。 |
 | バリデーション | Zod（`shared/validation/`）+ `@hono/zod-validator`（Hono のまま残る口） | クライアントのフォームと API の入力を同じスキーマで検証する。MCP ツールの引数は LLM に合わせて別に形を決め（下記「レイヤー構成」）、項目の定義がそのまま使えるときだけ共有する。 |
@@ -30,7 +30,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | MCP サーバー | `@modelcontextprotocol/server`（v2）の `createMcpHandler`、Streamable HTTP（ステートレス） | 同じ Hono アプリに載せる。MCP 2026-07-28（要求ごとに完結する版）と 2025 年版の両方を 1 つの口で受ける。サーバーレスのためセッションを持たない。 |
 | 繰り返しルール | RFC 5545 RRULE（`rrule` ライブラリ） | 予定・タスクで同じ仕組みを使う。展開ロジックを自作しない。 |
 | プッシュ通知 | Web Push（VAPID）、`web-push` | ブラウザ標準。iOS はホーム画面に追加した PWA で対応。 |
-| 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は 1 日 1 回のため、分単位の配信は QStash の遅延配信で行う。 |
+| 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は分単位では呼べない（呼べる頻度は [Cron の決まり](#ディレクトリ構成機能単位で凝集)）ので、分単位の配信は QStash の遅延配信で行う。 |
 | UI | MUI（Material UI） | マテリアルデザインを「書かずに」得る。 |
 | カレンダー UI | 自作の月／週グリッド（MUI 部品で構成）。日時の入力は `<input type="date">` / `<input type="time">`（MUI の TextField 経由。予定・タスクの日時は日付と時刻の欄に分ける）。記録の日時（レモンの世話）は `<input type="datetime-local">` | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。日時入力は Web 標準で足り、スマホではネイティブのピッカーが使える。MUI X Date Pickers は date-fns アダプタがタイムゾーン非対応のため採用しない。 |
 | フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
@@ -64,7 +64,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
   - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
-  - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。部品と画面は MUI の Dialog / Modal などを直接使わない（`lib/ui` の Dialog / RecordSheet を使う）。
+  - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。重ねて開く MUI の部品（Dialog など）を直接使うことの禁止は [ui.md](ui.md#ダイアログと履歴)。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
@@ -82,7 +82,7 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  memos/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
-      （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持ち、依存は calendar → events の一方向）
+      （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持つ）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
     api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  view-transition.ts + move-animation.ts（画面と記録の動き）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
     ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
@@ -142,10 +142,10 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 ## 横断機能との接続
 
-- **MCP**: `server/features/*/mcp.ts` が `McpRegistrar` を export し、`server/mcp.ts` に列挙する（実装が複数あり、SDK が登録関数を要求するので registry の形にしている）。
+- **MCP**: 各 feature の `mcp.ts` を `server/mcp.ts` に列挙する（[features/mcp.md](features/mcp.md#組み立て)）。
 - **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`timeline.get`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインを invalidate する（タイムラインのキーは外に出さず、記録の書き込みのキーは `src/features/timeline/queries.ts` の `recordWriteKeys` で作る）。
 - **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（`server/features/users/people.ts`）だけを読み、記録の feature を読まない。予定・タスクの通知（`event.reminder`）は、通知の service が配信のときに `publishReminder` を呼ぶ。
-- **通知**: 通知源は events だけなので registry を置かず、`server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md)）。
+- **通知**: `server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md#構成)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 
 ## 認証・認可
@@ -176,7 +176,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
    - 手続きごとに Sentry のスパンを作る（`trpc/timeline.get`。1 本の要求に載った手続きのどれに時間が掛かったかを見る。[operations.md](operations.md#監視sentry)）。
 2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `userProcedure` で検証を待ち、`ctx.userId` で ID を読む。書き込みは検証が通ってから走らせる。
 3. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
-4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `runBatch` で明示的にまとめる。読み取りは `runBatch` に入れない（Drizzle の `batch` はまとめる仕組みを通らず自分だけで 1 往復を使うので、ほかの読み取りと同じ往復に載らなくなる。`runBatch` の型が select を拒む）。
+4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `server/lib/db/client.ts` の `runBatch` で明示的にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。読み取りは `runBatch` に入れない（Drizzle の `batch` はまとめる仕組みを通らず自分だけで 1 往復を使うので、ほかの読み取りと同じ往復に載らなくなる。`runBatch` の型が select を拒む）。
 
 問い合わせの結果に次の問い合わせが依るとき（タイムラインのページの区切りを決めてから行を読むなど）は、その依存の数だけ往復が残る。依存を SQL の 1 文に押し込むことはしない（別々に読める表を 1 文の中で結び付けると、読むのも直すのも難しくなる）。
 

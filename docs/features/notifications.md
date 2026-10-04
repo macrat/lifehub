@@ -6,8 +6,8 @@
 
 ## 通知内容
 
-- 開始の `remind_start_minutes` 前と、予定の終了の `remind_end_minutes` 前（タスクは終了を持たない）。項目ごとに選択し、既定はどちらも通知なし（フォームでの選び方は [events.md](events.md#画面)）。完了したタスクには送らない。
-- 終日の予定・タスクは、開始日／終了日の **各参加者の通知時刻**（`users.all_day_notify_minutes`、既定 7:00）に送る。終日の n は 0（当日）か 1440（前日）だけを許す（`shared/validation/events.ts` の `ALL_DAY_REMIND_OPTIONS` と CHECK 制約）。予定のフォームは終日なら「当日」「前日」だけを出し、時刻のある予定を終日に切り替えたときは 0 分前を当日、それ以外を前日に寄せる（`toAllDayRemind`）。
+- 開始の `remind_start_minutes` 前と、予定の終了の `remind_end_minutes` 前に送る（列の値と既定は [events.md](events.md#データ)）。完了したタスクには送らない。
+- 終日の予定・タスクは、開始日／終了日の **各参加者の通知時刻**（`users.all_day_notify_minutes`、既定 7:00）に送る。分が 0 ならその日の、1440 なら前日の通知時刻（終日で選べる値は [events.md](events.md#データ)）。
   - WHY: 終日には「n 分前」の瞬間が無い（0:00 の n 分前では夜中に届く）。何時に知りたいかは人によって違うので、項目ではなくユーザーの設定（`/settings` の「終日の通知」）で選ぶ。
   - 宛先はユーザーごとに時刻が違うので、終日の項目は参加者ごとに予約する（`ref.userId`）。時刻のある項目は `userId: null` で参加者全員に 1 つ。
   - 通知時刻を変えると、users service が当日〜翌日の分を予約し直す（下記「仕組み」の 2）。通知時刻は `server/features/users/people.ts` の `listAllDayNotifyMinutes` で読み、列挙と再検証（`server/features/events/notifications.ts`）には引数で渡す（users service から読むと、予約し直す呼び出しと合わせて import が一巡する）。古い時刻の予約は配信時の再検証で配信予定時刻が合わずに捨てられる。
@@ -48,7 +48,7 @@ export function listNotifications(range, notifyTimes): Promise<{ key; at; ref }[
 export function resolveNotification(ref, notifyTimes): Promise<NotificationPayload | null>; // 配信直前の再検証
 ```
 
-通知源は予定・タスク（events）だけなので registry は置かず、`server/features/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。通知は送信済み台帳（`sent_notifications`）を持つ 1 つの機能なので、feature として置き、repository の import の制限（他の feature の repository を読まない）も他の機能と同じに掛かる。QStash のメッセージ本文は `{ key, ref }`（`publisher.ts` の `notificationMessageSchema`。予約する側と配信の入口が同じスキーマを使う）で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash への予約は `server/features/notifications/publisher.ts`、QStash の配信の署名検証は `server/lib/qstash.ts`（QStash が呼ぶ入口 `server/qstash.ts` の全体に掛ける）、Web Push の送信は `server/features/push/service.ts`。QStash は US（us-east-1）リージョンを使う（日本から近い）。SDK の既定は EU なのでエンドポイントをコードに固定してあり、トークンと署名鍵も US リージョンのものを使う。
+通知源は予定・タスク（events）だけなので registry は置かず、`server/features/notifications/service.ts`（予約・配信の共通処理）が直接呼ぶ。通知は送信済み台帳（`sent_notifications`）を持つ 1 つの機能なので、feature として置き、repository の import の制限（他の feature の repository を読まない）も他の機能と同じに掛かる。QStash のメッセージ本文は `{ key, ref }`（`publisher.ts` の `notificationMessageSchema`。予約する側と配信の入口が同じスキーマを使う）で、`key` は冪等性のための不透明な一意キー（中身は読まない）、`ref` は配信時に Zod（`notificationRefSchema`）で読み直す構造化された参照。QStash への予約は `server/features/notifications/publisher.ts`、QStash の配信の署名検証は `server/lib/qstash.ts`（QStash が呼ぶ入口 `server/qstash.ts` の全体に掛ける）、Web Push の送信は `server/features/push/service.ts`。QStash のリージョンは [operations.md](../operations.md#初回セットアップ人が一度だけ行う手作業)。
 
 ## 購読
 
