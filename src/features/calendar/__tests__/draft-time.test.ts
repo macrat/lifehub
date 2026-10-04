@@ -181,4 +181,9 @@ describe('timeVibration', () => {
     expect(timeVibration(draft(540, 615), draft(555, 630))).toBe(10);
     expect(timeVibration(draft(555, 630), draft(600, 675))).toBe(50);
   });
+
+  it('同じ時刻のまま別の日へ移ったときは短く震わせる', () => {
+    const nextDay = { ...draft(540, 600), date: '2031-06-06' as DateString };
+    expect(timeVibration(draft(540, 600), nextDay)).toBe(10);
+  });
 });
