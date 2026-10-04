@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { type DateRange, instantRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { type Database, db, runBatch } from '../../lib/db/client.ts';
+import { db } from '../../lib/db/client.ts';
 import { weather, weatherHourly, weatherPop } from './schema.ts';
 
 export type WeatherRow = typeof weather.$inferSelect;
@@ -9,8 +9,8 @@ export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
 export type PopRow = typeof weatherPop.$inferSelect;
 
 /** [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）の問い合わせ */
-function dailyIn(tx: Database, range: DateRange) {
-  return tx
+function dailyIn(range: DateRange) {
+  return db
     .select()
     .from(weather)
     .where(and(gte(weather.date, range.from), lte(weather.date, range.to)))
@@ -18,9 +18,9 @@ function dailyIn(tx: Database, range: DateRange) {
 }
 
 /** [from, to] の日々の 3 時間ごとの天気（時刻順）の問い合わせ */
-function hourlyIn(tx: Database, range: DateRange) {
+function hourlyIn(range: DateRange) {
   const { from, to } = instantRange(range);
-  return tx
+  return db
     .select()
     .from(weatherHourly)
     .where(and(gte(weatherHourly.startsAt, from), lt(weatherHourly.startsAt, to)))
@@ -28,9 +28,9 @@ function hourlyIn(tx: Database, range: DateRange) {
 }
 
 /** [from, to] の日々の 6 時間ごとの降水確率（時刻順）の問い合わせ */
-function popsIn(tx: Database, range: DateRange) {
+function popsIn(range: DateRange) {
   const { from, to } = instantRange(range);
-  return tx
+  return db
     .select()
     .from(weatherPop)
     .where(and(gte(weatherPop.startsAt, from), lt(weatherPop.startsAt, to)))
@@ -39,34 +39,30 @@ function popsIn(tx: Database, range: DateRange) {
 
 /** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
 export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
-  return dailyIn(db, range);
+  return dailyIn(range);
 }
 
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
- * 1 回の往復で読む（カレンダー）。
+ * 読む（カレンダー）。同じ時点に投げるので、ほかの読み取りと 1 往復にまとまる（`lib/db/coalesce-reads.ts`）。
  */
 export async function findBetween(
   range: DateRange,
 ): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const [daily, hourly] = await runBatch((tx) => [dailyIn(tx, range), hourlyIn(tx, range)]);
+  const [daily, hourly] = await Promise.all([dailyIn(range), hourlyIn(range)]);
   return { daily, hourly };
 }
 
 /**
- * [from, to]（両端を含む JST 暦日）の天気を 1 回の往復で読む（天気の画面・MCP）: 日ごとの天気（日付順）、
- * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。
+ * [from, to]（両端を含む JST 暦日）の天気を読む（天気の画面・MCP）: 日ごとの天気（日付順）、
+ * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。同じ時点に投げるので 1 往復にまとまる（`findBetween`）。
  */
 export async function findDays(range: DateRange): Promise<{
   daily: WeatherRow[];
   hourly: HourlyWeatherRow[];
   pops: PopRow[];
 }> {
-  const [daily, hourly, pops] = await runBatch((tx) => [
-    dailyIn(tx, range),
-    hourlyIn(tx, range),
-    popsIn(tx, range),
-  ]);
+  const [daily, hourly, pops] = await Promise.all([dailyIn(range), hourlyIn(range), popsIn(range)]);
   return { daily, hourly, pops };
 }
 

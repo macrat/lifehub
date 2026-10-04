@@ -159,6 +159,8 @@ describe('カレンダーの月ごとの中身', () => {
     expect(reading('weather_hourly')).toBe(1);
     expect(reading('holidays')).toBe(1);
     expect(reading('events')).toBe(1);
+    // 読み取りだけなので、明示的なトランザクション（本番では別の往復）にしない
+    expect(statements.filter((text) => /^(begin|commit)\b/i.test(text))).toEqual([]);
   });
 
   it('幅の広すぎる月の組は読まずに断る（間の月もすべて読んで展開することになる）', async () => {

@@ -1,7 +1,7 @@
 import { neon, neonConfig } from '@neondatabase/serverless';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { drizzle as drizzleNodePg } from 'drizzle-orm/node-postgres';
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import type { AnyPgSelect, PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { env } from '../env.ts';
 import { traceNeonFetch } from '../sentry.ts';
 import { coalesceReads } from './coalesce-reads.ts';
@@ -33,6 +33,16 @@ type BatchQueries = readonly [BatchQuery, ...BatchQuery[]];
 /** 各文の結果（`returning` の行など）。文と同じ並び */
 type BatchResults<T extends BatchQueries> = { -readonly [K in keyof T]: Awaited<T[K]> };
 
+/**
+ * 読み取り（select）の文を型で拒む。読み取りは同じ時点に投げれば `coalesceReads` がほかの読み取りと
+ * 1 往復にまとめるが、`runBatch` に入れると Neon では自分だけで 1 往復を使い（Drizzle の `batch` は
+ * まとめる仕組みを通らない）、node-postgres では begin / commit の 2 文が増える。
+ * 書き込みの文の中の select（`insert ... select` や where の副問い合わせ）は書き込みの文の一部なので当たらない。
+ */
+type WritesOnly<T extends BatchQueries> = {
+  [K in keyof T]: T[K] extends AnyPgSelect ? never : T[K];
+};
+
 type Batchable = { batch: (queries: BatchQueries) => Promise<unknown[]> };
 
 function supportsBatch(database: Database): database is Database & Batchable {
@@ -51,7 +61,7 @@ function supportsBatch(database: Database): database is Database & Batchable {
  * なく組み立てる関数を受け取る（Drizzle のクエリビルダは作られたセッションの上で実行される）。
  */
 export async function runBatch<const T extends BatchQueries>(
-  build: (tx: Database) => T,
+  build: (tx: Database) => T & WritesOnly<T>,
 ): Promise<BatchResults<T>> {
   if (supportsBatch(db)) {
     return (await db.batch(build(db))) as BatchResults<T>;
