@@ -5,13 +5,9 @@ import { useMemo } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import {
-  formatDateWithYear,
-  isToday,
-  WEEKDAY_LABELS,
-  weekdayLabelColor,
-} from '../../../lib/date.ts';
+import { formatDateWithYear, isToday, weekdayLabelColor } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
+import { WEEKDAY_LABELS } from '../calendar-dates.ts';
 import { type Draft, draftDays, draftOn, sameOccurrence } from '../draft.ts';
 import { draftKind, type GridDraft } from '../grid-draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';

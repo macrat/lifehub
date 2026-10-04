@@ -14,15 +14,18 @@ import {
   firstDayOfMonth,
   formatDateWithYear,
   formatMonth,
-  formatWeekRange,
-  monthGridDays,
-  monthGridWeeks,
   toMonthString,
-  WEEKDAY_LABELS,
-  weekDays,
   weekdayLabelColor,
 } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
+import {
+  formatWeekRange,
+  monthGridDays,
+  monthGridWeeks,
+  WEEKDAY_LABELS,
+  weekDays,
+  weekStart,
+} from '../calendar-dates.ts';
 import { useCalendarDays } from '../queries.ts';
 import type { PeriodView } from '../use-calendar-page.ts';
 import { DayNumber } from './DayNumber.tsx';
@@ -148,7 +151,7 @@ function DayOptions({
 }) {
   // 祝日はカレンダーの面と同じ月のキャッシュから読む。選んだ先の月を先に読んでおくことにもなる
   const { holidays } = useCalendarDays(monthGridDays(month));
-  const selectedWeek = weekDays(selected)[0];
+  const selectedWeek = weekStart(selected);
   const optionSx = { borderRadius: 1, py: 0.5 };
   return (
     <Box sx={{ display: 'grid', gap: 0.5 }}>
