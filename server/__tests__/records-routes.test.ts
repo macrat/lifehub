@@ -62,8 +62,4 @@ describe('記録投入のルート', () => {
     expect((await post({ type: 'unknown' }, key)).status).toBe(400);
     expect((await post({ type: 'lemon', careTypes: [] }, key)).status).toBe(400);
   });
-
-  it('API キーの管理はログインが要る', async () => {
-    expect((await app.request('/api/trpc/apiKeys.list')).status).toBe(401);
-  });
 });

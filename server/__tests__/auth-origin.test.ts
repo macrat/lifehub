@@ -34,11 +34,14 @@ function signIn(origin: string) {
   return new Request(`${origin}/api/auth/sign-in/email`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin, cookie: 'dummy=1' },
-    body: JSON.stringify({ email: 'nobody@example.com', password: 'password' }),
+    body: JSON.stringify({ email: 'nobody', password: 'password' }),
   });
 }
 
-/** origin で弾かれたら 403。通ったときは認証情報が無いので 401 になる */
+/**
+ * origin で弾かれたら 403。通ったときはメールの形が正しくないので 400 になる。
+ * WHY 形の正しくないメール: 正しい形だと、いないユーザーでも時間差を隠すためにパスワードのハッシュ（scrypt）が走り、1 回 100ms ほどかかる
+ */
 const status = async (app: typeof App, request: Request) => (await app.request(request)).status;
 
 // 後のテストファイルが、このファイルの環境変数で作ったモジュールを使わないようにする
@@ -50,8 +53,8 @@ describe('APP_URL が無いとき（Preview）', () => {
   const app = appWith('');
 
   it('Preview とブランチの URL からログインできる', async () => {
-    expect(await status(app(), signIn('https://lifehub-abc123-macrat.vercel.app'))).toBe(401);
-    expect(await status(app(), signIn('https://lifehub-git-security-macrat.vercel.app'))).toBe(401);
+    expect(await status(app(), signIn('https://lifehub-abc123-macrat.vercel.app'))).toBe(400);
+    expect(await status(app(), signIn('https://lifehub-git-security-macrat.vercel.app'))).toBe(400);
   });
 
   it('他の Vercel 利用者のホストと Origin、vercel.app 以外のオリジンは拒否する', async () => {
@@ -69,7 +72,7 @@ describe('Vercel のホストが分からないとき', () => {
   const app = appWith('', { vercelHosts: false });
 
   it('起動でき、既定の URL だけを受け入れる', async () => {
-    expect(await status(app(), signIn('http://localhost:5173'))).toBe(401);
+    expect(await status(app(), signIn('http://localhost:5173'))).toBe(400);
     expect(await status(app(), signIn('https://lifehub-abc123-macrat.vercel.app'))).toBe(403);
   });
 });
@@ -78,7 +81,7 @@ describe('APP_URL があるとき（本番）', () => {
   const app = appWith('https://lifehub.crat.jp');
 
   it('APP_URL のオリジンだけを受け入れる', async () => {
-    expect(await status(app(), signIn('https://lifehub.crat.jp'))).toBe(401);
+    expect(await status(app(), signIn('https://lifehub.crat.jp'))).toBe(400);
     expect(await status(app(), signIn('https://lifehub-abc123-macrat.vercel.app'))).toBe(403);
   });
 });

@@ -3,7 +3,7 @@ import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { newId } from '../../../../shared/id.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
-import { clearTables } from '../../../lib/db/test-db.ts';
+import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
 
@@ -38,30 +38,30 @@ describe('users service', () => {
     expect((await listUsers()).find((u) => u.id === third.id)?.hue).toBe(10);
   });
 
-  it('同じメールアドレスは登録できない', async () => {
+  it('同じメールアドレスは、大文字と小文字の違いだけでも登録できない', async () => {
     await createUser(alice);
     await expect(createUser({ ...alice, name: 'Alice2' })).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      createUser({ ...alice, email: 'Alice@Example.com', name: 'Alice3' }),
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 
-  it('作成したユーザーでログインできる', async () => {
-    await createUser(alice);
-    const res = await login(alice.email, alice.password);
-    expect(res.status).toBe(200);
-    expect(res.headers.get('set-cookie')).toContain('better-auth.session_token');
-  });
-
-  it('名前とパスワードを変更できる', async () => {
+  it('作成したユーザーでログインでき、パスワードを変えるとプロフィールはそのままで、旧セッションと旧パスワードを拒否する', async () => {
     const created = await createUser(alice);
-    await updateUser(created.id, { name: 'Alicia', password: 'new-password-123' }, created.id);
-    expect((await listUsers()).find((u) => u.id === created.id)?.name).toBe('Alicia');
-    expect((await login(alice.email, alice.password)).status).toBe(401);
-    expect((await login(alice.email, 'new-password-123')).status).toBe(200);
-  });
+    const sessions = [
+      await login(alice.email, alice.password),
+      await login(alice.email, alice.password),
+    ];
+    const cookies = sessions.map(cookieOf);
+    for (const cookie of cookies)
+      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(200);
 
-  it('パスワードだけの変更ではプロフィールは変わらない', async () => {
-    const created = await createUser(alice);
     await updateUser(created.id, { password: 'new-password-123' }, created.id);
     expect(await listUsers()).toEqual([created]);
+    for (const cookie of cookies)
+      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
+    expect((await login(alice.email, alice.password)).status).toBe(401);
+    expect((await login(alice.email, 'new-password-123')).status).toBe(200);
   });
 
   it('いないユーザーは変更できない', async () => {
@@ -74,33 +74,13 @@ describe('users service', () => {
 
   it('他のユーザーのプロフィールは変更できるが、パスワードは変更できない', async () => {
     const created = await createUser(alice);
-    const other = await createUser({
-      email: 'bob@example.com',
-      name: 'Bob',
-      password: 'password-bob-12',
-    });
-    await updateUser(created.id, { name: 'Alicia' }, other.id);
+    const other = await createTestUser('B');
+    await updateUser(created.id, { name: 'Alicia' }, other);
     await expect(
-      updateUser(created.id, { name: 'Mallory', password: 'stolen-password-1' }, other.id),
+      updateUser(created.id, { name: 'Mallory', password: 'stolen-password-1' }, other),
     ).rejects.toBeInstanceOf(ForbiddenError);
     // 拒否したときはプロフィールも変えない
     expect((await listUsers()).find((u) => u.id === created.id)?.name).toBe('Alicia');
     expect((await login(alice.email, alice.password)).status).toBe(200);
-  });
-});
-
-describe('パスワード変更による失効', () => {
-  beforeEach(clearTables);
-  it('旧セッションをすべて拒否し、新パスワードでログインできる', async () => {
-    const user = await createUser(alice);
-    const first = await login(alice.email, alice.password);
-    const second = await login(alice.email, alice.password);
-    const cookies = [first, second].map(cookieOf);
-    for (const cookie of cookies)
-      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(200);
-    await updateUser(user.id, { password: 'replacement-password-123' }, user.id);
-    for (const cookie of cookies)
-      expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
-    expect((await login(alice.email, 'replacement-password-123')).status).toBe(200);
   });
 });

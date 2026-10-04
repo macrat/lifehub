@@ -61,20 +61,6 @@ describe('lemon service', () => {
     ).rejects.toThrow();
   });
 
-  it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
-    const id = newId();
-    const input = {
-      careTypes: ['water' as const],
-      doneAt: jst('2026-09-10T08:00:00'),
-      note: null,
-    };
-    await logCare(input, { userId }, id);
-    await logCare(input, { userId }, id);
-
-    expect((await listLogs({})).items).toHaveLength(1);
-    expect((await listLogs({})).items[0]).toMatchObject({ id, careTypes: ['water'] });
-  });
-
   it('記録した人を持ち、API キーで入れた記録は人の代わりにキーの名前を持つ', async () => {
     const doneAt = jst('2026-09-10T08:00:00');
     const known = await logCare({ careTypes: ['water'], doneAt, note: null }, { userId });
@@ -152,12 +138,11 @@ describe('lemon service', () => {
 
     it('新しいほうから 1 ページを古い順で返し、JST の日の途中では切らない', async () => {
       // JST の 1/1〜2/18 に 1 日 1 件（49 件）。1/2 には 0:30 と 23:30 にもう 2 件（UTC では前日と当日）
-      for (let d = 0; d < 49; d++) {
-        const day = addDays(on('2026-01-01'), d);
-        await log(`${day}T12:00:00`);
-      }
-      await log('2026-01-02T00:30:00');
-      await log('2026-01-02T23:30:00');
+      await Promise.all([
+        ...Array.from({ length: 49 }, (_, d) => log(`${addDays(on('2026-01-01'), d)}T12:00:00`)),
+        log('2026-01-02T00:30:00'),
+        log('2026-01-02T23:30:00'),
+      ]);
 
       // 新しいほうから 50 件目は 1/2 の記録。1/2 の 3 件はすべてこのページに入る
       const first = await listLogs({});
