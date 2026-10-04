@@ -48,7 +48,7 @@
 - **絞り込み**: 検索窓だけで足りない画面（カレンダーのリスト表示、ホーム、立替、レモン）は、検索窓の右に絞り込みボタン（`src/lib/ui/FilterButton.tsx`。ホーム・立替・レモンは窓とボタンの塊 `FilterSearchField`）を置き、AppBar の下に詳細な絞り込みのフォーム（`src/lib/ui/FilterPanel.tsx`。日付の範囲の欄は `DateRangeFilter` を共通で使う）を開く。
   - キーワード以外の絞り込みは検索パラメータそのものを状態にし、履歴には積まず置き換える（ホーム・立替・レモンは `useFilterSearch`。スキーマは API の絞り込みのスキーマから `filterSearchSchema` で作る）。
   - 効いている条件の数はボタンのバッジに出す（範囲の上下は 1 つと数える。`countActiveFilters`）。
-  - 「すべて」や空欄は絞り込まない状態として URL に残さない（入力値から絞り込みへの読み替えは `src/lib/search.ts` の `optionOrUndefined`・`dateOrUndefined`）。
+  - 「すべて」や空欄は絞り込まない状態として URL に残さない（入力値から絞り込みへの読み替えは `src/lib/search.ts` の `optionOrUndefined`・`dateOrUndefined`・`numberOrUndefined`）。
 
 ## 一覧
 

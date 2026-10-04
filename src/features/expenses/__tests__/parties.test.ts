@@ -3,6 +3,7 @@ import {
   chooseFrom,
   fromCandidates,
   partiesInOrder,
+  partyFilterOptions,
   settlementExpense,
   toCandidates,
 } from '../parties.ts';
@@ -12,6 +13,17 @@ const users = [{ id: 'a' }, { id: 'b' }];
 describe('fromCandidates', () => {
   it('共有を先頭に、ユーザーを並べる', () => {
     expect(fromCandidates(users)).toEqual([null, 'a', 'b']);
+  });
+});
+
+describe('partyFilterOptions', () => {
+  it('共有を先頭に、共有は URL の値（shared）で並べる', () => {
+    const label = (party: string | null) => party ?? '共有';
+    expect(partyFilterOptions(users, label)).toEqual([
+      { value: 'shared', label: '共有' },
+      { value: 'a', label: 'a' },
+      { value: 'b', label: 'b' },
+    ]);
   });
 });
 

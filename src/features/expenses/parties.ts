@@ -1,5 +1,5 @@
 import type { Settlement } from '../../../shared/expenses.ts';
-import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
+import { type ExpenseInput, SHARED } from '../../../shared/validation/expenses.ts';
 
 /** 立替の当事者（ユーザー ID。null は共有） */
 export type Party = string | null;
@@ -10,6 +10,16 @@ export type Parties = Pick<ExpenseInput, 'toUserId' | 'fromUserId'>;
 /** From の選択肢: 共有（先頭）とユーザー */
 export function fromCandidates(users: { id: string }[]): Party[] {
   return [null, ...users.map((u) => u.id)];
+}
+
+/**
+ * 絞り込みの To・From の選択肢: フォームの From と同じ並び（共有が先頭）。共有は URL に載せる値（`SHARED`）で持つ
+ */
+export function partyFilterOptions(
+  users: { id: string }[],
+  label: (party: Party) => string,
+): { value: string; label: string }[] {
+  return fromCandidates(users).map((party) => ({ value: party ?? SHARED, label: label(party) }));
 }
 
 /** To の選択肢。自分から自分へは払えないので、From の相手を外す（共有から共有も同じく外れる） */

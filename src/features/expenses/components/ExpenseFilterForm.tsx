@@ -1,9 +1,10 @@
 import TextField from '@mui/material/TextField';
-import { SHARED } from '../../../../shared/validation/expenses.ts';
+import { numberOrUndefined } from '../../../lib/search.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { FilterSelect } from '../../../lib/ui/FilterSelect.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
+import { partyFilterOptions } from '../parties.ts';
 import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
 
 type Props = {
@@ -20,10 +21,7 @@ type Props = {
  */
 export function ExpenseFilterForm({ open, filters, onChange }: Props) {
   const { users, label } = useUserLabels();
-  const parties = [
-    { value: SHARED, label: label(null) },
-    ...users.map((u) => ({ value: u.id, label: u.name })),
-  ];
+  const parties = partyFilterOptions(users, label);
   return (
     <FilterPanel open={open}>
       <TextField
@@ -31,7 +29,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         type="number"
         size="small"
         value={filters.min ?? ''}
-        onChange={(e) => onChange({ min: amountOrUndefined(e.target.value) })}
+        onChange={(e) => onChange({ min: numberOrUndefined(e.target.value) })}
         slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' } }}
       />
       <TextField
@@ -39,7 +37,7 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
         type="number"
         size="small"
         value={filters.max ?? ''}
-        onChange={(e) => onChange({ max: amountOrUndefined(e.target.value) })}
+        onChange={(e) => onChange({ max: numberOrUndefined(e.target.value) })}
         slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' } }}
       />
       <DateRangeFilter since={filters.since} until={filters.until} onChange={onChange} />
@@ -58,10 +56,4 @@ export function ExpenseFilterForm({ open, filters, onChange }: Props) {
       />
     </FilterPanel>
   );
-}
-
-/** 空欄（消した）や数字にならない入力は、その項目の絞り込みをやめる */
-function amountOrUndefined(value: string): number | undefined {
-  const amount = Number(value);
-  return value === '' || Number.isNaN(amount) ? undefined : amount;
 }
