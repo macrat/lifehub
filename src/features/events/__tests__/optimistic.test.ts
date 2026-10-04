@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { expect, test } from 'vitest';
 import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
-import { today } from '../../../../shared/date.ts';
+import { addDays, startOfDate, today } from '../../../../shared/date.ts';
 import { toMonthString } from '../../../lib/date.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from '../optimistic.ts';
 import type { CreateEventBody } from '../queries.ts';
@@ -37,6 +37,12 @@ const EVENT: CreateEventBody & { id: string } = {
   remindEndMinutes: null,
 };
 
+/** EVENT と同じ id・タイトル・参加者の、時刻のあるタスク */
+function taskBody(startsAt: string): CreateEventBody & { id: string } {
+  const { id, title, participantIds } = EVENT;
+  return { id, kind: 'task', title, allDay: false, startsAt, participantIds };
+}
+
 test('終日の予定は終了日まで、掛かる日ごとに置かれる', () => {
   const client = clientWith('2030-05');
   insertItem(client, EVENT);
@@ -57,10 +63,11 @@ test('その月に掛からない予定は置かれない', () => {
   expect(itemsOf(client)).toEqual([]);
 });
 
-test('日時の無いタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
+test('開始を過ぎたタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
   const todayDate = today();
   const client = clientWith(toMonthString(todayDate));
-  insertItem(client, { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false });
+  const started = startOfDate(addDays(todayDate, -3)).toISOString();
+  insertItem(client, taskBody(started));
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 
   setCompleted(client, { id: 'tmp', scope: 'all' }, new Date().toISOString());
@@ -72,8 +79,7 @@ test('日時の無いタスクは今日に置かれ、完了にすると完了�
 
 test('完了したタスクを予定に変えると、完了が外れて予定として置かれる', () => {
   const client = clientWith('2030-05');
-  const task = { ...EVENT, kind: 'task' as const, allDay: false, endsAt: null };
-  insertItem(client, task);
+  insertItem(client, taskBody(EVENT.startsAt));
   setCompleted(client, { id: 'tmp', scope: 'all' }, '2030-05-01T09:00:00+09:00');
   updateItem(client, { ...EVENT, scope: 'all' });
   expect(itemsOf(client).map((item) => [item.kind, item.completedAt])).toEqual([

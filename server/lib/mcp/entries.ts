@@ -20,14 +20,12 @@ import { compact, type Person } from './types.ts';
 type EventLike = EventMaster &
   Partial<Pick<Extract<CalendarItem, { kind: 'event' }>, 'dayIndex' | 'dayCount'>> & {
     occurrenceStart?: string | null;
-    isOverdue?: boolean;
   };
 
 export function formatEvent(item: EventLike, people: Person[]) {
-  const { allDay, startsAt, endsAt } = item;
+  const { allDay, startsAt } = item;
   const ref = toRef(item.kind, item.id, item.occurrenceStart);
-  const start = startsAt && whenOutput(allDay, startsAt, 'start');
-  const end = endsAt && whenOutput(allDay, endsAt, 'end');
+  const start = whenOutput(allDay, startsAt, 'start');
   const details = {
     participants: item.participantIds.map((id) => nameOf(people, id)),
     location: item.location,
@@ -43,7 +41,7 @@ export function formatEvent(item: EventLike, people: Person[]) {
       title: item.title,
       ...compact({
         start,
-        end,
+        end: whenOutput(allDay, item.endsAt, 'end'),
         allDay: allDay || undefined,
         day: dayCount && dayCount > 1 ? `${dayIndex}/${dayCount}` : undefined,
         ...details,
@@ -59,10 +57,7 @@ export function formatEvent(item: EventLike, people: Person[]) {
     ...compact({
       doneAt: item.completedAt && jstDateTime(item.completedAt),
       start,
-      due: end,
-      overdue: item.isOverdue || undefined,
       ...details,
-      remindBeforeDue: item.remindEndMinutes,
     }),
   };
 }

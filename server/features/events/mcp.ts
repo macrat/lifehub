@@ -1,8 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { defaultEventEnd } from '../../../shared/calendar.ts';
+import { defaultEventEnd, defaultTaskStart } from '../../../shared/calendar.ts';
 import {
-  type CreateEventInput,
   type EventKind,
   type EventPatch,
   eventFieldTypes,
@@ -32,11 +31,10 @@ import * as service from './service.ts';
  * 予定・タスクを書く MCP ツール。読むのはタイムライン（`read_timeline`）、消すのは `delete_entry`。
  * 予定とタスクは画面と同じく 1 つの入力で扱い（`add_event` / `update_event` の kind）、種類を入れ替えられる。
  * WHY 1 つにする: 画面では書きながら種類を切り替えるので、LLM にも同じ操作で同じ結果を返す。
- * 項目は終わりの名前（end / due）と通知の名前以外は同じで、分岐（anyOf）にしなくても平らな入力で足りる。
+ * 項目は予定の終わり（end と、その前の通知）のほかは同じで、分岐（anyOf）にしなくても平らな入力で足りる。
  *
  * 項目は LLM に合わせて API と形を変える: 日時は日付（終日）か JST の日時の 1 つの文字列で受け、終日かどうかは
- * その形から決める（allDay の旗を別に持たせると、旗と日時の食い違いが起きる）。タスクの期限は `due`、
- * 予定の終了は `end` と名前で分ける（API はどちらも endsAt）。人は名前で指す。
+ * その形から決める（allDay の旗を別に持たせると、旗と日時の食い違いが起きる）。人は名前で指す。
  */
 
 const WHEN_FORMAT = '時刻ありは "2030-01-07T09:00"（JST）、終日は日付 "2030-01-07"';
@@ -50,7 +48,7 @@ const fields = {
   location: eventFieldTypes.location.describe('場所'),
   note: eventFieldTypes.note.describe('メモ'),
   repeat: eventFieldTypes.rrule.describe(
-    '繰り返し。RFC 5545 の RRULE（DTSTART なし）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）',
+    '繰り返し。RFC 5545 の RRULE（DTSTART なし。開始が基準）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）',
   ),
   remind: (what: string) =>
     eventFieldTypes.remindStartMinutes.describe(
@@ -58,15 +56,15 @@ const fields = {
     ),
 };
 
-/** 日付か日時の組から、終日かどうかを決める。日付と日時が混ざっていれば、揃えるよう文で返す */
-function allDayOf(...whens: (When | null | undefined)[]): boolean | undefined {
-  const given = whens.filter((w): w is When => w != null);
+/** 日付か日時の組から、終日かどうかを決める（どれも省かれていれば undefined）。日付と日時が混ざっていれば、揃えるよう文で返す */
+function allDayOf(first: When, ...rest: (When | undefined)[]): boolean;
+function allDayOf(...whens: (When | undefined)[]): boolean | undefined;
+function allDayOf(...whens: (When | undefined)[]): boolean | undefined {
+  const given = whens.filter((w): w is When => w !== undefined);
   if (given.length === 0) return undefined;
   const allDay = given[0]?.date !== undefined;
   if (given.some((w) => (w.date !== undefined) !== allDay)) {
-    throw new ValidationError(
-      '開始と終了（期限）は、どちらも日付（終日）か、どちらも日時にしてください',
-    );
+    throw new ValidationError('開始と終了は、どちらも日付（終日）か、どちらも日時にしてください');
   }
   return allDay;
 }
@@ -78,57 +76,34 @@ function participantIdsOf(ctx: McpContext, people: Person[], names: string[] | u
 }
 
 const kindSchema = eventFieldTypes.kind.describe(
-  '種類。event は日時の決まった予定（出来事）、task はやるべきこと（期限や完了のあるもの。set_task_done で完了にできる）',
+  '種類。event は日時の決まった予定（出来事）、task はやるべきこと（開始の日か日時から取りかかり、完了するまで毎日今日に出る。set_task_done で完了にできる）',
 );
 
-/**
- * 予定・タスクの日時と通知の入力。予定・タスクで 1 つのツール（`add_event` / `update_event`）にし、
- * 終わりの名前だけを種類で分ける（予定は end、タスクは due）。
- */
+/** 予定・タスクの日時と通知の入力。終わり（end と、その前の通知）は予定だけが持つ */
 const whenFields = {
   start: whenInputSchema.describe(`開始。${WHEN_FORMAT}`),
   end: whenInputSchema.describe(
-    '予定の終了。start と同じ形（終日なら最終日の日付）。予定で省くと開始から 1 時間（終日ならその日 1 日）。タスクには使わない',
+    '予定の終了。start と同じ形（終日なら最終日の日付）。予定で省くと開始から 1 時間（終日ならその日 1 日）。タスクには使えない（タスクは開始だけを持つ）',
   ),
-  due: whenInputSchema.describe('タスクの期限。start と同じ形。予定には使わない'),
   remindBeforeStart: fields.remind('開始').optional(),
   remindBeforeEnd: fields.remind('予定の終了').optional(),
-  remindBeforeDue: fields.remind('タスクの期限').optional(),
 };
 
-/** 予定には end、タスクには due。取り違えは文で返す（黙って読み替えると、どちらのつもりか分からない） */
-const END_FIELDS = {
-  event: {
-    label: '予定',
-    own: 'end',
-    remind: 'remindBeforeEnd',
-    other: ['due', 'remindBeforeDue'],
-  },
-  task: {
-    label: 'タスク',
-    own: 'due',
-    remind: 'remindBeforeDue',
-    other: ['end', 'remindBeforeEnd'],
-  },
-} as const;
-
-type EndInput = {
-  end?: When | null | undefined;
-  due?: When | null | undefined;
-  remindBeforeEnd?: CreateEventInput['remindEndMinutes'] | undefined;
-  remindBeforeDue?: CreateEventInput['remindEndMinutes'] | undefined;
-};
-
-/** 種類 kind の終わり（予定は end、タスクは due）とその前の通知。もう一方の名前が渡されていれば文で返す */
-function endOf(kind: EventKind, input: EndInput) {
-  const { label, own, remind, other } = END_FIELDS[kind];
-  const misused = other.filter((key) => input[key] !== undefined);
-  if (misused.length > 0) {
+/**
+ * 種類 kind がタスクなのに終わり（予定の終了とその前の通知）が渡されていれば文で返す。
+ * 規則そのものは書き込みの検証（予定・タスクの形。`eventRulesSchema`）が守るが、ここでは他の規則
+ * （終日と時刻ありの切り替えなど）より先に、LLM が渡した項目の名前で直し方を返す
+ * （黙って捨てると、LLM は締め切りを入れたつもりになる）。
+ */
+function rejectTaskEnd(
+  kind: EventKind,
+  input: { end?: When | undefined; remindBeforeEnd?: number | null | undefined },
+): void {
+  if (kind === 'task' && (input.end !== undefined || input.remindBeforeEnd !== undefined)) {
     throw new ValidationError(
-      `${label}には ${misused.join('・')} ではなく ${own} を使ってください`,
+      'タスクは終了（期限）を持てません。end・remindBeforeEnd を外し、start（取りかかる日か日時）だけを渡してください',
     );
   }
-  return { endsAt: input[own], remind: input[remind] };
 }
 
 function registerAdd(server: McpServer, ctx: McpContext) {
@@ -136,36 +111,37 @@ function registerAdd(server: McpServer, ctx: McpContext) {
     'add_event',
     {
       title: '予定・タスクを足す',
-      description: `予定（kind: event）かタスク（kind: task）を足す。日時は ${WHEN_FORMAT}。予定は start が必須で、end（終了。終日なら最終日）を省くと開始から 1 時間（終日ならその日 1 日）。タスクは start（この日時から取りかかる）と due（期限）がどちらも任意で、日時の無いタスクは完了まで毎日タイムラインの今日に出る。作った予定・タスク（ref 付き）を返す。`,
+      description: `予定（kind: event）かタスク（kind: task）を足す。日時は ${WHEN_FORMAT}。予定は start が必須で、end（終了。終日なら最終日）を省くと開始から 1 時間（終日ならその日 1 日）。タスクは start（この日か日時から取りかかる）だけを持ち、省くと今日（終日）になる。タスクは完了まで毎日タイムラインの今日に出る。作った予定・タスク（ref 付き）を返す。`,
       inputSchema: z.object({
         kind: kindSchema,
         title: fields.title,
-        start: whenFields.start.optional(),
+        start: whenFields.start
+          .optional()
+          .describe(`開始。${WHEN_FORMAT}。予定では必須、タスクで省くと今日（終日）`),
         end: whenFields.end.optional(),
-        due: whenFields.due.optional(),
         participants: fields.participants
           .optional()
           .describe('参加者（担当者）の名前。省くと自分だけ'),
         location: fields.location.optional(),
         note: fields.note.optional(),
-        repeat: fields.repeat
-          .optional()
-          .describe(`${fields.repeat.description}。タスクでは due か start が要る`),
+        repeat: fields.repeat.optional(),
         remindBeforeStart: whenFields.remindBeforeStart,
         remindBeforeEnd: whenFields.remindBeforeEnd,
-        remindBeforeDue: whenFields.remindBeforeDue,
       }),
       annotations: ADDITIVE,
     },
     async (input) => {
-      const { endsAt: end, remind } = endOf(input.kind, input);
-      const allDay = allDayOf(input.start, end) ?? false;
-      const startsAt = input.start ? instantOf(input.start) : null;
-      let endsAt = end ? instantOf(end) : null;
-      if (input.kind === 'event') {
-        if (!startsAt) throw new ValidationError('予定には start（開始）を指定してください');
-        endsAt ??= defaultEventEnd(allDay, startsAt);
+      rejectTaskEnd(input.kind, input);
+      const { end } = input;
+      if (input.kind === 'event' && !input.start) {
+        throw new ValidationError('予定には start（開始）を指定してください');
       }
+      // タスクの開始を省けば、登録した日（今日）の終日
+      const { allDay, startsAt } = input.start
+        ? { allDay: allDayOf(input.start, end), startsAt: instantOf(input.start) }
+        : defaultTaskStart();
+      const endsAt =
+        input.kind === 'event' ? (end ? instantOf(end) : defaultEventEnd(allDay, startsAt)) : null;
       const people = await ctx.people();
       const created = await service.createEvent(
         {
@@ -179,7 +155,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
           note: input.note ?? null,
           rrule: input.repeat ?? null,
           remindStartMinutes: input.remindBeforeStart ?? null,
-          remindEndMinutes: remind ?? null,
+          remindEndMinutes: input.remindBeforeEnd ?? null,
         },
         ctx.userId,
       );
@@ -188,18 +164,13 @@ function registerAdd(server: McpServer, ctx: McpContext) {
   );
 }
 
-/** 部分更新の日時: 省けば（undefined）今のまま、null は消す */
-function instantPatch(when: When | null | undefined): Date | null | undefined {
-  return when && instantOf(when);
-}
-
 function registerUpdate(server: McpServer, ctx: McpContext) {
   server.registerTool(
     'update_event',
     {
       title: '予定・タスクを変える',
       description:
-        '予定かタスクを ref で変える。変える項目だけを渡し、省いた項目は今のまま（null を渡すと消す）。予定の start だけを渡すと、長さを保ったまま動かす。予定の終了は end、タスクの期限は due。終日と時刻ありを切り替えるには、開始と終了（期限）を両方渡す。kind で予定とタスクを入れ替えられる（引き継ぐ日時は開始だけ: タスクにすると期限は無し、予定にすると開始から 1 時間（終日ならその日 1 日）。end・due を一緒に渡せばそれにする。繰り返しの 1 回だけ（scope が this）は入れ替えられない）。繰り返しの回（ref に @ を含む）は scope で範囲を選ぶ。変えた後の予定・タスク（scope が this ならその回）を返す。',
+        '予定かタスクを ref で変える。変える項目だけを渡し、省いた項目は今のまま（null を渡すと消す。開始は消せない）。予定の start だけを渡すと、長さを保ったまま動かす。終日と時刻ありを切り替えるには、start（予定なら end も）を渡す。kind で予定とタスクを入れ替えられる（引き継ぐ日時は開始だけ: タスクにすると終了は無くなり、予定にすると開始から 1 時間（終日ならその日 1 日）。予定にするとき end を一緒に渡せばそれにする。繰り返しの 1 回だけ（scope が this）は入れ替えられない）。繰り返しの回（ref に @ を含む）は scope で範囲を選ぶ。変えた後の予定・タスク（scope が this ならその回）を返す。',
       inputSchema: z.object({
         ref: refSchema.describe('予定かタスクの ref'),
         scope: scopeSchema,
@@ -207,37 +178,36 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
           .optional()
           .describe('予定（event）とタスク（task）を入れ替えるときだけ渡す'),
         title: fields.title.optional(),
-        start: whenFields.start.nullable().optional(),
+        start: whenFields.start.optional(),
         end: whenFields.end.optional(),
-        due: whenFields.due.nullable().optional(),
         participants: fields.participants.optional(),
         location: fields.location.optional(),
         note: fields.note.optional(),
         repeat: fields.repeat.optional(),
         remindBeforeStart: whenFields.remindBeforeStart,
         remindBeforeEnd: whenFields.remindBeforeEnd,
-        remindBeforeDue: whenFields.remindBeforeDue,
       }),
       annotations: EDITING,
     },
     async (input) => {
       const ref = expectType(input.ref, ['event', 'task']);
       const target = occurrenceTargetOf(ref, input.scope);
-      // 終わりの名前は変えた後の種類で決める（タスクを予定にするなら end）
-      const { endsAt, remind } = endOf(input.kind ?? ref.type, input);
+      // 終わりを持てるかは変えた後の種類で決める（タスクを予定にするなら end を渡せる）
+      rejectTaskEnd(input.kind ?? ref.type, input);
+      const { end } = input;
       const people = await ctx.people();
       const patch: EventPatch = {
         kind: input.kind,
         title: input.title,
-        allDay: allDayOf(input.start, endsAt),
-        startsAt: instantPatch(input.start),
-        endsAt: instantPatch(endsAt),
+        allDay: allDayOf(input.start, end),
+        startsAt: input.start && instantOf(input.start),
+        endsAt: end && instantOf(end),
         participantIds: input.participants && participantIdsOf(ctx, people, input.participants),
         location: input.location,
         note: input.note,
         rrule: input.repeat,
         remindStartMinutes: input.remindBeforeStart,
-        remindEndMinutes: remind,
+        remindEndMinutes: input.remindBeforeEnd,
       };
       const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
       return jsonResult(formatEvent(updated, people));

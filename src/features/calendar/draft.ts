@@ -7,7 +7,7 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
-import type { ItemFormValues } from '../events/form-values.ts';
+import type { ItemFormValues, WhenInput } from '../events/form-values.ts';
 import type { ItemEnds } from './item-shape.ts';
 import type { TaskTimes } from './task-draft.ts';
 import { taskBlock, timedSlot, timelineSlot } from './timeline-layout.ts';
@@ -60,9 +60,6 @@ export type GridDraft = Draft & {
  */
 export type DraftChange = { range: DraftRange } | { task: TaskTimes };
 
-/** 入力欄の日時（検証前。`itemInputFromForm` の日時の部分）。終日の終わりは含む日 */
-export type WhenInput = { allDay: boolean; startsAt: string | null; endsAt: string | null };
-
 /**
  * 下書きの種類ごとの扱い（予定は `eventDraftOps`、タスクは `taskDraftOps`）。クイック入力（`useQuickForm`）は
  * 種類で分岐せず、下書きに合ったこれを使う。
@@ -106,7 +103,7 @@ export type Grabbed = { item: CalendarItem | null };
  * 予定でつまめないのは、枠に出せない「日をまたぐ時間指定の予定」。
  * タスクは置かれている所（時間軸ならその時刻の最小の長さのブロック、それ以外は置かれた日 1 日）を枠にする。
  * 長さを持たないので、枠は動かすだけで端は直せない（`hasEnds`）。
- * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
+ * 完了したタスクは完了した日時に置かれていて、開始を動かしても場所が変わらないのでつままない。
  */
 export function itemDraft(item: CalendarItem): DraftRange | null {
   let draft = itemDrafts.get(item);

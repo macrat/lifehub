@@ -136,62 +136,49 @@ describe('MCP server: 予定・タスク', () => {
 
   it('終日と時刻ありを切り替えるときは両端を求め、省いた端を黙って丸めない', async () => {
     const client = await connect(userId);
-    const task = await call<Entry>(client, 'add_event', {
-      kind: 'task',
-      title: '提出',
+    const event = await call<Entry>(client, 'add_event', {
+      kind: 'event',
+      title: '面談',
       start: '2030-01-07T09:00',
-      due: '2030-01-08T18:00',
+      end: '2030-01-07T10:00',
     });
-    const message = await fail(client, 'update_event', { ref: task.ref, due: '2030-01-09' });
-    expect(message).toContain('両方');
+    const message = await fail(client, 'update_event', { ref: event.ref, end: '2030-01-08' });
+    expect(message).toContain('開始');
 
     const updated = await call<Entry>(client, 'update_event', {
-      ref: task.ref,
-      start: null,
-      due: '2030-01-09',
+      ref: event.ref,
+      start: '2030-01-07',
+      end: '2030-01-08',
     });
-    expect(updated).toMatchObject({ due: '2030-01-09' });
-    expect(updated).not.toHaveProperty('start');
+    expect(updated).toMatchObject({ start: '2030-01-07', end: '2030-01-08', allDay: true });
   });
 
-  it('予定に due・タスクに end を渡すと、使う名前を文で返す', async () => {
+  it('タスクに終了を渡すと、タスクは開始だけを持つと文で返す', async () => {
     const client = await connect(userId);
-    const event = await call<Entry>(client, 'add_event', WEEKLY_DENTIST);
-    expect(await fail(client, 'update_event', { ref: event.ref, due: '2030-01-08' })).toContain(
-      'end',
-    );
+    expect(
+      await fail(client, 'add_event', { kind: 'task', title: '提出', end: '2030-01-08' }),
+    ).toContain('start');
     const task = await call<Entry>(client, 'add_event', { kind: 'task', title: '提出' });
-    expect(await fail(client, 'update_event', { ref: task.ref, end: '2030-01-08' })).toContain(
-      'due',
+    expect(await fail(client, 'update_event', { ref: task.ref, remindBeforeEnd: 0 })).toContain(
+      'タスクは終了',
     );
   });
 
-  it('日時の無いタスクは今日に出て、set_task_done で完了・取り消しができる', async () => {
+  it('開始を省いたタスクは今日（終日）に始まり、set_task_done で完了・取り消しができる', async () => {
     const client = await connect(userId);
-    const task = await call<Entry>(client, 'add_event', {
-      kind: 'task',
-      title: '提出',
-      due: '2030-01-31',
-    });
-    expect(task).toMatchObject({ type: 'task', done: false, due: '2030-01-31' });
-    const undated = await call<Entry>(client, 'add_event', { kind: 'task', title: '電球を替える' });
+    const task = await call<Entry>(client, 'add_event', { kind: 'task', title: '電球を替える' });
+    expect(task).toMatchObject({ type: 'task', done: false, start: today() });
     expect(await fail(client, 'set_task_done', { ref: 'x' })).toContain('ref');
 
     const doneOf = async () => {
       const [day] = await readDays(client, { types: ['task'], from: today(), to: today() });
       return day?.entries.map((e) => [e.title, e.done]);
     };
-    // 期限だけのタスクも、日時の無いタスクも、完了までは今日に出る
-    expect(await doneOf()).toEqual(
-      expect.arrayContaining([
-        ['電球を替える', false],
-        ['提出', false],
-      ]),
-    );
-    await run(client, 'set_task_done', { ref: undated.ref });
-    expect(await doneOf()).toContainEqual(['電球を替える', true]);
-    await run(client, 'set_task_done', { ref: undated.ref, done: false });
-    expect(await doneOf()).toContainEqual(['電球を替える', false]);
+    expect(await doneOf()).toEqual([['電球を替える', false]]);
+    await run(client, 'set_task_done', { ref: task.ref });
+    expect(await doneOf()).toEqual([['電球を替える', true]]);
+    await run(client, 'set_task_done', { ref: task.ref, done: false });
+    expect(await doneOf()).toEqual([['電球を替える', false]]);
   });
 
   it('予定は終了を省くと開始から 1 時間（終日ならその日 1 日）で、開始は必須', async () => {
@@ -230,13 +217,10 @@ describe('MCP server: 予定・タスク', () => {
       start: '2030-01-07T09:00+09:00',
       remindBeforeStart: 10,
     });
-    expect(task).not.toHaveProperty('due');
-    expect(task).not.toHaveProperty('remindBeforeDue');
+    expect(task).not.toHaveProperty('end');
+    expect(task).not.toHaveProperty('remindBeforeEnd');
 
-    // 予定に戻すと開始から 1 時間。終わりの名前は変えた後の種類のもの（予定なら end）
-    expect(
-      await fail(client, 'update_event', { ref: task.ref, kind: 'event', due: '2030-01-08' }),
-    ).toContain('end');
+    // 予定に戻すと開始から 1 時間
     const back = await call<Entry>(client, 'update_event', { ref: task.ref, kind: 'event' });
     expect(back).toMatchObject({
       type: 'event',
@@ -244,24 +228,16 @@ describe('MCP server: 予定・タスク', () => {
       end: '2030-01-07T10:00+09:00',
     });
 
-    // 開始・期限を一緒に渡せばそれにする
+    // 開始を一緒に渡せばそれにする。タスクにするときに終了は渡せない
+    expect(
+      await fail(client, 'update_event', { ref: back.ref, kind: 'task', end: '2030-01-08' }),
+    ).toContain('タスクは終了');
     const moved = await call<Entry>(client, 'update_event', {
       ref: back.ref,
       kind: 'task',
       start: '2030-01-09T13:00',
-      due: '2030-01-10T18:00',
     });
-    expect(moved).toMatchObject({
-      type: 'task',
-      start: '2030-01-09T13:00+09:00',
-      due: '2030-01-10T18:00+09:00',
-    });
-
-    // 開始の無いタスクを予定にするときは、開始を求める
-    const undated = await call<Entry>(client, 'add_event', { kind: 'task', title: '電話' });
-    expect(await fail(client, 'update_event', { ref: undated.ref, kind: 'event' })).toContain(
-      'start',
-    );
+    expect(moved).toMatchObject({ type: 'task', start: '2030-01-09T13:00+09:00' });
   });
 
   it('繰り返しの 1 回だけの種類は入れ替えられないと文で返す', async () => {

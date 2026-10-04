@@ -1,6 +1,6 @@
 import {
-  defaultEventEnd,
   normalizeInstants,
+  switchedEnds,
   toInputInstants,
   type WrittenEvent,
 } from '../../../shared/calendar.ts';
@@ -9,6 +9,7 @@ import {
   type CompleteEventInput,
   type CreateEventInput,
   type EventPatch,
+  type EventValues,
   eventRulesSchema,
   type OccurrenceTarget,
   type UpdateEventInput,
@@ -18,7 +19,7 @@ import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
-import { baseOf, type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
+import { type EventMaster, occurrenceExists, shiftTo, toMaster } from './occurrences.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
 import type { NewEventRow } from './schema.ts';
@@ -51,42 +52,30 @@ export async function patchEvent(
 }
 
 /**
- * 種別を変える部分更新の、切り替えた後の今の値。画面の切り替え（`switchKindValues`）と同じく、引き継ぐ日時は開始だけ:
- * - タスクへ: 期限は無し（patch に due があればそれ）
- * - 予定へ: 終了は開始から 1 時間、終日ならその日 1 日（`defaultEventEnd`。patch に end があればそれ）
- * 終了（期限）前の通知も終わりを引き継がないので消す。開始は patch に渡されていればそれを引き継ぐ
+ * 種別を変える部分更新の、切り替えた後の今の値。終わりは画面の切り替えと同じ規則（`switchedEnds`。
+ * patch に end があれば、後で重ねるそれになる）。開始は patch に渡されていればそれを引き継ぐ
  * （「このタスクを明日 10 時の予定にして」で、終了が 10 時の 1 時間後になるように）。
- * WHY 終了・期限を引き継がない: 予定の終了は時間の枠の終わり、タスクの期限はやり終える締め切りで意味が違う。
- * 開始の無いタスクを予定にするときは、いつの予定かを決めさせる（画面は今日の終日を置くが、LLM には
- * 黙って決めた日より、訊き直してもらうほうが確か）。
  */
-function switchedKind(current: CreateEventInput, patch: EventPatch): CreateEventInput {
+function switchedKind(current: EventValues, patch: EventPatch): EventValues {
   const { kind } = patch;
   if (kind === undefined || kind === current.kind) return current;
   const allDay = patch.allDay ?? current.allDay;
-  const startsAt = patch.startsAt === undefined ? current.startsAt : patch.startsAt;
-  const carried = { ...current, kind, allDay, startsAt, remindEndMinutes: null };
-  if (kind === 'task') return { ...carried, endsAt: null };
-  if (!startsAt) {
-    throw new ValidationError('開始の無いタスクを予定にするときは、start で開始を指定してください');
-  }
-  return { ...carried, endsAt: defaultEventEnd(allDay, startsAt) };
+  const startsAt = patch.startsAt ?? current.startsAt;
+  return { ...current, allDay, startsAt, ...switchedEnds(kind, allDay, startsAt) };
 }
 
 /**
- * 終日と時刻ありを切り替える部分更新は、今の値が日時を持つ端（開始・終了（期限））をすべて指定させる。
+ * 終日と時刻ありを切り替える部分更新は、今の値が持つ日時（開始と、予定なら終了）をすべて指定させる。
  * WHY: 終日の日時は保存のときに 0:00 に丸める（`normalizeInstants`）ので、省いた端を今のまま残すと、
- * 「期限を日付にして」で開始の時刻が 0:00 に切り詰められるように、省いた項目が黙って変わる。
- * 切り替え先でその端をどうするかは LLM に決めさせる（タスクの端は null で消せる）。
+ * 「終了を日付にして」で開始の時刻が 0:00 に切り詰められるように、省いた項目が黙って変わる。
  */
-function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
+function requireBothEnds(current: EventValues, patch: EventPatch): void {
   if (patch.allDay === undefined || patch.allDay === current.allDay) return;
-  const omitted = (['startsAt', 'endsAt'] as const).filter(
-    (key) => patch[key] === undefined && current[key] !== null,
-  );
-  if (omitted.length > 0) {
+  const omitted =
+    patch.startsAt === undefined || (current.kind === 'event' && patch.endsAt === undefined);
+  if (omitted) {
     throw new ValidationError(
-      '終日と時刻ありを切り替えるときは、開始と終了（期限）を両方指定してください（タスクで要らない端は null）',
+      '終日と時刻ありを切り替えるときは、開始（予定なら終了も）を指定してください',
     );
   }
 }
@@ -97,23 +86,23 @@ function requireBothEnds(current: CreateEventInput, patch: EventPatch): void {
  * 開始が終了を追い越して規則の誤りになるか、予定が意図せず伸び縮みする。
  * 終日と時刻ありの切り替えでは両端が指定されている（`requireBothEnds`）ので、ここには来ない。
  */
-function keepDuration(current: CreateEventInput, patch: EventPatch): EventPatch {
+function keepDuration(current: EventValues, patch: EventPatch): EventPatch {
   const { startsAt, endsAt } = current;
-  if (current.kind !== 'event' || !patch.startsAt || patch.endsAt !== undefined) return patch;
-  if (!startsAt || !endsAt) return patch;
+  // 終了を持つのは予定だけ（平らな値なので、終了の有無で絞る）
+  if (!endsAt || !patch.startsAt || patch.endsAt !== undefined) return patch;
   const duration = endsAt.getTime() - startsAt.getTime();
   return { ...patch, endsAt: new Date(patch.startsAt.getTime() + duration) };
 }
 
 /**
- * 書き込みの対象の今の値を、作成・更新の入力の形で返す。
+ * 書き込みの対象の今の値を、作成・更新の入力の項目で返す（種別で分ける前の平らな値。分けるのは規則を掛ける所）。
  * all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
  * 繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう。
  */
 async function currentInput(
   master: EventWithParticipants,
   input: OccurrenceTarget,
-): Promise<CreateEventInput> {
+): Promise<EventValues> {
   const target = resolveTarget(master, input);
   const row =
     target.scope === 'all' ? master : await occurrenceRowOf(master, target.occurrenceStart);
@@ -133,11 +122,12 @@ async function currentInput(
 
 /**
  * id はクライアントが決めて送ってくる（`createEventRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
- * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
- * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ * 形と組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた平らな値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめて種別の形にする
+ * （部分更新の `applyPatch` と同じ）。
  */
 export async function createEvent(
-  input: CreateEventInput,
+  input: EventValues,
   userId: string,
   id: string = newId(),
 ): Promise<EventMaster> {
@@ -152,11 +142,15 @@ export async function createEvent(
 
 export async function updateEvent(
   id: string,
-  input: UpdateEventInput,
+  input: EventValues & OccurrenceTarget,
   userId: string,
 ): Promise<void> {
-  checkRules(input, eventRulesSchema);
-  await writeUpdate(await findMaster(id), input, userId);
+  // 回の指定（scope・occurrenceStart）は入力のまま、項目は規則を通した種別の形にする
+  await writeUpdate(
+    await findMaster(id),
+    { ...input, ...checkRules(input, eventRulesSchema) },
+    userId,
+  );
 }
 
 /** 書き換え、通知を予約し直し、直したことを MCP Events で知らせる。書いた後の予定・タスクを返す */
@@ -355,13 +349,13 @@ type Target =
  *   ルールに当てはまらないこともある（DTSTART が BYDAY に合わない）ので、実在の確認より先に見る
  */
 function resolveTarget(
-  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
+  master: { rrule: string | null; startsAt: Date },
   target: OccurrenceTarget,
 ): Target {
   const { rrule } = master;
   if (!rrule || target.scope === 'all') return { scope: 'all' };
   const { scope, occurrenceStart } = target;
-  if (scope === 'following' && occurrenceStart.getTime() === baseOf(master)?.getTime())
+  if (scope === 'following' && occurrenceStart.getTime() === master.startsAt.getTime())
     return { scope: 'all' };
   if (!occurrenceExists(master, occurrenceStart)) throw new ValidationError('その回は存在しません');
   return { scope, rrule, occurrenceStart };
@@ -407,7 +401,7 @@ function occurrencesToDrop(
 ): 'all' | 'uncompleted' | undefined {
   if (values.kind !== master.kind) return 'all';
   const rebased =
-    baseOf(values)?.getTime() !== baseOf(master)?.getTime() || values.rrule !== master.rrule;
+    values.startsAt.getTime() !== master.startsAt.getTime() || values.rrule !== master.rrule;
   return rebased ? 'uncompleted' : undefined;
 }
 

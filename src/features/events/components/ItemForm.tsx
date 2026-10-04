@@ -1,4 +1,4 @@
-import type { EventKind, RecurrenceScope } from '../../../../shared/validation/events.ts';
+import type { RecurrenceScope } from '../../../../shared/validation/events.ts';
 import { ADD_KINDS } from '../../../lib/add-kinds.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ItemFormValues } from '../form-values.ts';
@@ -8,8 +8,7 @@ import { ItemFields } from './ItemFields.tsx';
 import { KindToggle } from './KindToggle.tsx';
 
 type Props = {
-  /** 開いたときの種類。上端の切り替え（`KindToggle`）で入力の途中から変えられる */
-  kind: EventKind;
+  /** 入力の既定値。種類も持ち、上端の切り替え（`KindToggle`）で入力の途中から変えられる */
   initial: ItemFormValues;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
   scope?: RecurrenceScope;
@@ -25,15 +24,15 @@ type Props = {
 /**
  * 予定・タスクの全項目のフォーム。複製（`ItemDetailSheet`）のほか、クイック入力の「その他のオプション」から
  * 直し続けるときもここへ来る（何を保存するかは `onSubmit` を渡す側が決める）。詳細から開く編集は `ItemDetailSheet`。
- * 予定は開始・終了が必須で、通知は開始前だけを扱う。タスクは開始・期限がどちらも任意で、通知は開始前と期限前。
+ * 予定は開始・終了、タスクは開始だけを持ち、どちらも必須。通知はどちらも開始前だけを扱う。
  * 予定とタスクは上端の切り替えで入れ替えられる（繰り返しの 1 回だけを直しているときは出さない）。
  */
 export function ItemForm(props: Props) {
   const { scope, editing = false, onSubmit, onClose } = props;
-  const { kind, initial, switchTo } = useKindSwitch(props.kind, props.initial);
+  const { initial, switchTo } = useKindSwitch(props.initial);
+  const { kind } = initial;
   const [allDay, setAllDay] = useAllDay(initial.allDay, initial);
   const { thisOnly, errors, sheet, readInput } = useItemForm({
-    kind,
     initial,
     allDay,
     scope,
@@ -52,7 +51,6 @@ export function ItemForm(props: Props) {
       }
     >
       <ItemFields
-        kind={kind}
         initial={initial}
         errors={errors}
         allDay={allDay}

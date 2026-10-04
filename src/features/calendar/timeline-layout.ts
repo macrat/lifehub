@@ -85,7 +85,7 @@ export function timedSlot(item: CalendarItem): { startMin: number; endMin: numbe
 
 /**
  * 時間軸に置く項目の時間帯（分）。終日・複数日の予定と、時刻の無い（日付だけ、または別の日の時刻の）タスクは
- * null（終日欄へ）。タスクは一覧と同じ基準日時（`taskTime`。完了 → 開始 → 期限の優先）に最小の長さのブロックで置く。
+ * null（終日欄へ）。タスクは一覧と同じ基準日時（`taskTime`。完了していれば完了、していなければ開始）に最小の長さのブロックで置く。
  * タスクを長押しでつまんだときの枠（`draft.ts` の `itemDraft`）も同じ規則で決まる。
  */
 export function timelineSlot(item: CalendarItem): { startMin: number; endMin: number } | null {

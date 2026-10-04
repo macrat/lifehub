@@ -29,7 +29,7 @@ async function recentInstants(before: Date, q: string | undefined, limit: number
 
 /**
  * range に掛かる暦日の回を 1 回 1 件の行にしたもの（`placeOnce`。キーワードはタイトルかメモの部分一致）。
- * 範囲より前に始まった予定や、日時を持たないタスクも含むので、どれを出すかは呼び出し側が行の日時で決める
+ * 範囲より前に始まった予定や、今日へ繰り越したタスクも含むので、どれを出すかは呼び出し側が行の日時で決める
  */
 async function entries(
   range: InstantRange,
@@ -38,7 +38,7 @@ async function entries(
 ): Promise<TimelineEntry[]> {
   const days = { from: toDateString(range.from), to: inclusiveEndDate(range.to.toISOString()) };
   return (await listOccurrences(days, now, { q }))
-    .flatMap((o) => placeOnce(o, now) ?? [])
+    .map((o) => placeOnce(o, now))
     .map((item) => eventEntry(item, now));
 }
 

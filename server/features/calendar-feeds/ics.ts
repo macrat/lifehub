@@ -14,7 +14,7 @@ const CALENDAR_NAME = 'LifeHub';
 /** 取り直しの推奨間隔（秒）。購読側が従うとは限らないが、従うものには無駄な取得をさせない */
 const REFRESH_SECONDS = 60 * 60;
 
-export function toIcs(occurrences: Occurrence[], now: Date): string {
+export function toIcs(occurrences: Extract<Occurrence, { kind: 'event' }>[], now: Date): string {
   const calendar = ical({
     name: CALENDAR_NAME,
     prodId: { company: 'lifehub', product: 'calendar', language: 'JA' },
@@ -23,7 +23,6 @@ export function toIcs(occurrences: Occurrence[], now: Date): string {
     ttl: REFRESH_SECONDS,
   });
   for (const occurrence of occurrences) {
-    if (!occurrence.startsAt || !occurrence.endsAt) continue;
     const startsAt = new Date(occurrence.startsAt);
     const endsAt = new Date(occurrence.endsAt);
     calendar.createEvent({

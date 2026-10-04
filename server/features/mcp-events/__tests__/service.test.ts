@@ -142,8 +142,8 @@ describe('MCP Events の購読と配信', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -173,7 +173,7 @@ describe('MCP Events の購読と配信', () => {
       name: 'event.reminder',
       timestamp: expect.any(String),
       data: {
-        about: 'due',
+        about: 'start',
         entry: expect.objectContaining({ ref: `task:${task.id}`, type: 'task', title: '提出' }),
       },
       cursor: null,

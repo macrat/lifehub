@@ -156,26 +156,29 @@ function matches(item: CalendarItem, target: WriteTarget): boolean {
 
 /** 保存を送った内容から、サーバーが返すはずの発生を組み立てる */
 function toOccurrence(input: NewEvent): Occurrence {
-  const instants = normalizeIsoInstants(
-    input.allDay ?? false,
-    input.startsAt || null,
-    input.endsAt || null,
-  );
-  return {
+  const allDay = input.allDay ?? false;
+  const common = {
     id: input.id,
-    kind: input.kind,
     title: input.title,
-    allDay: input.allDay ?? false,
-    ...instants,
+    allDay,
     completedAt: null,
     location: input.location ?? null,
     note: input.note ?? null,
     participantIds: input.participantIds,
     rrule: input.rrule ?? null,
     remindStartMinutes: input.remindStartMinutes ?? null,
-    remindEndMinutes: input.remindEndMinutes ?? null,
     occurrenceStart: null,
     isRecurring: (input.rrule ?? null) !== null,
     isModified: false,
+  };
+  if (input.kind === 'task') {
+    const { startsAt } = normalizeIsoInstants(allDay, input.startsAt, null);
+    return { ...common, kind: 'task', startsAt, endsAt: null, remindEndMinutes: null };
+  }
+  return {
+    ...common,
+    kind: 'event',
+    ...normalizeIsoInstants(allDay, input.startsAt, input.endsAt),
+    remindEndMinutes: input.remindEndMinutes ?? null,
   };
 }

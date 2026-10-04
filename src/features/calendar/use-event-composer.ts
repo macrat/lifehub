@@ -48,12 +48,10 @@ type ComposerState =
   | ({ mode: 'grid' } & GridDraft)
   | {
       mode: 'form';
-      /** クイック入力から持ち越した入力 */
+      /** クイック入力から持ち越した入力（クイック入力で選んでいた種類も持つ） */
       values: ItemFormValues;
       /** 直している予定・タスク（追加なら null）。保存の宛先がこれで決まる */
       item: CalendarItem | null;
-      /** クイック入力で選んでいた種類 */
-      kind: EventKind;
     };
 
 type ComposerAction =
@@ -73,7 +71,7 @@ type ComposerAction =
    * 予定は枠だけが変わり、タスクは日時を枠から導くので、入力した日時（`task`）ごと持ち替える（`taskDraftFromInput`）
    */
   | ({ type: 'change' } & DraftChange)
-  /** 予定・タスクの切り替え。枠をその種類の形にし、開始だけを引き継ぐ（`switchedKind`） */
+  /** 予定・タスクの切り替え。枠をその種類の形にし、開始だけを引き継ぐ（`switchedDraft`） */
   | { type: 'switchKind'; kind: EventKind }
   | { type: 'participants'; participantIds: string[] }
   /** 「その他のオプション」: 入力済みの内容と直している予定を全項目のフォームへ移す */
@@ -106,7 +104,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
       return {
         mode: 'grid',
         item: null,
-        ...switchedKind(action.range, action.kind),
+        ...switchedDraft(action.range, action.kind),
         participantIds: action.participantIds,
         settled: true,
         origin: 'add',
@@ -118,13 +116,13 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
         : { ...state, range: action.range, settled: true };
     case 'switchKind':
       return state?.mode === 'grid' && draftKind(state) !== action.kind
-        ? { ...state, ...switchedKind(state.range, action.kind) }
+        ? { ...state, ...switchedDraft(state.range, action.kind) }
         : state;
     case 'participants':
       return state?.mode === 'grid' ? { ...state, participantIds: action.participantIds } : state;
     case 'expand':
       return state?.mode === 'grid'
-        ? { mode: 'form', values: action.values, item: state.item, kind: draftKind(state) }
+        ? { mode: 'form', values: action.values, item: state.item }
         : state;
     case 'close':
       return null;
@@ -137,11 +135,12 @@ function grabbedTask({ item, range }: Draft): GridDraft['task'] {
 }
 
 /**
- * 枠 range を種類 kind の下書きにする（切り替え・追加の開始）。引き継ぐのは枠の開始だけ（全項目のフォームの
- * `switchKindValues`・MCP の `switchedKind` と同じ規則を枠の形にしたもの）: タスクへは開始の所に期限なしのタスク（`newTaskTimes`）、予定へは開始から 1 時間
+ * 枠 range を種類 kind の下書きにする（切り替え・追加の開始）。引き継ぐのは枠の開始だけで、全項目のフォームの
+ * `switchKindValues`・MCP の `switchedKind`（終わりは `switchedEnds`）と同じ規則を枠の形にしたもの:
+ * タスクへは開始の所に置いたタスク（`newTaskTimes`）、予定へは開始から 1 時間
  * （終日はその日。枠は日をまたげないので日の終わりで止める。`toEventRange`）。
  */
-function switchedKind(range: DraftRange, kind: EventKind): Pick<GridDraft, 'task' | 'range'> {
+function switchedDraft(range: DraftRange, kind: EventKind): Pick<GridDraft, 'task' | 'range'> {
   if (kind === 'event') return { task: null, range: toEventRange(range) };
   const task = newTaskTimes(range);
   return { task, range: task.frame };

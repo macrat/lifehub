@@ -141,6 +141,13 @@
       "when": 1791017997503,
       "tag": "0019_expenses_from_shared",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791084063072,
+      "tag": "0020_task_start_only",
+      "breakpoints": true
     }
   ]
 }

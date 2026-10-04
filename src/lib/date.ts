@@ -104,9 +104,9 @@ export function formatTimelineDays(
   return first === last ? day(first) : `${day(first)}〜${day(last)}`;
 }
 
-/** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
-export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
-  return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);
+/** 開始の日時の表示。終日は日付だけ */
+export function formatStart(iso: string, allDay: boolean): string {
+  return allDay ? formatDate(allDayDate(iso, 'start')) : formatDateTime(iso);
 }
 
 /** 予定の期間表示。終日は日付のみ、同日は "9/20(日) 09:00〜10:00"、複数日は両端を日時で。 */

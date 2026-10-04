@@ -10,16 +10,8 @@ import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
 setupMobileCalendar();
 
 /** タスクを 1 件置く（日時は JST の壁時計の書き方） */
-function createTask(
-  page: Page,
-  task: { title: string; allDay: boolean; startsAt: string; endsAt: string },
-) {
-  return addItem(page, {
-    kind: 'task',
-    ...task,
-    startsAt: `${task.startsAt}+09:00`,
-    endsAt: `${task.endsAt}+09:00`,
-  });
+function createTask(page: Page, task: { title: string; allDay: boolean; startsAt: string }) {
+  return addItem(page, { kind: 'task', ...task, startsAt: `${task.startsAt}+09:00` });
 }
 
 test('時間軸のタスクは長押しでつまんで動かし、下半分のシートから保存できる', async ({ page }) => {
@@ -29,18 +21,17 @@ test('時間軸のタスクは長押しでつまんで動かし、下半分の�
     title,
     allDay: false,
     startsAt: '2031-06-19T10:00:00',
-    endsAt: '2031-06-19T12:00:00',
   });
   await page.goto('/calendar?view=day&date=2031-06-19');
   const at = (minutes: number) => timePoint(page, '2031-06-19', minutes);
   const block = page.getByRole('button', { name: title });
   await expect(block).toBeVisible();
 
-  // 長押しからそのまま 3 時間ぶん下げると、落とした所が開始になり、期限は開始〜期限の長さを保ってずれる
+  // 長押しからそのまま 5 時間ぶん下げると、落とした所が開始になる
   await touchDrag(page, await centerOf(block), await at(15 * 60 + 15), {
     hold: LONG_PRESS_HOLD_MS,
   });
-  await expect(page.getByText('開始 6/19(木) 15:00 / 期限 6/19(木) 17:00')).toBeVisible();
+  await expect(page.getByText('開始 6/19(木) 15:00', { exact: true })).toBeVisible();
   // 下の段ではタイトルと参加者だけで、タスクの端は直せない（長さを持たない）
   await expect(page.getByLabel('タイトルを追加')).toHaveValue(title);
   await expect(page.locator('[data-handle]')).toHaveCount(0);
@@ -49,28 +40,21 @@ test('時間軸のタスクは長押しでつまんで動かし、下半分の�
   await page.getByRole('button', { name: 'その他のオプション' }).click();
   await expect(page.getByLabel('開始日', { exact: true })).toHaveValue('2031-06-19');
   await expect(page.getByLabel('開始時刻', { exact: true })).toHaveValue('15:00');
-  await expect(page.getByLabel('期限日', { exact: true })).toHaveValue('2031-06-19');
-  await expect(page.getByLabel('期限時刻', { exact: true })).toHaveValue('17:00');
-  await expect(page.getByLabel('期限の通知')).toBeVisible();
+  await expect(page.getByLabel('終了日', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('通知')).toBeVisible();
 
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(block).toHaveCount(1);
   await block.click();
   await expect(page.getByText('開始: 6/19(木) 15:00')).toBeVisible();
-  await expect(page.getByText('期限: 6/19(木) 17:00')).toBeVisible();
   await deleteItem(page, id);
 });
 
 test('終日のタスクは月表示で長押しでつまんで別の日へ動かせる', async ({ page }) => {
   const title = `E2E 終日タスク移動 ${Date.now()}`;
-  // 6/20 開始・6/21 期限（終日の期限は含む日で渡す）
-  const id = await createTask(page, {
-    title,
-    allDay: true,
-    startsAt: '2031-06-20T00:00:00',
-    endsAt: '2031-06-21T00:00:00',
-  });
+  // 6/20 開始
+  const id = await createTask(page, { title, allDay: true, startsAt: '2031-06-20T00:00:00' });
   await page.goto('/calendar?view=month&date=2031-06-01');
   const chip = page.getByRole('button', { name: title });
   await expect(chip).toBeVisible();
@@ -78,7 +62,7 @@ test('終日のタスクは月表示で長押しでつまんで別の日へ動�
   await touchDrag(page, await centerOf(chip), await dayPoint(page, '2031-06-24'), {
     hold: LONG_PRESS_HOLD_MS,
   });
-  await expect(page.getByText('開始 6/24(火) / 期限 6/25(水)')).toBeVisible();
+  await expect(page.getByText('開始 6/24(火)', { exact: true })).toBeVisible();
 
   // 1 日の帯でも左右の半分で端をつまむことはなく、帯ごと動く
   await touchDrag(
@@ -86,14 +70,13 @@ test('終日のタスクは月表示で長押しでつまんで別の日へ動�
     await dayPoint(page, '2031-06-24', 'left'),
     await dayPoint(page, '2031-06-26'),
   );
-  await expect(page.getByText('開始 6/26(木) / 期限 6/27(金)')).toBeVisible();
+  await expect(page.getByText('開始 6/26(木)', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(chip).toHaveCount(1);
   await chip.click();
   await expect(page.getByText('開始: 6/26(木)')).toBeVisible();
-  await expect(page.getByText('期限: 6/27(金)')).toBeVisible();
   await deleteItem(page, id);
 });
 
@@ -109,7 +92,7 @@ test('なぞって開いた予定の入力は上端でタスクに切り替え�
   await expect(page.locator('[data-handle]')).toHaveCount(2);
   await page.getByLabel('タイトルを追加').fill(title);
 
-  // タスクへ: 開始だけを引き継ぎ（期限は付かない）、枠は端の無いタスクの形になる。入力したタイトルは残る
+  // タスクへ: 開始だけを引き継ぎ、枠は端の無いタスクの形になる。入力したタイトルは残る
   await page.getByRole('button', { name: 'タスク', exact: true }).click();
   await expect(page.getByText('開始 6/26(木) 15:00', { exact: true })).toBeVisible();
   await expect(page.locator('[data-handle]')).toHaveCount(0);

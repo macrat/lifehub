@@ -73,7 +73,7 @@ export function jstTime(value: Date | string): string {
   return format(new TZDate(new Date(value), TIME_ZONE), 'HH:mm');
 }
 
-/** 予定・タスクの開始・終了（期限）を LLM に返す形にする。終日は日付（終了はその日を含む）、時刻ありは JST の日時 */
+/** 予定・タスクの開始・予定の終了を LLM に返す形にする。終日は日付（終了はその日を含む）、時刻ありは JST の日時 */
 export function whenOutput(allDay: boolean, iso: string, edge: 'start' | 'end'): string {
   return allDay ? allDayDate(iso, edge) : jstDateTime(iso);
 }

@@ -139,16 +139,14 @@ function QuickSheet({
           }}
         >
           <WhenFields
-            kind={draftKind(draft)}
             // 枠を動かしたら・種類を切り替えたら、入力欄もその日時に入れ直す
-            key={`${draftKind(draft)}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
+            key={`${quick.initial.kind}|${quick.initial.startsAt}|${quick.initial.endsAt}`}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}
             onChangeAllDay={quick.changeAllDay}
           />
           <ExtraFields
-            kind={draftKind(draft)}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}

@@ -12,9 +12,11 @@ import {
   uncompleteEvent,
   updateEvent,
 } from '../service.ts';
-import { now, september } from './service-fixtures.ts';
+import { now, september, taskInput } from './service-fixtures.ts';
 
 let userId: string;
+
+const task = (input: Record<string, unknown>) => taskInput(userId, input);
 
 const weeklyTask = () =>
   createEventSchema.parse({
@@ -31,24 +33,27 @@ describe('events service', () => {
   });
 
   describe('タスク', () => {
-    const task = (input: Record<string, unknown>) =>
-      createEventSchema.parse({ kind: 'task', participantIds: [userId], ...input });
-
-    it('開始日時が未来のタスクは開始日、過去・未設定は今日に置く', async () => {
+    it('開始が未来のタスクは開始日、過去・今日は今日に置く', async () => {
       await createEvent(task({ title: '未来', startsAt: iso('2026-09-20T10:00:00') }), userId);
       await createEvent(task({ title: '過去', startsAt: iso('2026-09-01T10:00:00') }), userId);
-      await createEvent(task({ title: '未設定', endsAt: iso('2026-09-25T10:00:00') }), userId);
+      await createEvent(
+        task({ title: '今日の終日', allDay: true, startsAt: iso('2026-09-14T00:00:00') }),
+        userId,
+      );
       const list = await listItems(september, now);
-      // 同日内は開始（無ければ期限）の時刻順
+      // 同日内は終日 → 時刻のある開始の順
       expect(list.map((t) => [t.title, t.placementDate, t.occurrenceStart])).toEqual([
+        ['今日の終日', '2026-09-14', null],
         ['過去', '2026-09-14', null],
-        ['未設定', '2026-09-14', null],
         ['未来', '2026-09-20', null],
       ]);
     });
 
     it('完了すると完了日の位置に移り、取り消すと戻る', async () => {
-      const created = await createEvent(task({ title: '買い物' }), userId);
+      const created = await createEvent(
+        task({ title: '買い物', startsAt: iso('2026-09-01T10:00:00') }),
+        userId,
+      );
       await completeEvent(created.id, {}, userId, jst('2026-09-10T18:00:00'));
       let list = await listItems(september, now);
       expect(list.map((t) => [t.placementDate, t.completedAt])).toEqual([
@@ -57,16 +62,6 @@ describe('events service', () => {
       await uncompleteEvent(created.id, {}, userId);
       list = await listItems(september, now);
       expect(list.map((t) => [t.placementDate, t.completedAt])).toEqual([['2026-09-14', null]]);
-    });
-
-    it('期限超過を判定する', async () => {
-      await createEvent(task({ title: '超過', endsAt: iso('2026-09-13T10:00:00') }), userId);
-      await createEvent(task({ title: '余裕', endsAt: iso('2026-09-15T10:00:00') }), userId);
-      const list = await listItems(september, now);
-      expect(list.map((t) => [t.title, t.kind === 'task' && t.isOverdue])).toEqual([
-        ['超過', true],
-        ['余裕', false],
-      ]);
     });
 
     it('繰り返しタスクは未完了を最大 2 つまで表示し、過去の回は今日に置く', async () => {
@@ -177,26 +172,6 @@ describe('events service', () => {
       ]);
     });
 
-    it('開始と期限の両方を持つ繰り返しは同じ間隔でずれる', async () => {
-      await createEvent(
-        task({
-          title: '家賃',
-          startsAt: iso('2026-09-20T00:00:00'),
-          endsAt: iso('2026-09-27T00:00:00'),
-          rrule: 'FREQ=MONTHLY',
-        }),
-        userId,
-      );
-      const list = await listItems(
-        dateRangeQuerySchema.parse({ from: '2026-09-01', to: '2026-12-31' }),
-        now,
-      );
-      expect(list.map((t) => [t.startsAt, t.endsAt])).toEqual([
-        [iso('2026-09-20T00:00:00'), iso('2026-09-27T00:00:00')],
-        [iso('2026-10-20T00:00:00'), iso('2026-10-27T00:00:00')],
-      ]);
-    });
-
     it('存在しない回は完了にできず、繰り返しでは回の指定が要る', async () => {
       const created = await createEvent(weeklyTask(), userId);
       await expect(
@@ -296,7 +271,7 @@ describe('events service', () => {
 
     it('完了したタスクを予定に変えると完了が外れる', async () => {
       const created = await createEvent(
-        createEventSchema.parse({ kind: 'task', title: '買い物', participantIds: [userId] }),
+        task({ title: '買い物', startsAt: iso('2026-09-01T10:00:00') }),
         userId,
       );
       await completeEvent(created.id, {}, userId, jst('2026-09-10T18:00:00'));

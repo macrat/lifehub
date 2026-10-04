@@ -40,104 +40,82 @@ function event(title: string, startsAt: string, endsAt: string, allDay = false):
   };
 }
 
-function task(title: string, startsAt: string | null, endsAt: string | null): CalendarItem {
+function task(title: string, startsAt: string, allDay = false): CalendarItem {
   return {
     ...BASE,
     id: title,
     kind: 'task',
     title,
-    allDay: false,
+    allDay,
     startsAt,
-    endsAt,
+    endsAt: null,
     placementDate: day,
-    isOverdue: false,
   };
 }
 
 describe('taskTime', () => {
-  it('終日のタスクは日付だけを返し、期限は含む期限日にする', () => {
-    // 9/21 が期限（保存上は翌日 0:00）
-    expect(taskTime({ ...task('終日', null, '2026-09-21T15:00:00.000Z'), allDay: true })).toEqual({
-      kind: 'due',
+  it('終日のタスクは開始の日付だけを返す', () => {
+    // 9/21 0:00 JST 開始の終日
+    expect(taskTime(task('終日', '2026-09-20T15:00:00.000Z', true))).toEqual({
+      kind: 'start',
       date: '2026-09-21',
       at: null,
     });
-    expect(taskTime(task('9 時期限', null, '2026-09-21T00:00:00.000Z'))).toEqual({
-      kind: 'due',
+    expect(taskTime(task('9 時開始', '2026-09-21T00:00:00.000Z'))).toEqual({
+      kind: 'start',
       date: '2026-09-21',
       at: '2026-09-21T00:00:00.000Z',
     });
   });
 
-  it('完了 → 開始 → 期限の優先', () => {
-    const both = task('両方', '2026-09-21T00:00:00.000Z', '2026-09-22T00:00:00.000Z');
-    expect(taskTime(both)).toMatchObject({ kind: 'start', at: '2026-09-21T00:00:00.000Z' });
-    expect(taskTime({ ...both, completedAt: '2026-09-21T05:00:00.000Z' })).toMatchObject({
+  it('完了していれば完了の日時', () => {
+    const started = task('開始', '2026-09-21T00:00:00.000Z');
+    expect(taskTime({ ...started, completedAt: '2026-09-21T05:00:00.000Z' })).toEqual({
       kind: 'done',
+      date: '2026-09-21',
       at: '2026-09-21T05:00:00.000Z',
     });
   });
 });
 
 describe('sortItems', () => {
-  it('同日内は 終日の予定 → 時刻のある項目 → 時刻の無いタスク の順に並ぶ', () => {
+  it('同日内は 終日の予定 → 終日のタスク → 時刻のある項目 の順に並ぶ', () => {
     const items = [
-      task('時刻なしタスク', null, null),
       event('10 時の予定', '2026-09-21T01:00:00.000Z', '2026-09-21T02:00:00.000Z'),
+      task('12 時開始のタスク', '2026-09-21T03:00:00.000Z'),
+      task('終日のタスク', '2026-09-20T15:00:00.000Z', true),
       event('終日の予定', '2026-09-20T15:00:00.000Z', '2026-09-21T15:00:00.000Z', true),
-      task('9 時期限のタスク', null, '2026-09-21T00:00:00.000Z'),
+      task('9 時開始のタスク', '2026-09-21T00:00:00.000Z'),
     ];
     expect(sortItems(items).map((i) => i.title)).toEqual([
       '終日の予定',
-      '9 時期限のタスク',
+      '終日のタスク',
+      '9 時開始のタスク',
       '10 時の予定',
-      '時刻なしタスク',
+      '12 時開始のタスク',
     ]);
-  });
-
-  it('開始と期限の両方を持つタスクは、表示と同じ開始の時刻に並ぶ', () => {
-    const items = [
-      event('13 時の予定', '2026-09-21T04:00:00.000Z', '2026-09-21T05:00:00.000Z'),
-      // 12 時開始・18 時期限。一覧の行もタイムラインのブロックも開始（12 時）を指すので、並びも 12 時
-      task('12 時開始のタスク', '2026-09-21T03:00:00.000Z', '2026-09-21T09:00:00.000Z'),
-    ];
-    expect(sortItems(items).map((i) => i.title)).toEqual(['12 時開始のタスク', '13 時の予定']);
   });
 
   it('完了したタスクは、表示と同じ完了の時刻に並ぶ', () => {
     const items = [
       event('11 時の予定', '2026-09-21T02:00:00.000Z', '2026-09-21T03:00:00.000Z'),
-      // 前日 9 時期限を 20 時に完了。完了した日に置かれ、行もその日の時間軸も完了の時刻を指すので、並びも 20 時
+      // 前日 9 時開始を 20 時に完了。完了した日に置かれ、行もその日の時間軸も完了の時刻を指すので、並びも 20 時
       {
-        ...task('前日期限で 20 時に完了したタスク', null, '2026-09-20T00:00:00.000Z'),
+        ...task('前日開始で 20 時に完了したタスク', '2026-09-20T00:00:00.000Z'),
         completedAt: '2026-09-21T11:00:00.000Z',
       },
     ];
     expect(sortItems(items).map((i) => i.title)).toEqual([
       '11 時の予定',
-      '前日期限で 20 時に完了したタスク',
+      '前日開始で 20 時に完了したタスク',
     ]);
   });
 
-  it('終日のタスクは期限の 0:00 ではなく、終日の項目として先頭に並ぶ', () => {
-    const items = [
-      event('10 時の予定', '2026-09-21T01:00:00.000Z', '2026-09-21T02:00:00.000Z'),
-      // 9/21 が期限の終日のタスク（保存上の期限は翌日 0:00）
-      { ...task('終日のタスク', null, '2026-09-21T15:00:00.000Z'), allDay: true },
-    ];
-    expect(sortItems(items).map((i) => i.title)).toEqual(['終日のタスク', '10 時の予定']);
-  });
-
-  it('終日の中では、予定がタスクより先に並ぶ', () => {
-    const items = [
-      { ...task('終日のタスク', null, '2026-09-21T15:00:00.000Z'), allDay: true },
-      event('終日の予定', '2026-09-20T15:00:00.000Z', '2026-09-21T15:00:00.000Z', true),
-    ];
-    expect(sortItems(items).map((i) => i.title)).toEqual(['終日の予定', '終日のタスク']);
-  });
-
   it('日付が違えば placementDate 順に並ぶ', () => {
-    const later = { ...task('翌日', null, null), placementDate: '2026-09-22' as DateString };
+    const later = {
+      ...task('翌日', '2026-09-22T00:00:00.000Z'),
+      placementDate: '2026-09-22' as DateString,
+    };
     const earlier = { ...event('前日', '2026-09-20T01:00:00.000Z', '2026-09-20T02:00:00.000Z') };
     const items = [later, { ...earlier, placementDate: '2026-09-20' as DateString }];
     expect(sortItems(items).map((i) => i.title)).toEqual(['前日', '翌日']);
@@ -188,7 +166,7 @@ describe('occurrenceKey', () => {
 });
 
 describe('normalizeIsoInstants / toInputIsoInstants', () => {
-  it('終日は入力の「含む最終日」と保存の「翌日 0:00」を行き来する。未設定は null のまま', () => {
+  it('終日は入力の「含む最終日」と保存の「翌日 0:00」を行き来する。終了の無いものは null のまま', () => {
     // 9/21〜9/22 の終日（JST）
     const input = { startsAt: '2026-09-20T15:00:00.000Z', endsAt: '2026-09-21T15:00:00.000Z' };
     const saved = normalizeIsoInstants(true, input.startsAt, input.endsAt);
@@ -197,7 +175,10 @@ describe('normalizeIsoInstants / toInputIsoInstants', () => {
       startsAt: input.startsAt,
       endsAt: '2026-09-22T14:59:59.999Z',
     });
-    expect(normalizeIsoInstants(true, null, null)).toEqual({ startsAt: null, endsAt: null });
+    expect(normalizeIsoInstants(true, input.startsAt, null)).toEqual({
+      startsAt: input.startsAt,
+      endsAt: null,
+    });
   });
 
   it('時間指定はそのまま', () => {

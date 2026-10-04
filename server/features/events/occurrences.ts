@@ -24,11 +24,11 @@ export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 const MAX_VISIBLE_UNCOMPLETED = 2;
 
 /** 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない */
-type OccurrenceFilter = { kind?: EventKind | undefined; q?: string | undefined };
+type OccurrenceFilter = repository.CandidateFilter;
 
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
- * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+ * 同日内は「終日の予定 → 終日のタスク → 時刻のある項目（予定・タスクの開始）」。
  * filter は `listOccurrences` にそのまま渡す（種別とキーワードの絞り込み）。
  */
 export async function listItems(
@@ -47,17 +47,27 @@ export async function listItems(
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
  * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
- * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
- * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
- * 捨てるものを展開してから捨てずに済む。
+ * `kind` を渡すとその種別だけを読んで展開する（読むところで絞る。`repository.findCalendarRows`）。
+ * 展開は繰り返し 1 つにつき期間の長さぶん走るので、片方しか要らない呼び出し（ics の配信は 1 年以上を読み、
+ * 予定しか出さない）が、捨てるものを読んで展開してから捨てずに済む。
  */
+export async function listOccurrences<K extends EventKind>(
+  range: DateRange,
+  now: Date,
+  filter: OccurrenceFilter & { kind: K },
+): Promise<Extract<Occurrence, { kind: K }>[]>;
+export async function listOccurrences(
+  range: DateRange,
+  now?: Date,
+  filter?: OccurrenceFilter,
+): Promise<Occurrence[]>;
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  { kind, q }: OccurrenceFilter = {},
+  filter: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
   const instants = instantRange(range);
-  const rows = await repository.findCalendarRows(instants.from, instants.to, q);
+  const rows = await repository.findCalendarRows(instants.from, instants.to, filter);
 
   // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
   const masters: EventWithParticipants[] = [];
@@ -74,63 +84,71 @@ export async function listOccurrences(
 
   const result: Occurrence[] = [];
   for (const master of masters) {
-    if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
     result.push(...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now)));
   }
-  return result.filter((o) => matchesKeyword(q, o.title, o.note));
+  return result.filter((o) => matchesKeyword(filter.q, o.title, o.note));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */
 type MasterFields = Pick<EventWithParticipants, keyof EventMaster>;
 
-/** 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選ぶ） */
-export function toMaster(row: MasterFields): EventMaster {
-  return {
+/**
+ * 応答の EventMaster を組み立てる唯一の場所（日時を ISO 文字列にし、応答に出す列だけを選び、種別の形に分ける）。
+ * 行は平らな列で読むので、種別ごとの形（予定は終了を持ち、タスクは持たない）はここで型にする。
+ * 規則そのものは DB の CHECK（`events_end_only_event_check` など）が守る。
+ * when を渡すと日時だけをそれにする（繰り返しの回は繰り返し元をずらした日時。行を写して上書きせずに済む）。
+ */
+export function toMaster(
+  row: MasterFields,
+  when: { startsAt: Date; endsAt: Date | null } = row,
+): EventMaster {
+  const common = {
     id: row.id,
-    kind: row.kind,
     title: row.title,
     allDay: row.allDay,
-    startsAt: row.startsAt?.toISOString() ?? null,
-    endsAt: row.endsAt?.toISOString() ?? null,
+    startsAt: when.startsAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
     location: row.location,
     note: row.note,
     participantIds: row.participantIds,
     rrule: row.rrule,
     remindStartMinutes: row.remindStartMinutes,
+  };
+  if (row.kind === 'task') return { ...common, kind: 'task', endsAt: null, remindEndMinutes: null };
+  if (!when.endsAt) throw new Error(`終了の無い予定の行です（CHECK で守っているはず）: ${row.id}`);
+  return {
+    ...common,
+    kind: 'event',
+    endsAt: when.endsAt.toISOString(),
     remindEndMinutes: row.remindEndMinutes,
   };
 }
 
-/** 繰り返しの基準日時（DTSTART）: starts_at、無ければ ends_at */
-export function baseOf(row: { startsAt: Date | null; endsAt: Date | null }): Date | null {
-  return row.startsAt ?? row.endsAt;
-}
-
-/** 繰り返し元の日時を、基準日時が occurrenceStart になるようずらしたもの。開始と終了の間隔は保つ */
+/**
+ * 繰り返し元の日時を、基準日時（開始。DTSTART）が occurrenceStart になるようずらしたもの。
+ * 開始と終了の間隔は保つ
+ */
 export function shiftTo(
-  master: { startsAt: Date | null; endsAt: Date | null },
+  master: { startsAt: Date; endsAt: Date | null },
   occurrenceStart: Date,
-): { startsAt: Date | null; endsAt: Date | null } {
-  const base = baseOf(master);
-  const delta = base ? occurrenceStart.getTime() - base.getTime() : 0;
+): { startsAt: Date; endsAt: Date | null } {
+  const delta = occurrenceStart.getTime() - master.startsAt.getTime();
   return {
-    startsAt: master.startsAt ? new Date(master.startsAt.getTime() + delta) : null,
+    startsAt: occurrenceStart,
     endsAt: master.endsAt ? new Date(master.endsAt.getTime() + delta) : null,
   };
 }
 
 /** 繰り返しの回が実在するか（ルール上の発生の基準日時か） */
 export function occurrenceExists(
-  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
+  master: { rrule: string | null; startsAt: Date },
   at: Date,
 ): boolean {
-  const base = baseOf(master);
-  if (!master.rrule || !base) return false;
+  if (!master.rrule) return false;
   const hits = expandOccurrences({
     rrule: master.rrule,
-    dtstart: base,
+    dtstart: master.startsAt,
     from: at,
     to: new Date(at.getTime() + 1000),
   });
@@ -153,11 +171,8 @@ function buildOccurrence(
 ): Occurrence {
   const { master } = ctx;
   if (!row) {
-    const shifted = occurrenceStart ? shiftTo(master, occurrenceStart) : master;
     return {
-      ...toMaster(master),
-      startsAt: shifted.startsAt?.toISOString() ?? null,
-      endsAt: shifted.endsAt?.toISOString() ?? null,
+      ...toMaster(master, occurrenceStart ? shiftTo(master, occurrenceStart) : master),
       occurrenceStart: occurrenceStart?.toISOString() ?? null,
       isRecurring: master.rrule !== null,
       isModified: false,
@@ -205,8 +220,10 @@ function overlaps(startsAt: Date, endsAt: Date, range: InstantRange): boolean {
 /** 予定: [from, to) と重なる発生 */
 function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const { master } = ctx;
-  if (!master.startsAt || !master.endsAt) return [];
-  const duration = master.endsAt.getTime() - master.startsAt.getTime();
+  // 行を種別の形にして終了を読む（予定は終了を必ず持つ。持たない行は `toMaster` が知らせる）
+  const shape = toMaster(master);
+  if (shape.kind !== 'event') return [];
+  const duration = Date.parse(shape.endsAt) - master.startsAt.getTime();
   const starts = master.rrule
     ? expandOccurrences({
         rrule: master.rrule,
@@ -221,7 +238,8 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const push = (occurrenceStart: Date | null, row: EventWithParticipants | undefined) => {
     if (row?.cancelled) return;
     const occurrence = buildOccurrence(ctx, occurrenceStart, row);
-    if (!occurrence.startsAt || !occurrence.endsAt) return;
+    // 予定の繰り返し元から作った回は予定（種別で絞って終了を読む）
+    if (occurrence.kind !== 'event') return;
     if (!overlaps(new Date(occurrence.startsAt), new Date(occurrence.endsAt), range)) return;
     result.push(occurrence);
   };
@@ -246,8 +264,6 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
 function expandTask(ctx: ExpandContext, now: Date): Occurrence[] {
   const { master } = ctx;
   if (!master.rrule) return [buildOccurrence(ctx, null, undefined)];
-  const base = baseOf(master);
-  if (!base) return [];
 
   // 表示する回は今と繰り返しだけで決まり、読む範囲によらない（暦日に置いた後で範囲に絞る）。
   // 取り出すのは今の前 2 つと後ろの数個（1 回の走査で済ませる）。
@@ -256,10 +272,11 @@ function expandTask(ctx: ExpandContext, now: Date): Occurrence[] {
   // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
   // 後ろは、飛ばす回（完了・取り消した回。今より後の実体化された回の数を超えない）と未完了の 2 つに、
   // 最後の未完了の回の放棄を判定する 2 つ先までを足した数だけ読めば足りる。
-  const ahead = [...ctx.occurrences.keys()].filter((at) => at >= now.getTime()).length;
+  let ahead = 0;
+  for (const at of ctx.occurrences.keys()) if (at >= now.getTime()) ahead++;
   const bases = expandOccurrences({
     rrule: master.rrule,
-    dtstart: base,
+    dtstart: master.startsAt,
     from: now,
     to: now,
     lookbehind: MAX_VISIBLE_UNCOMPLETED,

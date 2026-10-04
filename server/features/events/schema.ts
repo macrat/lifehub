@@ -34,9 +34,9 @@ export const events = pgTable(
     title: text('title').notNull(),
     /** 終日は starts_at = JST 0:00、ends_at = 翌日 JST 0:00 */
     allDay: boolean('all_day').notNull().default(false),
-    /** 予定では必須。タスクでは任意（未設定なら今日の位置に置く） */
-    startsAt: timestamp('starts_at', { withTimezone: true }),
-    /** 予定では必須で終端は排他的。タスクでは期限（任意） */
+    /** 予定・タスクの開始。繰り返しの基準日時（DTSTART）でもある */
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    /** 予定の終了（終端は排他的）。タスクは持たない */
     endsAt: timestamp('ends_at', { withTimezone: true }),
     /** タスクのみ。null = 未完了 */
     completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -44,9 +44,9 @@ export const events = pgTable(
     note: text('note'),
     /** 開始の n 分前に通知。終日は 0 = 当日、1440 = 前日（各自の通知時刻）。null = 通知なし */
     remindStartMinutes: integer('remind_start_minutes').$type<RemindMinutes>(),
-    /** 終了（期限）の n 分前に通知。null = 通知なし */
+    /** 予定の終了の n 分前に通知。null = 通知なし（タスクは常に null） */
     remindEndMinutes: integer('remind_end_minutes').$type<RemindMinutes>(),
-    /** RFC 5545 RRULE（DTSTART なし）。DTSTART は starts_at（無ければ ends_at）。null = 単発 */
+    /** RFC 5545 RRULE（DTSTART なし）。DTSTART は starts_at。null = 単発 */
     rrule: text('rrule'),
     /** 繰り返しの一部として作られた行が指す繰り返し元 */
     seriesId: uuid('series_id').references((): AnyPgColumn => events.id, { onDelete: 'cascade' }),
@@ -67,17 +67,18 @@ export const events = pgTable(
     // series_id だけの検索（回の取得・削除）も、この複合一意索引の先頭列で足りる
     uniqueIndex('events_series_occurrence_uq').on(table.seriesId, table.occurrenceStart),
     check('events_kind_check', sql`${table.kind} in ('event', 'task')`),
+    // 終わりを持つのは予定だけ（予定は必須、タスクは持たない）
     check(
-      'events_event_has_range_check',
-      sql`${table.kind} <> 'event' or (${table.startsAt} is not null and ${table.endsAt} is not null)`,
+      'events_end_only_event_check',
+      sql`(${table.kind} = 'event') = (${table.endsAt} is not null)`,
+    ),
+    check(
+      'events_remind_end_only_event_check',
+      sql`${table.kind} = 'event' or ${table.remindEndMinutes} is null`,
     ),
     check(
       'events_task_only_completed_check',
       sql`${table.kind} = 'task' or ${table.completedAt} is null`,
-    ),
-    check(
-      'events_recurring_has_base_check',
-      sql`${table.rrule} is null or ${table.startsAt} is not null or ${table.endsAt} is not null`,
     ),
     check(
       'events_series_pair_check',

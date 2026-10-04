@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { containsKeyword, idArrayAgg, participantWrites } from '../../lib/db/query.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
@@ -75,36 +76,46 @@ function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL
   return or(own, and(isNotNull(table.rrule), inArray(table.id, seriesWithMatch)));
 }
 
+/**
+ * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない。
+ * 種別は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
+ */
+export type CandidateFilter = { kind?: EventKind | undefined; q?: string | undefined };
+
 function isCandidate(
   table: CandidateColumns,
   from: Date,
   to: Date,
-  q: string | undefined,
+  { kind, q }: CandidateFilter,
 ): SQL | undefined {
-  const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
     candidateKeywordOf(table, q),
+    kind && eq(table.kind, kind),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
-      // 繰り返しの予定: 基準日時が範囲の終わりより前なら、回が範囲に入りうる
-      and(isNotNull(table.rrule), eq(table.kind, 'event'), lt(base, to)),
-      // 繰り返しのタスクと単発の未完了タスク: 完了するまで「今日」に繰り越され、繰り返しの表示する回は
-      // 範囲によらない（`occurrences.ts` の `expandTask`）ので、日時では絞れない
-      and(eq(table.kind, 'task'), or(isNotNull(table.rrule), isNull(table.completedAt))),
-      // 単発の完了したタスク: 完了した日にだけ置かれる
+      // 範囲の終わりより前に始まるもののうち
+      and(
+        lt(table.startsAt, to),
+        or(
+          // 繰り返しの予定: 回が範囲に入りうる
+          and(isNotNull(table.rrule), eq(table.kind, 'event')),
+          // 単発の未完了タスク: 完了するまで「今日」に繰り越されるので、過去の開始では絞れない
+          // （開始が範囲の後なら開始の日に置かれて範囲に入らないので、上の条件で除ける）
+          and(isNull(table.rrule), eq(table.kind, 'task'), isNull(table.completedAt)),
+          // 単発の予定: 期間と重なるもの
+          and(isNull(table.rrule), eq(table.kind, 'event'), gt(table.endsAt, from)),
+        ),
+      ),
+      // 繰り返しのタスク: 表示する回は範囲によらない（`occurrences.ts` の `expandTask`）。先の回を早めに
+      // 完了すれば完了した日（開始より前の範囲）に置かれるので、日時では絞れない
+      and(isNotNull(table.rrule), eq(table.kind, 'task')),
+      // 単発の完了したタスク: 完了した日にだけ置かれる（開始の日とは関わらない）
       and(
         isNull(table.rrule),
         eq(table.kind, 'task'),
         gte(table.completedAt, from),
         lt(table.completedAt, to),
-      ),
-      // 単発の予定: 期間と重なるもの
-      and(
-        isNull(table.rrule),
-        eq(table.kind, 'event'),
-        lt(table.startsAt, to),
-        gt(table.endsAt, from),
       ),
     ),
   );
@@ -132,25 +143,26 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
+ * kind を渡すとその種別だけを読む（ics の配信は予定しか出さないので、未完了のタスクを読んで捨てずに済む）。
  * q を渡すと、行そのものか実体化された回のどれかが当たるものだけを読む（タイムラインの検索。粗いふるいで、
  * どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
  */
 export async function findCalendarRows(
   from: Date,
   to: Date,
-  q?: string,
+  filter: CandidateFilter = {},
 ): Promise<EventWithParticipants[]> {
   const master = alias(events, 'master');
   return selectRows()
     .where(
       or(
-        isCandidate(events, from, to, q),
+        isCandidate(events, from, to, filter),
         inArray(
           events.seriesId,
           db
             .select({ id: master.id })
             .from(master)
-            .where(isCandidate(master, from, to, q)),
+            .where(isCandidate(master, from, to, filter)),
         ),
       ),
     )
@@ -162,7 +174,7 @@ export async function findCalendarRows(
  * タイムラインのページの区切りを数える日時: 予定は開始、タスクは完了した日時（shared/timeline.ts の `entryStart`）。
  * 終日の予定の行は置く日の終わりに出る（`eventEntry`）が、区切りは 1 ページの件数の目安を決めるだけで、
  * どの行をどのページに出すかは行の日時で決めるので、ここは始まりで数えれば足りる。
- * 未完了のタスクは一番上にまとめるか（開始を過ぎた・日時が無い）、24 時間以内の開始の位置にしか出ないので、
+ * 未完了のタスクは一番上にまとめるか（開始を過ぎた）、24 時間以内の開始の位置にしか出ないので、
  * ページの区切りを決めるのには数えない（null はどの比較にも当たらない）。
  * 繰り返し元は回ごとに日時が違うので、この式を使うのは単発の行と実体化された回（どちらも rrule を持たない）だけ。
  */
@@ -216,7 +228,7 @@ export async function findRecurringEventsBefore(
         keywordOf(events, q),
       ),
     );
-  return rows.flatMap(({ rrule, startsAt }) => (rrule && startsAt ? [{ rrule, startsAt }] : []));
+  return rows.flatMap(({ rrule, startsAt }) => (rrule ? [{ rrule, startsAt }] : []));
 }
 
 /**

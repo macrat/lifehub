@@ -24,9 +24,9 @@ const task = () =>
   createEventSchema.parse({
     kind: 'task',
     title: '提出',
-    endsAt: iso('2026-09-14T18:00:00'),
+    startsAt: iso('2026-09-14T18:00:00'),
     participantIds: [userId],
-    remindEndMinutes: 60,
+    remindStartMinutes: 60,
   });
 
 describe('書き込みの後の通知の予約', () => {
@@ -44,7 +44,7 @@ describe('書き込みの後の通知の予約', () => {
     expect(schedule).toHaveBeenCalledTimes(1);
     await updateEvent(
       created.id,
-      updateEventSchema.parse({ ...task(), endsAt: iso('2026-09-14T18:00:00'), scope: 'all' }),
+      updateEventSchema.parse({ ...task(), startsAt: iso('2026-09-14T19:00:00'), scope: 'all' }),
       userId,
     );
     expect(schedule).toHaveBeenCalledTimes(2);

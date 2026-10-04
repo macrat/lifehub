@@ -23,7 +23,7 @@ describe('notifications', () => {
     userId = await createTestUser('A');
   });
 
-  it('予定の開始 N 分前と、タスクの開始・期限を列挙する', async () => {
+  it('予定の開始 N 分前と、タスクの開始を列挙する', async () => {
     const event = await createEvent(
       createEventSchema.parse({
         kind: 'event',
@@ -49,19 +49,17 @@ describe('notifications', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        startsAt: iso('2026-09-14T09:00:00'),
-        endsAt: iso('2026-09-15T17:00:00'),
+        startsAt: iso('2026-09-15T17:00:00'),
         remindStartMinutes: 0,
-        remindEndMinutes: 0,
         participantIds: [userId],
       }),
       userId,
     );
     const planned = await listNotifications(tomorrow, await notifyTimes());
-    // 並びは一覧と同じ（同日内はその項目が示す時刻の順。タスクは開始の 9/14 9:00 で、今日に繰り越されて先頭）
+    // 並びは一覧と同じ（同日内はその項目が示す時刻の順）
     expect(planned.map((p) => [p.key, p.at.toISOString()])).toEqual([
-      [`event:${task.id}:single:end:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
       [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
+      [`event:${task.id}:single:start:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
     ]);
   });
 
@@ -79,8 +77,8 @@ describe('notifications', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -97,8 +95,7 @@ describe('notifications', () => {
     });
     expect(await resolveNotification(taskRef, await notifyTimes())).toMatchObject({
       title: 'タスク: 提出',
-      body: '期限 9/15 17:00',
-      // 繰り越されるタスクの位置は「今日」で決まるので、再検証が 1 日前の状態を見ていると前日になる
+      body: '開始 9/15 17:00',
       url: '/calendar?date=2026-09-15',
     });
 
@@ -126,8 +123,8 @@ describe('notifications', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -152,8 +149,8 @@ describe('notifications', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -178,8 +175,8 @@ describe('notifications', () => {
       createEventSchema.parse({
         kind: 'task',
         title: '提出',
-        endsAt: iso('2026-09-15T17:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T17:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -196,14 +193,14 @@ describe('notifications', () => {
   });
 
   it('繰り返しタスクをためても、その日の回の通知は予約される', async () => {
-    // 毎日 17:00 期限。9/13 から未完了のまま 9/15 を迎えても 9/15 の回の通知が要る
+    // 毎日 17:00 開始。9/13 から未完了のまま 9/15 を迎えても 9/15 の回の通知が要る
     await createEvent(
       createEventSchema.parse({
         kind: 'task',
         title: '薬',
-        endsAt: iso('2026-09-13T17:00:00'),
+        startsAt: iso('2026-09-13T17:00:00'),
         rrule: 'FREQ=DAILY',
-        remindEndMinutes: 0,
+        remindStartMinutes: 0,
         participantIds: [userId],
       }),
       userId,
@@ -214,7 +211,7 @@ describe('notifications', () => {
       await resolveNotification((planned[0] as PlannedNotification).ref, await notifyTimes()),
     ).toMatchObject({
       title: 'タスク: 薬',
-      body: '期限 9/15 17:00',
+      body: '開始 9/15 17:00',
       url: '/calendar?date=2026-09-15',
     });
   });
@@ -227,8 +224,8 @@ describe('notifications', () => {
         kind: 'task',
         title: 'ゴミ出し',
         allDay: true,
-        endsAt: iso('2026-09-15T00:00:00'),
-        remindEndMinutes: 0,
+        startsAt: iso('2026-09-15T00:00:00'),
+        remindStartMinutes: 0,
         participantIds: [userId, other],
       }),
       userId,
@@ -255,7 +252,7 @@ describe('notifications', () => {
     expect(await resolveNotification(theirs as NotificationRef, await notifyTimes())).toMatchObject(
       {
         title: 'タスク: ゴミ出し',
-        body: '期限 9/15 終日',
+        body: '開始 9/15 終日',
         userIds: [other],
         url: '/calendar?date=2026-09-15',
       },

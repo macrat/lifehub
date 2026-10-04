@@ -128,7 +128,7 @@ describe('calendar-feeds service', () => {
       createEventSchema.parse({
         kind: 'task',
         title: 'ゴミ出し',
-        endsAt: iso('2026-09-15T09:00:00'),
+        startsAt: iso('2026-09-15T09:00:00'),
         participantIds: [userId],
       }),
       userId,
@@ -273,7 +273,12 @@ describe('calendar-feeds service', () => {
     await createEvent(input('昔の予定', [userId], '2020-01-01'), userId);
     await createEvent(input('B だけ', [otherId], '2026-09-15'), userId);
     await createEvent(
-      createEventSchema.parse({ kind: 'task', title: 'タスク', participantIds: [userId] }),
+      createEventSchema.parse({
+        kind: 'task',
+        title: 'タスク',
+        startsAt: iso('2026-09-15T09:00:00'),
+        participantIds: [userId],
+      }),
       userId,
     );
     expect(valuesOf(await renderAllIcs(now), 'SUMMARY').sort()).toEqual(['B だけ', '昔の予定']);

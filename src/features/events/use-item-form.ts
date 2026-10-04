@@ -1,11 +1,17 @@
 import { useRef, useState } from 'react';
 import {
+  type CreateEventInput,
   createEventSchema,
   type EventKind,
   type RecurrenceScope,
 } from '../../../shared/validation/events.ts';
 import { FormFieldError, useFormSubmit } from '../../lib/form.ts';
-import { type ItemFormValues, itemInputFromForm, switchKindValues } from './form-values.ts';
+import {
+  type ItemFormValues,
+  itemInputFromForm,
+  switchKindValues,
+  type WhenInput,
+} from './form-values.ts';
 import type { CreateEventBody } from './queries.ts';
 
 /**
@@ -15,14 +21,13 @@ import type { CreateEventBody } from './queries.ts';
  * 1 つの事実を 2 か所に持つと、片方だけが変わったときに見出しと保存する日時が食い違うため。
  */
 export function useItemForm({
-  kind,
   initial,
   allDay,
   scope = 'all',
   onSubmit,
   onSaved,
 }: {
-  kind: EventKind;
+  /** 入力の既定値。種類（予定・タスク）もここが持つ */
   initial: ItemFormValues;
   allDay: boolean;
   /** this のときは繰り返しの設定は変更できない（回の行は繰り返さない） */
@@ -33,18 +38,12 @@ export function useItemForm({
   const thisOnly = scope === 'this';
   const formRef = useRef<HTMLFormElement>(null);
   /** 今の入力 → 検証前の値。保存のほか、入力を下書きへ映し戻す（クイック入力）のにも使う */
-  const inputFromForm = (fd: FormData) =>
-    itemInputFromForm(kind, fd, { initial, allDay, thisOnly });
+  const inputFromForm = (fd: FormData) => itemInputFromForm(fd, { initial, allDay, thisOnly });
 
   const form = useFormSubmit({
     schema: createEventSchema,
     values: inputFromForm,
-    onSubmit: (data) =>
-      onSubmit({
-        ...data,
-        startsAt: data.startsAt?.toISOString() ?? null,
-        endsAt: data.endsAt?.toISOString() ?? null,
-      }),
+    onSubmit: (data) => onSubmit(toBody(data)),
     onSaved,
   });
 
@@ -71,26 +70,30 @@ export function useItemForm({
   };
 }
 
+/** 検証済みの値 → API に送る形（日時を ISO 文字列に戻す。終了を持つのは予定だけ） */
+function toBody(data: CreateEventInput): CreateEventBody {
+  const startsAt = data.startsAt.toISOString();
+  return data.kind === 'event'
+    ? { ...data, startsAt, endsAt: data.endsAt.toISOString() }
+    : { ...data, startsAt };
+}
+
 /**
  * 予定・タスクの種類の切り替え（入力の上端の `KindToggle`）。切り替えた種類と、その既定値を持つ。
  * 既定値は切り替えたときの入力の開始から作り直す（引き継ぐ日時は開始だけ。`switchKindValues`）。
  * タイトル・参加者・場所・メモ・繰り返し・開始前の通知の入力欄は種類で変わらないので、入力した値は
- * 入力欄（DOM）にそのまま残る。作り直すのは種類で変わる日時の入力欄と期限前の通知だけ。
+ * 入力欄（DOM）にそのまま残る。作り直すのは種類で変わる日時の入力欄だけ。
  * 繰り返しの 1 回だけ（this）は種類を変えられない（回の種類は繰り返し元のもの）ので、呼び出し側が切り替えを出さない。
  */
-export function useKindSwitch(kind: EventKind, initial: ItemFormValues) {
-  const [switched, setSwitched] = useState<{ kind: EventKind; initial: ItemFormValues } | null>(
-    null,
-  );
-  const current = switched ?? { kind, initial };
+export function useKindSwitch(initial: ItemFormValues) {
+  const [switched, setSwitched] = useState<ItemFormValues | null>(null);
+  const current = switched ?? initial;
   return {
-    ...current,
+    /** 今の既定値（種類は `initial.kind`） */
+    initial: current,
     /** 種類を to にする。input は切り替える前の入力（読めなければ今の既定値の開始を引き継ぐ） */
-    switchTo: (to: EventKind, input: { allDay: boolean; startsAt: string | null } | null) =>
-      setSwitched({
-        kind: to,
-        initial: switchKindValues(current.initial, input ?? current.initial, to),
-      }),
+    switchTo: (to: EventKind, input: Pick<WhenInput, 'allDay' | 'startsAt'> | null) =>
+      setSwitched(switchKindValues(current, input ?? current, to)),
   };
 }
 
