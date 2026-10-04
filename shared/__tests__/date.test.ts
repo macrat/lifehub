@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDateString, monthRange, monthsInRange } from '../date.ts';
+import { diffMonths, isDateString, monthRange, monthsInRange } from '../date.ts';
 import type { DateString } from '../types.ts';
 import { dateStringSchema } from '../validation/common.ts';
 
@@ -64,5 +64,13 @@ describe('monthsInRange', () => {
 
   it('同じ日なら 1 か月', () => {
     expect(monthsInRange(d('2026-09-21'), d('2026-09-21'))).toEqual(['2026-09']);
+  });
+});
+
+describe('diffMonths', () => {
+  it('年をまたいでも月の差を返す', () => {
+    expect(diffMonths('2026-09', '2026-09')).toBe(0);
+    expect(diffMonths('2026-11', '2027-02')).toBe(3);
+    expect(diffMonths('2027-02', '2026-11')).toBe(-3);
   });
 });

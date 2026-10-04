@@ -160,4 +160,10 @@ describe('カレンダーの月ごとの中身', () => {
     expect(reading('holidays')).toBe(1);
     expect(reading('events')).toBe(1);
   });
+
+  it('幅の広すぎる月の組は読まずに断る（間の月もすべて読んで展開することになる）', async () => {
+    await expect(api.calendar.get.query({ months: ['2020-01', '2030-01'] })).rejects.toThrow(
+      '120 か月の幅まで',
+    );
+  });
 });

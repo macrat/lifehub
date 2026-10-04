@@ -87,8 +87,11 @@ function isCandidate(
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
-      // 繰り返し元: 基準日時が範囲の終わりより前なら、回が範囲に入りうる
-      and(isNotNull(table.rrule), lt(base, to)),
+      // 繰り返しの予定: 基準日時が範囲の終わりより前なら、回が範囲に入りうる
+      and(isNotNull(table.rrule), eq(table.kind, 'event'), lt(base, to)),
+      // 繰り返しのタスク: 表示する回は今と繰り返しだけで決まり、今日にも置かれるので、日時では絞れない
+      // （単発の未完了タスクと同じ。`occurrences.ts` の `expandTask`）
+      and(isNotNull(table.rrule), eq(table.kind, 'task')),
       // 単発の未完了タスク: 完了するまで「今日」に繰り越されるので、日時では絞れない
       and(isNull(table.rrule), eq(table.kind, 'task'), isNull(table.completedAt)),
       // 単発の完了したタスク: 完了した日にだけ置かれる

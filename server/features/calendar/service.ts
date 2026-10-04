@@ -1,6 +1,6 @@
 import type { CalendarPeriod } from '../../../shared/calendar.ts';
-import { coveringRange, monthRange, toMonthString } from '../../../shared/date.ts';
-import { listItemsByRange } from '../events/service.ts';
+import { monthRange, toMonthString } from '../../../shared/date.ts';
+import { listItems } from '../events/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import { listWeather } from '../weather/service.ts';
 
@@ -13,7 +13,8 @@ import { listWeather } from '../weather/service.ts';
  * どれも手元の表を読むだけで、外のサイトへは取りに行かない（配布元が遅い・落ちているときに項目まで待たせない）。
  *
  * 頼まれた月をすべて覆う範囲（最初の月の 1 日から最後の月の末日）を、項目・祝日・天気のそれぞれ 1 組の
- * 問い合わせで読み、月ごとに分ける。クライアントはキャッシュを月ごとに持つ（`calendarMonthQueryOptions`）が、
+ * 問い合わせで読み、月ごとに分ける。項目は日ごとに置いてあり、繰り返しのタスクが表示する回も読む範囲によらない
+ * （`events/occurrences.ts` の `expandTask`）ので、まとめて読んで分けても月ごとに読んだものと同じになる。クライアントはキャッシュを月ごとに持つ（`calendarMonthQueryOptions`）が、
  * 同じ時点に要る月はまとめて 1 回で頼む。
  * WHY NOT 月ごとに読む: 同じ形の問い合わせが月の数だけ繰り返され（N+1）、文の数と DB の負荷が月の数に比例する。
  * 間の空いた月を頼まれても範囲は 1 つにまとめる（間の月も読んで捨てる）。カレンダーが同じ時点に要る月は
@@ -23,22 +24,24 @@ export async function getCalendar(
   months: readonly string[],
 ): Promise<Record<string, CalendarPeriod>> {
   const sorted = [...new Set(months)].sort();
-  const ranges = sorted.map(monthRange);
-  const whole = coveringRange(ranges);
-  if (!whole) return {};
+  const first = sorted[0];
+  const last = sorted.at(-1);
+  if (!first || !last) return {};
+  const whole = { from: monthRange(first).from, to: monthRange(last).to };
   const [items, holidays, weather] = await Promise.all([
-    listItemsByRange(ranges),
+    listItems(whole),
     listHolidays(whole),
     listWeather(whole),
   ]);
+  const itemsOf = Map.groupBy(items, (item) => toMonthString(item.placementDate));
   const holidaysOf = Map.groupBy(holidays, toMonthString);
   const dailyOf = Map.groupBy(weather.daily, (w) => toMonthString(w.date));
   const hourlyOf = Map.groupBy(weather.hourly, (w) => toMonthString(w.date));
   return Object.fromEntries(
-    sorted.map((month, i) => [
+    sorted.map((month) => [
       month,
       {
-        items: items[i] ?? [],
+        items: itemsOf.get(month) ?? [],
         holidays: holidaysOf.get(month) ?? [],
         weather: { daily: dailyOf.get(month) ?? [], hourly: hourlyOf.get(month) ?? [] },
       },

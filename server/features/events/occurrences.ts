@@ -1,13 +1,11 @@
 import {
   type CalendarItem,
   type EventMaster,
-  inRange,
   type Occurrence,
   placeOccurrence,
   sortItems,
 } from '../../../shared/calendar.ts';
 import {
-  coveringRange,
   type DateRange,
   type InstantRange,
   instantRange,
@@ -38,32 +36,8 @@ export async function listItems(
   now: Date = new Date(),
   filter: OccurrenceFilter = {},
 ): Promise<CalendarItem[]> {
-  return sortItems(place(await listOccurrences(range, now, filter), range, now));
-}
-
-/**
- * 互いに重ならない期間ごとの項目（`listItems` と同じ並び）。行は全期間を覆う範囲で 1 度だけ読み、
- * 予定はその範囲で 1 度だけ展開して期間ごとに分ける（カレンダーの月ごとの中身。`calendar/service.ts`）。
- * 予定の項目は日ごとに置くので、広い範囲で展開して日で分けても、期間ごとに展開したものと同じになる。
- * タスクは期間ごとに展開する: 繰り返しのタスクは期間の終わりまでの回から表示する回を選ぶ（`expandTask`）ので、
- * 広い範囲で展開すると、どの期間と一緒に読んだかで期間の中身が変わってしまう。
- * WHY NOT 期間ごとに `listItems` を呼ぶ: 同じ形の問い合わせが期間の数だけ走り（N+1）、
- * 繰り返しの予定の展開も期間の数だけやり直す。
- */
-export async function listItemsByRange(
-  ranges: readonly DateRange[],
-  now: Date = new Date(),
-): Promise<CalendarItem[][]> {
-  const whole = coveringRange(ranges);
-  if (!whole) return [];
-  const rows = await readRows(whole);
-  const events = place(expandRows(rows, whole, now, { kind: 'event' }), whole, now);
-  return ranges.map((range) =>
-    sortItems([
-      ...events.filter((item) => inRange(item.placementDate, range)),
-      ...place(expandRows(rows, range, now, { kind: 'task' }), range, now),
-    ]),
-  );
+  const occurrences = await listOccurrences(range, now, filter);
+  return sortItems(occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now)));
 }
 
 /**
@@ -80,21 +54,12 @@ export async function listItemsByRange(
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  filter: OccurrenceFilter = {},
+  { kind, q }: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
-  return expandRows(await readRows(range, filter.q), range, now, filter);
-}
-
-/** 展開の材料: 繰り返し元・単発の行と、繰り返し元ごとの実体化された回（基準日時のミリ秒 → 行） */
-type CalendarRows = {
-  masters: EventWithParticipants[];
-  bySeries: Map<string, Map<number, EventWithParticipants>>;
-};
-
-/** [from, to]（両端含む JST 暦日）に発生を持ちうる行を読み、繰り返し元・単発の行と実体化された回に仕分ける */
-async function readRows(range: DateRange, q?: string): Promise<CalendarRows> {
   const instants = instantRange(range);
   const rows = await repository.findCalendarRows(instants.from, instants.to, q);
+
+  // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
   const masters: EventWithParticipants[] = [];
   const bySeries = new Map<string, Map<number, EventWithParticipants>>();
   for (const row of rows) {
@@ -106,34 +71,14 @@ async function readRows(range: DateRange, q?: string): Promise<CalendarRows> {
     inner.set(row.occurrenceStart.getTime(), row);
     bySeries.set(row.seriesId, inner);
   }
-  return { masters, bySeries };
-}
 
-/**
- * 読んだ行から [from, to]（両端含む JST 暦日）に掛かる発生を組み立てる（`listOccurrences`）。
- * 行は range を覆う範囲で読んだものなら、range より広い範囲で読んだものでもよい（範囲の外の発生は除く）
- */
-function expandRows(
-  { masters, bySeries }: CalendarRows,
-  range: DateRange,
-  now: Date,
-  { kind, q }: OccurrenceFilter,
-): Occurrence[] {
-  const instants = instantRange(range);
   const result: Occurrence[] = [];
   for (const master of masters) {
     if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
-    result.push(
-      ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
-    );
+    result.push(...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now)));
   }
   return result.filter((o) => matchesKeyword(q, o.title, o.note));
-}
-
-/** 発生を [from, to]（両端含む JST 暦日）の暦日に置く（範囲の外の日は除く） */
-function place(occurrences: Occurrence[], range: DateRange, now: Date): CalendarItem[] {
-  return occurrences.flatMap((occurrence) => placeOccurrence(occurrence, range, now));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */
@@ -298,25 +243,27 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
  * 放棄を時刻ではなく暦日で判定するのは、未完了のタスクが今日の位置に繰り越される規則と揃えるため。
  * 時刻で判定すると、今日の回が来るまでの間だけ 2 日前と 1 日前の回が並び、今日の回が出ない。
  */
-function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence[] {
+function expandTask(ctx: ExpandContext, now: Date): Occurrence[] {
   const { master } = ctx;
   if (!master.rrule) return [buildOccurrence(ctx, null, undefined)];
   const base = baseOf(master);
   if (!base) return [];
 
-  // 取り出すのは「今より後、範囲の終わりまで」の発生と、その前後 2 つ（1 回の走査で済ませる）。
+  // 表示する回は今と繰り返しだけで決まり、読む範囲によらない（暦日に置いた後で範囲に絞る）。
+  // 取り出すのは今の前 2 つと後ろの数個（1 回の走査で済ませる）。
   // 2 つ前まで遡れば足りるのは、放棄されずに残る最初の回が「今日以前の最後の発生の 1 つ前」で、
   // 今以後の最初の発生はそこから高々 2 つ先にあるため（今日の回がまだ来ていなければ 2 つ先、
   // 来ていれば 1 つ先）。それより前の回は必ず放棄済みで、完了した回は下の走査外の処理が拾う。
-  // 2 つ先まで先読みするのは、範囲の終わり際の回の放棄を判定するため。
-  const rangeEnd = instantRange(range).to;
+  // 後ろは、飛ばす回（完了・取り消した回。今より後の実体化された回の数を超えない）と未完了の 2 つに、
+  // 最後の未完了の回の放棄を判定する 2 つ先までを足した数だけ読めば足りる。
+  const ahead = [...ctx.occurrences.keys()].filter((at) => at >= now.getTime()).length;
   const bases = expandOccurrences({
     rrule: master.rrule,
     dtstart: base,
     from: now,
-    to: rangeEnd,
+    to: now,
     lookbehind: MAX_VISIBLE_UNCOMPLETED,
-    lookahead: MAX_VISIBLE_UNCOMPLETED,
+    lookahead: ahead + MAX_VISIBLE_UNCOMPLETED * 2,
   });
 
   const result: Occurrence[] = [];
@@ -325,7 +272,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   let visibleUncompleted = 0;
   for (let n = 0; visibleUncompleted < MAX_VISIBLE_UNCOMPLETED; n++) {
     const at = bases[n];
-    if (!at || at.getTime() >= rangeEnd.getTime()) break;
+    if (!at) break;
     const row = ctx.occurrences.get(at.getTime());
     if (row?.cancelled) continue;
     if (row?.completedAt) {
