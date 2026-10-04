@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { z } from 'zod';
 import { ADD_PAGES, type AddKind, type AddPage } from './add-pages.ts';
 import { usePatchSearch } from './search.ts';
@@ -17,19 +17,18 @@ export const addSearchSchema = <P extends AddPage>(page: P) => z.enum(ADD_PAGES[
  * 戻る・再読み込みで開き直さない（開いている入力は画面の状態で、URL に残す物ではない。
  * `src/lib/ui/dialog-history.ts`）。消すのは置き換えで、履歴には積まない。
  *
- * `open` は毎描画で作り直してよい（最新の物を ref から呼ぶので、しるしが変わるまで再実行しない）。
+ * `open` は毎描画で作り直してよい（Effect Event として呼ぶので、しるしが変わるまで再実行しない）。
  */
 export function useAddShortcut<K extends AddKind>(
   kind: K | undefined,
   open: (kind: K) => void,
 ): void {
   const patchSearch = usePatchSearch();
-  const latest = useRef(open);
-  latest.current = open;
+  const openKind = useEffectEvent(open);
 
   useEffect(() => {
     if (kind === undefined) return;
-    latest.current(kind);
+    openKind(kind);
     patchSearch({ add: undefined }, { replace: true });
   }, [kind, patchSearch]);
 }

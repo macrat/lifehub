@@ -1,5 +1,5 @@
 import { useRouter } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -62,9 +62,8 @@ function syncHistoryDepth(router: Router): void {
  */
 export function useDialogHistory(onClose: () => void): void {
   const router = useRouter();
-  // onClose は毎描画で作り直されるので ref に持ち、開いている間は購読を張り直さない
-  const latest = useRef(onClose);
-  latest.current = onClose;
+  // onClose は毎描画で作り直されるので Effect Event にし、開いている間は購読を張り直さない
+  const close = useEffectEvent(onClose);
 
   useEffect(() => {
     const depth = ++openCount;
@@ -72,7 +71,7 @@ export function useDialogHistory(onClose: () => void): void {
     const unsubscribe = router.history.subscribe(({ location, action }) => {
       // 履歴を渡る操作（戻る・進む）で、自分の項目より手前に移った = 閉じられた
       const traversed = action.type === 'BACK' || action.type === 'FORWARD' || action.type === 'GO';
-      if (traversed && depthOf(location.state) < depth) latest.current();
+      if (traversed && depthOf(location.state) < depth) close();
     });
     return () => {
       unsubscribe();
