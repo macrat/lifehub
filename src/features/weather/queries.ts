@@ -1,5 +1,5 @@
 import type { InfiniteData } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { addDays, minutesOfDay, today } from '../../../shared/date.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
@@ -7,6 +7,7 @@ import { api } from '../../lib/api.ts';
 import { type HistorySource, historyQueryOptions } from '../../lib/history.ts';
 import type { QueryState } from '../../lib/query-client.ts';
 import { useStoreInfiniteQuery } from '../../lib/screen-data.ts';
+import { useClock } from '../../lib/use-now.ts';
 
 /**
  * 天気の日々（`src/lib/history.ts`。天気の画面とホームのタイルが読む。画面は `useScreenHistory` で購読する）。1 ページは `weather.page`（before を省くと、今日の 1 週間前から
@@ -38,24 +39,13 @@ export function homeWeatherDay(now: Date): HomeWeatherDay {
     : { date: addDays(date, 1), label: '明日' };
 }
 
-/** 時計を見直す間隔（ms） */
-const CLOCK_INTERVAL_MS = 60_000;
-
 /**
  * ホームのタイルに出す日（`homeWeatherDay`）。18 時を過ぎれば開いたままでも明日に変わるよう、時計に合わせて選び直す。
  * 描き直すのは日か呼び方が変わったときだけにする（18 時と 0 時の 1 日 2 回。0 時は日が同じまま「明日」が「今日」になる）。
  * WHY NOT `useNow`: 毎分新しい Date を返すので、天気の画面では一覧全体が毎分描き直される。
  */
 export function useHomeWeatherDay(): HomeWeatherDay {
-  const [day, setDay] = useState(() => homeWeatherDay(new Date()));
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const next = homeWeatherDay(new Date());
-      setDay((prev) => (prev.date === next.date && prev.label === next.label ? prev : next));
-    }, CLOCK_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, []);
-  return day;
+  return useClock(homeWeatherDay, (a, b) => a.date === b.date && a.label === b.label);
 }
 
 /** ホームのタイルの中身。予報の無い日は weather が無い */
