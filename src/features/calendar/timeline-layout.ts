@@ -62,17 +62,25 @@ export function layoutTimed<T>(inputs: TimedInput<T>[]): TimedPlaced<T>[] {
 }
 
 /**
- * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
+ * 1 日に収まる時間指定（終わりは含まず、翌日 0:00 までに終わる）の、その日の時間帯（分）。
  * 24:00 に終わる予定は翌日 0:00 で届くので 24 時に読み替える。
+ * 置いた予定（`timedSlot`）と、入力で直した日時を枠に戻すとき（`event-draft.ts`）が同じ規則で読む。
+ */
+export function timedMinutes(
+  startsAt: string,
+  endsAt: string,
+): { startMin: number; endMin: number } {
+  return { startMin: minutesOfDay(startsAt), endMin: minutesOfDay(endsAt) || DAY_MINUTES };
+}
+
+/**
+ * 時間軸に置く時間指定の予定の時間帯（分）。終日・複数日は時間軸に置けないので null。
  * 時間軸のブロックと、長押しでつまんだときの枠（`draft.ts` の `itemDraft`）が同じ規則で決まるので、
  * 置いた所をそのままつまめる。
  */
 export function timedSlot(item: CalendarItem): { startMin: number; endMin: number } | null {
   if (item.kind !== 'event' || item.allDay || item.dayCount > 1) return null;
-  return {
-    startMin: minutesOfDay(item.startsAt),
-    endMin: minutesOfDay(item.endsAt) || DAY_MINUTES,
-  };
+  return timedMinutes(item.startsAt, item.endsAt);
 }
 
 /**

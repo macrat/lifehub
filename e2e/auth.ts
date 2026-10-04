@@ -1,12 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { apiOf } from './api.ts';
-
-/**
- * E2E のログイン状態。E2E ユーザーでのログインは `auth.setup.ts` が 1 度だけ行い、その Cookie を
- * ここに保存する。各テストはそれを読み込んだ（ログイン済みの）ブラウザで始まる（`playwright.config.ts`）。
- * WHY: 画面からのログインは 1 回数秒かかり、ほぼ全テストの前に繰り返すと全体の時間に直に乗る。
- */
-export const AUTH_FILE = 'playwright/.auth/user.json';
+import { expect } from './test.ts';
 
 /**
  * ログインしていない状態。ログイン・ログアウトそのものを確かめるテスト（`test.use({ storageState })`）と、

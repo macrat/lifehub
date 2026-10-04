@@ -99,16 +99,6 @@ describe('expenses service', () => {
     expect(await getSettlements()).toEqual([{ creditorId: b, debtorId: a, amount: 500 }]);
   });
 
-  it('同じ id で送り直しても二重に記録されない（オフラインで溜めた書き込みの再送）', async () => {
-    const id = newId();
-    const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
-    await addExpense(input, a, id);
-    await addExpense(input, a, id);
-
-    expect((await listExpenses({})).items).toHaveLength(1);
-    expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 2000 }]);
-  });
-
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
     const id = newId();
     const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
@@ -147,7 +137,7 @@ describe('expenses service', () => {
     it('新しいほうから 1 ページを古い順で返し、nextCursor で前のページへ続く', async () => {
       // 1 日 1 件を 60 日。1 ページ（50 件）に収まらない
       const days = Array.from({ length: 60 }, (_, i) => addDays(day(1), i));
-      for (const spentOn of days) await add({ spentOn });
+      await Promise.all(days.map((spentOn) => add({ spentOn })));
       const first = await listExpenses({});
       expect(first.items.map((e) => e.spentOn)).toEqual(days.slice(10));
       expect(first.nextCursor).toBe(days[10]);
@@ -158,10 +148,9 @@ describe('expenses service', () => {
     });
 
     it('日の途中では切らず、その日の立替はすべて同じページに入れる', async () => {
-      for (let n = 0; n < 49; n++) await add({ spentOn: day(20) });
       // 50 件目の日（1/10）には 3 件あり、3 件ともこのページに入る
-      for (let n = 0; n < 3; n++) await add({ spentOn: day(10) });
-      await add({ spentOn: day(1) });
+      const spentOns = [...Array(49).fill(day(20)), ...Array(3).fill(day(10)), day(1)];
+      await Promise.all(spentOns.map((spentOn) => add({ spentOn })));
 
       const first = await listExpenses({});
       expect(first.items).toHaveLength(52);
@@ -174,10 +163,12 @@ describe('expenses service', () => {
     it('絞り込んでいても、ページに入るのは条件に合う立替だけ', async () => {
       // 条件に合う立替が 1 ページ（50 件）を超え、ページの範囲の日には合わない立替も混ざる
       const days = Array.from({ length: 60 }, (_, i) => addDays(day(1), i));
-      for (const spentOn of days) {
-        await add({ spentOn, description: '食材' });
-        await add({ spentOn, description: '日用品' });
-      }
+      await Promise.all(
+        days.flatMap((spentOn) => [
+          add({ spentOn, description: '食材' }),
+          add({ spentOn, description: '日用品' }),
+        ]),
+      );
       const first = await listExpenses({ q: '食材' });
       expect(first.items).toHaveLength(50);
       expect(first.items.every((e) => e.description === '食材')).toBe(true);

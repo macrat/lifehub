@@ -1,7 +1,8 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { dayPoint, dragDays, selectDays, setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
 import { addItem, deleteItem } from './events.ts';
+import { expect, test } from './test.ts';
 import { centerOf, LONG_PRESS_HOLD_MS, touchDrag } from './touch.ts';
 import { changeView } from './view.ts';
 

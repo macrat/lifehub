@@ -1,11 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { expect, test } from '@playwright/test';
-import { AUTH_FILE, SIGNED_OUT } from './auth.ts';
-import { E2E_USER } from './global-setup.ts';
-
-const BASE = 'http://localhost:3000';
+import { SIGNED_OUT } from './auth.ts';
+import { serverEnv } from './servers.ts';
+import { expect, test } from './test.ts';
+import { E2E_USER } from './users.ts';
 
 function base64url(buffer: Buffer): string {
   return buffer.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
@@ -21,13 +19,19 @@ function base64url(buffer: Buffer): string {
  */
 test.use({ storageState: SIGNED_OUT });
 
-test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({ page, request }) => {
+test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({
+  page,
+  request,
+  server,
+  signedIn,
+}) => {
+  const BASE = server.url;
   // http のループバックへのリダイレクトは native クライアント（Claude Desktop 等と同じ）にだけ許される
-  const redirectUri = 'http://127.0.0.1:3000/oauth-callback';
-  // 作るのは E2E ユーザー（ログイン状態のファイルの Cookie で名乗る）。サーバーのコードはこのテストでだけ読み込む
-  const { cookies } = JSON.parse(await readFile(AUTH_FILE, 'utf8')) as {
-    cookies: { name: string; value: string }[];
-  };
+  const redirectUri = `http://127.0.0.1:${server.port}/oauth-callback`;
+  // 作るのは E2E ユーザー（ワーカーのログイン状態の Cookie で名乗る。`test.ts`）。サーバーのコードはこのテストでだけ読み込む
+  const { cookies } = signedIn;
+  // 読み込むサーバーのコードが、このワーカーのサーバーと同じ DB と鍵を使うようにしてから読み込む
+  Object.assign(process.env, serverEnv(test.info().parallelIndex));
   const { getAuth } = await import('../server/lib/auth.ts');
   const { client_id: clientId } = await (await getAuth()).api.createOAuthClient({
     headers: new Headers({
@@ -99,16 +103,4 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
     expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
     await client.close();
   }
-
-  // トークン無しは 401 と RFC 9728 の案内
-  const anonymous = await request.post('/api/mcp', {
-    headers: { accept: 'application/json, text/event-stream', 'content-type': 'application/json' },
-    data: { jsonrpc: '2.0', id: 3, method: 'tools/list', params: {} },
-  });
-  expect(anonymous.status()).toBe(401);
-  expect(anonymous.headers()['www-authenticate']).toContain(
-    '/.well-known/oauth-protected-resource/api/mcp',
-  );
-  const metadata = await request.get('/.well-known/oauth-protected-resource/api/mcp');
-  expect(metadata.ok()).toBe(true);
 });

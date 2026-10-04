@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test.ts';
 
 /** 立替の画面の精算（`SettlementGrid`） */
 test('共有のための立替で「債権者 ← 共有」の精算が出て、タップして記録すると精算済みになる', async ({

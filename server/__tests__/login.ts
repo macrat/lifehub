@@ -1,6 +1,8 @@
 import { createTRPCClient, httpLink } from '@trpc/client';
+import { makeSignature } from 'better-auth/crypto';
 import { type AppRouter, app } from '../app.ts';
-import { createTestUser, TEST_PASSWORD, testEmail } from '../lib/db/test-db.ts';
+import { getAuth } from '../lib/auth.ts';
+import { createTestUser } from '../lib/db/test-db.ts';
 
 /** サーバーのテストで、ログインして Cookie を得るための共通の手順 */
 
@@ -21,10 +23,20 @@ export function cookieOf(response: Response): string {
     .join('; ');
 }
 
-/** テスト用のユーザー（`createTestUser`）を作ってログインし、ID と Cookie を返す */
+/**
+ * テスト用のユーザー（`createTestUser`）を作ってログインし、ID と Cookie を返す。
+ * セッションは better-auth の内部の口で直に作り、ログインの応答と同じ署名付きの Cookie にする
+ * （better-auth の test-utils プラグインと同じ手順）。
+ * WHY パスワードでログインしない: パスワードの検証（scrypt）は 1 回 100ms ほどかかり、ログインした
+ * 要求を確かめるテストの準備のたびに払うことになる。パスワードでのログインそのもの（`signIn`）は
+ * users service のテストが確かめる。
+ */
 export async function loginAs(name: 'A' | 'B'): Promise<{ userId: string; cookie: string }> {
   const userId = await createTestUser(name);
-  return { userId, cookie: cookieOf(await signIn(testEmail(name), TEST_PASSWORD)) };
+  const context = await (await getAuth()).$context;
+  const { token } = await context.internalAdapter.createSession(userId);
+  const signed = `${token}.${await makeSignature(token, context.secret)}`;
+  return { userId, cookie: `${context.authCookies.sessionToken.name}=${signed}` };
 }
 
 /**

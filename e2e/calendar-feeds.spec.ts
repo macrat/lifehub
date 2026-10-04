@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
 import { carries } from './network.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 配信 URL の発行 → その URL で ics が読める → 名前と参加者を変えても同じ URL のまま

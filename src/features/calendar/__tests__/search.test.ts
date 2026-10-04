@@ -55,14 +55,11 @@ describe('matchesListFilters', () => {
 });
 
 describe('LIST_FILTER_CONDITIONS', () => {
-  it('期間は両端で 1 つに数え、キーワードは数えない', () => {
+  it('期間は両端で 1 つに数える', () => {
     const search: CalendarSearch = { view: 'list' };
     expect(countActiveFilters(search, LIST_FILTER_CONDITIONS)).toBe(0);
     expect(
-      countActiveFilters(
-        { ...search, from: DAY, to: DAY, kind: 'task', q: 'a' },
-        LIST_FILTER_CONDITIONS,
-      ),
+      countActiveFilters({ ...search, from: DAY, to: DAY, kind: 'task' }, LIST_FILTER_CONDITIONS),
     ).toBe(2);
   });
 });

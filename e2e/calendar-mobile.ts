@@ -1,4 +1,5 @@
-import { devices, type Locator, type Page, test } from '@playwright/test';
+import { devices, type Locator, type Page } from '@playwright/test';
+import { test } from './test.ts';
 import { LONG_PRESS_HOLD_MS, settledBox, touchDrag } from './touch.ts';
 import { recordViewTransitions } from './view.ts';
 

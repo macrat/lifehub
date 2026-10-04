@@ -9,9 +9,8 @@ const countActiveFilters = (search: LemonSearch) => countWith(search, LEMON_FILT
 const NO_FILTERS: LemonSearch = {};
 
 describe('countActiveFilters', () => {
-  it('範囲は上下をまとめて 1 つと数え、キーワードは数えない', () => {
+  it('範囲は上下をまとめて 1 つと数える', () => {
     expect(countActiveFilters(NO_FILTERS)).toBe(0);
-    expect(countActiveFilters({ ...NO_FILTERS, q: '肥料' })).toBe(0);
     expect(
       countActiveFilters({
         ...NO_FILTERS,

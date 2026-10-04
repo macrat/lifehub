@@ -176,17 +176,16 @@ describe('timeline service', () => {
     expect(earlier.items[0]?.at).toBe(iso('2026-09-09T23:59:59.999'));
   });
 
-  it('繰り返す予定は回ごとに並び、記録の無い期間を空のページで読み続けない', async () => {
+  it('ページの件数を超える記録は日の切れ目で分け、記録の無い期間を空のページで読み続けない', async () => {
     // 1 日 1 回の世話を 60 日分（ページの件数より多い）
-    for (let i = 0; i < 60; i++) {
-      const doneAt = new Date(jst('2026-09-14T07:00:00').getTime() - i * 86_400_000);
-      await logCare({ careTypes: ['mist'], doneAt, note: null }, { userId });
-    }
-    // ずっと前の記録。間には何も無い
-    await logCare(
-      { careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' },
-      { userId },
-    );
+    // ずっと前の記録も 1 件。間には何も無い
+    await Promise.all([
+      ...Array.from({ length: 60 }, (_, i) => {
+        const doneAt = new Date(jst('2026-09-14T07:00:00').getTime() - i * 86_400_000);
+        return logCare({ careTypes: ['mist'], doneAt, note: null }, { userId });
+      }),
+      logCare({ careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' }, { userId }),
+    ]);
 
     const first = await getTimelinePage({}, now);
     expect(first.nextCursor).not.toBeNull();

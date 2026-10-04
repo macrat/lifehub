@@ -1,5 +1,5 @@
 import type { CalendarItem } from '../../../shared/calendar.ts';
-import { minutesOfDay, toDateString } from '../../../shared/date.ts';
+import { inclusiveEndDate, toDateString } from '../../../shared/date.ts';
 import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import {
   allDayEventValues,
@@ -8,6 +8,7 @@ import {
   type ItemFormValues,
 } from '../events/form-values.ts';
 import { type Draft, type DraftOps, type DraftRange, type WhenInput, withAllDay } from './draft.ts';
+import { timedMinutes } from './timeline-layout.ts';
 
 /**
  * 予定の下書き ↔ フォームの値（クイック入力の見出し・既定値、入力で直した日時の映し戻し）。
@@ -72,6 +73,7 @@ export function eventDraftOps({ range, item }: Draft): DraftOps {
 /**
  * 保存する形の日時 → 下書き（グリッドの枠）。フォームで直した日時を枠に映し戻すのに使う。
  * 枠に出せない範囲（日をまたぐ時間指定、終わりが始まりより前）は null で、枠はそのままにする。
+ * 翌日 0:00 に終わる時間指定はその日の 24:00 として枠に出す（置いた予定と同じ規則。`timedMinutes`）。
  */
 function draftFromInstants(allDay: boolean, startsAt: string, endsAt: string): DraftRange | null {
   const from = toDateString(new Date(startsAt));
@@ -80,8 +82,8 @@ function draftFromInstants(allDay: boolean, startsAt: string, endsAt: string): D
     const to = toDateString(new Date(endsAt));
     return to >= from ? { allDay: true, from, to } : null;
   }
-  if (toDateString(new Date(endsAt)) !== from) return null;
-  const startMin = minutesOfDay(startsAt);
-  const endMin = minutesOfDay(endsAt);
+  // 終わりは含まない（翌日 0:00 に終わればその日のうち）。置いた予定の日数（`placeEvent`）と同じ数え方
+  if (inclusiveEndDate(endsAt) !== from) return null;
+  const { startMin, endMin } = timedMinutes(startsAt, endsAt);
   return endMin > startMin ? { allDay: false, date: from, startMin, endMin } : null;
 }

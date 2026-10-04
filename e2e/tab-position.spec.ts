@@ -1,4 +1,10 @@
-import { devices, expect, type Locator, type Page, test } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContextOptions,
+  devices,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { myId, openHome } from './auth.ts';
 import {
   addRecord,
@@ -10,6 +16,7 @@ import {
   isJustBelowHeader,
 } from './history.ts';
 import { appBar, bottomNav, bottomOf } from './layout.ts';
+import { expect, test } from './test.ts';
 
 /**
  * 下部ナビのタブの画面は、別のタブからでも戻るでも、来たときは最初の位置で出る（ホームは一番上、立替・レモンは
@@ -25,9 +32,19 @@ const lemonToday = `E2E タブ レモン 今日 ${stamp}`;
 let created: Created[] = [];
 
 /** スクロールできるだけの記録を、立替とレモンに古い日付で 30 件ずつと、今日の分を 1 件ずつ置く */
-test.beforeAll(async ({ browser }) => {
-  // テストの外で作るページにもログイン状態が載る（`playwright.config.ts` の storageState）
-  const page = await browser.newPage();
+/** テストの外（beforeAll・afterAll）で API を呼ぶためのページ。テストの中と同じサーバーとログイン状態で開く */
+const apiPage = ({
+  browser,
+  server,
+  signedIn,
+}: {
+  browser: Browser;
+  server: { url: string };
+  signedIn: BrowserContextOptions['storageState'];
+}) => browser.newPage({ baseURL: server.url, storageState: signedIn });
+
+test.beforeAll(async ({ browser, server, signedIn }) => {
+  const page = await apiPage({ browser, server, signedIn });
   const me = await myId(page);
   const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2001, 0, 1 + i, 3)));
   const add = (history: History, at: Date, text: string) => addRecord(page, history, me, at, text);
@@ -40,8 +57,8 @@ test.beforeAll(async ({ browser }) => {
   await page.close();
 });
 
-test.afterAll(async ({ browser }) => {
-  const page = await browser.newPage();
+test.afterAll(async ({ browser, server, signedIn }) => {
+  const page = await apiPage({ browser, server, signedIn });
   await Promise.all(created.map((record) => deleteRecord(page, record)));
   await page.close();
 });
@@ -123,7 +140,9 @@ async function moveAway(page: Page, tab: Tab) {
 for (const [index, tab] of tabs.entries()) {
   const other = tabs[(index + 1) % tabs.length] as Tab;
 
-  test(`${tab.name}は、別のタブから戻ってきても最初の位置で出る`, async ({ page }) => {
+  test(`${tab.name}は、別のタブからでも戻るでも最初の位置で出て、${tab.name}のタブを押し直すとなめらかに戻る`, async ({
+    page,
+  }) => {
     await openTab(page, tab);
     // 動かしてから別のタブを開き、戻ってくる（2 回目は取得済みのデータですぐ描かれる）。
     // 別のタブは出し終えるまで待つ: 画面のコードを初めて読む間は前の画面が隠れて残っているだけなので、
@@ -131,25 +150,17 @@ for (const [index, tab] of tabs.entries()) {
     await moveAway(page, tab);
     await openTab(page, other);
     await openTab(page, tab);
-  });
 
-  test(`${tab.name}は、戻るで戻ってきても最初の位置で出る`, async ({ page }) => {
-    await openTab(page, tab);
+    // 戻るで戻ってきても同じ
     await moveAway(page, tab);
     await openTab(page, other);
     await page.goBack();
     await expect(page).toHaveURL(tab.path);
     await expect.poll(() => atInitial(page, tab)).toBe(true);
-  });
 
-  test(`${tab.name}で${tab.name}のタブを押すと、最初の位置までなめらかにスクロールする`, async ({
-    page,
-  }) => {
-    await openTab(page, tab);
+    // 今いる画面のタブを押すと、途中の位置を何度も通って（一瞬で飛ばない）、最後は最初の位置に着く
     await moveAway(page, tab);
     const from = await page.evaluate(() => window.scrollY);
-
-    // 途中の位置を何度も通って（一瞬で飛ばない）、最後は最初の位置に着く
     const seen = scrollPositions(page);
     await bottomNav(page).getByRole('link', { name: tab.name }).click();
     const positions = await seen;
