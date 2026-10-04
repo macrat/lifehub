@@ -169,53 +169,6 @@ export function toInputInstants(
   return { startsAt, endsAt: allDay && endsAt ? new Date(endsAt.getTime() - 1) : endsAt };
 }
 
-/** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。終了の無いもの（タスク）は null */
-type IsoInstants = { startsAt: string; endsAt: string | null };
-
-/**
- * `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる。
- * 終了を渡せば（予定）終了のある組が返る
- */
-export function normalizeIsoInstants(
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string,
-): { startsAt: string; endsAt: string };
-export function normalizeIsoInstants(
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string | null,
-): IsoInstants;
-export function normalizeIsoInstants(
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string | null,
-): IsoInstants {
-  return onIso(normalizeInstants, allDay, startsAt, endsAt);
-}
-
-/** `toInputInstants` の ISO 文字列版 */
-export function toInputIsoInstants(
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string | null,
-): IsoInstants {
-  return onIso(toInputInstants, allDay, startsAt, endsAt);
-}
-
-function onIso(
-  convert: typeof normalizeInstants,
-  allDay: boolean,
-  startsAt: string,
-  endsAt: string | null,
-): IsoInstants {
-  const result = convert(allDay, new Date(startsAt), endsAt === null ? null : new Date(endsAt));
-  return {
-    startsAt: result.startsAt.toISOString(),
-    endsAt: result.endsAt?.toISOString() ?? null,
-  };
-}
-
 /**
  * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
  * 終日のタスクの開始は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
@@ -257,24 +210,6 @@ function taskAnchor(task: TaskTimeSource): {
 } {
   if (task.completedAt) return { kind: 'done', iso: task.completedAt, allDay: false };
   return { kind: 'start', iso: task.startsAt, allDay: task.allDay };
-}
-
-/**
- * 置かれた日（`placementDate`）にあるタスクの日時。別の日を指すときは null。
- * 別の日の日時（今日へ繰り越した開始）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
- * 出す側がその区別をここ 1 か所から受け取る。
- */
-export function taskTimeOnPlacementDate(
-  task: Extract<CalendarItem, { kind: 'task' }>,
-  /** 求め済みの `taskTime`（無ければここで求める） */
-  time: TaskTime = taskTime(task),
-): TaskTime | null {
-  return time.date === task.placementDate ? time : null;
-}
-
-/** 項目を置く日（placementDate）ごとにまとめる（順序はサーバーの並びを保つ） */
-export function groupByDate(items: CalendarItem[]): Map<DateString, CalendarItem[]> {
-  return Map.groupBy(items, (item) => item.placementDate);
 }
 
 /**

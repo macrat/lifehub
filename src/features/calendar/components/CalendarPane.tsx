@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { type CalendarItem, groupByDate } from '../../../../shared/calendar.ts';
+import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useCalendarItems } from '../../events/queries.ts';
 import type { Draft } from '../draft.ts';
@@ -54,7 +54,11 @@ export const CalendarPane = memo(function CalendarPane({
 }: Props) {
   const period = useMemo(() => periodOf(view, date), [view, date]);
   const { data: items } = useCalendarItems(period.range);
-  const itemsByDate = useMemo(() => groupByDate(items ?? []), [items]);
+  // 置く日ごとにまとめる（順序はサーバーの並びを保つ）
+  const itemsByDate = useMemo(
+    () => Map.groupBy(items ?? [], (item) => item.placementDate),
+    [items],
+  );
 
   return view === 'month' ? (
     <MonthGrid

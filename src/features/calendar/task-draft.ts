@@ -1,11 +1,8 @@
-import {
-  type CalendarTaskItem,
-  normalizeIsoInstants,
-  TASK_TIME_LABELS,
-} from '../../../shared/calendar.ts';
+import { type CalendarTaskItem, TASK_TIME_LABELS } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatStart, fromDateValue } from '../../lib/date.ts';
 import { carriedValues, type ItemFormValues, type WhenInput } from '../events/form-values.ts';
+import { normalizeIsoInstants } from '../events/instants.ts';
 import {
   type Draft,
   type DraftRange,

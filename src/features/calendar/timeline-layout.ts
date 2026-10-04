@@ -1,4 +1,9 @@
-import { type CalendarItem, taskTimeOnPlacementDate } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  type CalendarTaskItem,
+  type TaskTime,
+  taskTime,
+} from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -140,4 +145,17 @@ export function timedSpan<T>(
     startMin: Math.min(...placed.map((p) => p.startMin)),
     endMin: Math.max(...placed.map((p) => p.endMin)),
   };
+}
+
+/**
+ * 置かれた日（`placementDate`）にあるタスクの日時。別の日を指すときは null。
+ * 別の日の日時（今日へ繰り越した開始）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
+ * 出す側（時間軸のブロックの `timelineSlot`、一覧の行の `ItemCard`）がその区別をここ 1 か所から受け取る。
+ */
+export function taskTimeOnPlacementDate(
+  task: CalendarTaskItem,
+  /** 求め済みの `taskTime`（無ければここで求める） */
+  time: TaskTime = taskTime(task),
+): TaskTime | null {
+  return time.date === task.placementDate ? time : null;
 }

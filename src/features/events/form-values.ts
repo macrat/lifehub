@@ -1,11 +1,5 @@
 import type { ChangeEvent } from 'react';
-import {
-  defaultTaskStart,
-  type EventMaster,
-  normalizeIsoInstants,
-  switchedEnds,
-  toInputIsoInstants,
-} from '../../../shared/calendar.ts';
+import { defaultTaskStart, type EventMaster, switchedEnds } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type EventKind, toAllDayRemind } from '../../../shared/validation/events.ts';
@@ -16,6 +10,7 @@ import {
   toDateTimeLocalValue,
 } from '../../lib/date.ts';
 import { FormFieldError, formList, formSelect, formText } from '../../lib/form.ts';
+import { normalizeIsoInstants, toInputIsoInstants } from './instants.ts';
 
 /** 種別の判別共用体のまま項目を除く（`Omit` は共用体を 1 つの平らな形にしてしまう） */
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
