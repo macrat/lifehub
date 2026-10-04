@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { WrittenEvent } from '../../../shared/calendar.ts';
+import type { CalendarItem, WrittenEvent } from '../../../shared/calendar.ts';
 import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
@@ -16,7 +16,6 @@ import {
 import { authorName } from '../../lib/mcp/people.ts';
 import type { Person } from '../../lib/mcp/types.ts';
 import { newSecret } from '../../lib/secret.ts';
-import type { NotificationPayload } from '../events/notifications.ts';
 import { listPeople } from '../users/people.ts';
 import * as repository from './repository.ts';
 import type { McpEventSubscriptionRow } from './schema.ts';
@@ -98,7 +97,12 @@ async function deliverChanged(changed: ChangedRecord, action: Action, actor: Act
 }
 
 /** プッシュ通知を送った予定・タスクの通知のうち、届けるもの（通知した発生・何の通知か・宛先） */
-type Reminder = Pick<NotificationPayload, 'item' | 'about' | 'userIds'>;
+type Reminder = {
+  item: CalendarItem;
+  /** 開始の通知か、予定の終了の通知か */
+  about: 'start' | 'end';
+  userIds: string[];
+};
 
 /**
  * 予定・タスクの通知を知らせる。プッシュ通知を送った後に呼び、応答の後に配る（`afterResponse`）。
