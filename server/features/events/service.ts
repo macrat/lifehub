@@ -1,6 +1,6 @@
 import {
-  defaultEventEnd,
   normalizeInstants,
+  switchedEnds,
   toInputInstants,
   type WrittenEvent,
 } from '../../../shared/calendar.ts';
@@ -51,20 +51,16 @@ export async function patchEvent(
 }
 
 /**
- * 種別を変える部分更新の、切り替えた後の今の値。画面の切り替え（`switchKindValues`）と同じく、引き継ぐ日時は開始だけ:
- * - タスクへ: 終了と終了前の通知を消す（タスクは終わりを持たない）
- * - 予定へ: 終了は開始から 1 時間、終日ならその日 1 日（`defaultEventEnd`。patch に end があればそれ）
- * 開始は patch に渡されていればそれを引き継ぐ（「このタスクを明日 10 時の予定にして」で、終了が 10 時の
- * 1 時間後になるように）。
+ * 種別を変える部分更新の、切り替えた後の今の値。終わりは画面の切り替えと同じ規則（`switchedEnds`。
+ * patch に end があれば、後で重ねるそれになる）。開始は patch に渡されていればそれを引き継ぐ
+ * （「このタスクを明日 10 時の予定にして」で、終了が 10 時の 1 時間後になるように）。
  */
 function switchedKind(current: CreateEventInput, patch: EventPatch): CreateEventInput {
   const { kind } = patch;
   if (kind === undefined || kind === current.kind) return current;
   const allDay = patch.allDay ?? current.allDay;
   const startsAt = patch.startsAt ?? current.startsAt;
-  const carried = { ...current, kind, allDay, startsAt, remindEndMinutes: null };
-  if (kind === 'task') return { ...carried, endsAt: null };
-  return { ...carried, endsAt: defaultEventEnd(allDay, startsAt) };
+  return { ...current, kind, allDay, startsAt, ...switchedEnds(kind, allDay, startsAt) };
 }
 
 /**

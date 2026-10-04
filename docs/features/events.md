@@ -35,9 +35,9 @@
 
 入力の上端の帯（`RecordSheet` の `headerMiddle`。入力中は見出しを出さないので空いている真ん中）に「予定｜タスク」の切り替え（`src/features/events/components/KindToggle.tsx`）を置き、書き始めてから種類を変えられる。全項目のフォーム（`ItemForm`）、詳細からの編集（`ItemDetailSheet`）、カレンダーのクイック入力（[calendar.md](calendar.md#予定とタスクの切り替え)）のどれでも同じ規則で入れ替わる。
 
-- 引き継ぐ日時は**開始だけ**（`form-values.ts` の `switchKindValues`）。
+- 引き継ぐ日時は**開始だけ**。終わりの規則は画面（`form-values.ts` の `switchKindValues`）と MCP（service の `switchedKind`）で 1 つ（`shared/calendar.ts` の `switchedEnds`）。
   - 予定 → タスク: 終了を消す（タスクは終わりを持たない）。
-  - タスク → 予定: 開始から 1 時間（終日ならその日 1 日。`shared/calendar.ts` の `defaultEventEnd`）。入力の開始が空（書きかけ）なら今日の終日にする。
+  - タスク → 予定: 開始から 1 時間（終日ならその日 1 日。`shared/calendar.ts` の `defaultEventEnd`）。入力の開始が空（書きかけ）なら、新しいタスクと同じ今日の終日にする（`shared/calendar.ts` の `defaultTaskStart`。MCP で開始を省いたタスクも同じ）。
 - 終了前の通知も終わりを引き継がないので消し、それ以外の項目（タイトル・参加者・場所・メモ・繰り返し・開始前の通知）はそのまま残す。
 - 繰り返しの「この回だけ」の編集では出さない（回の種類は繰り返し元のもの。API も拒否する。下記「API」）。
 - 保存すると同じ項目の種類が変わる（`events.update`）。MCP の `update_event` も同じ規則で入れ替える（[mcp.md](mcp.md)）。

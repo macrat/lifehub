@@ -13,7 +13,6 @@ import {
   today,
 } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
-import type { EventKind } from '../../../shared/validation/events.ts';
 import { expandOccurrences } from '../../lib/recurrence/index.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
@@ -24,7 +23,7 @@ export type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 const MAX_VISIBLE_UNCOMPLETED = 2;
 
 /** 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない */
-type OccurrenceFilter = { kind?: EventKind | undefined; q?: string | undefined };
+type OccurrenceFilter = repository.CandidateFilter;
 
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
@@ -47,17 +46,17 @@ export async function listItems(
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
  * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
- * `kind` を渡すとその種別だけを展開する。展開は繰り返し 1 つにつき期間の長さぶん走るので、
- * 片方しか要らない呼び出し（ics の配信は 1 年以上を読み、予定しか出さない）が、
- * 捨てるものを展開してから捨てずに済む。
+ * `kind` を渡すとその種別だけを読んで展開する（読むところで絞る。`repository.findCalendarRows`）。
+ * 展開は繰り返し 1 つにつき期間の長さぶん走るので、片方しか要らない呼び出し（ics の配信は 1 年以上を読み、
+ * 予定しか出さない）が、捨てるものを読んで展開してから捨てずに済む。
  */
 export async function listOccurrences(
   range: DateRange,
   now: Date = new Date(),
-  { kind, q }: OccurrenceFilter = {},
+  filter: OccurrenceFilter = {},
 ): Promise<Occurrence[]> {
   const instants = instantRange(range);
-  const rows = await repository.findCalendarRows(instants.from, instants.to, q);
+  const rows = await repository.findCalendarRows(instants.from, instants.to, filter);
 
   // 繰り返し元・単発の行と、それに属する実体化された回に仕分ける
   const masters: EventWithParticipants[] = [];
@@ -74,13 +73,12 @@ export async function listOccurrences(
 
   const result: Occurrence[] = [];
   for (const master of masters) {
-    if (kind && master.kind !== kind) continue;
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
     result.push(
       ...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now, range)),
     );
   }
-  return result.filter((o) => matchesKeyword(q, o.title, o.note));
+  return result.filter((o) => matchesKeyword(filter.q, o.title, o.note));
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */

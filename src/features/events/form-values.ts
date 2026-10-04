@@ -1,13 +1,12 @@
 import type { ChangeEvent } from 'react';
-import { defaultEventEnd, type EventMaster, toInputIsoInstants } from '../../../shared/calendar.ts';
 import {
-  addDays,
-  diffDays,
-  fromMinutesOfDay,
-  isDateString,
-  toDateString,
-  today,
-} from '../../../shared/date.ts';
+  defaultTaskStart,
+  type EventMaster,
+  normalizeIsoInstants,
+  switchedEnds,
+  toInputIsoInstants,
+} from '../../../shared/calendar.ts';
+import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type EventKind, toAllDayRemind } from '../../../shared/validation/events.ts';
 import {
@@ -82,12 +81,11 @@ export function allDayEventValues(
 }
 
 /**
- * 予定・タスクの種類を切り替えた入力の既定値。引き継ぐ日時は開始（と終日か）だけ。
- * - タスクへ: 終了は消す（タスクは開始だけを持つ）
- * - 予定へ: 終わりは終日ならその日 1 日、時刻があれば開始から 1 時間
- * 終了前の通知も、終わりを引き継がないので消す。開始前の通知・参加者・場所・メモ・繰り返しは
- * そのまま（通知の選び方は予定もタスクも同じ。`ExtraFields`）。
- * start は今の入力（入力欄で直した開始）。開始が空なら（書きかけ）今日にする（どちらの種類も開始が要る）。
+ * 予定・タスクの種類を切り替えた入力の既定値。引き継ぐ日時は開始（と終日か）だけで、終わりは
+ * MCP の切り替えと同じ規則（`switchedEnds`）。開始前の通知・参加者・場所・メモ・繰り返しはそのまま
+ * （通知の選び方は予定もタスクも同じ。`ExtraFields`）。
+ * input は今の入力（入力欄で直した開始）。開始が空なら（書きかけ）新しいタスクと同じ今日の終日にする
+ * （どちらの種類も開始が要る。`defaultTaskStart`）。
  */
 export function switchKindValues(
   values: ItemFormValues,
@@ -95,24 +93,17 @@ export function switchKindValues(
   to: EventKind,
   now: Date = new Date(),
 ): ItemFormValues {
-  const carried = { ...values, remindEndMinutes: null };
-  const start =
+  const { allDay, startsAt } =
     input.startsAt === null
-      ? { allDay: true, startsAt: fromDateValue(today(now)) }
-      : { allDay: input.allDay, startsAt: input.startsAt };
-  if (to === 'task')
-    return { ...carried, allDay: start.allDay, startsAt: start.startsAt, endsAt: null };
-  if (start.allDay) {
-    const date = toDateString(new Date(start.startsAt));
-    // 日時だけを差し替える（allDayEventValues は空の予定から作るので、丸ごと重ねると場所・メモ・通知などが消える）
-    const { allDay, startsAt, endsAt } = allDayEventValues(date, date, values.participantIds);
-    return { ...carried, allDay, startsAt, endsAt };
-  }
+      ? defaultTaskStart(now)
+      : { allDay: input.allDay, startsAt: new Date(input.startsAt) };
+  const { endsAt, remindEndMinutes } = switchedEnds(to, allDay, startsAt);
   return {
-    ...carried,
-    allDay: false,
-    startsAt: start.startsAt,
-    endsAt: defaultEventEnd(false, new Date(start.startsAt)).toISOString(),
+    ...values,
+    allDay,
+    // 終わりは入力の形（終日なら含む日）で決まるので、保存の形へ直す
+    ...normalizeIsoInstants(allDay, startsAt.toISOString(), endsAt?.toISOString() ?? null),
+    remindEndMinutes,
   };
 }
 

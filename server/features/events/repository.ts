@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { newId } from '../../../shared/id.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { containsKeyword, idArrayAgg, participantWrites } from '../../lib/db/query.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
@@ -75,14 +76,21 @@ function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL
   return or(own, and(isNotNull(table.rrule), inArray(table.id, seriesWithMatch)));
 }
 
+/**
+ * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない。
+ * 種別は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
+ */
+export type CandidateFilter = { kind?: EventKind | undefined; q?: string | undefined };
+
 function isCandidate(
   table: CandidateColumns,
   from: Date,
   to: Date,
-  q: string | undefined,
+  { kind, q }: CandidateFilter,
 ): SQL | undefined {
   return and(
     candidateKeywordOf(table, q),
+    kind && eq(table.kind, kind),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -136,25 +144,26 @@ export async function findOccurrence(
  * カレンダーの組み立てに要る行をまとめて読む: [from, to) に発生を持ちうる繰り返し元・単発と、
  * それらに属する実体化された回。1 回の問い合わせで済ませる（Neon の HTTP ドライバでは
  * 問い合わせ 1 回が往復 1 回なので、回数がそのまま応答時間になる）。
+ * kind を渡すとその種別だけを読む（ics の配信は予定しか出さないので、未完了のタスクを読んで捨てずに済む）。
  * q を渡すと、行そのものか実体化された回のどれかが当たるものだけを読む（タイムラインの検索。粗いふるいで、
  * どの回が当たるかは展開した後に `listOccurrences` が決める。`candidateKeywordOf`）。
  */
 export async function findCalendarRows(
   from: Date,
   to: Date,
-  q?: string,
+  filter: CandidateFilter = {},
 ): Promise<EventWithParticipants[]> {
   const master = alias(events, 'master');
   return selectRows()
     .where(
       or(
-        isCandidate(events, from, to, q),
+        isCandidate(events, from, to, filter),
         inArray(
           events.seriesId,
           db
             .select({ id: master.id })
             .from(master)
-            .where(isCandidate(master, from, to, q)),
+            .where(isCandidate(master, from, to, filter)),
         ),
       ),
     )

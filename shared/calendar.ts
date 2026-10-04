@@ -5,6 +5,7 @@ import {
   type DateRange,
   diffDays,
   inclusiveEndDate,
+  startOfDate,
   startOfDay,
   toDateString,
   today,
@@ -125,11 +126,34 @@ export const DEFAULT_EVENT_MINUTES = 60;
 
 /**
  * 開始だけが決まっている予定の終了（入力の形。終日なら含む最終日）。終日はその日 1 日、時刻ありは 1 時間。
- * タスクから予定へ切り替えたとき（画面の入力と MCP の更新）と、MCP で終了を省いて予定を入れたときに使う。
- * 画面と MCP が同じ規則で切り替わるよう、ここ 1 か所で決める。
+ * タスクから予定へ切り替えたとき（`switchedEnds`）と、MCP で終了を省いて予定を入れたときに使う。
  */
 export function defaultEventEnd(allDay: boolean, startsAt: Date): Date {
   return allDay ? startsAt : new Date(startsAt.getTime() + DEFAULT_EVENT_MINUTES * 60_000);
+}
+
+/**
+ * 開始を決めていない新しいタスクの開始: 登録した日（今日）の終日。
+ * MCP で開始を省いてタスクを足したときと、入力の開始が空のまま種類を切り替えたときに使う。
+ */
+export function defaultTaskStart(now: Date = new Date()): { allDay: true; startsAt: Date } {
+  return { allDay: true, startsAt: startOfDate(today(now)) };
+}
+
+/**
+ * 種類を切り替えた後の終わり（入力の形）。引き継ぐ日時は開始だけ: タスクは終わりを持たず、
+ * 予定は開始からの既定の長さ（`defaultEventEnd`）。終了前の通知も終わりを引き継がないので消す。
+ * 画面の入力（`switchKindValues`）と MCP の更新（`switchedKind`）が同じ規則で切り替わるよう、ここ 1 か所で決める。
+ */
+export function switchedEnds(
+  kind: EventKind,
+  allDay: boolean,
+  startsAt: Date,
+): { endsAt: Date | null; remindEndMinutes: null } {
+  return {
+    endsAt: kind === 'event' ? defaultEventEnd(allDay, startsAt) : null,
+    remindEndMinutes: null,
+  };
 }
 
 /**

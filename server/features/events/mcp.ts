@@ -1,7 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { defaultEventEnd } from '../../../shared/calendar.ts';
-import { today } from '../../../shared/date.ts';
+import { defaultEventEnd, defaultTaskStart } from '../../../shared/calendar.ts';
 import {
   type EventKind,
   type EventPatch,
@@ -58,6 +57,8 @@ const fields = {
 };
 
 /** 日付か日時の組から、終日かどうかを決める（どれも省かれていれば undefined）。日付と日時が混ざっていれば、揃えるよう文で返す */
+function allDayOf(first: When, ...rest: (When | undefined)[]): boolean;
+function allDayOf(...whens: (When | undefined)[]): boolean | undefined;
 function allDayOf(...whens: (When | undefined)[]): boolean | undefined {
   const given = whens.filter((w): w is When => w !== undefined);
   if (given.length === 0) return undefined;
@@ -135,9 +136,9 @@ function registerAdd(server: McpServer, ctx: McpContext) {
         throw new ValidationError('予定には start（開始）を指定してください');
       }
       // タスクの開始を省けば、登録した日（今日）の終日
-      const start = input.start ?? { date: today() };
-      const allDay = allDayOf(start, end) ?? false;
-      const startsAt = instantOf(start);
+      const { allDay, startsAt } = input.start
+        ? { allDay: allDayOf(input.start, end), startsAt: instantOf(input.start) }
+        : defaultTaskStart();
       const endsAt =
         input.kind === 'event' ? (end ? instantOf(end) : defaultEventEnd(allDay, startsAt)) : null;
       const people = await ctx.people();
