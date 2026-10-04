@@ -8,23 +8,18 @@
  */
 export const E2E_WORKERS = 2;
 
-/** ワーカーの番号（`testInfo.parallelIndex`。0 から E2E_WORKERS - 1）ごとのサーバーと DB */
+/** ワーカーの番号（`testInfo.parallelIndex`。0 から E2E_WORKERS - 1）ごとのサーバー */
 export function serverOf(index: number) {
   const port = 3000 + index;
-  return {
-    port,
-    url: `http://localhost:${port}`,
-    databaseUrl: databaseUrlOf(index),
-  };
+  return { port, url: `http://localhost:${port}` };
 }
 
 /** 接続先の Postgres（compose.yaml）。CI もローカルも DATABASE_URL で差し替えられる */
 const BASE_DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/lifehub';
 
-/** ワーカー 0 は compose.yaml の DB をそのまま使い、それ以外は名前に番号を付けた DB を使う */
+/** ワーカーの DB。同じ Postgres の中に、名前に番号を付けて作る（`prepare-db.ts`） */
 function databaseUrlOf(index: number): string {
-  if (index === 0) return BASE_DATABASE_URL;
   const url = new URL(BASE_DATABASE_URL);
   url.pathname = `${url.pathname}_e2e_${index}`;
   return url.toString();
@@ -32,10 +27,10 @@ function databaseUrlOf(index: number): string {
 
 /** サーバーの環境変数（DB と、自分の URL）。サーバーの起動と、E2E の中でサーバーのコードを読み込むときに使う */
 export function serverEnv(index: number): Record<string, string> {
-  const { port, url, databaseUrl } = serverOf(index);
+  const { port, url } = serverOf(index);
   return {
     PORT: String(port),
-    DATABASE_URL: databaseUrl,
+    DATABASE_URL: databaseUrlOf(index),
     BETTER_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-000000',
     APP_URL: url,
     CRON_SECRET: 'e2e-cron-secret',

@@ -1,4 +1,5 @@
 import type { Page, Request, Response, Route } from '@playwright/test';
+import { skeleton } from './layout.ts';
 import { expect } from './test.ts';
 
 /**
@@ -121,6 +122,6 @@ export async function quiet(page: Page, fetches: () => number) {
  * 開いた直後の取得を、操作したことによる取得と取り違えないようにする
  */
 export async function fetchesAfterLoad(page: Page, procedure: string): Promise<() => number> {
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(skeleton(page)).toHaveCount(0);
   return countFetches(page, procedure);
 }

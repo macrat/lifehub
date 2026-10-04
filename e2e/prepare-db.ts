@@ -1,10 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import pg from 'pg';
 import { E2E_USER, PARTNER_USER } from './users.ts';
 
 /**
  * E2E のワーカー 1 つ分の DB を用意する（`global-setup.ts` がワーカーの数だけ別のプロセスで走らせる）。
- * DB が無ければ作り、スキーマを適用（drizzle-kit migrate）し、全テーブルを空にしてから E2E ユーザーと相手ユーザーを作る。
+ * DB が無ければ作り、スキーマを適用し（drizzle-kit migrate と同じマイグレーションと管理表）、全テーブルを空にしてから E2E ユーザーと相手ユーザーを作る。
  * 接続先は環境変数 DATABASE_URL（`servers.ts` の serverEnv）。本番では実行できない（scripts/seed-dev.ts と同じガード）。
  * WHY 別のプロセス: サーバーのコードは DB の接続を読み込んだ時点の DATABASE_URL で 1 つだけ作るので、
  * 1 つのプロセスからは 1 つの DB にしか書けない。
@@ -23,7 +22,9 @@ const { rowCount } = await admin.query('select 1 from pg_database where datname 
 if (!rowCount) await admin.query(`create database "${name}"`);
 await admin.end();
 
-execFileSync('pnpm', ['exec', 'drizzle-kit', 'migrate'], { stdio: 'ignore' });
+const { db } = await import('../server/lib/db/client.ts');
+const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+await migrate(db as Parameters<typeof migrate>[0], { migrationsFolder: './drizzle' });
 
 const { createUser } = await import('../server/features/users/service.ts');
 const { clearTables } = await import('../server/lib/db/test-db.ts');

@@ -11,12 +11,10 @@ type Options = Partial<Parameters<typeof useRangeDrag<number, string, string>>[0
 const rangeOf = ({ grab, from, to, moved }: Drag<number, string>) =>
   `${grab ?? '-'}:${from}->${to}${moved ? '*' : ''}`;
 
-let unmount: () => void = () => {};
-
 /** フックを 1 度だけ描いて、返したハンドラを受け取る（ドラッグの状態は描画をまたぐ `RangeDragSession` が持つので描き直さなくてよい） */
 function setup(options: Options = {}) {
   const onChange = vi.fn();
-  const rendered = renderHook(() =>
+  const { read } = renderHook(() =>
     useRangeDrag<number, string, string>({
       locate: (event) => event.clientX,
       rangeOf,
@@ -24,8 +22,7 @@ function setup(options: Options = {}) {
       ...options,
     }),
   );
-  unmount = rendered.unmount;
-  return { handlers: rendered.read(), onChange };
+  return { handlers: read(), onChange };
 }
 
 const element = Object.assign(document.createElement('div'), { setPointerCapture: vi.fn() });
@@ -53,7 +50,6 @@ function pointer(
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
-  unmount();
   vi.useRealTimers();
 });
 

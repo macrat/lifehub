@@ -9,10 +9,7 @@ import {
   useOptimisticMutation,
 } from '../query-client.ts';
 import { useNotice } from '../ui/notice.ts';
-import { renderHook as renderWith } from './render-hook.ts';
-
-/** フックを queryClient の下で描く */
-const renderHook = <T>(hook: () => T) => renderWith(hook, { client: queryClient });
+import { renderHook } from './render-hook.ts';
 
 /** 書き込みの既定（setMutationDefaults）を当てた mutation を作る。溜める書き込みは 'write'、溜めないものは 'direct-write' */
 function buildWrite(key: 'write' | 'direct-write' = 'write') {
@@ -107,12 +104,11 @@ describe('useIsLoadingWithoutCache', () => {
     void queryClient.prefetchQuery({ queryKey: ['cached'], queryFn: pending });
     expect(queryClient.isFetching({ queryKey: ['cached'] })).toBe(1);
     // 取り直しの最中に描き始める（描いた時点の値を読むので、通知の遅れに左右されない）
-    const { read, unmount } = renderHook(useIsLoadingWithoutCache);
+    const { read } = renderHook(useIsLoadingWithoutCache, { client: queryClient });
     expect(read()).toBe(false);
 
     void queryClient.prefetchQuery({ queryKey: ['empty'], queryFn: pending });
     await vi.waitFor(() => expect(read()).toBe(true));
-    unmount();
   });
 });
 
@@ -142,15 +138,18 @@ describe('書き込みの失敗', () => {
       .mockResolvedValueOnce(Response.json([{ result: { data: null } }]));
     queryClient.setQueryData(meQueryOptions.queryKey, { id: 'u1' } as Me);
     queryClient.setQueryData(['items'], ['a']);
-    const { read, unmount } = renderHook(() => ({
-      write: useOptimisticMutation<string>({
-        request: (text) => ({ path: 'items.add', input: { text } }),
-        keys: [['items']],
-        apply: (client, text) =>
-          client.setQueryData<string[]>(['items'], (old) => [...(old ?? []), text]),
+    const { read } = renderHook(
+      () => ({
+        write: useOptimisticMutation<string>({
+          request: (text) => ({ path: 'items.add', input: { text } }),
+          keys: [['items']],
+          apply: (client, text) =>
+            client.setQueryData<string[]>(['items'], (old) => [...(old ?? []), text]),
+        }),
+        notice: useNotice(),
       }),
-      notice: useNotice(),
-    }));
+      { client: queryClient },
+    );
     const items = () => queryClient.getQueryData(['items']);
 
     await act(() => read().write.mutateAsync('b'));
@@ -167,6 +166,5 @@ describe('書き込みの失敗', () => {
     await act(() => read().write.mutateAsync('c'));
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     expect(items()).toEqual(['a', 'c']);
-    unmount();
   });
 });

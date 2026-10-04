@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { LOADS_AT_ATTRIBUTE } from '../ui/loading-edge.ts';
 import { useNotice } from '../ui/notice.ts';
 import { PULL_THRESHOLD, usePullGesture } from '../ui/use-pull-to-refresh.ts';
@@ -13,31 +13,25 @@ import { renderHook } from './render-hook.ts';
  */
 
 let client: QueryClient;
-let refetch: ReturnType<typeof vi.fn>;
+let refetch: MockInstance<QueryClient['refetchQueries']>;
 let area: HTMLElement;
-let unmount = () => {};
 
 beforeEach(() => {
   client = new QueryClient();
-  refetch = vi.fn(() => Promise.resolve());
-  client.refetchQueries = refetch as unknown as QueryClient['refetchQueries'];
+  refetch = vi.spyOn(client, 'refetchQueries').mockResolvedValue();
   area = document.body.appendChild(document.createElement('div'));
 });
 
 afterEach(() => {
-  unmount();
   area.remove();
-  for (const key of ['scrollTop', 'scrollHeight', 'clientHeight'])
-    Reflect.deleteProperty(document.documentElement, key);
+  vi.restoreAllMocks();
 });
 
 /** 引ける範囲を area にして描く */
 function setup(enabled = true) {
   // 引ける範囲の参照は描き直しても同じ物（画面の ref と同じ）
   const ref = { current: area };
-  const rendered = renderHook(() => usePullGesture(ref, enabled), { client });
-  unmount = rendered.unmount;
-  return rendered.read;
+  return renderHook(() => usePullGesture(ref, enabled), { client }).read;
 }
 
 /** 範囲の中の一覧が続きを読み足す端（一覧の端の見張りが付ける印） */
@@ -51,9 +45,9 @@ function loadsAt(...edges: ('top' | 'bottom')[]) {
 /** ページのスクロール位置（jsdom はレイアウトを持たないので、測る値を決めて渡す） */
 function scrollPage(scrollTop: number, scrollHeight = 2000, clientHeight = 800) {
   const root = document.documentElement;
-  Object.defineProperty(root, 'scrollTop', { value: scrollTop, configurable: true });
-  Object.defineProperty(root, 'scrollHeight', { value: scrollHeight, configurable: true });
-  Object.defineProperty(root, 'clientHeight', { value: clientHeight, configurable: true });
+  vi.spyOn(root, 'scrollTop', 'get').mockReturnValue(scrollTop);
+  vi.spyOn(root, 'scrollHeight', 'get').mockReturnValue(scrollHeight);
+  vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(clientHeight);
 }
 
 const touchAt = (y: number) => ({ clientX: 100, clientY: y }) as Touch;
@@ -154,6 +148,5 @@ describe('usePullGesture', () => {
       message: '更新できませんでした',
       duration: 3000,
     });
-    notice.unmount();
   });
 });

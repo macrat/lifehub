@@ -40,8 +40,7 @@ export async function getMe(
  * メールの重複は事前に確認する（autoSignIn を切った better-auth は列挙対策として重複時も成功を装うため）。
  */
 export async function createUser(input: CreateUserInput): Promise<repository.UserRow> {
-  // better-auth はメールを小文字にして保存・照合するので、確かめるのも小文字で行う（大文字だけ違うメールを重複と見る）
-  if (await repository.findByEmail(input.email.toLowerCase())) {
+  if (await repository.findByEmail(input.email)) {
     throw new ConflictError('このメールアドレスは既に登録されています');
   }
   const { hue, ...credentials } = input;

@@ -26,13 +26,12 @@ test('ログイン中のユーザーがまだ手元に無くても、書いた�
     pages: [{ items: [], nextCursor: null }],
     pageParams: [undefined],
   });
-  const { read, unmount } = renderHook(useAddMemo, { client: queryClient });
+  const { read } = renderHook(useAddMemo, { client: queryClient });
   await act(() => read().mutateAsync({ body: '買い物のメモ' }));
 
   expect(timelineOf()).toMatchObject([
     { type: 'memo', memo: { body: '買い物のメモ', createdBy: null } },
   ]);
-  unmount();
 });
 
 const memo = (id: string, createdAt: string, pinned = false): Memo => ({
@@ -53,7 +52,7 @@ test('ピン止めするとタイムラインから一番上の並び（書い�
     pageParams: [undefined],
   });
   queryClient.setQueryData(pinnedMemosQueryOptions.queryKey, [old]);
-  const { read, unmount } = renderHook(usePinMemo, { client: queryClient });
+  const { read } = renderHook(usePinMemo, { client: queryClient });
   const pinnedIds = () =>
     queryClient.getQueryData(pinnedMemosQueryOptions.queryKey)?.map((m) => m.id);
 
@@ -64,5 +63,4 @@ test('ピン止めするとタイムラインから一番上の並び（書い�
   await act(() => read().mutateAsync({ id: 'target', pinned: false }));
   expect(pinnedIds()).toEqual(['old']);
   expect(timelineOf()).toEqual([memoEntry(target)]);
-  unmount();
 });

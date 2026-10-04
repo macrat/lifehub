@@ -1,18 +1,15 @@
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderHook } from '../../../lib/__tests__/render-hook.ts';
 import { type DraftChange, type GridDraft, itemDraft } from '../draft.ts';
 import { taskTimesOf } from '../task-draft.ts';
 import { useQuickForm } from '../use-quick-form.ts';
 import { allDay, DAY, event, task } from './draft-fixtures.ts';
 
-let unmount: () => void = () => {};
-afterEach(() => unmount());
-
 /** 下書きでフックを描き、描き直す関数・最新の戻り値・下書きへ戻した変更を受け取る */
 function setup(draft: GridDraft) {
   const onChangeDraft = vi.fn<(change: DraftChange) => void>();
-  const rendered = renderHook(
+  const { read, rerender } = renderHook(
     (current: GridDraft) =>
       useQuickForm({
         draft: current,
@@ -23,8 +20,7 @@ function setup(draft: GridDraft) {
       }),
     { props: draft },
   );
-  unmount = rendered.unmount;
-  return { read: rendered.read, render: rendered.rerender, onChangeDraft };
+  return { read, rerender, onChangeDraft };
 }
 
 const base = { participantIds: ['u1'], settled: true, origin: 'grid' as const };
@@ -34,9 +30,9 @@ const taskDraft: GridDraft = { ...base, task: taskTimesOf(task, frame), range: f
 
 describe('useQuickForm', () => {
   it('既定値は下書きから導き、参加者は選んだものになる', () => {
-    const { read, render } = setup(taskDraft);
+    const { read, rerender } = setup(taskDraft);
     expect(read().initial).toMatchObject({ title: task.title, startsAt: task.startsAt });
-    render({ ...taskDraft, participantIds: ['u1', 'u2'] });
+    rerender({ ...taskDraft, participantIds: ['u1', 'u2'] });
     expect(read().initial.participantIds).toEqual(['u1', 'u2']);
   });
 
@@ -51,9 +47,9 @@ describe('useQuickForm', () => {
 
   it('予定の終日は枠そのもので決まる', () => {
     const range = { allDay: false as const, date: DAY, startMin: 600, endMin: 660 };
-    const { read, render } = setup({ ...base, task: null, range, item: event });
+    const { read, rerender } = setup({ ...base, task: null, range, item: event });
     expect(read().allDay).toBe(false);
-    render({ ...base, task: null, range: allDay(DAY, DAY), item: event });
+    rerender({ ...base, task: null, range: allDay(DAY, DAY), item: event });
     expect(read().allDay).toBe(true);
   });
 

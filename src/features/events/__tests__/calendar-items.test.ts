@@ -22,7 +22,7 @@ it('キャッシュが変わらなければ、描き直しても繋ぎ直さず�
   const range = { from: '2026-09-01' as DateString, to: '2026-09-30' as DateString };
 
   const seen: (CalendarItem[] | undefined)[] = [];
-  const { rerender, unmount } = renderHook(
+  const { rerender } = renderHook(
     () => {
       // 範囲は毎回新しいオブジェクトで渡す（呼び出し側は描くたびに作る）
       seen.push(useCalendarItems({ ...range }).data);
@@ -30,7 +30,7 @@ it('キャッシュが変わらなければ、描き直しても繋ぎ直さず�
     { client },
   );
   const flatMap = vi.spyOn(Array.prototype, 'flatMap');
-  rerender(undefined);
+  rerender();
   const recombined = flatMap.mock.calls.length;
   flatMap.mockRestore();
 
@@ -38,6 +38,5 @@ it('キャッシュが変わらなければ、描き直しても繋ぎ直さず�
   expect(seen.length).toBeGreaterThanOrEqual(2);
   expect(seen[0]).toEqual([item]);
   expect(seen.at(-1)).toBe(seen[0]);
-  unmount();
   client.clear();
 });

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { SIGNED_OUT } from './auth.ts';
+import { serverEnv } from './servers.ts';
 import { expect, test } from './test.ts';
 import { E2E_USER } from './users.ts';
 
@@ -29,6 +30,8 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   const redirectUri = `http://127.0.0.1:${server.port}/oauth-callback`;
   // 作るのは E2E ユーザー（ワーカーのログイン状態の Cookie で名乗る。`test.ts`）。サーバーのコードはこのテストでだけ読み込む
   const { cookies } = signedIn;
+  // 読み込むサーバーのコードが、このワーカーのサーバーと同じ DB と鍵を使うようにしてから読み込む
+  Object.assign(process.env, serverEnv(test.info().parallelIndex));
   const { getAuth } = await import('../server/lib/auth.ts');
   const { client_id: clientId } = await (await getAuth()).api.createOAuthClient({
     headers: new Headers({

@@ -72,9 +72,7 @@ test('設定では引いても取り直さない', async ({ page }) => {
   await expect(page.getByText('色', { exact: true })).toBeVisible();
   // 設定が表示に使っている自分の情報
   const fetched = await fetchesAfterLoad(page, 'me.get');
-  await quiet(page, fetched);
-  const before = fetched();
   await pull(page);
   await quiet(page, fetched);
-  expect(fetched()).toBe(before);
+  expect(fetched()).toBe(0);
 });

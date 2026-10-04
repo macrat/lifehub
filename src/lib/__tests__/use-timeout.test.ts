@@ -12,14 +12,13 @@ describe('useTimeout', () => {
   afterEach(() => vi.useRealTimers());
 
   it('時間が来たら呼ぶ', () => {
-    const { later, unmount } = setup();
+    const { later } = setup();
     const callback = vi.fn();
     later(callback, 100);
     vi.advanceTimersByTime(99);
     expect(callback).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(callback).toHaveBeenCalledOnce();
-    unmount();
   });
 
   it('消えた部品の予約は呼ばない（遅れて届いた閉じる処理が、次に開いたものを閉じない）', () => {
@@ -32,7 +31,7 @@ describe('useTimeout', () => {
   });
 
   it('予約し直すと前の予約は呼ばない', () => {
-    const { later, unmount } = setup();
+    const { later } = setup();
     const first = vi.fn();
     const second = vi.fn();
     later(first, 100);
@@ -40,6 +39,5 @@ describe('useTimeout', () => {
     vi.advanceTimersByTime(100);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledOnce();
-    unmount();
   });
 });

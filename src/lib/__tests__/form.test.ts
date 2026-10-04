@@ -6,7 +6,7 @@ import { renderHook } from './render-hook.ts';
 
 test('値を組み立てる途中の欄の誤り（FormFieldError）は、送らずにその欄の誤りとして出す', async () => {
   const onSubmit = vi.fn();
-  const { read, unmount } = renderHook(() =>
+  const { read } = renderHook(() =>
     useFormSubmit({
       schema: z.object({}),
       values: () => {
@@ -22,5 +22,4 @@ test('値を組み立てる途中の欄の誤り（FormFieldError）は、送ら
   await act(() => read().handleSubmit(event));
   expect(read().errors).toEqual({ startsAt: '日付と時刻を入力してください' });
   expect(onSubmit).not.toHaveBeenCalled();
-  unmount();
 });

@@ -1,5 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { openHome } from './auth.ts';
+import { skeleton } from './layout.ts';
 import { countFetches, quiet, stall } from './network.ts';
 import { expect, test } from './test.ts';
 
@@ -20,9 +21,9 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
   await expect(page.getByLabel('立替を検索')).toBeVisible();
   await expect(page.getByLabel('記録を検索')).toHaveCount(0);
   // 履歴の場所には骨組みが出ていて、届いたら消える
-  await expect(page.locator('[aria-busy="true"]')).toBeVisible();
+  await expect(skeleton(page)).toBeVisible();
   await release();
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(skeleton(page)).toHaveCount(0);
 });
 
 /**

@@ -1,5 +1,5 @@
 import { type BrowserContextOptions, test as base, request } from '@playwright/test';
-import { serverEnv, serverOf } from './servers.ts';
+import { serverOf } from './servers.ts';
 import { E2E_USER } from './users.ts';
 
 type StorageState = Exclude<BrowserContextOptions['storageState'], string | undefined>;
@@ -13,8 +13,6 @@ type StorageState = Exclude<BrowserContextOptions['storageState'], string | unde
  *   WHY: 画面からのログインは 1 回数秒かかり、ほぼ全テストの前に繰り返すと全体の時間に直に乗る。
  *   画面からのログインそのものは smoke.spec.ts が確かめる。セッションは 90 日持つ（`server/lib/auth.ts`）ので、
  *   E2E 全体の間に切れることはない。
- * - サーバーのコードを E2E の中で読み込むとき（`mcp-oauth.spec.ts`）も、そのワーカーの DB に繋がるよう
- *   環境変数をワーカーのサーバーと同じにしておく。
  */
 export const test = base.extend<
   object,
@@ -22,10 +20,7 @@ export const test = base.extend<
 >({
   server: [
     // biome-ignore lint/correctness/noEmptyPattern: Playwright は引数の分割代入から使う fixture を読むので、使わなくても書く
-    async ({}, use, workerInfo) => {
-      Object.assign(process.env, serverEnv(workerInfo.parallelIndex));
-      await use(serverOf(workerInfo.parallelIndex));
-    },
+    async ({}, use, workerInfo) => use(serverOf(workerInfo.parallelIndex)),
     { scope: 'worker' },
   ],
   signedIn: [

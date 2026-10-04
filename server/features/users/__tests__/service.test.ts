@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { newId } from '../../../../shared/id.ts';
+import { createUserSchema } from '../../../../shared/validation/users.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
@@ -41,8 +42,9 @@ describe('users service', () => {
   it('同じメールアドレスは、大文字と小文字の違いだけでも登録できない', async () => {
     await createUser(alice);
     await expect(createUser({ ...alice, name: 'Alice2' })).rejects.toBeInstanceOf(ConflictError);
+    // 作る経路（画面の API・scripts/create-user.ts）は入力をスキーマで読む
     await expect(
-      createUser({ ...alice, email: 'Alice@Example.com', name: 'Alice3' }),
+      createUser(createUserSchema.parse({ ...alice, email: 'Alice@Example.com', name: 'Alice3' })),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
