@@ -24,3 +24,6 @@ export async function bottomOf(locator: Locator): Promise<number> {
   const box = await locator.first().boundingBox();
   return (box?.y ?? 0) + (box?.height ?? 0);
 }
+
+/** 読み込み中の骨組み（`ListSkeleton`）。データが届くと消える */
+export const skeleton = (page: Page) => page.locator('[aria-busy="true"]');

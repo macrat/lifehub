@@ -128,7 +128,7 @@ drizzle/                      # マイグレーション SQL（生成物・コ�
 infra/                        # Terraform
 .github/workflows/            # ci.yml / deploy.yml / preview-cleanup.yml / backup.yml
 scripts/                      # package.json の scripts から呼ぶ（README.md のコマンド一覧）
-e2e/                          # Playwright（global-setup.ts で DB を用意する。テストが共有する手順は development.md の「テスト」）
+e2e/                          # Playwright（ワーカーごとのサーバーと DB は servers.ts、DB の用意は global-setup.ts。テストが共有する手順は development.md の「テスト」）
 ```
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。

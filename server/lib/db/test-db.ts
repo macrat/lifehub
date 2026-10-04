@@ -1,4 +1,3 @@
-import { hashPassword } from 'better-auth/crypto';
 import { getTableName, is, sql } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import { pickDistinctHue } from '../../../shared/color.ts';
@@ -51,12 +50,11 @@ export async function clearTables(): Promise<void> {
  *
  * users service の createUser と同じ行（ユーザーと、パスワードを持つ credential の account）を直接書く。
  * WHY createUser を通さない: パスワードのハッシュ（scrypt）は 1 回 100ms ほどかかり、ほぼ全テストの
- * 準備で 2 人ずつ作るとテスト全体の時間の大半を占める。パスワードは全員同じなので、ハッシュは 1 度だけ作る。
+ * 準備で 2 人ずつ作るとテスト全体の時間の大半を占める。パスワードは全員同じなので、作っておいたハッシュ（`TEST_PASSWORD_HASH`）を書く。
  * 作成の経路そのもの（重複の拒否・色の割り当て・ログインできること）は users service のテストで確かめる。
  */
 export async function createTestUser(name: TestUserName): Promise<string> {
   const id = newId();
-  const password = await testPasswordHash();
   const existing = await db.select({ hue: users.hue }).from(users);
   await db.transaction(async (tx) => {
     await tx.insert(users).values({
@@ -70,7 +68,7 @@ export async function createTestUser(name: TestUserName): Promise<string> {
       accountId: id,
       providerId: 'credential',
       userId: id,
-      password,
+      password: TEST_PASSWORD_HASH,
     });
   });
   return id;
@@ -87,15 +85,14 @@ export async function resetUsers(): Promise<{ userId: string; partnerId: string 
   return { userId, partnerId: await createTestUser('B') };
 }
 
-/** テスト用のユーザーのパスワード（createTestUser で作ったユーザーでログインするのに使う） */
-export const TEST_PASSWORD = 'password-123456';
+/**
+ * テスト用のユーザーのパスワード `password-123456` のハッシュ（better-auth の `hashPassword` で作った物）。
+ * WHY 定数: テストの中で作るとモジュール変数に持つことになり、環境変数を変えるテストが `vi.resetModules` で
+ * モジュールを作り直すたびに作り直し（scrypt）が走る。
+ */
+const TEST_PASSWORD_HASH =
+  '22c0519b69d624ee58aa6dbffd44dfb0:d22765b3756c9cb21aac77fd1cead2e755eb88c4a1250b968ae351cc76a6f5e71c8e213315e825a39078c82ce57af7b8f3a5553975ec510569e5b9e4691233b0';
 
-let passwordHash: Promise<string> | undefined;
-const testPasswordHash = () => {
-  passwordHash ??= hashPassword(TEST_PASSWORD);
-  return passwordHash;
-};
-
-export function testEmail(name: TestUserName): string {
+function testEmail(name: TestUserName): string {
   return `${name.toLowerCase()}@example.com`;
 }

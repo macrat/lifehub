@@ -1,30 +1,19 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { E2E_WORKERS, serverEnv } from './servers.ts';
+
+const run = promisify(execFile);
 
 /**
- * E2E 用の DB を用意する。テスト DB は playwright.config.ts の webServer と同じ環境変数で接続する。
- * スキーマを適用（drizzle-kit migrate）し、全テーブルを空にしてから E2E ユーザーと相手ユーザーを作る。
- * 本番では実行できない（scripts/seed-dev.ts と同じガード）。
+ * ワーカーごとの DB を、それぞれ別のプロセスで並べて用意する（`prepare-db.ts`）。
+ * pnpm を通さずに Node へ tsx を読み込ませて起動する（pnpm の起動ぶんを待たない）
  */
-export const E2E_USER = {
-  email: 'e2e@example.com',
-  name: 'E2E',
-  password: 'e2e-password-123',
-};
-
 export default async function globalSetup() {
-  process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/lifehub';
-  process.env.BETTER_AUTH_SECRET ??= 'e2e-secret-e2e-secret-e2e-secret-000000';
-  process.env.APP_URL ??= 'http://localhost:3000';
-
-  if (process.env.VERCEL_ENV === 'production') {
-    throw new Error('本番環境では E2E を実行できません');
-  }
-
-  execFileSync('pnpm', ['exec', 'drizzle-kit', 'migrate'], { stdio: 'inherit' });
-
-  const { createUser } = await import('../server/features/users/service.ts');
-  const { clearTables } = await import('../server/lib/db/test-db.ts');
-  await clearTables();
-  await createUser(E2E_USER);
-  await createUser({ email: 'partner@example.com', name: '相手', password: 'partner-password-1' });
+  await Promise.all(
+    Array.from({ length: E2E_WORKERS }, (_, index) =>
+      run(process.execPath, ['--import', 'tsx', 'e2e/prepare-db.ts'], {
+        env: { ...process.env, ...serverEnv(index) },
+      }),
+    ),
+  );
 }

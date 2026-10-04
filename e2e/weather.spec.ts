@@ -1,9 +1,10 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { addDays, minutesOfDay, today } from '../shared/date.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import type { DailyWeather, WeatherDay } from '../shared/weather.ts';
 import { appBar, bottomOf } from './layout.ts';
 import { rewriteJson } from './network.ts';
+import { expect, test } from './test.ts';
 import { captured, recordViewTransitions, settle, transitions } from './view.ts';
 
 /**
@@ -104,26 +105,20 @@ async function openWeeklyFrom(page: Page, link: ReturnType<Page['getByRole']>) {
   await expect(page.getByRole('listitem').filter({ hasText: '70%' })).toContainText('曇のち雨');
 }
 
-test('ホームの天気のタイルに今日か明日の天気が出て、押すと週間天気が開く', async ({ page }) => {
-  await page.goto('/');
-  // 18 時までは今日、それからは明日
-  const [label, name, temps] =
-    minutesOfDay(new Date()) < 18 * 60
-      ? ['今日', '晴', '25° / 14°']
-      : ['明日', '曇のち雨', '21° / 16°'];
-  const tile = page.getByRole('button', { name: new RegExp(`^${label}`) });
-  await expect(tile).toContainText(name);
-  await expect(tile).toContainText(temps);
-  await openWeeklyFrom(page, tile);
-});
-
-test('ホームと週間天気を行き来すると、天気のタイルとその日の行が同じ名前で前後の画面に在る', async ({
+test('ホームの天気のタイルに今日か明日の天気が出て、押すと週間天気が開き、タイルとその日の行が同じ名前で前後の画面に在る', async ({
   page,
 }) => {
   await recordViewTransitions(page);
   await page.goto('/');
-  const [label, date] = minutesOfDay(new Date()) < 18 * 60 ? ['今日', TODAY] : ['明日', TOMORROW];
-  await openWeeklyFrom(page, page.getByRole('button', { name: new RegExp(`^${label}`) }));
+  // 18 時までは今日、それからは明日
+  const [label, date, name, temps] =
+    minutesOfDay(new Date()) < 18 * 60
+      ? ['今日', TODAY, '晴', '25° / 14°']
+      : ['明日', TOMORROW, '曇のち雨', '21° / 16°'];
+  const tile = page.getByRole('button', { name: new RegExp(`^${label}`) });
+  await expect(tile).toContainText(name);
+  await expect(tile).toContainText(temps);
+  await openWeeklyFrom(page, tile);
   await settle(page);
   expect(await captured(page)).toContain('home-weather');
   // 名前はタイルに出ている日の行に在る（重なれば遷移が失敗するので、ほかの行に無いことは下の ready で分かる）
@@ -154,6 +149,19 @@ test('予定画面と週間天気を行き来すると押した日のアイコ�
   await expect(page).toHaveURL(/\/calendar/);
   await settle(page);
   expect(await iconNames(page)).toEqual(onlyToday);
+
+  // 過ぎた日（月表示では同じ面に並ぶ）の天気を押すと、週間天気はその日の行が見える位置で開き、アイコンはその行へ動く
+  await page.getByRole('link', { name: /^週間天気（雨/ }).click();
+  await expect(page).toHaveURL(WEEKLY);
+  await settle(page);
+  await expectRowVisible(page, YESTERDAY);
+  expect(await iconNames(page)).toEqual({
+    before: [`weather-icon-${YESTERDAY}`],
+    after: [`weather-icon-${YESTERDAY}`],
+  });
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL(/\/calendar/);
+  await settle(page);
   expect((await transitions(page)).every((t) => t.ready === 'ok')).toBe(true);
 
   // ホームと予定画面の両方に同じ日のアイコンがあるので、名前があるとタイルのアイコンが日付の横から飛んでくる
@@ -186,22 +194,6 @@ async function expectRowVisible(page: Page, date: string) {
   expect((await row.boundingBox())?.y).toBeGreaterThanOrEqual((await bottomOf(appBar(page))) - 1);
 }
 
-test('予定画面で過ぎた日の天気を押すと、週間天気はその日の行が見える位置で開き、アイコンはその行へ動く', async ({
-  page,
-}) => {
-  await recordViewTransitions(page);
-  await openCalendarAfterWeekly(page);
-  // 予定画面は最初は月表示（前の日も同じ面に並ぶ）
-  await page.getByRole('link', { name: /^週間天気（雨/ }).click();
-  await expect(page).toHaveURL(WEEKLY);
-  await settle(page);
-  await expectRowVisible(page, YESTERDAY);
-  expect(await iconNames(page)).toEqual({
-    before: [`weather-icon-${YESTERDAY}`],
-    after: [`weather-icon-${YESTERDAY}`],
-  });
-});
-
 test('予定画面でまだ読んでいない古い日の天気を押すと、週間天気はそこまで読み足してその日の行を見せる', async ({
   page,
 }) => {
@@ -210,14 +202,6 @@ test('予定画面でまだ読んでいない古い日の天気を押すと、�
   await expect(page).toHaveURL(WEEKLY);
   await expect(page.locator(`li[data-date="${EARLIER}"]`)).toContainText('雪');
   await expectRowVisible(page, EARLIER);
-});
-
-test('予定画面の日付の横の天気を押すと週間天気が開く（日表示・月表示）', async ({ page }) => {
-  await page.goto(`/calendar?view=day&date=${TODAY}`);
-  await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（晴/ }));
-
-  await page.goto(`/calendar?view=month&date=${TODAY}`);
-  await openWeeklyFrom(page, page.getByRole('link', { name: /^週間天気（曇のち雨/ }));
 });
 
 test('週表示の見出しは、天気の外を押すと日表示へ移る', async ({ page }) => {
@@ -257,15 +241,10 @@ test('今日と明日は 3 時間ごとの天気が開いていて、行を押�
   await expect(row(TODAY)).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('天気の画面の戻るボタンで前の画面へ、直に開いたときはホームへ戻る', async ({ page }) => {
-  await page.goto('/calendar?view=day');
-  await page.getByRole('link', { name: /^週間天気/ }).click();
-  await expect(page).toHaveURL(WEEKLY);
-  await expect(appBar(page)).toContainText('東京');
-  await page.getByRole('button', { name: '戻る' }).click();
-  await expect(page).toHaveURL(/\/calendar/);
-
+test('天気の画面を直に開いたときは、戻るボタンでホームへ戻る', async ({ page }) => {
+  // 前の画面へ戻ることは、ホーム・予定画面から開いて戻るテストが確かめる
   await page.goto('/weather');
+  await expect(appBar(page)).toContainText('東京');
   await page.getByRole('button', { name: '戻る' }).click();
   await expect(page).toHaveURL('/');
 });

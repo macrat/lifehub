@@ -58,6 +58,21 @@ describe('withAllDay', () => {
   });
 });
 
+describe('eventDraftOps の fromInput', () => {
+  const fromInput = (startsAt: string, endsAt: string) =>
+    eventDraftOps({ range: timed, item: null }).fromInput({ allDay: false, startsAt, endsAt });
+
+  it('翌日 0:00 に終わる時間指定は、その日の 24:00 までの枠にする', () => {
+    expect(fromInput('2031-06-05T14:00:00.000Z', '2031-06-05T15:00:00.000Z')).toEqual({
+      range: { allDay: false, date: '2031-06-05', startMin: 23 * 60, endMin: 24 * 60 },
+    });
+  });
+
+  it('日をまたいで続く時間指定は枠に出さない', () => {
+    expect(fromInput('2031-06-05T14:00:00.000Z', '2031-06-05T15:30:00.000Z')).toBeNull();
+  });
+});
+
 describe('eventDraftOps の既定値', () => {
   const draftValues = (range: Parameters<typeof draftText>[0], item: typeof event | null = null) =>
     eventDraftOps({ range, item }).values;

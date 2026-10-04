@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { addOnCalendar } from './events.ts';
+import { expect, test } from './test.ts';
 
 /** 今日（JST）の日付の入力欄の値 */
 const todayValue = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });

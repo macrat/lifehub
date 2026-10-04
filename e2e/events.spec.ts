@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
 import { detailAction } from './detail.ts';
 import { addOnCalendar } from './events.ts';
+import { expect, test } from './test.ts';
 import { centerOf, settledBox } from './touch.ts';
 
 test('繰り返し予定を作成し、この回だけ変更し、削除できる', async ({ page }) => {

@@ -15,7 +15,7 @@ import { initSentry, reportCaughtError } from './lib/sentry.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
-import { setTransitionEnds } from './lib/view-transition.ts';
+import { setTransitionEnds, viewTransitionTypes } from './lib/view-transition.ts';
 import { routeTree } from './routeTree.gen.ts';
 
 /**
@@ -44,9 +44,6 @@ function stringifySearch(search: Record<string, unknown>): string {
   return text ? `?${text}` : '';
 }
 
-/** カレンダーの表示（月・週・日・リスト）。画面が変わったかの判定に使う */
-const viewOf = ({ searchStr }: { searchStr: string }) => new URLSearchParams(searchStr).get('view');
-
 const router = createRouter({
   routeTree,
   context: { queryClient },
@@ -72,22 +69,10 @@ const router = createRouter({
   defaultPendingMs: 0,
   defaultPendingComponent: ListSkeleton,
   /**
-   * 画面が変わる移動は View Transition で繋ぐ。前後の画面に共通して在るもの（docs/ui.md）は名前を合わせてあり、その場から動く。
-   * 名前の無いものはフェードする。
-   * 画面が変わるのはパスが変わるときと、カレンダーの表示が変わるとき。
-   *
-   * 同じ画面の中での更新（スワイプでの前後移動、リストの絞り込み、検索キーワードの入力）では使わない。
-   * 指やキーの動きに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える。
+   * 画面が変わる移動は View Transition で繋ぐ（`viewTransitionTypes`）。
    * 戻る・進むを含めどの経路でも同じ判定になるよう、個々の navigate ではなくここで一度だけ決める。
-   * 返す値は「遷移する（種別は付けない）」が `[]`、「遷移しない」が `false`。
    */
-  defaultViewTransition: {
-    types: ({ fromLocation, toLocation }) =>
-      fromLocation !== undefined &&
-      (fromLocation.pathname !== toLocation.pathname || viewOf(fromLocation) !== viewOf(toLocation))
-        ? []
-        : false,
-  },
+  defaultViewTransition: { types: viewTransitionTypes },
 });
 
 /** 描画し終えた画面のルートの照合結果から読む（ルーターが既に照合したものを使い、照合し直さない） */

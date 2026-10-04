@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test.ts';
 
 /**
  * 入力を開く PWA のショートカット（ホーム画面のアイコンの長押し、タスクバーの右クリック）。

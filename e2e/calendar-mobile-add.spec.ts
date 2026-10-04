@@ -1,9 +1,9 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { setupMobileCalendar } from './calendar-mobile.ts';
 import { detailAction } from './detail.ts';
 import { addOnCalendar } from './events.ts';
 import { carries, stall } from './network.ts';
-import { changeView } from './view.ts';
+import { expect, test } from './test.ts';
 
 /** スマホの追加ボタンからの予定の入力: 閉じるまでの日表示と、閉じた後の戻り先 */
 setupMobileCalendar();
@@ -30,7 +30,7 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect.poll(async () => (await page.locator('[data-sheet]').boundingBox())?.y).toBe(0);
   await page.getByLabel('タイトルを追加').fill(title);
   // 保存（events.create）とその後の取り直し（calendar.get）の両方を遅らせる
-  const unstall = await stall(page, ['events.create', 'calendar.get'], 1500);
+  const release = await stall(page, ['events.create', 'calendar.get']);
   const saved = page.waitForResponse(carries('events.create'));
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.locator('[data-sheet]')).toHaveCount(0, { timeout: 1000 });
@@ -40,12 +40,13 @@ test('月表示の追加ボタンは閉じるまで日表示を出し、閉じ�
   await expect(page).toHaveURL(/view=month&date=2031-06-15/);
 
   // 保存とその後の取り直しが届いても、投機的に出した分と二重にならない
+  const refetched = page.waitForResponse(carries('calendar.get'));
+  await release();
   await saved;
-  await page.waitForResponse(carries('calendar.get'));
+  await refetched;
   await expect(page.getByRole('button', { name: title })).toHaveCount(1);
 
-  // 後片付けは遅らせずに送り、届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
-  await unstall();
+  // 後片付けは届くまで待つ（画面からは先に消えるので、待たないとテストが先に終わる）
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: title }).click();
   const deleted = page.waitForResponse(carries('events.delete'));
@@ -64,9 +65,15 @@ test('週表示の追加ボタンは週表示のまま下書きを置く', async
   await expect(shownView(page)).toHaveText('週');
 });
 
-test('タブを行き来しても最後に開いた表示で開く', async ({ page }) => {
-  await page.goto('/calendar');
-  await changeView(page, '週');
+test('カレンダーで「予定」を押すと一段広い表示へ移り、見ていた日はそのまま。タブを行き来しても最後に開いた表示で開く', async ({
+  page,
+}) => {
+  // どの表示からどこへ広げるか（日→週→月、リスト→月）は `src/features/calendar/__tests__/view.test.ts`
+  await page.goto('/calendar?view=day&date=2031-06-18');
+  await page.getByRole('link', { name: '予定' }).click();
+  await expect(shownView(page)).toHaveText('週');
+  await expect(page).toHaveURL(/view=week&date=2031-06-18/);
+
   await page.getByRole('link', { name: '立替' }).click();
   await expect(page).toHaveURL('/expenses');
   await page.getByRole('link', { name: '予定' }).click();
@@ -75,20 +82,4 @@ test('タブを行き来しても最後に開いた表示で開く', async ({ pa
   // 再読み込みしても同じ
   await page.reload();
   await expect(shownView(page)).toHaveText('週');
-});
-
-test('カレンダーで「予定」を押すと一段広い表示へ移り、見ていた日はそのまま', async ({ page }) => {
-  const tab = page.getByRole('link', { name: '予定' });
-  await page.goto('/calendar?view=day&date=2031-06-18');
-  await tab.click();
-  await expect(shownView(page)).toHaveText('週');
-  await expect(page).toHaveURL(/view=week&date=2031-06-18/);
-  await tab.click();
-  await expect(shownView(page)).toHaveText('月');
-  await expect(page).toHaveURL(/view=month&date=2031-06-18/);
-
-  await page.goto('/calendar?view=list&date=2031-06-18');
-  await tab.click();
-  await expect(shownView(page)).toHaveText('月');
-  await expect(page).toHaveURL(/view=month&date=2031-06-18/);
 });

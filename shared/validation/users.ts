@@ -19,7 +19,11 @@ const allDayNotifyMinutesSchema = z
   .max(DAY_MINUTES - 1);
 
 export const createUserSchema = z.object({
-  email: z.email('メールアドレスの形式が正しくありません'),
+  /**
+   * 小文字にそろえる。better-auth もメールを小文字にして保存・照合するので、重複の確認（users service）を
+   * 同じ形で行うため（大文字だけ違うメールも同じ人と見る）
+   */
+  email: z.email('メールアドレスの形式が正しくありません').toLowerCase(),
   name: nameSchema,
   password: passwordSchema,
   /** 省略時は既存ユーザーと離れた色相を割り当てる */
@@ -40,7 +44,11 @@ export const updateUserSchema = z
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
 export const loginSchema = z.object({
-  email: z.email('メールアドレスの形式が正しくありません'),
+  /**
+   * 小文字にそろえる。better-auth もメールを小文字にして保存・照合するので、重複の確認（users service）を
+   * 同じ形で行うため（大文字だけ違うメールも同じ人と見る）
+   */
+  email: z.email('メールアドレスの形式が正しくありません').toLowerCase(),
   password: z.string().min(1, 'パスワードを入力してください'),
 });
 export type LoginInput = z.infer<typeof loginSchema>;

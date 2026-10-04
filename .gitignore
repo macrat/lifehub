@@ -12,4 +12,3 @@ infra/.terraform/
 infra/*.tfstate*
 infra/*.tfvars
 *.log
-playwright/.auth/

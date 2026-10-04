@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
+import { expect } from './test.ts';
 
 /** CDP に送る指 1 本。複数本なら id で見分ける */
 type TouchPoint = { id: number; x: number; y: number };

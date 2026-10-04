@@ -1,7 +1,8 @@
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
 import { myId } from './auth.ts';
 import { detailAction } from './detail.ts';
 import { addRecord, careLogHistory, deleteRecord, expenseHistory } from './history.ts';
+import { expect, test } from './test.ts';
 import { longPress, touchDrag } from './touch.ts';
 
 /** 記録をタップして開く詳細は予定・立替・レモンで同じ形なので、代表してレモンで一通りなぞる */

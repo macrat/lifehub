@@ -132,7 +132,20 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
     select: (matches) => !matches.some((match) => match.staticData.noPullToRefresh),
   });
   const online = useOnline();
-  const enabled = allowed && online;
+  const pull = usePullGesture(area, allowed && online);
+  return {
+    ...pull,
+    /** 引き切って離し、取り直している最中か。オフラインになって取得が保留されている間は含めない */
+    refreshing: pull.refreshing && online,
+  };
+}
+
+/**
+ * 引っ張って更新のなぞりを見て、引き切って離したら画面のデータを取り直す（`usePullToRefresh` の、画面と
+ * 繋がっていないところ）。enabled が false の間は何もしない。
+ * WHY 分ける: どの画面か（ルーター）とオンラインか（ブラウザ）から切り離し、なぞりの判定だけを確かめられるようにする。
+ */
+export function usePullGesture(area: RefObject<HTMLElement | null>, enabled: boolean) {
   const queryClient = useQueryClient();
   /** 引いた距離。引いていない間は null */
   const [distance, setDistance] = useState<number | null>(null);
@@ -232,7 +245,7 @@ export function usePullToRefresh(area: RefObject<HTMLElement | null>) {
     edge,
     /** 引いた距離（px）。引いていない間は null */
     distance,
-    /** 引き切って離し、取り直している最中か。オフラインになって取得が保留されている間は含めない */
-    refreshing: refreshing && online,
+    /** 引き切って離し、取り直している最中か */
+    refreshing,
   };
 }

@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
 import { myId } from './auth.ts';
-import { E2E_USER } from './global-setup.ts';
+import { expect, test } from './test.ts';
+import { E2E_USER } from './users.ts';
 
 test('ユーザーの編集画面にユーザー ID が出て、押すとコピーできる', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
