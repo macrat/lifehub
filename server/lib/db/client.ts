@@ -34,9 +34,7 @@ type BatchQueries = readonly [BatchQuery, ...BatchQuery[]];
 type BatchResults<T extends BatchQueries> = { -readonly [K in keyof T]: Awaited<T[K]> };
 
 /**
- * 読み取り（select）の文を型で拒む。読み取りは同じ時点に投げれば `coalesceReads` がほかの読み取りと
- * 1 往復にまとめるが、`runBatch` に入れると Neon では自分だけで 1 往復を使い（Drizzle の `batch` は
- * まとめる仕組みを通らない）、node-postgres では begin / commit の 2 文が増える。
+ * 読み取り（select）の文を型で拒む（読み取りを runBatch に入れない理由は docs/architecture.md の「通信の往復」）。
  * 書き込みの文の中の select（`insert ... select` や where の副問い合わせ）は書き込みの文の一部なので当たらない。
  */
 type WritesOnly<T extends BatchQueries> = {

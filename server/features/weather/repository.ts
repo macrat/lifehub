@@ -8,8 +8,8 @@ export type WeatherRow = typeof weather.$inferSelect;
 export type HourlyWeatherRow = typeof weatherHourly.$inferSelect;
 export type PopRow = typeof weatherPop.$inferSelect;
 
-/** [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）の問い合わせ */
-function dailyIn(range: DateRange) {
+/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
+export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
   return db
     .select()
     .from(weather)
@@ -37,32 +37,31 @@ function popsIn(range: DateRange) {
     .orderBy(asc(weatherPop.startsAt));
 }
 
-/** [from, to]（両端を含む JST 暦日）の日ごとの天気だけ（日付順） */
-export async function findDaily(range: DateRange): Promise<WeatherRow[]> {
-  return dailyIn(range);
-}
-
 /**
  * [from, to]（両端を含む JST 暦日）の日ごとの天気（日付順）と、その日々の 3 時間ごとの天気（時刻順）を
- * 読む（カレンダー）。同じ時点に投げるので、ほかの読み取りと 1 往復にまとまる（`lib/db/coalesce-reads.ts`）。
+ * 読む（カレンダー）。
  */
 export async function findBetween(
   range: DateRange,
 ): Promise<{ daily: WeatherRow[]; hourly: HourlyWeatherRow[] }> {
-  const [daily, hourly] = await Promise.all([dailyIn(range), hourlyIn(range)]);
+  const [daily, hourly] = await Promise.all([findDaily(range), hourlyIn(range)]);
   return { daily, hourly };
 }
 
 /**
  * [from, to]（両端を含む JST 暦日）の天気を読む（天気の画面・MCP）: 日ごとの天気（日付順）、
- * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。同じ時点に投げるので 1 往復にまとまる（`findBetween`）。
+ * 3 時間ごとの天気（時刻順）、6 時間ごとの降水確率（時刻順）。
  */
 export async function findDays(range: DateRange): Promise<{
   daily: WeatherRow[];
   hourly: HourlyWeatherRow[];
   pops: PopRow[];
 }> {
-  const [daily, hourly, pops] = await Promise.all([dailyIn(range), hourlyIn(range), popsIn(range)]);
+  const [daily, hourly, pops] = await Promise.all([
+    findDaily(range),
+    hourlyIn(range),
+    popsIn(range),
+  ]);
   return { daily, hourly, pops };
 }
 

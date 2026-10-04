@@ -100,9 +100,13 @@ export function toMonthString(date: DateString): string {
 
 /** 年月（YYYY-MM）の 1 日 */
 export function firstDayOfMonth(month: string): DateString {
-  const date = `${month}-01`;
-  if (!isDateString(date)) throw new Error(`invalid month: ${month}`);
-  return date;
+  if (!isMonthString(month)) throw new Error(`invalid month: ${month}`);
+  return `${month}-01` as DateString;
+}
+
+/** 実在する年月の YYYY-MM か（その月の 1 日が実在する暦日か。`isDateString`） */
+export function isMonthString(value: string): boolean {
+  return isDateString(`${value}-01`);
 }
 
 /** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffMonths, isDateString, monthRange, monthsInRange } from '../date.ts';
+import { diffMonths, isDateString, isMonthString, monthRange, monthsInRange } from '../date.ts';
 import type { DateString } from '../types.ts';
 import { dateStringSchema } from '../validation/common.ts';
 
@@ -72,5 +72,14 @@ describe('diffMonths', () => {
     expect(diffMonths('2026-09', '2026-09')).toBe(0);
     expect(diffMonths('2026-11', '2027-02')).toBe(3);
     expect(diffMonths('2027-02', '2026-11')).toBe(-3);
+  });
+});
+
+describe('isMonthString', () => {
+  it('実在する年月の YYYY-MM だけを受け付ける', () => {
+    expect(isMonthString('2026-09')).toBe(true);
+    expect(isMonthString('2026-13')).toBe(false);
+    expect(isMonthString('2026-9')).toBe(false);
+    expect(isMonthString('2026-09-01')).toBe(false);
   });
 });
