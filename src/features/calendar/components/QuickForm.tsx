@@ -20,7 +20,7 @@ import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/ItemFields.tsx';
 import { KindToggle } from '../../events/components/KindToggle.tsx';
 import { ParticipantsField } from '../../users/components/ParticipantsField.tsx';
-import { draftKind, type GridDraft } from '../draft.ts';
+import { draftKind, type GridDraft } from '../grid-draft.ts';
 import type { QuickProps } from '../use-event-composer.ts';
 import type { Quick } from '../use-quick-form.ts';
 import { DRAFT_SELECTOR } from './markers.ts';

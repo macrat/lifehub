@@ -14,8 +14,8 @@ import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/comple
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
-import type { GridDraft } from '../draft.ts';
-import { type Draft, draftKind, draftOn, isTimedDraft, sameOccurrence } from '../draft.ts';
+import { type Draft, draftOn, isTimedDraft, sameOccurrence } from '../draft.ts';
+import { draftKind, type GridDraft } from '../grid-draft.ts';
 import { itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';

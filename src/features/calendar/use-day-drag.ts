@@ -3,7 +3,8 @@ import type { CalendarItem } from '../../../shared/calendar.ts';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type DayGrab, dayDraft, dayGrab, dayVibration } from './day-draft.ts';
-import { type Draft, type GridDraft, itemDraft } from './draft.ts';
+import { type Draft, itemDraft } from './draft.ts';
+import type { GridDraft } from './grid-draft.ts';
 import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 
 /** ポインタの位置にある日のセル（`data-date` を持つ一番上の要素）と、その日 */

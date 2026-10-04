@@ -8,14 +8,12 @@ import { grabbedScope, writeTarget } from '../events/recurrence-options.ts';
 import {
   allDayDraft,
   type Draft,
-  type DraftChange,
   type DraftRange,
-  draftKind,
-  type GridDraft,
   sameOccurrence,
   toEventRange,
   toTaskFrame,
 } from './draft.ts';
+import { type DraftChange, draftKind, type GridDraft } from './grid-draft.ts';
 import { newTaskTimes, taskTimesOf } from './task-draft.ts';
 
 /** クイック入力（`QuickItemForm`）が呼び出し側から受け取るもの。予定とタスクで同じ */

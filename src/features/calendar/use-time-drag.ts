@@ -2,14 +2,8 @@ import type { PointerEvent } from 'react';
 import type { CalendarItem } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { isDateString } from '../../../shared/date.ts';
-import {
-  type Draft,
-  draftKind,
-  type GridDraft,
-  hasEnds,
-  itemDraft,
-  type TimedDraft,
-} from './draft.ts';
+import { type Draft, hasEnds, itemDraft, type TimedDraft } from './draft.ts';
+import { draftKind, type GridDraft } from './grid-draft.ts';
 import { type TimeGrab, type TimePoint, timeDraft, timeVibration } from './time-draft.ts';
 import { type DragHandlers, useRangeDrag } from './use-range-drag.ts';
 

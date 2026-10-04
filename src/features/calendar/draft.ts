@@ -7,9 +7,7 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { allDayDate, type DateRange, minutesOfDay } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
-import type { ItemFormValues, WhenInput } from '../events/form-values.ts';
 import type { ItemEnds } from './item-shape.ts';
-import type { TaskTimes } from './task-draft.ts';
 import { taskBlock, timedSlot, timelineSlot } from './timeline-layout.ts';
 
 /**
@@ -28,60 +26,6 @@ export type DraftRange =
  */
 export type Draft = { range: DraftRange; item: CalendarItem | null };
 
-/**
- * グリッドに出している下書き（`Draft`）と、それを入力するクイック入力の状態（`use-event-composer.ts` が持つ）。
- * 追加しようとしている予定・タスクと、長押しでつまんで直している予定・タスク（item）の両方。
- */
-export type GridDraft = Draft & {
-  /**
-   * タスクとして入力しているときの、枠を動かす元になる日時（`TaskTimes`）。予定なら null。
-   * 何の枠か（`draftKind`）はこれだけで決まる（種類を別に持つと、種類と日時が食い違いうる）。
-   * 直している物（item）の種類とは限らない（クイック入力の上端で切り替えられる）。
-   * 予定の日時は枠（range）そのものが持つ。
-   */
-  task: TaskTimes | null;
-  /** 選んでいる参加者。枠の色もこれで決まるので、入力（クイック入力）とグリッドで同じ物を見る */
-  participantIds: string[];
-  /**
-   * なぞり終えたか。なぞっている間は PC の吹き出しを出さず（枠に重なって選べなくなる）、
-   * グリッドも枠を追いかけてスクロールしない（指の下でグリッドが動くと狙いがずれる）
-   */
-  settled: boolean;
-  /**
-   * 入力をどこから始めたか（グリッドをなぞった・追加ボタン）。開く段とタイトルに焦点を当てるかがこれで決まる。
-   * 見た目の結果（段）ではなく入口を持つのは、段と焦点がどちらも入口から決まる別々の事柄だから
-   */
-  origin: 'grid' | 'add';
-};
-
-/**
- * 入力で直した日時の下書きへの映し戻し。予定は枠、タスクは枠を動かす元の日時（`TaskTimes`。開始の所の枠
- * `frame` ごと）。直している物（item）は変わらない
- */
-export type DraftChange = { range: DraftRange } | { task: TaskTimes };
-
-/**
- * 下書きの種類ごとの扱い（予定は `eventDraftOps`、タスクは `taskDraftOps`）。クイック入力（`useQuickForm`）は
- * 種類で分岐せず、下書きに合ったこれを使う。
- * WHY 種類ごとにまとめる: 予定とタスクで違うのは日時の持ち方（予定は枠そのもの、タスクは枠を動かす元の日時）
- * だけで、その違いがここに閉じていれば、入れ物もフックも 1 つのまま種類を切り替えられる。
- */
-export type DraftOps = {
-  /** 入力の既定値（日時と、直している物から持ち越す残りの項目。参加者は呼び出し側が重ねる） */
-  values: ItemFormValues;
-  /** 下の段（PC は吹き出し）に出す日時の見出し */
-  rangeText: string;
-  /** 入力欄で直した日時 → 下書きへの映し戻し。枠に置けない（範囲に出せない・開始が空）なら null */
-  fromInput: (input: WhenInput) => DraftChange | null;
-  /** 終日の切り替え。入力欄で直していた日時（読めなければ null）を保ったまま切り替える */
-  withAllDay: (input: WhenInput | null, allDay: boolean) => DraftChange;
-};
-
-/** 下書きが何の枠か。タスクの枠は長さを持たず、端をつまめない（`hasEnds`） */
-export function draftKind(draft: Pick<GridDraft, 'task'>): EventKind {
-  return draft.task ? 'task' : 'event';
-}
-
 /** 同じ範囲か（枠が動いたか）。ドラッグは動くたびに新しい範囲を返すので、値で比べる */
 export function sameRange(a: DraftRange, b: DraftRange): boolean {
   if (a.allDay || b.allDay) return a.allDay && b.allDay && a.from === b.from && a.to === b.to;
@@ -99,9 +43,6 @@ export const isTimedDraft = (range: DraftRange): range is TimedDraft => !range.a
 
 /** 終日の下書きか（終日欄が出す帯。`draftOn` の accepts） */
 export const isAllDayDraft = (range: DraftRange): range is AllDayDraft => range.allDay;
-
-/** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
-export type Grabbed = { item: CalendarItem | null };
 
 /**
  * 保存済みの項目 → グリッドの枠。つまんで直せない項目は null。
@@ -237,13 +178,6 @@ const TAP_MINUTES = DEFAULT_EVENT_MINUTES;
 export function tapEnd(startMin: number): number {
   return Math.min(startMin + TAP_MINUTES, DAY_MINUTES);
 }
-/**
- * 吸着したときの手応えの長さ（ms）。長いのは時間軸の正時だけの合図にして、それ以外の区切り
- * （15 分の刻み、日をまたぐとき）は短く軽く返す。これで時間の区切りを見ずに聞き分けられる。
- */
-export const LONG_VIBRATION_MS = 50;
-export const SHORT_VIBRATION_MS = 10;
-
 /**
  * 終日から時間指定に切り替えたときの下書き。グリッドをタップしたときと同じ「1 時間の枠」を、次の正時に置く。
  * 枠は日をまたげないので、遅い時刻では最後の 1 時間（23:00〜24:00）に収める。

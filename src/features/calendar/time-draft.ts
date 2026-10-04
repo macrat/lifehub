@@ -1,13 +1,8 @@
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { clamp } from '../../lib/math.ts';
-import {
-  type Grabbed,
-  LONG_VIBRATION_MS,
-  SHORT_VIBRATION_MS,
-  type TimedDraft,
-  tapEnd,
-} from './draft.ts';
+import { type TimedDraft, tapEnd } from './draft.ts';
+import { type Grabbed, LONG_VIBRATION_MS, SHORT_VIBRATION_MS } from './grid-drag.ts';
 import type { Drag } from './range-drag-session.ts';
 import { MIN_BLOCK_MINUTES } from './timeline-layout.ts';
 

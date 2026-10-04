@@ -12,8 +12,8 @@ import {
   weekdayLabelColor,
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
-import type { GridDraft } from '../draft.ts';
-import { type Draft, draftDays, draftKind, draftOn, sameOccurrence } from '../draft.ts';
+import { type Draft, draftDays, draftOn, sameOccurrence } from '../draft.ts';
+import { draftKind, type GridDraft } from '../grid-draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
