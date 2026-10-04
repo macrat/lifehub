@@ -32,15 +32,16 @@ export async function loginAs(name: 'A' | 'B'): Promise<{ userId: string; cookie
  * cookie を省くとログインしていない要求になる
  */
 export function apiClient(cookie?: string) {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpLink({
-        url: 'http://localhost/api/trpc',
-        fetch: async (url, init) => app.request(String(url), init as RequestInit),
-        headers: cookie ? { cookie } : {},
-      }),
-    ],
-  });
+  return createTRPCClient<AppRouter>({ links: [httpLink(linkOptions(cookie))] });
+}
+
+/** テスト用のクライアントの送り先（ネットワークを通さずアプリへ渡す）と Cookie */
+function linkOptions(cookie?: string) {
+  return {
+    url: 'http://localhost/api/trpc',
+    fetch: async (url: string, init?: unknown) => app.request(String(url), init as RequestInit),
+    headers: cookie ? { cookie } : {},
+  };
 }
 
 /**
@@ -48,13 +49,5 @@ export function apiClient(cookie?: string) {
  * 1 本の要求に載った手続きの間で読み取りがまとまるかを確かめるのに使う
  */
 export function batchedApiClient(cookie: string) {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({
-        url: 'http://localhost/api/trpc',
-        fetch: async (url, init) => app.request(String(url), init as RequestInit),
-        headers: { cookie },
-      }),
-    ],
-  });
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink(linkOptions(cookie))] });
 }

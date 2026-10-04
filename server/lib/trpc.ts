@@ -17,6 +17,8 @@ type TrpcContext = {
   user: Promise<AuthUser>;
   /** 要求の User-Agent（プッシュの購読に端末の名前として残す） */
   userAgent: string | null;
+  /** 要求ごとに 1 つだけ作る値の置き場（`perRequest`） */
+  scope: Map<symbol, unknown>;
 };
 
 /** セッション Cookie を検証し、ログイン中のユーザーを返す。未認証は UNAUTHORIZED（401） */
@@ -30,7 +32,25 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
 
 /** 要求 1 本ぶんのコンテキスト。検証は始めるだけで待たない（待つかどうかは `authed` と各手続き） */
 export function createContext(req: Request): TrpcContext {
-  return { user: authenticate(req.headers), userAgent: req.headers.get('user-agent') };
+  return {
+    user: authenticate(req.headers),
+    userAgent: req.headers.get('user-agent'),
+    scope: new Map(),
+  };
+}
+
+/**
+ * 要求ごとに 1 つだけ作る値（1 本の要求に載った手続きが分け合う。カレンダーの読み手など）を返す関数を作る。
+ * 値はコンテキストの置き場に入るので、要求が終われば一緒に消え、別の要求とは分け合わない。
+ * WHY 置き場をコンテキストに持つ: ミドルウェアがコンテキストを足すと（`next({ ctx })`）別のオブジェクトに
+ * なるので、コンテキストそのものを鍵にはできない。置き場は足しても同じものが引き継がれる。
+ */
+export function perRequest<T>(create: () => T): (ctx: { scope: Map<symbol, unknown> }) => T {
+  const key = Symbol();
+  return (ctx) => {
+    if (!ctx.scope.has(key)) ctx.scope.set(key, create());
+    return ctx.scope.get(key) as T;
+  };
 }
 
 const t = initTRPC.context<TrpcContext>().create({

@@ -26,9 +26,8 @@ describe('runBatch', () => {
 
   it('読み取りの文は型で拒む（読み取りは coalesceReads がまとめる）', () => {
     // 型だけを確かめる。呼ぶと DB に問い合わせるので呼ばない
-    const _readInBatch = () =>
+    void (() =>
       // @ts-expect-error select は runBatch に入れられない
-      runBatch((tx) => [tx.select().from(users)]);
-    expect(_readInBatch).toBeTypeOf('function');
+      runBatch((tx) => [tx.select().from(users)]));
   });
 });

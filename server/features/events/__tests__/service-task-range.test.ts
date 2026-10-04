@@ -6,11 +6,7 @@ import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, listItems } from '../service.ts';
 import { now, september } from './service-fixtures.ts';
 
-/**
- * 繰り返しのタスクの表示する回は、今と繰り返しだけで決まり、読む範囲によらない（docs/features/events.md）。
- * カレンダーは月ごとの中身をまとめて読んで月で分けるので、範囲で変わると、どの月と一緒に読んだかで
- * 月の中身が変わってしまう。
- */
+/** 繰り返しのタスクの表示する回は、今と繰り返しだけで決まり、読む範囲によらない（docs/features/events.md） */
 describe('繰り返しのタスクの表示は読む範囲によらない', () => {
   let userId: string;
   beforeEach(async () => {
