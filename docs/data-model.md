@@ -1,6 +1,6 @@
 # データモデル
 
-Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.ts` で集約）が単一情報源。本書は表の一覧と、どの表にも共通する規約を書く。列ごとの意味と、値から画面に出すものを導く計算は各機能の文書（[features/](features/)）に書く。マイグレーション SQL は `drizzle/` にコミットする。`drizzle-kit generate` の生成物が基本だが、列の作り替えで既存の行を移すときは生成された SQL に移送の文を書き足す（`0002_lemon_multi_care_types.sql`。生成物任せだと列を落として中身ごと捨てるため）。
+Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.ts` で集約）が単一情報源。本書は表の一覧と、どの表にも共通する規約を書く。列ごとの意味と、値から画面に出すものを導く計算は各機能の文書（[features/](features/)）に書く。マイグレーション SQL は `drizzle/` にコミットする（作り方は [development.md](development.md#マイグレーション)）。
 
 ## 共通規約（Postgres）
 
