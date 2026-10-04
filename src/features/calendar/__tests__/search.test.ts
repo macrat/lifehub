@@ -25,7 +25,7 @@ const task = (completedAt: string | null): CalendarItem => ({
   kind: 'task',
   title: '買い物',
   allDay: false,
-  startsAt: null,
+  startsAt: '2031-06-05T00:00:00.000Z',
   endsAt: null,
   completedAt,
   location: 'スーパー',
@@ -38,7 +38,6 @@ const task = (completedAt: string | null): CalendarItem => ({
   isRecurring: false,
   isModified: false,
   placementDate: DAY,
-  isOverdue: false,
 });
 
 describe('matchesListFilters', () => {

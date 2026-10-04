@@ -27,24 +27,29 @@ test('タスクを追加し、カレンダーのリスト表示から完了に�
   await expect(page.getByText(title)).toHaveCount(0);
 });
 
-test('終日のタスクを追加すると、期限日だけを持つタスクとして出る', async ({ page }) => {
+test('終日のタスクは今日から始まり、開始日を消すと保存できない', async ({ page }) => {
   const title = `E2E 終日タスク ${Date.now()}`;
   await page.goto('/calendar?view=list');
 
   await addOnCalendar(page, 'タスク');
   await page.getByRole('button', { name: 'その他のオプション' }).click();
   await page.getByLabel('タイトル').fill(title);
-  // 追加ボタンからのタスクは見ている日の終日で始まる。開始日を消して期限日だけを入れる
+  // 追加ボタンからのタスクは見ている日（今日）の終日で始まる。日時の欄は開始だけ
   await expect(page.getByLabel('終日')).toBeChecked();
-  await expect(page.getByLabel('開始日', { exact: true })).toHaveValue(todayValue());
-  await page.getByLabel('開始日', { exact: true }).fill('');
-  const due = page.getByLabel('期限日', { exact: true });
-  await expect(due).toHaveAttribute('type', 'date');
-  await due.fill(todayValue());
+  const start = page.getByLabel('開始日', { exact: true });
+  await expect(start).toHaveValue(todayValue());
+  await expect(page.getByLabel('終了日', { exact: true })).toHaveCount(0);
+
+  // 開始は必須
+  await start.fill('');
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByText('開始日時を入力してください')).toBeVisible();
+
+  await start.fill(todayValue());
   await page.getByRole('button', { name: '保存' }).click();
 
-  // 期限が今日なら、時刻の代わりに「期限 今日」と出る
-  const row = page.getByRole('button', { name: `期限 今日 ${title}` });
+  // 開始が今日なら、時刻の代わりに「開始 今日」と出る
+  const row = page.getByRole('button', { name: `開始 今日 ${title}` });
   await expect(row).toBeVisible();
   await row.click();
   page.once('dialog', (dialog) => dialog.accept());

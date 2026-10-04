@@ -2,7 +2,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type DraftChange, type GridDraft, itemDraft } from '../draft.ts';
-import { taskTimesOf } from '../task-draft.ts';
+import { newTaskTimes, taskTimesOf } from '../task-draft.ts';
 import { useQuickForm } from '../use-quick-form.ts';
 import { allDay, DAY, event, task } from './draft-fixtures.ts';
 
@@ -63,13 +63,18 @@ describe('useQuickForm', () => {
     expect(read().allDay).toBe(true);
   });
 
-  it('タスクから予定に切り替えた下書きは、期限前の通知を持ち越さない', () => {
+  it('予定からタスクに切り替えた下書きは、終了と終了前の通知を持ち越さない', () => {
+    const range = { allDay: false as const, date: DAY, startMin: 540, endMin: 600 };
     const { read } = setup({
       ...base,
-      task: null,
-      range: { allDay: false, date: DAY, startMin: 540, endMin: 600 },
-      item: task,
+      task: newTaskTimes(range),
+      range,
+      item: { ...event, remindEndMinutes: 5 },
     });
-    expect(read().initial).toMatchObject({ title: task.title, remindEndMinutes: null });
+    expect(read().initial).toMatchObject({
+      title: event.title,
+      endsAt: null,
+      remindEndMinutes: null,
+    });
   });
 });

@@ -57,10 +57,11 @@ test('その月に掛からない予定は置かれない', () => {
   expect(itemsOf(client)).toEqual([]);
 });
 
-test('日時の無いタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
+test('開始を過ぎたタスクは今日に置かれ、完了にすると完了した日へ移る', () => {
   const todayDate = today();
   const client = clientWith(toMonthString(todayDate));
-  insertItem(client, { ...EVENT, kind: 'task', startsAt: null, endsAt: null, allDay: false });
+  const started = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  insertItem(client, { ...EVENT, kind: 'task', startsAt: started, endsAt: null, allDay: false });
   expect(itemsOf(client).map((item) => item.placementDate)).toEqual([todayDate]);
 
   setCompleted(client, { id: 'tmp', scope: 'all' }, new Date().toISOString());

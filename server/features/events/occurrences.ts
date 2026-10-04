@@ -28,7 +28,7 @@ type OccurrenceFilter = { kind?: EventKind | undefined; q?: string | undefined }
 
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
- * 同日内は「終日の予定 → 時刻のある項目（予定の開始、タスクの開始または期限）→ 時刻の無いタスク」。
+ * 同日内は「終日の予定 → 終日のタスク → 時刻のある項目（予定・タスクの開始）」。
  * filter は `listOccurrences` にそのまま渡す（種別とキーワードの絞り込み）。
  */
 export async function listItems(
@@ -93,7 +93,7 @@ export function toMaster(row: MasterFields): EventMaster {
     kind: row.kind,
     title: row.title,
     allDay: row.allDay,
-    startsAt: row.startsAt?.toISOString() ?? null,
+    startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     location: row.location,
@@ -105,34 +105,30 @@ export function toMaster(row: MasterFields): EventMaster {
   };
 }
 
-/** 繰り返しの基準日時（DTSTART）: starts_at、無ければ ends_at */
-export function baseOf(row: { startsAt: Date | null; endsAt: Date | null }): Date | null {
-  return row.startsAt ?? row.endsAt;
-}
-
-/** 繰り返し元の日時を、基準日時が occurrenceStart になるようずらしたもの。開始と終了の間隔は保つ */
+/**
+ * 繰り返し元の日時を、基準日時（開始。DTSTART）が occurrenceStart になるようずらしたもの。
+ * 開始と終了の間隔は保つ
+ */
 export function shiftTo(
-  master: { startsAt: Date | null; endsAt: Date | null },
+  master: { startsAt: Date; endsAt: Date | null },
   occurrenceStart: Date,
-): { startsAt: Date | null; endsAt: Date | null } {
-  const base = baseOf(master);
-  const delta = base ? occurrenceStart.getTime() - base.getTime() : 0;
+): { startsAt: Date; endsAt: Date | null } {
+  const delta = occurrenceStart.getTime() - master.startsAt.getTime();
   return {
-    startsAt: master.startsAt ? new Date(master.startsAt.getTime() + delta) : null,
+    startsAt: occurrenceStart,
     endsAt: master.endsAt ? new Date(master.endsAt.getTime() + delta) : null,
   };
 }
 
 /** 繰り返しの回が実在するか（ルール上の発生の基準日時か） */
 export function occurrenceExists(
-  master: { rrule: string | null; startsAt: Date | null; endsAt: Date | null },
+  master: { rrule: string | null; startsAt: Date },
   at: Date,
 ): boolean {
-  const base = baseOf(master);
-  if (!master.rrule || !base) return false;
+  if (!master.rrule) return false;
   const hits = expandOccurrences({
     rrule: master.rrule,
-    dtstart: base,
+    dtstart: master.startsAt,
     from: at,
     to: new Date(at.getTime() + 1000),
   });
@@ -158,7 +154,7 @@ function buildOccurrence(
     const shifted = occurrenceStart ? shiftTo(master, occurrenceStart) : master;
     return {
       ...toMaster(master),
-      startsAt: shifted.startsAt?.toISOString() ?? null,
+      startsAt: shifted.startsAt.toISOString(),
       endsAt: shifted.endsAt?.toISOString() ?? null,
       occurrenceStart: occurrenceStart?.toISOString() ?? null,
       isRecurring: master.rrule !== null,
@@ -207,7 +203,7 @@ function overlaps(startsAt: Date, endsAt: Date, range: InstantRange): boolean {
 /** 予定: [from, to) と重なる発生 */
 function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const { master } = ctx;
-  if (!master.startsAt || !master.endsAt) return [];
+  if (!master.endsAt) return [];
   const duration = master.endsAt.getTime() - master.startsAt.getTime();
   const starts = master.rrule
     ? expandOccurrences({
@@ -223,7 +219,7 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
   const push = (occurrenceStart: Date | null, row: EventWithParticipants | undefined) => {
     if (row?.cancelled) return;
     const occurrence = buildOccurrence(ctx, occurrenceStart, row);
-    if (!occurrence.startsAt || !occurrence.endsAt) return;
+    if (!occurrence.endsAt) return;
     if (!overlaps(new Date(occurrence.startsAt), new Date(occurrence.endsAt), range)) return;
     result.push(occurrence);
   };
@@ -248,8 +244,6 @@ function expandEvent(ctx: ExpandContext, range: InstantRange): Occurrence[] {
 function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence[] {
   const { master } = ctx;
   if (!master.rrule) return [buildOccurrence(ctx, null, undefined)];
-  const base = baseOf(master);
-  if (!base) return [];
 
   // 取り出すのは「今より後、範囲の終わりまで」の発生と、その前後 2 つ（1 回の走査で済ませる）。
   // 2 つ前まで遡れば足りるのは、放棄されずに残る最初の回が「今日以前の最後の発生の 1 つ前」で、
@@ -259,7 +253,7 @@ function expandTask(ctx: ExpandContext, now: Date, range: DateRange): Occurrence
   const rangeEnd = instantRange(range).to;
   const bases = expandOccurrences({
     rrule: master.rrule,
-    dtstart: base,
+    dtstart: master.startsAt,
     from: now,
     to: rangeEnd,
     lookbehind: MAX_VISIBLE_UNCOMPLETED,

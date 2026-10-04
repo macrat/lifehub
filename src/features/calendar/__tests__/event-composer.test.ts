@@ -87,7 +87,7 @@ describe('composerReducer', () => {
     });
   });
 
-  it('タスクのショートカットからは、その所から始まる期限なしのタスクで開く', () => {
+  it('タスクのショートカットからは、その所から始まるタスクで開く', () => {
     expect(
       composerReducer(null, { type: 'start', range, kind: 'task', participantIds: ME }),
     ).toMatchObject({ task: newTaskTimes(range), range: newTaskTimes(range).frame });

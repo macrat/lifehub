@@ -144,11 +144,9 @@ describe('itemDraft', () => {
     });
   });
 
-  it('時間軸に置けないタスク（日時なし・別の日の期限だけ）は置かれた日 1 日', () => {
-    expect(itemDraft({ ...task, startsAt: null, endsAt: null })).toEqual(allDay(DAY, DAY));
-    expect(itemDraft({ ...task, startsAt: null, endsAt: '2031-06-07T09:00:00.000Z' })).toEqual(
-      allDay(DAY, DAY),
-    );
+  it('時間軸に置けないタスク（終日・今日へ繰り越した）は置かれた日 1 日', () => {
+    expect(itemDraft({ ...task, allDay: true })).toEqual(allDay(DAY, DAY));
+    expect(itemDraft({ ...task, startsAt: '2031-06-01T00:00:00.000Z' })).toEqual(allDay(DAY, DAY));
   });
 });
 

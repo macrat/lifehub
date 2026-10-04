@@ -104,7 +104,7 @@ export function formatTimelineDays(
   return first === last ? day(first) : `${day(first)}〜${day(last)}`;
 }
 
-/** 開始・終了（期限）の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
+/** 開始・終了の 1 つの日時の表示。終日は日付だけ（終了は含む最終日） */
 export function formatEdge(iso: string, edge: 'start' | 'end', allDay: boolean): string {
   return allDay ? formatDate(allDayDate(iso, edge)) : formatDateTime(iso);
 }

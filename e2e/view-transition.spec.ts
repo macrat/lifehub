@@ -56,7 +56,6 @@ test('カレンダーの表示を切り替えると、同じ予定が同じ名�
     kind: 'task',
     title: 'VT タスク',
     startsAt: '2030-03-13T03:00:00.000Z',
-    endsAt: '2030-03-13T04:00:00.000Z',
   });
 
   await page.goto('/calendar?view=month&date=2030-03-13');

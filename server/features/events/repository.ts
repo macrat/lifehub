@@ -81,14 +81,13 @@ function isCandidate(
   to: Date,
   q: string | undefined,
 ): SQL | undefined {
-  const base = sql`coalesce(${table.startsAt}, ${table.endsAt})`;
   return and(
     candidateKeywordOf(table, q),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
       // 繰り返し元: 基準日時が範囲の終わりより前なら、回が範囲に入りうる
-      and(isNotNull(table.rrule), lt(base, to)),
+      and(isNotNull(table.rrule), lt(table.startsAt, to)),
       // 単発の未完了タスク: 完了するまで「今日」に繰り越されるので、日時では絞れない
       and(isNull(table.rrule), eq(table.kind, 'task'), isNull(table.completedAt)),
       // 単発の完了したタスク: 完了した日にだけ置かれる
@@ -161,7 +160,7 @@ export async function findCalendarRows(
  * タイムラインのページの区切りを数える日時: 予定は開始、タスクは完了した日時（shared/timeline.ts の `entryStart`）。
  * 終日の予定の行は置く日の終わりに出る（`eventEntry`）が、区切りは 1 ページの件数の目安を決めるだけで、
  * どの行をどのページに出すかは行の日時で決めるので、ここは始まりで数えれば足りる。
- * 未完了のタスクは一番上にまとめるか（開始を過ぎた・日時が無い）、24 時間以内の開始の位置にしか出ないので、
+ * 未完了のタスクは一番上にまとめるか（開始を過ぎた）、24 時間以内の開始の位置にしか出ないので、
  * ページの区切りを決めるのには数えない（null はどの比較にも当たらない）。
  * 繰り返し元は回ごとに日時が違うので、この式を使うのは単発の行と実体化された回（どちらも rrule を持たない）だけ。
  */
@@ -215,7 +214,7 @@ export async function findRecurringEventsBefore(
         keywordOf(events, q),
       ),
     );
-  return rows.flatMap(({ rrule, startsAt }) => (rrule && startsAt ? [{ rrule, startsAt }] : []));
+  return rows.flatMap(({ rrule, startsAt }) => (rrule ? [{ rrule, startsAt }] : []));
 }
 
 /**

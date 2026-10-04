@@ -48,8 +48,8 @@ function task(id: string, day: DateString, completedAt: string | null): Calendar
     title: id,
     placementDate: day,
     kind: 'task',
+    startsAt: `${day}T00:00:00.000Z`,
     completedAt,
-    isOverdue: false,
   };
 }
 

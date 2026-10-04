@@ -90,7 +90,7 @@ describe('別の人が直す・消したときの data.by', () => {
     const input = {
       kind: 'task',
       title: '提出',
-      endsAt: iso('2026-10-05T18:00:00'),
+      startsAt: iso('2026-10-05T18:00:00'),
       participantIds: [a],
     };
     const task = await createEvent(createEventSchema.parse(input), a);

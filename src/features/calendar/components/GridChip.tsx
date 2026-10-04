@@ -45,7 +45,6 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useParticipantColors(item.participantIds);
-  const overdue = isTask && item.isOverdue;
   const time = item.kind === 'event' && !item.allDay && showTime ? formatTime(item.startsAt) : null;
   const markSize = compact ? 10 : 12;
   return (
@@ -84,13 +83,7 @@ export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !c
         fontSize: compact ? '0.62rem' : '0.72rem',
         lineHeight: 1,
         background: isBar ? wedgeBackground(colors.map((c) => c.fill)) : undefined,
-        color: isBar
-          ? FILL_TEXT
-          : overdue
-            ? 'error.main'
-            : completed
-              ? 'text.disabled'
-              : 'text.primary',
+        color: isBar ? FILL_TEXT : completed ? 'text.disabled' : 'text.primary',
         ...(completed && COMPLETED_TITLE_SX),
         '&:hover': isBar ? { filter: 'brightness(0.92)' } : { bgcolor: 'action.hover' },
         // all: unset はフォーカスの輪郭も消すので、キーボード操作のときだけ戻す

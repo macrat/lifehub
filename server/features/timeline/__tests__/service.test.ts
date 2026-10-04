@@ -81,11 +81,11 @@ describe('timeline service', () => {
       }),
       userId,
     );
-    await createEvent(task({ title: '日時なし' }), userId);
+    await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
 
     const page = await getTimelinePage({}, now);
     expect(labels(page.items)).toEqual([
-      '日時なし',
+      '開始済み',
       '明日の朝',
       '朝の水やり',
       '昨日の会議',
@@ -94,7 +94,7 @@ describe('timeline service', () => {
     expect(page.nextCursor).toBeNull();
   });
 
-  it('タスクは完了した日時に置き、未完了で開始を過ぎたか日時の無いものは一番上にまとめる', async () => {
+  it('タスクは完了した日時に置き、未完了で開始を過ぎたものは一番上にまとめる', async () => {
     const done = await createEvent(
       task({ title: '完了', startsAt: iso('2026-09-01T09:00:00') }),
       userId,
@@ -102,30 +102,24 @@ describe('timeline service', () => {
     await completeEvent(done.id, {}, userId, jst('2026-09-13T20:00:00'));
     await createEvent(task({ title: '今朝開始', startsAt: iso('2026-09-14T08:00:00') }), userId);
     await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
-    await createEvent(task({ title: '昨日期限', endsAt: iso('2026-09-13T09:00:00') }), userId);
-    await createEvent(task({ title: '一昨日期限', endsAt: iso('2026-09-12T09:00:00') }), userId);
-    await createEvent(task({ title: '日時なし（先）' }), userId);
-    await createEvent(task({ title: '日時なし（後）' }), userId);
-    // 期限がまだ来ていないものは、日時の無いものと同じに扱う
-    await createEvent(task({ title: '期限のみ', endsAt: iso('2026-09-20T09:00:00') }), userId);
+    const allDay = { allDay: true, startsAt: iso('2026-09-12T00:00:00') };
+    await createEvent(task({ title: '一昨日（先）', ...allDay }), userId);
+    await createEvent(task({ title: '一昨日（後）', ...allDay }), userId);
     // 開始がまだ先なら、その位置に置く
     await createEvent(task({ title: '明日開始', startsAt: iso('2026-09-15T08:00:00') }), userId);
 
     const page = await getTimelinePage({}, now);
-    // 期限を過ぎたもの（期限の古い順）→ 開始を過ぎたもの（開始の古い順）→ 日時の無いもの（登録の古い順）
+    // 開始を過ぎたものは開始の古い順、開始が同じなら登録の古い順
     expect(labels(page.items)).toEqual([
-      '一昨日期限',
-      '昨日期限',
       '開始済み',
+      '一昨日（先）',
+      '一昨日（後）',
       '今朝開始',
-      '日時なし（先）',
-      '日時なし（後）',
-      '期限のみ',
       '明日開始',
       '完了',
     ]);
     expect(
-      page.items.find((e) => e.type === 'event' && e.item.title === '期限のみ')?.at,
+      page.items.find((e) => e.type === 'event' && e.item.title === '今朝開始')?.at,
     ).toBeNull();
   });
 
@@ -238,7 +232,10 @@ describe('timeline service', () => {
       }),
       userId,
     );
-    await createEvent(task({ title: '掃除', note: '買い物のついで' }), userId);
+    await createEvent(
+      task({ title: '掃除', note: '買い物のついで', startsAt: iso('2026-09-10T09:00:00') }),
+      userId,
+    );
     await logCare(
       { careTypes: ['water'], doneAt: jst('2026-09-14T08:00:00'), note: null },
       { userId },
@@ -277,8 +274,8 @@ describe('timeline service', () => {
     expect(labels((await getTimelinePage({ q: '朝会' }, now)).items)).toEqual(['朝会']);
   });
 
-  it('日付の範囲で絞り込むと、その範囲の記録だけを出し、日時の無いタスクは出さない', async () => {
-    await createEvent(task({ title: '日時なし' }), userId);
+  it('日付の範囲で絞り込むと、その範囲の記録だけを出し、今日に繰り越したタスクは出さない', async () => {
+    await createEvent(task({ title: '繰り越し', startsAt: iso('2026-09-03T08:00:00') }), userId);
     for (const [doneAt, note] of [
       ['2026-09-01T08:00:00', '1日'],
       ['2026-09-05T08:00:00', '5日'],

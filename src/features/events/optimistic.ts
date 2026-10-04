@@ -158,7 +158,7 @@ function matches(item: CalendarItem, target: WriteTarget): boolean {
 function toOccurrence(input: NewEvent): Occurrence {
   const instants = normalizeIsoInstants(
     input.allDay ?? false,
-    input.startsAt || null,
+    input.startsAt,
     input.endsAt || null,
   );
   return {

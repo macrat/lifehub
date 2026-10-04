@@ -106,7 +106,7 @@ export type Grabbed = { item: CalendarItem | null };
  * 予定でつまめないのは、枠に出せない「日をまたぐ時間指定の予定」。
  * タスクは置かれている所（時間軸ならその時刻の最小の長さのブロック、それ以外は置かれた日 1 日）を枠にする。
  * 長さを持たないので、枠は動かすだけで端は直せない（`hasEnds`）。
- * 完了したタスクは完了した日時に置かれていて、開始・期限を動かしても場所が変わらないのでつままない。
+ * 完了したタスクは完了した日時に置かれていて、開始を動かしても場所が変わらないのでつままない。
  */
 export function itemDraft(item: CalendarItem): DraftRange | null {
   let draft = itemDrafts.get(item);

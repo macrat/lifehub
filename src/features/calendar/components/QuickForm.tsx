@@ -148,7 +148,6 @@ function QuickSheet({
             onChangeAllDay={quick.changeAllDay}
           />
           <ExtraFields
-            kind={draftKind(draft)}
             initial={quick.initial}
             errors={form.errors}
             allDay={quick.allDay}

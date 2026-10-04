@@ -43,8 +43,8 @@ const CHANGED_PAYLOAD_SCHEMA = z.toJSONSchema(
 const REMINDER_PAYLOAD_SCHEMA = z.toJSONSchema(
   z.object({
     about: z
-      .enum(['start', 'end', 'due'])
-      .describe('何の通知か。start は開始、end は予定の終了、due はタスクの期限'),
+      .enum(['start', 'end'])
+      .describe('何の通知か。start は予定・タスクの開始、end は予定の終了'),
     entry: entrySchema.describe(
       '通知した予定・タスク（繰り返しならその回）。read_timeline が返すエントリーと同じ形で、ref を update_event / set_task_done に渡せる',
     ),
@@ -71,7 +71,7 @@ const EVENTS: Record<EventName, { description: string; payloadSchema: object }> 
   },
   'event.reminder': {
     description:
-      '予定・タスクの通知の時刻になったとき（アプリのプッシュ通知と同じ時。通知を設定した予定・タスクの開始・終了・期限の前で、届くのは参加している予定・タスクの分だけ）',
+      '予定・タスクの通知の時刻になったとき（アプリのプッシュ通知と同じ時。通知を設定した予定・タスクの開始・予定の終了の前で、届くのは参加している予定・タスクの分だけ）',
     payloadSchema: REMINDER_PAYLOAD_SCHEMA,
   },
 };

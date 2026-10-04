@@ -27,7 +27,7 @@ export function PushSection() {
           // secondaryAction の既定の余白（48px）ではスイッチ（58px）と説明文が重なる
           sx={{ pr: 5 }}
           primary="この端末で通知を受け取る"
-          secondary="予定の開始前と、タスクの開始日時・期限日時に通知します。端末ごとに設定します。"
+          secondary="予定・タスクの開始前に通知します。端末ごとに設定します。"
         />
       </ListItem>
       {notes.length > 0 && (

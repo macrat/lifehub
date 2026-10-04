@@ -29,8 +29,6 @@ export type EntryView = {
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
-  /** 上段を赤字にする（期限を過ぎた未完了のタスク。リスト表示・詳細の超過と同じ色） */
-  overdue: boolean;
   /** 上段の右に薄く添える日時。一番上にまとめたタスクは null */
   time: string | null;
   /** 日時の右に控えめなピンを添える（ピン止めしたメモ） */
@@ -55,7 +53,6 @@ export function useEntryView(entry: TimelineEntry): EntryView {
     pinned: false,
     task: null,
     struck: false,
-    overdue: false,
     careTypes: [],
     location: null,
     note: null,
@@ -73,7 +70,6 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         task: item.kind === 'task' ? item : null,
         heading: item.title,
         struck: isCompletedTask(item),
-        overdue: item.kind === 'task' && item.isOverdue,
         location: item.location,
         note: item.note,
       };

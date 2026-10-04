@@ -15,7 +15,7 @@ import type { DateString } from './types.ts';
 type EntryBase = {
   /** タイムラインの中で一意な鍵（`timelineEntryId`。予定・タスクは回ごと） */
   id: string;
-  /** 並べる日時。null はタイムラインの一番上にまとめるタスク（未完了で、開始を過ぎたか日時を持たないもの。`sortTimeline`） */
+  /** 並べる日時。null はタイムラインの一番上にまとめるタスク（未完了で、開始を過ぎたもの。`sortTimeline`） */
   at: string | null;
   /** 日付だけを示す記録か（終日の予定・タスク、立替）。時刻は出さない */
   dateOnly: boolean;
@@ -41,9 +41,8 @@ export function timelineEntryId(type: RecordType, id: string): string {
  * 終わるまで今日の記録より上に出し続ける（始まりの 0:00 に置くと、その日の記録に押し流されて予定の最中なのに
  * 見えなくなる）。WHY NOT いつも終わる日に置く: 今日と明日にまたがる予定が明日の側に出て、今日の予定に見えなくなる。
  * タスクは完了していれば完了した日時に置く。
- * 未完了のタスクは、開始がまだ先ならその日時に置き、開始を過ぎたか日時を持たなければ
+ * 未完了のタスクは、開始がまだ先ならその日時に置き、開始を過ぎていれば
  * 日時を持たない行としてタイムラインの一番上にまとめる（やるべきことを、いつも最初に目に入る所に出す）。
- * 期限は位置に使わない（まだ来ていない期限の位置に置くと、未来の側に埋もれる）。
  */
 export function eventEntry(item: CalendarItem, now: Date = new Date()): TimelineEntry {
   const base = { type: 'event' as const, id: occurrenceKey(item), item };
@@ -53,7 +52,7 @@ export function eventEntry(item: CalendarItem, now: Date = new Date()): Timeline
     return { ...base, at: endOfDay.toISOString(), dateOnly: true };
   }
   if (item.completedAt) return { ...base, at: item.completedAt, dateOnly: false };
-  if (item.startsAt && new Date(item.startsAt).getTime() > now.getTime()) {
+  if (new Date(item.startsAt).getTime() > now.getTime()) {
     return { ...base, at: item.startsAt, dateOnly: item.allDay };
   }
   return { ...base, at: null, dateOnly: false };
@@ -126,15 +125,9 @@ export function sortTimeline(entries: TimelineEntry[]): TimelineEntry[] {
 }
 
 /**
- * 一番上にまとめたタスクの、画面の上からの並びの鍵。期限を過ぎたもの（期限の古い順）→ 開始を過ぎたもの
- * （開始の古い順）→ 日時を持たないもの（登録の古い順）。長く放っておいたものほど上に出す。
- * 登録の順は id で比べる（UUID v7 は作った時刻の順に並ぶ。`shared/id.ts`）。
- * 期限だけを持ち、まだ期限の来ていないタスクは、日時を持たないものと同じに扱う（開始を過ぎたわけではない）。
+ * 一番上にまとめたタスクの、画面の上からの並びの鍵: 開始の古い順。長く放っておいたものほど上に出す。
+ * 開始が同じなら `sortTimeline` が行の鍵で並べる。
  */
 function topTaskKey(entry: TimelineEntry): string {
-  if (entry.type !== 'event' || entry.item.kind !== 'task') return `2${entry.id}`;
-  const task = entry.item;
-  if (task.isOverdue && task.endsAt) return `0${task.endsAt}`;
-  if (task.startsAt) return `1${task.startsAt}`;
-  return `2${entry.id}`;
+  return entry.type === 'event' ? entry.item.startsAt : '';
 }

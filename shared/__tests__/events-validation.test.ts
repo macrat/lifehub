@@ -18,6 +18,14 @@ describe('createEventSchema', () => {
     expect(createEventSchema.safeParse({ ...base, participantIds: [] }).success).toBe(false);
   });
 
+  it('タスクは開始が必須で、終了と終了前の通知を持てない', () => {
+    const task = { ...base, kind: 'task', endsAt: null };
+    expect(createEventSchema.safeParse(task).success).toBe(true);
+    expect(createEventSchema.safeParse({ ...task, startsAt: null }).success).toBe(false);
+    expect(createEventSchema.safeParse({ ...task, endsAt: base.endsAt }).success).toBe(false);
+    expect(createEventSchema.safeParse({ ...task, remindEndMinutes: 0 }).success).toBe(false);
+  });
+
   it('終日の通知は当日（0）か前日（1440）だけを受け付ける', () => {
     expect(createEventSchema.safeParse({ ...base, remindStartMinutes: 0 }).success).toBe(true);
     expect(createEventSchema.safeParse({ ...base, remindStartMinutes: 1440 }).success).toBe(true);

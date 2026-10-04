@@ -39,7 +39,7 @@ describe('MCP server: MCP Events', () => {
       });
     }
     expect(events.find((e) => e.name === 'event.reminder')?.payloadSchema).toMatchObject({
-      properties: { about: { enum: ['start', 'end', 'due'] } },
+      properties: { about: { enum: ['start', 'end'] } },
       required: ['about', 'entry'],
     });
   });

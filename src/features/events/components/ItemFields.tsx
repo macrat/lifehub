@@ -60,7 +60,7 @@ const ALL_DAY_REMIND_LABELS: Record<AllDayRemind, string> = {
   1440: '前日',
 };
 
-/** 時刻のある通知の選択肢。0 分前は「開始時刻」「期限時刻」のように、その端の時刻そのもの */
+/** 時刻のある通知の選択肢。0 分前は「開始時刻」のように、その端の時刻そのもの */
 const REMIND_LABELS: Record<Exclude<(typeof REMIND_BEFORE_OPTIONS)[number], 0>, string> = {
   5: '5分前',
   10: '10分前',
@@ -76,7 +76,7 @@ type AllDayProps = { allDay: boolean; onChangeAllDay: (allDay: boolean) => void 
 /**
  * 予定・タスクの全項目（タイトル・日時・参加者・場所・メモ・繰り返し・通知）。
  * 全項目のフォーム（`ItemForm`）と詳細からの編集（`ItemDetailSheet`）で同じものを使う。
- * 予定とタスクで違うのは日時（`WhenFields`）と通知（`ExtraFields`）だけ。
+ * 予定とタスクで違うのは日時（`WhenFields`）だけ。
  *
  * autoFocus はタスクの追加だけ（`ItemForm`）。追加なら次に打つのは必ずタイトルだと分かるので、
  * 開いた所からそのまま打てるようにする。既にある記録の編集では、項目が多くてどの項目を
@@ -116,25 +116,18 @@ export function ItemFields({
         defaultValue={initial.participantIds}
         error={errors.participantIds}
       />
-      <ExtraFields
-        kind={kind}
-        initial={initial}
-        errors={errors}
-        allDay={allDay}
-        thisOnly={thisOnly}
-      />
+      <ExtraFields initial={initial} errors={errors} allDay={allDay} thisOnly={thisOnly} />
     </>
   );
 }
 
 /**
- * 日時（終日の切り替えと、開始・終了または開始・期限）。全項目（`ItemFields`）と、
+ * 日時（終日の切り替えと、予定なら開始・終了、タスクなら開始だけ）。全項目（`ItemFields`）と、
  * スマホで上の段まで広げたクイック入力（`QuickItemForm`）で同じものを使う。
- * 開始・終了（期限）はそれぞれ日付と時刻の 2 つの欄に分け（`whenFieldNames`）、日付を左、時刻を右の列に並べる。
+ * 開始・終了はそれぞれ日付と時刻の 2 つの欄に分け（`whenFieldNames`）、日付を左、時刻を右の列に並べる。
  * 終日の切り替えは時刻の列の上に置き、時刻の欄と縦の線を揃える。終日では時刻の欄を出さず、日付の欄を行いっぱいに広げる。
  * 終日かどうかは状態として呼び出し側から受け取る。
- * 予定は開始・終了が必須で、開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
- * タスクは開始・期限がどちらも任意なので、空のまま出す。
+ * 開始はどちらも必須。予定は終了も必須で、開始を動かすと終了も長さを保ったまま動く（`endFollowsStart`）。
  */
 export function WhenFields({
   kind,
@@ -143,7 +136,7 @@ export function WhenFields({
   allDay,
   onChangeAllDay,
 }: Props & AllDayProps & { kind: EventKind }) {
-  const when = kind === 'event' ? eventWhen(initial) : initial;
+  const isEvent = kind === 'event';
   return (
     <Box
       sx={{
@@ -163,44 +156,42 @@ export function WhenFields({
       <WhenField
         name="startsAt"
         edge={TASK_TIME_LABELS.start}
-        defaultValue={inputValue(when.startsAt, 'start', initial.allDay, allDay)}
+        defaultValue={inputValue(initial.startsAt, 'start', initial.allDay, allDay)}
         allDay={allDay}
         error={errors.startsAt}
-        onChange={kind === 'event' ? endFollowsStart : undefined}
+        onChange={isEvent ? endFollowsStart : undefined}
       />
-      <WhenField
-        name="endsAt"
-        edge={kind === 'event' ? '終了' : TASK_TIME_LABELS.due}
-        defaultValue={inputValue(when.endsAt, 'end', initial.allDay, allDay)}
-        allDay={allDay}
-        error={errors.endsAt}
-      />
+      {isEvent && (
+        <WhenField
+          name="endsAt"
+          edge="終了"
+          // 終了が無ければ（書き始め）開始から始める
+          defaultValue={inputValue(
+            initial.endsAt ?? initial.startsAt,
+            'end',
+            initial.allDay,
+            allDay,
+          )}
+          allDay={allDay}
+          error={errors.endsAt}
+        />
+      )}
     </Box>
   );
 }
 
 /**
- * 予定の日時の入力欄の初期値。予定は日時が必須なので、開始が無ければ今、終了が無ければ開始から始める
- * （タスクは開始・期限がどちらも任意なので、そのまま空で出す）
- */
-function eventWhen({ startsAt, endsAt }: ItemFormValues) {
-  const start = startsAt ?? new Date().toISOString();
-  return { startsAt: start, endsAt: endsAt ?? start };
-}
-
-/**
  * 残りの項目（場所・メモ・繰り返し・通知）。日時と同じく全項目とクイック入力で共通。
- * 通知は何分前か（終日なら当日か前日）を選ぶ（`RemindField`）。予定は開始前の 1 つ、タスクは開始前と期限前の 2 つ。
- * WHY 予定とタスクで選び方を揃える: 種類を切り替えても開始前の通知をそのまま引き継げる。
+ * 通知は開始の何分前か（終日なら当日か前日）を 1 つ選ぶ（`RemindField`）。
+ * WHY 予定とタスクで同じ欄にする: 種類を切り替えても開始前の通知をそのまま引き継げる。
  * 終日の予定・タスクの通知は、その日の各自の通知時刻（設定画面で選ぶ）に届く。
  */
 export function ExtraFields({
-  kind,
   initial,
   errors,
   allDay,
   thisOnly,
-}: ScopedProps & { kind: EventKind; allDay: boolean }) {
+}: ScopedProps & { allDay: boolean }) {
   return (
     <>
       <input type="hidden" name={EXTRA_FIELDS_MARKER} value="1" />
@@ -214,57 +205,28 @@ export function ExtraFields({
         fullWidth
       />
       {!thisOnly && <RecurrenceFields initial={initial.rrule} error={errors.rrule} />}
-      <RemindField
-        name="remindStartMinutes"
-        label={kind === 'event' ? '通知' : `${TASK_TIME_LABELS.start}の通知`}
-        edge={TASK_TIME_LABELS.start}
-        saved={initial.remindStartMinutes}
-        allDay={allDay}
-      />
-      {kind === 'task' && (
-        <RemindField
-          name="remindEndMinutes"
-          label={`${TASK_TIME_LABELS.due}の通知`}
-          edge={TASK_TIME_LABELS.due}
-          saved={initial.remindEndMinutes}
-          allDay={allDay}
-        />
-      )}
+      <RemindField saved={initial.remindStartMinutes} allDay={allDay} />
     </>
   );
 }
 
 /**
- * 通知 1 つ（開始か期限の何分前か。終日なら当日か前日）。予定もタスクも同じ選び方で、
- * 予定は開始前、タスクは開始前と期限前の 2 つを出す。
- * 開始前の欄は予定とタスクで同じ位置・同じ部品なので、種類を切り替えても選んだ値が残る。
+ * 開始前の通知（開始の何分前か。終日なら当日か前日）。予定もタスクも同じ選び方で、
+ * 同じ位置・同じ部品なので、種類を切り替えても選んだ値が残る。
  */
-function RemindField({
-  name,
-  label,
-  edge,
-  saved,
-  allDay,
-}: {
-  name: 'remindStartMinutes' | 'remindEndMinutes';
-  label: string;
-  /** 通知する端の名前（開始・期限）。0 分前の選択肢の名前になる */
-  edge: string;
-  saved: number | null;
-  allDay: boolean;
-}) {
+function RemindField({ saved, allDay }: { saved: number | null; allDay: boolean }) {
   const options = allDay
     ? ALL_DAY_REMIND_OPTIONS.map((m) => ({ value: m, label: ALL_DAY_REMIND_LABELS[m] }))
     : REMIND_BEFORE_OPTIONS.map((m) => ({
         value: m,
-        label: m === 0 ? `${edge}時刻` : REMIND_LABELS[m],
+        label: m === 0 ? `${TASK_TIME_LABELS.start}時刻` : REMIND_LABELS[m],
       }));
   return (
     <TextField
       // 終日を切り替えると選択肢が入れ替わるので、選択肢に合う値で作り直す
       key={allDay ? 'all-day' : 'timed'}
-      name={name}
-      label={label}
+      name="remindStartMinutes"
+      label="通知"
       select
       defaultValue={(allDay ? toAllDayRemind(saved) : saved) ?? SELECT_NONE}
       fullWidth
@@ -337,16 +299,15 @@ function WhenField({
 }
 
 /**
- * 日時の入力欄の初期値。未設定は空欄。
+ * 日時の入力欄の初期値。
  * 保存されている値が終日なら、その保存形式どおりに日付へ直す（終了は排他的なので含む最終日。`allDayDate`）。
  */
 function inputValue(
-  value: string | null,
+  value: string,
   edge: 'start' | 'end',
   savedAllDay: boolean,
   allDay: boolean,
 ): string {
-  if (!value) return '';
   if (!allDay) return toDateTimeLocalValue(value);
   return savedAllDay ? allDayDate(value, edge) : toDateString(new Date(value));
 }

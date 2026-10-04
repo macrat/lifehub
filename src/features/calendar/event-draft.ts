@@ -30,7 +30,7 @@ export function draftText(draft: DraftRange): string {
  * クイック入力と全項目のフォーム（「その他のオプション」）に渡す既定値。
  * 保存済みの予定を直しているときは、その予定の内容に枠の日時だけを重ねる
  * （タイトル・場所・メモ・繰り返し・通知はそのまま持ち越し、枠を動かしても消えない。参加者は呼び出し側が重ねる）。
- * 直しているのがタスク（入力で予定に切り替えた）なら、期限前の通知は持ち越さない（`carriedValues`）。
+ * 直しているのがタスク（入力で予定に切り替えた）なら、終了前の通知は持ち越さない（`carriedValues`）。
  */
 function draftValues(draft: DraftRange, item: CalendarItem | null): ItemFormValues {
   const when = draft.allDay

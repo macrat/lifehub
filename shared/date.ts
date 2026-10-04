@@ -68,7 +68,7 @@ export function inclusiveEndDate(endsAt: string): DateString {
 }
 
 /**
- * 終日の項目の開始日／終了日（期限日）。保存形式は開始が JST 0:00、終了が排他的（最終日の翌日 0:00）なので、
+ * 終日の項目の開始日／終了日。保存形式は開始が JST 0:00、終了が排他的（最終日の翌日 0:00）なので、
  * 終了は含む最終日にする。サーバー（通知）とクライアント（表示・フォーム）が同じ規則で読むよう 1 か所に置く。
  */
 export function allDayDate(iso: string, edge: 'start' | 'end'): DateString {

@@ -2,13 +2,16 @@ import type { Page } from '@playwright/test';
 import { apiOf } from './api.ts';
 import { myId } from './auth.ts';
 
-/** API で置く予定・タスク。日時は時差付きの ISO 8601 で書き、参加者を省くと自分だけにする */
-type Item = {
-  kind: 'event' | 'task';
+/**
+ * API で置く予定・タスク。日時は時差付きの ISO 8601 で書き、参加者を省くと自分だけにする。
+ * タスクは開始を省くと今日の終日（画面の追加・MCP の既定と同じ）
+ */
+type Item = (
+  | { kind: 'event'; startsAt: string; endsAt: string }
+  | { kind: 'task'; startsAt?: string }
+) & {
   title: string;
   allDay?: boolean;
-  startsAt?: string;
-  endsAt?: string;
   rrule?: string;
   location?: string;
   note?: string;
@@ -23,7 +26,16 @@ type Item = {
 export async function addItem(page: Page, item: Item): Promise<string> {
   const id = crypto.randomUUID();
   const participantIds = item.participantIds ?? [await myId(page)];
-  await apiOf(page.request).events.create.mutate({ id, ...item, participantIds });
+  // 開始を省いたタスクだけが今日の終日になる（予定は開始を必ず持つ）
+  const allDay = item.allDay ?? item.startsAt === undefined;
+  const startsAt = item.startsAt ?? new Date().toISOString();
+  await apiOf(page.request).events.create.mutate({
+    id,
+    ...item,
+    allDay,
+    startsAt,
+    participantIds,
+  });
   return id;
 }
 

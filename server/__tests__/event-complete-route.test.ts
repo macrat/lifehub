@@ -26,7 +26,7 @@ describe('タスクの完了', () => {
       kind: 'task',
       title: '書類を出す',
       allDay: false,
-      startsAt: null,
+      startsAt: '2026-09-20T00:00:00.000Z',
       endsAt: null,
       participantIds: [userId],
       location: null,

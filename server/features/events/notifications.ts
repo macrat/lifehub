@@ -36,15 +36,7 @@ export const notificationRefSchema = z.object({
 });
 export type NotificationRef = z.infer<typeof notificationRefSchema>;
 
-/** 何の通知か: 開始・予定の終了・タスクの期限 */
-type About = 'start' | 'end' | 'due';
-
-function aboutOf(item: CalendarItem, edge: Edge): About {
-  if (edge === 'start') return 'start';
-  return item.kind === 'task' ? 'due' : 'end';
-}
-
-const ABOUT_LABELS: Record<About, string> = { start: '開始', end: '終了', due: '期限' };
+const EDGE_LABELS: Record<Edge, string> = { start: '開始', end: '終了' };
 
 /** 配信直前の再検証（`resolveNotification`）が返す、送る中身と宛先 */
 export type NotificationPayload = {
@@ -54,9 +46,9 @@ export type NotificationPayload = {
   url: string;
   /** 送信先（参加者） */
   userIds: string[];
-  /** 通知する発生（配信予定時刻の時点のもの）と、何の通知か。MCP Events の通知に載せる */
+  /** 通知する発生（配信予定時刻の時点のもの）と、何の通知か（開始・予定の終了）。MCP Events の通知に載せる */
   item: CalendarItem;
-  about: About;
+  about: Edge;
 };
 
 export type PlannedNotification = {
@@ -79,7 +71,7 @@ function keyOf(ref: NotificationRef): string {
 export type NotifyTimes = Map<string, number>;
 
 /**
- * 開始／終了（期限）の通知の宛先と配信予定時刻。完了したタスクには送らない。
+ * 開始／予定の終了の通知の宛先と配信予定時刻。完了したタスクには送らない（タスクは終了を持たない）。
  * - 時刻のある項目: n 分前に参加者全員へ
  * - 終日の項目: その日（n = 1440 なら前日。終日の n は 0 か 1440 だけ）の、参加者それぞれの通知時刻に。
  *   終日の項目には「n 分前」の瞬間が無く（0:00 の n 分前では夜中に届く）、朝に知りたい時刻は人それぞれなので
@@ -145,7 +137,7 @@ const notificationDateFormatter = new Intl.DateTimeFormat('ja-JP', {
 
 /** 本文: 「開始 9/20 15:00 ・ 場所」。終日は日付だけ（「開始 9/20 終日」） */
 function body(item: CalendarItem, edge: Edge): string {
-  const label = ABOUT_LABELS[aboutOf(item, edge)];
+  const label = EDGE_LABELS[edge];
   const anchor = (edge === 'start' ? item.startsAt : item.endsAt) as string;
   const when = item.allDay
     ? `${notificationDateFormatter.format(startOfDate(allDayDate(anchor, edge)))} 終日`
@@ -199,6 +191,6 @@ export async function resolveNotification(
     url: `/calendar?date=${item.placementDate}`,
     userIds: target.userId ? [target.userId] : item.participantIds,
     item,
-    about: aboutOf(item, ref.edge),
+    about: ref.edge,
   };
 }

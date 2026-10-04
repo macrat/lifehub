@@ -138,7 +138,7 @@ function grabbedTask({ item, range }: Draft): GridDraft['task'] {
 
 /**
  * 枠 range を種類 kind の下書きにする（切り替え・追加の開始）。引き継ぐのは枠の開始だけ（全項目のフォームの
- * `switchKindValues`・MCP の `switchedKind` と同じ規則を枠の形にしたもの）: タスクへは開始の所に期限なしのタスク（`newTaskTimes`）、予定へは開始から 1 時間
+ * `switchKindValues`・MCP の `switchedKind` と同じ規則を枠の形にしたもの）: タスクへは開始の所に置いたタスク（`newTaskTimes`）、予定へは開始から 1 時間
  * （終日はその日。枠は日をまたげないので日の終わりで止める。`toEventRange`）。
  */
 function switchedKind(range: DraftRange, kind: EventKind): Pick<GridDraft, 'task' | 'range'> {

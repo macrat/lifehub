@@ -26,8 +26,9 @@ export type EventMaster = {
   kind: EventKind;
   title: string;
   allDay: boolean;
-  startsAt: string | null;
-  /** 予定では排他的な終端（終日は翌日 JST 0:00）。タスクでは期限 */
+  /** 予定・タスクの開始（終日は JST 0:00） */
+  startsAt: string;
+  /** 予定の排他的な終端（終日は翌日 JST 0:00）。タスクは持たない（null） */
   endsAt: string | null;
   completedAt: string | null;
   location: string | null;
@@ -60,14 +61,13 @@ export type Occurrence = EventMaster & {
 export type CalendarItem =
   | (Occurrence & {
       kind: 'event';
-      startsAt: string;
       endsAt: string;
       placementDate: DateString;
       /** 複数日の予定での何日目か（1 始まり）と総日数 */
       dayIndex: number;
       dayCount: number;
     })
-  | (Occurrence & { kind: 'task'; placementDate: DateString; isOverdue: boolean });
+  | (Occurrence & { kind: 'task'; placementDate: DateString });
 export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
@@ -102,12 +102,12 @@ export type CalendarPeriod = {
  */
 export function normalizeInstants(
   allDay: boolean,
-  startsAt: Date | null,
+  startsAt: Date,
   endsAt: Date | null,
-): { startsAt: Date | null; endsAt: Date | null } {
+): { startsAt: Date; endsAt: Date | null } {
   if (!allDay) return { startsAt, endsAt };
   return {
-    startsAt: startsAt && startOfDay(startsAt),
+    startsAt: startOfDay(startsAt),
     endsAt: endsAt && addDaysFn(startOfDay(endsAt), 1),
   };
 }
@@ -134,19 +134,19 @@ export function defaultEventEnd(allDay: boolean, startsAt: Date): Date {
  */
 export function toInputInstants(
   allDay: boolean,
-  startsAt: Date | null,
+  startsAt: Date,
   endsAt: Date | null,
-): { startsAt: Date | null; endsAt: Date | null } {
+): { startsAt: Date; endsAt: Date | null } {
   return { startsAt, endsAt: allDay && endsAt ? new Date(endsAt.getTime() - 1) : endsAt };
 }
 
-/** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。未設定は null */
-type IsoInstants = { startsAt: string | null; endsAt: string | null };
+/** ISO 文字列で持つ日時の組（クライアントの入力・楽観的更新）。終了の無いもの（タスク）は null */
+type IsoInstants = { startsAt: string; endsAt: string | null };
 
 /** `normalizeInstants` の ISO 文字列版。クライアントは日時を ISO 文字列で持つので、Date との往復をここで済ませる */
 export function normalizeIsoInstants(
   allDay: boolean,
-  startsAt: string | null,
+  startsAt: string,
   endsAt: string | null,
 ): IsoInstants {
   return onIso(normalizeInstants, allDay, startsAt, endsAt);
@@ -155,7 +155,7 @@ export function normalizeIsoInstants(
 /** `toInputInstants` の ISO 文字列版 */
 export function toInputIsoInstants(
   allDay: boolean,
-  startsAt: string | null,
+  startsAt: string,
   endsAt: string | null,
 ): IsoInstants {
   return onIso(toInputInstants, allDay, startsAt, endsAt);
@@ -164,81 +164,66 @@ export function toInputIsoInstants(
 function onIso(
   convert: typeof normalizeInstants,
   allDay: boolean,
-  startsAt: string | null,
+  startsAt: string,
   endsAt: string | null,
 ): IsoInstants {
-  const toDate = (iso: string | null) => (iso === null ? null : new Date(iso));
-  const result = convert(allDay, toDate(startsAt), toDate(endsAt));
+  const result = convert(allDay, new Date(startsAt), endsAt === null ? null : new Date(endsAt));
   return {
-    startsAt: result.startsAt?.toISOString() ?? null,
+    startsAt: result.startsAt.toISOString(),
     endsAt: result.endsAt?.toISOString() ?? null,
   };
 }
 
 /**
  * タスクを示す日時。`date` はその日時の JST の暦日、`at` は時刻。
- * 終日のタスクの開始・期限は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
+ * 終日のタスクの開始は日付だけで時刻を持たない（保存上の 0:00 は時刻ではない）ので `at` は null。
  */
-export type TaskTime = { kind: 'done' | 'due' | 'start'; date: DateString; at: string | null };
+export type TaskTime = { kind: 'done' | 'start'; date: DateString; at: string | null };
 
 /** タスクの日時の呼び名。行の見出し・詳細・入力欄・クイック入力の見出しで同じ言葉を使う */
 export const TASK_TIME_LABELS: Record<TaskTime['kind'], string> = {
   done: '完了',
   start: '開始',
-  due: '期限',
 };
 
 /**
- * タスクを示す日時（基準日時）: 完了 → 開始 → 期限の優先。どれも無ければ null。
+ * タスクを示す日時（基準日時）: 完了していれば完了、していなければ開始。
  * 一覧の行・タイムラインのブロック・同日内の並び順が同じ日時を指すよう、規則はここ 1 か所に置く。
- *
  * 完了を先に置くのは、完了したタスクを完了した日に置く `placeTask` と揃えるため。
- * 開始・期限が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
- * 開始を期限より先に置くのは、未完了のタスクを開始の日に置く `placeTask`、繰り返しの基準日時
- * （`server/features/events/occurrences.ts` の `baseOf`）と揃えるため。予定のブロックも開始の時刻に置くので、
- * タイムラインでは取りかかる時刻に並ぶ。長押しで動かしたタスクは落とした所が開始になる（カレンダーの `task-draft.ts`）ので、
- * 動かした所にそのまま現れる。
- * 終日の期限は排他的な終端（期限日の翌日 0:00）で持つので、日付は含む期限日にする（`allDayDate`）。
+ * 開始が別の日でも、置かれた日の中では完了した時刻に並び、その時刻で示される。
  */
-export function taskTime(task: TaskTimeSource): TaskTime | null {
-  const anchor = taskAnchor(task);
-  if (!anchor) return null;
-  const { kind, iso, allDay } = anchor;
+export function taskTime(task: TaskTimeSource): TaskTime {
+  const { kind, iso, allDay } = taskAnchor(task);
   return allDay
-    ? { kind, date: allDayDate(iso, kind === 'due' ? 'end' : 'start'), at: null }
+    ? { kind, date: allDayDate(iso, 'start'), at: null }
     : { kind, date: toDateString(new Date(iso)), at: iso };
 }
 
-type TaskTimeSource = {
-  allDay: boolean;
-  startsAt: string | null;
-  endsAt: string | null;
-  completedAt: string | null;
-};
+type TaskTimeSource = { allDay: boolean; startsAt: string; completedAt: string | null };
 
 /**
  * `taskTime` がどの日時を指すか（暦日に直す前）。並び順は時刻の文字列だけで決まるので、
  * 1 回の比較ごとにタイムゾーンの計算をしなくて済むよう、ここを直接使う。完了の時刻は終日でも時刻。
  */
-function taskAnchor(
-  task: TaskTimeSource,
-): { kind: TaskTime['kind']; iso: string; allDay: boolean } | null {
+function taskAnchor(task: TaskTimeSource): {
+  kind: TaskTime['kind'];
+  iso: string;
+  allDay: boolean;
+} {
   if (task.completedAt) return { kind: 'done', iso: task.completedAt, allDay: false };
-  if (task.startsAt) return { kind: 'start', iso: task.startsAt, allDay: task.allDay };
-  if (task.endsAt) return { kind: 'due', iso: task.endsAt, allDay: task.allDay };
-  return null;
+  return { kind: 'start', iso: task.startsAt, allDay: task.allDay };
 }
 
 /**
- * 置かれた日（`placementDate`）にあるタスクの日時。無い、または別の日を指すときは null。
- * 別の日の日時（繰り越し・期限が別日）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
+ * 置かれた日（`placementDate`）にあるタスクの日時。別の日を指すときは null。
+ * 別の日の日時（今日へ繰り越した開始）はその日の時間軸に置けず、行でも日付を添えなければ示せないので、
  * 出す側がその区別をここ 1 か所から受け取る。
  */
 export function taskTimeOnPlacementDate(
   task: Extract<CalendarItem, { kind: 'task' }>,
 ): TaskTime | null {
   const time = taskTime(task);
-  return time?.date === task.placementDate ? time : null;
+  return time.date === task.placementDate ? time : null;
 }
 
 /** 項目を置く日（placementDate）ごとにまとめる（順序はサーバーの並びを保つ） */
@@ -275,7 +260,6 @@ export function placeOccurrence(
  */
 export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem | null {
   if (occurrence.kind === 'task') return placeTask(occurrence, now);
-  if (!occurrence.startsAt) return null;
   const first = toDateString(new Date(occurrence.startsAt));
   const todayDate = today(now);
   // 始まる日から今日までの項目の最後の日。期間の外の日は placeEvent が除くので、終わる日で止まる
@@ -283,31 +267,24 @@ export function placeOnce(occurrence: Occurrence, now: Date): CalendarItem | nul
   return placeEvent(occurrence, { from: first, to }).at(-1) ?? null;
 }
 
-/** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 → 時刻の無いタスク */
+/** 一覧の並び: placementDate 順、同日内は 終日の項目 → 時刻のある項目 */
 export function sortItems(items: CalendarItem[]): CalendarItem[] {
   return [...items].sort(compareItems);
 }
 
 /**
  * タスクの表示位置（docs/features/events.md）:
- * - 未完了で開始日時が未来 → 開始日時の日。未完了で開始が過去／今日／未設定 → 今日（完了まで繰り越し）
+ * - 未完了で開始が未来の日 → 開始の日。未完了で開始が過去／今日 → 今日（完了まで繰り越し）
  * - 完了 → 完了した日
  */
 function placeTask(occurrence: Occurrence, now: Date): Extract<CalendarItem, { kind: 'task' }> {
   const todayDate = today(now);
-  const startsAt = occurrence.startsAt ? new Date(occurrence.startsAt) : null;
-  const endsAt = occurrence.endsAt ? new Date(occurrence.endsAt) : null;
-  const completedAt = occurrence.completedAt ? new Date(occurrence.completedAt) : null;
+  const { completedAt } = occurrence;
+  const startDate = toDateString(new Date(occurrence.startsAt));
   let placementDate: DateString;
-  if (completedAt) placementDate = toDateString(completedAt);
-  else if (startsAt && toDateString(startsAt) > todayDate) placementDate = toDateString(startsAt);
-  else placementDate = todayDate;
-  return {
-    ...occurrence,
-    kind: 'task',
-    placementDate,
-    isOverdue: !completedAt && endsAt !== null && endsAt.getTime() < now.getTime(),
-  };
+  if (completedAt) placementDate = toDateString(new Date(completedAt));
+  else placementDate = startDate > todayDate ? startDate : todayDate;
+  return { ...occurrence, kind: 'task', placementDate };
 }
 
 /** 予定の発生を日ごとの項目にする（範囲外の日は除く） */
@@ -315,7 +292,7 @@ function placeEvent(
   occurrence: Occurrence,
   range: DateRange,
 ): Extract<CalendarItem, { kind: 'event' }>[] {
-  if (!occurrence.startsAt || !occurrence.endsAt) return [];
+  if (!occurrence.endsAt) return [];
   const startsAt = new Date(occurrence.startsAt);
   const endsAt = new Date(occurrence.endsAt);
   const firstDay = toDateString(startsAt);
@@ -342,17 +319,15 @@ function placeEvent(
 
 /**
  * 同日内の並び順のキー: 終日の予定 → 終日のタスク（日付だけを持つタスク）→ 時刻のある項目（予定の開始、
- * タスクは `taskTime`）→ 日時の無いタスク。
+ * タスクは `taskTime`）。
  * 終日の中で予定を先に置くのは、終日の予定はその日そのものの性質（旅行・休みなど）を表し、
  * その日のやることより先に目に入るべきだから。
- * 時刻のある項目は ISO 日時そのもの、その前後は ISO 日時より必ず小さい／大きい番兵で表す
- * （'' < '!' < ISO 日時（数字で始まる）< '~'）。
+ * 時刻のある項目は ISO 日時そのもの、終日は ISO 日時より必ず小さい番兵で表す（'' < '!' < ISO 日時（数字で始まる））。
  * `taskTime` を通すので、行やブロックが示す時刻と並びの基準は必ず同じものになる。
  */
 function sortKey(item: CalendarItem): string {
   if (item.kind === 'event') return item.allDay ? '' : item.startsAt;
   const anchor = taskAnchor(item);
-  if (!anchor) return '~';
   return anchor.allDay ? '!' : anchor.iso;
 }
 

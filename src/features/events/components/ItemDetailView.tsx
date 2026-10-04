@@ -19,24 +19,16 @@ export function ItemDetailView({ item }: { item: CalendarItem }) {
   );
 }
 
-/** 日時。予定は期間を 1 行で、タスクは開始・期限・完了をそれぞれの行で出す */
+/** 日時。予定は期間を 1 行で、タスクは開始と完了をそれぞれの行で出す */
 function ItemWhen({ item }: { item: CalendarItem }) {
   if (item.kind === 'event') {
     return <Typography>{formatEventRange(item.startsAt, item.endsAt, item.allDay)}</Typography>;
   }
   return (
     <>
-      {item.startsAt && (
-        <Typography>
-          {TASK_TIME_LABELS.start}: {formatEdge(item.startsAt, 'start', item.allDay)}
-        </Typography>
-      )}
-      {item.endsAt && (
-        <Typography color={item.isOverdue ? 'error' : 'textPrimary'}>
-          {TASK_TIME_LABELS.due}: {formatEdge(item.endsAt, 'end', item.allDay)}
-          {item.isOverdue && '（超過）'}
-        </Typography>
-      )}
+      <Typography>
+        {TASK_TIME_LABELS.start}: {formatEdge(item.startsAt, 'start', item.allDay)}
+      </Typography>
       {item.completedAt && (
         <Typography color="textSecondary">
           {TASK_TIME_LABELS.done}: {formatDateTime(item.completedAt)}

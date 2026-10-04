@@ -42,7 +42,7 @@ export function useItemForm({
     onSubmit: (data) =>
       onSubmit({
         ...data,
-        startsAt: data.startsAt?.toISOString() ?? null,
+        startsAt: data.startsAt.toISOString(),
         endsAt: data.endsAt?.toISOString() ?? null,
       }),
     onSaved,
@@ -75,7 +75,7 @@ export function useItemForm({
  * 予定・タスクの種類の切り替え（入力の上端の `KindToggle`）。切り替えた種類と、その既定値を持つ。
  * 既定値は切り替えたときの入力の開始から作り直す（引き継ぐ日時は開始だけ。`switchKindValues`）。
  * タイトル・参加者・場所・メモ・繰り返し・開始前の通知の入力欄は種類で変わらないので、入力した値は
- * 入力欄（DOM）にそのまま残る。作り直すのは種類で変わる日時の入力欄と期限前の通知だけ。
+ * 入力欄（DOM）にそのまま残る。作り直すのは種類で変わる日時の入力欄だけ。
  * 繰り返しの 1 回だけ（this）は種類を変えられない（回の種類は繰り返し元のもの）ので、呼び出し側が切り替えを出さない。
  */
 export function useKindSwitch(kind: EventKind, initial: ItemFormValues) {

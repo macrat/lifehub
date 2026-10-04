@@ -20,16 +20,16 @@ import { FormFieldError, formList, formSelect, formText } from '../../lib/form.t
 
 /**
  * 予定・タスクのフォームが扱う値（日時は ISO 文字列）。保存されている行（`EventMaster`）の入力できる項目なので、
- * カレンダーの項目や保存されている行をそのまま渡せる。endsAt は予定では終了（排他的）、タスクでは期限。
+ * カレンダーの項目や保存されている行をそのまま渡せる。endsAt は予定の終了（排他的）で、タスクでは null。
  * participantIds は 1 人以上（空は検証で弾かれる。新規作成の既定は `defaultParticipants`）。
  */
 export type ItemFormValues = Omit<EventMaster, 'id' | 'kind' | 'completedAt'>;
 
-const EMPTY: ItemFormValues = {
+/** 日時を除いた項目。日時は必ず呼び出し側が決めて重ねる */
+type ItemDetails = Omit<ItemFormValues, 'allDay' | 'startsAt' | 'endsAt'>;
+
+const EMPTY: ItemDetails = {
   title: '',
-  allDay: false,
-  startsAt: null,
-  endsAt: null,
   participantIds: [],
   location: null,
   note: null,
@@ -57,6 +57,7 @@ export function eventValuesForRange(
   return {
     ...EMPTY,
     participantIds,
+    allDay: false,
     startsAt: fromMinutesOfDay(date, startMin),
     endsAt: fromMinutesOfDay(date, endMin),
   };
@@ -81,27 +82,28 @@ export function allDayEventValues(
 }
 
 /**
- * 予定・タスクの種類を切り替えた入力の既定値。引き継ぐ日時は開始（と終日か）だけで、終了・期限は引き継がない。
- * WHY: 予定の終了は時間の枠の終わり、タスクの期限はやり終える締め切りで、同じ時刻でも意味が違う。
- * 1 時間の予定をタスクにして期限が 1 時間後に付くと、急ぎのタスクに化ける。
- * - タスクへ: 期限は空。開始が無い予定は無いので、開始はそのまま
- * - 予定へ: 終わりは終日ならその日 1 日、時刻があれば開始から 1 時間。開始の無いタスクは今日の終日にする
- *   （予定には日時が要る。今日の位置に出ていたタスクなので、同じ所に出るように）
- * 終了（期限）前の通知は、終わりを引き継がないので消す。開始前の通知・参加者・場所・メモ・繰り返しは
+ * 予定・タスクの種類を切り替えた入力の既定値。引き継ぐ日時は開始（と終日か）だけ。
+ * - タスクへ: 終了は消す（タスクは開始だけを持つ）
+ * - 予定へ: 終わりは終日ならその日 1 日、時刻があれば開始から 1 時間
+ * 終了前の通知も、終わりを引き継がないので消す。開始前の通知・参加者・場所・メモ・繰り返しは
  * そのまま（通知の選び方は予定もタスクも同じ。`ExtraFields`）。
- * start は今の入力（入力欄で直した開始）。
+ * start は今の入力（入力欄で直した開始）。開始が空なら（書きかけ）今日にする（どちらの種類も開始が要る）。
  */
 export function switchKindValues(
   values: ItemFormValues,
-  start: { allDay: boolean; startsAt: string | null },
+  input: { allDay: boolean; startsAt: string | null },
   to: EventKind,
   now: Date = new Date(),
 ): ItemFormValues {
   const carried = { ...values, remindEndMinutes: null };
+  const start =
+    input.startsAt === null
+      ? { allDay: true, startsAt: fromDateValue(today(now)) }
+      : { allDay: input.allDay, startsAt: input.startsAt };
   if (to === 'task')
     return { ...carried, allDay: start.allDay, startsAt: start.startsAt, endsAt: null };
-  if (start.startsAt === null || start.allDay) {
-    const date = start.startsAt === null ? today(now) : toDateString(new Date(start.startsAt));
+  if (start.allDay) {
+    const date = toDateString(new Date(start.startsAt));
     // 日時だけを差し替える（allDayEventValues は空の予定から作るので、丸ごと重ねると場所・メモ・通知などが消える）
     const { allDay, startsAt, endsAt } = allDayEventValues(date, date, values.participantIds);
     return { ...carried, allDay, startsAt, endsAt };
@@ -116,13 +118,13 @@ export function switchKindValues(
 
 /**
  * 直している項目から持ち越す、日時以外の既定値（グリッドの下書きで種類を切り替えたとき）。
- * 項目がその種類のままなら全部、種類が違えば終了（期限）前の通知を消す（`switchKindValues` と同じ理由）。
+ * 項目がその種類のままなら全部、種類が違えば終了前の通知を消す（`switchKindValues` と同じ理由）。
  * 追加の下書き（項目なし）なら空の値。日時と参加者は呼び出し側が重ねる。
  */
 export function carriedValues(
   item: (ItemFormValues & { kind: EventKind }) | null,
   kind: EventKind,
-): ItemFormValues {
+): ItemDetails {
   if (item === null) return EMPTY;
   return item.kind === kind ? item : { ...item, remindEndMinutes: null };
 }
@@ -131,10 +133,9 @@ export function carriedValues(
  * 予定・タスクのフォームの入力 → 検証前の値（`createEventSchema` に渡す形）。
  * 全項目のフォーム・詳細からの編集・カレンダーのクイック入力（同じ項目を段で出し分ける）で同じ組み立てを使う。
  * 日時の入力欄が無いとき（PC のクイック入力の吹き出し）は、既定値の日時をそのまま使う（`savedInstants`）。
- * 空欄（未設定）と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。空欄は、タスクなら未設定、
- * 予定なら日時が必須なので検証で止まる（開始・終了を入力させる）。
- * 予定とタスクで違うのは通知の欄だけ: タスクは開始前と期限前、予定は開始前だけを出す
- * （予定の終了前の通知は MCP から入れたもので、フォームに出さないので既定値のまま送る）。
+ * 空欄と入力欄が無いのとは違うので、値ではなく欄があるかで見分ける。開始（予定なら終了も）は必須なので、
+ * 空欄は検証で止まる。タスクは終了の欄を持たず、終了と終了前の通知を送らない。
+ * 予定の終了前の通知は MCP から入れたもので、フォームに出さないので既定値のまま送る。
  */
 export function itemInputFromForm(
   kind: EventKind,
@@ -152,7 +153,10 @@ export function itemInputFromForm(
       : {
           allDay,
           startsAt: toInstant('startsAt', startsRaw, allDay),
-          endsAt: toInstant('endsAt', whenRaw(formData, 'endsAt') ?? null, allDay),
+          endsAt:
+            kind === 'event'
+              ? toInstant('endsAt', whenRaw(formData, 'endsAt') ?? null, allDay)
+              : null,
         };
   const extras = hasExtraFields(formData);
   return {
@@ -160,10 +164,10 @@ export function itemInputFromForm(
     ...when,
     ...commonInput(formData, initial, { extras, thisOnly }),
     remindStartMinutes: remindInput(formData, 'remindStartMinutes', initial, { extras, allDay }),
-    remindEndMinutes: remindInput(formData, 'remindEndMinutes', initial, {
-      extras: extras && kind === 'task',
-      allDay,
-    }),
+    remindEndMinutes:
+      kind === 'event'
+        ? remindInput(formData, 'remindEndMinutes', initial, { extras: false, allDay })
+        : null,
   };
 }
 
@@ -224,7 +228,7 @@ function savedInstants({ allDay, startsAt, endsAt }: ItemFormValues) {
 
 /**
  * 日時の入力欄の名前。日付（`type="date"`）と時刻（`type="time"`）の 2 つに分け、終日では時刻の欄を出さない。
- * name は保存の項目（開始 startsAt・終了（期限）endsAt）。
+ * name は保存の項目（開始 startsAt・終了 endsAt）。
  * WHY 分ける: 1 つの `datetime-local` だと、日だけ・時刻だけを直すときにも両方の入ったピッカーを開くことになる。
  */
 export function whenFieldNames(name: 'startsAt' | 'endsAt') {

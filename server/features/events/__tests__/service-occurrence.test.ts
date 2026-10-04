@@ -18,7 +18,7 @@ const weeklyTask = () =>
   createEventSchema.parse({
     kind: 'task',
     title: 'ゴミ出し',
-    endsAt: iso('2026-09-07T09:00:00'),
+    startsAt: iso('2026-09-07T09:00:00'),
     participantIds: [userId],
     rrule: 'FREQ=WEEKLY',
   });
@@ -48,8 +48,7 @@ describe('繰り返しの回の実体化', () => {
     const master = await createEvent(weeklyTask(), userId);
     const input = updateEventSchema.parse({
       ...weeklyTask(),
-      startsAt: null,
-      endsAt: secondOccurrence.toISOString(),
+      startsAt: secondOccurrence.toISOString(),
       title: '変更',
       // 存在しないユーザー: 参加者の挿入が外部キーで落ちる
       participantIds: [newId()],
@@ -67,7 +66,7 @@ describe('繰り返しの回の実体化', () => {
       id: newId(),
       kind: 'task',
       title: 'ゴミ出し',
-      endsAt: secondOccurrence,
+      startsAt: secondOccurrence,
       seriesId: master.id,
       occurrenceStart: secondOccurrence,
       createdBy: userId,
@@ -82,7 +81,7 @@ describe('繰り返しの回の実体化', () => {
       master.id,
       updateEventSchema.parse({
         ...weeklyTask(),
-        endsAt: secondOccurrence.toISOString(),
+        startsAt: secondOccurrence.toISOString(),
         participantIds: [partnerId],
         scope: 'this',
         occurrenceStart: secondOccurrence.toISOString(),
