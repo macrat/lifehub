@@ -101,7 +101,8 @@ server/                       # サーバー（Hono）
     routes.ts                 # 画面の API の tRPC router（`.input` の Zod 検証 → service）。外と約束した口を持つ feature は Hono のルートも置く
     mcp.ts                    # MCP ツール定義
     <関心ごと>.ts             # service が大きくなる feature だけ、関心ごとに分けた業務ロジック:
-                              #   events/occurrences.ts（繰り返しの回の展開）・events/timeline.ts（タイムラインの口）・
+                              #   events/occurrences.ts（繰り返しの回の展開）・events/targets.ts（書き込む回の指し方と実体化）・
+                              #   events/patch.ts（MCP の部分更新の補い方）・events/timeline.ts（タイムラインの口）・
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
                               #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
