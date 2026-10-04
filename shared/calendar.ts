@@ -1,4 +1,3 @@
-import { addDays as addDaysFn } from 'date-fns';
 import {
   addDays,
   allDayDate,
@@ -114,7 +113,7 @@ export function normalizeInstants(
   if (!allDay) return { startsAt, endsAt };
   return {
     startsAt: startOfDay(startsAt),
-    endsAt: endsAt && addDaysFn(startOfDay(endsAt), 1),
+    endsAt: endsAt && startOfDate(addDays(toDateString(endsAt), 1)),
   };
 }
 
