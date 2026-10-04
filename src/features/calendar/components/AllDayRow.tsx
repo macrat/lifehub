@@ -5,7 +5,7 @@ import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import type { GridDraft } from '../draft.ts';
-import { type Draft, draftColumns, draftKind, sameOccurrence } from '../draft.ts';
+import { type Draft, draftKind, draftOn, isAllDayDraft, sameOccurrence } from '../draft.ts';
 import { layoutLanes } from '../lane-layout.ts';
 import { useDayDrag } from '../use-day-drag.ts';
 import { DraftBar } from './DraftBlock.tsx';
@@ -45,17 +45,15 @@ export function AllDayRow({
   // 配置は日付と項目だけで決まる。つまんで高さが変わるたびに数え直さない
   const lanes = useMemo(() => layoutLanes(days, allDayByDate), [days, allDayByDate]);
   const laneCount = Math.max(1, ...lanes.map((p) => p.lane + 1));
-  // 終日の下書きは既存の帯とぶつからないよう、1 行足してその行に置く
-  const draftCols = barDraft && draftColumns(barDraft.range, days);
-  // 枠を出せている間だけ、直している予定の元の帯を隠す（枠を置く列と同じ値で決める）
-  const editing = draftCols ? barDraft.item : null;
+  // 終日の下書きは既存の帯とぶつからないよう、1 行足してその行に置く。出している間は元の帯を隠す
+  const shown = draftOn(draft, days, isAllDayDraft);
 
   return (
     <Box
       sx={{
         display: 'grid',
         gridTemplateColumns: columns,
-        gridTemplateRows: `0px repeat(${laneCount + (draftCols ? 1 : 0)}, ${LANE_HEIGHT}px)`,
+        gridTemplateRows: `0px repeat(${laneCount + (shown ? 1 : 0)}, ${LANE_HEIGHT}px)`,
         borderBottom: 1,
         borderColor: 'divider',
         pb: '2px',
@@ -92,15 +90,15 @@ export function AllDayRow({
           showTime={false}
           onClick={() => onSelectItem(p.item)}
           grab={dayDrag.grabItemProps(p.item)}
-          hidden={sameOccurrence(editing, p.item)}
+          hidden={sameOccurrence(shown?.draft.item, p.item)}
         />
       ))}
-      {draftCols && (
+      {shown && (
         <DraftBar
-          columns={{ ...draftCols, col: draftCols.col + 1 }}
+          columns={{ ...shown.columns, col: shown.columns.col + 1 }}
           lane={laneCount}
-          kind={draftKind(barDraft)}
-          participantIds={barDraft.participantIds}
+          kind={draftKind(shown.draft)}
+          participantIds={shown.draft.participantIds}
         />
       )}
     </Box>

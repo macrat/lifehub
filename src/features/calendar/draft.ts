@@ -94,6 +94,12 @@ export type TimedDraft = DraftRange & { allDay: false };
 /** 終日の下書き（月表示・終日欄に出す帯） */
 export type AllDayDraft = DraftRange & { allDay: true };
 
+/** 時間指定の下書きか（時間軸が出す枠。`draftOn` の accepts） */
+export const isTimedDraft = (range: DraftRange): range is TimedDraft => !range.allDay;
+
+/** 終日の下書きか（終日欄が出す帯。`draftOn` の accepts） */
+export const isAllDayDraft = (range: DraftRange): range is AllDayDraft => range.allDay;
+
 /** つまんだ枠が直している予定（追加の下書きなら null）。ドラッグの間も持ち回る */
 export type Grabbed = { item: CalendarItem | null };
 
@@ -187,14 +193,41 @@ export function sameOccurrence(
 }
 
 /**
- * 並べている日（days）に枠を出しているときの、枠が直している項目（元の帯・ブロックはこれを隠す）。
- * 月表示は週の行ごとに枠を置くので、見えている 6 週のどこかに出ているかをこれで見る
- * （終日欄・時間軸は枠を置く列をそのまま使う）。
- * 枠が出ない間（別の週・月へ動かした、終日を切り替えた）は、保存するまで元の場所に見えているほうが
- * 分かりやすいので隠さない（隠すと、どこにも出ていない予定になる）。
+ * 面（月の 1 週、終日欄、時間軸）に出している下書きの枠。draft は出している下書き、range はその範囲を
+ * 面が出す形に絞ったもの、columns は並べている日のうち占める列（`draftColumns`）。
  */
-export function editingItemOn(draft: Draft | null, days: DateString[]): CalendarItem | null {
-  return draft && draftColumns(draft.range, days) ? draft.item : null;
+export type ShownDraft<D extends Draft, R extends DraftRange> = {
+  draft: D;
+  range: R;
+  columns: DraftColumns;
+};
+
+/**
+ * 並べている日（days）に、この面が下書きの枠を出すか。出すなら枠と列、出さないなら null。
+ * 面ごとに出す範囲の形が違う（時間軸は時間指定、終日欄は終日、月表示はどちらも帯）ので accepts で選び、
+ * 省けばどちらも出す。
+ * 枠が直している項目（`draft.item`）は、枠を出している間だけ元の帯・ブロックを隠す。枠が出ない間
+ * （別の週・月へ動かした、終日を切り替えた）は、保存するまで元の場所に見えているほうが分かりやすい
+ * （隠すと、どこにも出ていない予定になる）。枠を置くかと隠すかをこの 1 回の計算で決めるので、食い違わない。
+ * 月表示は週の行ごとに枠を置くので、隠すかは見えている 6 週ぶんの日で、枠を置く列は週ごとに求める。
+ */
+export function draftOn<D extends Draft>(
+  draft: D | null,
+  days: DateString[],
+): ShownDraft<D, DraftRange> | null;
+export function draftOn<D extends Draft, R extends DraftRange>(
+  draft: D | null,
+  days: DateString[],
+  accepts: (range: DraftRange) => range is R,
+): ShownDraft<D, R> | null;
+export function draftOn<D extends Draft>(
+  draft: D | null,
+  days: DateString[],
+  accepts: (range: DraftRange) => boolean = () => true,
+): ShownDraft<D, DraftRange> | null {
+  if (!draft || !accepts(draft.range)) return null;
+  const columns = draftColumns(draft.range, days);
+  return columns && { draft, range: draft.range, columns };
 }
 
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分） */
@@ -243,13 +276,13 @@ export function draftDays(draft: DraftRange): DateRange {
 }
 
 /**
- * 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列。掛からなければ null。
- * roundStart・roundEnd は本当の端がこの並びに入っているか（週をまたぐ帯は続きとして描く）。
+ * 並んだ日のうち下書きが占める列。roundStart・roundEnd は本当の端がこの並びに入っているか
+ * （週をまたぐ帯は続きとして描く）。
  */
-export function draftColumns(
-  draft: DraftRange,
-  days: DateString[],
-): ({ col: number; span: number } & ItemEnds) | null {
+export type DraftColumns = { col: number; span: number } & ItemEnds;
+
+/** 並んだ日（月の 1 週、タイムラインの日）のうち下書きが占める列（`DraftColumns`）。掛からなければ null */
+export function draftColumns(draft: DraftRange, days: DateString[]): DraftColumns | null {
   const { from, to } = draftDays(draft);
   const first = days.findIndex((d) => d >= from);
   const last = days.findLastIndex((d) => d <= to);

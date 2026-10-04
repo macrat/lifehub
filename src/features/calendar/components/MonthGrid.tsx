@@ -13,14 +13,7 @@ import {
 } from '../../../lib/date.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import type { GridDraft } from '../draft.ts';
-import {
-  type Draft,
-  draftColumns,
-  draftDays,
-  draftKind,
-  editingItemOn,
-  sameOccurrence,
-} from '../draft.ts';
+import { type Draft, draftDays, draftKind, draftOn, sameOccurrence } from '../draft.ts';
 import { completedLast, foldLanes, freeLane, layoutLanes } from '../lane-layout.ts';
 import { useCalendarDays } from '../queries.ts';
 import { useDayDrag } from '../use-day-drag.ts';
@@ -96,7 +89,8 @@ export function MonthGrid({
       return { days: week, placed: layoutLanes(week, ordered) };
     });
   }, [days, itemsByDate]);
-  const editing = editingItemOn(draft, days);
+  // 見えている 6 週のどこかに枠を出しているときだけ、直している項目の元の帯を隠す
+  const editing = draftOn(draft, days)?.draft.item ?? null;
 
   // レーン数の実測と、置いた枠を見える所まで送るスクロール
   const { firstWeekRef, scrollRef, maxLanes } = useMonthGrid({
@@ -172,7 +166,7 @@ type WeekRowProps = {
   onSelectDate: (date: DateString) => void;
   onSelectItem: (item: CalendarItem) => void;
   draft: GridDraft | null;
-  /** 枠が直している項目（`editingItemOn`）。元の帯は隠す */
+  /** 枠が直している項目（`draftOn`）。元の帯は隠す */
   editing: CalendarItem | null;
   drag: ReturnType<typeof useDayDrag>;
   holidays: ReadonlySet<DateString>;
@@ -198,7 +192,7 @@ function WeekRow({
   laneHeight,
   compact,
 }: WeekRowProps) {
-  const draftCols = draft && draftColumns(draft.range, days);
+  const shown = draftOn(draft, days);
   const { visible, foldedLane, foldedPerCol } = foldLanes(placed, maxLanes, days.length);
 
   return (
@@ -261,12 +255,12 @@ function WeekRow({
           hidden={sameOccurrence(editing, p.item)}
         />
       ))}
-      {draft && draftCols && (
+      {shown && (
         <DraftBar
-          columns={draftCols}
-          lane={freeLane(placed, draftCols.col, draftCols.span, maxLanes)}
-          kind={draftKind(draft)}
-          participantIds={draft.participantIds}
+          columns={shown.columns}
+          lane={freeLane(placed, shown.columns.col, shown.columns.span, maxLanes)}
+          kind={draftKind(shown.draft)}
+          participantIds={shown.draft.participantIds}
         />
       )}
       {foldedPerCol.map((n, col) =>

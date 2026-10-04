@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { jst } from '../../../../shared/__tests__/jst.ts';
-import { editingItemOn, itemDraft, nextHourDraft, sameOccurrence, withAllDay } from '../draft.ts';
+import {
+  draftOn,
+  isAllDayDraft,
+  isTimedDraft,
+  itemDraft,
+  nextHourDraft,
+  sameOccurrence,
+  withAllDay,
+} from '../draft.ts';
 import { draftText, eventDraftOps } from '../event-draft.ts';
 import { allDay, at, DAY, day, event, select, task, timed } from './draft-fixtures.ts';
 
@@ -185,14 +193,26 @@ describe('sameOccurrence', () => {
   });
 });
 
-describe('editingItemOn', () => {
+describe('draftOn', () => {
   const week = ['2031-06-02', '2031-06-03', '2031-06-04', '2031-06-05'].map(day);
+  const draft = { range: allDay(DAY, DAY), item: event };
 
-  it('並べている日に枠を出しているときだけ、枠が直している項目を返す', () => {
-    const draft = { range: allDay(DAY, DAY), item: event };
-    expect(editingItemOn(draft, week)).toBe(event);
-    // 別の週へ動かした枠は出ないので、元の帯は隠さない
-    expect(editingItemOn({ ...draft, range: allDay('2031-06-12', '2031-06-12') }, week)).toBe(null);
-    expect(editingItemOn(null, week)).toBe(null);
+  it('並べている日に掛かるときだけ、枠と占める列を返す', () => {
+    expect(draftOn(draft, week)).toEqual({
+      draft,
+      range: draft.range,
+      columns: { col: 3, span: 1, roundStart: true, roundEnd: true },
+    });
+    // 別の週へ動かした枠は出さないので、元の帯は隠さない
+    expect(draftOn({ ...draft, range: allDay('2031-06-12', '2031-06-12') }, week)).toBeNull();
+    expect(draftOn(null, week)).toBeNull();
+  });
+
+  it('面が出さない形の範囲なら出さない（時間軸は終日を、終日欄は時間指定を出さない）', () => {
+    expect(draftOn(draft, week, isTimedDraft)).toBeNull();
+    expect(draftOn(draft, week, isAllDayDraft)?.columns.col).toBe(3);
+    const timedDraft = { range: timed, item: null };
+    expect(draftOn(timedDraft, week, isAllDayDraft)).toBeNull();
+    expect(draftOn(timedDraft, week, isTimedDraft)?.range).toBe(timed);
   });
 });
