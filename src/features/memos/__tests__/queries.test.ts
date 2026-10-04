@@ -1,17 +1,14 @@
-import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
-import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { onlineManager } from '@tanstack/react-query';
+import { act } from 'react';
 import { afterEach, expect, test } from 'vitest';
 import type { Memo } from '../../../../shared/memos.ts';
 import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { memoEntry } from '../../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../../shared/types.ts';
+import { renderHook } from '../../../lib/__tests__/render-hook.ts';
 import { queryClient } from '../../../lib/query-client.ts';
 import { timelineHistory } from '../../timeline/queries.ts';
 import { pinnedMemosQueryOptions, useAddMemo, usePinMemo } from '../queries.ts';
-
-// React の act を使う（テスト用の描画ライブラリは入れていない）
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 afterEach(() => {
   onlineManager.setOnline(true);
@@ -29,21 +26,13 @@ test('ログイン中のユーザーがまだ手元に無くても、書いた�
     pages: [{ items: [], nextCursor: null }],
     pageParams: [undefined],
   });
-  let add!: ReturnType<typeof useAddMemo>;
-  function Probe() {
-    add = useAddMemo();
-    return null;
-  }
-  const root = createRoot(document.createElement('div'));
-  act(() =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe))),
-  );
-  await act(() => add.mutateAsync({ body: '買い物のメモ' }));
+  const { read, unmount } = renderHook(useAddMemo, { client: queryClient });
+  await act(() => read().mutateAsync({ body: '買い物のメモ' }));
 
   expect(timelineOf()).toMatchObject([
     { type: 'memo', memo: { body: '買い物のメモ', createdBy: null } },
   ]);
-  act(() => root.unmount());
+  unmount();
 });
 
 const memo = (id: string, createdAt: string, pinned = false): Memo => ({
@@ -64,24 +53,16 @@ test('ピン止めするとタイムラインから一番上の並び（書い�
     pageParams: [undefined],
   });
   queryClient.setQueryData(pinnedMemosQueryOptions.queryKey, [old]);
-  let pin!: ReturnType<typeof usePinMemo>;
-  function Probe() {
-    pin = usePinMemo();
-    return null;
-  }
-  const root = createRoot(document.createElement('div'));
-  act(() =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe))),
-  );
+  const { read, unmount } = renderHook(usePinMemo, { client: queryClient });
   const pinnedIds = () =>
     queryClient.getQueryData(pinnedMemosQueryOptions.queryKey)?.map((m) => m.id);
 
-  await act(() => pin.mutateAsync({ id: 'target', pinned: true }));
+  await act(() => read().mutateAsync({ id: 'target', pinned: true }));
   expect(pinnedIds()).toEqual(['target', 'old']);
   expect(timelineOf()).toEqual([]);
 
-  await act(() => pin.mutateAsync({ id: 'target', pinned: false }));
+  await act(() => read().mutateAsync({ id: 'target', pinned: false }));
   expect(pinnedIds()).toEqual(['old']);
   expect(timelineOf()).toEqual([memoEntry(target)]);
-  act(() => root.unmount());
+  unmount();
 });

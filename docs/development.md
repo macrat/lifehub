@@ -31,6 +31,7 @@
 | 用途 | 置き場所 |
 |---|---|
 | 日時を JST で書く略記（`jst` / `iso`） | `shared/__tests__/jst.ts` |
+| クライアントのテストでフックを描く手順（`renderHook`） | `src/lib/__tests__/render-hook.ts`（React の act の環境は `src/test-setup.ts` が 1 度だけ用意する） |
 | サーバーのテストのユーザー（自分 A と相手 B） | `server/lib/db/test-db.ts` の `createTestUser` |
 | ログインして Cookie を得る手順 | `server/__tests__/login.ts`（`signIn` / `cookieOf` / `loginAs`） |
 | E2E の test・expect、ワーカーのサーバーとログイン済みの状態 | `e2e/test.ts`（ワーカーごとに 1 度だけログインする。E2E はこの状態から始まる。lint で `@playwright/test` から直に読むのを止める） |

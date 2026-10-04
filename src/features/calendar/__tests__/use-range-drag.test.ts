@@ -1,12 +1,9 @@
-import { act, createElement, type PointerEvent } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act, type PointerEvent } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook } from '../../../lib/__tests__/render-hook.ts';
 import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../../lib/ui/use-record-press.ts';
 import type { Drag } from '../range-drag-session.ts';
 import { useRangeDrag } from '../use-range-drag.ts';
-
-// React の act を使う（テスト用の描画ライブラリは入れていない）
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /** グリッドの 1 点は x 座標そのもの、つまむ物は文字列、範囲は「押した所→今の所」の文字列で表す */
 type Options = Partial<Parameters<typeof useRangeDrag<number, string, string>>[0]>;
@@ -19,20 +16,16 @@ let unmount: () => void = () => {};
 /** フックを 1 度だけ描いて、返したハンドラを受け取る（ドラッグの状態は描画をまたぐ `RangeDragSession` が持つので描き直さなくてよい） */
 function setup(options: Options = {}) {
   const onChange = vi.fn();
-  let handlers!: ReturnType<typeof useRangeDrag<number, string, string>>;
-  function Probe() {
-    handlers = useRangeDrag<number, string, string>({
+  const rendered = renderHook(() =>
+    useRangeDrag<number, string, string>({
       locate: (event) => event.clientX,
       rangeOf,
       onChange,
       ...options,
-    });
-    return null;
-  }
-  const root = createRoot(document.createElement('div'));
-  act(() => root.render(createElement(Probe)));
-  unmount = () => act(() => root.unmount());
-  return { handlers, onChange };
+    }),
+  );
+  unmount = rendered.unmount;
+  return { handlers: rendered.read(), onChange };
 }
 
 const element = Object.assign(document.createElement('div'), { setPointerCapture: vi.fn() });
@@ -152,6 +145,7 @@ describe('useRangeDrag', () => {
     handlers.props.onPointerMove(pointer(40));
     handlers.props.onPointerMove(pointer(40));
     expect(vibrate.mock.calls).toEqual([[10]]);
+    Reflect.deleteProperty(navigator, 'vibrate');
   });
 
   it('別の指が触れたらそのドラッグは終わる', () => {

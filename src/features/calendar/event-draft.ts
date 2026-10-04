@@ -1,5 +1,6 @@
 import type { CalendarItem } from '../../../shared/calendar.ts';
-import { minutesOfDay, toDateString } from '../../../shared/date.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
+import { addDays, minutesOfDay, toDateString } from '../../../shared/date.ts';
 import { formatDate, formatMinutesOfDay } from '../../lib/date.ts';
 import {
   allDayEventValues,
@@ -72,6 +73,7 @@ export function eventDraftOps({ range, item }: Draft): DraftOps {
 /**
  * 保存する形の日時 → 下書き（グリッドの枠）。フォームで直した日時を枠に映し戻すのに使う。
  * 枠に出せない範囲（日をまたぐ時間指定、終わりが始まりより前）は null で、枠はそのままにする。
+ * 翌日 0:00 に終わる時間指定はその日の 24:00 として枠に出す（置く側の `timedSlot` と同じ）。
  */
 function draftFromInstants(allDay: boolean, startsAt: string, endsAt: string): DraftRange | null {
   const from = toDateString(new Date(startsAt));
@@ -80,8 +82,14 @@ function draftFromInstants(allDay: boolean, startsAt: string, endsAt: string): D
     const to = toDateString(new Date(endsAt));
     return to >= from ? { allDay: true, from, to } : null;
   }
-  if (toDateString(new Date(endsAt)) !== from) return null;
+  const endDate = toDateString(new Date(endsAt));
   const startMin = minutesOfDay(startsAt);
-  const endMin = minutesOfDay(endsAt);
+  const endMin =
+    endDate === from
+      ? minutesOfDay(endsAt)
+      : endDate === addDays(from, 1) && minutesOfDay(endsAt) === 0
+        ? DAY_MINUTES
+        : null;
+  if (endMin === null) return null;
   return endMin > startMin ? { allDay: false, date: from, startMin, endMin } : null;
 }

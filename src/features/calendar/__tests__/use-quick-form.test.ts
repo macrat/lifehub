@@ -1,36 +1,30 @@
-import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { renderHook } from '../../../lib/__tests__/render-hook.ts';
 import { type DraftChange, type GridDraft, itemDraft } from '../draft.ts';
 import { taskTimesOf } from '../task-draft.ts';
 import { useQuickForm } from '../use-quick-form.ts';
 import { allDay, DAY, event, task } from './draft-fixtures.ts';
-
-// React の act を使う（テスト用の描画ライブラリは入れていない）
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let unmount: () => void = () => {};
 afterEach(() => unmount());
 
 /** 下書きでフックを描き、描き直す関数・最新の戻り値・下書きへ戻した変更を受け取る */
 function setup(draft: GridDraft) {
-  let quick!: ReturnType<typeof useQuickForm>;
   const onChangeDraft = vi.fn<(change: DraftChange) => void>();
-  function Probe({ draft }: { draft: GridDraft }) {
-    quick = useQuickForm({
-      draft,
-      onSubmit: vi.fn(),
-      onChangeDraft,
-      onSwitchKind: vi.fn(),
-      onClose: vi.fn(),
-    });
-    return null;
-  }
-  const root = createRoot(document.createElement('div'));
-  const render = (next: GridDraft) => act(() => root.render(createElement(Probe, { draft: next })));
-  render(draft);
-  unmount = () => act(() => root.unmount());
-  return { read: () => quick, render, onChangeDraft };
+  const rendered = renderHook(
+    (current: GridDraft) =>
+      useQuickForm({
+        draft: current,
+        onSubmit: vi.fn(),
+        onChangeDraft,
+        onSwitchKind: vi.fn(),
+        onClose: vi.fn(),
+      }),
+    { props: draft },
+  );
+  unmount = rendered.unmount;
+  return { read: rendered.read, render: rendered.rerender, onChangeDraft };
 }
 
 const base = { participantIds: ['u1'], settled: true, origin: 'grid' as const };

@@ -11,3 +11,32 @@ export type TransitionEnds = { from: ParsedLocation | undefined; to: ParsedLocat
  * 古い値が残る。移動の前後の場所は router がどの経路でも 1 か所で知っている。
  */
 export const [useTransitionEnds, setTransitionEnds] = createStore<TransitionEnds | null>(null);
+
+/** 場所の、判定に要る所だけ（ルーターの ParsedLocation の一部） */
+type Place = Pick<ParsedLocation, 'pathname' | 'searchStr'>;
+
+/** カレンダーの表示（月・週・日・リスト）。画面が変わったかの判定に使う */
+const viewOf = ({ searchStr }: Place) => new URLSearchParams(searchStr).get('view');
+
+/**
+ * 移動を View Transition で繋ぐか（ルーターの `defaultViewTransition.types`。`src/main.tsx`）。
+ * 画面が変わる移動は繋ぐ。前後の画面に共通して在るもの（docs/ui.md）は名前を合わせてあり、その場から動く。
+ * 名前の無いものはフェードする。画面が変わるのはパスが変わるときと、カレンダーの表示が変わるとき。
+ *
+ * 同じ画面の中での更新（スワイプでの前後移動・今日へ、リストの絞り込み、検索キーワードの入力）では使わない。
+ * 指やキーの動きに合わせて出る所なので、そのたびに画面全体がフェードすると却って遅く見える。
+ * 最初の表示（移動元が無い）も繋がない。
+ * 返す値は「遷移する（種別は付けない）」が `[]`、「遷移しない」が `false`。
+ */
+export function viewTransitionTypes({
+  fromLocation,
+  toLocation,
+}: {
+  fromLocation?: Place;
+  toLocation: Place;
+}): [] | false {
+  return fromLocation !== undefined &&
+    (fromLocation.pathname !== toLocation.pathname || viewOf(fromLocation) !== viewOf(toLocation))
+    ? []
+    : false;
+}

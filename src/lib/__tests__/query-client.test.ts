@@ -1,6 +1,5 @@
-import { onlineManager, QueryClientProvider } from '@tanstack/react-query';
-import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { onlineManager } from '@tanstack/react-query';
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type Me, meQueryOptions } from '../auth.ts';
 import {
@@ -10,23 +9,10 @@ import {
   useOptimisticMutation,
 } from '../query-client.ts';
 import { useNotice } from '../ui/notice.ts';
+import { renderHook as renderWith } from './render-hook.ts';
 
-// React の act を使う（テスト用の描画ライブラリは入れていない）
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-/** フックを queryClient の下で描き、描くたびの戻り値を read で読めるようにする */
-function renderHook<T>(hook: () => T) {
-  let value!: T;
-  function Probe() {
-    value = hook();
-    return null;
-  }
-  const root = createRoot(document.createElement('div'));
-  act(() =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe))),
-  );
-  return { read: () => value, unmount: () => act(() => root.unmount()) };
-}
+/** フックを queryClient の下で描く */
+const renderHook = <T>(hook: () => T) => renderWith(hook, { client: queryClient });
 
 /** 書き込みの既定（setMutationDefaults）を当てた mutation を作る。溜める書き込みは 'write'、溜めないものは 'direct-write' */
 function buildWrite(key: 'write' | 'direct-write' = 'write') {
