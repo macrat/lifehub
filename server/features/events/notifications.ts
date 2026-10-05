@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  type CalendarItem,
-  EDGE_LABELS,
-  occurrenceKey,
-  type WrittenEvent,
-} from '../../../shared/calendar.ts';
+import { type CalendarItem, EDGE_LABELS, occurrenceKey } from '../../../shared/calendar.ts';
 import {
   DAY_MINUTES,
   DEFAULT_ALL_DAY_NOTIFY_MINUTES,
@@ -213,36 +208,42 @@ const CHANGE_LABELS = { added: '追加', deleted: '削除' } as const satisfies 
 >;
 const KIND_LABELS = { event: '予定', task: 'タスク' } as const;
 
-/** 追加・削除の通知本文の時刻「15:00」（JST） */
-const changeTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: TIME_ZONE,
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
 /**
- * 予定・タスクの追加・削除をすぐ知らせる相手: 開始日が今日の物の、操作した人以外の参加者。
- * 知らせる相手がいなければ空。
- * - WHY 今日だけ: 頼まれてすぐ動く（今日の買い物を代わりに済ませる）必要があるのは今日の物。先の物は開始前の通知で足りる
- * - WHY 操作した人を除く: 自分の操作は自分が知っている
+ * 予定・タスク（id。繰り返しなら全部の回）のうち、今日の時点で手を付ける必要がある回。追加・削除をすぐ知らせる対象。
+ * - タスク: 今日に置かれた未完了の回。開始が今日の物と、開始を過ぎても完了するまで今日に繰り越された物
+ *   （繰り越しと繰り返しの放棄は一覧と同じ規則。`listItems`）
+ * - 予定: 開始が今日で、まだ始まっていない回。始まった予定は知らせても間に合わない
+ * - 終日の予定: 今日の物。時刻を持たないので「始まった」が無い（0:00 の開始で除くと、当日には一度も知らせられない）。
+ *   前の日から続く終日の予定は、開始が過ぎているので除く
  */
-export function changeRecipients(item: WrittenEvent, actorId: string, now: Date): string[] {
-  if (toDateString(new Date(item.startsAt)) !== today(now)) return [];
-  return item.participantIds.filter((id) => id !== actorId);
+export async function actionableToday(id: string, now: Date): Promise<CalendarItem[]> {
+  const day = today(now);
+  const items = await listItems({ from: day, to: day }, now, { id });
+  return items.filter((item) => {
+    if (item.placementDate !== day) return false;
+    if (item.kind === 'task') return item.completedAt === null;
+    return item.allDay ? allDayDate(item.startsAt, 'start') === day : new Date(item.startsAt) > now;
+  });
 }
 
-/** 追加・削除の通知。見出しは「〈名前〉がタスクを追加しました」、本文は「買い物 ・ 今日 15:00」（終日は「今日」だけ） */
+/** 追加・削除を知らせる相手: 知らせる回の参加者のうち、操作した人以外（自分の操作は自分が知っている） */
+export function changeRecipients(items: CalendarItem[], actorId: string): string[] {
+  return [...new Set(items.flatMap((item) => item.participantIds))].filter((id) => id !== actorId);
+}
+
+/**
+ * 追加・削除の通知。見出しは「〈名前〉がタスクを追加しました」、本文は開始前の通知と同じ「開始 9/20 15:00 ・ 場所」
+ * （繰り越したタスクは開始が昨日以前なので、「今日」ではなく日付で示す）
+ */
 export function changeMessage(
-  item: WrittenEvent,
+  item: CalendarItem,
   action: ChangeAction,
   actorName: string,
 ): PushMessage {
-  const when = item.allDay ? '今日' : `今日 ${changeTimeFormatter.format(new Date(item.startsAt))}`;
   return {
     title: `${actorName}が${KIND_LABELS[item.kind]}を${CHANGE_LABELS[action]}しました`,
-    body: `${item.title} ・ ${when}`,
-    url: `/calendar?date=${toDateString(new Date(item.startsAt))}`,
+    body: body(item, 'start', item.startsAt),
+    url: `/calendar?date=${item.placementDate}`,
     // 同じ追加・削除の送り直し（オフラインで溜めた書き込みの再送）は、端末で前の通知に重ねて 1 つにする
     tag: `change:${action}:${item.id}:${item.occurrenceStart ?? 'single'}`,
   };
