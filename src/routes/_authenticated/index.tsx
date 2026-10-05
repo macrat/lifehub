@@ -1,8 +1,8 @@
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { isFiltered } from '../../../shared/search.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
+import { isTimelineFiltered } from '../../../shared/validation/timeline.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
@@ -42,7 +42,7 @@ export const Route = createFileRoute('/_authenticated/')({
  * 予定・タスク・立替・レモン・メモを 1 本に並べたタイムライン（上が新しい）。右下の追加ボタンはメモを書く。
  * タイルは下へスクロールすると隠れ、少し戻すと出てくる（`ScrollAwayHeader`）。
  * 行を押すとその記録の詳細がホームの上に開く（単押しは閲覧、長押しは編集）。
- * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲でタイムラインを絞り込む
+ * AppBar の検索窓はすべての記録の文字で、その右の絞り込みボタンは日付の範囲と自分以外のタスクを含めるかでタイムラインを絞り込む
  * （タイルは絞り込みに関わらず今の状態を示す）。スマホでは左端の歯車が設定への入口
  * （PC はサイドナビにあるので出さない）。
  */
@@ -51,7 +51,7 @@ function HomePage() {
   const isDesktop = useIsDesktop();
   const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
   // 絞り込み中はピン止めしたメモもタイムラインがほかのメモと同じ位置に出すので、上に固定しない（読まない）
-  const pinsOnTop = !isFiltered(filter.listFilter);
+  const pinsOnTop = !isTimelineFiltered(filter.listFilter);
   // この画面が読むもの: 絞り込んだタイムラインと、その上に固定するピン止めしたメモ、
   // タイルに出す天気（最新のページ）・レモンの状況
   const timeline = useScreenHistory(timelineHistory, filter.listFilter);

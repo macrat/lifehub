@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -185,12 +186,14 @@ end`.mapWith(events.startsAt);
 
 /**
  * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
- * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する
+ * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する。
+ * tasksOf を渡すと、タスクはその人が参加者にいるものだけを数える（予定は絞らない。`listOccurrences` の tasksOf と同じ）
  */
 export async function findRecentTimelineInstants(
   before: Date,
   q: string | undefined,
   limit: number,
+  tasksOf?: string,
 ): Promise<Date[]> {
   const rows = await db
     .select({ at: timelineAt })
@@ -201,6 +204,22 @@ export async function findRecentTimelineInstants(
         not(events.cancelled),
         lt(timelineAt, before),
         keywordOf(events, q),
+        tasksOf === undefined
+          ? undefined
+          : or(
+              eq(events.kind, 'event'),
+              exists(
+                db
+                  .select()
+                  .from(eventParticipants)
+                  .where(
+                    and(
+                      eq(eventParticipants.eventId, events.id),
+                      eq(eventParticipants.userId, tasksOf),
+                    ),
+                  ),
+              ),
+            ),
       ),
     )
     .orderBy(desc(timelineAt))
