@@ -11,10 +11,11 @@ import { setSentryUser } from './sentry.ts';
  * 手続きを並べて実行するので、DB の問い合わせも 1 往復にまとまる（`lib/db/coalesce-reads.ts`）。
  * 外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま（`server/app.ts`）。
  *
- * コンテキストはログイン中のユーザー（の Promise。下の `createContext`）。検証の扱いは `authed` が決める。
+ * コンテキストはログイン中のユーザー（を検証する関数。下の `createContext`）。検証の扱いは `authed` が決める。
  */
 type TrpcContext = {
-  user: Promise<AuthUser>;
+  /** セッションの検証。最初に呼んだときに始め、同じ要求の中では同じ Promise を返す */
+  user: () => Promise<AuthUser>;
   /** 要求の User-Agent（プッシュの購読に端末の名前として残す） */
   userAgent: string | null;
   /** 要求ごとに 1 つだけ作る値の置き場（`perRequest`） */
@@ -31,17 +32,19 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
 }
 
 /**
- * 要求 1 本ぶんのコンテキスト。検証は始めるだけで待たない（待つかどうかは `authed` と各手続き）。
- * 検証の失敗を待つ手続きが無いこともある（無い手続きの呼び出しは、tRPC がコンテキストを作った後に
- * NOT_FOUND にする）ので、何もしない catch を付けて取りこぼしの reject（unhandledRejection）にしない。
- * catch は別の Promise を返すだけで、`ctx.user` を待つ側には元のとおり失敗が届く。
- * WHY NOT 検証を手続きが始まってから始める: 読み出しと検証が同じ時点に出なくなり、DB への往復が 1 回増える。
+ * 要求 1 本ぶんのコンテキスト。検証は手続きが要るとき（`authed`）に始め、1 本の要求に載った手続きが分け合う。
+ * WHY 作った時点で始めない: tRPC はコンテキストを作ってから手続きを探すので、無い手続きの呼び出しでは
+ * 誰も検証を待たず、失敗が取りこぼしの reject（unhandledRejection）になる。
+ * `authed` が手続きを走らせる直前に始めても、作った時点で始めるのと同じ処理の続きの中で始まるので、
+ * 検証と読み取りが DB へ出る時点は変わらない。
  */
 export function createContext(req: Request): TrpcContext {
-  const user = authenticate(req.headers);
-  user.catch(() => {});
+  let user: Promise<AuthUser> | undefined;
   return {
-    user,
+    user: () => {
+      user ??= authenticate(req.headers);
+      return user;
+    },
     userAgent: req.headers.get('user-agent'),
     scope: new Map(),
   };
@@ -85,12 +88,13 @@ const t = initTRPC.context<TrpcContext>().create({
  * （パスワードの変更・ログアウト）が次の要求から効かなくなる（`lib/auth.ts`）。
  */
 const authed = t.middleware(async ({ ctx, type, next }) => {
+  const user = ctx.user();
   if (type === 'mutation') {
-    await ctx.user;
+    await user;
     return next();
   }
   const result = next();
-  await ctx.user;
+  await user;
   return result;
 });
 
@@ -126,7 +130,7 @@ export const procedure = t.procedure.use(traced).use(authed).use(domainErrors);
 
 /** 検証を待ってから、ログイン中のユーザーの ID を `ctx.userId` に置く */
 const withUserId = t.middleware(async ({ ctx, next }) =>
-  next({ ctx: { userId: (await ctx.user).id } }),
+  next({ ctx: { userId: (await ctx.user()).id } }),
 );
 
 /**
