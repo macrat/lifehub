@@ -34,7 +34,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | UI | MUI（Material UI） | マテリアルデザインを「書かずに」得る。 |
 | カレンダー UI | 自作の月／週グリッド（MUI 部品で構成）。日時の入力は `<input type="date">` / `<input type="time">`（MUI の TextField 経由。予定・タスクの日時は日付と時刻の欄に分ける）。記録の日時（レモンの世話）は `<input type="datetime-local">` | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。日時入力は Web 標準で足り、スマホではネイティブのピッカーが使える。MUI X Date Pickers は date-fns アダプタがタイムゾーン非対応のため採用しない。 |
 | フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
-| 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`） | 表示は Web 標準で足りる。JST の暦日での計算はタイムゾーンを扱えるライブラリに任せ、自作しない。 |
+| 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`）。date-fns を読むのは日時の変換の部品（`shared/date.ts`・`src/lib/date.ts`・`server/lib/mcp/time.ts`）だけで、ほかは `shared/date.ts` の関数を通す（`lint/date-fns.grit` が強制する） | 表示は Web 標準で足りる。JST の暦日での計算はタイムゾーンを扱えるライブラリに任せ、自作しない。date-fns の計算を Date にそのまま掛けると実行環境のタイムゾーンの暦で計算され、夏時間のあるタイムゾーンでは 1 日が 24 時間にならない日がある。 |
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
 | テスト | Vitest（クライアント: jsdom、共有（shared）とサーバー: Node。3 つを別のプロジェクトにし、DB を使うのはサーバーだけ）+ Playwright（E2E） | サーバーのテストと E2E は `compose.yaml` の Postgres に対して実行する。E2E は `vite build` した成果物と `server/dev.ts` を起動して行う。 |
 | Lint / Format | Biome | 単一ツールで完結し設定量が少ない。 |

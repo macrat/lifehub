@@ -1,0 +1,15 @@
+// date-fns は日時の変換の部品（shared/date.ts・src/lib/date.ts・server/lib/mcp/time.ts）だけが読む。
+// date-fns の計算（日を足す・日の始まり・暦日の差など）を Date にそのまま掛けると、実行環境のタイムゾーンの暦で
+// 計算される。サーバーは UTC、端末は JST や旅行先で、夏時間のあるタイムゾーンでは 1 日が 24 時間にならない日もある。
+// 暦日の計算は JST の日付の文字列で行う決まりなので、ほかの所は shared/date.ts の関数（addDays・startOfDate・
+// instantRange など）を使う。部品の中でも、Date を扱うときは TZDate で JST に固定して使う。
+language js
+
+`import $imports from $source` where {
+  $source <: or { r".date-fns.", r".date-fns/.*" },
+  $filename <: not r".*/shared/date\.ts$",
+  $filename <: not r".*/src/lib/date\.ts$",
+  $filename <: not r".*/server/lib/mcp/time\.ts$",
+  $filename <: not r".*/__tests__/.*",
+  register_diagnostic(span=$source, message="date-fns は日時の変換の部品（shared/date.ts など）だけが読む。暦日の計算は shared/date.ts の関数を使う（Date に直接掛けると実行環境のタイムゾーンで計算される）")
+}
