@@ -4,7 +4,7 @@ import { wedgeBackground, wedgeColorNear } from '../../../lib/ui/wedge.ts';
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
 import type { ItemColors } from '../../users/use-user-color.ts';
-import type { draftColumns, TimedDraft } from '../draft.ts';
+import type { DraftColumns, TimedDraft } from '../draft.ts';
 import { type ItemEnds, itemMargins, itemMask } from '../item-shape.ts';
 import { LANE_ITEM_HEIGHT } from '../lane-layout.ts';
 import { atMinute } from '../use-hour-zoom.ts';
@@ -172,8 +172,8 @@ export function DraftBar({
   kind,
   participantIds,
 }: {
-  /** この並びの中で占める列（`draftColumns`）。週をまたぐ帯は週ごとに 1 本ずつ描く */
-  columns: NonNullable<ReturnType<typeof draftColumns>>;
+  /** この並びの中で占める列。週をまたぐ帯は週ごとに 1 本ずつ描く */
+  columns: DraftColumns;
   lane: number;
   /** 何の枠か。タスクなら置いたタスクと同じチェック印を添える（`TaskMark`） */
   kind: EventKind;

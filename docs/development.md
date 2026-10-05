@@ -39,6 +39,12 @@
 | E2E のログインしていない状態・ホームを開く手順 | `e2e/auth.ts`（`SIGNED_OUT` / `openHome`） |
 | E2E で確かめる操作の前に予定や記録を置く手順 | `e2e/events.ts`（`addItem`）、`e2e/history.ts`（`addRecord`）、`e2e/api.ts`（`apiOf`。画面の API を型付きで呼ぶ） |
 
+## マイグレーション
+
+- スキーマ（`server/features/*/schema.ts`）を変えたら `pnpm db:generate`（drizzle-kit）でマイグレーション SQL を生成し、`drizzle/` をコミットする。
+- 列の作り替えで既存の行を移すときは、生成された SQL に移送の文を書き足す（例: `drizzle/0002_lemon_multi_care_types.sql`）。
+  - WHY: 生成物任せだと、列を落として中身ごと捨てる。
+
 ## コミット
 
 - コミットは Conventional Commits。PR 単位で機能を追加する。

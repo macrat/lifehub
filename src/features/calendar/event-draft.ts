@@ -8,7 +8,8 @@ import {
   type ItemFormValues,
   type WhenInput,
 } from '../events/form-values.ts';
-import { type Draft, type DraftOps, type DraftRange, withAllDay } from './draft.ts';
+import { type Draft, type DraftRange, withAllDay } from './draft.ts';
+import type { DraftOps } from './grid-draft.ts';
 import { timedMinutes } from './timeline-layout.ts';
 
 /**

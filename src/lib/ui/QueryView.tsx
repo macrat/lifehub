@@ -30,6 +30,15 @@ export function QueryView<T>({ query, skeleton, children }: Props<T>) {
   return skeleton;
 }
 
+/** 一覧が空のときの文（履歴・タイムラインで同じ見た目にする） */
+export function EmptyMessage({ children }: { children: ReactNode }) {
+  return (
+    <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
+      {children}
+    </Typography>
+  );
+}
+
 /** 設定画面の行 1 つ分の骨組み（名前と説明の 2 段）。発行した URL やキーの一覧が届くまで出す */
 export function ListItemSkeleton() {
   return (

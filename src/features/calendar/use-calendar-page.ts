@@ -6,13 +6,11 @@ import {
   firstDayOfMonth,
   formatDateWithYear,
   formatMonth,
-  formatWeekRange,
-  monthGridDays,
   monthsInRange,
   toMonthString,
-  weekDays,
 } from '../../lib/date.ts';
 import { useFilterSearch, usePatchSearch } from '../../lib/search.ts';
+import { formatWeekRange, monthGridDays, weekDays, weekStart } from './calendar-dates.ts';
 import {
   type CalendarSearch,
   LIST_FILTER_CONDITIONS,
@@ -86,7 +84,7 @@ export function useCalendarPage(search: CalendarSearch) {
     view === 'month'
       ? formatMonth(date)
       : view === 'week'
-        ? formatWeekRange(weekDays(date)[0] ?? date)
+        ? formatWeekRange(weekStart(date))
         : formatDateWithYear(date);
 
   /**

@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import { createFileRoute } from '@tanstack/react-router';
+import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
 import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
@@ -11,7 +12,6 @@ import {
 import { settlementExpense } from '../../features/expenses/parties.ts';
 import {
   type Expense,
-  type ExpenseBody,
   expenseHistory,
   totalsQueryOptions,
   useSettlements,
@@ -51,7 +51,7 @@ function ExpensesPage() {
   const history = useScreenHistory(expenseHistory, filter.listFilter);
   const settlementsQuery = useSettlements();
   // 追加のフォームと、最初に入れておく値（精算のタイルから開くとその精算）
-  const adding = useOpenWith<Partial<ExpenseBody>>();
+  const adding = useOpenWith<Partial<ExpenseInput>>();
   const selection = useRecordSelection<Expense>();
 
   const openAdd = () => adding.open({});

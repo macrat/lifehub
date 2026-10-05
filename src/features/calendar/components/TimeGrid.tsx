@@ -14,8 +14,8 @@ import { COMPLETED_SX, COMPLETED_TITLE_SX } from '../../events/components/comple
 import { ParticipantsCheckIcon } from '../../events/components/ParticipantsMark.tsx';
 
 import { useParticipantColors } from '../../events/use-participant-colors.ts';
-import type { GridDraft } from '../draft.ts';
-import { type Draft, draftKind, sameOccurrence } from '../draft.ts';
+import { type Draft, draftOn, isTimedDraft, sameOccurrence } from '../draft.ts';
+import { draftKind, type GridDraft } from '../grid-draft.ts';
 import { itemMask } from '../item-shape.ts';
 import { itemTransitionName } from '../item-transition.ts';
 import { type TimedPlaced, timedSpan } from '../timeline-layout.ts';
@@ -89,12 +89,9 @@ export function TimeGrid({
   const compact = useIsMobile();
   const drag = useTimeDrag({ draft, onChange: onChangeDraft });
   const pinch = usePinch(onZoom);
-  const timedDraft = draft?.range.allDay === false ? draft.range : null;
-  // 枠を置く列。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない
-  const draftCol = timedDraft ? days.indexOf(timedDraft.date) : -1;
-  // 編集中の予定は枠で出すので、元のブロックは隠す（枠を出せているときだけ。終日に変えたなど
-  // 枠が出ない間は、保存するまで元の時間帯に見えているほうが分かりやすい）。枠を置く列と同じ値で決める
-  const editing = draftCol >= 0 ? draft?.item : null;
+  // 時間指定の枠。スワイプで別の週・日へ移ったあとなど、表示していない日の枠は出さない。
+  // 出している間は直している予定を枠で出すので、元のブロックは隠す
+  const shown = draftOn(draft, days, isTimedDraft);
   const now = useNow();
   const nowMin = minutesOfDay(now);
   const todayStr = today(now);
@@ -102,7 +99,7 @@ export function TimeGrid({
     nowMinutes: days.includes(todayStr) ? nowMin : null,
     itemsSpan: fitItems ? timedSpan(timedByDate) : null,
     hourHeight,
-    draftStart: timedDraft?.startMin ?? null,
+    draftStart: draft && isTimedDraft(draft.range) ? draft.range.startMin : null,
     settled: draft?.settled ?? false,
     bottomInset,
   });
@@ -170,7 +167,7 @@ export function TimeGrid({
               <TimedBlock
                 key={p.key}
                 placed={p}
-                hidden={sameOccurrence(editing, p.item)}
+                hidden={sameOccurrence(shown?.draft.item, p.item)}
                 onClick={() => onSelectItem(p.item)}
                 // 予定は長押しでつまんで編集モードに入れる（スマホだけ。PC はクリックで開く詳細から直す）
                 grab={compact ? drag.grabItemProps(p.item) : undefined}
@@ -184,13 +181,13 @@ export function TimeGrid({
           つまんだ指を離さずに隣の日へ持っていける（列の中に置くと日ごとに要素が入れ替わり、
           掴んでいた要素が DOM から消えた時点でタッチが途切れて横スワイプに化ける）
         */}
-        {draft && timedDraft && draftCol >= 0 && (
+        {shown && (
           <DraftBlock
-            draft={timedDraft}
-            kind={draftKind(draft)}
-            column={draftCol + 1}
-            participantIds={draft.participantIds}
-            grab={drag.frameProps(timedDraft)}
+            draft={shown.draft.range}
+            kind={draftKind(shown.draft)}
+            column={shown.columns.col + 1}
+            participantIds={shown.draft.participantIds}
+            grab={drag.frameProps(shown.draft.range)}
             dots={compact}
           />
         )}

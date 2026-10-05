@@ -80,6 +80,12 @@ export function dateOrUndefined(value: string): DateString | undefined {
   return isDateString(value) ? value : undefined;
 }
 
+/** number 入力の値を絞り込みにする。空欄（消した）や数字にならない入力は、その項目の絞り込みをやめる */
+export function numberOrUndefined(value: string): number | undefined {
+  const number = Number(value);
+  return value === '' || Number.isNaN(number) ? undefined : number;
+}
+
 /**
  * 今の画面のまま、検索パラメータの一部だけを変える。replace で履歴に積むか置き換えるかを選ぶ
  * （絞り込みの入力やしるしの消去は置き換える。1 項目ごとに戻る先が増えると、戻る操作が入力の巻き戻しになる）。

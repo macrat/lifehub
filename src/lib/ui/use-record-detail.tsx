@@ -19,7 +19,7 @@ type Options = {
 
 /**
  * 記録 1 件の詳細シート（`RecordSheet`）の閲覧と編集の切り替え、削除。立替・レモンの記録・メモが共有する
- * （予定・タスクは繰り返しの範囲の選択を挟むので `features/events/use-item-detail.ts` が持つ）。
+ * （予定・タスクは繰り返しの範囲の選択を挟むので `features/events/use-item-detail.tsx` が持つ）。
  * `sheet` は見出し（`title`）のほかに `RecordSheet` が要るものすべて（編集のフォーム、閉じる、鉛筆と
  * 三点リーダーの削除）で、そのまま広げて渡す。
  * 削除は確かめてから送り、結果を待たずに閉じる（楽観的更新で一覧からは既に消えている）。
@@ -45,16 +45,16 @@ export function useRecordDetail({
   };
 }
 
+/** 三点リーダーの削除の見た目。押したときの処理は記録の種類が決める（予定・タスクは範囲の選択を挟む） */
+export function deleteMenuAction(onClick: () => void): RecordAction {
+  return { label: '削除', icon: <DeleteIcon />, danger: true, onClick };
+}
+
 /** 三点リーダーの削除。確かめてから消し、結果を待たずに閉じる */
 function deleteAction(remove: NonNullable<Options['remove']>, onClose: () => void): RecordAction {
-  return {
-    label: '削除',
-    icon: <DeleteIcon />,
-    danger: true,
-    onClick: () => {
-      if (!window.confirm(remove.confirm)) return;
-      remove.run();
-      onClose();
-    },
-  };
+  return deleteMenuAction(() => {
+    if (!window.confirm(remove.confirm)) return;
+    remove.run();
+    onClose();
+  });
 }

@@ -7,7 +7,7 @@ import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
 
-describe('認証ミドルウェア', () => {
+describe('ログインと認証の口', () => {
   beforeEach(clearTables);
 
   it('公開のサインアップ経路は閉じている', async () => {
@@ -45,5 +45,19 @@ describe('認証ミドルウェア', () => {
     });
     expect(res.status).toBe(401);
     expect(await db.select().from(memos)).toEqual([]);
+  });
+
+  it('未認証で無い手続きを呼ぶと 404 で、ログインの検証の失敗を取りこぼさない', async () => {
+    const rejected = vi.fn();
+    process.on('unhandledRejection', rejected);
+    try {
+      const res = await app.request('/api/trpc/nothing.here');
+      expect(res.status).toBe(404);
+      // 取りこぼした reject は、マイクロタスクが尽きた後に unhandledRejection として出る
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(rejected).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', rejected);
+    }
   });
 });

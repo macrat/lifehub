@@ -5,7 +5,7 @@ import * as service from './service.ts';
 
 /** ログイン中のユーザーとユーザーの一覧。画面が必ず一緒に使うので 1 つの応答にまとめる */
 export const meRouter = router({
-  get: procedure.query(({ ctx }) => service.getMe(ctx.user)),
+  get: procedure.query(({ ctx }) => service.getMe(ctx.user())),
 });
 
 /** ユーザーの登録と変更。一覧はログイン中のユーザーと一緒に `me.get` が返す */

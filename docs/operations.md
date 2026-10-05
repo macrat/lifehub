@@ -19,7 +19,7 @@
 1. アカウント作成: Vercel（Hobby）、Neon、Upstash、HCP Terraform、Sentry（Developer）、GitHub リポジトリ。いずれもカード登録不要。Sentry の組織の slug が `blanktar` でなければ `infra/variables.tf` の `sentry_organization` を書き換える。
 2. ID の確認: Neon の組織 ID（コンソールの Organization settings。`org-...`）と Vercel のチーム slug または ID（Team Settings → General。Hobby でもアカウントはチームとして扱われる）。
 3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。Sentry の **User Auth Token**（User Settings → Personal Tokens。権限は Organization: Read、Team: Admin、Project: Admin、Release: Admin、Alerts: Read & Write。Terraform がチーム・プロジェクト・DSN・稼働監視を作り、デプロイがソースマップを送る。Organization Token はソースマップの送信にしか使えない）。
-4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`）。
+4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`。US を選ぶのは日本から近いため。SDK の既定は EU）。
 5. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
 6. 上記を GitHub Secrets に登録する:
    `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
@@ -34,7 +34,7 @@
 |---|---|---|
 | Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う）。`automatically_expose_system_environment_variables` を有効にし、`VERCEL`・`VERCEL_ENV`・`VERCEL_URL`・`VERCEL_BRANCH_URL` を関数に渡す。関数の地域は `resource_config.function_default_regions` で Neon と同じ `sin1`（シンガポール）にする（HTTP ドライバは問い合わせごとに DB と往復するので、利用者より DB の隣に置くほうが速い。Neon に日本の地域は無い） |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
-| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`） |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。秘密情報は `sensitive` で置く。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。通知の秘密情報（`QSTASH_*`・`VAPID_*`・`CRON_SECRET`）が欠けたままだと、予約（`createPublisher()` が `null`）と送信（`ensureConfigured()` が `false`）は何もせずに正常終了し、画面にもログにも異常が出ないので、起動時に落とす以外に気づく手段が無いため。判定は `VERCEL_ENV` を読むので、システム環境変数の公開（上の行）が要る。ローカルと Preview は通知用の秘密情報を持たないので対象外 |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
 | Sentry | `sentry_team`, `sentry_project`, `sentry_key`（DSN。日ごとの上限付き）, `sentry_uptime_monitor`（`/api/health`） | 下記「監視（Sentry）」。DSN は `SENTRY_DSN` として production にだけ渡す（`sensitive` ではない） |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
@@ -52,7 +52,7 @@
 ### PR（`ci.yml`）
 
 1. `typecheck` → `lint` → `test` → `e2e`。並行して `gitleaks`（`gitleaks/gitleaks-action`）が PR のコミットに秘密情報が入っていないかを調べる
-2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたとき・ラベルの付いた PR に push したとき・ラベルの付いた PR を開き直したときで、関係ないラベルの付け外しでは作り直さない（Vercel の 1 日あたりのデプロイ数上限に当たったため、Preview が要る PR だけをラベルで選ぶ）
+2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたとき・ラベルの付いた PR に push したとき・ラベルの付いた PR を開き直したときで、関係ないラベルの付け外しでは作り直さない（Vercel の 1 日あたりのデプロイ数には上限があり、push のたびにすべての PR を作り直すとそれに当たるので、Preview が要る PR だけをラベルで選ぶ）
 3. Neon ブランチ `preview/pr-<番号>` を `main` から作成（既にあれば再利用。`neondatabase/create-branch-action`）
 4. そのブランチに `drizzle-kit migrate` を適用（本番相当のデータに対してマイグレーションを検証する）
 5. `vercel pull --environment=preview` → `vercel build` → `vercel deploy --prebuilt` に `--env DATABASE_URL=<PR ブランチの接続文字列>` を付けて Preview デプロイ
@@ -143,4 +143,4 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
 
 - マイグレーションは後方互換を保つ（列削除は「アプリが参照をやめたデプロイ」の次のデプロイで行う）。
 - ロールバックはアプリ側は `vercel rollback`、インフラ側は Terraform の変更を revert してプッシュ。
-- 無料枠の制約: Vercel Hobby は Cron の式 1 つにつき日次まで（時は最大 59 分ずれる）・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日、Sentry Developer は月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ・ユーザー 1 人。
+- 無料枠の制約: Vercel Hobby は Cron の頻度に上限（[architecture.md](architecture.md#ディレクトリ構成機能単位で凝集) の Cron）・Cron の時刻は最大 59 分ずれる・関数実行時間に上限・非商用限定、Neon Free はコンピュート自動停止・ストレージ上限、QStash Free は 1 日 1,000 メッセージ・遅延最大 7 日、Sentry Developer は月 5,000 エラー・5M スパン・ログ 5GB・稼働監視 1 つ・ユーザー 1 人。

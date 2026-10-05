@@ -41,7 +41,7 @@ type Props = {
  */
 export function GridChip({ placed, compact, onClick, grab, hidden, showTime = !compact }: Props) {
   const { item, col, span, lane } = placed;
-  const isBar = item.kind === 'event' && (item.allDay || span > 1 || item.dayCount > 1);
+  const isBar = item.kind === 'event' && (item.allDay || item.dayCount > 1);
   const isTask = item.kind === 'task';
   const completed = isCompletedTask(item);
   const colors = useParticipantColors(item.participantIds);

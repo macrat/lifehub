@@ -45,7 +45,7 @@ export type EntryView = {
 
 /** タイムラインの行（`TimelineRow`）の中身を、記録の種類ごとの規則で組み立てる */
 export function useEntryView(entry: TimelineEntry): EntryView {
-  const { label, authorName } = useUserLabels();
+  const { label, writerName } = useUserLabels();
   const colorFor = useUserColor();
   const time = entry.at && formatTimelineTime(entry.at, entry.dateOnly);
   const view = {
@@ -96,7 +96,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         icon: ADD_KINDS.lemon.icon,
         // 誰が記録したか。API キーで入れた記録は人が分からないので、どこから入ったか（キーの名前）を出す。
         // 人とキーの名前はちょうど一方だけを持つ（lemon_care_logs の CHECK 制約）
-        heading: apiKeyName ?? authorName(createdBy),
+        heading: writerName(createdBy, apiKeyName),
         careTypes,
         body: note,
       };
@@ -108,7 +108,7 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         colors: [colorFor(memo.createdBy).fill],
         // MCP で書いたメモは、AI が書いたことをロボットのアイコンと MCP クライアントの名前で示す（人は丸の色で分かる）
         icon: memo.mcpClientName ? SmartToyIcon : ADD_KINDS.memo.icon,
-        heading: memo.mcpClientName ?? authorName(memo.createdBy),
+        heading: writerName(memo.createdBy, memo.mcpClientName),
         pinned: memo.pinned,
         body: memo.body,
       };

@@ -17,12 +17,6 @@ import {
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
-/**
- * 追加と編集で同じ形（編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
- * 送る JSON としてもそのまま使える。日付は印の付いた DateString なので、楽観的更新で作る行の型
- * （`Expense`）と一致する。
- */
-export type ExpenseBody = ExpenseInput;
 /** 行と精算の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
 export type { Expense, Settlement } from '../../../shared/expenses.ts';
 
@@ -58,8 +52,13 @@ export function useSettlements(): QueryState<Settlement[]> {
   return { data: totals.data && settlementsOf(totals.data), error: totals.error };
 }
 
+/**
+ * 追加と編集は同じ形（`ExpenseInput`。編集は全項目を置き換える）。フォームが検証した値（スキーマの出力）で、
+ * 送る JSON としてもそのまま使える。日付は印の付いた DateString なので、楽観的更新で作る行の型
+ * （`Expense`）と一致する。
+ */
 export function useAddExpense() {
-  return useCreateMutation<ExpenseBody>({
+  return useCreateMutation<ExpenseInput>({
     request: write.expenses.create,
     keys: WRITE_KEYS,
     apply: (client, input) => {
@@ -69,7 +68,7 @@ export function useAddExpense() {
 }
 
 export function useUpdateExpense() {
-  return useOptimisticMutation<ExpenseBody & { id: string }>({
+  return useOptimisticMutation<ExpenseInput & { id: string }>({
     request: write.expenses.update,
     keys: WRITE_KEYS,
     apply: (client, { id, ...input }) => {

@@ -3,13 +3,9 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import type { DateString } from '../../../../shared/types.ts';
 import type { DailyWeather } from '../../../../shared/weather.ts';
-import {
-  formatDateWithYear,
-  WEEKDAY_LABELS,
-  weekdayIndex,
-  weekdayLabelColor,
-} from '../../../lib/date.ts';
+import { formatDateWithYear, weekdayIndex, weekdayLabelColor } from '../../../lib/date.ts';
 import { OVERLAY_CONTENT_SX, UNDERLAY_BUTTON_SX } from '../../../lib/ui/button-underlay.ts';
+import { WEEKDAY_LABELS } from '../calendar-dates.ts';
 import { useCalendarDays } from '../queries.ts';
 import { DayNumber } from './DayNumber.tsx';
 import { CenteredWithWeather, DayWeather } from './DayWeather.tsx';

@@ -1,4 +1,4 @@
-import { type Column, eq, ilike, inArray, type SQL, sql } from 'drizzle-orm';
+import { type Column, eq, getTableColumns, ilike, inArray, type SQL, sql } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { type Database, db } from './client.ts';
 
@@ -30,7 +30,7 @@ function unnestIds(ids: string[], alias: string): SQL.Aliased<string> {
  * uuid[] のままだとドライバによって受け取り方が変わるので text[] にして返す。
  * ID の順に並べる。WHY: 並びを指定しない array_agg は実行計画で順が変わり、同じ行が読むたびに違う配列になる。
  */
-export function idArrayAgg(column: PgColumn): SQL<string[]> {
+function idArrayAgg(column: PgColumn): SQL<string[]> {
   return sql`coalesce(array_agg(${column}::text order by ${column}) filter (where ${column} is not null), '{}')`;
 }
 
@@ -95,11 +95,13 @@ export async function deleteById<T extends TableWithId>(
 }
 
 /**
- * 参加者（親の行とユーザーの多対多）を書く文の組。予定（events）と配信 URL（calendar_feeds）が同じ形で使う。
- * どの文も親の行を where で引き当てて書くので、ID を手元に持たない条件（回の実体化）でも、
+ * 参加者（親の行とユーザーの多対多）を読み書きする問い合わせの組。予定（events）と配信 URL（calendar_feeds）が
+ * 同じ形で使う。親と参加者の表の結びつけ方（どの列で結ぶか・ID の配列へのまとめ方）をここだけに書く。
+ * 書く文はどれも親の行を where で引き当てて書くので、ID を手元に持たない条件（回の実体化）でも、
  * 持ち主などの条件を足した書き込み（他人の行には入らない）でも、親の行と同じ runBatch に入れて原子的に書ける。
  */
-export function participantWrites<
+export function participantsOf<
+  T extends TableWithId,
   P extends PgTable & { userId: PgColumn },
   K extends keyof P & string,
 >({
@@ -108,7 +110,7 @@ export function participantWrites<
   parentKey,
 }: {
   /** 親の表 */
-  parent: TableWithId;
+  parent: T;
   /** 参加者の表（親を指す列と `userId` 列を持つ） */
   participants: P;
   /** 参加者の表で親を指す列の名前（表に無い名前は型で止まる） */
@@ -116,6 +118,10 @@ export function participantWrites<
 }) {
   // 列は表のオブジェクトに列の名前で載っている
   const parentColumn = participants[parentKey] as PgColumn;
+  // from・join は総称の表を受けないので、文を組むところでは具体的な表の型に広げる
+  // （読んだ行の型は select に並べた parent の列から決まるので、広げても失われない）
+  const parentTable: TableWithId = parent;
+  const participantsTable: PgTable = participants;
 
   /** where に合う親の行（1 行）に userIds を参加者として入れる文 */
   const insertWhere = (tx: Database, where: SQL | undefined, userIds: string[]) =>
@@ -123,7 +129,7 @@ export function participantWrites<
       // 親を指す列の名前は表ごとに違うので、Drizzle は select の形を insert の形と照らし合わせられない
       tx
         .select({ [parentKey]: parent.id, userId: unnestIds(userIds, 'user_id') })
-        .from(parent)
+        .from(parentTable)
         .where(where) as never,
     );
 
@@ -132,9 +138,26 @@ export function participantWrites<
     [
       tx
         .delete(participants)
-        .where(inArray(parentColumn, tx.select({ id: parent.id }).from(parent).where(where))),
+        .where(inArray(parentColumn, tx.select({ id: parent.id }).from(parentTable).where(where))),
       insertWhere(tx, where, userIds),
     ] as const;
 
-  return { insertWhere, replaceWhere };
+  /**
+   * 親の行に参加者の ID の配列（`participantIds`）を添えて読む select。参加者が 0 人でも行は消えない。
+   * 行ごとにまとめるので、呼ぶ側が親の id で group by する。
+   * 参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い）。
+   */
+  const selectWithParticipants = () =>
+    db
+      .select({ ...getTableColumns(parent), participantIds: idArrayAgg(participants.userId) })
+      .from(parentTable)
+      .leftJoin(participantsTable, eq(parentColumn, parent.id));
+
+  /** 今の親の行の参加者の ID の配列（副問い合わせ。update の returning などで行と一緒に返す） */
+  const participantIdsOfRow = () =>
+    sql<
+      string[]
+    >`(select ${idArrayAgg(participants.userId)} from ${participants} where ${parentColumn} = ${parent.id})`;
+
+  return { insertWhere, replaceWhere, selectWithParticipants, participantIdsOfRow };
 }

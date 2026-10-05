@@ -1,5 +1,5 @@
-import { addDays } from 'date-fns';
-import { type InstantRange, startOfDay } from '../../../shared/date.ts';
+import { DAY_MINUTES } from '../../../shared/constants.ts';
+import { addDays, type InstantRange, instantRange, today } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
@@ -42,10 +42,11 @@ export async function enqueueRange(
 export async function enqueueTomorrow(
   now: Date = new Date(),
 ): Promise<{ planned: number; published: number }> {
-  const from = addDays(startOfDay(now), 1);
-  const to = addDays(from, 1);
-  await repository.purgeSentBefore(addDays(now, -SENT_RETENTION_DAYS));
-  return enqueueRange({ from, to });
+  await repository.purgeSentBefore(
+    new Date(now.getTime() - SENT_RETENTION_DAYS * DAY_MINUTES * 60_000),
+  );
+  const tomorrow = addDays(today(now), 1);
+  return enqueueRange(instantRange({ from: tomorrow, to: tomorrow }));
 }
 
 /**
@@ -63,7 +64,8 @@ async function enqueueUpcoming(now: Date): Promise<void> {
   // 予約先が無い環境（ローカル・Preview）では、列挙（予定の読み出しと繰り返しの展開）もしない
   const publisher = createPublisher();
   if (!publisher) return;
-  await enqueueRange({ from: now, to: addDays(startOfDay(now), 2) }, publisher);
+  const { to } = instantRange({ from: today(now), to: addDays(today(now), 1) });
+  await enqueueRange({ from: now, to }, publisher);
 }
 
 /**

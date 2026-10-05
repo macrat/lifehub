@@ -1,8 +1,7 @@
-import Typography from '@mui/material/Typography';
 import { useLayoutEffect } from 'react';
 import type { ScreenHistory } from '../../../lib/screen-data.ts';
 import { EdgeSentinel } from '../../../lib/ui/EdgeSentinel.tsx';
-import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
+import { EmptyMessage, ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import type { TimelineEntry } from '../queries.ts';
 import { TimelineRow } from './TimelineRow.tsx';
 
@@ -34,9 +33,7 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
       <QueryView query={timeline.query} skeleton={<ListSkeleton />}>
         {({ items }) =>
           items.length === 0 ? (
-            <Typography color="textSecondary" sx={{ px: 2, py: 2 }}>
-              {emptyMessage}
-            </Typography>
+            <EmptyMessage>{emptyMessage}</EmptyMessage>
           ) : (
             // タイムラインは今日で分けずに 1 本で出すので、全部を逆さ（新しい順）にする
             items

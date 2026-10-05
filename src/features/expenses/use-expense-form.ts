@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { today } from '../../../shared/date.ts';
-import { expenseSchema } from '../../../shared/validation/expenses.ts';
+import { type ExpenseInput, expenseSchema } from '../../../shared/validation/expenses.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
 import { chooseFrom, fromCandidates, type Parties, type Party, toCandidates } from './parties.ts';
-import type { ExpenseBody } from './queries.ts';
 
 /**
  * 立替フォームの共通処理。追加（`ExpenseForm`）と詳細からの編集（`ExpenseDetailSheet`）で
@@ -20,8 +19,8 @@ export function useExpenseForm({
   onSaved,
 }: {
   /** 最初に入れておく値。編集なら今の立替、精算のカードから始めた追加ならその精算。省いた項目は追加の既定値 */
-  initial?: Partial<ExpenseBody>;
-  onSubmit: (input: ExpenseBody) => Promise<unknown>;
+  initial?: Partial<ExpenseInput>;
+  onSubmit: (input: ExpenseInput) => Promise<unknown>;
   onSaved: () => void;
 }) {
   const { users, label, meId } = useUserLabels();

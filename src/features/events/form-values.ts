@@ -1,21 +1,15 @@
 import type { ChangeEvent } from 'react';
-import {
-  defaultTaskStart,
-  type EventMaster,
-  normalizeIsoInstants,
-  switchedEnds,
-  toInputIsoInstants,
-} from '../../../shared/calendar.ts';
+import { defaultTaskStart, type EventMaster, switchedEnds } from '../../../shared/calendar.ts';
 import { addDays, diffDays, fromMinutesOfDay, isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type EventKind, toAllDayRemind } from '../../../shared/validation/events.ts';
 import {
   fromDateTimeLocalValue,
-  fromDateValue,
   isDateTimeLocalValue,
   toDateTimeLocalValue,
 } from '../../lib/date.ts';
 import { FormFieldError, formList, formSelect, formText } from '../../lib/form.ts';
+import { normalizeIsoInstants, toInputIsoInstants } from './instants.ts';
 
 /** 種別の判別共用体のまま項目を除く（`Omit` は共用体を 1 つの平らな形にしてしまう） */
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -93,8 +87,8 @@ export function allDayEventValues(
     participantIds,
     kind: 'event',
     allDay: true,
-    startsAt: fromDateValue(from),
-    endsAt: fromDateValue(addDays(to, 1)),
+    startsAt: fromMinutesOfDay(from, 0),
+    endsAt: fromMinutesOfDay(addDays(to, 1), 0),
     remindEndMinutes: null,
   };
 }
@@ -282,7 +276,7 @@ function toInstant(
 ): string | null {
   if (raw === '') throw new FormFieldError(name, '日付と時刻を入力してください');
   if (raw === null) return null;
-  return allDay && isDateString(raw) ? fromDateValue(raw) : fromDateTimeLocalValue(raw);
+  return allDay && isDateString(raw) ? fromMinutesOfDay(raw, 0) : fromDateTimeLocalValue(raw);
 }
 
 /**

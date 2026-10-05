@@ -1,13 +1,8 @@
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { clamp } from '../../lib/math.ts';
-import {
-  type Grabbed,
-  LONG_VIBRATION_MS,
-  SHORT_VIBRATION_MS,
-  type TimedDraft,
-  tapEnd,
-} from './draft.ts';
+import { type TimedDraft, tapEnd } from './draft.ts';
+import { type Grabbed, LONG_VIBRATION_MS, SHORT_VIBRATION_MS } from './grid-drag.ts';
 import type { Drag } from './range-drag-session.ts';
 import { MIN_BLOCK_MINUTES } from './timeline-layout.ts';
 
@@ -17,9 +12,8 @@ import { MIN_BLOCK_MINUTES } from './timeline-layout.ts';
 export type TimePoint = { date: DateString; min: number };
 
 /**
- * 下書きをつまんだ所。start・end はその端だけを動かし、move は長さ（時間指定なら時間、終日なら日数）を
- * 保ったまま動かす。つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、
- * 押した所から選び直す。
+ * 下書きをつまんだ所。start・end はその端だけを動かし、move は時間の長さを保ったまま動かす。
+ * つままずに空いている所を押したときは掴んだ物が無い（`Drag.grab` が null）ので、押した所から選び直す。
  */
 export type TimeGrab = Grabbed & { kind: 'start' | 'end' | 'move'; draft: TimedDraft };
 /** ドラッグの刻み（分）。Google カレンダーと同じ 15 分の枠に吸着させる */
@@ -73,12 +67,15 @@ function selectDraft(from: TimePoint, to: TimePoint, moved: boolean): TimedDraft
 
 /**
  * 時間指定の下書きが動いたときの手応えの長さ（ms）。動いていなければ null。
- * 15 分の枠に吸着するたびに震わせ、正時だけ短くして時間の区切りが指で分かるようにする。
- * 見るのは開始 → 終了の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
+ * 15 分の枠に吸着するたびに震わせ、正時だけ長くして時間の区切りが指で分かるようにする。
+ * 見るのは開始 → 終了 → 日の順で、枠ごと動かして両方が動くときは開始時刻が基準になる。
+ * 時刻を保ったまま隣の列（別の日）へ移ったときは、日をまたいだ合図として短く震わせる
+ * （日の並びのドラッグと同じ長さ。時刻は変わっていないので正時の合図は出さない）。
  */
 export function timeVibration(previous: TimedDraft, draft: TimedDraft): number | null {
   if (draft.startMin !== previous.startMin) return vibrationFor(draft.startMin);
   if (draft.endMin !== previous.endMin) return vibrationFor(draft.endMin);
+  if (draft.date !== previous.date) return SHORT_VIBRATION_MS;
   return null;
 }
 

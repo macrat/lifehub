@@ -1,16 +1,9 @@
 import { inRange } from '../../../shared/calendar.ts';
 import { addDays, diffDays } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import {
-  type AllDayDraft,
-  type DraftRange,
-  draftDays,
-  draftKind,
-  type Grabbed,
-  type GridDraft,
-  hasEnds,
-  SHORT_VIBRATION_MS,
-} from './draft.ts';
+import { type AllDayDraft, type DraftRange, draftDays, hasEnds } from './draft.ts';
+import { draftKind, type GridDraft } from './grid-draft.ts';
+import { type Grabbed, SHORT_VIBRATION_MS } from './grid-drag.ts';
 import type { Drag } from './range-drag-session.ts';
 
 /** 日の並び（月表示・終日欄）のドラッグ → 下書き（押した所の判定と手応え）。下書きの形は `draft.ts` */

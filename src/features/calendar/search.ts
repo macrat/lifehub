@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  type CalendarItem,
-  groupByDate,
-  inRange,
-  isCompletedTask,
-} from '../../../shared/calendar.ts';
+import { type CalendarItem, inRange, isCompletedTask } from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -111,7 +106,10 @@ export function listSections(
   filters: ListFilters,
   { months, date, range }: { months: string[]; date: DateString; range: DateRange },
 ): ListSection[] {
-  const byDate = groupByDate(items.filter((item) => matchesListFilters(item, filters)));
+  const byDate = Map.groupBy(
+    items.filter((item) => matchesListFilters(item, filters)),
+    (item) => item.placementDate,
+  );
   if (inRange(date, range) && !byDate.has(date)) byDate.set(date, []);
   const byMonth = Map.groupBy(
     [...byDate].sort(([a], [b]) => a.localeCompare(b)),

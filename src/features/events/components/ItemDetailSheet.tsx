@@ -1,13 +1,8 @@
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import DeleteIcon from '@mui/icons-material/Delete';
-import UndoIcon from '@mui/icons-material/Undo';
 import { useState } from 'react';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
-import { type RecordAction, RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-
+import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useCreateEvent } from '../queries.ts';
-import { useItemDetail } from '../use-item-detail.ts';
+import { useItemDetail } from '../use-item-detail.tsx';
 import { ItemDetailView } from './ItemDetailView.tsx';
 import { ItemFields, ScopeChip } from './ItemFields.tsx';
 import { ItemForm } from './ItemForm.tsx';
@@ -47,22 +42,8 @@ function ItemDetail({
   onClose,
   onDuplicate,
 }: Props & { onDuplicate: () => void }) {
-  const detail = useItemDetail(item, initialEditing, onClose);
+  const detail = useItemDetail(item, initialEditing, onClose, onDuplicate);
   const { form, completed, fields } = detail;
-
-  const actions: RecordAction[] = [
-    ...(item.kind === 'task'
-      ? [
-          {
-            label: completed ? '完了を取り消す' : '完了にする',
-            icon: completed ? <UndoIcon /> : <CheckCircleOutlineIcon />,
-            onClick: detail.toggleCompletion,
-          },
-        ]
-      : []),
-    { label: '複製', icon: <ContentCopyIcon />, onClick: onDuplicate },
-    { label: '削除', icon: <DeleteIcon />, danger: true, onClick: detail.startDelete },
-  ];
 
   return (
     <>
@@ -73,7 +54,7 @@ function ItemDetail({
         onClose={onClose}
         editing={fields !== null}
         onEdit={detail.startEdit}
-        actions={actions}
+        actions={detail.actions}
         headerMiddle={
           fields && (
             <KindToggle

@@ -1,7 +1,8 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderHook } from '../../../lib/__tests__/render-hook.ts';
-import { type DraftChange, type GridDraft, itemDraft } from '../draft.ts';
+import { itemDraft } from '../draft.ts';
+import type { DraftChange, GridDraft } from '../grid-draft.ts';
 import { newTaskTimes, taskTimesOf } from '../task-draft.ts';
 import { useQuickForm } from '../use-quick-form.ts';
 import { allDay, DAY, event, task } from './draft-fixtures.ts';

@@ -15,6 +15,7 @@
     "lineWidth": 100
   },
   "plugins": [
+    "./lint/date-fns.grit",
     "./lint/mui-color-prop-path.grit",
     "./lint/named-middleware.grit",
     "./lint/reload.grit",

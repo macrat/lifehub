@@ -1,29 +1,17 @@
-import {
-  type CalendarTaskItem,
-  normalizeIsoInstants,
-  TASK_TIME_LABELS,
-} from '../../../shared/calendar.ts';
+import { type CalendarTaskItem, TASK_TIME_LABELS } from '../../../shared/calendar.ts';
 import { fromMinutesOfDay, minutesOfDay, toDateString } from '../../../shared/date.ts';
-import { formatStart, fromDateValue } from '../../lib/date.ts';
+import { formatStart } from '../../lib/date.ts';
 import { carriedValues, type ItemFormValues, type WhenInput } from '../events/form-values.ts';
+import { normalizeIsoInstants } from '../events/instants.ts';
 import {
   type Draft,
-  type DraftOps,
   type DraftRange,
   itemDraft,
   sameRange,
   taskFrame,
   toTaskFrame,
 } from './draft.ts';
-
-/**
- * グリッドの枠で動かすタスクの日時（開始と、終日か）と、その日時が置かれていた枠（frame）。
- * 枠を動かすと、落とした所が開始になる（`taskTimesAt`）。
- * 保存済みのタスクをつまんだときはそのタスクの日時（`taskTimesOf`）、予定から切り替えたときや
- * 追加するときは枠の開始（`newTaskTimes`）、入力で直したときは入力した日時（`taskDraftFromInput`）から始める。
- * WHY 下書きの item（直しているタスク）とは別に持つ: item は保存の宛先で、追加や予定から切り替えたタスクには無い。
- */
-export type TaskTimes = Pick<ItemFormValues, 'allDay' | 'startsAt'> & { frame: DraftRange };
+import type { DraftOps, TaskTimes } from './grid-draft.ts';
 
 /** 保存済みのタスクの日時。枠はそのタスクが置かれている所（完了したタスクはつままないので、無ければ fallback） */
 export function taskTimesOf(task: CalendarTaskItem, fallback: DraftRange): TaskTimes {
@@ -38,7 +26,7 @@ export function taskTimesOf(task: CalendarTaskItem, fallback: DraftRange): TaskT
  */
 export function newTaskTimes(range: DraftRange): TaskTimes {
   const startsAt = range.allDay
-    ? fromDateValue(range.from)
+    ? fromMinutesOfDay(range.from, 0)
     : fromMinutesOfDay(range.date, range.startMin);
   return { allDay: range.allDay, startsAt, frame: toTaskFrame(range) };
 }
@@ -63,7 +51,7 @@ export function taskTimesAt(
 function dropStart(times: TaskTimes, range: DraftRange): { allDay: boolean; startsAt: string } {
   if (!range.allDay)
     return { allDay: false, startsAt: fromMinutesOfDay(range.date, range.startMin) };
-  if (times.allDay) return { allDay: true, startsAt: fromDateValue(range.from) };
+  if (times.allDay) return { allDay: true, startsAt: fromMinutesOfDay(range.from, 0) };
   return { allDay: false, startsAt: fromMinutesOfDay(range.from, minutesOfDay(times.startsAt)) };
 }
 

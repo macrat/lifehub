@@ -1,7 +1,5 @@
 import Typography from '@mui/material/Typography';
-import { formatDateTime } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { Memo } from '../queries.ts';
 import { useMemoDetail } from '../use-memo-detail.tsx';
 import { MemoField } from './MemoField.tsx';
@@ -16,11 +14,10 @@ type Props = {
 /**
  * メモの詳細。鉛筆で同じシートの中が入力欄に変わり、三点リーダーからピン止め（外す）と削除をする。
  * 直せるのは本文だけで、書いた人と時刻は変わらない。MCP で書いたメモは書いた人の代わりに MCP クライアントの名前を出す。
- * 直す・消す・ピン止めの規則は `useMemoDetail`。
+ * 直す・消す・ピン止めの規則と、書いた人の出し方は `useMemoDetail`。
  * 呼び出し側が項目を選んでいる間だけマウントする（閉じれば編集中の状態も消える）。
  */
 export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props) {
-  const { authorName } = useUserLabels();
   const detail = useMemoDetail(memo, initialEditing, onClose);
 
   return (
@@ -29,11 +26,7 @@ export function MemoDetailSheet({ memo, initialEditing = false, onClose }: Props
         <MemoField {...detail.fields} />
       ) : (
         <>
-          <Typography color="textSecondary">
-            {[memo.mcpClientName ?? authorName(memo.createdBy), formatDateTime(memo.createdAt)]
-              .filter(Boolean)
-              .join('・')}
-          </Typography>
+          <Typography color="textSecondary">{detail.byline}</Typography>
           <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {memo.body}
           </Typography>

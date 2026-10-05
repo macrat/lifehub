@@ -1,7 +1,12 @@
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import UndoIcon from '@mui/icons-material/Undo';
 import { useQueryClient } from '@tanstack/react-query';
 import { type CalendarItem, isCompletedTask } from '../../../shared/calendar.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
+import type { RecordAction } from '../../lib/ui/RecordSheet.tsx';
+import { deleteMenuAction } from '../../lib/ui/use-record-detail.tsx';
 import type { ItemFormValues } from './form-values.ts';
 import {
   eventQueryOptions,
@@ -16,10 +21,16 @@ import { useRecurrenceEditing } from './use-recurrence-editing.ts';
 
 /**
  * 予定・タスクの詳細（`ItemDetailSheet`）の状態と操作。閲覧から編集への切り替え（繰り返しなら範囲の
- * 選択を挟む）、編集の初期値、保存・削除・完了の切り替えをまとめ、シートには表示するものだけを返す。
- * どの操作も済んだら詳細を閉じる（`onClose`）。
+ * 選択を挟む）、編集の初期値、保存・削除・完了の切り替え、三点リーダーの操作をまとめ、シートには
+ * 表示するものだけを返す。どの操作も済んだら詳細を閉じる（`onClose`）。
+ * 複製は詳細の代わりにフォームを出すことで、どちらを出すかはシートが持つので、始める処理（`onDuplicate`）を受け取る。
  */
-export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClose: () => void) {
+export function useItemDetail(
+  item: CalendarItem,
+  initialEditing: boolean,
+  onClose: () => void,
+  onDuplicate: () => void,
+) {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const toggle = useToggleCompletion();
@@ -78,12 +89,28 @@ export function useItemDetail(item: CalendarItem, initialEditing: boolean, onClo
     selectScope: recurrence.selectScope,
     cancelScope: recurrence.cancel,
     startEdit: () => recurrence.start('edit'),
-    startDelete: () => recurrence.start('delete'),
     form,
     completed,
-    toggleCompletion: () => {
-      toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: !completed });
-      onClose();
-    },
+    /** 三点リーダーの操作。タスクは完了（の取り消し）、どちらも複製と削除 */
+    actions: [
+      ...(item.kind === 'task'
+        ? [
+            {
+              label: completed ? '完了を取り消す' : '完了にする',
+              icon: completed ? <UndoIcon /> : <CheckCircleOutlineIcon />,
+              onClick: () => {
+                toggle.mutate({
+                  id: item.id,
+                  occurrenceStart: item.occurrenceStart,
+                  completed: !completed,
+                });
+                onClose();
+              },
+            },
+          ]
+        : []),
+      { label: '複製', icon: <ContentCopyIcon />, onClick: onDuplicate },
+      deleteMenuAction(() => recurrence.start('delete')),
+    ] satisfies RecordAction[],
   };
 }

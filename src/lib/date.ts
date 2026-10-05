@@ -13,9 +13,10 @@ import {
 import type { DateString } from '../../shared/types.ts';
 
 /**
- * クライアントだけが使う日付の表示・入力欄の変換・カレンダーの並び。
+ * クライアントだけが使う日付の表示・入力欄の変換・月の計算・曜日の色。
  * JST の暦日の計算（`shared/date.ts`）はここから再 export せず、使う側が shared から直接読む
  * （どちらから読むかが関数ごとに分かれないように。サーバーと共有する物は shared、それ以外はここ）。
+ * カレンダーの画面だけが使う並び（月のグリッド・週）と見出しは `features/calendar/calendar-dates.ts`。
  */
 
 /**
@@ -147,11 +148,6 @@ export function fromDateTimeLocalValue(value: string): string {
   return new Date(new TZDate(y, mo - 1, d, h, mi, TIME_ZONE).getTime()).toISOString();
 }
 
-/** JST の暦日 → ISO 日時（その日の 0:00 JST） */
-export function fromDateValue(value: DateString): string {
-  return startOfDate(value).toISOString();
-}
-
 /** 0:00 からの分 → "09:00"（24:00 はそのまま出す。時間帯の終わりの表示に使う） */
 export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
@@ -181,53 +177,12 @@ export function monthsInRange(from: DateString, to: DateString): string[] {
   return months;
 }
 
-/** 月表示のグリッドの 6 週。各要素はその週の月曜で、先頭はその月の 1 日を含む週。 */
-export function monthGridWeeks(month: string): DateString[] {
-  const first = firstDayOfMonth(month);
-  const start = addDays(first, -weekdayIndex(first));
-  return Array.from({ length: 6 }, (_, i) => addDays(start, i * 7));
-}
-
-/** 月表示のグリッドの 42 日（月曜始まり、6 週） */
-export function monthGridDays(month: string): DateString[] {
-  return monthGridWeeks(month).flatMap(weekDays);
-}
-
-/** その日を含む週（月曜始まり）の 7 日 */
-export function weekDays(date: DateString): DateString[] {
-  const start = addDays(date, -weekdayIndex(date));
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-
 /** 月を n か月ずらす */
 export function addMonths(month: string, n: number): string {
   const [y, m] = month.split('-').map(Number) as [number, number];
   const total = y * 12 + (m - 1) + n;
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
-
-/**
- * 週（月曜始まり）の見出し。"09月14日〜20日"、月をまたぐなら "08月31日〜09月06日"、
- * 始まりが今年でなければ年から書いて "2030年01月14日〜20日"。
- *
- * 週は必ず月曜から日曜なので曜日は書かず、終わりからは始まりと重なる年月を省く。
- * 始まりの年も、ほとんどの場合は今年を見ているので言わずに済む。
- * 両端を "2026年09月14日（月）〜2026年09月20日（日）" と書くと AppBar に収まらないため。
- */
-export function formatWeekRange(monday: DateString): string {
-  const sunday = addDays(monday, 6);
-  const start =
-    monday.slice(0, 4) === today().slice(0, 4)
-      ? `${monday.slice(5, 7)}月${monday.slice(8, 10)}日`
-      : `${formatMonth(monday)}${monday.slice(8, 10)}日`;
-  const end =
-    toMonthString(monday) === toMonthString(sunday)
-      ? `${sunday.slice(8, 10)}日`
-      : `${sunday.slice(5, 7)}月${sunday.slice(8, 10)}日`;
-  return `${start}〜${end}`;
-}
-
-export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'] as const;
 
 /** 月曜 = 0 の曜日番号 */
 export function weekdayIndex(date: DateString): number {

@@ -7,7 +7,6 @@ import {
   isCompletedTask,
   TASK_TIME_LABELS,
   taskTime,
-  taskTimeOnPlacementDate,
 } from '../../../../shared/calendar.ts';
 import { formatDate, formatTime, isToday } from '../../../lib/date.ts';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
@@ -17,6 +16,7 @@ import { TaskCheckbox } from '../../events/components/TaskCheckbox.tsx';
 
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { itemTransitionName } from '../item-transition.ts';
+import { taskTimeOnPlacementDate } from '../timeline-layout.ts';
 
 /** 印の枠の幅。タスクのチェックボックス（押せる範囲の余白を含めて 28px。`TaskCheckbox`）が収まる幅 */
 const MARK_WIDTH = 28;

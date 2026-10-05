@@ -15,7 +15,8 @@ const verifySignature: MiddlewareHandler = async (c, next) => {
 /**
  * QStash が予約した時刻に呼ぶ入口をすべてここに集める（予約する側は機能ごと。通知は server/features/notifications/publisher.ts）。
  * セッションではなく QStash の署名で保護する。検査はこの集まり全体に 1 度だけ掛けるので、
- * 入口を足しても保護を付け忘れることがない。server/app.ts で認証ミドルウェアより前に `/qstash` へ登録する。
+ * 入口を足しても保護を付け忘れることがない（`/api` の下の外からの入口は、それぞれが自分を守る。
+ * docs/architecture.md の「認証・認可」）。
  * 署名は本文に対して付くので、検査で本文を読む（Hono が読んだ本文を覚えているので、後から validate が
  * json() で読み直せる）。
  */

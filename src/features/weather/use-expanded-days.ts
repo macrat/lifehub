@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { addDays, today } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { useClock } from '../../lib/use-now.ts';
 
 /**
  * 週間天気で 3 時間ごとの天気を開いている日。今日と明日は最初から開いておく（3 時間ごとの予報があるのは
@@ -9,7 +10,8 @@ import type { DateString } from '../../../shared/types.ts';
  */
 export function useExpandedDays() {
   const [toggled, setToggled] = useState<ReadonlySet<DateString>>(new Set());
-  const now = today();
+  // 開いたまま日付が変われば、最初から開く日も次の 2 日へ移る
+  const now = useClock(today);
   const initiallyOpen = (date: DateString) => date === now || date === addDays(now, 1);
   return {
     isOpen: (date: DateString) => initiallyOpen(date) !== toggled.has(date),

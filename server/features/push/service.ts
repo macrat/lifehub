@@ -1,6 +1,7 @@
 import webpush, { WebPushError } from 'web-push';
 import type { PushMessage } from '../../../shared/push.ts';
 import { type PushSubscriptionInput, pushEndpointSchema } from '../../../shared/validation/push.ts';
+import { afterResponse } from '../../lib/after-response.ts';
 import { env } from '../../lib/env.ts';
 import * as repository from './repository.ts';
 
@@ -87,7 +88,12 @@ export async function sendToUsers(
           error instanceof WebPushError &&
           (error.statusCode === 404 || error.statusCode === 410)
         ) {
-          await repository.removeByEndpoint(sub.endpoint, sub.userId);
+          // 失効した購読の片付けは応答の後に回し、失敗してもログに残すだけにする（`afterResponse`）。
+          // WHY: 送信の失敗は呼び出し元に再試行させる合図で、再試行はほかの端末にも送り直す。片付けの失敗で
+          // 投げると、既に届いた端末へ同じ通知が重ねて届く。消し損ねた購読は、次の送信でまた 404/410 を受けて消える
+          afterResponse('push: remove gone subscription', () =>
+            repository.removeByEndpoint(sub.endpoint, sub.userId),
+          );
           return 'skipped';
         }
         console.error('push: failed to send', error);
