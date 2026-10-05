@@ -48,12 +48,6 @@ const recordSources = {
   memo: memos.timelineSource,
 } satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
 
-/**
- * タイムラインに並べる記録の出どころ。
- * - 予定・タスク: 自分以外のタスクを含めない（既定）なら、タスクは userId が参加者にいるものだけ
- * - メモ: ピン止めしたメモを上に固定するとき（`pinsOnTop`。絞り込んでいないとき）は、ピン止めしたものを除く。画面がタイムラインの上に固定して出すため
- *   （理由は docs/features/home.md の「API」）
- */
 /** 予定・タスクの絞り込みの tasksOf: 自分以外のタスクを含めない（既定）なら自分 */
 function tasksOf(
   { includeOthersTasks }: { includeOthersTasks?: boolean | undefined },
@@ -62,6 +56,12 @@ function tasksOf(
   return includeOthersTasks ? undefined : userId;
 }
 
+/**
+ * タイムラインに並べる記録の出どころ。
+ * - 予定・タスク: 自分以外のタスクを含めない（既定）なら、タスクは userId が参加者にいるものだけ
+ * - メモ: ピン止めしたメモを上に固定するとき（`pinsOnTop`。絞り込んでいないとき）は、ピン止めしたものを除く。画面がタイムラインの上に固定して出すため
+ *   （理由は docs/features/home.md の「API」）
+ */
 function sourcesOf(filter: TimelineFilter, userId: string): TimelineSource[] {
   const memo = pinsOnTop(filter) ? memos.unpinnedTimelineSource : memos.timelineSource;
   return [
