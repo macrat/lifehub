@@ -25,20 +25,20 @@ import { type EventRow, eventParticipants, events, type NewEventRow } from './sc
 export type EventWithParticipants = EventRow & { participantIds: string[] };
 
 /**
- * 参加者の読み書き。読むときは参加者を配列にまとめた行を読む（`selectRows`。参加者が 0 人でも行は消えない）。
+ * 参加者の読み書き。読むときは参加者を配列にまとめた行を読む（`selectWithParticipants`。参加者が 0 人でも行は消えない）。
  * 書き込みはすべて insert/replace の形にし、行と同じ runBatch に入れて行と参加者を原子的に書く。行は ID でも、
  * ID を手元に持たない条件（回の実体化の (series_id, occurrence_start)）でも引き当てられ、
  * 条件を足せば「作れたときだけ」入れられる。
  */
 const {
-  selectWithParticipants: selectRows,
+  selectWithParticipants,
   insertWhere: insertParticipantsWhere,
   replaceWhere: replaceParticipantsWhere,
 } = participantsOf({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** 条件に合う行を 1 つ、参加者と一緒に読む */
 async function findOne(where: SQL | undefined): Promise<EventWithParticipants | undefined> {
-  const rows = await selectRows().where(where).groupBy(events.id).limit(1);
+  const rows = await selectWithParticipants().where(where).groupBy(events.id).limit(1);
   return rows[0];
 }
 
@@ -153,7 +153,7 @@ export async function findCalendarRows(
   filter: CandidateFilter = {},
 ): Promise<EventWithParticipants[]> {
   const master = alias(events, 'master');
-  return selectRows()
+  return selectWithParticipants()
     .where(
       or(
         isCandidate(events, from, to, filter),

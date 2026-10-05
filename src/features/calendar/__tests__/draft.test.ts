@@ -200,7 +200,6 @@ describe('draftOn', () => {
   it('並べている日に掛かるときだけ、枠と占める列を返す', () => {
     expect(draftOn(draft, week)).toEqual({
       draft,
-      range: draft.range,
       columns: { col: 3, span: 1, roundStart: true, roundEnd: true },
     });
     // 別の週へ動かした枠は出さないので、元の帯は隠さない
@@ -213,6 +212,6 @@ describe('draftOn', () => {
     expect(draftOn(draft, week, isAllDayDraft)?.columns.col).toBe(3);
     const timedDraft = { range: timed, item: null };
     expect(draftOn(timedDraft, week, isAllDayDraft)).toBeNull();
-    expect(draftOn(timedDraft, week, isTimedDraft)?.range).toBe(timed);
+    expect(draftOn(timedDraft, week, isTimedDraft)?.draft.range).toBe(timed);
   });
 });

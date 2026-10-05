@@ -40,7 +40,7 @@ export function AllDayRow({
 }: Props) {
   const compact = useIsMobile();
   // 時間指定はこの面では時間軸に枠で出るので持たない（出していない物は掴めない）
-  const barDraft = draft?.range.allDay ? draft : null;
+  const barDraft = draft && isAllDayDraft(draft.range) ? draft : null;
   const dayDrag = useDayDrag({ draft: barDraft, onChange: onChangeDraft });
   // 配置は日付と項目だけで決まる。つまんで高さが変わるたびに数え直さない
   const lanes = useMemo(() => layoutLanes(days, allDayByDate), [days, allDayByDate]);

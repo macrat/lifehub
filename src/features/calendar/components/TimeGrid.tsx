@@ -183,11 +183,11 @@ export function TimeGrid({
         */}
         {shown && (
           <DraftBlock
-            draft={shown.range}
+            draft={shown.draft.range}
             kind={draftKind(shown.draft)}
             column={shown.columns.col + 1}
             participantIds={shown.draft.participantIds}
-            grab={drag.frameProps(shown.range)}
+            grab={drag.frameProps(shown.draft.range)}
             dots={compact}
           />
         )}

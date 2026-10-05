@@ -134,12 +134,11 @@ export function sameOccurrence(
 }
 
 /**
- * 面（月の 1 週、終日欄、時間軸）に出している下書きの枠。draft は出している下書き、range はその範囲を
- * 面が出す形に絞ったもの、columns は並べている日のうち占める列（`draftColumns`）。
+ * 面（月の 1 週、終日欄、時間軸）に出している下書きの枠。draft は出している下書き（範囲は面が出す形に
+ * 絞った型）、columns は並べている日のうち占める列（`draftColumns`）。
  */
-export type ShownDraft<D extends Draft, R extends DraftRange> = {
-  draft: D;
-  range: R;
+type ShownDraft<D extends Draft, R extends DraftRange> = {
+  draft: D & { range: R };
   columns: DraftColumns;
 };
 
@@ -168,7 +167,7 @@ export function draftOn<D extends Draft>(
 ): ShownDraft<D, DraftRange> | null {
   if (!draft || !accepts(draft.range)) return null;
   const columns = draftColumns(draft.range, days);
-  return columns && { draft, range: draft.range, columns };
+  return columns && { draft, columns };
 }
 
 /** タップ・クリック（動かさずに離す）で作る予定の長さ（分） */
