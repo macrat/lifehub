@@ -1,15 +1,19 @@
+import type { WrittenEvent } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { addDays, type InstantRange, instantRange, today } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
+  type ChangeAction,
+  changeMessage,
+  changeRecipients,
   listNotifications,
   type NotificationRef,
   resolveNotification,
 } from '../events/notifications.ts';
 import { publishReminder } from '../mcp-events/service.ts';
 import { sendToUsers } from '../push/service.ts';
-import { listAllDayNotifyMinutes } from '../users/people.ts';
+import { listAllDayNotifyMinutes, listPeople } from '../users/people.ts';
 import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
 
@@ -97,4 +101,26 @@ export async function deliver(
     await repository.release(key);
     throw error;
   }
+}
+
+/**
+ * 予定・タスクの追加・削除を、開始日が今日なら操作した人以外の参加者へすぐプッシュ通知する
+ * （相手が今日の買い物のタスクを足したら知って、代わりに済ませられるように）。応答を返した後に送る。
+ * 開始前の通知と違って予約も再検証もしない。操作の直後に送るので、送る時点の内容が操作した物そのもの。
+ * 送れなくても書き込みは取り消さず、ログに残すだけにする（予約の通知と違い、送り直す仕組みを持たない）。
+ * record は書いた後の（消したときは消す前の）予定・タスク。読み直す必要があるときは読む関数で渡す。
+ */
+export function notifyChanged(
+  record: WrittenEvent | (() => Promise<WrittenEvent>),
+  action: ChangeAction,
+  actorId: string,
+): void {
+  const now = new Date();
+  afterResponse('notifications: notifyChanged', async () => {
+    const item = typeof record === 'function' ? await record() : record;
+    const userIds = changeRecipients(item, actorId, now);
+    if (userIds.length === 0) return;
+    const actorName = (await listPeople()).find((p) => p.id === actorId)?.name ?? '家族';
+    await sendToUsers(userIds, changeMessage(item, action, actorName));
+  });
 }

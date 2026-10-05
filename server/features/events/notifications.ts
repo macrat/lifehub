@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { type CalendarItem, EDGE_LABELS, occurrenceKey } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  EDGE_LABELS,
+  occurrenceKey,
+  type WrittenEvent,
+} from '../../../shared/calendar.ts';
 import {
   DAY_MINUTES,
   DEFAULT_ALL_DAY_NOTIFY_MINUTES,
@@ -12,7 +17,9 @@ import {
   type InstantRange,
   startOfDate,
   toDateString,
+  today,
 } from '../../../shared/date.ts';
+import type { PushMessage } from '../../../shared/push.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import { listItems } from './occurrences.ts';
 
@@ -194,5 +201,49 @@ export async function resolveNotification(
     userIds: target.userId ? [target.userId] : item.participantIds,
     item,
     about: ref.edge,
+  };
+}
+
+/** 予定・タスクの追加・削除の通知が知らせる操作 */
+export type ChangeAction = 'added' | 'deleted';
+
+const CHANGE_LABELS = { added: '追加', deleted: '削除' } as const satisfies Record<
+  ChangeAction,
+  string
+>;
+const KIND_LABELS = { event: '予定', task: 'タスク' } as const;
+
+/** 追加・削除の通知本文の時刻「15:00」（JST） */
+const changeTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * 予定・タスクの追加・削除をすぐ知らせる相手: 開始日が今日の物の、操作した人以外の参加者。
+ * 知らせる相手がいなければ空。
+ * - WHY 今日だけ: 頼まれてすぐ動く（今日の買い物を代わりに済ませる）必要があるのは今日の物。先の物は開始前の通知で足りる
+ * - WHY 操作した人を除く: 自分の操作は自分が知っている
+ */
+export function changeRecipients(item: WrittenEvent, actorId: string, now: Date): string[] {
+  if (toDateString(new Date(item.startsAt)) !== today(now)) return [];
+  return item.participantIds.filter((id) => id !== actorId);
+}
+
+/** 追加・削除の通知。見出しは「〈名前〉がタスクを追加しました」、本文は「買い物 ・ 今日 15:00」（終日は「今日」だけ） */
+export function changeMessage(
+  item: WrittenEvent,
+  action: ChangeAction,
+  actorName: string,
+): PushMessage {
+  const when = item.allDay ? '今日' : `今日 ${changeTimeFormatter.format(new Date(item.startsAt))}`;
+  return {
+    title: `${actorName}が${KIND_LABELS[item.kind]}を${CHANGE_LABELS[action]}しました`,
+    body: `${item.title} ・ ${when}`,
+    url: `/calendar?date=${toDateString(new Date(item.startsAt))}`,
+    // 同じ追加・削除の送り直し（オフラインで溜めた書き込みの再送）は、端末で前の通知に重ねて 1 つにする
+    tag: `change:${action}:${item.id}:${item.occurrenceStart ?? 'single'}`,
   };
 }

@@ -17,7 +17,7 @@ import { ValidationError } from '../../lib/errors.ts';
 import { checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
-import { scheduleUpcoming } from '../notifications/service.ts';
+import { notifyChanged, scheduleUpcoming } from '../notifications/service.ts';
 import { occurrenceExists, toMaster } from './occurrences.ts';
 import { patchedInput } from './patch.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -62,6 +62,7 @@ export async function createEvent(
     await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
   );
   scheduleUpcoming();
+  notifyChanged(created, 'added', userId);
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
 }
@@ -156,6 +157,7 @@ export async function deleteEvent(
     await materialize(master, occurrenceStart, { cancelled: true }, undefined, userId);
     // 取り消した回の行は残るので、届ける先があるときだけ読む
     const record = () => occurrenceOf(master, occurrenceStart);
+    notifyChanged(record, 'deleted', userId);
     publishChanged({ type: 'event', record, scope: 'this' }, 'deleted', actor);
     return;
   }
@@ -167,11 +169,14 @@ export async function deleteEvent(
       masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
       splitAt: target.occurrenceStart,
     });
+    notifyChanged(record, 'deleted', userId);
     publishChanged({ type: 'event', record, scope: 'following' }, 'deleted', actor);
     return;
   }
   await repository.remove(id);
-  publishChanged({ type: 'event', record: writtenOf(master) }, 'deleted', actor);
+  const record = writtenOf(master);
+  notifyChanged(record, 'deleted', userId);
+  publishChanged({ type: 'event', record }, 'deleted', actor);
 }
 
 /** タスクの回を完了にする。完了日時は押した時刻（画面が送る。`completeEventRequestSchema`）で、無ければ今 */
