@@ -6,7 +6,10 @@
 language js
 
 `import $imports from $source` where {
-  $source <: or { r".date-fns.", r".date-fns/.*" },
+  $source <: or {
+    r".date-fns.",
+    r".date-fns/.*"
+  },
   $filename <: not r".*/shared/date\.ts$",
   $filename <: not r".*/src/lib/date\.ts$",
   $filename <: not r".*/server/lib/mcp/time\.ts$",
