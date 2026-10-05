@@ -66,9 +66,11 @@ describe('push service', () => {
       ).resolves.toEqual({
         sent: 1,
       });
-      expect(logged).toHaveBeenCalledWith(
-        'push: failed to remove a gone subscription',
-        expect.any(Error),
+      await vi.waitFor(() =>
+        expect(logged).toHaveBeenCalledWith(
+          'push: remove gone subscription failed',
+          expect.any(Error),
+        ),
       );
     });
   });
