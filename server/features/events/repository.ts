@@ -204,22 +204,7 @@ export async function findRecentTimelineInstants(
         not(events.cancelled),
         lt(timelineAt, before),
         keywordOf(events, q),
-        tasksOf === undefined
-          ? undefined
-          : or(
-              eq(events.kind, 'event'),
-              exists(
-                db
-                  .select()
-                  .from(eventParticipants)
-                  .where(
-                    and(
-                      eq(eventParticipants.eventId, events.id),
-                      eq(eventParticipants.userId, tasksOf),
-                    ),
-                  ),
-              ),
-            ),
+        tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(tasksOf)),
       ),
     )
     .orderBy(desc(timelineAt))
@@ -354,6 +339,17 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
 function hasNoParticipants(tx: Database): SQL {
   const own = alias(eventParticipants, 'own_participants');
   return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
+}
+
+/** events の行の参加者に userId がいる */
+function hasParticipant(userId: string): SQL {
+  const own = alias(eventParticipants, 'own_participants');
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(own)
+      .where(and(eq(own.eventId, events.id), eq(own.userId, userId))),
+  );
 }
 
 export async function remove(id: string): Promise<void> {

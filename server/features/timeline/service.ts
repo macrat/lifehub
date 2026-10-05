@@ -16,7 +16,7 @@ import {
 } from '../../../shared/timeline.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import {
-  isTimelineFiltered,
+  pinsOnTop,
   type TimelineFilter,
   type TimelineQuery,
 } from '../../../shared/validation/timeline.ts';
@@ -51,13 +51,21 @@ const recordSources = {
 /**
  * タイムラインに並べる記録の出どころ。
  * - 予定・タスク: 自分以外のタスクを含めない（既定）なら、タスクは userId が参加者にいるものだけ
- * - メモ: 絞り込んでいないとき（`isTimelineFiltered`）は、ピン止めしたものを除く。画面がタイムラインの上に固定して出すため
+ * - メモ: ピン止めしたメモを上に固定するとき（`pinsOnTop`。絞り込んでいないとき）は、ピン止めしたものを除く。画面がタイムラインの上に固定して出すため
  *   （理由は docs/features/home.md の「API」）
  */
+/** 予定・タスクの絞り込みの tasksOf: 自分以外のタスクを含めない（既定）なら自分 */
+function tasksOf(
+  { includeOthersTasks }: { includeOthersTasks?: boolean | undefined },
+  userId: string,
+) {
+  return includeOthersTasks ? undefined : userId;
+}
+
 function sourcesOf(filter: TimelineFilter, userId: string): TimelineSource[] {
-  const memo = isTimelineFiltered(filter) ? memos.timelineSource : memos.unpinnedTimelineSource;
+  const memo = pinsOnTop(filter) ? memos.unpinnedTimelineSource : memos.timelineSource;
   return [
-    events.timelineSource(filter.includeOthersTasks ? undefined : userId),
+    events.timelineSource(tasksOf(filter, userId)),
     ...Object.values({ ...recordSources, memo }),
   ];
 }
@@ -74,7 +82,7 @@ function sourcesOf(filter: TimelineFilter, userId: string): TimelineSource[] {
  * 最新のページ（before なし）は 24 時間先までに始まるものを出し、未完了で開始を過ぎたタスクを一番上に置く
  * （日付で絞り込んでいるときは、一番上のタスクは置く日を持たないので出さない）。
  *
- * 絞り込んでいないとき（`isTimelineFiltered`）は、ピン止めしたメモを出さない。
+ * 絞り込んでいないとき（`pinsOnTop`）は、ピン止めしたメモを出さない。
  * 絞り込んでいるときはほかのメモと同じく、条件に合えば書いた時刻の位置に出す。
  * 自分以外のタスク（userId が参加者にいないもの）は、`includeOthersTasks` のときだけ出す。
  */
@@ -143,7 +151,8 @@ export type DayEntryType = 'event' | 'task' | keyof typeof recordSources;
 
 /**
  * [from, to]（両端を含む JST 暦日）のタイムラインを日ごとに分けたもの（日付順。記録の無い日も含む）。MCP が読む。
- * 記録は q（記録の文字の部分一致）と types（記録の種類）、tasksOf（タスクはその人が参加者にいるものだけ。予定は絞らない）で絞れる。
+ * 記録は q（記録の文字の部分一致）と types（記録の種類）で絞れる。自分以外のタスク（userId が参加者にいないもの）は、
+ * includeOthersTasks のときだけ出す（ホームのタイムラインと同じ既定。予定は絞らない）。
  *
  * 予定・タスクはカレンダーと同じく暦日に置く（`listItems`）: 複数日の予定は日ごとに 1 件ずつ出し、
  * 未完了のタスクは開始が過ぎれば今日に置く。
@@ -155,17 +164,15 @@ export type DayEntryType = 'event' | 'task' | keyof typeof recordSources;
  */
 export async function listDays(
   range: DateRange,
-  {
-    q,
-    types,
-    tasksOf,
-  }: {
+  filter: {
     q?: string | undefined;
     types?: readonly DayEntryType[] | undefined;
-    tasksOf?: string | undefined;
+    includeOthersTasks?: boolean | undefined;
   },
+  userId: string,
   now: Date = new Date(),
 ): Promise<TimelineDay[]> {
+  const { q, types } = filter;
   const wants = (type: DayEntryType) => !types || types.includes(type);
   const instants = instantRange(range);
   const records = Object.entries(recordSources).flatMap(([type, source]) =>
@@ -174,7 +181,9 @@ export async function listDays(
   // 予定とタスクの片方だけが要るなら、もう片方は展開しない
   const kind = wants('event') ? (wants('task') ? undefined : 'event') : 'task';
   const [items, holidays, weather, ...recordEntries] = await Promise.all([
-    wants('event') || wants('task') ? events.listItems(range, now, { kind, q, tasksOf }) : [],
+    wants('event') || wants('task')
+      ? events.listItems(range, now, { kind, q, tasksOf: tasksOf(filter, userId) })
+      : [],
     listHolidays(range),
     listDailyWeather(range),
     ...records,

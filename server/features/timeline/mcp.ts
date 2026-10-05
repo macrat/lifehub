@@ -55,24 +55,18 @@ function formatDay(day: TimelineDay, entries: FormattedEntry[]) {
 
 /**
  * 期間の日ごとのエントリー。絞り込んだとき（q・types）は、エントリーの無い日を省く。
- * 自分以外のタスク（自分が参加者にいないもの）は、includeOthersTasks のときだけ出す（ホームのタイムラインと同じ既定）
+ * 自分以外のタスクは includeOthersTasks のときだけ出す（`listDays`）
  */
 async function readDays(
   ctx: McpContext,
   days: DateRange,
-  {
-    includeOthersTasks,
-    ...filter
-  }: {
+  filter: {
     q?: string | undefined;
     types?: EntryType[] | undefined;
     includeOthersTasks?: boolean | undefined;
   },
 ) {
-  const [people, timeline] = await Promise.all([
-    ctx.people(),
-    listDays(days, { ...filter, tasksOf: includeOthersTasks ? undefined : ctx.userId }),
-  ]);
+  const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter, ctx.userId)]);
   const filtered = filter.q !== undefined || filter.types !== undefined;
   const result = [];
   let count = 0;

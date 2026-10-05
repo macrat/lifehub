@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { CareType } from '../../../shared/validation/lemon.ts';
-import { isTimelineFiltered } from '../../../shared/validation/timeline.ts';
+import { pinsOnTop } from '../../../shared/validation/timeline.ts';
 import { StatusCards } from '../../features/dashboard/components/StatusCards.tsx';
 import { CareLogForm } from '../../features/lemon/components/CareLogForm.tsx';
 import { lemonStatusQueryOptions } from '../../features/lemon/queries.ts';
@@ -51,12 +51,12 @@ function HomePage() {
   const isDesktop = useIsDesktop();
   const filter = useFilterSearch(search, TIMELINE_FILTER_CONDITIONS);
   // 絞り込み中はピン止めしたメモもタイムラインがほかのメモと同じ位置に出すので、上に固定しない（読まない）
-  const pinsOnTop = !isTimelineFiltered(filter.listFilter);
+  const showsPins = pinsOnTop(filter.listFilter);
   // この画面が読むもの: 絞り込んだタイムラインと、その上に固定するピン止めしたメモ、
   // タイルに出す天気（最新のページ）・レモンの状況
   const timeline = useScreenHistory(timelineHistory, filter.listFilter);
   useScreenHistory(weatherHistory, {});
-  useScreenQueries([lemonStatusQueryOptions, { ...pinnedMemosQueryOptions, enabled: pinsOnTop }]);
+  useScreenQueries([lemonStatusQueryOptions, { ...pinnedMemosQueryOptions, enabled: showsPins }]);
   const selection = useRecordSelection<TimelineEntry>();
   // 追加ボタンから開くメモの入力と、タイルから開く世話の入力（タイルの項目にチェックを入れて開く）
   const addingMemo = useToggle();
@@ -93,7 +93,7 @@ function HomePage() {
             onAddCare={addingCare.open}
           />
         </ScrollAwayHeader>
-        {pinsOnTop && <PinnedMemoList onSelect={selection.open} />}
+        {showsPins && <PinnedMemoList onSelect={selection.open} />}
         <TimelineList
           timeline={timeline}
           emptyMessage={filter.emptyMessage('記録')}

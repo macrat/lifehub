@@ -21,14 +21,14 @@ export const timelineFilterSchema = z.object({
 export type TimelineFilter = z.infer<typeof timelineFilterSchema>;
 
 /**
- * 記録を絞り込んでいるか（`isFiltered`）。自分以外のタスクを含めるか（`includeOthersTasks`）は出す記録の範囲を選ぶ
- * 設定で、探し物をしている状態ではないので数えない（ピン止めしたメモはタイムラインの上に固定したまま）
+ * ピン止めしたメモをタイムラインの上に固定して出すか: 記録を絞り込んでいない（`isFiltered`）とき。
+ * 自分以外のタスクを含めるか（`includeOthersTasks`）は出す記録の範囲を選ぶ設定で、探し物をしている状態ではないので見ない
  */
-export function isTimelineFiltered({
+export function pinsOnTop({
   includeOthersTasks: _includeOthersTasks,
   ...filter
 }: TimelineFilter): boolean {
-  return isFiltered(filter);
+  return !isFiltered(filter);
 }
 
 /** タイムラインの 1 ページの取得（`timeline.get`。`cursorShape`。最新のページは 24 時間先まで） */
