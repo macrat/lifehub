@@ -16,7 +16,9 @@ import {
 } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
+import type { EventKind } from '../../../shared/validation/events.ts';
 import { listItems } from './occurrences.ts';
+import type { Target } from './targets.ts';
 
 const EDGES = ['start', 'end'] as const;
 type Edge = (typeof EDGES)[number];
@@ -206,7 +208,7 @@ const CHANGE_LABELS = { added: '追加', deleted: '削除' } as const satisfies 
   ChangeAction,
   string
 >;
-const KIND_LABELS = { event: '予定', task: 'タスク' } as const;
+const KIND_LABELS = { event: '予定', task: 'タスク' } as const satisfies Record<EventKind, string>;
 
 /**
  * 予定・タスク（id。繰り返しなら全部の回）のうち、今日の時点で手を付ける必要がある回。追加・削除をすぐ知らせる対象。
@@ -224,6 +226,19 @@ export async function actionableToday(id: string, now: Date): Promise<CalendarIt
     if (item.kind === 'task') return item.completedAt === null;
     return item.allDay ? allDayDate(item.startsAt, 'start') === day : new Date(item.startsAt) > now;
   });
+}
+
+/** 消す範囲に入る回か（すべて・この回だけ・これ以降すべて）。削除で知らせる回を、消す前に読んだ回から選ぶ */
+export function inTarget(target: Target): (item: CalendarItem) => boolean {
+  if (target.scope === 'all') return () => true;
+  const { scope, occurrenceStart } = target;
+  return (item) => {
+    if (item.occurrenceStart === null) return false;
+    const start = new Date(item.occurrenceStart).getTime();
+    return scope === 'this'
+      ? start === occurrenceStart.getTime()
+      : start >= occurrenceStart.getTime();
+  };
 }
 
 /** 追加・削除を知らせる相手: 知らせる回の参加者のうち、操作した人以外（自分の操作は自分が知っている） */

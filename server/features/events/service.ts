@@ -1,5 +1,4 @@
 import {
-  type CalendarItem,
   type EventMaster,
   normalizeInstants,
   type WrittenEvent,
@@ -19,15 +18,21 @@ import { checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import { notifyChanged, scheduleUpcoming } from '../notifications/service.ts';
-import { actionableToday } from './notifications.ts';
+import { actionableToday, inTarget } from './notifications.ts';
 import { occurrenceExists, toMaster } from './occurrences.ts';
 import { patchedInput } from './patch.ts';
 import type { EventWithParticipants } from './repository.ts';
 import * as repository from './repository.ts';
-import { findMaster, materialize, occurrenceOf, resolveTarget, writtenOf } from './targets.ts';
+import {
+  findMaster,
+  materialize,
+  occurrenceOf,
+  resolveTarget,
+  type Target,
+  writtenOf,
+} from './targets.ts';
 
 export { listItems, listOccurrences } from './occurrences.ts';
-
 export { timelineSource } from './timeline.ts';
 
 /**
@@ -65,7 +70,7 @@ export async function createEvent(
     await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
   );
   scheduleUpcoming();
-  notifyChanged(() => actionableToday(created.id, new Date()), 'added', userId);
+  notifyChanged(actionableToday(created.id, new Date()), 'added', userId);
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
 }
@@ -151,45 +156,40 @@ export async function deleteEvent(
   input: OccurrenceTarget,
   userId: string,
 ): Promise<void> {
-  const master = await findMaster(id);
+  // 消すと読めなくなるので、今日の時点で手を付ける必要がある回（追加・削除をすぐ知らせる対象）を先に読む。
+  // 繰り返し元の読み出しとは互いに頼らないので並べる
+  const [master, actionable] = await Promise.all([findMaster(id), actionableToday(id, new Date())]);
   const target = resolveTarget(master, input);
-  const actor = { userId };
-  // 消すと読めなくなるので、今日の時点で手を付ける必要がある回（追加・削除をすぐ知らせる対象）を先に読む
-  const actionable = await actionableToday(id, new Date());
+  const removed = await removeTarget(master, target, userId);
+  notifyChanged(actionable.filter(inTarget(target)), 'deleted', userId);
+  publishChanged(removed, 'deleted', { userId });
+}
 
+/** 範囲（すべて・この回だけ・これ以降すべて）を消し、MCP Events で届ける消した記録を返す */
+async function removeTarget(
+  master: EventWithParticipants,
+  target: Target,
+  userId: string,
+): Promise<Parameters<typeof publishChanged>[0]> {
   if (target.scope === 'this') {
     const { occurrenceStart } = target;
     await materialize(master, occurrenceStart, { cancelled: true }, undefined, userId);
     // 取り消した回の行は残るので、届ける先があるときだけ読む
-    const record = () => occurrenceOf(master, occurrenceStart);
-    notifyChanged(actionable.filter(isOccurrence(occurrenceStart)), 'deleted', userId);
-    publishChanged({ type: 'event', record, scope: 'this' }, 'deleted', actor);
-    return;
+    return { type: 'event', record: () => occurrenceOf(master, occurrenceStart), scope: 'this' };
   }
   if (target.scope === 'following') {
     // 以降の回の行は消えるので、消す前に読んでおく
     const record = await occurrenceOf(master, target.occurrenceStart);
     await repository.truncateFollowing({
-      masterId: id,
+      masterId: master.id,
       masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
       splitAt: target.occurrenceStart,
     });
-    notifyChanged(actionable.filter(isFrom(target.occurrenceStart)), 'deleted', userId);
-    publishChanged({ type: 'event', record, scope: 'following' }, 'deleted', actor);
-    return;
+    return { type: 'event', record, scope: 'following' };
   }
-  await repository.remove(id);
-  notifyChanged(actionable, 'deleted', userId);
-  publishChanged({ type: 'event', record: writtenOf(master) }, 'deleted', actor);
+  await repository.remove(master.id);
+  return { type: 'event', record: writtenOf(master) };
 }
-
-/** 繰り返しの回のうち、その回だけ */
-const isOccurrence = (occurrenceStart: Date) => (item: CalendarItem) =>
-  item.occurrenceStart === occurrenceStart.toISOString();
-
-/** 繰り返しの回のうち、その回以降 */
-const isFrom = (occurrenceStart: Date) => (item: CalendarItem) =>
-  item.occurrenceStart !== null && new Date(item.occurrenceStart) >= occurrenceStart;
 
 /** タスクの回を完了にする。完了日時は押した時刻（画面が送る。`completeEventRequestSchema`）で、無ければ今 */
 export async function completeEvent(
