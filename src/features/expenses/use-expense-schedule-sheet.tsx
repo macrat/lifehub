@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ScheduleFrequency } from '../../../shared/expenses.ts';
-import { useRecordDetail } from '../../lib/ui/use-record-detail.tsx';
+import { deleteAction } from '../../lib/ui/use-record-detail.tsx';
 import {
   type ExpenseSchedule,
   useAddExpenseSchedule,
@@ -20,7 +20,7 @@ export function useExpenseScheduleSheet(schedule: ExpenseSchedule | null, onClos
   const update = useUpdateExpenseSchedule();
   const remove = useDeleteExpenseSchedule();
   const [frequency, setFrequency] = useState<ScheduleFrequency>(schedule?.frequency ?? 'monthly');
-  const { fields, sheet: form } = useExpenseForm({
+  const { fields, sheet } = useExpenseForm({
     initial: schedule ? { ...schedule, spentOn: schedule.startsOn } : undefined,
     onSubmit: ({ spentOn, ...input }) => {
       const values = { ...input, startsOn: spentOn, frequency };
@@ -30,16 +30,16 @@ export function useExpenseScheduleSheet(schedule: ExpenseSchedule | null, onClos
     },
     onSaved: onClose,
   });
-  const { sheet } = useRecordDetail({
-    initialEditing: true,
-    form,
-    remove: schedule
-      ? {
-          confirm: 'この立替スケジュールを削除しますか？（記録した立替は残ります）',
-          run: () => remove.mutate(schedule.id),
-        }
-      : undefined,
-    onClose,
-  });
-  return { fields, frequency, setFrequency, sheet };
+  const actions = schedule
+    ? [
+        deleteAction(
+          {
+            confirm: 'この立替スケジュールを削除しますか？（記録した立替は残ります）',
+            run: () => remove.mutate(schedule.id),
+          },
+          onClose,
+        ),
+      ]
+    : [];
+  return { fields, frequency, setFrequency, sheet: { ...sheet, onClose, actions } };
 }

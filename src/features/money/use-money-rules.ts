@@ -27,5 +27,3 @@ export function useMoneyRules() {
     },
   };
 }
-
-export type MoneyRulesState = ReturnType<typeof useMoneyRules>;

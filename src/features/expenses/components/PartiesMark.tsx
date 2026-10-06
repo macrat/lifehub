@@ -1,6 +1,6 @@
 import type { Parties } from '../../../../shared/money.ts';
 import { VennMark } from '../../../lib/ui/VennMark.tsx';
-import type { useUserColor } from '../../users/use-user-color.ts';
+import type { ItemColors } from '../../users/use-user-color.ts';
 import { partiesInOrder } from '../parties.ts';
 
 /**
@@ -13,7 +13,8 @@ export function PartiesMark({
   colorFor,
 }: {
   parties: Parties | null;
-  colorFor: ReturnType<typeof useUserColor>;
+  /** 一覧で 1 度だけ引いた `useUserColor` */
+  colorFor: (userId: string | null) => ItemColors;
 }) {
   const people = parties ? partiesInOrder(parties) : [null];
   return <VennMark colors={people.map((id) => colorFor(id).mark)} />;

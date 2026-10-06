@@ -50,8 +50,14 @@ export function deleteMenuAction(onClick: () => void): RecordAction {
   return { label: '削除', icon: <DeleteIcon />, danger: true, onClick };
 }
 
-/** 三点リーダーの削除。確かめてから消し、結果を待たずに閉じる */
-function deleteAction(remove: NonNullable<Options['remove']>, onClose: () => void): RecordAction {
+/**
+ * 三点リーダーの削除。確かめてから消し、結果を待たずに閉じる（閲覧の状態を持たない、開いたときから入力欄のシート
+ * ＝設定から開く管理の画面も使う）
+ */
+export function deleteAction(
+  remove: NonNullable<Options['remove']>,
+  onClose: () => void,
+): RecordAction {
   return deleteMenuAction(() => {
     if (!window.confirm(remove.confirm)) return;
     remove.run();

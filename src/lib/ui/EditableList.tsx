@@ -1,3 +1,4 @@
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditIcon from '@mui/icons-material/Edit';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -5,7 +6,7 @@ import List from '@mui/material/List';
 import ListItem, { type ListItemProps } from '@mui/material/ListItem';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 /**
  * 設定から開く管理の画面（ユーザー管理・取り込みルール・立替スケジュール）の一覧。どの画面も同じ形にする:
@@ -17,12 +18,10 @@ export function EditableList({ children }: { children: ReactNode }) {
 }
 
 type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'> & {
-  /** アイコンのさらに左に置くもの（並べ替えられる一覧の取っ手） */
-  handle?: ReactNode;
-  /** 左のアイコン（ユーザーのアバター、立替や取り込みルールの印）。iconWidth の枠の中央に置く */
+  /** 並べ替えの取っ手のボタンに渡すもの（並べ替えのライブラリの ref と操作）。あればアイコンのさらに左に取っ手を置く */
+  handle?: ComponentProps<typeof IconButton>;
+  /** 左のアイコン（ユーザーのアバター、立替や取り込みルールの印）。枠の中央に置く */
   icon: ReactNode;
-  /** アイコンの枠の幅（px）。既定はアバターの大きさ。取っ手と並べる一覧は印の大きさに詰めて、名前の幅を広く取る */
-  iconWidth?: number;
   primary: string;
   secondary?: string;
   /** 鉛筆の名前（読み上げとテスト用） */
@@ -30,17 +29,18 @@ type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'>
   onEdit: () => void;
 };
 
-/** `EditableList` の行 1 つ。並べ替えられる一覧（取り込みルール）は、左端に取っ手（handle）を置き、行に並べ替えの ref を渡す */
+/** `EditableList` の行 1 つ。並べ替えられる一覧（取り込みルール）は、取っ手（handle）の操作を渡し、行に並べ替えの ref を渡す */
 export function EditableListItem({
   handle,
   icon,
-  iconWidth = 40,
   primary,
   secondary,
   editLabel,
   onEdit,
   ...item
 }: ItemProps) {
+  // 取っ手と並べる行は、アイコンの枠を印の大きさに詰めて名前と説明の幅を広く取る（印はアバターより小さい）
+  const iconWidth = handle ? 20 : 40;
   return (
     <ListItem
       divider
@@ -51,7 +51,17 @@ export function EditableListItem({
       }
       {...item}
     >
-      {handle}
+      {handle && (
+        <IconButton
+          size="small"
+          aria-label="並べ替え"
+          // 指で引くときに画面がスクロールしないよう、取っ手の上ではブラウザのタッチ操作を止める
+          sx={{ cursor: 'grab', touchAction: 'none' }}
+          {...handle}
+        >
+          <DragIndicatorIcon />
+        </IconButton>
+      )}
       <ListItemAvatar sx={{ minWidth: iconWidth + 16 }}>
         <Box sx={{ width: iconWidth, height: 40, display: 'grid', placeItems: 'center' }}>
           {icon}
