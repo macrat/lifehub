@@ -36,6 +36,14 @@ export type MoneyAccount = {
 export const MONEY_RULE_KINDS = ['spending', 'deposit', 'withdrawal'] as const;
 export type MoneyRuleKind = (typeof MONEY_RULE_KINDS)[number];
 
+/**
+ * 内容欄全体と一致させる正規表現。パターンを `(?:…)` で包んでから `^` と `$` を付けるので、`a|b` のような選択も
+ * 全体に掛かる（そのまま付けると `^a|b$` になり、a で始まるか b で終わるだけで当たる）
+ */
+export function fullMatch(pattern: string): RegExp {
+  return new RegExp(`^(?:${pattern})$`);
+}
+
 /** 立替の当事者（null は共有。`Expense` の From・To と同じ） */
 export type Parties = { fromUserId: string | null; toUserId: string | null };
 

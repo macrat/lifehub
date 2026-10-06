@@ -58,8 +58,8 @@ async function transactions(query: ExpenseListQuery = {}) {
 describe('ルールの当て方', () => {
   it('上から順に見て最初に当たったルールだけを使い、どれにも当たらなければ元のまま', () => {
     const rules = [
-      rule({ pattern: 'AMAZON', replaceDescription: true, replacement: 'アマゾン' }),
-      rule({ pattern: 'AMAZON PRIME', replaceDescription: true, replacement: 'プライム' }),
+      rule({ pattern: 'AMAZON.*', replaceDescription: true, replacement: 'アマゾン' }),
+      rule({ pattern: 'AMAZON PRIME.*', replaceDescription: true, replacement: 'プライム' }),
     ];
     expect(applyRules(rules, 'AMAZON PRIME 会費')).toEqual({
       description: 'アマゾン',
@@ -73,21 +73,34 @@ describe('ルールの当て方', () => {
     });
   });
 
+  it('パターンは内容欄全体と一致したときだけ当たり、選択（|）も全体に掛かる', () => {
+    const matches = (pattern: string, original: string) =>
+      applyRules([rule({ pattern, kind: 'deposit', userId: 'u1' })], original).direction !== null;
+    expect(matches('振込', '振込')).toBe(true);
+    expect(matches('振込', '振込 タロウ')).toBe(false);
+    expect(matches('振込', 'ネット振込')).toBe(false);
+    expect(matches('振込.*', '振込 タロウ')).toBe(true);
+    expect(matches('a|b', 'ab')).toBe(false);
+    expect(matches('a|b', 'b')).toBe(true);
+    // ^ や $ を書いても同じ
+    expect(matches('^振込$', '振込')).toBe(true);
+  });
+
   it('置換後の内容欄にキャプチャ・名前付きキャプチャ・当たった所・$ を差し込める', () => {
     const replaced = (pattern: string, replacement: string, original: string) =>
       applyRules([rule({ pattern, replaceDescription: true, replacement })], original).description;
-    expect(replaced('振込 (\\S+)', '$1 から振込', '振込 ヤマダタロウ 様')).toBe(
+    expect(replaced('振込 (\\S+) 様', '$1 から振込', '振込 ヤマダタロウ 様')).toBe(
       'ヤマダタロウ から振込',
     );
     expect(replaced('振込 (?<name>\\S+)', '$<name> さん', '振込 ハナコ')).toBe('ハナコ さん');
-    expect(replaced('\\d+', '[$&] $$', 'カード 1234')).toBe('[1234] $');
+    expect(replaced('カード \\d+', '[$&] $$', 'カード 1234')).toBe('[カード 1234] $');
     // 無いキャプチャは空にする
     expect(replaced('(a)|(b)', '$2', 'a')).toBe('');
   });
 
   it('置換しないルールは内容欄を変えずに、入金・出金を対象者との立替にする', () => {
     expect(
-      applyRules([rule({ pattern: '振込', kind: 'deposit', userId: 'u1' })], '振込 タロウ'),
+      applyRules([rule({ pattern: '振込 .*', kind: 'deposit', userId: 'u1' })], '振込 タロウ'),
     ).toEqual({
       description: '振込 タロウ',
       direction: 'deposit',
@@ -146,7 +159,7 @@ describe('ルールの保存', () => {
     await saveRules(
       [
         rule({
-          pattern: '^ATM',
+          pattern: 'ATM.*',
           replaceDescription: true,
           replacement: 'ATM 引き出し',
           kind: 'withdrawal',

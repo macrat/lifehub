@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { MONEY_RULE_KINDS } from '../money.ts';
+import { fullMatch, MONEY_RULE_KINDS } from '../money.ts';
 import { uuidSchema } from './common.ts';
 
-/** 正規表現として読めるか（ルールのパターン。サーバーとフォームが同じ規則で確かめる） */
+/** 正規表現として読めるか（ルールのパターンを当てるときと同じ、全体に一致させる形で。サーバーとフォームが同じ規則で確かめる） */
 function isRegExp(pattern: string): boolean {
   try {
-    new RegExp(pattern);
+    fullMatch(pattern);
     return true;
   } catch {
     return false;
