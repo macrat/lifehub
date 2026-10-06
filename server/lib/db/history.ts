@@ -11,8 +11,13 @@ import {
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
-import { HISTORY_PAGE_SIZE } from '../history-source.ts';
 import { db } from './client.ts';
+
+/**
+ * 履歴（お金の記録・レモンの記録）の 1 ページの件数の目安。ページは日の途中では切らないので、
+ * これより多くなることがある。1 日は数件なので、スマホの画面数枚分になる
+ */
+const HISTORY_PAGE_SIZE = 50;
 
 type PageQuery<T extends PgTable> = {
   table: T;
@@ -72,59 +77,5 @@ export async function findHistoryPage<T extends PgTable>({
   return {
     items: rows.map(({ pageBoundary: _, hasOlder: __, ...row }) => row) as T['$inferSelect'][],
     nextCursor: first?.pageBoundary && first.hasOlder ? first.pageBoundary : null,
-  };
-}
-
-/**
- * いくつかの表の記録を 1 本の履歴に並べるときの、1 つの表の問い合わせ（`server/lib/history-source.ts` の
- * `HistorySource` の元）。ページの区切りは記録の日（day。date 型の列）で、conditions は絞り込みの条件。
- * WHY 表ごとに問い合わせを分ける: 表をまたいで 1 文にすると、どの feature も他の feature の表を読むことになる。
- * 区切りを決める問い合わせと行を読む問い合わせはそれぞれ同じ時点に投げるので、往復は表の数に依らず 2〜3 回。
- */
-export function historyQueries<T extends PgTable>({
-  table,
-  day,
-  conditions,
-}: {
-  table: T;
-  day: Column;
-  conditions: (SQL | undefined)[];
-}) {
-  const where = (...more: (SQL | undefined)[]) => and(...conditions, ...more);
-  return {
-    /** before より前の、新しいほうから limit 件の記録の日（同じ日が並ぶ） */
-    async recentDays(before: DateString | undefined, limit: number): Promise<DateString[]> {
-      const rows = await db
-        .select({ day: sql<DateString>`${day}::text` })
-        .from(table as PgTable)
-        .where(where(before !== undefined ? lt(day, before) : undefined))
-        .orderBy(desc(day))
-        .limit(limit);
-      return rows.map((row) => row.day);
-    },
-    /** [from, before) の日の記録（from を省けば最も古い日から、before を省けば最も新しい日まで） */
-    async findInDays(
-      from: DateString | undefined,
-      before: DateString | undefined,
-    ): Promise<T['$inferSelect'][]> {
-      return db
-        .select()
-        .from(table as PgTable)
-        .where(
-          where(
-            from !== undefined ? sql`${day} >= ${from}` : undefined,
-            before !== undefined ? lt(day, before) : undefined,
-          ),
-        );
-    },
-    /** day より前の日の記録があるか */
-    async hasBefore(before: DateString): Promise<boolean> {
-      const rows = await db
-        .select({ one: sql`1` })
-        .from(table as PgTable)
-        .where(where(lt(day, before)))
-        .limit(1);
-      return rows.length > 0;
-    },
   };
 }

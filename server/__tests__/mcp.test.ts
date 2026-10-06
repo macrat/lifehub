@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays, today } from '../../shared/date.ts';
 import { newId } from '../../shared/id.ts';
+import { moneyRecords } from '../features/money/schema.ts';
 import { db } from '../lib/db/client.ts';
 import { oauthClients } from '../lib/db/oauth-schema.ts';
 import { resetUsers } from '../lib/db/test-db.ts';
@@ -131,6 +132,31 @@ describe('MCP server', () => {
       const client = await connect(userId);
       const memo = await call<Entry>(client, 'add_memo', { body: 'ねじ' });
       expect(await fail(client, 'update_expense', { ref: memo.ref, amount: 1 })).toContain('メモ');
+    });
+    it('取り込んだ入出金は expense として account 付きで読め、ref を持たない（直せない）', async () => {
+      const client = await connect(userId);
+      await db.insert(moneyRecords).values({
+        id: newId(),
+        sourceId: 'mf-1',
+        account: 'テスト銀行',
+        occurredOn: today(),
+        originalDescription: '振込 タロウ',
+        description: 'タロウ の入金',
+        amount: 50_000,
+        fromUserId: userId,
+        toUserId: null,
+      });
+      const [day] = await readDays(client, { from: today(), to: today(), types: ['expense'] });
+      const [entry] = day?.entries ?? [];
+      expect(entry).toEqual({
+        type: 'expense',
+        date: today(),
+        account: 'テスト銀行',
+        amount: 50_000,
+        description: 'タロウ の入金',
+        paidBy: 'A',
+        paidFor: 'shared',
+      });
     });
   });
 

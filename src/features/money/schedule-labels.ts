@@ -1,4 +1,4 @@
-import type { ScheduleFrequency } from '../../../shared/expenses.ts';
+import type { ScheduleFrequency } from '../../../shared/money.ts';
 
 /** 立替スケジュールの繰り返しの呼び方（入力の選択肢と一覧の表示） */
 export const FREQUENCY_LABELS: Record<ScheduleFrequency, string> = {

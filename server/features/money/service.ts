@@ -1,23 +1,229 @@
 import { addCalendarMonths, addDays, today } from '../../../shared/date.ts';
-import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import {
+  type ExpenseSchedule,
+  type ExpenseTotal,
   type MoneyAccount,
   type MoneyBalance,
-  type MoneyTransaction,
+  type MoneyRecord,
+  type Settlement,
+  scheduleDatesBetween,
+  settlementsOf,
   sortBalances,
-  transferParties,
+  sortMoneyRecords,
 } from '../../../shared/money.ts';
-import { transactionEntry } from '../../../shared/timeline.ts';
+import { expenseEntry } from '../../../shared/timeline.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
-import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
-import type { MoneyRule } from '../../../shared/validation/money.ts';
+import {
+  type ExpenseInput,
+  type ExpenseScheduleInput,
+  expenseRulesSchema,
+  type MoneyListQuery,
+  type MoneyRule,
+} from '../../../shared/validation/money.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
-import { type HistorySource, mapHistorySource } from '../../lib/history-source.ts';
+import { NotFoundError, ValidationError } from '../../lib/errors.ts';
+import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import { publishChanged } from '../mcp-events/service.ts';
 import * as repository from './repository.ts';
 import { applyRules, type Rewritten } from './rules.ts';
-import type { MoneyAccountRow, MoneyRuleRow, MoneyTransactionRow } from './schema.ts';
+import type { MoneyAccountRow, MoneyRecordRow, MoneyRuleRow, MoneyScheduleRow } from './schema.ts';
+
+/** お金の画面の一覧の 1 ページ（古い順。立替と取り込んだ入出金が 1 本に並ぶ） */
+export async function listRecords(query: MoneyListQuery): Promise<HistoryPage<MoneyRecord>> {
+  const page = await repository.findPage(query);
+  return { ...page, items: sortMoneyRecords(page.items.map(toRecord)) };
+}
+
+/** タイムラインに並べる記録（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */
+export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
+  expenseEntry(toRecord(row)),
+);
+
+/** 立替を帳消しにする最小限の資金移動（式は shared/money.ts の `settlementsOf`）。空なら精算済み */
+export async function getSettlements(): Promise<Settlement[]> {
+  return settlementsOf(await getTotals());
+}
+
+/**
+ * 精算の元になる「誰が誰のために払ったか」ごとの合計。手で入れた立替も、取り込みルールで「共有」との立替にした入出金も
+ * 同じく当事者を持つので、1 つの集計で出る。クライアントはこれから精算を導く。
+ * 書き込みの結果を先に出すとき（楽観的更新）、精算の組み方からは 1 件分を足し引きできないが、
+ * 合計なら 1 件分を足し引きするだけで済む
+ */
+export async function getTotals(): Promise<ExpenseTotal[]> {
+  return repository.sumByParties();
+}
+
+/**
+ * 立替を手で入れる。id はクライアントが決めて送ってくる（`createExpenseRequestSchema`）。省略された呼び出し（MCP）はここで採番する。
+ * 組み合わせの規則はここでも掛ける（`checkRules`）。API は入力のスキーマで確かめ済みだが、MCP は LLM の入力から
+ * 組み立てた値を渡すので、どの経路の書き込みも規則を通るよう、書き込む所で確かめる（部分更新の `applyPatch` と同じ）。
+ */
+export async function addExpense(
+  input: ExpenseInput,
+  userId: string,
+  id: string = newId(),
+): Promise<MoneyRecord> {
+  const values = checkRules(input, expenseRulesSchema);
+  const record = toRecord(await repository.insert({ ...values, id, createdBy: userId }));
+  publishChanged({ type: 'expense', record }, 'added', { userId });
+  return record;
+}
+
+/** 全項目を置き換える。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function updateExpense(
+  id: string,
+  input: ExpenseInput,
+  actorId: string,
+): Promise<void> {
+  await write(id, checkRules(input, expenseRulesSchema), actorId);
+}
+
+/** 一部の項目だけを変える（MCP。`applyPatch`）。記録した人（createdBy）は変えない。actorId は直した人 */
+export async function patchExpense(
+  id: string,
+  patch: Partial<ExpenseInput>,
+  actorId: string,
+): Promise<MoneyRecord> {
+  const current = await repository.findById(id);
+  if (!current) throw new NotFoundError('立替が見つかりません');
+  rejectImported(current);
+  const { fromUserId, toUserId, amount, description, occurredOn } = current;
+  const values = applyPatch(
+    { fromUserId, toUserId, amount, description, occurredOn },
+    patch,
+    expenseRulesSchema,
+  );
+  return write(id, values, actorId);
+}
+
+/** 書き換えて、書いた後の立替を返す（直したことを MCP Events で知らせる） */
+async function write(id: string, values: ExpenseInput, actorId: string): Promise<MoneyRecord> {
+  const updated = await repository.update(id, values);
+  if (!updated) await notWritable(id);
+  const record = toRecord(updated as MoneyRecordRow);
+  publishChanged({ type: 'expense', record }, 'updated', { userId: actorId });
+  return record;
+}
+
+/** 手で入れた立替を消す。actorId は消した人 */
+export async function deleteExpense(id: string, actorId: string): Promise<void> {
+  const deleted = await repository.remove(id);
+  if (!deleted) await notWritable(id);
+  publishChanged({ type: 'expense', record: toRecord(deleted as MoneyRecordRow) }, 'deleted', {
+    userId: actorId,
+  });
+}
+
+/** 書けなかった理由を投げる: 無いか、取り込んだ入出金（直すのは Money Forward と取り込みルール） */
+async function notWritable(id: string): Promise<never> {
+  const row = await repository.findById(id);
+  if (row) rejectImported(row);
+  throw new NotFoundError('立替が見つかりません');
+}
+
+function rejectImported(row: MoneyRecordRow): void {
+  if (row.account !== null) {
+    throw new ValidationError(
+      'Money Forward から取り込んだ入出金は直せません（直すなら Money Forward で。内容欄や立替への読み替えは取り込みルールで）',
+    );
+  }
+}
+
+/** 立替スケジュール（作った順） */
+export async function listExpenseSchedules(): Promise<ExpenseSchedule[]> {
+  return (await repository.findSchedules()).map(toSchedule);
+}
+
+/**
+ * 立替スケジュールを作る。最初の日から今日までの回は、その場で立替として記録する
+ * （先の日の回は、日が来たら日次の Cron が記録する。`recordScheduledExpenses`）。
+ * id はクライアントが決めて送ってくる。同じ id で送り直されたら何も書かない（回を二重に記録しない）
+ */
+export async function addExpenseSchedule(
+  input: ExpenseScheduleInput,
+  userId: string,
+  id: string = newId(),
+  now: Date = new Date(),
+): Promise<void> {
+  if (await repository.findScheduleById(id)) return;
+  const schedule = { ...input, id, createdBy: userId };
+  const through = today(now);
+  const before = addDays(input.startsOn, -1);
+  const due = dueExpenses({ ...schedule, generatedThrough: before }, through);
+  const rows = await repository.insertSchedule(
+    { ...schedule, generatedThrough: through > before ? through : before },
+    due,
+  );
+  publishAdded(rows);
+}
+
+/**
+ * 日が来た回を立替として記録する（日次の Cron。日付が変わってすぐ）。どのスケジュールも、記録し終えた日の翌日から
+ * 今日までの回を記録する（Cron が止まっていた日の回も、次に動いたときにまとめて記録する）。記録した数を返す。
+ * 記録した立替を消しても記録し直さない（記録し終えた日で覚えている）
+ */
+export async function recordScheduledExpenses(now: Date = new Date()): Promise<{ count: number }> {
+  const through = today(now);
+  const schedules = await repository.findSchedulesDue(through);
+  const rows = await repository.insertDue(
+    schedules.map((schedule) => schedule.id),
+    through,
+    schedules.flatMap((schedule) => dueExpenses(schedule, through)),
+  );
+  publishAdded(rows);
+  return { count: rows.length };
+}
+
+/**
+ * スケジュールを書き換える（全項目の置き換え）。まだ記録していない回（明日から）にだけ効き、記録した立替はそのまま
+ * （記録した立替は普通の立替なので、直すならその立替を直す）
+ */
+export async function updateExpenseSchedule(
+  id: string,
+  input: ExpenseScheduleInput,
+): Promise<void> {
+  if (!(await repository.updateSchedule(id, input))) {
+    throw new NotFoundError('立替スケジュールが見つかりません');
+  }
+}
+
+/** スケジュールを消す（これからの回を記録しない）。記録した立替は残る */
+export async function deleteExpenseSchedule(id: string): Promise<void> {
+  if (!(await repository.removeSchedule(id))) {
+    throw new NotFoundError('立替スケジュールが見つかりません');
+  }
+}
+
+/** スケジュールの、記録し終えた日の翌日から through までの回 */
+function dueExpenses(
+  schedule: ExpenseScheduleInput & Pick<MoneyScheduleRow, 'createdBy' | 'generatedThrough'>,
+  through: DateString,
+): repository.ScheduledExpense[] {
+  return scheduleDatesBetween(schedule, schedule.generatedThrough, through).map((occurredOn) => ({
+    id: newId(),
+    fromUserId: schedule.fromUserId,
+    toUserId: schedule.toUserId,
+    amount: schedule.amount,
+    description: schedule.description,
+    occurredOn,
+    createdBy: schedule.createdBy,
+  }));
+}
+
+/** 記録した立替を MCP Events で知らせる（記録した人はスケジュールを作った人） */
+function publishAdded(rows: MoneyRecordRow[]): void {
+  for (const row of rows) {
+    // スケジュールが記録する立替は、手で入れた立替と同じく必ず記録した人を持つ
+    if (row.createdBy) {
+      publishChanged({ type: 'expense', record: toRecord(row) }, 'added', {
+        userId: row.createdBy,
+      });
+    }
+  }
+}
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
 const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCOUNTS ?? [];
@@ -34,6 +240,7 @@ const cardNames = new Set(
  * 口座の値はその日（JST）の記録としても残す（残高の推移のグラフ。`money_balances`）。
  * 入出金は先月と今月の 2 か月分の CSV を読み、読んだ明細の最も古い日から最も新しい日までを、Money Forward の今の明細に
  * 置き換える（`saveImport`。Money Forward で消された明細はここで消える）。環境変数から外した口座の行と明細も、ここで消す。
+ * 手で入れた立替には触らない。
  * WHY 外した口座を取り込みで消す: 読むたびに今の口座で絞ると、画面・タイムライン・MCP のどの読み出しにも同じ条件が要り、
  * 消えない行が溜まり続ける。外したことが画面に出るのは次の取り込みから（すぐ消したければ Cron を手で呼ぶ）。
  * WHY 先月も: カードの明細は使った日から数日遅れて届くので、月の初めに読むと先月の終わりの明細がまだ増える。
@@ -67,20 +274,20 @@ export async function syncMoneyForward(
 
   // 2 か月の CSV の境目で同じ明細が重なっても 1 行にする。内容欄は今のルールで読み替える（元のままの内容欄も持つ）
   const rewrite = applyRules(rules);
-  const transactions = [
+  const records = [
     ...new Map(
       scraped.csvs
         .flatMap((csv) => parseTransactionsCsv(csv, accountNames))
         .map((row) => [row.sourceId, { ...row, ...rewrite(row.originalDescription), id: newId() }]),
     ).values(),
   ];
-  const days = transactions.map((row) => row.occurredOn).sort();
+  const days = records.map((row) => row.occurredOn).sort();
   const [from, to] = [days[0], days.at(-1)];
   const fetchedAt = new Date();
   await repository.saveImport({
     accounts: accountNames,
     range: from && to ? { from, to } : null,
-    transactions,
+    records,
     accountRows: scraped.accounts.map((account) => ({ ...account, fetchedAt })),
     balanceRows: scraped.accounts.flatMap(({ name, balance }) =>
       balance === null
@@ -94,7 +301,7 @@ export async function syncMoneyForward(
           ],
     ),
   });
-  return { transactions: transactions.length, accounts: scraped.accounts.length };
+  return { transactions: records.length, accounts: scraped.accounts.length };
 }
 
 /** お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる */
@@ -128,19 +335,6 @@ export async function getBalancePage(
   };
 }
 
-/**
- * お金の画面の一覧に並べる入出金（`HistorySource`。日は明細の日付）。絞り込みは立替の一覧と同じ条件の読み替え
- * （`repository.ts` の `history`）。立替と 1 本に並べてページに分けるのは立替の service（`listMoneyEntries`）
- */
-export function historySource(filter: ExpenseFilter): HistorySource<MoneyTransaction> {
-  return mapHistorySource(repository.history(filter), toTransaction);
-}
-
-/** ルールで「共有」との立替にした入出金の、当事者ごとの合計（立替の精算に足す。`ExpenseTotal` の形） */
-export async function getTransferTotals(): Promise<ExpenseTotal[]> {
-  return repository.sumTransfers();
-}
-
 /** 入出金の読み替えのルール（上から順） */
 export async function listRules(): Promise<MoneyRule[]> {
   return (await repository.findRules()).map(toRule);
@@ -166,11 +360,6 @@ export async function saveRules(rules: MoneyRule[], userId: string): Promise<voi
   await repository.replaceRules(rules, userId, changed);
 }
 
-/** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容の部分一致） */
-export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
-  transactionEntry(toTransaction(row)),
-);
-
 /** 種類ごとに、その種類のカードが出す値だけを持たせる（カードの利用残高は出さない） */
 function toAccount(
   { name, kind }: MoneyForwardAccount,
@@ -187,16 +376,22 @@ function toAccount(
   };
 }
 
-/** 行を画面に出す形にする（内容欄は読み替えた後。読み替えの向きと対象者は立替の当事者にする） */
-function toTransaction(row: MoneyTransactionRow): MoneyTransaction {
+function toRecord(row: MoneyRecordRow): MoneyRecord {
   return {
     id: row.id,
-    account: row.account,
-    occurredOn: row.occurredOn,
-    description: row.description,
+    fromUserId: row.fromUserId,
+    toUserId: row.toUserId,
     amount: row.amount,
-    parties: row.direction && row.userId ? transferParties(row.direction, row.userId) : null,
+    description: row.description,
+    occurredOn: row.occurredOn,
+    createdAt: row.createdAt.toISOString(),
+    account: row.account,
   };
+}
+
+function toSchedule(row: MoneyScheduleRow): ExpenseSchedule {
+  const { id, fromUserId, toUserId, amount, description, startsOn, frequency } = row;
+  return { id, fromUserId, toUserId, amount, description, startsOn, frequency };
 }
 
 function toRule({

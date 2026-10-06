@@ -1,46 +1,30 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
-import { moneyEntryDay } from '../../../../shared/money.ts';
+import { partiesOf } from '../../../../shared/money.ts';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { formatSignedYen, formatYen } from '../../../lib/yen.ts';
-import { PartiesMark } from '../../expenses/components/PartiesMark.tsx';
-import { partiesInOrder, partiesLabel } from '../../expenses/parties.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import type { MoneyEntry } from '../queries.ts';
+import { partiesInOrder, partiesLabel } from '../parties.ts';
+import type { MoneyRecord } from '../queries.ts';
+import { PartiesMark } from './PartiesMark.tsx';
 
 /** 印の枠の幅。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない */
 const MARK_WIDTH = 20;
 
-/** 金額の表示。立替は額だけ、入出金は入金に + を付ける */
-function amountOf(entry: MoneyEntry): string {
-  return entry.type === 'expense'
-    ? formatYen(entry.expense.amount)
-    : formatSignedYen(entry.transaction.amount);
+/** 金額の表示。手で入れた立替は額だけ、取り込んだ入出金は入金に + を付ける */
+function amountOf(record: MoneyRecord): string {
+  return record.account === null ? formatYen(record.amount) : formatSignedYen(record.amount);
 }
 
 /**
- * 行の当事者・内容・補足（立替と入出金で違う所）。補足は、立替なら当事者の名前（`partiesInOrder` の並び）、
- * 入出金なら金融機関
+ * 行の補足。手で入れた立替は当事者の名前（`partiesInOrder` の並び）、取り込んだ入出金は金融機関
  */
-function rowOf(entry: MoneyEntry, label: (party: string | null) => string) {
-  if (entry.type === 'expense') {
-    const { expense } = entry;
-    return {
-      parties: expense,
-      description: expense.description,
-      caption: partiesLabel(partiesInOrder(expense), label),
-    };
-  }
-  const { transaction } = entry;
-  return {
-    parties: transaction.parties,
-    description: transaction.description,
-    caption: transaction.account,
-  };
+function captionOf(record: MoneyRecord, label: (party: string | null) => string): string {
+  return record.account ?? partiesLabel(partiesInOrder(record), label);
 }
 
 /**
@@ -65,9 +49,9 @@ function Amount({ text, widest }: { text: string; widest: string }) {
   );
 }
 
-type Props = Omit<HistoryListProps<MoneyEntry>, 'children'> & {
+type Props = Omit<HistoryListProps<MoneyRecord>, 'children'> & {
   /** 行を押したとき。editing は長押し（編集で開く）か */
-  onSelect: (entry: MoneyEntry, editing: boolean) => void;
+  onSelect: (record: MoneyRecord, editing: boolean) => void;
 };
 
 /**
@@ -77,8 +61,8 @@ type Props = Omit<HistoryListProps<MoneyEntry>, 'children'> & {
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、印はベン図、主列は金額、本文は内容と補足:
  * - 立替: 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」（`partiesInOrder`）。
  *   印も同じ並びで、共有のために払ったものは払った人 1 色の円、人から人へのものは左を To・右を From の円にする
- * - 入出金: 補足は金融機関。印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）。ルールで「共有」との立替に
- *   したもの（`parties`）は、立替と同じ並びと色のベン図
+ * - 取り込んだ入出金: 補足は金融機関。印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）。ルールで「共有」との
+ *   立替にしたもの（当事者を持つもの）は、立替と同じ並びと色のベン図
  */
 export function MoneyList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
@@ -91,28 +75,25 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
   );
   return (
     <HistoryList {...listProps}>
-      {(entries) =>
-        [...Map.groupBy(entries, moneyEntryDay)].map(([date, sameDay]) => (
+      {(records) =>
+        [...Map.groupBy(records, (record) => record.occurredOn)].map(([date, sameDay]) => (
           <Box key={date} sx={{ pb: 1 }}>
             <DateHeading date={date} />
-            {sameDay.map((entry) => {
-              const row = rowOf(entry, label);
-              return (
-                <MarkedRow
-                  key={entry.id}
-                  moveKey={entry.id}
-                  onSelect={(editing) => onSelect(entry, editing)}
-                  mark={<PartiesMark parties={row.parties} colorFor={colorFor} />}
-                  markWidth={MARK_WIDTH}
-                  lead={<Amount text={amountOf(entry)} widest={widest} />}
-                >
-                  <Typography sx={{ overflowWrap: 'anywhere' }}>{row.description}</Typography>
-                  <Typography variant="caption" color="textSecondary" component="div" noWrap>
-                    {row.caption}
-                  </Typography>
-                </MarkedRow>
-              );
-            })}
+            {sameDay.map((record) => (
+              <MarkedRow
+                key={record.id}
+                moveKey={record.id}
+                onSelect={(editing) => onSelect(record, editing)}
+                mark={<PartiesMark parties={partiesOf(record)} colorFor={colorFor} />}
+                markWidth={MARK_WIDTH}
+                lead={<Amount text={amountOf(record)} widest={widest} />}
+              >
+                <Typography sx={{ overflowWrap: 'anywhere' }}>{record.description}</Typography>
+                <Typography variant="caption" color="textSecondary" component="div" noWrap>
+                  {captionOf(record, label)}
+                </Typography>
+              </MarkedRow>
+            ))}
           </Box>
         ))
       }

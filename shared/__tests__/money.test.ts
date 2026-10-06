@@ -4,9 +4,9 @@ import {
   nextScheduleDate,
   scheduleDatesBetween,
   settlementsOf,
-} from '../expenses.ts';
+} from '../money.ts';
 import { dateStringSchema } from '../validation/common.ts';
-import { expenseScheduleSchema } from '../validation/expenses.ts';
+import { expenseScheduleSchema } from '../validation/money.ts';
 
 const total = (fromUserId: string | null, toUserId: string | null, amount: number) =>
   ({ fromUserId, toUserId, amount }) satisfies ExpenseTotal;

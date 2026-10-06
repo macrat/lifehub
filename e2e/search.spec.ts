@@ -67,16 +67,16 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   const expense = async (body: {
     amount: number;
     description: string;
-    spentOn: string;
+    occurredOn: string;
     toUserId?: string | null;
   }): Promise<Created> => {
     const id = crypto.randomUUID();
-    await api.expenses.create.mutate({ id, fromUserId: me.id, toUserId: null, ...body });
-    return { router: 'expenses', id };
+    await api.money.create.mutate({ id, fromUserId: me.id, toUserId: null, ...body });
+    return { router: 'money', id };
   };
   const records = await Promise.all([
-    expense({ amount: 500, description: small, spentOn: '2031-03-01' }),
-    expense({ amount: 5000, description: large, spentOn: '2031-03-10', toUserId: partner }),
+    expense({ amount: 500, description: small, occurredOn: '2031-03-01' }),
+    expense({ amount: 5000, description: large, occurredOn: '2031-03-10', toUserId: partner }),
   ]);
   await page.goto('/money');
   const smallRow = page.getByRole('button', { name: new RegExp(small) });

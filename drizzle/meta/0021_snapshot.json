@@ -1,5 +1,5 @@
 {
-  "id": "c256aac2-64f6-4158-b822-563951a7cd1e",
+  "id": "edeeb38f-5484-4445-a355-f29b7367a3b1",
   "prevId": "0f9024df-2955-4e51-a2b6-7e3803319e10",
   "version": "7",
   "dialect": "postgresql",
@@ -489,250 +489,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.expense_schedules": {
-      "name": "expense_schedules",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "from_user_id": {
-          "name": "from_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_user_id": {
-          "name": "to_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "amount": {
-          "name": "amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "starts_on": {
-          "name": "starts_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "frequency": {
-          "name": "frequency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "generated_through": {
-          "name": "generated_through",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "expense_schedules_from_user_id_users_id_fk": {
-          "name": "expense_schedules_from_user_id_users_id_fk",
-          "tableFrom": "expense_schedules",
-          "tableTo": "users",
-          "columnsFrom": [
-            "from_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "expense_schedules_to_user_id_users_id_fk": {
-          "name": "expense_schedules_to_user_id_users_id_fk",
-          "tableFrom": "expense_schedules",
-          "tableTo": "users",
-          "columnsFrom": [
-            "to_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "expense_schedules_created_by_users_id_fk": {
-          "name": "expense_schedules_created_by_users_id_fk",
-          "tableFrom": "expense_schedules",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "expense_schedules_parties_check": {
-          "name": "expense_schedules_parties_check",
-          "value": "num_nonnulls(\"expense_schedules\".\"from_user_id\", \"expense_schedules\".\"to_user_id\") > 0"
-        },
-        "expense_schedules_frequency_check": {
-          "name": "expense_schedules_frequency_check",
-          "value": "\"expense_schedules\".\"frequency\" in ('daily', 'weekly', 'monthly', 'yearly')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.expenses": {
-      "name": "expenses",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "from_user_id": {
-          "name": "from_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_user_id": {
-          "name": "to_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "amount": {
-          "name": "amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "spent_on": {
-          "name": "spent_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "expenses_from_user_id_users_id_fk": {
-          "name": "expenses_from_user_id_users_id_fk",
-          "tableFrom": "expenses",
-          "tableTo": "users",
-          "columnsFrom": [
-            "from_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "expenses_to_user_id_users_id_fk": {
-          "name": "expenses_to_user_id_users_id_fk",
-          "tableFrom": "expenses",
-          "tableTo": "users",
-          "columnsFrom": [
-            "to_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "expenses_created_by_users_id_fk": {
-          "name": "expenses_created_by_users_id_fk",
-          "tableFrom": "expenses",
-          "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "expenses_parties_check": {
-          "name": "expenses_parties_check",
-          "value": "num_nonnulls(\"expenses\".\"from_user_id\", \"expenses\".\"to_user_id\") > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.holidays": {
       "name": "holidays",
       "schema": "",
@@ -1101,6 +857,157 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.money_records": {
+      "name": "money_records",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "from_user_id": {
+          "name": "from_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_user_id": {
+          "name": "to_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_on": {
+          "name": "occurred_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account": {
+          "name": "account",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "original_description": {
+          "name": "original_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "money_records_from_user_id_users_id_fk": {
+          "name": "money_records_from_user_id_users_id_fk",
+          "tableFrom": "money_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "from_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "money_records_to_user_id_users_id_fk": {
+          "name": "money_records_to_user_id_users_id_fk",
+          "tableFrom": "money_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "to_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "money_records_created_by_users_id_fk": {
+          "name": "money_records_created_by_users_id_fk",
+          "tableFrom": "money_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "money_records_source_id_unique": {
+          "name": "money_records_source_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "money_records_manual_check": {
+          "name": "money_records_manual_check",
+          "value": "\"money_records\".\"account\" is not null or (num_nonnulls(\"money_records\".\"from_user_id\", \"money_records\".\"to_user_id\") > 0 and \"money_records\".\"created_by\" is not null)"
+        },
+        "money_records_import_check": {
+          "name": "money_records_import_check",
+          "value": "(\"money_records\".\"account\" is null) = (\"money_records\".\"source_id\" is null) and (\"money_records\".\"account\" is null) = (\"money_records\".\"original_description\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.money_rules": {
       "name": "money_rules",
       "schema": "",
@@ -1214,8 +1121,8 @@
       },
       "isRLSEnabled": false
     },
-    "public.money_transactions": {
-      "name": "money_transactions",
+    "public.money_schedules": {
+      "name": "money_schedules",
       "schema": "",
       "columns": {
         "id": {
@@ -1224,27 +1131,21 @@
           "primaryKey": true,
           "notNull": true
         },
-        "source_id": {
-          "name": "source_id",
-          "type": "text",
+        "from_user_id": {
+          "name": "from_user_id",
+          "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "account": {
-          "name": "account",
-          "type": "text",
+        "to_user_id": {
+          "name": "to_user_id",
+          "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "occurred_on": {
-          "name": "occurred_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "original_description": {
-          "name": "original_description",
-          "type": "text",
+        "amount": {
+          "name": "amount",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -1254,30 +1155,23 @@
           "primaryKey": false,
           "notNull": true
         },
-        "amount": {
-          "name": "amount",
-          "type": "integer",
+        "starts_on": {
+          "name": "starts_on",
+          "type": "date",
           "primaryKey": false,
           "notNull": true
         },
-        "direction": {
-          "name": "direction",
+        "frequency": {
+          "name": "frequency",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
+        "generated_through": {
+          "name": "generated_through",
+          "type": "date",
           "primaryKey": false,
-          "notNull": false
-        },
-        "hidden": {
-          "name": "hidden",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -1292,16 +1186,48 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "money_transactions_user_id_users_id_fk": {
-          "name": "money_transactions_user_id_users_id_fk",
-          "tableFrom": "money_transactions",
+        "money_schedules_from_user_id_users_id_fk": {
+          "name": "money_schedules_from_user_id_users_id_fk",
+          "tableFrom": "money_schedules",
           "tableTo": "users",
           "columnsFrom": [
-            "user_id"
+            "from_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "money_schedules_to_user_id_users_id_fk": {
+          "name": "money_schedules_to_user_id_users_id_fk",
+          "tableFrom": "money_schedules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "to_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "money_schedules_created_by_users_id_fk": {
+          "name": "money_schedules_created_by_users_id_fk",
+          "tableFrom": "money_schedules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
           ],
           "columnsTo": [
             "id"
@@ -1311,20 +1237,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "money_transactions_source_id_unique": {
-          "name": "money_transactions_source_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "source_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "money_transactions_party_check": {
-          "name": "money_transactions_party_check",
-          "value": "(\"money_transactions\".\"direction\" is null) = (\"money_transactions\".\"user_id\" is null) and (\"money_transactions\".\"direction\" is null or \"money_transactions\".\"direction\" in ('deposit', 'withdrawal'))"
+        "money_schedules_parties_check": {
+          "name": "money_schedules_parties_check",
+          "value": "num_nonnulls(\"money_schedules\".\"from_user_id\", \"money_schedules\".\"to_user_id\") > 0"
+        },
+        "money_schedules_frequency_check": {
+          "name": "money_schedules_frequency_check",
+          "value": "\"money_schedules\".\"frequency\" in ('daily', 'weekly', 'monthly', 'yearly')"
         }
       },
       "isRLSEnabled": false

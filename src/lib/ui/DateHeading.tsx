@@ -4,7 +4,7 @@ import { formatDate, isToday } from '../date.ts';
 import { DATE_HEADING_INSET } from './layout.ts';
 
 /**
- * 日付ごとに区切る一覧（カレンダーのリスト表示、立替の履歴）の見出し。
+ * 日付ごとに区切る一覧（カレンダーのリスト表示、お金の画面の一覧）の見出し。
  * 今日はアクセントカラーで「今日」を添え、今どこを見ているかが分かるようにする。
  */
 export function DateHeading({ date }: { date: DateString }) {

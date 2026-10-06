@@ -4,12 +4,12 @@ import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { formatYen } from '../../../lib/yen.ts';
 import { UserChip } from '../../users/components/UserChip.tsx';
-import type { Expense } from '../queries.ts';
+import type { MoneyRecord } from '../queries.ts';
 import { useExpenseDetail } from '../use-expense-detail.ts';
 import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {
-  expense: Expense;
+  expense: MoneyRecord;
   /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
   initialEditing?: boolean;
   onClose: () => void;
@@ -33,7 +33,7 @@ export function ExpenseDetailSheet({ expense, initialEditing = false, onClose }:
           <Typography variant="h5" component="p" sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {formatYen(expense.amount)}
           </Typography>
-          <Typography>{formatDateWithYear(expense.spentOn)}</Typography>
+          <Typography>{formatDateWithYear(expense.occurredOn)}</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <UserChip prefix="To" userId={expense.toUserId} />
             <UserChip prefix="From" userId={expense.fromUserId} />

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import type { ExpenseScheduleInput } from '../../../../shared/validation/expenses.ts';
+import type { ExpenseScheduleInput } from '../../../../shared/validation/money.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import {
   addExpenseSchedule,
   deleteExpense,
   deleteExpenseSchedule,
   getSettlements,
-  historySource,
   listExpenseSchedules,
+  listRecords,
   recordScheduledExpenses,
   updateExpenseSchedule,
 } from '../service.ts';
@@ -19,9 +19,7 @@ import {
  */
 
 const allExpenses = async () =>
-  (await historySource({}).findInDays(undefined, undefined))
-    .map((e) => [e.spentOn, e.description, e.amount])
-    .sort();
+  (await listRecords({})).items.map((e) => [e.occurredOn, e.description, e.amount]).sort();
 
 const at = (date: string) => new Date(`${date}T09:00:00+09:00`);
 
@@ -81,7 +79,7 @@ describe('立替スケジュール', () => {
 
   it('記録した立替を消しても記録し直さない', async () => {
     await addExpenseSchedule(rent('2026-09-25'), a, undefined, at('2026-10-06'));
-    const [row] = await historySource({}).findInDays(undefined, undefined);
+    const [row] = (await listRecords({})).items;
     if (!row) throw new Error('立替が無い');
     await deleteExpense(row.id, a);
     expect(await recordScheduledExpenses(at('2026-10-06'))).toEqual({ count: 0 });

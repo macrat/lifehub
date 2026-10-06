@@ -6,19 +6,19 @@ import {
   addExpense,
   deleteExpense,
   getSettlements,
-  historySource,
+  listRecords,
   updateExpense,
 } from '../service.ts';
 
-/** 立替をすべて（お金の画面の一覧に並べる口から） */
-const allExpenses = () => historySource({}).findInDays(undefined, undefined);
+/** 立替をすべて（お金の画面の一覧の 1 ページ目。テストの件数は 1 ページに収まる） */
+const allExpenses = async () => (await listRecords({})).items;
 
 let a: string;
 let b: string;
 
 const on = dateStringSchema.parse('2026-09-01');
 
-describe('expenses service', () => {
+describe('立替', () => {
   beforeEach(async () => {
     ({ userId: a, partnerId: b } = await resetUsers());
   });
@@ -29,13 +29,13 @@ describe('expenses service', () => {
 
   it('共有のために払うと共有の債務、共有から引き出すと引き出した人の債務になる', async () => {
     await addExpense(
-      { fromUserId: a, toUserId: null, amount: 3000, description: '旅行', spentOn: on },
+      { fromUserId: a, toUserId: null, amount: 3000, description: '旅行', occurredOn: on },
       a,
     );
     expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 3000 }]);
 
     await addExpense(
-      { fromUserId: null, toUserId: b, amount: 1000, description: '引き出し', spentOn: on },
+      { fromUserId: null, toUserId: b, amount: 1000, description: '引き出し', occurredOn: on },
       b,
     );
     // 共有から B へ渡った 1000 は、共有を経由せず B から A へ直接返せば済む
@@ -47,12 +47,12 @@ describe('expenses service', () => {
 
   it('精算は「払った人 → 受け取った人」の行として記録し、移動が無くなる', async () => {
     await addExpense(
-      { fromUserId: b, toUserId: a, amount: 2000, description: 'A の分', spentOn: on },
+      { fromUserId: b, toUserId: a, amount: 2000, description: 'A の分', occurredOn: on },
       b,
     );
     expect(await getSettlements()).toEqual([{ creditorId: b, debtorId: a, amount: 2000 }]);
     await addExpense(
-      { fromUserId: a, toUserId: b, amount: 2000, description: '精算', spentOn: on },
+      { fromUserId: a, toUserId: b, amount: 2000, description: '精算', occurredOn: on },
       a,
     );
     expect(await getSettlements()).toEqual([]);
@@ -61,7 +61,7 @@ describe('expenses service', () => {
   it('From と To に同じ相手（共有から共有を含む）は選べない', async () => {
     await expect(
       addExpense(
-        { fromUserId: null, toUserId: null, amount: 100, description: '移し替え', spentOn: on },
+        { fromUserId: null, toUserId: null, amount: 100, description: '移し替え', occurredOn: on },
         a,
       ),
     ).rejects.toThrow('From と To に同じ相手は選べません');
@@ -69,7 +69,7 @@ describe('expenses service', () => {
 
   it('立替を編集すると全項目が置き換わり、精算に反映される', async () => {
     const expense = await addExpense(
-      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
+      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', occurredOn: on },
       a,
     );
     await updateExpense(
@@ -79,7 +79,7 @@ describe('expenses service', () => {
         toUserId: a,
         amount: 500,
         description: 'A の分',
-        spentOn: dateStringSchema.parse('2026-09-02'),
+        occurredOn: dateStringSchema.parse('2026-09-02'),
       },
       a,
     );
@@ -90,7 +90,7 @@ describe('expenses service', () => {
         toUserId: a,
         amount: 500,
         description: 'A の分',
-        spentOn: '2026-09-02',
+        occurredOn: '2026-09-02',
       },
     ]);
     expect(await getSettlements()).toEqual([{ creditorId: b, debtorId: a, amount: 500 }]);
@@ -98,7 +98,13 @@ describe('expenses service', () => {
 
   it('編集した後に古い作成が送り直されても、編集は巻き戻らない', async () => {
     const id = newId();
-    const input = { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on };
+    const input = {
+      fromUserId: a,
+      toUserId: null,
+      amount: 2000,
+      description: '食材',
+      occurredOn: on,
+    };
     await addExpense(input, a, id);
     await updateExpense(id, { ...input, amount: 3000 }, a);
     const resent = await addExpense(input, b, id);
@@ -109,7 +115,7 @@ describe('expenses service', () => {
 
   it('立替を削除できる', async () => {
     const expense = await addExpense(
-      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', spentOn: on },
+      { fromUserId: a, toUserId: null, amount: 2000, description: '食材', occurredOn: on },
       a,
     );
     await deleteExpense(expense.id, a);

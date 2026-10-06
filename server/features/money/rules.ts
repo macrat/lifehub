@@ -1,14 +1,18 @@
-import { fullMatch, type MoneyRuleKind } from '../../../shared/money.ts';
+import { fullMatch, type Parties, transferParties } from '../../../shared/money.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 
-/** ルールで読み替えた入出金（`money_transactions` の読み替えた後の列） */
-export type Rewritten = {
+/**
+ * ルールで読み替えた入出金（`money_records` の読み替えた後の列）。当事者は、入金・出金のルールなら「共有」との立替の
+ * From・To（`transferParties`）、支出か、どれにも当たらなければどちらも null（ただの支出）
+ */
+export type Rewritten = Parties & {
   description: string;
-  direction: Exclude<MoneyRuleKind, 'spending'> | null;
-  userId: string | null;
   /** 一覧（お金の画面・タイムライン）に出さないか */
   hidden: boolean;
 };
+
+/** どのルールにも当たらない、ただの支出の当事者 */
+const NO_PARTIES: Parties = { fromUserId: null, toUserId: null };
 
 /**
  * 元の内容欄にルールを上から順に当て、最初に当たったルールで読み替える。どれにも当たらなければ元のまま（ただの支出で、一覧に出す）。
@@ -28,13 +32,14 @@ export function applyRules(rules: readonly MoneyRule[]): (original: string) => R
       const match = pattern.exec(original);
       if (!match) continue;
       return {
+        ...(rule.kind === 'spending' || rule.userId === null
+          ? NO_PARTIES
+          : transferParties(rule.kind, rule.userId)),
         description: rule.replaceDescription ? expand(rule.replacement, match) : original,
-        direction: rule.kind === 'spending' ? null : rule.kind,
-        userId: rule.kind === 'spending' ? null : rule.userId,
         hidden: rule.hidden,
       };
     }
-    return { description: original, direction: null, userId: null, hidden: false };
+    return { ...NO_PARTIES, description: original, hidden: false };
   };
 }
 

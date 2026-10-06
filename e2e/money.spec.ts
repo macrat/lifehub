@@ -2,12 +2,10 @@ import { addDays, today } from '../shared/date.ts';
 import {
   type MoneyAccount,
   type MoneyBalance,
-  type MoneyEntry,
-  type MoneyTransaction,
-  sortMoneyEntries,
-  transactionMoneyEntry,
+  type MoneyRecord,
+  sortMoneyRecords,
 } from '../shared/money.ts';
-import { type TimelineEntry, transactionEntry } from '../shared/timeline.ts';
+import { expenseEntry, type TimelineEntry } from '../shared/timeline.ts';
 import type { HistoryPage } from '../shared/types.ts';
 import { apiOf } from './api.ts';
 import { rewriteJson } from './network.ts';
@@ -39,30 +37,30 @@ const ACCOUNTS: MoneyAccount[] = [
   },
 ];
 
-const SUPERMARKET: MoneyTransaction = {
+/** 取り込んだ入出金（account を持つお金の記録）。当事者を持たない、ただの支出 */
+const SUPERMARKET: MoneyRecord = {
   id: '01990000-0000-7000-8000-000000000001',
-  account: 'テストカード',
-  occurredOn: TODAY,
-  description: 'E2E スーパー',
+  fromUserId: null,
+  toUserId: null,
   amount: -3200,
-  parties: null,
+  description: 'E2E スーパー',
+  occurredOn: TODAY,
+  createdAt: new Date(0).toISOString(),
+  account: 'テストカード',
 };
 
 test.beforeEach(async ({ page }) => {
   await rewriteJson(page, 'money.accounts', () => ACCOUNTS);
   // 最新のページに、本物の立替と並べて入出金を 1 件差し込む
-  await rewriteJson(page, 'expenses.list', async (input, real) => {
-    const latest = (await real()) as HistoryPage<MoneyEntry>;
+  await rewriteJson(page, 'money.list', async (input, real) => {
+    const latest = (await real()) as HistoryPage<MoneyRecord>;
     if ((input as { before?: string } | undefined)?.before) return latest;
-    return {
-      ...latest,
-      items: sortMoneyEntries([transactionMoneyEntry(SUPERMARKET), ...latest.items]),
-    };
+    return { ...latest, items: sortMoneyRecords([SUPERMARKET, ...latest.items]) };
   });
   await rewriteJson(page, 'timeline.get', async (input, real) => {
     const latest = (await real()) as HistoryPage<TimelineEntry>;
     if ((input as { before?: string } | undefined)?.before) return latest;
-    return { ...latest, items: [transactionEntry(SUPERMARKET), ...latest.items] };
+    return { ...latest, items: [expenseEntry(SUPERMARKET), ...latest.items] };
   });
 });
 

@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import type { ExpenseListQuery } from '../../../../shared/validation/expenses.ts';
+import type { MoneyListQuery } from '../../../../shared/validation/money.ts';
 import { db } from '../../../lib/db/client.ts';
-import { clearTables } from '../../../lib/db/test-db.ts';
-import { listMoneyEntries as listMoney } from '../../expenses/service.ts';
+import { clearTables, resetUsers } from '../../../lib/db/test-db.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import {
@@ -14,16 +13,19 @@ import {
   parseWithdrawalDate,
   parseYen,
 } from '../parse.ts';
-import { moneyAccounts, moneyTransactions } from '../schema.ts';
-import { getBalancePage, listAccounts, syncMoneyForward } from '../service.ts';
+import { moneyAccounts, moneyRecords } from '../schema.ts';
+import {
+  addExpense,
+  getBalancePage,
+  listAccounts,
+  listRecords,
+  syncMoneyForward,
+} from '../service.ts';
 
-/** お金の画面の一覧の 1 ページから入出金だけ（絞り込みは立替の一覧と同じ条件） */
-async function listTransactions(query: ExpenseListQuery) {
-  const page = await listMoney(query);
-  return {
-    ...page,
-    items: page.items.flatMap((entry) => (entry.type === 'transaction' ? [entry.transaction] : [])),
-  };
+/** お金の画面の一覧の 1 ページから取り込んだ入出金だけ */
+async function listTransactions(query: MoneyListQuery) {
+  const page = await listRecords(query);
+  return { ...page, items: page.items.filter((record) => record.account !== null) };
 }
 
 const HEADER =
@@ -166,16 +168,38 @@ describe('money service', () => {
     });
   });
 
+  it('取り込みは手で入れた立替に触らない（同じ日の範囲でも消さない）', async () => {
+    const { userId } = await resetUsers();
+    await addExpense(
+      {
+        fromUserId: userId,
+        toUserId: null,
+        amount: 1000,
+        description: '手で入れた立替',
+        occurredOn: dateStringSchema.parse('2026-10-02'),
+      },
+      userId,
+    );
+    serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
+    await syncMoneyForward(NOW);
+    serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
+    await syncMoneyForward(NOW);
+    expect((await listRecords({})).items.map((record) => record.description)).toEqual([
+      '手で入れた立替',
+      'スーパー',
+    ]);
+  });
+
   it('入出金はタイムラインにその日の始まりで並び、キーワードで絞れる', async () => {
     serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
     await syncMoneyForward(NOW);
     const { items } = await getTimelinePage({ q: 'スーパー' }, NOW);
     expect(items).toMatchObject([
       {
-        type: 'transaction',
+        type: 'expense',
         at: new Date('2026-10-02T00:00:00+09:00').toISOString(),
         dateOnly: true,
-        transaction: { account: 'テストカード', amount: -3200 },
+        expense: { account: 'テストカード', amount: -3200 },
       },
     ]);
   });
@@ -185,7 +209,7 @@ describe('money service', () => {
     await syncMoneyForward(NOW);
     // 外した口座の行を、前の取り込みで残った物として置いておく
     await db.insert(moneyAccounts).values({ name: '外した銀行', balance: 1, fetchedAt: NOW });
-    await db.insert(moneyTransactions).values({
+    await db.insert(moneyRecords).values({
       id: newId(),
       sourceId: 'removed',
       account: '外した銀行',

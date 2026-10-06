@@ -1,5 +1,5 @@
 import { today } from '../../../../shared/date.ts';
-import { nextScheduleDate } from '../../../../shared/expenses.ts';
+import { nextScheduleDate } from '../../../../shared/money.ts';
 import { formatDate } from '../../../lib/date.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';

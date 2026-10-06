@@ -1,9 +1,8 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { HTTPException } from 'hono/http-exception';
-import { recordScheduledExpenses } from './features/expenses/service.ts';
 import { refreshHolidays } from './features/holidays/service.ts';
-import { syncMoneyForward } from './features/money/service.ts';
+import { recordScheduledExpenses, syncMoneyForward } from './features/money/service.ts';
 import { enqueueTomorrow } from './features/notifications/service.ts';
 import { recordObservedTemps, refreshWeather } from './features/weather/service.ts';
 import { env } from './lib/env.ts';
@@ -28,8 +27,8 @@ export const cronRoutes = new Hono()
   .use(verifyCronSecret)
   // 日次: 翌日分の通知を予約する（docs/features/notifications.md）
   .get('/notifications', async (c) => c.json(await enqueueTomorrow()))
-  // 日次（日付が変わってすぐ）: 立替スケジュールの、日が来た回を記録する（docs/features/expenses.md の「立替スケジュール」）
-  .get('/expenses', async (c) => c.json(await recordScheduledExpenses()))
+  // 日次（日付が変わってすぐ）: 立替スケジュールの、日が来た回を記録する（docs/features/money.md の「立替スケジュール」）
+  .get('/money/schedules', async (c) => c.json(await recordScheduledExpenses()))
   // 月次: 祝日を配布元から取り直す（docs/features/holidays.md）
   .get('/holidays', async (c) => c.json({ count: (await refreshHolidays()).length }))
   // 1 日 3 回（気象庁の予報の更新の後）: 天気を気象庁から取り直す（docs/features/weather.md の「取得と保存」）

@@ -10,8 +10,8 @@ import {
 } from '../../lib/mcp/entries.ts';
 import {
   ENTRY_TYPES,
+  type EntryType,
   occurrenceTargetOf,
-  type ReadableEntryType,
   refSchema,
   scopeSchema,
 } from '../../lib/mcp/refs.ts';
@@ -26,7 +26,6 @@ import {
   textResult,
 } from '../../lib/mcp/types.ts';
 import * as events from '../events/service.ts';
-import * as expenses from '../expenses/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
 import * as money from '../money/service.ts';
@@ -59,7 +58,7 @@ function formatDay(day: TimelineDay, entries: FormattedEntry[]) {
 async function readDays(
   ctx: McpContext,
   days: DateRange,
-  filter: { q?: string | undefined; types?: ReadableEntryType[] | undefined },
+  filter: { q?: string | undefined; types?: EntryType[] | undefined },
 ) {
   const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter)]);
   const filtered = filter.q !== undefined || filter.types !== undefined;
@@ -100,7 +99,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
       const [people, timeline, settlements, lemonStatus, moneyAccounts] = await Promise.all([
         ctx.people(),
         readDays(ctx, { from: date, to: addDays(date, 1) }, {}),
-        expenses.getSettlements(),
+        money.getSettlements(),
         lemon.getStatus(now),
         money.listAccounts(),
       ]);
@@ -126,7 +125,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
     {
       title: 'タイムラインを読む',
       description: [
-        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで ref を持たない。paidBy・paidFor があれば「共有」との立替として精算に入っている）。各日には祝日（holiday）と天気の要約（weather）も付く。',
+        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=お金の記録（手で入れた立替と、Money Forward から取り込んだ口座の入出金。取り込んだものは account（金融機関）を持ち、amount は入金が正・出金が負で、読むだけなので ref を持たない。取り込んだものは paidBy・paidFor があれば「共有」との立替として精算に入っている）、lemon=レモンの木の世話、memo=メモ。各日には祝日（holiday）と天気の要約（weather）も付く。',
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎれば今日に出る。完了したタスクは完了した日に出る。',
         '日時は JST。終日の予定・タスクは start / end が日付だけ（end はその日を含む）。',
         'q で文字（タイトル・メモ・立替の内容・メモの本文・入出金の内容など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
@@ -169,7 +168,7 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
           await events.deleteEvent(ref.id, occurrenceTargetOf(ref, scope), ctx.userId);
           break;
         case 'expense':
-          await expenses.deleteExpense(ref.id, ctx.userId);
+          await money.deleteExpense(ref.id, ctx.userId);
           break;
         case 'lemon':
           await lemon.deleteLog(ref.id, ctx.userId);

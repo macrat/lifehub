@@ -6,7 +6,6 @@
 export * from '../../features/api-keys/schema.ts';
 export * from '../../features/calendar-feeds/schema.ts';
 export * from '../../features/events/schema.ts';
-export * from '../../features/expenses/schema.ts';
 export * from '../../features/holidays/schema.ts';
 export * from '../../features/lemon/schema.ts';
 export * from '../../features/mcp-events/schema.ts';

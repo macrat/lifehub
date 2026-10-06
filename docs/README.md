@@ -26,8 +26,7 @@
 | [events.md](features/events.md) | `events`（予定とタスク） |
 | [calendar.md](features/calendar.md) | `calendar`（予定画面） |
 | [calendar-feeds.md](features/calendar-feeds.md) | `calendar-feeds`（ics の配信） |
-| [expenses.md](features/expenses.md) | `expenses`（立替） |
-| [money.md](features/money.md) | `money`（お金の画面、Money Forward の口座と入出金の取り込み） |
+| [money.md](features/money.md) | `money`（お金: 立替と精算、立替スケジュール、Money Forward の口座と入出金の取り込み） |
 | [lemon.md](features/lemon.md) | `lemon`（レモンの世話） |
 | [memos.md](features/memos.md) | `memos`（メモ） |
 | [weather.md](features/weather.md) | `weather`（天気） |

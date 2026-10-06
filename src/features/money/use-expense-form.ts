@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { today } from '../../../shared/date.ts';
-import { type ExpenseInput, expenseSchema } from '../../../shared/validation/expenses.ts';
+import { type ExpenseInput, expenseSchema } from '../../../shared/validation/money.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
@@ -43,7 +43,7 @@ export function useExpenseForm({
       ...parties,
       amount: evaluate(amount) ?? undefined,
       description: formText(fd, 'description') ?? '',
-      spentOn: formText(fd, 'spentOn') ?? today(),
+      occurredOn: formText(fd, 'occurredOn') ?? today(),
     }),
     onSubmit,
     onSaved,

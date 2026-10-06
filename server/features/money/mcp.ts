@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { today } from '../../../shared/date.ts';
-import type { Expense } from '../../../shared/expenses.ts';
+import type { MoneyRecord } from '../../../shared/money.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
-import { expenseFieldsSchema, SHARED } from '../../../shared/validation/expenses.ts';
+import { expenseFieldsSchema, SHARED } from '../../../shared/validation/money.ts';
 import { formatExpense, formatSettlements } from '../../lib/mcp/entries.ts';
 import { personInputSchema, resolvePerson } from '../../lib/mcp/people.ts';
 import { expectType, refSchema } from '../../lib/mcp/refs.ts';
@@ -17,7 +17,7 @@ import {
 import * as service from './service.ts';
 
 /**
- * 立替を書く MCP ツール。読むのはタイムライン（`read_timeline` の types=["expense"]）、精算は `get_overview`、
+ * 立替を書く MCP ツール（Money Forward から取り込んだ入出金は読むだけで、直せない）。読むのはタイムライン（`read_timeline` の types=["expense"]）、精算は `get_overview`、
  * 消すのは `delete_entry`。人は名前で指し、共有（共有口座）は "shared" と書かせる（API は null）。
  * 書いた後の精算も返す（「いくら払えば精算か」を続けて訊かれることが多く、読み直させない）。
  */
@@ -42,7 +42,7 @@ function partyIdOf(ctx: McpContext, people: Person[], party: string): string | n
   return party === SHARED ? null : resolvePerson(people, party, ctx.userId);
 }
 
-async function withSettlements(people: Person[], expense: Expense) {
+async function withSettlements(people: Person[], expense: MoneyRecord) {
   return jsonResult({
     entry: formatExpense(expense, people),
     settlements: formatSettlements(await service.getSettlements(), people),
@@ -74,7 +74,7 @@ export const registerExpenseTools: McpRegistrar = (server, ctx) => {
           fromUserId: paidBy ? partyIdOf(ctx, people, paidBy) : ctx.userId,
           toUserId: partyIdOf(ctx, people, paidFor),
           // 今日の日付は LLM が推し量らずに済むよう、サーバーの今日で埋める
-          spentOn: date ?? today(),
+          occurredOn: date ?? today(),
         },
         ctx.userId,
       );
@@ -108,7 +108,7 @@ export const registerExpenseTools: McpRegistrar = (server, ctx) => {
           description,
           fromUserId: paidBy === undefined ? undefined : partyIdOf(ctx, people, paidBy),
           toUserId: paidFor === undefined ? undefined : partyIdOf(ctx, people, paidFor),
-          spentOn: date,
+          occurredOn: date,
         },
         ctx.userId,
       );

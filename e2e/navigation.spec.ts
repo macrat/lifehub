@@ -13,7 +13,7 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
   await openHome(page);
 
   // お金の画面の履歴と精算（この端末ではまだ開いていない＝キャッシュに無い）を、確かめ終わるまで止める
-  const release = await stall(page, ['money.', 'expenses.']);
+  const release = await stall(page, ['money.']);
 
   await page.getByRole('link', { name: 'お金' }).click();
   await expect(page).toHaveURL('/money');

@@ -37,13 +37,13 @@ export function ExpenseFields({
   return (
     <>
       <TextField
-        name="spentOn"
+        name="occurredOn"
         label={dateLabel}
         type="date"
-        defaultValue={initial?.spentOn ?? today()}
+        defaultValue={initial?.occurredOn ?? today()}
         slotProps={{ inputLabel: { shrink: true } }}
-        error={Boolean(errors.spentOn)}
-        helperText={errors.spentOn}
+        error={Boolean(errors.occurredOn)}
+        helperText={errors.occurredOn}
         fullWidth
       />
       {afterDate}

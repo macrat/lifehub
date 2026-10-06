@@ -2,10 +2,11 @@ import Typography from '@mui/material/Typography';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { formatSignedYen } from '../../../lib/yen.ts';
-import type { MoneyTransaction } from '../queries.ts';
+import type { MoneyRecord } from '../queries.ts';
 
 type Props = {
-  transaction: MoneyTransaction;
+  /** 取り込んだ入出金（account を持つお金の記録） */
+  transaction: MoneyRecord;
   onClose: () => void;
 };
 

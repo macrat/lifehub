@@ -7,13 +7,14 @@ import {
   isCompletedTask,
 } from '../../../shared/calendar.ts';
 import { addDays, allDayDate } from '../../../shared/date.ts';
+import { partiesOf } from '../../../shared/money.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { ADD_KINDS } from '../../lib/add-kinds.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { formatSignedYen, formatYen } from '../../lib/yen.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
-import { partiesInOrder, partiesLabel } from '../expenses/parties.ts';
 import { MoneyIcon } from '../money/icon.ts';
+import { partiesInOrder, partiesLabel } from '../money/parties.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -76,15 +77,29 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'expense': {
-      const { fromUserId, toUserId, amount, description } = entry.expense;
-      // 名前と色の並びは立替の履歴と同じ（`partiesInOrder`）
-      const people = partiesInOrder({ toUserId, fromUserId });
+      const { expense } = entry;
+      if (expense.account !== null) {
+        const parties = partiesOf(expense);
+        return {
+          ...view,
+          // 取り込んだ入出金は人に結び付かないので無彩色。ルールで「共有」との立替にしたものは立替と同じ並びの色
+          // （お金の画面の一覧の印と同じ）
+          colors: parties
+            ? partiesInOrder(parties).map((id) => colorFor(id).fill)
+            : [colorFor(null).fill],
+          icon: MoneyIcon,
+          heading: expense.account,
+          body: `${formatSignedYen(expense.amount)} ${expense.description}`,
+        };
+      }
+      // 名前と色の並びはお金の画面の一覧と同じ（`partiesInOrder`）
+      const people = partiesInOrder(expense);
       return {
         ...view,
         colors: people.map((id) => colorFor(id).fill),
         icon: ADD_KINDS.expense.icon,
         heading: partiesLabel(people, label),
-        body: `${formatYen(amount)} ${description}`,
+        body: `${formatYen(expense.amount)} ${expense.description}`,
       };
     }
     case 'lemon': {
@@ -112,20 +127,6 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         heading: writerName(memo.createdBy, memo.mcpClientName),
         pinned: memo.pinned,
         body: memo.body,
-      };
-    }
-    case 'transaction': {
-      const { account, amount, description, parties } = entry.transaction;
-      return {
-        ...view,
-        // 取り込んだ入出金は人に結び付かないので無彩色。ルールで「共有」との立替にしたものは立替と同じ並びの色
-        // （お金の画面の一覧の印と同じ）
-        colors: parties
-          ? partiesInOrder(parties).map((id) => colorFor(id).fill)
-          : [colorFor(null).fill],
-        icon: MoneyIcon,
-        heading: account,
-        body: `${formatSignedYen(amount)} ${description}`,
       };
     }
   }

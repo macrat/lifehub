@@ -7,7 +7,6 @@ import { apiKeysRouter } from './features/api-keys/routes.ts';
 import { calendarRouter } from './features/calendar/routes.ts';
 import { calendarFeedsRouter, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRouter } from './features/events/routes.ts';
-import { expensesRouter } from './features/expenses/routes.ts';
 import { lemonRouter } from './features/lemon/routes.ts';
 import { memosRouter } from './features/memos/routes.ts';
 import { moneyRouter } from './features/money/routes.ts';
@@ -39,7 +38,6 @@ const appRouter = router({
   events: eventsRouter,
   calendarFeeds: calendarFeedsRouter,
   apiKeys: apiKeysRouter,
-  expenses: expensesRouter,
   money: moneyRouter,
   lemon: lemonRouter,
   memos: memosRouter,
@@ -87,7 +85,7 @@ api.route('/qstash', qstashRoutes);
 
 /**
  * 内容が変わっていなければ 304 を返す（HTTP の条件付き要求）。
- * 既定の staleTime は 0 で、画面を開くたびに取り直すため、変わっていない一覧（立替の履歴、世話の記録、
+ * 既定の staleTime は 0 で、画面を開くたびに取り直すため、変わっていない一覧（お金の記録、世話の記録、
  * カレンダーの 1 か月）をそのたびに丸ごと転送することになる。ETag を付ければブラウザが
  * If-None-Match を添えて聞き直し、同じなら本文が流れない。`private, no-cache` は「共有キャッシュには
  * 置かない・使う前に必ず確かめる」の意味で、常に最新を出す性質は変わらない。

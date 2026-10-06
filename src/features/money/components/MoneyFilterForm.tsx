@@ -1,5 +1,5 @@
 import TextField from '@mui/material/TextField';
-import type { ExpenseFilter } from '../../../../shared/validation/expenses.ts';
+import type { MoneyFilter } from '../../../../shared/validation/money.ts';
 import { type FiltersPatch, numberOrUndefined } from '../../../lib/search.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
@@ -9,17 +9,17 @@ import { partyFilterOptions } from '../parties.ts';
 
 type Props = {
   open: boolean;
-  filters: ExpenseFilter;
-  onChange: (next: FiltersPatch<ExpenseFilter>) => void;
+  filters: MoneyFilter;
+  onChange: (next: FiltersPatch<MoneyFilter>) => void;
 };
 
 /**
- * 立替の詳細な検索（AppBar の絞り込みボタンで開く）。金額の範囲・日付の範囲・To・From で履歴を絞り込む。
+ * お金の画面の詳細な検索（AppBar の絞り込みボタンで開く）。金額の範囲・日付の範囲・To・From で一覧を絞り込む。
  * 内容のキーワードは AppBar の検索窓が持つのでここには無い。
  * 「検索」ボタンは置かず、入力するたびに絞り込む。絞り込みはサーバーが掛けるので（手元にあるのは読んだページだけ）、
  * 入力するたびに取り直し、届くまでは前の結果を出したままにする（`useScreenHistory`）。
  */
-export function ExpenseFilterForm({ open, filters, onChange }: Props) {
+export function MoneyFilterForm({ open, filters, onChange }: Props) {
   const { users, label } = useUserLabels();
   const parties = partyFilterOptions(users, label);
   return (

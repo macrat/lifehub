@@ -20,7 +20,6 @@ import type { TimelineQuery } from '../../../shared/validation/timeline.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
-import * as expenses from '../expenses/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
@@ -41,10 +40,9 @@ const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
  * 日ごとのタイムライン（`listDays`）は予定・タスクだけをカレンダーと同じ規則で置くので、分けて持つ
  */
 const recordSources = {
-  expense: expenses.timelineSource,
+  expense: money.timelineSource,
   lemon: lemon.timelineSource,
   memo: memos.timelineSource,
-  transaction: money.timelineSource,
 } satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
 
 /** 絞り込んでいるときにタイムラインに並べる記録の出どころ（ピン止めしたメモも含む） */

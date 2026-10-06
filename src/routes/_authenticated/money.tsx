@@ -1,24 +1,24 @@
 import Box from '@mui/material/Box';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
-import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
-import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
-import { ExpenseForm } from '../../features/expenses/components/ExpenseForm.tsx';
+import type { ExpenseInput } from '../../../shared/validation/money.ts';
+import { AccountGrid, AccountGridSkeleton } from '../../features/money/components/AccountGrid.tsx';
+import { ExpenseForm } from '../../features/money/components/ExpenseForm.tsx';
+import { MoneyFilterForm } from '../../features/money/components/MoneyFilterForm.tsx';
+import { MoneyList } from '../../features/money/components/MoneyList.tsx';
+import { MoneyRecordSheet } from '../../features/money/components/MoneyRecordSheet.tsx';
 import {
   SettlementGrid,
   SettlementGridSkeleton,
-} from '../../features/expenses/components/SettlementGrid.tsx';
-import { settlementExpense } from '../../features/expenses/parties.ts';
-import { totalsQueryOptions, useSettlements } from '../../features/expenses/queries.ts';
-import { EXPENSE_FILTER_CONDITIONS, expenseSearchSchema } from '../../features/expenses/search.ts';
-import { AccountGrid, AccountGridSkeleton } from '../../features/money/components/AccountGrid.tsx';
-import { MoneyList } from '../../features/money/components/MoneyList.tsx';
-import { TransactionDetailSheet } from '../../features/money/components/TransactionDetailSheet.tsx';
+} from '../../features/money/components/SettlementGrid.tsx';
+import { settlementExpense } from '../../features/money/parties.ts';
 import {
   accountsQueryOptions,
-  type MoneyEntry,
+  type MoneyRecord,
   moneyHistory,
+  totalsQueryOptions,
+  useSettlements,
 } from '../../features/money/queries.ts';
+import { MONEY_FILTER_CONDITIONS, moneySearchSchema } from '../../features/money/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
 import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
@@ -30,7 +30,7 @@ import { useRecordSelection } from '../../lib/ui/use-record-selection.ts';
 import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/money')({
-  validateSearch: expenseSearchSchema,
+  validateSearch: moneySearchSchema,
   staticData: { ownsScroll: true },
   component: MoneyPage,
 });
@@ -46,12 +46,12 @@ const TILES_SX = { px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' } as 
  * （絞り込みのフォームを開いている間は隠さない）。
  * 履歴は日ごとの見出しと 1 件 1 行（カレンダーのリスト表示と同じ体裁）。行を単押しすると詳細、立替は長押しすると
  * その詳細が編集で開く（アプリ全体の「単押しは閲覧、長押しは編集」。入出金は読むだけなので長押しでも閲覧）。削除は詳細の三点リーダーの中。
- * AppBar の検索窓とその右の絞り込みボタン（金額・日付の範囲と To・From）は立替の一覧と同じ条件で、入出金にも同じ条件を
- * 読み替えて掛ける（絞り込みはサーバーが掛ける）。タイルは絞り込みに関わらず全体を示す。
+ * AppBar の検索窓とその右の絞り込みボタン（金額・日付の範囲と To・From）は、立替にも入出金にも同じ条件で掛ける
+ * （絞り込みはサーバーが掛ける）。タイルは絞り込みに関わらず全体を示す。
  */
 function MoneyPage() {
   const search = Route.useSearch();
-  const filter = useFilterSearch(search, EXPENSE_FILTER_CONDITIONS);
+  const filter = useFilterSearch(search, MONEY_FILTER_CONDITIONS);
   // この画面が読むもの: 口座、精算の元になる合計、絞り込んだ履歴
   useScreenQueries([accountsQueryOptions, totalsQueryOptions]);
   const history = useScreenHistory(moneyHistory, filter.listFilter);
@@ -59,7 +59,7 @@ function MoneyPage() {
   const settlementsQuery = useSettlements();
   // 追加のフォームと、最初に入れておく値（精算のタイルから開くとその精算）
   const adding = useOpenWith<Partial<ExpenseInput>>();
-  const selection = useRecordSelection<MoneyEntry>();
+  const selection = useRecordSelection<MoneyRecord>();
   const navigate = useNavigate();
   const selected = selection.selected;
 
@@ -68,7 +68,7 @@ function MoneyPage() {
 
   const header = (
     <>
-      <ExpenseFilterForm
+      <MoneyFilterForm
         open={filter.panelOpen}
         filters={filter.filters}
         onChange={filter.setFilters}
@@ -117,16 +117,10 @@ function MoneyPage() {
 
       <AddFab label="立替を追加" onClick={openAdd} />
       {adding.value && <ExpenseForm initial={adding.value} onClose={adding.close} />}
-      {selected?.record.type === 'expense' && (
-        <ExpenseDetailSheet
-          expense={selected.record.expense}
+      {selected && (
+        <MoneyRecordSheet
+          record={selected.record}
           initialEditing={selected.editing}
-          onClose={selection.close}
-        />
-      )}
-      {selected?.record.type === 'transaction' && (
-        <TransactionDetailSheet
-          transaction={selected.record.transaction}
           onClose={selection.close}
         />
       )}

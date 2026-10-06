@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ScheduleFrequency } from '../../../shared/expenses.ts';
+import type { ScheduleFrequency } from '../../../shared/money.ts';
 import { deleteAction } from '../../lib/ui/use-record-detail.tsx';
 import {
   type ExpenseSchedule,
@@ -21,9 +21,9 @@ export function useExpenseScheduleSheet(schedule: ExpenseSchedule | null, onClos
   const remove = useDeleteExpenseSchedule();
   const [frequency, setFrequency] = useState<ScheduleFrequency>(schedule?.frequency ?? 'monthly');
   const { fields, sheet } = useExpenseForm({
-    initial: schedule ? { ...schedule, spentOn: schedule.startsOn } : undefined,
-    onSubmit: ({ spentOn, ...input }) => {
-      const values = { ...input, startsOn: spentOn, frequency };
+    initial: schedule ? { ...schedule, occurredOn: schedule.startsOn } : undefined,
+    onSubmit: ({ occurredOn, ...input }) => {
+      const values = { ...input, startsOn: occurredOn, frequency };
       return schedule
         ? update.mutateAsync({ id: schedule.id, ...values })
         : add.mutateAsync(values);

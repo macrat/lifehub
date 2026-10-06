@@ -3,18 +3,11 @@ import type { OccurrenceTarget } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../errors.ts';
 
 /**
- * ref で指して書き換え・消せるエントリーの種類。予定とタスクは DB では同じ表（kind）だが、
- * LLM にとっては別の物なので分ける。
+ * エントリーの種類（`read_timeline` の types、ref の種類）。予定とタスクは DB では同じ表（kind）だが、
+ * LLM にとっては別の物なので分ける。expense はお金の記録で、ref を持つ（書き換え・消せる）のは手で入れた立替だけ
  */
-const RECORD_TYPES = ['event', 'task', 'expense', 'lemon', 'memo'] as const;
-export type EntryType = (typeof RECORD_TYPES)[number];
-
-/**
- * タイムラインで読めるエントリーの種類（`read_timeline` の types）。書ける種類に、読むだけの入出金
- * （Money Forward から取り込んだもの。ref を持たない）を足したもの
- */
-export const ENTRY_TYPES = [...RECORD_TYPES, 'transaction'] as const;
-export type ReadableEntryType = (typeof ENTRY_TYPES)[number];
+export const ENTRY_TYPES = ['event', 'task', 'expense', 'lemon', 'memo'] as const;
+export type EntryType = (typeof ENTRY_TYPES)[number];
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   event: '予定',
@@ -47,7 +40,7 @@ export const refSchema = z
     const [, type, id, occurrence] = REF.exec(value.trim()) ?? [];
     const occurrenceStart = occurrence ? new Date(occurrence) : null;
     if (
-      !RECORD_TYPES.includes(type as EntryType) ||
+      !ENTRY_TYPES.includes(type as EntryType) ||
       !z.uuid().safeParse(id).success ||
       (occurrenceStart && Number.isNaN(occurrenceStart.getTime()))
     ) {

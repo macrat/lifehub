@@ -16,10 +16,10 @@ import { CSS } from '@dnd-kit/utilities';
 import type { MoneyRule } from '../../../../shared/validation/money.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';
-import { PartiesMark } from '../../expenses/components/PartiesMark.tsx';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { describeRule, ruleParties } from '../rule-text.ts';
+import { PartiesMark } from './PartiesMark.tsx';
 
 /**
  * 取り込みルールの一覧（上から順に当てる）。行は左に当たった入出金の印（お金の画面の入出金の印と同じ）、パターンと

@@ -1,13 +1,13 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { CalendarItem, WrittenEvent } from '../../../shared/calendar.ts';
-import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import type { MoneyRecord } from '../../../shared/money.ts';
 import type { Actor } from '../../lib/actor.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
-  type FormattedRecord,
+  type FormattedEntry,
   formatCareLog,
   formatEvent,
   formatExpense,
@@ -52,7 +52,7 @@ type ChangedRecord =
       record: WrittenEvent | (() => Promise<WrittenEvent>);
       scope?: 'this' | 'following';
     }
-  | { type: 'expense'; record: Expense }
+  | { type: 'expense'; record: MoneyRecord }
   | { type: 'lemon'; record: CareLog };
 
 type Action = 'added' | 'updated' | 'deleted';
@@ -138,7 +138,7 @@ function deliverAll(subscriptions: McpEventSubscriptionRow[], occurrence: Occurr
 }
 
 /** 記録をエントリーの形にする関数。予定・タスクを読み直すときは、人の一覧と並べて読めるよう先に読む */
-async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) => FormattedRecord> {
+async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) => FormattedEntry> {
   switch (changed.type) {
     case 'memo':
       return (people) => formatMemo(changed.record, people);

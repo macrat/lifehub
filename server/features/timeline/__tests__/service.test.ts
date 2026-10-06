@@ -4,12 +4,12 @@ import { toDateString } from '../../../../shared/date.ts';
 import type { TimelineEntry } from '../../../../shared/timeline.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
-import { expenseSchema } from '../../../../shared/validation/expenses.ts';
+import { expenseSchema } from '../../../../shared/validation/money.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
-import { addExpense } from '../../expenses/service.ts';
 import { logCare } from '../../lemon/service.ts';
 import { addMemo, setMemoPinned } from '../../memos/service.ts';
+import { addExpense } from '../../money/service.ts';
 import { getTimelinePage } from '../service.ts';
 
 // 「今」を 2026-09-14（月）の正午に固定する
@@ -34,8 +34,7 @@ function label(entry: TimelineEntry): string {
   if (entry.type === 'event') return entry.item.title;
   if (entry.type === 'expense') return entry.expense.description;
   if (entry.type === 'lemon') return entry.log.note ?? entry.log.careTypes.join('+');
-  if (entry.type === 'memo') return entry.memo.body;
-  return entry.transaction.description;
+  return entry.memo.body;
 }
 
 describe('timeline service', () => {
@@ -78,7 +77,7 @@ describe('timeline service', () => {
         toUserId: partnerId,
         amount: 800,
         description: 'ランチ',
-        spentOn: '2026-09-12',
+        occurredOn: '2026-09-12',
       }),
       userId,
     );

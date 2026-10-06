@@ -9,7 +9,7 @@
 | 画面 | パス | 内容 |
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
-| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、お金（取り込みルール（[money.md](money.md#取り込みルール)）と立替スケジュール（[expenses.md](expenses.md#立替スケジュール)）へのリンク）、アカウント（ユーザー管理へのリンク）、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
+| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、お金（取り込みルール（[money.md](money.md#取り込みルール)）と立替スケジュール（[money.md](money.md#立替スケジュール)）へのリンク）、アカウント（ユーザー管理へのリンク）、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
 | ユーザー管理 | `/admin/users` | 設定の「アカウント」セクションから開く（AppBar と一覧の形は [ui.md](../ui.md#見た目) の「設定から開く管理の画面」）。ユーザー一覧（色付きのアバター）、登録（右下の追加ボタン。名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
 
@@ -22,7 +22,7 @@
 - 各ユーザーは **OKLCH の色相（`hue`、0〜359）だけ**を選ぶ。彩度と明度はアプリが用途ごとに決めて使い回す（`shared/color.ts`: アクセント `accent`、カレンダーの帯などの面 `fill`（彩度を抑えた明るいパステル調）、無地の面の上の細い線 `line`（チェックボックス・下書きの枠）、一覧の左の印 `mark`、薄い背景 `tint`。ライト／ダークで別の値）。`fill` の上の文字は無彩色の暗い 1 色 `FILL_TEXT` で、どの色相の `fill` ともコントラスト比 7:1 以上。OKLCH は色相を変えても知覚的な明るさ・鮮やかさが揃うので、どの色相でも同じ強さになる。
 - ログイン中のユーザーの色相がアプリのアクセントカラー（MUI の `primary`）になる（`src/lib/theme.ts` の `useAppTheme`、`src/main.tsx`）。ログイン前は既定の色相（ブランドカラー `#A0148C` の色相 335）。
 - 設定画面でスライダーを動かすと、選んだ色相がその場でアクセントカラーになる（`src/lib/theme.ts` の `previewHue`。テーマ全体に入るので、スイッチや画面上部のインジケータなど実際に使われる所で見え方を確かめられる）。保存されるのは保存ボタンを押したときだけで、押さずに設定画面を離れれば保存済みの色に戻る（`src/features/users/use-my-color.ts`）。
-- カレンダーでは項目を参加者 1 人ずつの色で塗り分ける（`src/features/users/use-user-color.ts`、`src/features/events/use-participant-colors.ts`）。帯・時間軸のブロック・まだ保存していない下書きの枠も、印と同じ並びで塗り分ける（2 人は / の斜め、3 人は左上と右上の角へ開く Y の字、4 人は十字）。参加者のチェックボックス、詳細シートの参加者チップ（レモンの記録の記録者のチップも同じ部品 `src/features/users/components/UserChip.tsx`）も同じ色。予定と立替の一覧の印（`VennMark`）は参加者・To／From の色の円を重ね、重なりも中心で分けてそれぞれの色で塗る。一覧のタスクのチェックボックス（`SplitCheckboxIcon`）も同じ並びで参加者の色に塗り分ける（2 人は左右、3 人は Y の字）。立替は同じ色を詳細の To／From にも使う（使い方は [expenses.md](expenses.md)）。参加者がいない（`null`）項目は、どのユーザーの色とも競合しないよう彩度 0 の無彩色。
+- カレンダーでは項目を参加者 1 人ずつの色で塗り分ける（`src/features/users/use-user-color.ts`、`src/features/events/use-participant-colors.ts`）。帯・時間軸のブロック・まだ保存していない下書きの枠も、印と同じ並びで塗り分ける（2 人は / の斜め、3 人は左上と右上の角へ開く Y の字、4 人は十字）。参加者のチェックボックス、詳細シートの参加者チップ（レモンの記録の記録者のチップも同じ部品 `src/features/users/components/UserChip.tsx`）も同じ色。予定と立替の一覧の印（`VennMark`）は参加者・To／From の色の円を重ね、重なりも中心で分けてそれぞれの色で塗る。一覧のタスクのチェックボックス（`SplitCheckboxIcon`）も同じ並びで参加者の色に塗り分ける（2 人は左右、3 人は Y の字）。立替は同じ色を詳細の To／From にも使う（使い方は [money.md](money.md)）。参加者がいない（`null`）項目は、どのユーザーの色とも競合しないよう彩度 0 の無彩色。
 - 色は CSS の `oklch()` のまま渡し、変換はブラウザに任せる（`shared/color.ts` の `hueColor`）。MUI のパレットも `nativeColor`（`src/lib/theme.ts`）で `oklch()` を受け、明暗の派生色と文字色は CSS の `color-mix()`・相対色で作られる。画面の色域（sRGB / Display P3）から外れる色の扱いもブラウザが決めるので、広色域の画面ではどの色相でも指定した彩度のまま出る。
   - WHY NOT sRGB の hex に変換して渡す: 変換と色域外の扱いを自前で持つことになり、広色域の画面でも sRGB の範囲に押し込めてしまう。
   - 色域外の色は画面によって少し違って見える（sRGB の画面では切り詰められる）。帯の文字（`FILL_TEXT`）のコントラスト比 7:1 は、そのままの色・sRGB に切り詰めた色・P3 に切り詰めた色のどれでも保てることをテストで確かめる（`shared/__tests__/color.test.ts`。色の計算は開発用の依存の culori を使う）。

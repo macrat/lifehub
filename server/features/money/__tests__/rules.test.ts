@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
+import { partiesOf } from '../../../../shared/money.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
-import { type ExpenseListQuery, SHARED } from '../../../../shared/validation/expenses.ts';
-import { type MoneyRule, moneyRulesSchema } from '../../../../shared/validation/money.ts';
+import {
+  type MoneyListQuery,
+  type MoneyRule,
+  moneyRulesSchema,
+  SHARED,
+} from '../../../../shared/validation/money.ts';
 import { db } from '../../../lib/db/client.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
-import { getSettlements, listMoneyEntries } from '../../expenses/service.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import { applyRules } from '../rules.ts';
-import { moneyTransactions } from '../schema.ts';
-import { listRules, saveRules, syncMoneyForward } from '../service.ts';
+import { moneyRecords } from '../schema.ts';
+import { getSettlements, listRecords, listRules, saveRules, syncMoneyForward } from '../service.ts';
 
 /**
  * 入出金の読み替えのルール: 当て方（`applyRules`）、保存したら過去の入出金にも効くこと、取り込みに効くこと、
@@ -36,7 +40,7 @@ async function addTransaction(
   amount: number,
   occurredOn = '2026-10-01',
 ) {
-  await db.insert(moneyTransactions).values({
+  await db.insert(moneyRecords).values({
     id: newId(),
     sourceId: newId(),
     account: 'テスト銀行',
@@ -48,12 +52,8 @@ async function addTransaction(
 }
 
 /** 一覧の入出金（内容欄と当事者） */
-async function transactions(query: ExpenseListQuery = {}) {
-  return (await listMoneyEntries(query)).items.flatMap((entry) =>
-    entry.type === 'transaction'
-      ? [[entry.transaction.description, entry.transaction.parties]]
-      : [],
-  );
+async function transactions(query: MoneyListQuery = {}) {
+  return (await listRecords(query)).items.map((record) => [record.description, partiesOf(record)]);
 }
 
 describe('ルールの当て方', () => {
@@ -64,21 +64,21 @@ describe('ルールの当て方', () => {
     ];
     expect(applyRules(rules)('AMAZON PRIME 会費')).toEqual({
       description: 'アマゾン',
-      direction: null,
-      userId: null,
+      fromUserId: null,
+      toUserId: null,
       hidden: false,
     });
     expect(applyRules(rules)('スーパー')).toEqual({
       description: 'スーパー',
-      direction: null,
-      userId: null,
+      fromUserId: null,
+      toUserId: null,
       hidden: false,
     });
   });
 
   it('パターンは内容欄全体と一致したときだけ当たり、選択（|）も全体に掛かる', () => {
     const matches = (pattern: string, original: string) =>
-      applyRules([rule({ pattern, kind: 'deposit', userId: 'u1' })])(original).direction !== null;
+      applyRules([rule({ pattern, kind: 'deposit', userId: 'u1' })])(original).fromUserId !== null;
     expect(matches('振込', '振込')).toBe(true);
     expect(matches('振込', '振込 タロウ')).toBe(false);
     expect(matches('振込', 'ネット振込')).toBe(false);
@@ -106,8 +106,8 @@ describe('ルールの当て方', () => {
       applyRules([rule({ pattern: '振込 .*', kind: 'deposit', userId: 'u1' })])('振込 タロウ'),
     ).toEqual({
       description: '振込 タロウ',
-      direction: 'deposit',
-      userId: 'u1',
+      fromUserId: 'u1',
+      toUserId: null,
       hidden: false,
     });
   });
@@ -183,7 +183,7 @@ describe('ルールの保存', () => {
     });
     await syncMoneyForward(new Date('2026-10-06T09:00:00+09:00'));
     expect(await transactions()).toEqual([['ATM 引き出し', { fromUserId: null, toUserId: b }]]);
-    const [row] = await db.select().from(moneyTransactions);
+    const [row] = await db.select().from(moneyRecords);
     expect(row?.originalDescription).toBe('ATM 0123');
   });
 
@@ -193,8 +193,8 @@ describe('ルールの保存', () => {
     await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a, hidden: true })], a);
     expect(await transactions()).toEqual([['スーパー', null]]);
     const { items } = await getTimelinePage({}, new Date('2026-10-06T09:00:00+09:00'));
-    expect(items.filter((item) => item.type === 'transaction')).toMatchObject([
-      { transaction: { description: 'スーパー' } },
+    expect(items.filter((item) => item.type === 'expense')).toMatchObject([
+      { expense: { description: 'スーパー' } },
     ]);
     expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 30_000 }]);
 
@@ -222,7 +222,7 @@ describe('ルールの保存', () => {
       { creditorId: a, debtorId: null, amount: 20_000 },
       { creditorId: a, debtorId: b, amount: 10_000 },
     ]);
-    const names = async (query: ExpenseListQuery) =>
+    const names = async (query: MoneyListQuery) =>
       (await transactions(query)).map(([description]) => description);
     expect(await names({ to: SHARED })).toEqual(['振込']);
     expect(await names({ from: SHARED })).toEqual(['ATM']);
@@ -235,7 +235,7 @@ describe('ルールの保存', () => {
     // タイムラインの行も当事者を持つ（色に使う）
     const { items } = await getTimelinePage({ q: '振込' }, new Date('2026-10-06T09:00:00+09:00'));
     expect(items).toMatchObject([
-      { type: 'transaction', transaction: { parties: { fromUserId: a, toUserId: null } } },
+      { type: 'expense', expense: { account: 'テスト銀行', fromUserId: a, toUserId: null } },
     ]);
   });
 });

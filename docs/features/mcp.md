@@ -16,7 +16,7 @@
 
 ## ツール一覧
 
-ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。DB の表や API の口ごとに並べず、LifeHub を **タイムライン（日付の上に並ぶ記録）** として見せる: 予定（event）・タスク（task）・立替（expense）・レモンの木の世話（lemon）・メモ（memo）・Money Forward から取り込んだ入出金（transaction。読むだけ）は、どれも同じ形の「エントリー」として `read_timeline` で読み、エントリーの `ref` で書き換える・消す。天気と祝日は日に付く。
+ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。DB の表や API の口ごとに並べず、LifeHub を **タイムライン（日付の上に並ぶ記録）** として見せる: 予定（event）・タスク（task）・お金の記録（expense。手で入れた立替と、Money Forward から取り込んだ入出金。取り込んだものは読むだけで ref を持たない）・レモンの木の世話（lemon）・メモ（memo）は、どれも同じ形の「エントリー」として `read_timeline` で読み、エントリーの `ref` で書き換える・消す。天気と祝日は日に付く。
 
 | ツール | 内容 |
 |---|---|

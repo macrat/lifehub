@@ -24,7 +24,7 @@
       "schedule": "0 15 * * *"
     },
     {
-      "path": "/api/cron/expenses",
+      "path": "/api/cron/money/schedules",
       "schedule": "1 15 * * *"
     },
     {

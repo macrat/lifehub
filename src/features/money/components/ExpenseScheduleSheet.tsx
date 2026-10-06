@@ -1,6 +1,6 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { SCHEDULE_FREQUENCIES, type ScheduleFrequency } from '../../../../shared/expenses.ts';
+import { SCHEDULE_FREQUENCIES, type ScheduleFrequency } from '../../../../shared/money.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ExpenseSchedule } from '../queries.ts';
 import { FREQUENCY_LABELS } from '../schedule-labels.ts';

@@ -1,6 +1,5 @@
-import type { Settlement } from '../../../shared/expenses.ts';
-import type { Parties } from '../../../shared/money.ts';
-import { type ExpenseInput, SHARED } from '../../../shared/validation/expenses.ts';
+import type { Parties, Settlement } from '../../../shared/money.ts';
+import { type ExpenseInput, SHARED } from '../../../shared/validation/money.ts';
 
 /** 立替の当事者（ユーザー ID。null は共有） */
 export type Party = string | null;

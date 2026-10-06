@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ExpenseScheduleList } from '../../features/expenses/components/ExpenseScheduleList.tsx';
-import { ExpenseScheduleSheet } from '../../features/expenses/components/ExpenseScheduleSheet.tsx';
+import { ExpenseScheduleList } from '../../features/money/components/ExpenseScheduleList.tsx';
+import { ExpenseScheduleSheet } from '../../features/money/components/ExpenseScheduleSheet.tsx';
 import {
   type ExpenseSchedule,
   expenseSchedulesQueryOptions,
-} from '../../features/expenses/queries.ts';
+} from '../../features/money/queries.ts';
 import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
@@ -20,7 +20,7 @@ export const Route = createFileRoute('/_authenticated/admin/expense-schedules')(
 /**
  * 立替スケジュール（設定の「お金」から開く）。日が来たら決まった内容の立替を自動で記録する（共有口座への定期の入金、
  * 個人の口座からの口座振替の支払い）。立替スケジュールの追加・変更・削除はこの画面だけで行う。
- * 規則は docs/features/expenses.md の「立替スケジュール」
+ * 規則は docs/features/money.md の「立替スケジュール」
  */
 function AdminExpenseSchedulesPage() {
   // この画面が読むもの: 立替スケジュール

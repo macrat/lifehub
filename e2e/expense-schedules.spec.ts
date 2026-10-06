@@ -4,7 +4,7 @@ import { expect, test } from './test.ts';
 
 /**
  * 立替スケジュール（設定 → お金 → 立替スケジュール）。日が来た回の記録（日次の Cron）はサーバーのテスト
- * （`server/features/expenses/__tests__/schedule.test.ts`）が確かめるので、ここでは画面からの追加・変更・削除と、
+ * （`server/features/money/__tests__/schedule.test.ts`）が確かめるので、ここでは画面からの追加・変更・削除と、
  * 追加したその場で今日までの回が立替として記録されることを確かめる。
  */
 test('立替スケジュールを設定から追加すると今日までの回が記録され、変更・削除できる', async ({

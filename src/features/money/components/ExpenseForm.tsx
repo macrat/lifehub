@@ -1,4 +1,4 @@
-import type { ExpenseInput } from '../../../../shared/validation/expenses.ts';
+import type { ExpenseInput } from '../../../../shared/validation/money.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useAddExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
