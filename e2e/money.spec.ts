@@ -65,7 +65,7 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   await expect(card).toContainText('引き落とし');
 
   await card.click();
-  await expect(page).toHaveURL(/view=transactions/);
+  await expect(page).toHaveURL(/\/money\/transactions\?account=/);
   await expect(page.getByRole('tab', { name: '入出金' })).toHaveAttribute('aria-selected', 'true');
   // 入出金の一覧では精算を出さない（立替の物なので）
   await expect(page.getByRole('region', { name: '精算' })).toHaveCount(0);

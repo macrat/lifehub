@@ -5,7 +5,7 @@ import type { DateString } from '../../../shared/types.ts';
  * Money Forward から取り込んだ口座の今の値（お金の画面のカード）。口座の名前ごとに 1 行で、取り込むたびに上書きする。
  * 人が作る記録ではなく外のサービスを写しただけなので、`created_by` などの共通の列は持たない（天気と同じ）。
  * どの口座をどの順に出すか・口座の種類は環境変数（`MONEYFORWARD_ACCOUNTS`）が決めるので、ここには値だけを置く。
- * 環境変数から外した口座の行は残るが、画面にもタイムラインにも出ない。
+ * 環境変数から外した口座の行は、次の取り込みで消す（`service.ts` の `syncMoneyForward`）。
  */
 export const moneyAccounts = pgTable('money_accounts', {
   /** Money Forward での金融機関の名前 */
@@ -22,7 +22,7 @@ export type MoneyAccountRow = typeof moneyAccounts.$inferSelect;
 
 /**
  * Money Forward から取り込んだ入出金。取り込むたびに、取り込んだ期間の行を Money Forward の今の明細に合わせる
- * （新しい明細は足し、直された明細は上書きし、Money Forward で消された明細は消す。`repository.ts` の `replaceInRange`）。
+ * （新しい明細は足し、直された明細は上書きし、Money Forward で消された明細は消す。`repository.ts` の `saveImport`）。
  * `source_id` は Money Forward の明細の ID で、同じ明細を 2 度入れないための鍵。
  * 人が作る記録ではないので、`created_by` は持たない。
  */

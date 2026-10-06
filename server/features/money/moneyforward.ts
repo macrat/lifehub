@@ -156,6 +156,9 @@ async function readAccounts(
   accounts: readonly MoneyForwardAccount[],
 ): Promise<AccountValues[]> {
   const names = accounts.map((account) => account.name);
+  // 引き落とし日はトップから読む。ログインの後はたいていトップにいるので、口座一覧より先に読む
+  const hasCard = accounts.some((account) => account.kind === 'card');
+  const withdrawalDates = hasCard ? await readWithdrawalDates(page, names) : new Map();
 
   await visit(page, `${ME}/accounts`);
   await page.locator('#account-table').first().waitFor();
@@ -171,8 +174,6 @@ async function readAccounts(
     });
   }
 
-  const hasCard = accounts.some((account) => account.kind === 'card');
-  const withdrawalDates = hasCard ? await readWithdrawalDates(page, names) : new Map();
   // カードの詳細は互いに依らないので、カードごとにタブを開いて並べて読む
   return Promise.all(
     accounts.map(async ({ kind, name }) => {
@@ -204,7 +205,7 @@ async function readWithdrawalDates(
   page: Page,
   names: readonly string[],
 ): Promise<Map<string, DateString>> {
-  await visit(page, ME);
+  if (page.url() !== `${ME}/`) await visit(page, ME);
   const dates = new Map<string, DateString>();
   for (const item of await page.locator('li.account').all()) {
     const [heading = ''] = await item.locator('.heading-accounts').allInnerTexts();

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
+import { db } from '../../../lib/db/client.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
@@ -10,6 +12,7 @@ import {
   parseWithdrawalDate,
   parseYen,
 } from '../parse.ts';
+import { moneyAccounts, moneyTransactions } from '../schema.ts';
 import { listAccounts, listTransactions, syncMoneyForward } from '../service.ts';
 
 const HEADER =
@@ -160,6 +163,26 @@ describe('money service', () => {
         transaction: { account: 'テストカード', amount: -3200 },
       },
     ]);
+  });
+
+  it('環境変数から外した口座の行と明細は、次の取り込みで消す', async () => {
+    serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
+    await syncMoneyForward(NOW);
+    // 外した口座の行を、前の取り込みで残った物として置いておく
+    await db.insert(moneyAccounts).values({ name: '外した銀行', balance: 1, fetchedAt: NOW });
+    await db.insert(moneyTransactions).values({
+      id: newId(),
+      sourceId: 'removed',
+      account: '外した銀行',
+      occurredOn: dateStringSchema.parse('2026-01-01'),
+      description: '外した口座の明細',
+      amount: -1,
+    });
+    await syncMoneyForward(NOW);
+    expect((await db.select().from(moneyAccounts)).map((row) => row.name)).not.toContain(
+      '外した銀行',
+    );
+    expect((await listTransactions({})).items.map((t) => t.description)).toEqual(['スーパー']);
   });
 
   it('Money Forward が読めなければ投げ、前回の値を残す', async () => {

@@ -15,6 +15,7 @@ import {
   deleteById,
   findById as findRowById,
   insertOnce,
+  startOfDateSql,
   updateById,
 } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
@@ -65,7 +66,7 @@ function partyCondition(column: AnyPgColumn, party: string | undefined): SQL | u
  */
 const timelineAt = sql<Date>`case
   when (${expenses.createdAt} at time zone ${TIME_ZONE})::date = ${expenses.spentOn} then ${expenses.createdAt}
-  else ${expenses.spentOn}::timestamp at time zone ${TIME_ZONE}
+  else ${startOfDateSql(expenses.spentOn)}
 end`.mapWith(expenses.createdAt);
 
 /** タイムラインの問い合わせ。キーワードは内容の部分一致 */

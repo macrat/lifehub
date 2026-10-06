@@ -29,8 +29,3 @@ export function formatGrouped(amount: bigint): string {
 export function formatSignedYen(amount: number): string {
   return signedYen.format(amount);
 }
-
-/** 金額の表示の中で一番幅を取るもの（`AlignedAmount` の widest）。数字は等幅なので文字数で比べる */
-export function widestOf(texts: string[]): string {
-  return texts.reduce((a, b) => (b.length > a.length ? b : a), '');
-}

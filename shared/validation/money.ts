@@ -3,7 +3,7 @@ import { cursorShape, dateStringSchema } from './common.ts';
 
 /**
  * 入出金の履歴の絞り込み。範囲は両端を含み、省略した端は制限しない。
- * お金の画面の URL（`moneySearchSchema`）と API（`transactionListQuerySchema`）が同じ規則を使う。
+ * お金の画面の「入出金」の URL（`transactionSearchSchema`）と API（`transactionListQuerySchema`）が同じ規則を使う。
  */
 export const transactionFilterSchema = z.object({
   /** 内容・分類のキーワード（大文字小文字を区別しない部分一致） */
