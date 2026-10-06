@@ -77,6 +77,24 @@ export type CalendarEventItem = Extract<CalendarItem, { kind: 'event' }>;
 export type CalendarTaskItem = Extract<CalendarItem, { kind: 'task' }>;
 
 /**
+ * 項目が書き込みの範囲（すべて・この回だけ・これ以降すべて）に当たるか。同じ予定・タスクの項目どうしで比べる
+ * （id は呼び出し側で揃える）。回は元の発生の基準日時で、画面の入力の ISO 文字列でもサーバーの Date でもよい。
+ * これ以降すべてには、回を持たない項目（単発）も当たる。
+ * 画面の楽観的更新（`src/features/events/optimistic.ts`）が消す・直す項目と、サーバーが削除を通知する回
+ * （`server/features/events/service.ts`）が同じ範囲を指すよう、規則をここ 1 か所に置く。
+ */
+export function inWriteScope(
+  item: { occurrenceStart: string | null },
+  target: { scope: 'all' } | { scope: 'this' | 'following'; occurrenceStart: string | Date },
+): boolean {
+  if (target.scope === 'all') return true;
+  if (item.occurrenceStart === null) return target.scope === 'following';
+  const at = new Date(item.occurrenceStart).getTime();
+  const from = new Date(target.occurrenceStart).getTime();
+  return target.scope === 'this' ? at === from : at >= from;
+}
+
+/**
  * 発生（繰り返しの 1 回）を指す鍵: 種別・id（繰り返し元、単発ならその行）・繰り返しの回の基準日時。
  * 複数日の予定は日ごとに 1 件で返るが、どの日の項目も同じ鍵になる（暦日は含めない）。
  * 「同じ予定か」を見る所（編集中の予定を隠す、複数日の帯を束ねる、表示の切り替えで動かす）が

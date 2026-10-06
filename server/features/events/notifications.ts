@@ -22,7 +22,6 @@ import {
 import type { PushMessage } from '../../../shared/push.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
 import { listItems } from './occurrences.ts';
-import type { Target } from './targets.ts';
 
 const EDGES = ['start', 'end'] as const;
 type Edge = (typeof EDGES)[number];
@@ -129,6 +128,11 @@ async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem
   });
 }
 
+/** 通知をタップして開く画面: 項目を置いた日のカレンダー */
+function calendarUrl(item: CalendarItem): string {
+  return `/calendar?date=${item.placementDate}`;
+}
+
 /** 通知本文の日時「9/20 15:00」（JST） */
 const notificationTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: TIME_ZONE,
@@ -198,7 +202,7 @@ export async function resolveNotification(
   return {
     title: item.kind === 'task' ? `タスク: ${item.title}` : item.title,
     body: body(item, ref.edge, target.anchor),
-    url: `/calendar?date=${item.placementDate}`,
+    url: calendarUrl(item),
     userIds: target.userId ? [target.userId] : item.participantIds,
     item,
     about: ref.edge,
@@ -224,24 +228,12 @@ const CHANGE_LABELS = { added: '追加', deleted: '削除' } as const satisfies 
 export async function actionableToday(id: string, now: Date): Promise<CalendarItem[]> {
   const day = today(now);
   const items = await listItems({ from: day, to: day }, now, { id });
-  return items.filter((item) => {
-    if (item.placementDate !== day) return false;
-    if (item.kind === 'task') return item.completedAt === null;
-    return item.allDay ? allDayDate(item.startsAt, 'start') === day : new Date(item.startsAt) > now;
-  });
-}
-
-/** 消す範囲に入る回か（すべて・この回だけ・これ以降すべて）。削除で知らせる回を、消す前に読んだ回から選ぶ */
-export function inTarget(target: Target): (item: CalendarItem) => boolean {
-  if (target.scope === 'all') return () => true;
-  const { scope, occurrenceStart } = target;
-  return (item) => {
-    if (item.occurrenceStart === null) return false;
-    const start = new Date(item.occurrenceStart).getTime();
-    return scope === 'this'
-      ? start === occurrenceStart.getTime()
-      : start >= occurrenceStart.getTime();
-  };
+  // 一覧は今日に置いた項目だけを返す。予定は日ごとに 1 件で、開始が今日の物は 1 日目（dayIndex）
+  return items.filter((item) =>
+    item.kind === 'task'
+      ? item.completedAt === null
+      : item.dayIndex === 1 && (item.allDay || new Date(item.startsAt) > now),
+  );
 }
 
 /** 追加・削除を知らせる相手: 知らせる回の参加者のうち、操作した人以外（自分の操作は自分が知っている） */
@@ -261,7 +253,7 @@ export function changeMessage(
   return {
     title: `${actorName}が${EVENT_KIND_LABELS[item.kind]}を${CHANGE_LABELS[action]}しました`,
     body: body(item, 'start', item.startsAt),
-    url: `/calendar?date=${item.placementDate}`,
+    url: calendarUrl(item),
     // 同じ追加・削除の送り直し（オフラインで溜めた書き込みの再送）は、端末で前の通知に重ねて 1 つにする
     tag: `change:${action}:${item.id}:${item.occurrenceStart ?? 'single'}`,
   };

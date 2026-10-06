@@ -1,5 +1,6 @@
 import {
   type EventMaster,
+  inWriteScope,
   normalizeInstants,
   type WrittenEvent,
 } from '../../../shared/calendar.ts';
@@ -18,7 +19,7 @@ import { checkRules } from '../../lib/patch.ts';
 import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import { notifyChanged, scheduleUpcoming } from '../notifications/service.ts';
-import { actionableToday, inTarget } from './notifications.ts';
+import { actionableToday } from './notifications.ts';
 import { occurrenceExists, toMaster } from './occurrences.ts';
 import { patchedInput } from './patch.ts';
 import type { EventWithParticipants } from './repository.ts';
@@ -161,7 +162,11 @@ export async function deleteEvent(
   const [master, actionable] = await Promise.all([findMaster(id), actionableToday(id, new Date())]);
   const target = resolveTarget(master, input);
   const removed = await removeTarget(master, target, userId);
-  notifyChanged(actionable.filter(inTarget(target)), 'deleted', userId);
+  notifyChanged(
+    actionable.filter((item) => inWriteScope(item, target)),
+    'deleted',
+    userId,
+  );
   publishChanged(removed, 'deleted', { userId });
 }
 
