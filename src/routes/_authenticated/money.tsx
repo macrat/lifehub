@@ -96,14 +96,14 @@ function MoneyPage() {
   return (
     <>
       <AppBarContent>
-        <FilterSearchField label="立替を検索" search={filter} />
+        <FilterSearchField label="記録を検索" search={filter} />
       </AppBarContent>
 
       <MoneyList
         history={history}
         header={header}
         headerScrollsAway={!filter.panelOpen}
-        emptyMessage={filter.emptyMessage('立替')}
+        emptyMessage={filter.filtering ? filter.emptyMessage('記録') : '記録がありません'}
         onSelect={selection.open}
       />
 

@@ -17,9 +17,9 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
 
   await page.getByRole('link', { name: 'お金' }).click();
   await expect(page).toHaveURL('/money');
-  // 立替の画面（AppBar の検索窓）が出て、ホームの検索窓は残っていない
-  await expect(page.getByLabel('立替を検索')).toBeVisible();
-  await expect(page.getByLabel('記録を検索')).toHaveCount(0);
+  // お金の画面（立替の追加ボタン）が出て、ホームのメモの追加ボタンは残っていない
+  await expect(page.getByRole('button', { name: '立替を追加' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'メモを追加' })).toHaveCount(0);
   // 履歴の場所には骨組みが出ていて、届いたら消える
   await expect(skeleton(page)).toBeVisible();
   await release();
@@ -39,12 +39,12 @@ test('ユーザーは画面を移っても取り直さない', async ({ page }) 
     await page.getByRole('link', { name }).click();
     await expect(arrived).toBeVisible();
   };
-  await visit('お金', page.getByLabel('立替を検索'));
+  await visit('お金', page.getByRole('button', { name: '立替を追加' }));
   await visit('レモン', page.getByLabel('メモを検索'));
   await visit('予定', page.getByRole('button', { name: '表示の切替' }));
   await visit('ホーム', page.getByLabel('記録を検索'));
   // 戻ってきたときも取り直さない
-  await visit('お金', page.getByLabel('立替を検索'));
+  await visit('お金', page.getByRole('button', { name: '立替を追加' }));
   await quiet(page, fetches);
 
   expect(fetches()).toBe(0);

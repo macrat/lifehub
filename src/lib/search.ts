@@ -153,6 +153,8 @@ export function useFilterSearch<S extends KeywordSearch & { add?: unknown }>(
     setKeyword,
     /** 絞り込みの変更。履歴には積まず置き換える */
     setFilters: (next: FiltersPatch<S>) => patchSearch(next, { replace: true }),
+    /** キーワードか、それ以外の絞り込みが 1 つでも効いているか */
+    filtering,
     /** キーワード以外で効いている絞り込みの数 */
     activeFilters,
     /** 空の一覧に出す文言。絞り込んでいれば「一致するものが無い」、いなければ「まだ無い」 */

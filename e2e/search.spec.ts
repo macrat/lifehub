@@ -11,7 +11,7 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
   // 戻る先（直前の画面）としてホームを開いておく
   await openHome(page);
   await page.goto('/money');
-  const search = page.getByLabel('立替を検索');
+  const search = page.getByLabel('記録を検索');
   await search.click();
 
   // 未確定の文字を 1 文字ずつ増やす（変換候補を選ぶ前の状態）
@@ -41,7 +41,7 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
  */
 test('キーワードを打ってから絞り込みを変えても、URL のキーワードは残る', async ({ page }) => {
   await page.goto('/money');
-  await page.getByLabel('立替を検索').fill('スーパー');
+  await page.getByLabel('記録を検索').fill('スーパー');
   await expect(page).toHaveURL(/q=/);
 
   await page.getByRole('button', { name: '絞り込み' }).click();
@@ -50,7 +50,7 @@ test('キーワードを打ってから絞り込みを変えても、URL のキ�
   expect(new URL(page.url()).searchParams.get('q')).toBe('スーパー');
 
   await page.reload();
-  await expect(page.getByLabel('立替を検索')).toHaveValue('スーパー');
+  await expect(page.getByLabel('記録を検索')).toHaveValue('スーパー');
 });
 
 /**
