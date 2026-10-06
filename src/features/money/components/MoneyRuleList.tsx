@@ -41,7 +41,8 @@ const FIELD_ROW_SX = { alignItems: 'center', gap: 1 } as const;
 
 /**
  * 入出金の読み替えのルールの並び（管理画面）。上から順に当て、最初に当たったルールを使う。
- * 1 つのルールは 3 段: ドラッグの取っ手・パターン・削除、内容欄を置換するか・置換後の内容欄、種別・対象者。
+ * 1 つのルールは 4 段: ドラッグの取っ手・パターン・削除、内容欄を置換するか・置換後の内容欄、種別・対象者、
+ * 一覧に表示しないか。
  * 置換後の内容欄は置換しないなら、対象者は支出なら選べない。状態と保存は `useMoneyRules`。
  */
 export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
@@ -178,6 +179,16 @@ function RuleCard({
             ))}
           </TextField>
         </Stack>
+        <FormControlLabel
+          label="一覧に表示しない"
+          control={
+            <Switch
+              checked={rule.hidden}
+              onChange={(e) => state.setHidden(rule.id, e.target.checked)}
+            />
+          }
+          sx={{ alignSelf: 'flex-start', mr: 0 }}
+        />
       </Stack>
     </Paper>
   );

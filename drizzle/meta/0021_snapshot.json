@@ -1,5 +1,5 @@
 {
-  "id": "b9e6328e-a419-434d-bcab-5def432e5e31",
+  "id": "513b600f-570c-4aaf-b685-8d7493c0c7b1",
   "prevId": "0f9024df-2955-4e51-a2b6-7e3803319e10",
   "version": "7",
   "dialect": "postgresql",
@@ -978,6 +978,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "hidden": {
+          "name": "hidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1096,6 +1102,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

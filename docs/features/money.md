@@ -45,24 +45,26 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 
 取り込んだ入出金の内容欄を読み替え、入金・出金を「共有」との立替として精算に入れる。
 
-- 管理画面 `/admin/money-rules`（`src/routes/_authenticated/admin.money-rules.tsx`。設定の「お金」→「入出金のルール」から開く）。ルールを上から順に並べ（`src/features/money/components/MoneyRuleList.tsx`）、1 つのルールは 3 段:
+- 管理画面 `/admin/money-rules`（`src/routes/_authenticated/admin.money-rules.tsx`。設定の「お金」→「入出金のルール」から開く）。ルールを上から順に並べ（`src/features/money/components/MoneyRuleList.tsx`）、1 つのルールは 4 段:
   1. ドラッグの取っ手・パターン（正規表現）・削除のバツ。取っ手を引くと並べ替える（`@dnd-kit`。キーボードでも動かせる）
   2. 「内容欄を置換」のスイッチ・置換後の内容欄（スイッチがオフなら入力できない）
   3. 種別（支出・入金・出金）・対象者（種別が支出なら選べない。入金・出金に変えると自分が入る）
+  4. 「一覧に表示しない」のスイッチ
   - 下に「ルールを追加」。ルールはいくつでも持てる（上限 100）。
   - 変えたら並び全体を保存する（`src/features/money/use-money-rules.ts`）。文字の欄は欄を離れたとき、スイッチ・選択・並べ替え・追加・削除はその場で保存する（保存のたびに過去の入出金を読み替え直すので、1 文字ごとには送らない）。どれか 1 つでも正しくない（パターンが空か正規表現として読めない、置換するのに置換後が空、入金・出金なのに対象者が無い）間は、欄に誤りを出して保存しない（並びの途中だけを保存すると、上から順に当てる並びが変わる）。
 - 当て方（`server/features/money/rules.ts` の `applyRules`）: Money Forward の内容欄そのままに、上から順にパターン（JavaScript の正規表現）を当て、最初に当たったルールだけを使う。パターンは内容欄全体と一致したときだけ当たる（`^(?:パターン)$` と同じ。`shared/money.ts` の `fullMatch`。`a|b` のような選択も全体に掛かる）。WHY 完全一致: 部分一致だと、短いパターンが思わぬ内容欄にも当たり、上から順に見るので後ろのルールを黙って隠す。一部だけで見分けたいときは `.*` を書く。どれにも当たらなければ元のまま（ただの支出）。
   - 置換は内容欄全体を置換後の内容欄にする。置換後の内容欄には `String.prototype.replace` と同じ書き方で、キャプチャ（`$1`、名前付きは `$<名前>`）・当たった所全体（`$&`）・`$` そのもの（`$$`）を差し込める。WHY 当たった部分だけでなく全体: 長い内容欄を短い名前にしたいとき、当たった部分だけを置き換えると残りが付いてくる。
   - 入金（対象者が共有口座へ入れた）は「対象者 → 共有」、出金（対象者が共有口座から引き出した）は「共有 → 対象者」の立替と同じに精算へ入る（立替の [計算ルール](expenses.md#計算ルール)。額は出金も入金も大きさ）。お金の画面の印とタイムラインの丸もその当事者の色になる。
-- 過去の入出金にも効く: 取り込んだ入出金は元の内容欄（`original_description`）と読み替えた後（`description`・`direction`・`user_id`）の両方を持ち、ルールを保存するたびにすべての入出金を元の内容欄から読み替え直す（`server/features/money/service.ts` の `saveRules`。ルールの置き換えと読み替えは 1 つのトランザクション）。取り込み直さずに済む。
+  - 「一覧に表示しない」をオンにしたルールに当たった入出金は、お金の画面の一覧・ホームのタイムライン（MCP の `read_timeline` も同じ問い合わせ）に出さない。種別と対象者はほかのルールと同じに効き、入金・出金なら精算には入る。WHY 精算から外さない: 表示のスイッチで精算の額まで変わると、見えない所で残高が動く。精算から外したいなら種別を支出にする。
+- 過去の入出金にも効く: 取り込んだ入出金は元の内容欄（`original_description`）と読み替えた後（`description`・`direction`・`user_id`・`hidden`）の両方を持ち、ルールを保存するたびにすべての入出金を元の内容欄から読み替え直す（`server/features/money/service.ts` の `saveRules`。ルールの置き換えと読み替えは 1 つのトランザクション）。取り込み直さずに済む。
 
 ## データ
 
 `money_accounts`・`money_transactions`・`money_rules`（[data-model.md](../data-model.md)）。
 
-- `money_rules`: 入出金のルール（`position` の順）。`pattern`、`replace_description`、`replacement`、`kind`（`spending` / `deposit` / `withdrawal`）、`user_id`（支出なら null。CHECK 制約）。家族で 1 つの並びで、保存は並び全体の置き換え。
+- `money_rules`: 入出金のルール（`position` の順）。`pattern`、`replace_description`、`replacement`、`kind`（`spending` / `deposit` / `withdrawal`）、`user_id`（支出なら null。CHECK 制約）、`hidden`（一覧に表示しない）。家族で 1 つの並びで、保存は並び全体の置き換え。
 - `money_accounts`: 口座の名前ごとの今の値（残高・評価額 `balance`、カードの引き落とし `withdrawal_amount`・`withdrawal_on`、取り込んだ日時 `fetched_at`）。読めなかった値は null。
-- `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。`original_description` は Money Forward の内容欄そのまま、`description` はルールで読み替えた後。`direction`（`deposit` / `withdrawal`）と `user_id` はルールで「共有」との立替にしたときの向きと対象者で、組でしか持てない（CHECK 制約）。Money Forward の分類（大項目・中項目）は取り込まない（Money Forward の自動の分類は正しいとは限らず、LifeHub からは直せないので、出しても頼れない）。`source_id` は Money Forward の明細の ID（一意）。
+- `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。`original_description` は Money Forward の内容欄そのまま、`description` はルールで読み替えた後。`direction`（`deposit` / `withdrawal`）と `user_id` はルールで「共有」との立替にしたときの向きと対象者で、組でしか持てない（CHECK 制約）。`hidden` はルールで一覧に出さないとしたもの。Money Forward の分類（大項目・中項目）は取り込まない（Money Forward の自動の分類は正しいとは限らず、LifeHub からは直せないので、出しても頼れない）。`source_id` は Money Forward の明細の ID（一意）。
 
 ## API（`server/features/money/routes.ts`）
 

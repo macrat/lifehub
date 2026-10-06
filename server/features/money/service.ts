@@ -162,6 +162,7 @@ function toRule({
   replacement,
   kind,
   userId,
+  hidden,
 }: MoneyRuleRow): MoneyRule {
-  return { id, pattern, replaceDescription, replacement, kind, userId };
+  return { id, pattern, replaceDescription, replacement, kind, userId, hidden };
 }

@@ -157,14 +157,21 @@ test('入出金のルールを設定画面から足して並べ替え・削除�
   await page.getByLabel('種別').nth(0).click();
   await page.getByRole('option', { name: '入金' }).click();
   await expect(page.getByLabel('対象者').nth(0)).not.toHaveAttribute('aria-disabled', 'true');
+  await page.getByLabel('一覧に表示しない').nth(0).check();
   await expect
     .poll(() => api.money.rules.query().then((rules) => rules[0]))
-    .toMatchObject({ replaceDescription: true, replacement: '$1 さん', kind: 'deposit' });
+    .toMatchObject({
+      replaceDescription: true,
+      replacement: '$1 さん',
+      kind: 'deposit',
+      hidden: true,
+    });
 
   // 開き直しても同じ並び
   await page.reload();
   await expect(patterns.nth(0)).toHaveValue('振込 (\\S+)');
   await expect(replacements.nth(0)).toHaveValue('$1 さん');
+  await expect(page.getByLabel('一覧に表示しない').nth(0)).toBeChecked();
   await expect(patterns.nth(1)).toHaveValue('ATM');
 
   await page.getByRole('button', { name: 'ルールを削除' }).nth(0).click();

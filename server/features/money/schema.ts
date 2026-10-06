@@ -31,7 +31,7 @@ export type MoneyAccountRow = typeof moneyAccounts.$inferSelect;
  *
  * 内容欄は Money Forward のまま（`original_description`）と、ルール（`money_rules`）で読み替えた後（`description`・
  * `direction`・`user_id`）の両方を持つ。ルールを変えたら、取り込み直さずに元の内容欄から読み替え直す（`service.ts` の `saveRules`）。
- * 画面・検索・精算は読み替えた後の列を読む。
+ * 画面・検索・精算は読み替えた後の列を読む（`hidden` も読み替えた後の値）。
  */
 export const moneyTransactions = pgTable(
   'money_transactions',
@@ -54,6 +54,8 @@ export const moneyTransactions = pgTable(
     direction: text('direction').$type<Exclude<MoneyRuleKind, 'spending'>>(),
     /** 立替の対象者。direction と組で、片方だけは持てない（`money_transactions_party_check`） */
     userId: uuid('user_id').references(() => users.id),
+    /** ルールで一覧に出さないとした入出金（お金の画面の一覧・ホームのタイムラインに出さない。精算には入る） */
+    hidden: boolean('hidden').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()
@@ -90,6 +92,8 @@ export const moneyRules = pgTable(
     kind: text('kind').$type<MoneyRuleKind>().notNull(),
     /** 入金・出金の対象者。支出なら null */
     userId: uuid('user_id').references(() => users.id),
+    /** 当たった入出金を一覧に出さないか */
+    hidden: boolean('hidden').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()

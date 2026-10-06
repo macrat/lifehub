@@ -6,10 +6,12 @@ export type Rewritten = {
   description: string;
   direction: Exclude<MoneyRuleKind, 'spending'> | null;
   userId: string | null;
+  /** 一覧（お金の画面・タイムライン）に出さないか */
+  hidden: boolean;
 };
 
 /**
- * 元の内容欄にルールを上から順に当て、最初に当たったルールで読み替える。どれにも当たらなければ元のまま（ただの支出）。
+ * 元の内容欄にルールを上から順に当て、最初に当たったルールで読み替える。どれにも当たらなければ元のまま（ただの支出で、一覧に出す）。
  * パターンは内容欄全体と一致したときだけ当たる（`^` と `$` で囲んだのと同じ。`fullMatch`）。
  * WHY 完全一致: 部分一致だと、短いパターンが思わぬ内容欄にも当たり、上から順に見るので後ろのルールを黙って隠す。
  * 書いたパターンがそのまま内容欄の形になっていれば、どの明細に当たるかを読み違えない。
@@ -26,9 +28,10 @@ export function applyRules(rules: readonly MoneyRule[], original: string): Rewri
       description: rule.replaceDescription ? expand(rule.replacement, match) : original,
       direction: rule.kind === 'spending' ? null : rule.kind,
       userId: rule.kind === 'spending' ? null : rule.userId,
+      hidden: rule.hidden,
     };
   }
-  return { description: original, direction: null, userId: null };
+  return { description: original, direction: null, userId: null, hidden: false };
 }
 
 /** 置換後の内容欄の $ の書き方を、当たった所とキャプチャで埋める（無いキャプチャは空にする） */

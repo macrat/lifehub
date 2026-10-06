@@ -72,6 +72,7 @@ export async function saveImport({
                 amount: sql`excluded.amount`,
                 direction: sql`excluded.direction`,
                 userId: sql`excluded.user_id`,
+                hidden: sql`excluded.hidden`,
                 updatedAt: new Date(),
               },
             }),
@@ -96,8 +97,11 @@ export async function saveImport({
 const keywordCondition = (q: string | undefined) =>
   containsKeyword(moneyTransactions.description, q);
 
+/** ルールで一覧に出さないとした入出金を除く条件（お金の画面の一覧とタイムライン。精算の合計には掛けない） */
+const shown = eq(moneyTransactions.hidden, false);
+
 /**
- * お金の画面の一覧に並べる問い合わせ（`historyQueries`）。絞り込みは立替の一覧と同じ条件を入出金に読み替える:
+ * お金の画面の一覧に並べる問い合わせ（`historyQueries`）。ルールで一覧に出さないとした入出金は出さない。絞り込みは立替の一覧と同じ条件を入出金に読み替える:
  * - キーワード: 内容の部分一致
  * - 金額の範囲: 出金も入金も額の大きさ（絶対値）で比べる（立替の金額と同じく「いくら動いたか」）
  * - 日付の範囲: 明細の日付。範囲は両端を含む
@@ -110,6 +114,7 @@ export function history(filter: ExpenseFilter) {
     table: moneyTransactions,
     day: moneyTransactions.occurredOn,
     conditions: [
+      shown,
       keywordCondition(filter.q),
       filter.min !== undefined ? gte(amount, filter.min) : undefined,
       filter.max !== undefined ? lte(amount, filter.max) : undefined,
@@ -180,7 +185,8 @@ export async function replaceRules(
   rewritten: (Rewritten & { id: string })[],
 ): Promise<void> {
   const values = rewritten.map(
-    (row) => sql`(${row.id}::uuid, ${row.description}, ${row.direction}, ${row.userId}::uuid)`,
+    (row) =>
+      sql`(${row.id}::uuid, ${row.description}, ${row.direction}, ${row.userId}::uuid, ${row.hidden}::boolean)`,
   );
   await runBatch((tx) => [
     tx.delete(moneyRules),
@@ -195,6 +201,7 @@ export async function replaceRules(
               replacement: rule.replacement,
               kind: rule.kind,
               userId: rule.userId,
+              hidden: rule.hidden,
               createdBy,
             })),
           ),
@@ -208,9 +215,10 @@ export async function replaceRules(
               description: sql`v.description`,
               direction: sql`v.direction`,
               userId: sql`v.user_id`,
+              hidden: sql`v.hidden`,
             })
             .from(
-              sql`(values ${sql.join(values, sql`, `)}) as v(id, description, direction, user_id)`,
+              sql`(values ${sql.join(values, sql`, `)}) as v(id, description, direction, user_id, hidden)`,
             )
             .where(sql`${moneyTransactions.id} = v.id`),
         ]
@@ -219,9 +227,10 @@ export async function replaceRules(
 }
 
 /** タイムラインの問い合わせ。置く日時は日付の始まり（明細は時刻を持たない。shared/timeline.ts の `transactionEntry` と同じ）。
- * キーワードは内容の部分一致 */
+ * キーワードは内容の部分一致。ルールで一覧に出さないとした入出金は出さない */
 export const timeline = timelineQueries({
   table: moneyTransactions,
   at: startOfDateSql(moneyTransactions.occurredOn).mapWith(moneyTransactions.createdAt),
   keyword: keywordCondition,
+  where: shown,
 });

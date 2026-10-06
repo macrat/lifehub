@@ -66,6 +66,7 @@ export function useMoneyRules() {
         }),
       ),
     setUser: (id: string, userId: string) => commit(patch(id, { userId })),
+    setHidden: (id: string, hidden: boolean) => commit(patch(id, { hidden })),
     add: () =>
       commit([
         ...rules,
@@ -76,6 +77,7 @@ export function useMoneyRules() {
           replacement: '',
           kind: 'spending',
           userId: null,
+          hidden: false,
         },
       ]),
     remove: (id: string) => commit(rules.filter((rule) => rule.id !== id)),

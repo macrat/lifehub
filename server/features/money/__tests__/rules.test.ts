@@ -26,6 +26,7 @@ const rule = (values: Partial<MoneyRule> & Pick<MoneyRule, 'pattern'>): MoneyRul
   replacement: '',
   kind: 'spending',
   userId: null,
+  hidden: false,
   ...values,
 });
 
@@ -65,11 +66,13 @@ describe('ルールの当て方', () => {
       description: 'アマゾン',
       direction: null,
       userId: null,
+      hidden: false,
     });
     expect(applyRules(rules, 'スーパー')).toEqual({
       description: 'スーパー',
       direction: null,
       userId: null,
+      hidden: false,
     });
   });
 
@@ -105,6 +108,7 @@ describe('ルールの当て方', () => {
       description: '振込 タロウ',
       direction: 'deposit',
       userId: 'u1',
+      hidden: false,
     });
   });
 
@@ -181,6 +185,25 @@ describe('ルールの保存', () => {
     expect(await transactions()).toEqual([['ATM 引き出し', { fromUserId: null, toUserId: b }]]);
     const [row] = await db.select().from(moneyTransactions);
     expect(row?.originalDescription).toBe('ATM 0123');
+  });
+
+  it('一覧に表示しないルールに当たった入出金は、一覧とタイムラインに出ないが精算には入る', async () => {
+    await addTransaction('振込', 30_000);
+    await addTransaction('スーパー', -3_000);
+    await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a, hidden: true })], a);
+    expect(await transactions()).toEqual([['スーパー', null]]);
+    const { items } = await getTimelinePage({}, new Date('2026-10-06T09:00:00+09:00'));
+    expect(items.filter((item) => item.type === 'transaction')).toMatchObject([
+      { transaction: { description: 'スーパー' } },
+    ]);
+    expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 30_000 }]);
+
+    // スイッチを戻すと、また出る
+    await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a })], a);
+    expect((await transactions()).map(([description]) => description)).toEqual([
+      '振込',
+      'スーパー',
+    ]);
   });
 
   it('入金・出金は「共有」との立替として精算に入り、To・From で絞り込める', async () => {

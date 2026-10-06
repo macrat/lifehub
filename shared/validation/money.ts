@@ -29,6 +29,8 @@ export const moneyRuleSchema = z
     replacement: z.string().trim().max(200),
     kind: z.enum(MONEY_RULE_KINDS),
     userId: uuidSchema.nullable(),
+    /** 当たった入出金をお金の画面の一覧・ホームのタイムラインに出さない（精算には種別のとおりに入る） */
+    hidden: z.boolean(),
   })
   .refine((rule) => !rule.replaceDescription || rule.replacement !== '', {
     message: '置換後の内容欄を入力してください',
