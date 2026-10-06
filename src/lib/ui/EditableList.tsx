@@ -19,8 +19,10 @@ export function EditableList({ children }: { children: ReactNode }) {
 type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'> & {
   /** アイコンのさらに左に置くもの（並べ替えられる一覧の取っ手） */
   handle?: ReactNode;
-  /** 左のアイコン（ユーザーのアバター、立替や取り込みルールの印）。アバターの大きさの枠の中央に置く */
+  /** 左のアイコン（ユーザーのアバター、立替や取り込みルールの印）。iconWidth の枠の中央に置く */
   icon: ReactNode;
+  /** アイコンの枠の幅（px）。既定はアバターの大きさ。取っ手と並べる一覧は印の大きさに詰めて、名前の幅を広く取る */
+  iconWidth?: number;
   primary: string;
   secondary?: string;
   /** 鉛筆の名前（読み上げとテスト用） */
@@ -32,6 +34,7 @@ type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'>
 export function EditableListItem({
   handle,
   icon,
+  iconWidth = 40,
   primary,
   secondary,
   editLabel,
@@ -49,8 +52,10 @@ export function EditableListItem({
       {...item}
     >
       {handle}
-      <ListItemAvatar>
-        <Box sx={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}>{icon}</Box>
+      <ListItemAvatar sx={{ minWidth: iconWidth + 16 }}>
+        <Box sx={{ width: iconWidth, height: 40, display: 'grid', placeItems: 'center' }}>
+          {icon}
+        </Box>
       </ListItemAvatar>
       <ListItemText
         primary={primary}

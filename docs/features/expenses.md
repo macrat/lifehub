@@ -56,7 +56,7 @@
 | `expenses.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
 | `expenses.delete` | 書き込み | 削除（入力は `id`） |
 | `expenses.schedules` | 読み出し | 立替スケジュール（作った順。`[{ id, fromUserId, toUserId, amount, description, startsOn, frequency }]`）。次に記録する日は画面が `nextScheduleDate` で数える |
-| `expenses.createSchedule` | 書き込み | 立替スケジュールを追加（項目は立替と同じで `spentOn` が最初の日、それに `frequency`。`expenseScheduleSchema`）。今日までの回をその場で立替として記録する。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
+| `expenses.createSchedule` | 書き込み | 立替スケジュールを追加（項目は立替と同じで、日付の代わりに `startsOn`（最初の日）と `frequency`。組み合わせの規則も立替と同じ。`expenseScheduleSchema`）。今日までの回をその場で立替として記録する。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
 | `expenses.updateSchedule` | 書き込み | 変更。入力は `id` と全項目で、全項目を置き換える（まだ記録していない回にだけ効く）。値は返さない |
 | `expenses.deleteSchedule` | 書き込み | 削除（入力は `id`）。記録した立替は残る |
 

@@ -39,12 +39,15 @@ export const expenseRulesSchema = withExpenseRules(z.custom<ExpenseInput>());
 export const createExpenseRequestSchema = expenseSchema.safeExtend(clientIdShape);
 
 /**
- * 立替スケジュールの入力（追加と変更で同じ。変更は全項目を置き換える）。項目は立替と同じで、spentOn は最初の日。
- * 立替のフォーム（`ExpenseFields`）をそのまま使えるよう、日付の項目名は立替と揃える
+ * 立替スケジュールの入力（追加と変更で同じ。変更は全項目を置き換える）。項目は立替と同じで、日付の代わりに最初の日
+ * （startsOn）と繰り返し（frequency）を持つ。組み合わせの規則も立替と同じ
  */
-export const expenseScheduleSchema = expenseSchema.safeExtend({
-  frequency: z.enum(SCHEDULE_FREQUENCIES, '繰り返しを選んでください'),
-});
+export const expenseScheduleSchema = withExpenseRules(
+  expenseFieldsSchema.omit({ spentOn: true }).extend({
+    startsOn: dateStringSchema,
+    frequency: z.enum(SCHEDULE_FREQUENCIES, '繰り返しを選んでください'),
+  }),
+);
 export type ExpenseScheduleInput = z.infer<typeof expenseScheduleSchema>;
 
 /** API（`expenses.createSchedule`）が受け取る追加の入力（`clientIdShape`） */

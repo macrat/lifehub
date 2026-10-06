@@ -1,5 +1,6 @@
-import { expenseScheduleSchema } from '../../../shared/validation/expenses.ts';
-import { deleteMenuAction } from '../../lib/ui/use-record-detail.tsx';
+import { useState } from 'react';
+import type { ScheduleFrequency } from '../../../shared/expenses.ts';
+import { useRecordDetail } from '../../lib/ui/use-record-detail.tsx';
 import {
   type ExpenseSchedule,
   useAddExpenseSchedule,
@@ -10,28 +11,35 @@ import { useExpenseForm } from './use-expense-form.ts';
 
 /**
  * 立替スケジュールのシート（`ExpenseScheduleSheet`）の状態と操作。開いたときから入力欄で、schedule が無ければ追加、
- * あれば変更（まだ記録していない回にだけ効く）。変更のときは三点リーダーに削除を出す（記録した立替は残る）
+ * あれば変更（まだ記録していない回にだけ効く）。変更のときは三点リーダーに削除を出す（記録した立替は残る）。
+ * 項目は立替のフォーム（`useExpenseForm`）をそのまま使い、日付を最初の日として送る。繰り返しは選ぶだけで
+ * 誤りになり得ないので、ここで状態として持つ
  */
 export function useExpenseScheduleSheet(schedule: ExpenseSchedule | null, onClose: () => void) {
   const add = useAddExpenseSchedule();
   const update = useUpdateExpenseSchedule();
   const remove = useDeleteExpenseSchedule();
-  const { fields, sheet } = useExpenseForm({
-    schema: expenseScheduleSchema,
+  const [frequency, setFrequency] = useState<ScheduleFrequency>(schedule?.frequency ?? 'monthly');
+  const { fields, sheet: form } = useExpenseForm({
     initial: schedule ? { ...schedule, spentOn: schedule.startsOn } : undefined,
-    onSubmit: (input) =>
-      schedule ? update.mutateAsync({ id: schedule.id, ...input }) : add.mutateAsync(input),
+    onSubmit: ({ spentOn, ...input }) => {
+      const values = { ...input, startsOn: spentOn, frequency };
+      return schedule
+        ? update.mutateAsync({ id: schedule.id, ...values })
+        : add.mutateAsync(values);
+    },
     onSaved: onClose,
   });
-  const actions = schedule
-    ? [
-        deleteMenuAction(() => {
-          if (!window.confirm('この立替スケジュールを削除しますか？（記録した立替は残ります）'))
-            return;
-          remove.mutate(schedule.id);
-          onClose();
-        }),
-      ]
-    : [];
-  return { fields, sheet: { ...sheet, onClose, actions } };
+  const { sheet } = useRecordDetail({
+    initialEditing: true,
+    form,
+    remove: schedule
+      ? {
+          confirm: 'この立替スケジュールを削除しますか？（記録した立替は残ります）',
+          run: () => remove.mutate(schedule.id),
+        }
+      : undefined,
+    onClose,
+  });
+  return { fields, frequency, setFrequency, sheet };
 }

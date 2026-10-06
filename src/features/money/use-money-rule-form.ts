@@ -43,7 +43,6 @@ export function useMoneyRuleForm({
   return {
     ...form,
     fields: {
-      initial: rule,
       replaceDescription,
       setReplace,
       kind,

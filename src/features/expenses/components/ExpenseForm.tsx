@@ -1,4 +1,4 @@
-import { type ExpenseInput, expenseSchema } from '../../../../shared/validation/expenses.ts';
+import type { ExpenseInput } from '../../../../shared/validation/expenses.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useAddExpense } from '../queries.ts';
 import { useExpenseForm } from '../use-expense-form.ts';
@@ -17,7 +17,6 @@ type Props = {
 export function ExpenseForm({ initial, onClose }: Props) {
   const addExpense = useAddExpense();
   const { fields, sheet } = useExpenseForm({
-    schema: expenseSchema,
     initial,
     onSubmit: addExpense.mutateAsync,
     onSaved: onClose,

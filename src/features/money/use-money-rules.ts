@@ -1,7 +1,7 @@
 import { arrayMove } from '@dnd-kit/sortable';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
+import { putById } from '../../lib/list.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
-import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 import { rulesQueryOptions, useSaveRules } from './queries.ts';
 
 /**
@@ -13,20 +13,12 @@ export function useMoneyRules() {
   const rulesQuery = useStoreQuery(rulesQueryOptions);
   const save = useSaveRules();
   const rules = rulesQuery.data ?? [];
-  // 開いているシート: rule が null なら追加
-  const sheet = useOpenWith<{ rule: MoneyRule | null }>();
   return {
     rulesQuery,
     rules,
-    sheet,
     /** シートで保存したルールを並びに入れる（同じ id なら置き換え、新しいルールは末尾） */
-    put: (rule: MoneyRule) =>
-      save.mutateAsync(
-        rules.some((r) => r.id === rule.id)
-          ? rules.map((r) => (r.id === rule.id ? rule : r))
-          : [...rules, rule],
-      ),
-    remove: (id: string) => save.mutate(rules.filter((rule) => rule.id !== id)),
+    put: (rule: MoneyRule) => save.mutateAsync(putById(rules, rule.id, rule)),
+    remove: (id: string) => save.mutate(putById(rules, id, null)),
     /** 並べ替え（引いたルールを、落とした先のルールの位置へ） */
     move: (activeId: string, overId: string) => {
       const from = rules.findIndex((rule) => rule.id === activeId);

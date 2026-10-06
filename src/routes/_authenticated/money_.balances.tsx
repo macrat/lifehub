@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import type { MoneyBalance } from '../../../shared/money.ts';
@@ -11,12 +10,11 @@ import { accountsQueryOptions, balanceHistory } from '../../features/money/queri
 import { balanceSearchSchema } from '../../features/money/search.ts';
 import { useBalanceAccounts, useBalanceChart } from '../../features/money/use-balance-chart.ts';
 import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
-import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { BackButton } from '../../lib/ui/BackButton.tsx';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { FilterPanel } from '../../lib/ui/FilterPanel.tsx';
 import { FILL_HEIGHT, FILL_MARGIN_BOTTOM } from '../../lib/ui/layout.ts';
 import { EmptyMessage } from '../../lib/ui/QueryView.tsx';
+import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/money_/balances')({
@@ -52,13 +50,9 @@ function BalancesPage() {
 
   return (
     <>
-      <AppBarContent>
-        <BackButton fallback="/money" />
-        <Typography component="h1" variant="subtitle1" noWrap sx={{ flexGrow: 1 }}>
-          {formatWindow(chart.window)}
-        </Typography>
+      <SubPageBar title={formatWindow(chart.window)} fallback="/money">
         <FilterButton open={panel.value} count={selected.length} onToggle={panel.toggle} />
-      </AppBarContent>
+      </SubPageBar>
       <Box
         sx={{
           height: FILL_HEIGHT,

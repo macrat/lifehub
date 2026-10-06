@@ -33,7 +33,7 @@ const rent = (startsOn: string): ExpenseScheduleInput => ({
   toUserId: null,
   amount: 80_000,
   description: '家賃',
-  spentOn: dateStringSchema.parse(startsOn),
+  startsOn: dateStringSchema.parse(startsOn),
   frequency: 'monthly',
 });
 
@@ -107,11 +107,5 @@ describe('立替スケジュール', () => {
     expect(await listExpenseSchedules()).toEqual([]);
     expect(await recordScheduledExpenses(at('2026-11-25'))).toEqual({ count: 0 });
     expect(await allExpenses()).toHaveLength(2);
-  });
-
-  it('From と To に同じ相手は選べない', async () => {
-    await expect(
-      addExpenseSchedule({ ...rent('2026-10-06'), toUserId: a }, a, undefined, at('2026-10-06')),
-    ).rejects.toThrow();
   });
 });

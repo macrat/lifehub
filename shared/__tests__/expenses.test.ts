@@ -6,6 +6,7 @@ import {
   settlementsOf,
 } from '../expenses.ts';
 import { dateStringSchema } from '../validation/common.ts';
+import { expenseScheduleSchema } from '../validation/expenses.ts';
 
 const total = (fromUserId: string | null, toUserId: string | null, amount: number) =>
   ({ fromUserId, toUserId, amount }) satisfies ExpenseTotal;
@@ -82,5 +83,23 @@ describe('立替スケジュールの回の日', () => {
     expect(
       nextScheduleDate({ startsOn: day('2026-10-25'), frequency: 'daily' }, day('2026-10-06')),
     ).toBe('2026-10-25');
+  });
+});
+
+describe('立替スケジュールの入力', () => {
+  const input = {
+    fromUserId: '00000000-0000-4000-8000-000000000001',
+    toUserId: null,
+    amount: 80_000,
+    description: '家賃',
+    startsOn: '2026-10-06',
+    frequency: 'monthly',
+  };
+
+  it('組み合わせの規則は立替と同じ（From と To に同じ相手は選べない）', () => {
+    expect(expenseScheduleSchema.safeParse(input).success).toBe(true);
+    expect(expenseScheduleSchema.safeParse({ ...input, toUserId: input.fromUserId }).success).toBe(
+      false,
+    );
   });
 });

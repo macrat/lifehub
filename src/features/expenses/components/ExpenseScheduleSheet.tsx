@@ -1,6 +1,6 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { SCHEDULE_FREQUENCIES } from '../../../../shared/expenses.ts';
+import { SCHEDULE_FREQUENCIES, type ScheduleFrequency } from '../../../../shared/expenses.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { ExpenseSchedule } from '../queries.ts';
 import { FREQUENCY_LABELS } from '../schedule-labels.ts';
@@ -17,7 +17,7 @@ type Props = {
  * 立替スケジュールの追加と変更。項目は立替と同じで、日付は最初の日、その下に繰り返し（毎日・毎週・毎月・毎年）
  */
 export function ExpenseScheduleSheet({ schedule, onClose }: Props) {
-  const { fields, sheet } = useExpenseScheduleSheet(schedule, onClose);
+  const { fields, frequency, setFrequency, sheet } = useExpenseScheduleSheet(schedule, onClose);
   return (
     <RecordSheet title={schedule ? schedule.description : '立替スケジュールを追加'} {...sheet}>
       <ExpenseFields
@@ -25,12 +25,10 @@ export function ExpenseScheduleSheet({ schedule, onClose }: Props) {
         dateLabel="最初の日"
         afterDate={
           <TextField
-            name="frequency"
             label="繰り返し"
             select
-            defaultValue={schedule?.frequency ?? 'monthly'}
-            error={Boolean(fields.errors.frequency)}
-            helperText={fields.errors.frequency}
+            value={frequency}
+            onChange={(e) => setFrequency(e.target.value as ScheduleFrequency)}
             fullWidth
           >
             {SCHEDULE_FREQUENCIES.map((frequency) => (

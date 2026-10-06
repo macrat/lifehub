@@ -15,10 +15,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import IconButton from '@mui/material/IconButton';
+import type { ReactNode } from 'react';
 import type { MoneyRule } from '../../../../shared/validation/money.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';
 import { PartiesMark } from '../../expenses/components/PartiesMark.tsx';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { describeRule, ruleParties } from '../rule-text.ts';
 import type { MoneyRulesState } from '../use-money-rules.ts';
@@ -28,7 +30,15 @@ import type { MoneyRulesState } from '../use-money-rules.ts';
  * 説明（置換・種別と対象者・一覧に表示しない）、右端の鉛筆で変更を開く（形は `EditableList`）。
  * 行の左端の取っ手を引くと並べ替える（キーボードでも動かせる）。状態と保存は `useMoneyRules`
  */
-export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
+export function MoneyRuleList({
+  state,
+  onEdit,
+}: {
+  state: MoneyRulesState;
+  onEdit: (rule: MoneyRule) => void;
+}) {
+  const { label } = useUserLabels();
+  const colorFor = useUserColor();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -47,7 +57,13 @@ export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
       <SortableContext items={state.rules} strategy={verticalListSortingStrategy}>
         <EditableList>
           {state.rules.map((rule) => (
-            <RuleItem key={rule.id} rule={rule} onEdit={() => state.sheet.open({ rule })} />
+            <RuleItem
+              key={rule.id}
+              rule={rule}
+              mark={<PartiesMark parties={ruleParties(rule)} colorFor={colorFor} />}
+              description={describeRule(rule, label)}
+              onEdit={() => onEdit(rule)}
+            />
           ))}
         </EditableList>
       </SortableContext>
@@ -55,8 +71,17 @@ export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
   );
 }
 
-function RuleItem({ rule, onEdit }: { rule: MoneyRule; onEdit: () => void }) {
-  const { label } = useUserLabels();
+function RuleItem({
+  rule,
+  mark,
+  description,
+  onEdit,
+}: {
+  rule: MoneyRule;
+  mark: ReactNode;
+  description: string;
+  onEdit: () => void;
+}) {
   const {
     attributes,
     listeners,
@@ -75,6 +100,7 @@ function RuleItem({ rule, onEdit }: { rule: MoneyRule; onEdit: () => void }) {
       handle={
         <IconButton
           ref={setActivatorNodeRef}
+          size="small"
           aria-label="並べ替え"
           {...attributes}
           {...listeners}
@@ -84,9 +110,10 @@ function RuleItem({ rule, onEdit }: { rule: MoneyRule; onEdit: () => void }) {
           <DragIndicatorIcon />
         </IconButton>
       }
-      icon={<PartiesMark parties={ruleParties(rule)} />}
+      icon={mark}
+      iconWidth={20}
       primary={rule.pattern}
-      secondary={describeRule(rule, label)}
+      secondary={description}
       editLabel={`${rule.pattern} を編集`}
       onEdit={onEdit}
     />

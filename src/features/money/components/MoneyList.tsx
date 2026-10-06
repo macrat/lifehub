@@ -8,6 +8,7 @@ import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { formatSignedYen, formatYen } from '../../../lib/yen.ts';
 import { PartiesMark } from '../../expenses/components/PartiesMark.tsx';
 import { partiesInOrder, partiesLabel } from '../../expenses/parties.ts';
+import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { MoneyEntry } from '../queries.ts';
 
@@ -60,6 +61,7 @@ type Props = Omit<HistoryListProps<MoneyEntry>, 'children'> & {
  */
 export function MoneyList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
+  const colorFor = useUserColor();
   const items = listProps.history.query.data?.items;
   // 読んだ記録が増えるほど重くなるので、記録が変わったときだけ求め直す。数字は等幅なので文字数で比べる
   const widest = useMemo(
@@ -80,7 +82,7 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
                   key={entry.id}
                   moveKey={entry.id}
                   onSelect={(editing) => onSelect(entry, editing)}
-                  mark={<PartiesMark parties={parties} />}
+                  mark={<PartiesMark parties={parties} colorFor={colorFor} />}
                   markWidth={MARK_WIDTH}
                   lead={<Amount text={amountOf(entry)} widest={widest} />}
                 >

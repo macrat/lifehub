@@ -169,7 +169,7 @@ export async function listExpenseSchedules(): Promise<ExpenseSchedule[]> {
 }
 
 /**
- * 立替スケジュールを作る。最初の日（spentOn）から今日までの回は、その場で立替として記録する
+ * 立替スケジュールを作る。最初の日から今日までの回は、その場で立替として記録する
  * （先の日の回は、日が来たら日次の Cron が記録する。`recordScheduledExpenses`）。
  * id はクライアントが決めて送ってくる。同じ id で送り直されたら何も書かない（回を二重に記録しない）
  */
@@ -180,12 +180,12 @@ export async function addExpenseSchedule(
   now: Date = new Date(),
 ): Promise<void> {
   if (await repository.findScheduleById(id)) return;
-  const values = scheduleValues(input);
+  const schedule = { ...input, id, createdBy: userId };
   const through = today(now);
-  const before = addDays(values.startsOn, -1);
-  const due = dueExpenses({ ...values, id, createdBy: userId, generatedThrough: before }, through);
+  const before = addDays(input.startsOn, -1);
+  const due = dueExpenses({ ...schedule, generatedThrough: before }, through);
   const rows = await repository.insertSchedule(
-    { ...values, id, createdBy: userId, generatedThrough: through > before ? through : before },
+    { ...schedule, generatedThrough: through > before ? through : before },
     due,
   );
   publishAdded(rows);
@@ -216,7 +216,7 @@ export async function updateExpenseSchedule(
   id: string,
   input: ExpenseScheduleInput,
 ): Promise<void> {
-  if (!(await repository.updateSchedule(id, scheduleValues(input)))) {
+  if (!(await repository.updateSchedule(id, input))) {
     throw new NotFoundError('立替スケジュールが見つかりません');
   }
 }
@@ -228,15 +228,9 @@ export async function deleteExpenseSchedule(id: string): Promise<void> {
   }
 }
 
-/** 入力（spentOn は最初の日）→ スケジュールの行の値。組み合わせの規則もここで掛ける（`checkRules`） */
-function scheduleValues({ frequency, ...input }: ExpenseScheduleInput) {
-  const { spentOn, ...values } = checkRules(input, expenseRulesSchema);
-  return { ...values, startsOn: spentOn, frequency };
-}
-
 /** スケジュールの、記録し終えた日の翌日から through までの回 */
 function dueExpenses(
-  schedule: Omit<ExpenseScheduleRow, 'createdAt' | 'updatedAt'>,
+  schedule: ExpenseScheduleInput & Pick<ExpenseScheduleRow, 'createdBy' | 'generatedThrough'>,
   through: DateString,
 ): ScheduledExpense[] {
   return scheduleDatesBetween(schedule, schedule.generatedThrough, through).map((spentOn) => ({

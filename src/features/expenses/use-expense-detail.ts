@@ -1,4 +1,3 @@
-import { expenseSchema } from '../../../shared/validation/expenses.ts';
 import { useRecordDetail } from '../../lib/ui/use-record-detail.tsx';
 import { type Expense, useDeleteExpense, useUpdateExpense } from './queries.ts';
 import { useExpenseForm } from './use-expense-form.ts';
@@ -11,7 +10,6 @@ export function useExpenseDetail(expense: Expense, initialEditing: boolean, onCl
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const { fields, sheet } = useExpenseForm({
-    schema: expenseSchema,
     initial: expense,
     onSubmit: (input) => updateExpense.mutateAsync({ id: expense.id, ...input }),
     onSaved: onClose,

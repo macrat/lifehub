@@ -10,6 +10,7 @@ import { expenseMoneyEntry, moneyEntryId } from '../../../shared/money.ts';
 import type { ExpenseInput, ExpenseScheduleInput } from '../../../shared/validation/expenses.ts';
 import { api, write } from '../../lib/api.ts';
 import { applyToHistories, findInHistories } from '../../lib/history.ts';
+import { putById } from '../../lib/list.ts';
 import {
   type QueryState,
   useCreateMutation,
@@ -72,11 +73,10 @@ export const expenseSchedulesQueryOptions = queryOptions({
 
 /** スケジュールの並びに 1 件の変化（id のスケジュールが next になる。削除は null。追加は末尾）を先回りして書く */
 function applySchedule(client: QueryClient, id: string, next: ExpenseSchedule | null): void {
-  client.setQueryData(expenseSchedulesQueryOptions.queryKey, (list) => {
-    if (!list) return list;
-    if (!list.some((schedule) => schedule.id === id)) return next ? [...list, next] : list;
-    return list.flatMap((schedule) => (schedule.id !== id ? [schedule] : next ? [next] : []));
-  });
+  client.setQueryData(
+    expenseSchedulesQueryOptions.queryKey,
+    (list) => list && putById(list, id, next),
+  );
 }
 
 /**
@@ -87,9 +87,7 @@ export function useAddExpenseSchedule() {
   return useCreateMutation<ExpenseScheduleInput>({
     request: write.expenses.createSchedule,
     keys: WRITE_KEYS,
-    apply: (client, { id, spentOn, ...input }) => {
-      applySchedule(client, id, { ...input, id, startsOn: spentOn });
-    },
+    apply: (client, schedule) => applySchedule(client, schedule.id, schedule),
   });
 }
 
@@ -98,9 +96,7 @@ export function useUpdateExpenseSchedule() {
   return useOptimisticMutation<ExpenseScheduleInput & { id: string }>({
     request: write.expenses.updateSchedule,
     keys: [expenseSchedulesQueryOptions.queryKey],
-    apply: (client, { id, spentOn, ...input }) => {
-      applySchedule(client, id, { ...input, id, startsOn: spentOn });
-    },
+    apply: (client, schedule) => applySchedule(client, schedule.id, schedule),
   });
 }
 

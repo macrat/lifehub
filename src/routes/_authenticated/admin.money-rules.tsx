@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { MoneyRuleList } from '../../features/money/components/MoneyRuleList.tsx';
 import { MoneyRuleSheet } from '../../features/money/components/MoneyRuleSheet.tsx';
 import { rulesQueryOptions } from '../../features/money/queries.ts';
@@ -7,6 +8,7 @@ import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
+import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/admin/money-rules')({
   // 引いて取り直したい内容を持たず、行を引いて並べ替える画面なので、引っ張って更新はしない
@@ -22,20 +24,21 @@ function AdminMoneyRulesPage() {
   // この画面が読むもの: ルールの並び
   useScreenQueries([rulesQueryOptions]);
   const state = useMoneyRules();
-  const open = state.sheet.value;
+  // 開いているシート: rule が null なら追加
+  const sheet = useOpenWith<{ rule: MoneyRule | null }>();
   return (
     <>
       <SubPageBar title="取り込みルール" fallback="/settings" />
       <QueryView query={state.rulesQuery} skeleton={<ListSkeleton rows={2} />}>
-        {() => <MoneyRuleList state={state} />}
+        {() => <MoneyRuleList state={state} onEdit={(rule) => sheet.open({ rule })} />}
       </QueryView>
-      <AddFab label="ルールを追加" onClick={() => state.sheet.open({ rule: null })} />
-      {open && (
+      <AddFab label="ルールを追加" onClick={() => sheet.open({ rule: null })} />
+      {sheet.value && (
         <MoneyRuleSheet
-          rule={open.rule}
+          rule={sheet.value.rule}
           onSubmit={state.put}
-          onDelete={() => open.rule && state.remove(open.rule.id)}
-          onClose={state.sheet.close}
+          onDelete={state.remove}
+          onClose={sheet.close}
         />
       )}
     </>
