@@ -8,6 +8,7 @@ import {
 import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
+import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
 import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/admin/expense-schedules')({
@@ -29,11 +30,12 @@ function AdminExpenseSchedulesPage() {
   const sheet = useOpenWith<{ schedule: ExpenseSchedule | null }>();
   return (
     <>
+      <SubPageBar title="立替スケジュール" fallback="/settings" />
       <QueryView query={schedulesQuery} skeleton={<ListSkeleton rows={2} />}>
         {(schedules) => (
           <ExpenseScheduleList
             schedules={schedules}
-            onSelect={(schedule) => sheet.open({ schedule })}
+            onEdit={(schedule) => sheet.open({ schedule })}
           />
         )}
       </QueryView>

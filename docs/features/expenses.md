@@ -24,7 +24,7 @@
 - 当事者ごとに債権と債務を差し引いた正味を出し、最も大きい債権者と最も大きい債務者を突き合わせて資金移動を決めていく。正味にしてから組むので、循環（A→B→共有→A）は打ち消される。
   - 正味が 0 でない当事者が n 人なら移動は高々 n − 1 回。当事者は 3 者（ユーザー 2 人と共有）なので、これが最小になる。
   - WHY NOT 一般の最小化: 当事者が増えると最小の組み方を探すのは組み合わせの問題になるが、利用者は 2 人なので要らない。
-- 取り込んだ入出金のうち、ルールで入金・出金にしたものも「共有」との立替として入る（[money.md](money.md#入出金のルール)）。
+- 取り込んだ入出金のうち、ルールで入金・出金にしたものも「共有」との立替として入る（[money.md](money.md#取り込みルール)）。
 - 計算は `shared/expenses.ts` の `settlementsOf` 1 箇所に置き、サーバー（`getSettlements`）とクライアント（`useSettlements`）が同じものを使う。
   - サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても精算の応答は変わらない。
   - クライアントはその合計（`expenses.totals`）を受け取って精算を導き、書き込みの結果を先に出すとき（楽観的更新）は合計に 1 件分を足し引きする。WHY NOT 精算そのものを持つ: 移動の組み方からは 1 件分を足し引きできない。
@@ -33,7 +33,7 @@
 
 決まった日に決まった内容で発生する立替（共有口座への定期の入金、個人の口座からの口座振替の支払い）を、日が来たら自動で記録する。
 
-- 画面: 設定の「お金」→「立替スケジュール」（`/admin/expense-schedules`。`src/routes/_authenticated/admin.expense-schedules.tsx`）。スケジュールを作った順に並べ、1 行に内容と金額、繰り返し・次に記録する日・To と From（`src/features/expenses/components/ExpenseScheduleList.tsx`）。右下の追加ボタン（「立替スケジュールを追加」）で追加し、行を押すと変更、三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
+- 画面: `/admin/expense-schedules`（`src/routes/_authenticated/admin.expense-schedules.tsx`。設定の「お金」セクションの「立替スケジュール」から開く）。AppBar は戻るボタンと「立替スケジュール」。一覧（`src/features/expenses/components/ExpenseScheduleList.tsx`。形は設定から開くほかの管理の画面と同じ `EditableList`）はスケジュールを作った順に並べ、行は左に記録する立替の印（お金の画面の立替の印と同じ `PartiesMark`）、内容と説明（金額・繰り返し・次に記録する日）、右端の鉛筆。右下の追加ボタン（「立替スケジュールを追加」）で追加し、鉛筆で変更、変更のシートの三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
 - 立替スケジュールの追加・変更・削除はこの画面だけで行う。立替の入力・詳細・一覧はスケジュールに触れず、記録された立替は手で入れた立替と同じ普通の立替で、スケジュールとのつながりも持たない。WHY: 立替の入力欄に普段は使わない項目を足さず、記録された立替を直す・消すときに「この回だけ」のような区別を持ち込まない。
 - 回の日（`shared/expenses.ts` の `scheduleDate`）: どの回も最初の日から数える（前の回から数えない）。毎月・毎年でその日が無い月（31 日、2/29）はその月の末日にし、次の月には元の日に戻る（1/31 → 2/28 → 3/31。ずれていかない）。WHY NOT RRULE（予定・タスクの繰り返し）: RRULE の毎月はその日が無い月を飛ばし、月末払いが記録されない月ができる。繰り返しは 4 通りだけなので、日付の足し算で足りる。
 - 記録: 追加したとき、最初の日から今日までの回をその場で記録する（最初の日が先ならその日まで何も記録しない）。先の日の回は、日付が変わってすぐの Cron（`/api/cron/expenses`。`server/features/expenses/service.ts` の `recordScheduledExpenses`）が、日が来た回を記録する。Cron が止まっていた日の回は、次に動いたときにまとめて記録する。記録した人はスケジュールを作った人。
@@ -51,7 +51,7 @@
 | 手続き | 種類 | 内容 |
 |---|---|---|
 | `expenses.list` | 読み出し | お金の画面の一覧の 1 ページ（`{ items, nextCursor }`。items は古い順で、立替（`type: "expense"`）と取り込んだ入出金（`type: "transaction"`）が混ざる）。入力は続きの `before`（YYYY-MM-DD）と絞り込み（`q` / `min` / `max` / `since` / `until` / `to` / `from`。`expenseListQuerySchema`）。立替と入出金を合わせて新しいほうから 50 件ほどで、日の途中では切らない（同じ日の記録は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。表ごとに区切りの日を集めて 1 本にする（`server/lib/history-source.ts` の `mergeHistoryPage`。立替は `service.ts` の `historySource`、入出金は money の `historySource` が渡し、どの feature も他の feature の表を直接読まない）。入出金への絞り込みの読み替えは [money.md](money.md#画面) |
-| `expenses.totals` | 読み出し | 精算の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`）。立替の組ごとと、取り込んだ入出金のうちルールで「共有」との立替にしたものの組ごと（[money.md](money.md#入出金のルール)。同じ組が 2 行になりうるが、精算の式は足し合わせる） |
+| `expenses.totals` | 読み出し | 精算の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`）。立替の組ごとと、取り込んだ入出金のうちルールで「共有」との立替にしたものの組ごと（[money.md](money.md#取り込みルール)。同じ組が 2 行になりうるが、精算の式は足し合わせる） |
 | `expenses.create` | 書き込み | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
 | `expenses.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
 | `expenses.delete` | 書き込み | 削除（入力は `id`） |

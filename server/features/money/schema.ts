@@ -103,7 +103,7 @@ export const moneyTransactions = pgTable(
 export type MoneyTransactionRow = typeof moneyTransactions.$inferSelect;
 
 /**
- * 入出金の読み替えのルール（管理画面の「入出金のルール」）。上から順に（`position` の小さい順）元の内容欄に当て、
+ * 入出金の読み替えのルール（設定から開く「取り込みルール」）。上から順に（`position` の小さい順）元の内容欄に当て、
  * 最初に当たった 1 つだけを使う。家族で 1 つの並びなので、ユーザーごとには持たない。
  * 保存は並び全体の置き換え（`repository.ts` の `replaceRules`）。
  */

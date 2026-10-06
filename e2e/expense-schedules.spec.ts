@@ -11,8 +11,9 @@ test('立替スケジュールを設定から追加すると今日までの回�
 }) => {
   const description = `E2E 定期入金 ${Date.now()}`;
   await page.goto('/settings');
-  await page.getByRole('link', { name: /立替スケジュール/ }).click();
+  await page.getByRole('link', { name: '立替スケジュール' }).click();
   await expect(page).toHaveURL('/admin/expense-schedules');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('立替スケジュール');
 
   // 昨日から毎日: 昨日と今日の 2 回がその場で記録される
   await page.getByRole('button', { name: '立替スケジュールを追加' }).click();
@@ -22,11 +23,11 @@ test('立替スケジュールを設定から追加すると今日までの回�
   await page.getByLabel('金額（円）').fill('5000');
   await page.getByLabel('内容', { exact: true }).fill(description);
   await page.getByRole('button', { name: '保存' }).click();
-  const row = page.getByRole('button', { name: new RegExp(description) });
+  const row = page.getByRole('main').getByRole('listitem').filter({ hasText: description });
   await expect(row).toContainText('毎日');
 
-  // 変えると並びも変わる（まだ記録していない回にだけ効く）
-  await row.click();
+  // 鉛筆で変えると並びも変わる（まだ記録していない回にだけ効く）
+  await page.getByRole('button', { name: `${description} を編集` }).click();
   await page.getByLabel('金額（円）').fill('6000');
   await page.getByRole('button', { name: '保存' }).click();
   await expect(row).toContainText('¥6,000');
@@ -36,7 +37,7 @@ test('立替スケジュールを設定から追加すると今日までの回�
 
   // 削除しても記録した立替は残る
   await page.goto('/admin/expense-schedules');
-  await row.click();
+  await page.getByRole('button', { name: `${description} を編集` }).click();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'その他の操作' }).click();
   await page.getByRole('menuitem', { name: '削除' }).click();

@@ -32,7 +32,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 | `money_accounts` | `name`(PK), `balance`, `withdrawal_amount`, `withdrawal_on`, `fetched_at` | Money Forward から取り込んだ口座の今の値。値は null を許す。取り込みと規則は [features/money.md](features/money.md) |
 | `money_balances` | `account`+`recorded_on`(PK), `balance` | 口座の値の日ごとの記録（残高の推移のグラフ）。取り込みのたびにその日の行を上書きする。規則は [features/money.md](features/money.md#データ) |
 | `money_transactions` | `source_id`(unique), `account`, `occurred_on`, `original_description`, `description`, `amount`, `direction`, `user_id`, `hidden` | Money Forward から取り込んだ入出金。`amount` は入金が正・出金が負。取り込みと規則は [features/money.md](features/money.md) |
-| `money_rules` | `position`, `pattern`, `replace_description`, `replacement`, `kind`, `user_id`, `hidden` | 取り込んだ入出金の読み替えのルール（上から順に当てる）。規則は [features/money.md](features/money.md#入出金のルール) |
+| `money_rules` | `position`, `pattern`, `replace_description`, `replacement`, `kind`, `user_id`, `hidden` | 取り込んだ入出金の読み替えのルール（上から順に当てる）。規則は [features/money.md](features/money.md#取り込みルール) |
 | `holidays` | `date`(PK) | 日本の祝日・休日。取得と規則は [features/holidays.md](features/holidays.md) |
 | `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京）。気温と降水確率は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#日ごとの天気weather) |
 | `weather_hourly` | `starts_at`(PK), `weather`, `temp` | 3 時間ごとの天気と気温（東京地方）。`temp` は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#3-時間ごとの天気と気温weather_hourly) |

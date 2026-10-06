@@ -51,7 +51,7 @@ export const balanceHistory: HistorySource<MoneyBalance, Record<string, never>> 
   oldestFirst: true,
 };
 
-/** 入出金の読み替えのルール（上から順。管理画面の「入出金のルール」） */
+/** 入出金の読み替えのルール（上から順。設定から開く「取り込みルール」） */
 export const rulesQueryOptions = queryOptions({
   queryKey: [...MONEY_QUERY_KEY, 'rules'],
   queryFn: ({ signal }) => api.money.rules.query(undefined, { signal }),

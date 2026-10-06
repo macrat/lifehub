@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
 import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
@@ -7,10 +6,9 @@ import { weatherSearchSchema } from '../../features/weather/search.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
 import { useRevealDay } from '../../features/weather/use-reveal-day.ts';
 import { useScreenHistory } from '../../lib/screen-data.ts';
-import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
-import { BackButton } from '../../lib/ui/BackButton.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
 import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
+import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
 
 export const Route = createFileRoute('/_authenticated/weather')({
   staticData: { ownsScroll: true },
@@ -33,12 +31,7 @@ function WeatherPage() {
   const reveal = useRevealDay(history, Route.useSearch().day);
   return (
     <>
-      <AppBarContent>
-        <BackButton />
-        <Typography component="h1" variant="subtitle1">
-          東京
-        </Typography>
-      </AppBarContent>
+      <SubPageBar title="東京" />
       <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
         <HistoryList history={history} emptyMessage="予報がまだありません" reveal={reveal}>
           {(days) => (

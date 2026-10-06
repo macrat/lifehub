@@ -105,7 +105,7 @@ test('取り込んだ入出金はホームのタイムラインに金融機関�
   await expect(page.getByRole('dialog', { name: SUPERMARKET.description })).toBeVisible();
 });
 
-test('入出金のルールを設定画面から足して並べ替え・削除でき、欄は種別と置換のスイッチで無効になる', async ({
+test('取り込みルールを設定画面から足して直し、長押しで並べ替えて削除でき、欄は種別と置換のスイッチで無効になる', async ({
   page,
 }) => {
   const api = apiOf(page.request);
@@ -113,75 +113,72 @@ test('入出金のルールを設定画面から足して並べ替え・削除�
   const savedPatterns = () => api.money.rules.query().then((rules) => rules.map((r) => r.pattern));
 
   await page.goto('/settings');
-  await page.getByRole('link', { name: /入出金のルール/ }).click();
+  await page.getByRole('link', { name: '取り込みルール' }).click();
   await expect(page).toHaveURL('/admin/money-rules');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('取り込みルール');
+
+  // 追加のシート: 置換しないうちは置換後の内容欄を、支出のうちは対象者を選べない。正規表現として読めなければ保存しない
+  await page.getByRole('button', { name: 'ルールを追加' }).click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByLabel('置換後の内容欄')).toBeDisabled();
+  await expect(sheet.getByLabel('対象者')).toHaveAttribute('aria-disabled', 'true');
+  await sheet.getByLabel('パターン（正規表現）').fill('(');
+  await sheet.getByRole('button', { name: '保存' }).click();
+  await expect(sheet.getByText('正規表現として読めません')).toBeVisible();
+  await sheet.getByLabel('パターン（正規表現）').fill('ATM');
+  await sheet.getByRole('button', { name: '保存' }).click();
+  await expect(sheet).toHaveCount(0);
 
   await page.getByRole('button', { name: 'ルールを追加' }).click();
-  await page.getByRole('button', { name: 'ルールを追加' }).click();
-  const patterns = page.getByLabel('パターン（正規表現）');
-  const replacements = page.getByLabel('置換後の内容欄');
-  // 置換しないうちは置換後の内容欄を、支出のうちは対象者を選べない
-  await expect(replacements.first()).toBeDisabled();
-  await expect(page.getByLabel('対象者').first()).toHaveAttribute('aria-disabled', 'true');
-
-  // 正規表現として読めなければ誤りを出し、直すまで保存しない
-  await patterns.nth(0).fill('(');
-  await patterns.nth(0).blur();
-  await expect(page.getByText('正規表現として読めません')).toBeVisible();
-  await patterns.nth(0).fill('ATM');
-  await patterns.nth(1).fill('振込 (\\S+)');
-  await patterns.nth(1).blur();
-  await expect.poll(savedPatterns).toEqual(['ATM', '振込 (\\S+)']);
-
-  // 2 つ目の取っ手を 1 つ目の上へ引く。引き始めと、1 つ目が下へ避けたのを見届けてから離す
-  // （並べ替えの部品は位置を測ってから動かす）
-  const handles = page.getByRole('button', { name: '並べ替え' });
-  const from = await handles.nth(1).boundingBox();
-  const to = await handles.nth(0).boundingBox();
-  if (!from || !to) throw new Error('取っ手が見えない');
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(from.x + from.width / 2, from.y, { steps: 2 });
-  await expect(page.getByRole('region', { name: 'ルール 2' })).toHaveAttribute(
-    'style',
-    /translate/,
-  );
-  await page.mouse.move(to.x + to.width / 2, to.y - 10, { steps: 10 });
-  await expect(page.getByRole('region', { name: 'ルール 1' })).toHaveAttribute(
-    'style',
-    /translate/,
-  );
-  await page.mouse.up();
-  await expect(patterns.nth(0)).toHaveValue('振込 (\\S+)');
-  await expect.poll(savedPatterns).toEqual(['振込 (\\S+)', 'ATM']);
-
-  await page.getByLabel('内容欄を置換').nth(0).check();
-  await replacements.nth(0).fill('$1 さん');
-  await replacements.nth(0).blur();
-  await page.getByLabel('種別').nth(0).click();
+  await sheet.getByLabel('パターン（正規表現）').fill('振込 (\\S+)');
+  await sheet.getByLabel('内容欄を置換').check();
+  await sheet.getByLabel('置換後の内容欄').fill('$1 さん');
+  await sheet.getByLabel('種別').click();
   await page.getByRole('option', { name: '入金' }).click();
-  await expect(page.getByLabel('対象者').nth(0)).not.toHaveAttribute('aria-disabled', 'true');
-  await page.getByLabel('一覧に表示しない').nth(0).check();
+  await expect(sheet.getByLabel('対象者')).not.toHaveAttribute('aria-disabled', 'true');
+  await sheet.getByLabel('一覧に表示しない').check();
+  await sheet.getByRole('button', { name: '保存' }).click();
+  await expect.poll(savedPatterns).toEqual(['ATM', '振込 (\\S+)']);
   await expect
-    .poll(() => api.money.rules.query().then((rules) => rules[0]))
+    .poll(() => api.money.rules.query().then((rules) => rules[1]))
     .toMatchObject({
       replaceDescription: true,
       replacement: '$1 さん',
       kind: 'deposit',
       hidden: true,
     });
+  // 一覧の説明は置換・種別と対象者・一覧に表示しない
+  const rows = page.getByRole('main').getByRole('listitem');
+  await expect(rows.nth(1)).toContainText('「$1 さん」に置換・入金 E2E・一覧に表示しない');
 
-  // 開き直しても同じ並び
-  await page.reload();
-  await expect(patterns.nth(0)).toHaveValue('振込 (\\S+)');
-  await expect(replacements.nth(0)).toHaveValue('$1 さん');
-  await expect(page.getByLabel('一覧に表示しない').nth(0)).toBeChecked();
-  await expect(patterns.nth(1)).toHaveValue('ATM');
+  // 鉛筆で直す
+  await page.getByRole('button', { name: 'ATM を編集' }).click();
+  await sheet.getByLabel('パターン（正規表現）').fill('ATM .*');
+  await sheet.getByRole('button', { name: '保存' }).click();
+  await expect.poll(savedPatterns).toEqual(['ATM .*', '振込 (\\S+)']);
 
-  await page.getByRole('button', { name: 'ルールを削除' }).nth(0).click();
-  await expect(patterns).toHaveCount(1);
-  await page.getByRole('button', { name: 'ルールを削除' }).nth(0).click();
+  // 2 つ目の行を長押しして 1 つ目の上へ引く（行は押してから少し待つと並べ替えが始まる）
+  const from = await rows.nth(1).boundingBox();
+  const to = await rows.nth(0).boundingBox();
+  if (!from || !to) throw new Error('行が見えない');
+  await page.mouse.move(from.x + 80, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(400);
+  await page.mouse.move(from.x + 80, from.y + from.height / 2 - 10, { steps: 2 });
+  await page.mouse.move(to.x + 80, to.y + 5, { steps: 10 });
+  await expect(rows.nth(0)).toHaveAttribute('style', /translate/);
+  await page.mouse.up();
+  await expect.poll(savedPatterns).toEqual(['振込 (\\S+)', 'ATM .*']);
+
+  // 削除は鉛筆で開いたシートの三点リーダー
+  page.on('dialog', (dialog) => dialog.accept());
+  for (const name of ['ATM .* を編集', '振込 (\\S+) を編集']) {
+    await page.getByRole('button', { name }).click();
+    await sheet.getByRole('button', { name: 'その他の操作' }).click();
+    await page.getByRole('menuitem', { name: '削除' }).click();
+  }
   await expect.poll(savedPatterns).toEqual([]);
+  await expect(page.getByText('取り込みルールはありません')).toBeVisible();
 });
 
 test('口座のタイルを押すとその口座の推移のグラフが開き、絞り込みで口座を足すと積み上げて出す', async ({
