@@ -29,8 +29,8 @@ export type MoneyAccount = {
 };
 
 /**
- * 口座の 1 日の値（残高の推移のグラフの 1 点）。amount は種類ごとにカードの値と同じ向き: 銀行は残高、証券は評価額、
- * クレジットカードは負債額（使ってまだ払っていない額。正の数）
+ * 口座の 1 日の値（残高の推移のグラフの 1 点）。amount は銀行なら残高、証券なら評価額、クレジットカードなら負債額
+ * （使ってまだ払っていない額）を負の数で持つ。グラフでは負債を 0 より下へ積む
  */
 export type MoneyBalance = { account: string; on: DateString; amount: number };
 

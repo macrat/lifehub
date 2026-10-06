@@ -53,7 +53,8 @@ const AXIS_MARGIN = 0.1;
 
 /**
  * 縦軸の範囲。出している期間の最小と最大から、値の幅の 1 割ずつ外へ広げ、きりのよい値に丸める。
- * 値がすべて 0 以上なら下端は 0 より下にしない（残高が負に見える目盛りを出さない）。
+ * 値がすべて 0 以上なら下端は 0 より下に、すべて 0 以下（カードの負債だけ）なら上端は 0 より上にしない
+ * （無い向きの目盛りを出さない）。
  * 値が 1 つだけ（幅が 0）なら、値の大きさの 1 割を幅とみなす。
  */
 export function axisRange(min: number, max: number): { min: number; max: number } {
@@ -62,9 +63,10 @@ export function axisRange(min: number, max: number): { min: number; max: number 
   const margin = span * AXIS_MARGIN;
   const unit = 10 ** Math.floor(Math.log10(margin));
   const lower = Math.floor((min - margin) / unit) * unit;
+  const upper = Math.ceil((max + margin) / unit) * unit;
   return {
     min: min >= 0 ? Math.max(0, lower) : lower,
-    max: Math.ceil((max + margin) / unit) * unit,
+    max: max <= 0 ? Math.min(0, upper) : upper,
   };
 }
 

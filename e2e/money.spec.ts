@@ -190,7 +190,7 @@ test('口座のタイルを押すとその口座の推移のグラフが開き�
   // 口座の値の記録は取り込みが残すもので E2E の DB には無いので、推移の 1 ページ（最後のページ）を差し込む
   const balances: MoneyBalance[] = [-2, -1, 0].flatMap((offset) => [
     { account: 'テスト銀行', on: addDays(TODAY, offset), amount: 1_200_000 + offset * 10_000 },
-    { account: 'テストカード', on: addDays(TODAY, offset), amount: 40_000 - offset * 1_000 },
+    { account: 'テストカード', on: addDays(TODAY, offset), amount: -40_000 + offset * 1_000 },
   ]);
   await rewriteJson(page, 'money.balances', () => ({ items: balances, nextCursor: null }));
   await page.goto('/money');

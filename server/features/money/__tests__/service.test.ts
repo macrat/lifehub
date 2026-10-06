@@ -217,11 +217,11 @@ describe('money service', () => {
     const byAccount = <T extends { account: string }>(items: T[]) =>
       items.toSorted((a, b) => a.account.localeCompare(b.account));
     const latest = await getBalancePage(undefined, NOW);
-    // 明日より前の 3 か月（7/7〜10/6）。カードは利用残高（負の数）の大きさを負債額にする
+    // 明日より前の 3 か月（7/7〜10/6）。カードの負債額は負の数
     expect(byAccount(latest.items)).toEqual(
       byAccount([
         { account: 'テスト銀行', on: '2026-10-06', amount: 1_000 },
-        { account: 'テストカード', on: '2026-10-06', amount: 42_000 },
+        { account: 'テストカード', on: '2026-10-06', amount: -42_000 },
         { account: 'テスト証券', on: '2026-10-06', amount: 890_000 },
       ]),
     );

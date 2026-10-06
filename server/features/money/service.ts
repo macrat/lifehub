@@ -110,7 +110,7 @@ const BALANCE_PAGE_MONTHS = 3;
  * 日の古い順に返す。nextCursor はこのページの始まりの日で、それより前の記録が無ければ null。
  * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う。
  * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。
- * 値の向きはカードと同じ（`MoneyBalance`）: カードは Money Forward の利用残高（負の数）の大きさを負債額にする
+ * 値の向き（`MoneyBalance`）: カードの負債額は負の数にする（Money Forward の利用残高の符号に依らず、大きさに - を付ける）
  */
 export async function getBalancePage(
   before: DateString | undefined,
@@ -133,7 +133,7 @@ function toBalance(row: MoneyBalanceRow, liability: boolean): MoneyBalance {
   return {
     account: row.account,
     on: row.recordedOn,
-    amount: liability ? Math.abs(row.balance) : row.balance,
+    amount: liability ? -Math.abs(row.balance) : row.balance,
   };
 }
 

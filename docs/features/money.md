@@ -13,10 +13,10 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
   - 立替の行・精算のタイル・立替の詳細と入力・検索窓と詳細な検索は、立替だけの一覧だったときのまま（[expenses.md](expenses.md#画面)）。検索パラメータも立替の物（`src/features/expenses/search.ts` の `expenseSearchSchema`）。
   - 絞り込みは入出金にも読み替えて掛ける（サーバーの `server/features/money/repository.ts` の `history`）: キーワードは内容の部分一致、金額の範囲は出金も入金も額の大きさ（絶対値）、日付の範囲は明細の日付。To・From は、ルールで「共有」との立替にした入出金（[入出金のルール](#入出金のルール)）の当事者に掛かる（入金は 対象者 → 共有、出金は 共有 → 対象者）。ただの支出は当事者を持たないので、To・From のどちらかで絞り込んでいれば出さない。
 - 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 3 列、PC は 4 列。スマホの 3 列でも 7 桁の金額が収まるよう、値の字はほかのタイルより小さい）。タイルはレモン・精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額で、補足は「残高」「評価額」、カードは次回の引き落とし日（「次回 10/27」。スマホの 3 列に収まるよう曜日は付けない。日が読めなければ「次回」）。まだ取り込んでいない値や読めなかった値は「—」。押すとその口座の推移（下記）が開く。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
-- 口座の推移 `/money/balances?accounts=名前&accounts=名前`（`src/routes/_authenticated/money_.balances.tsx`。口座のタイルから開く。下部ナビには置かず、お金のタブの中の画面として扱う）: 選んだ口座の値の推移を積み上げた、塗りつぶし付きの折れ線グラフ（`src/features/money/components/BalanceChart.tsx`）。値は銀行なら残高、証券なら評価額、クレジットカードなら負債額（Money Forward の利用残高の大きさ）。
+- 口座の推移 `/money/balances?accounts=名前&accounts=名前`（`src/routes/_authenticated/money_.balances.tsx`。口座のタイルから開く。下部ナビには置かず、お金のタブの中の画面として扱う）: 選んだ口座の値の推移を積み上げた、塗りつぶし付きの折れ線グラフ（`src/features/money/components/BalanceChart.tsx`）。値は銀行なら残高、証券なら評価額、クレジットカードなら負債額（Money Forward の利用残高の大きさに - を付けた負の数）。負債は 0 より下へ積み、残高・評価額は 0 より上へ積む（ECharts の積み上げは正と負を別々に積む）。押したときの合計は負債を引いた額。
   - AppBar は戻るボタン・出している期間（「2026/7/6 〜 10/6」。年をまたげば両方に年）・絞り込みボタン。絞り込みでは出す口座をチェックで選ぶ（URL の accounts。タイルから開いたときは押したタイルの口座だけ。選び直しは履歴に積まないので、戻るでお金の画面へ戻る）。どれも選んでいなければ「表示する口座を選んでください」。
   - 最初は今日までの過去 3 か月を出す。ピンチ・マウスホイールで期間を拡大縮小し（最短 1 週間）、ドラッグで前後へ動かす。出している期間の始まりより、期間の長さの半分手前まで読んでいなければ古いほうの記録を読み足す（`src/features/money/use-balance-chart.ts`）ので、過去へ動かし続けられる（記録を始めた日まで）。
-  - 縦軸は、出している期間の値（積み上げた値）の最小と最大から、値の幅の 1 割ずつ外へ広げてきりのよい値に丸めた範囲。値がすべて 0 以上なら下端は 0 を下回らない（`src/features/money/balance-chart.ts` の `axisRange`）。目盛りは 1 万円以上を万で数える。
+  - 縦軸は、出している期間の値（積み上げた値）の最小と最大から、値の幅の 1 割ずつ外へ広げてきりのよい値に丸めた範囲。値がすべて 0 以上なら下端は 0 を下回らず、すべて 0 以下（カードだけ）なら上端は 0 を上回らない（`src/features/money/balance-chart.ts` の `axisRange`）。目盛りは 1 万円以上を万で数える。
   - グラフのどこかを押す・マウスを乗せると、その日の日付と口座ごとの金額（2 つ以上なら合計も）が出る。
   - 記録の無い日（取り込めなかった日）は、その口座の前の日の値のままとして描く（積み上げは同じ日の値を足すので、日を揃える。`toSeries`）。口座の色は口座の並びで決まり、選び直しても変わらない。
   - 描画は ECharts（`echarts`。この画面のチャンクにだけ入る）。WHY ECharts: ピンチでの拡大縮小・ドラッグでの移動・押した位置の値の表示・積み上げの塗りつぶしをどれも設定だけで持ち、使う部品だけを読み込める。WHY NOT MUI X Charts: 拡大縮小が有料版の機能。
@@ -72,7 +72,7 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 
 - `money_rules`: 入出金のルール（`position` の順）。`pattern`、`replace_description`、`replacement`、`kind`（`spending` / `deposit` / `withdrawal`）、`user_id`（支出なら null。CHECK 制約）、`hidden`（一覧に表示しない）。家族で 1 つの並びで、保存は並び全体の置き換え。
 - `money_accounts`: 口座の名前ごとの今の値（残高・評価額 `balance`、カードの引き落とし `withdrawal_amount`・`withdrawal_on`、取り込んだ日時 `fetched_at`）。読めなかった値は null。
-- `money_balances`: 口座の値の日ごとの記録（`account` と `recorded_on` が主キー）。`balance` は Money Forward の口座一覧の金額そのまま（カードは利用残高で負の数）。グラフに出す向き（カードは大きさを負債額にする）は `server/features/money/service.ts` の `getBalancePage` が決める。環境変数から外した口座の行は次の取り込みで消す。
+- `money_balances`: 口座の値の日ごとの記録（`account` と `recorded_on` が主キー）。`balance` は Money Forward の口座一覧の金額そのまま（カードは利用残高で負の数）。グラフに出す向き（カードの負債額は負の数）は `server/features/money/service.ts` の `getBalancePage` が決める。環境変数から外した口座の行は次の取り込みで消す。
 - `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。`original_description` は Money Forward の内容欄そのまま、`description` はルールで読み替えた後。`direction`（`deposit` / `withdrawal`）と `user_id` はルールで「共有」との立替にしたときの向きと対象者で、組でしか持てない（CHECK 制約）。`hidden` はルールで一覧に出さないとしたもの。Money Forward の分類（大項目・中項目）は取り込まない（Money Forward の自動の分類は正しいとは限らず、LifeHub からは直せないので、出しても頼れない）。`source_id` は Money Forward の明細の ID（一意）。
 
 ## API（`server/features/money/routes.ts`）
