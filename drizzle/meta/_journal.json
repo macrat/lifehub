@@ -152,15 +152,8 @@
     {
       "idx": 21,
       "version": "7",
-      "when": 1791289059709,
+      "when": 1791323477126,
       "tag": "0021_money",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1791295170453,
-      "tag": "0022_expense_schedules",
       "breakpoints": true
     }
   ]

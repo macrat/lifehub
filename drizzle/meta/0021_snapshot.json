@@ -1,5 +1,5 @@
 {
-  "id": "fbf41d35-9667-4dfb-aeef-b88a35602a80",
+  "id": "c256aac2-64f6-4158-b822-563951a7cd1e",
   "prevId": "0f9024df-2955-4e51-a2b6-7e3803319e10",
   "version": "7",
   "dialect": "postgresql",
@@ -485,6 +485,136 @@
         "events_cancelled_only_series_check": {
           "name": "events_cancelled_only_series_check",
           "value": "not \"events\".\"cancelled\" or \"events\".\"series_id\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.expense_schedules": {
+      "name": "expense_schedules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "from_user_id": {
+          "name": "from_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_user_id": {
+          "name": "to_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "frequency": {
+          "name": "frequency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "generated_through": {
+          "name": "generated_through",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "expense_schedules_from_user_id_users_id_fk": {
+          "name": "expense_schedules_from_user_id_users_id_fk",
+          "tableFrom": "expense_schedules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "from_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expense_schedules_to_user_id_users_id_fk": {
+          "name": "expense_schedules_to_user_id_users_id_fk",
+          "tableFrom": "expense_schedules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "to_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expense_schedules_created_by_users_id_fk": {
+          "name": "expense_schedules_created_by_users_id_fk",
+          "tableFrom": "expense_schedules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "expense_schedules_parties_check": {
+          "name": "expense_schedules_parties_check",
+          "value": "num_nonnulls(\"expense_schedules\".\"from_user_id\", \"expense_schedules\".\"to_user_id\") > 0"
+        },
+        "expense_schedules_frequency_check": {
+          "name": "expense_schedules_frequency_check",
+          "value": "\"expense_schedules\".\"frequency\" in ('daily', 'weekly', 'monthly', 'yearly')"
         }
       },
       "isRLSEnabled": false
