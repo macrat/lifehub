@@ -21,8 +21,11 @@ import * as repository from './repository.ts';
 /** 同時に表示する未完了の発生の上限（繰り返しタスク） */
 const MAX_VISIBLE_UNCOMPLETED = 2;
 
-/** 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない */
-type OccurrenceFilter = repository.CandidateFilter;
+/**
+ * 発生の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）、タスクを参加者に含む人（tasksOf。予定は絞らない）。
+ * どれも省けば絞らない。tasksOf は回を展開してから見る（「この回だけ」で参加者を変えた回は回そのものの参加者で見る）
+ */
+type OccurrenceFilter = repository.CandidateFilter & { tasksOf?: string | undefined };
 
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
@@ -45,6 +48,7 @@ export async function listItems(
  * この形を読む（iCalendar の VEVENT は予定 1 件が 1 つで、日ごとには分かれないため）。
  *
  * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
+ * `tasksOf` を渡すとその人が参加者にいるタスクだけを返す（予定はそのまま）。
  * `kind` を渡すとその種別だけを読んで展開する（読むところで絞る。`repository.findCalendarRows`）。
  * `id` を渡すとその予定・タスク（繰り返しなら全部の回）だけを読んで展開する。
  * 展開は繰り返し 1 つにつき期間の長さぶん走るので、片方しか要らない呼び出し（ics の配信は 1 年以上を読み、
@@ -86,7 +90,12 @@ export async function listOccurrences(
     const ctx: ExpandContext = { master, occurrences: bySeries.get(master.id) ?? new Map() };
     result.push(...(master.kind === 'event' ? expandEvent(ctx, instants) : expandTask(ctx, now)));
   }
-  return result.filter((o) => matchesKeyword(filter.q, o.title, o.note));
+  const { q, tasksOf } = filter;
+  return result.filter(
+    (o) =>
+      matchesKeyword(q, o.title, o.note) &&
+      (tasksOf === undefined || o.kind === 'event' || o.participantIds.includes(tasksOf)),
+  );
 }
 
 /** EventMaster に載る列。DB から読んだ行も、保存したばかりの値（読み直さない）もこの形で渡せる */

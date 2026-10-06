@@ -53,13 +53,20 @@ function formatDay(day: TimelineDay, entries: FormattedEntry[]) {
   });
 }
 
-/** 期間の日ごとのエントリー。絞り込んだとき（q・types）は、エントリーの無い日を省く */
+/**
+ * 期間の日ごとのエントリー。絞り込んだとき（q・types）は、エントリーの無い日を省く。
+ * 自分以外のタスクは includeOthersTasks のときだけ出す（`listDays`）
+ */
 async function readDays(
   ctx: McpContext,
   days: DateRange,
-  filter: { q?: string | undefined; types?: EntryType[] | undefined },
+  filter: {
+    q?: string | undefined;
+    types?: EntryType[] | undefined;
+    includeOthersTasks?: boolean | undefined;
+  },
 ) {
-  const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter)]);
+  const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter, ctx.userId)]);
   const filtered = filter.q !== undefined || filter.types !== undefined;
   const result = [];
   let count = 0;
@@ -88,7 +95,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     {
       title: '今の状況',
       description:
-        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
+        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・自分のやるべきタスク・記録・天気。自分以外のタスクは read_timeline の includeOthersTasks で読む）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
@@ -124,6 +131,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
       description: [
         '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ。各日には祝日（holiday）と天気の要約（weather）も付く。',
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎれば今日に出る。完了したタスクは完了した日に出る。',
+        'タスクは既定では自分が参加者にいるものだけを返す。ほかの人のタスクも読むには includeOthersTasks を true にする（予定は誰のものでも返す）。',
         '日時は JST。終日の予定・タスクは start / end が日付だけ（end はその日を含む）。',
         'q で文字（タイトル・メモ・立替の内容・メモの本文など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
         `一度に返すのは ${MAX_ENTRIES} 件まで。`,
@@ -138,12 +146,19 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
           .optional()
           .describe('記録の文字の部分一致（大文字小文字は区別しない）'),
         types: z.array(z.enum(ENTRY_TYPES)).min(1).optional().describe('読む種類。省くとすべて'),
+        includeOthersTasks: z
+          .boolean()
+          .optional()
+          .describe('自分が参加者にいないタスクも返すか。省くと返さない'),
       }),
       annotations: READ_ONLY,
     },
-    async ({ from, to, q, types }) => {
+    async ({ from, to, q, types, includeOthersTasks }) => {
       const period = range.resolve({ from, to });
-      return jsonResult({ ...period, ...(await readDays(ctx, period, { q, types })) });
+      return jsonResult({
+        ...period,
+        ...(await readDays(ctx, period, { q, types, includeOthersTasks })),
+      });
     },
   );
 }
