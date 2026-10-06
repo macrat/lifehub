@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { startOfDate, today } from '../../../shared/date.ts';
+import { startOfDate, startOfDay, today } from '../../../shared/date.ts';
 import type { MoneyBalance } from '../../../shared/money.ts';
-import type { DateString } from '../../../shared/types.ts';
 import { usePatchSearch } from '../../lib/search.ts';
-import { defaultWindow, needsEarlier } from './balance-chart.ts';
+import { type ChartWindow, defaultWindow, needsEarlier } from './balance-chart.ts';
 
 /**
- * 残高の推移のグラフの状態: 出している期間と、古いほうの読み足し。
- * 期間を持つのはグラフ（ECharts の dataZoom）で、操作（ピンチ・ホイールでの拡大縮小、ドラッグでの移動）で変わるたびに
- * ここへ写す（AppBar の期間の表示と読み足しの判断が読む）。グラフへは最初の期間（initial）を渡すだけで、書き戻さない。
+ * 残高の推移のグラフの状態: 出している期間と、古いほうの読み足し。期間はここだけが持ち、グラフ・AppBar の期間の表示・
+ * 読み足しの判断が読む。グラフの操作（ピンチ・ホイールでの拡大縮小、ドラッグでの移動）で変わると、グラフから知らせが来る。
+ * 期間は日に丸めて持ち、日が変わらない知らせでは描き直さない（操作の間は知らせが 1 秒に何十回も来るが、表示も判断も日で足りる）。
  * 出している期間の始まりの手前まで読んでいなければ、古いほうのページを続けて読み足す（`needsEarlier`。過去へ動かし
- * 続けると、読み足した分だけ軸が伸びて、さらに過去へ動かせる）。
+ * 続けると、読み足した分だけ軸が伸びて、さらに過去へ動かせる）。balances は日の古い順。
  */
 export function useBalanceChart(
   balances: readonly MoneyBalance[],
@@ -18,11 +17,7 @@ export function useBalanceChart(
 ) {
   const [initial] = useState(() => defaultWindow(today()));
   const [window, setWindow] = useState(initial);
-  // 読んだ最も古い記録（ページの中の並びは決まっていないので、全体から探す）
-  const first = balances.reduce<DateString | undefined>(
-    (min, { on }) => (min === undefined || on < min ? on : min),
-    undefined,
-  );
+  const first = balances[0]?.on;
   const earliest = first === undefined ? undefined : startOfDate(first).getTime();
 
   useEffect(() => {
@@ -37,10 +32,15 @@ export function useBalanceChart(
 
   return {
     window,
-    initial,
     axis,
     /** グラフの操作で期間が変わったとき */
-    setWindow,
+    onWindowChange: (next: ChartWindow) => {
+      const day = (time: number) => startOfDay(new Date(time)).getTime();
+      const rounded = { start: day(next.start), end: day(next.end) };
+      setWindow((prev) =>
+        prev.start === rounded.start && prev.end === rounded.end ? prev : rounded,
+      );
+    },
   };
 }
 

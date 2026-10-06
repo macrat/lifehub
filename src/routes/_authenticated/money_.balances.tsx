@@ -94,8 +94,8 @@ function BalancesPage() {
               accounts={names}
               selected={selected}
               axis={chart.axis}
-              initial={chart.initial}
-              onWindowChange={chart.setWindow}
+              window={chart.window}
+              onWindowChange={chart.onWindowChange}
             />
           )}
         </Box>

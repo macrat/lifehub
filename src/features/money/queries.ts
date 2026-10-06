@@ -3,6 +3,7 @@ import {
   type MoneyBalance,
   type MoneyEntry,
   moneyEntryDay,
+  sortBalances,
   sortMoneyEntries,
 } from '../../../shared/money.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
@@ -46,7 +47,7 @@ export const balanceHistory: HistorySource<MoneyBalance, Record<string, never>> 
   key: [...MONEY_QUERY_KEY, 'balances'],
   fetch: (_filter, before, signal) => api.money.balances.query({ before }, { signal }),
   dayOf: (balance) => balance.on,
-  sort: (balances) => balances.toSorted((a, b) => a.on.localeCompare(b.on)),
+  sort: sortBalances,
   oldestFirst: true,
 };
 

@@ -34,6 +34,11 @@ export type MoneyAccount = {
  */
 export type MoneyBalance = { account: string; on: DateString; amount: number };
 
+/** 日の古い順（推移の 1 ページの中の並び。`HistoryPage` は古い順） */
+export function sortBalances(balances: MoneyBalance[]): MoneyBalance[] {
+  return balances.toSorted((a, b) => compareKeys(a.on, b.on) || compareKeys(a.account, b.account));
+}
+
 /**
  * 入出金の読み替えのルールの種別。spending はただの支出（精算に入れない）、deposit（入金）と withdrawal（出金）は
  * 対象者と「共有」との立替として精算に入れる: 入金は対象者が共有口座へ入れた（From 対象者 → To 共有）、

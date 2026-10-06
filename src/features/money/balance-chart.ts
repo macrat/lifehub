@@ -35,18 +35,18 @@ export function toSeries(
   balances: readonly MoneyBalance[],
   accounts: readonly string[],
 ): BalanceSeries[] {
-  const days = [...new Set(balances.map((balance) => balance.on))].sort();
-  const times = days.map((day) => startOfDate(day).getTime());
-  const amounts = new Map(accounts.map((account) => [account, new Map<DateString, number>()]));
-  for (const { account, on, amount } of balances) amounts.get(account)?.set(on, amount);
+  const days = [...new Set(balances.map((balance) => balance.on))]
+    .sort()
+    .map((day) => [day, startOfDate(day).getTime()] as const);
+  const byAccount = Map.groupBy(balances, (balance) => balance.account);
   return accounts.map((account) => {
-    const byDay = amounts.get(account);
+    const amounts = new Map(byAccount.get(account)?.map((b) => [b.on, b.amount]));
     let last: number | null = null;
     return {
       account,
-      points: days.map((day, i) => {
-        last = byDay?.get(day) ?? last;
-        return [times[i] ?? 0, last];
+      points: days.map(([day, time]) => {
+        last = amounts.get(day) ?? last;
+        return [time, last];
       }),
     };
   });

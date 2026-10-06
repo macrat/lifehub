@@ -11,6 +11,7 @@ import {
   type MoneyAccount,
   type MoneyBalance,
   type MoneyTransaction,
+  sortBalances,
   transferParties,
 } from '../../../shared/money.ts';
 import { transactionEntry } from '../../../shared/timeline.ts';
@@ -29,7 +30,7 @@ const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCO
 
 const accountNames = configuredAccounts.map((account) => account.name);
 
-/** クレジットカードの口座の名前（値の記録では負債額を負の数で持つ） */
+/** クレジットカードの口座の名前（値の記録では負債額を、Money Forward の利用残高の符号に依らず大きさに - を付けて持つ） */
 const cardNames = new Set(
   configuredAccounts.filter((account) => account.kind === 'card').map((account) => account.name),
 );
@@ -89,7 +90,6 @@ export async function syncMoneyForward(
     range: from && to ? { from, to } : null,
     transactions,
     accountRows: scraped.accounts.map((account) => ({ ...account, fetchedAt })),
-    // カードの負債額は Money Forward の利用残高の符号に依らず、大きさに - を付ける（`MoneyBalance` の向き）
     balanceRows: scraped.accounts.flatMap(({ name, balance }) =>
       balance === null
         ? []
@@ -118,7 +118,7 @@ const BALANCE_PAGE_MONTHS = 3;
  * 残高の推移の 1 ページ（今取り込んでいる口座すべて）。before（省けば明日）より前の BALANCE_PAGE_MONTHS か月の日の記録を、
  * 日の古い順に返す。nextCursor はこのページの始まりの日で、それより前の記録が無ければ null。
  * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う。
- * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。並びは画面が日で揃える（`toSeries`）ので決めない。
+ * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。
  * 値は記録したときに `MoneyBalance` の向きにしてある（カードの負債額は負の数）
  */
 export async function getBalancePage(
@@ -129,7 +129,9 @@ export async function getBalancePage(
   const from = addCalendarMonths(end, -BALANCE_PAGE_MONTHS);
   const { rows, hasOlder } = await repository.findBalances(from, end);
   return {
-    items: rows.map((row) => ({ account: row.account, on: row.recordedOn, amount: row.balance })),
+    items: sortBalances(
+      rows.map((row) => ({ account: row.account, on: row.recordedOn, amount: row.balance })),
+    ),
     nextCursor: hasOlder ? from : null,
   };
 }
