@@ -45,9 +45,10 @@ export async function syncMoneyForward(
   } = env;
   if (!email || !password || configuredAccounts.length === 0) return { skipped: true };
 
-  const [{ scrapeMoneyForward }, { internalTransferIds, parseTransactionsCsv }] = await Promise.all(
-    [import('./moneyforward.ts'), import('./parse.ts')],
-  );
+  const [{ scrapeMoneyForward }, { parseTransactionsCsv }] = await Promise.all([
+    import('./moneyforward.ts'),
+    import('./parse.ts'),
+  ]);
   const month = toMonthString(today(now));
   const months = [addMonths(month, -1), month];
   const [scraped, rules] = await Promise.all([
@@ -56,11 +57,10 @@ export async function syncMoneyForward(
   ]);
 
   // 2 か月の CSV の境目で同じ明細が重なっても 1 行にする。内容欄は今のルールで読み替える（元のままの内容欄も持つ）
-  const internalTransfers = internalTransferIds(scraped.transfers, accountNames);
   const transactions = [
     ...new Map(
       scraped.csvs
-        .flatMap((csv) => parseTransactionsCsv(csv, accountNames, internalTransfers))
+        .flatMap((csv) => parseTransactionsCsv(csv, accountNames))
         .map((row) => [
           row.sourceId,
           { ...row, ...applyRules(rules, row.originalDescription), id: newId() },

@@ -8,9 +8,7 @@ import { listMoneyEntries as listMoney } from '../../expenses/service.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import {
-  internalTransferIds,
   matchAccount,
-  parseCsvLinkMonth,
   parseTransactionsCsv,
   parseWithdrawalAmount,
   parseWithdrawalDate,
@@ -52,7 +50,6 @@ const ACCOUNTS = ['テスト銀行', 'テスト証券', 'テストカード'];
 function serve(csvs: string[]) {
   return vi.spyOn(moneyforward, 'scrapeMoneyForward').mockResolvedValue({
     csvs,
-    transfers: [],
     accounts: [
       { name: 'テスト銀行', balance: 1_234_567, withdrawalAmount: null, withdrawalOn: null },
       { name: 'テスト証券', balance: 890_000, withdrawalAmount: null, withdrawalOn: null },
@@ -72,34 +69,20 @@ describe('money service', () => {
     vi.restoreAllMocks();
   });
 
-  it('CSV を明細にし、取り込む口座の明細だけを残し、取り込む口座どうしの振替は除く', () => {
-    // 家計簿の画面の振替の行（保有金融機関の欄の 2 つの口座）
-    const internal = internalTransferIds(
-      [
-        // カードの引き落とし（銀行 → カード）は取り込む口座どうし
-        { id: 'a4', accounts: ['テスト銀行 普通', 'テストカード'] },
-        { id: 'a5', accounts: ['テストカード', 'テスト銀行'] },
-        // 取り込まない口座への送金
-        { id: 'a6', accounts: ['テスト銀行', 'よその証券'] },
-      ],
-      ACCOUNTS,
-    );
-    expect(internal).toEqual(new Set(['a4', 'a5']));
+  it('CSV を明細にし、取り込む口座の明細だけを残し、振替も取り込む', () => {
     const rows = parseTransactionsCsv(
       csv([
         ['2026/09/24', 'スーパー', '-3,200', 'テストカード', '食費', '食料品', 'a1'],
         ['2026/09/25', '給与', '300000', 'テスト銀行 普通', '収入', '未分類', 'a2'],
         ['2026/09/25', 'ほかの口座', '-100', 'よその銀行', '未分類', '未分類', 'a3'],
-        ['2026/09/26', 'カード引落', '-42000', 'テスト銀行', '', '', 'a4', '1'],
-        ['2026/09/26', '引落', '42000', 'テストカード', '', '', 'a5', '1'],
-        ['2026/09/27', '振込 よその証券', '-50000', 'テスト銀行', '', '', 'a6', '1'],
-        // 相手の口座が決まっていない振替も、取り込む口座どうしとは言えないので残す
-        ['2026/09/28', '振込', '-1000', 'テスト銀行', '', '', 'a7', '1'],
+        // カードの引き落とし（銀行 → カード）は両方の口座の振替
+        ['2026/09/26', 'カード引落', '-42000', 'テスト銀行', '振替', '振替', 'a4', '1'],
+        ['2026/09/26', '引落', '42000', 'テストカード', '振替', '振替', 'a5', '1'],
       ]),
       ACCOUNTS,
-      internal,
     );
-    expect(rows).toEqual([
+    expect(rows.map((row) => row.sourceId)).toEqual(['a1', 'a2', 'a4', 'a5']);
+    expect(rows.slice(0, 2)).toEqual([
       {
         sourceId: 'a1',
         account: 'テストカード',
@@ -114,20 +97,6 @@ describe('money service', () => {
         originalDescription: '給与',
         amount: 300000,
       },
-      {
-        sourceId: 'a6',
-        account: 'テスト銀行',
-        occurredOn: '2026-09-27',
-        originalDescription: '振込 よその証券',
-        amount: -50000,
-      },
-      {
-        sourceId: 'a7',
-        account: 'テスト銀行',
-        occurredOn: '2026-09-28',
-        originalDescription: '振込',
-        amount: -1000,
-      },
     ]);
   });
 
@@ -136,10 +105,9 @@ describe('money service', () => {
       parseTransactionsCsv(
         csv([['9月24日', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']]),
         ACCOUNTS,
-        new Set(),
       ),
     ).toThrow('2 行目');
-    expect(() => parseTransactionsCsv('<html></html>\n<body>', ACCOUNTS, new Set())).toThrow();
+    expect(() => parseTransactionsCsv('<html></html>\n<body>', ACCOUNTS)).toThrow();
   });
 
   it('画面の文字から金額・引き落とし・口座を読む', () => {
@@ -148,8 +116,6 @@ describe('money service', () => {
     expect(parseWithdrawalAmount(['カード', '引き落とし予定額：42,000円'])).toBe(42000);
     expect(parseWithdrawalAmount(['引き落とし予定額：未定'])).toBeNull();
     expect(parseWithdrawalDate('引き落とし日:(2026/10/27)')).toBe('2026-10-27');
-    expect(parseCsvLinkMonth('/cf/csv?from=2026%2F09%2F01&month=9&year=2026')).toBe('2026-09');
-    expect(parseCsvLinkMonth('/cf/csv')).toBeNull();
     expect(matchAccount('楽天カード（家族）', ['楽天カード', '楽天カード（家族）'])).toBe(
       '楽天カード（家族）',
     );

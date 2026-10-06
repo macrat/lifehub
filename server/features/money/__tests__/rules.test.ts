@@ -175,7 +175,6 @@ describe('ルールの保存', () => {
           '"1","2026/10/02","ATM 0123","-20000","テスト銀行","現金","ATM","","0","x1"',
         ].join('\r\n'),
       ],
-      transfers: [],
       accounts: [{ name: 'テスト銀行', balance: 0, withdrawalAmount: null, withdrawalOn: null }],
     });
     await syncMoneyForward(new Date('2026-10-06T09:00:00+09:00'));
