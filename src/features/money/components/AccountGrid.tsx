@@ -1,4 +1,4 @@
-import { formatDate } from '../../../lib/date.ts';
+import { formatMonthDay } from '../../../lib/date.ts';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { formatYen } from '../../../lib/yen.ts';
 import type { MoneyAccount } from '../queries.ts';
@@ -42,7 +42,7 @@ function tileValues(account: MoneyAccount): { value: string; sub: string } {
       return {
         value: yen(account.withdrawalAmount),
         sub: account.withdrawalOn
-          ? `${formatDate(account.withdrawalOn)} 引き落とし`
+          ? `${formatMonthDay(account.withdrawalOn)} 予定`
           : '次回の引き落とし',
       };
   }
