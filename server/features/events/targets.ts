@@ -23,7 +23,7 @@ export async function findMaster(id: string): Promise<EventWithParticipants> {
  * ルール上に実在する回の基準日時を必ず持つ（実在しなければここで ValidationError にする）ので、
  * 呼び出し側は rrule が null かどうかを改めて確かめなくてよい。
  */
-type Target =
+export type Target =
   | { scope: 'all' }
   | { scope: 'this' | 'following'; rrule: string; occurrenceStart: Date };
 

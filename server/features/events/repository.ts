@@ -78,20 +78,26 @@ function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL
 }
 
 /**
- * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない。
- * 種別は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
+ * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）と、ID（id）。どれも省けば絞らない。
+ * 種別と ID は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
  */
-export type CandidateFilter = { kind?: EventKind | undefined; q?: string | undefined };
+export type CandidateFilter = {
+  kind?: EventKind | undefined;
+  q?: string | undefined;
+  /** 1 つの予定・タスク（繰り返しなら全部の回）だけを読む */
+  id?: string | undefined;
+};
 
 function isCandidate(
   table: CandidateColumns,
   from: Date,
   to: Date,
-  { kind, q }: CandidateFilter,
+  { kind, q, id }: CandidateFilter,
 ): SQL | undefined {
   return and(
     candidateKeywordOf(table, q),
     kind && eq(table.kind, kind),
+    id === undefined ? undefined : eq(table.id, id),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(

@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import {
   type CalendarItem,
   type CalendarPeriod,
+  inWriteScope,
   type Occurrence,
   placeOccurrence,
   sortItems,
@@ -143,15 +144,7 @@ function rangeOf(queryKey: readonly unknown[]): DateRange | null {
 
 /** 操作の対象に当たる項目か（この回だけ／これ以降／すべて） */
 function matches(item: CalendarItem, target: WriteTarget): boolean {
-  if (item.id !== target.id) return false;
-  switch (target.scope) {
-    case 'all':
-      return true;
-    case 'this':
-      return item.occurrenceStart === target.occurrenceStart;
-    case 'following':
-      return item.occurrenceStart === null || item.occurrenceStart >= target.occurrenceStart;
-  }
+  return item.id === target.id && inWriteScope(item, target);
 }
 
 /** 保存を送った内容から、サーバーが返すはずの発生を組み立てる */

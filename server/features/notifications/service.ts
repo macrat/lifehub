@@ -1,15 +1,20 @@
+import type { CalendarItem } from '../../../shared/calendar.ts';
 import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { addDays, type InstantRange, instantRange, today } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
+import { nameOf } from '../../lib/people.ts';
 import {
+  type ChangeAction,
+  changeMessage,
+  changeRecipients,
   listNotifications,
   type NotificationRef,
   resolveNotification,
 } from '../events/notifications.ts';
 import { publishReminder } from '../mcp-events/service.ts';
 import { sendToUsers } from '../push/service.ts';
-import { listAllDayNotifyMinutes } from '../users/people.ts';
+import { listAllDayNotifyMinutes, listPeople } from '../users/people.ts';
 import { createPublisher, type Publisher } from './publisher.ts';
 import * as repository from './repository.ts';
 
@@ -97,4 +102,28 @@ export async function deliver(
     await repository.release(key);
     throw error;
   }
+}
+
+/**
+ * 予定・タスクの追加・削除を、今日の時点で手を付ける必要がある回（`actionableToday`）があれば、
+ * 操作した人以外の参加者へすぐプッシュ通知する（相手が今日の買い物のタスクを足したら知って、代わりに
+ * 済ませられるように）。応答を返した後に送る。
+ * 開始前の通知と違って予約も再検証もしない。操作の直後に送るので、送る時点の内容が操作した物そのもの。
+ * 送れなくても書き込みは取り消さず、ログに残すだけにする（予約の通知と違い、送り直す仕組みを持たない）。
+ * items は知らせる回。追加は書いた後に読めばよいので読みかけ（Promise）で、削除は消すと読めないので消す前に読んで渡す。
+ */
+export function notifyChanged(
+  items: CalendarItem[] | Promise<CalendarItem[]>,
+  action: ChangeAction,
+  actorId: string,
+): void {
+  afterResponse('notifications: notifyChanged', async () => {
+    const actionable = await items;
+    const [first] = actionable;
+    const userIds = changeRecipients(actionable, actorId);
+    if (!first || userIds.length === 0) return;
+    const actorName = nameOf(await listPeople(), actorId);
+    // 繰り越したタスクと今日の回が並ぶなど、知らせる回が 2 つ以上あっても、1 つの操作には通知を 1 つだけ送る
+    await sendToUsers(userIds, changeMessage(first, action, actorName));
+  });
 }

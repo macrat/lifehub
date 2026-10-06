@@ -30,7 +30,7 @@ type OccurrenceFilter = repository.CandidateFilter & { tasksOf?: string | undefi
 /**
  * [from, to]（両端含む JST 暦日）の項目を placementDate 順に返す。
  * 同日内は「終日の予定 → 終日のタスク → 時刻のある項目（予定・タスクの開始）」。
- * filter は `listOccurrences` にそのまま渡す（種別とキーワードの絞り込み）。
+ * filter は `listOccurrences` にそのまま渡す（種別・キーワード・1 つの予定・タスクの絞り込み）。
  */
 export async function listItems(
   range: DateRange,
@@ -50,6 +50,7 @@ export async function listItems(
  * `q` を渡すとタイトルかメモが当たる回だけを返す（「この回だけ」で直した回は回そのものの値で見る）。
  * `tasksOf` を渡すとその人が参加者にいるタスクだけを返す（予定はそのまま）。
  * `kind` を渡すとその種別だけを読んで展開する（読むところで絞る。`repository.findCalendarRows`）。
+ * `id` を渡すとその予定・タスク（繰り返しなら全部の回）だけを読んで展開する。
  * 展開は繰り返し 1 つにつき期間の長さぶん走るので、片方しか要らない呼び出し（ics の配信は 1 年以上を読み、
  * 予定しか出さない）が、捨てるものを読んで展開してから捨てずに済む。
  */

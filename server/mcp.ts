@@ -10,7 +10,8 @@ import { registerTimelineTools } from './features/timeline/mcp.ts';
 import { getOAuthClientName, listPeople } from './features/users/people.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
 import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
-import type { McpContext, McpRegistrar, Person } from './lib/mcp/types.ts';
+import type { McpContext, McpRegistrar } from './lib/mcp/types.ts';
+import type { Person } from './lib/people.ts';
 import { setSentryUser } from './lib/sentry.ts';
 
 /** 全 feature のツール（と MCP Events の購読）。新しい feature のツールはここに 1 行足す。 */
