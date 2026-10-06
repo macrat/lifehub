@@ -1,11 +1,20 @@
 import { addMonths, today, toMonthString } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
-import type { MoneyAccount, MoneyTransaction } from '../../../shared/money.ts';
+import {
+  expenseMoneyEntry,
+  type MoneyAccount,
+  type MoneyEntry,
+  type MoneyTransaction,
+  sortMoneyEntries,
+  transactionMoneyEntry,
+} from '../../../shared/money.ts';
 import { transactionEntry } from '../../../shared/timeline.ts';
 import type { HistoryPage } from '../../../shared/types.ts';
-import type { TransactionListQuery } from '../../../shared/validation/money.ts';
+import type { ExpenseListQuery } from '../../../shared/validation/expenses.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
+import { type HistorySource, mergeHistoryPage } from '../../lib/history-source.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
+import * as expenses from '../expenses/service.ts';
 import * as repository from './repository.ts';
 import type { MoneyAccountRow, MoneyTransactionRow } from './schema.ts';
 
@@ -76,12 +85,42 @@ export async function listAccounts(): Promise<MoneyAccount[]> {
   return configuredAccounts.map((account) => toAccount(account, rows.get(account.name)));
 }
 
-/** 入出金の履歴の 1 ページ（古い順） */
-export async function listTransactions(
-  query: TransactionListQuery,
-): Promise<HistoryPage<MoneyTransaction>> {
-  const { items, nextCursor } = await repository.findPage(query);
-  return { items: items.map(toTransaction), nextCursor };
+/**
+ * お金の画面の一覧の 1 ページ（古い順）: 立替と取り込んだ入出金を 1 本に並べる。絞り込みは立替の一覧と同じ条件
+ * （入出金への読み替えは `repository.ts` の `history`）。ページの分け方は立替だけの履歴と同じで、日の途中では切らない
+ * （`mergeHistoryPage`）。
+ */
+export async function listMoney({
+  before,
+  ...filter
+}: ExpenseListQuery): Promise<HistoryPage<MoneyEntry>> {
+  const transactions = repository.history(filter);
+  const page = await mergeHistoryPage<MoneyEntry>(
+    [
+      mapSource(expenses.historySource(filter), expenseMoneyEntry),
+      {
+        recentDays: transactions.recentDays,
+        hasBefore: transactions.hasBefore,
+        findInDays: async (from, until) =>
+          (await transactions.findInDays(from, until)).map((row) =>
+            transactionMoneyEntry(toTransaction(row)),
+          ),
+      },
+    ],
+    before,
+  );
+  return { ...page, items: sortMoneyEntries(page.items) };
+}
+
+/** 出どころの行を一覧の行にする */
+function mapSource<T>(
+  source: HistorySource<T>,
+  toEntry: (record: T) => MoneyEntry,
+): HistorySource<MoneyEntry> {
+  return {
+    ...source,
+    findInDays: async (from, before) => (await source.findInDays(from, before)).map(toEntry),
+  };
 }
 
 /** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容か分類の部分一致） */

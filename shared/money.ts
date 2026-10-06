@@ -1,3 +1,4 @@
+import type { Expense } from './expenses.ts';
 import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
@@ -41,11 +42,41 @@ export type MoneyTransaction = {
 };
 
 /**
- * 1 日の中の並び（古い順。履歴は画面で逆さに出す）。同じ日の中で時刻を持たないので、取り込みの ID の順にする。
+ * お金の画面の一覧の 1 行: 立替か、取り込んだ入出金。id は一覧の中で一意な鍵（立替と入出金の ID が重ならないよう種類を付ける）
+ */
+export type MoneyEntry =
+  | { type: 'expense'; id: string; expense: Expense }
+  | { type: 'transaction'; id: string; transaction: MoneyTransaction };
+
+export function expenseMoneyEntry(expense: Expense): MoneyEntry {
+  return { type: 'expense', id: moneyEntryId('expense', expense.id), expense };
+}
+
+export function transactionMoneyEntry(transaction: MoneyTransaction): MoneyEntry {
+  return { type: 'transaction', id: moneyEntryId('transaction', transaction.id), transaction };
+}
+
+/** 記録から一覧の行の鍵を作る。書き込みの楽観的更新が、同じ記録の行を引き当てるのに使う */
+export function moneyEntryId(type: MoneyEntry['type'], id: string): string {
+  return `${type}:${id}`;
+}
+
+/** 行の日（立替は使った日、入出金は日付）。ページはこの日で区切る */
+export function moneyEntryDay(entry: MoneyEntry): DateString {
+  return entry.type === 'expense' ? entry.expense.spentOn : entry.transaction.occurredOn;
+}
+
+/**
+ * 並び: 日の古い順（一覧は画面で逆さに出す）。同じ日の中は、立替は記録した順（立替だけの一覧と同じ）、入出金は時刻を
+ * 持たないのでその日の立替より前（画面では下）に取り込みの ID の順で置く。
  * 並びはサーバーとクライアントで同じでなければならないので、符号位置で比べる（`compareKeys`）
  */
-export function sortTransactions(items: MoneyTransaction[]): MoneyTransaction[] {
-  return items.toSorted(
-    (a, b) => compareKeys(a.occurredOn, b.occurredOn) || compareKeys(a.id, b.id),
+export function sortMoneyEntries(entries: MoneyEntry[]): MoneyEntry[] {
+  const key = (entry: MoneyEntry) => (entry.type === 'expense' ? entry.expense.createdAt : '');
+  return entries.toSorted(
+    (a, b) =>
+      compareKeys(moneyEntryDay(a), moneyEntryDay(b)) ||
+      compareKeys(key(a), key(b)) ||
+      compareKeys(a.id, b.id),
   );
 }

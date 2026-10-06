@@ -11,25 +11,18 @@ const UNKNOWN = '—';
 
 type Props = {
   accounts: MoneyAccount[];
-  /** タイルを押したとき。その口座の入出金を開く */
-  onSelect: (account: MoneyAccount) => void;
 };
 
 /**
  * 口座のタイル（お金の画面）。並びはサーバーの環境変数に書いた順。
  * 銀行は残高、証券は評価額、クレジットカードは次回の引き落とし額と日を出す（種類は `MoneyAccount` の kind）。
- * タイルはレモン・精算と同じもの（`StatusTile`）。
+ * タイルはレモン・精算と同じもの（`StatusTile`）。見せるだけで押せない（押した先に出すものが無い）。
  */
-export function AccountGrid({ accounts, onSelect }: Props) {
+export function AccountGrid({ accounts }: Props) {
   return (
     <TileGrid columns={COLUMNS}>
       {accounts.map((account) => (
-        <StatusTile
-          key={account.name}
-          label={account.name}
-          {...tileValues(account)}
-          onClick={() => onSelect(account)}
-        />
+        <StatusTile key={account.name} label={account.name} {...tileValues(account)} />
       ))}
     </TileGrid>
   );

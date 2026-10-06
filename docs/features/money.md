@@ -8,13 +8,14 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 
 ## 画面
 
-- お金（下部ナビの「お金」。絵は `src/features/money/icon.ts` の `MoneyIcon`）は 2 つの画面で、上のタブで行き来する。どちらも上から口座のタイル、（立替だけ）精算のタイル、タブ、一覧。タイル・タブと絞り込みのフォームは、ホームのタイルと同じく下へスクロールすると AppBar の裏へ隠れる（絞り込みのフォームを開いている間は隠さない）。口座のタイルとタブは `src/features/money/components/MoneyHeader.tsx`。
-  - 立替 `/money?q=&min=&max=&since=&until=&to=&from=&add=expense`（`src/routes/_authenticated/money/index.tsx`）: 下部ナビで開く既定の画面（追加ボタンで足した立替がそのまま見える）。右下の追加ボタンは立替の追加。一覧・精算・詳細と入力は [expenses.md](expenses.md#画面)。
-  - 入出金 `/money/transactions?q=&since=YYYY-MM-DD&until=YYYY-MM-DD&account=金融機関`（`src/routes/_authenticated/money/transactions.tsx`）: 取り込んだ入出金の一覧。読むだけなので追加ボタンは無い。検索パラメータは `src/features/money/search.ts` の `transactionSearchSchema`。
-  - タブを切り替えても、両方の画面にある絞り込み（キーワード `q` と日付の範囲 `since` / `until`）は続ける。WHY 画面を分ける: 一覧ごとに絞り込みの項目もバッジに数える条件も違い、1 つの画面に `view` で切り替えると、両方の項目を混ぜた検索パラメータから一覧ごとに取り出し直すことになる。
-- 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 2 列、PC は 4 列）。タイルはレモン・精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額で、補足は「残高」「評価額」、カードは引き落とし日（「10/27(火) 引き落とし」。日が読めなければ「次回の引き落とし」）。まだ取り込んでいない値や読めなかった値は「—」。押すと、その金融機関で絞り込んだ入出金の一覧を開く。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
-- 入出金の一覧（`src/features/money/components/TransactionList.tsx`）: 立替の一覧と同じ部品（`src/lib/ui/LedgerList.tsx` の `LedgerList`。日ごとの見出しと `MarkedRow`、金額の列の幅は読んだ中で一番幅を取る金額に合わせる）で、上が新しく下が古い無限スクロール（`src/features/money/queries.ts` の `transactionHistory`）。行は左から印、金額、内容（上）と「金融機関・分類」（下）。印は無彩色の点（取り込んだ入出金は人に結び付かない。ホームのタイムラインの丸と同じ色）。金額は入金に + を付ける（`src/lib/yen.ts` の `formatSignedYen`）。AppBar の検索窓は「入出金を検索」で、内容と分類に部分一致で掛かる。絞り込みはサーバーが掛ける（条件は `shared/validation/money.ts` の `transactionFilterSchema`）。
-- 詳細な検索（`src/features/money/components/TransactionFilterForm.tsx`）: 日付の範囲と金融機関。フォームの振る舞いは [ui.md](../ui.md#appbar-と検索)。
+- お金 `/money?q=&min=&max=&since=YYYY-MM-DD&until=YYYY-MM-DD&to=&from=&add=expense`（`src/routes/_authenticated/money.tsx`。下部ナビの「お金」。絵は `src/features/money/icon.ts` の `MoneyIcon`）。上から口座のタイル、精算のタイル、立替と入出金を 1 本に並べた一覧。タイルと絞り込みのフォームは、ホームのタイルと同じく下へスクロールすると AppBar の裏へ隠れる（絞り込みのフォームを開いている間は隠さない）。右下の追加ボタンは立替の追加。
+  - 立替の行・精算のタイル・立替の詳細と入力・検索窓と詳細な検索は、立替だけの一覧だったときのまま（[expenses.md](expenses.md#画面)）。検索パラメータも立替の物（`src/features/expenses/search.ts` の `expenseSearchSchema`）。
+  - 絞り込みは入出金にも読み替えて掛ける（サーバーの `server/features/money/repository.ts` の `history`）: キーワードは内容か分類の部分一致、金額の範囲は出金も入金も額の大きさ（絶対値）、日付の範囲は明細の日付。入出金は当事者を持たないので、To・From のどちらかで絞り込んでいれば出さない。
+- 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 2 列、PC は 4 列）。タイルはレモン・精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額で、補足は「残高」「評価額」、カードは引き落とし日（「10/27(火) 引き落とし」。日が読めなければ「次回の引き落とし」）。まだ取り込んでいない値や読めなかった値は「—」。見せるだけで押せない。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
+- 一覧（`src/features/money/components/MoneyList.tsx`）: 上が新しく下が古い無限スクロール（`src/features/money/queries.ts` の `moneyHistory`。最初の位置・ページ分け・貼り付くものの決まりは [ui.md](../ui.md#無限スクロール)）。日ごとに見出しを立て、その下に 1 件 1 行で並べる。行の骨組みはカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、左から印、金額、内容（上）と補足（下）。金額は桁を揃えて右寄せにし、列の幅は読んだ中で一番幅を取る金額に合わせる。
+  - 立替の行は立替だけの一覧だったときのまま（[expenses.md](expenses.md#画面)）。
+  - 入出金の行: 印は無彩色の点（取り込んだ入出金は人に結び付かない。ホームのタイムラインの丸と同じ色）、金額は入金に + を付け（`src/lib/yen.ts` の `formatSignedYen`）、補足は「金融機関・分類」。
+  - 同じ日の中は、立替は記録した順、入出金は時刻を持たないのでその日の立替より下に置く（`shared/money.ts` の `sortMoneyEntries`）。
 - 入出金の詳細（`src/features/money/components/TransactionDetailSheet.tsx`）: 金額・日付・金融機関と分類。読むだけなので鉛筆も三点リーダーも出さず、行の長押しも単押しと同じく閲覧で開く。入れ物は `RecordSheet`。
 
 ## 口座の指定
@@ -51,9 +52,9 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 | 手続き | 種類 | 内容 |
 |---|---|---|
 | `money.accounts` | 読み出し | 口座のタイル（`[{ name, kind, balance, withdrawalAmount, withdrawalOn, fetchedAt }]`）。環境変数に書いた順で、まだ取り込んでいない口座も値を null にして並べる |
-| `money.transactions` | 読み出し | 入出金の履歴の 1 ページ（`{ items, nextCursor }`。items は古い順）。入力は続きの `before` と絞り込み（`q` / `since` / `until` / `account`）。ページの分け方は立替の履歴と同じ（[expenses.md](expenses.md) の「API」） |
+| `money.list` | 読み出し | お金の画面の一覧の 1 ページ（`{ items, nextCursor }`。items は古い順で、立替（`type: "expense"`）と入出金（`type: "transaction"`）が混ざる）。入力は続きの `before`（YYYY-MM-DD）と立替の一覧と同じ絞り込み（`q` / `min` / `max` / `since` / `until` / `to` / `from`。`shared/validation/expenses.ts` の `expenseListQuerySchema`）。立替と入出金を合わせて新しいほうから 50 件ほどで、日の途中では切らない（同じ日の記録は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。表ごとに区切りの日を集めて 1 本にする（`server/lib/history-source.ts` の `mergeHistoryPage`。どの feature も他の feature の表を直接読まない） |
 
-書き込みの手続きは無い（取り込みは Cron だけが行う）。画面から書かないので、楽観的更新も無い。
+入出金を書く手続きは無い（取り込みは Cron だけが行う）。立替の書き込み（[expenses.md](expenses.md)）は、この一覧へ先回りして書く（`src/features/expenses/queries.ts`）。
 
 ## MCP ツール
 

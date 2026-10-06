@@ -3,13 +3,9 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
-import {
-  type ExpenseFilter,
-  type ExpenseListQuery,
-  SHARED,
-} from '../../../shared/validation/expenses.ts';
+import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
 import { db } from '../../lib/db/client.ts';
-import { findHistoryPage } from '../../lib/db/history.ts';
+import { historyQueries } from '../../lib/db/history.ts';
 import {
   containsKeyword,
   deleteById,
@@ -30,14 +26,12 @@ type ExpenseValues = {
   spentOn: DateString;
 };
 
-/** 履歴の 1 ページ（`findHistoryPage`）。日は使った日 */
-export function findPage({ before, ...filter }: ExpenseListQuery) {
-  return findHistoryPage({
+/** お金の画面の一覧に並べる問い合わせ（`historyQueries`）。日は使った日 */
+export function history(filter: ExpenseFilter) {
+  return historyQueries({
     table: expenses,
     day: expenses.spentOn,
-    order: [expenses.createdAt, expenses.id],
     conditions: filterConditions(filter),
-    before,
   });
 }
 

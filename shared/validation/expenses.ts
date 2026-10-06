@@ -60,6 +60,6 @@ export const expenseFilterSchema = z.object({
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 
-/** 履歴の 1 ページの取得（`expenses.list`。`cursorShape`） */
+/** お金の画面の一覧の 1 ページの取得（`money.list`。`cursorShape`） */
 export const expenseListQuerySchema = expenseFilterSchema.extend(cursorShape);
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

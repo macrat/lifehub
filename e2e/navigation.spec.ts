@@ -12,8 +12,8 @@ import { expect, test } from './test.ts';
 test('タブの切り替えはデータを待たず、届くまで骨組みを出す', async ({ page }) => {
   await openHome(page);
 
-  // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を、確かめ終わるまで止める
-  const release = await stall(page, ['expenses.']);
+  // お金の画面の履歴と精算（この端末ではまだ開いていない＝キャッシュに無い）を、確かめ終わるまで止める
+  const release = await stall(page, ['money.', 'expenses.']);
 
   await page.getByRole('link', { name: 'お金' }).click();
   await expect(page).toHaveURL('/money');

@@ -4,17 +4,18 @@ import {
   type ExpenseTotal,
   type Settlement,
   settlementsOf,
-  sortExpenses,
 } from '../../../shared/expenses.ts';
-import type { ExpenseFilter, ExpenseInput } from '../../../shared/validation/expenses.ts';
+import { expenseMoneyEntry, moneyEntryId } from '../../../shared/money.ts';
+import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { api, write } from '../../lib/api.ts';
-import type { HistorySource } from '../../lib/history.ts';
+import { applyToHistories, findInHistories } from '../../lib/history.ts';
 import {
   type QueryState,
   useCreateMutation,
   useOptimisticMutation,
 } from '../../lib/query-client.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
+import { moneyHistory } from '../money/queries.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 行と精算の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
@@ -22,22 +23,31 @@ export type { Expense, Settlement } from '../../../shared/expenses.ts';
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
-/** 書き込みが変えるクエリ（立替の履歴・合計と、全機能の記録を並べるタイムライン） */
-const WRITE_KEYS = recordWriteKeys(EXPENSES_QUERY_KEY);
+/** 書き込みが変えるクエリ（立替の合計、お金の画面の一覧、全機能の記録を並べるタイムライン） */
+const WRITE_KEYS = recordWriteKeys(EXPENSES_QUERY_KEY, moneyHistory.key);
+
+const timelineCache = timelineRecordCache('expense');
 
 /**
- * 立替画面の履歴（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける
- * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
+ * お金の画面の一覧（立替と入出金を 1 本に並べた `moneyHistory`）とタイムラインへの先回りの読み書き。
+ * - find: 編集・削除の前の値。まずお金の画面の一覧を探し、無ければタイムラインを見る
+ * - apply: 立替 1 件の変化（削除は null）を、一覧の行（`expenseMoneyEntry`）とタイムラインに書き込む
  */
-export const expenseHistory: HistorySource<Expense, ExpenseFilter> = {
-  key: [...EXPENSES_QUERY_KEY, 'list'],
-  fetch: (filter, before, signal) => api.expenses.list.query({ ...filter, before }, { signal }),
-  dayOf: (expense) => expense.spentOn,
-  sort: sortExpenses,
+const expenseCache = {
+  find: (client: QueryClient, id: string): Expense | undefined => {
+    const entry = findInHistories(client, moneyHistory, moneyEntryId('expense', id));
+    return entry?.type === 'expense' ? entry.expense : timelineCache.find(client, id);
+  },
+  apply: (client: QueryClient, id: string, next: Expense | null): void => {
+    applyToHistories(
+      client,
+      moneyHistory,
+      moneyEntryId('expense', id),
+      next && expenseMoneyEntry(next),
+    );
+    timelineCache.apply(client, id, next);
+  },
 };
-
-/** 履歴とタイムラインへの先回りの読み書き */
-const expenseCache = timelineRecordCache('expense', expenseHistory);
 
 /** 精算の元になる「誰が誰のために払ったか」ごとの合計（shared/expenses.ts の `settlementsOf` が読む形） */
 export const totalsQueryOptions = queryOptions({

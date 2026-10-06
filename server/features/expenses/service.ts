@@ -6,13 +6,13 @@ import {
 } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import { expenseEntry } from '../../../shared/timeline.ts';
-import type { HistoryPage } from '../../../shared/types.ts';
 import {
+  type ExpenseFilter,
   type ExpenseInput,
-  type ExpenseListQuery,
   expenseRulesSchema,
 } from '../../../shared/validation/expenses.ts';
 import { NotFoundError } from '../../lib/errors.ts';
+import type { HistorySource } from '../../lib/history-source.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import { publishChanged } from '../mcp-events/service.ts';
@@ -20,12 +20,16 @@ import * as repository from './repository.ts';
 import type { ExpenseRow } from './schema.ts';
 
 /**
- * 履歴の 1 ページ（古い順）。全件を返さないのは、履歴は増え続けるのに画面が見るのは新しいほうだけだから。
- * 古いほうは nextCursor を before に渡して続きを読む（`findHistoryPage`）。
+ * お金の画面の一覧に並べる立替（`HistorySource`。日は使った日）。絞り込みは範囲の両端を含み、キーワードは内容の部分一致。
+ * 一覧は入出金と 1 本に並べるので、ページに分けるのはお金の service（`listMoney`）
  */
-export async function listExpenses(query: ExpenseListQuery): Promise<HistoryPage<Expense>> {
-  const { items, nextCursor } = await repository.findPage(query);
-  return { items: items.map(toExpense), nextCursor };
+export function historySource(filter: ExpenseFilter): HistorySource<Expense> {
+  const queries = repository.history(filter);
+  return {
+    recentDays: queries.recentDays,
+    hasBefore: queries.hasBefore,
+    findInDays: async (from, before) => (await queries.findInDays(from, before)).map(toExpense),
+  };
 }
 
 /** タイムラインに並べる立替（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */

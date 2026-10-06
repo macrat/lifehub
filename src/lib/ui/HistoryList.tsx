@@ -5,7 +5,7 @@ import { InfiniteScroll, type InfiniteScrollHeaderProps } from './InfiniteScroll
 import { MAIN_BOTTOM_PADDING, STICKY_TOP } from './layout.ts';
 import { EmptyMessage, ListSkeleton, QueryView } from './QueryView.tsx';
 
-/** 画面ごとの一覧（`ExpenseList` など）は、行の描き方（children）以外をこのまま受けて渡す */
+/** 画面ごとの一覧（`MoneyList` など）は、行の描き方（children）以外をこのまま受けて渡す */
 export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
   /** 読んだ分の記録（画面に出す順に、最初の位置より上と、そこから下に分けた物）と、古い側の端での読み足しなど（画面が購読した `useScreenHistory`） */
   history: ScreenHistory<T>;

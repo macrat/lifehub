@@ -42,7 +42,7 @@ export function chooseFrom(parties: Parties, fromUserId: Party): Parties {
 /**
  * 名前と印の色を並べる順の相手（ユーザー ID。null は共有）。簿記に倣って「To ← From」の順で、
  * 共有のための支払い（To が null）なら払った人だけ、共有からの引き出し（From が null）なら「To ← 共有」。
- * 立替の履歴（`ExpenseList`）とホームのタイムラインの行が同じ並びで出すため、1 か所で決める。
+ * お金の画面の一覧（`MoneyList`）とホームのタイムラインの行が同じ並びで出すため、1 か所で決める。
  */
 export function partiesInOrder({ toUserId, fromUserId }: Parties): Party[] {
   return toUserId === null ? [fromUserId] : [toUserId, fromUserId];

@@ -1,11 +1,11 @@
 import { queryOptions } from '@tanstack/react-query';
-import { type MoneyTransaction, sortTransactions } from '../../../shared/money.ts';
-import type { TransactionFilter } from '../../../shared/validation/money.ts';
+import { type MoneyEntry, moneyEntryDay, sortMoneyEntries } from '../../../shared/money.ts';
+import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import { api } from '../../lib/api.ts';
 import type { HistorySource } from '../../lib/history.ts';
 
 /** 形はサーバーと共有する（shared/money.ts） */
-export type { MoneyAccount, MoneyTransaction } from '../../../shared/money.ts';
+export type { MoneyAccount, MoneyEntry, MoneyTransaction } from '../../../shared/money.ts';
 
 const MONEY_QUERY_KEY = ['money'] as const;
 
@@ -19,13 +19,13 @@ export const accountsQueryOptions = queryOptions({
 });
 
 /**
- * 入出金の履歴（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。絞り込みはサーバーが掛ける
- * （手元にあるのは読んだページだけなので、手元では絞り込めない）。
+ * お金の画面の一覧: 立替と取り込んだ入出金を 1 本に並べた履歴（`src/lib/history.ts`。画面は `useScreenHistory` で
+ * 購読する）。絞り込みは立替の一覧と同じ条件で、サーバーが掛ける（手元にあるのは読んだページだけなので、手元では絞り込めない）。
+ * 立替の書き込みはここへ先回りして書く（`src/features/expenses/queries.ts`）。
  */
-export const transactionHistory: HistorySource<MoneyTransaction, TransactionFilter> = {
-  key: [...MONEY_QUERY_KEY, 'transactions'],
-  fetch: (filter, before, signal) =>
-    api.money.transactions.query({ ...filter, before }, { signal }),
-  dayOf: (transaction) => transaction.occurredOn,
-  sort: sortTransactions,
+export const moneyHistory: HistorySource<MoneyEntry, ExpenseFilter> = {
+  key: [...MONEY_QUERY_KEY, 'list'],
+  fetch: (filter, before, signal) => api.money.list.query({ ...filter, before }, { signal }),
+  dayOf: moneyEntryDay,
+  sort: sortMoneyEntries,
 };

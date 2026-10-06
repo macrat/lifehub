@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
+import type { ExpenseListQuery } from '../../../../shared/validation/expenses.ts';
 import { db } from '../../../lib/db/client.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
@@ -13,7 +14,16 @@ import {
   parseYen,
 } from '../parse.ts';
 import { moneyAccounts, moneyTransactions } from '../schema.ts';
-import { listAccounts, listTransactions, syncMoneyForward } from '../service.ts';
+import { listAccounts, listMoney, syncMoneyForward } from '../service.ts';
+
+/** お金の画面の一覧の 1 ページから入出金だけ（絞り込みは立替の一覧と同じ条件） */
+async function listTransactions(query: ExpenseListQuery) {
+  const page = await listMoney(query);
+  return {
+    ...page,
+    items: page.items.flatMap((entry) => (entry.type === 'transaction' ? [entry.transaction] : [])),
+  };
+}
 
 const HEADER =
   '"計算対象","日付","内容","金額（円）","保有金融機関","大項目","中項目","メモ","振替","ID"';
@@ -145,8 +155,8 @@ describe('money service', () => {
       ['2026-09-24', 'スーパー（直した）', -3300],
       ['2026-10-02', '新しい明細', -700],
     ]);
-    // 同じ明細は ID を変えずに上書きする
-    expect(await listTransactions({ q: '外食', account: 'テストカード' })).toMatchObject({
+    // 分類でも絞り込める
+    expect(await listTransactions({ q: '外食' })).toMatchObject({
       items: [{ description: '新しい明細', category: '食費 / 外食' }],
     });
   });

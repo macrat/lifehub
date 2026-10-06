@@ -89,13 +89,3 @@ type Net = { party: string | null; amount: number };
 function compareParty(x: string | null, y: string | null): number {
   return compareKeys(x ?? '', y ?? '');
 }
-
-/**
- * ページの中の並び: 使った日の古い順、同じ日なら登録の古い順。サーバーのページ（`findPage`）も同じ並びで返す
- * （画面に出す向きは `src/lib/screen-data.ts` の `useScreenHistory` が決める）
- */
-export function sortExpenses(expenses: Expense[]): Expense[] {
-  return [...expenses].sort(
-    (x, y) => compareKeys(x.spentOn, y.spentOn) || compareKeys(x.createdAt, y.createdAt),
-  );
-}

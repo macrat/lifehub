@@ -1,14 +1,9 @@
 import { idParamSchema, withId } from '../../../shared/validation/common.ts';
-import {
-  createExpenseRequestSchema,
-  expenseListQuerySchema,
-  expenseSchema,
-} from '../../../shared/validation/expenses.ts';
+import { createExpenseRequestSchema, expenseSchema } from '../../../shared/validation/expenses.ts';
 import { procedure, router, userProcedure } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 export const expensesRouter = router({
-  list: procedure.input(expenseListQuerySchema).query(({ input }) => service.listExpenses(input)),
   totals: procedure.query(() => service.getTotals()),
   create: userProcedure
     .input(createExpenseRequestSchema)

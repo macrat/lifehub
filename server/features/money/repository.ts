@@ -1,8 +1,8 @@
-import { and, eq, gte, lte, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, gte, lte, notInArray, or, type SQL, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
-import type { TransactionFilter, TransactionListQuery } from '../../../shared/validation/money.ts';
+import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
-import { findHistoryPage } from '../../lib/db/history.ts';
+import { historyQueries } from '../../lib/db/history.ts';
 import { containsKeyword, startOfDateSql } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import {
@@ -91,24 +91,26 @@ function keywordCondition(q: string | undefined): SQL | undefined {
   return description && or(description, containsKeyword(moneyTransactions.category, q));
 }
 
-/** 絞り込みの条件。範囲は両端を含む */
-function filterConditions(f: TransactionFilter): (SQL | undefined)[] {
-  return [
-    keywordCondition(f.q),
-    f.since !== undefined ? gte(moneyTransactions.occurredOn, f.since) : undefined,
-    f.until !== undefined ? lte(moneyTransactions.occurredOn, f.until) : undefined,
-    f.account !== undefined ? eq(moneyTransactions.account, f.account) : undefined,
-  ];
-}
-
-/** 履歴の 1 ページ（`findHistoryPage`）。日は明細の日付 */
-export function findPage({ before, ...filter }: TransactionListQuery) {
-  return findHistoryPage({
+/**
+ * お金の画面の一覧に並べる問い合わせ（`historyQueries`）。絞り込みは立替の一覧と同じ条件を入出金に読み替える:
+ * - キーワード: 内容か分類の部分一致
+ * - 金額の範囲: 出金も入金も額の大きさ（絶対値）で比べる（立替の金額と同じく「いくら動いたか」）
+ * - 日付の範囲: 明細の日付。範囲は両端を含む
+ * - To・From: 入出金は当事者を持たないので、どちらかで絞り込んでいれば出さない
+ */
+export function history(filter: ExpenseFilter) {
+  const amount = sql`abs(${moneyTransactions.amount})`;
+  return historyQueries({
     table: moneyTransactions,
     day: moneyTransactions.occurredOn,
-    order: [moneyTransactions.id],
-    conditions: filterConditions(filter),
-    before,
+    conditions: [
+      keywordCondition(filter.q),
+      filter.min !== undefined ? gte(amount, filter.min) : undefined,
+      filter.max !== undefined ? lte(amount, filter.max) : undefined,
+      filter.since !== undefined ? gte(moneyTransactions.occurredOn, filter.since) : undefined,
+      filter.until !== undefined ? lte(moneyTransactions.occurredOn, filter.until) : undefined,
+      filter.to !== undefined || filter.from !== undefined ? sql`false` : undefined,
+    ],
   });
 }
 
