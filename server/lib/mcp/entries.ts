@@ -116,14 +116,22 @@ export function formatMemo(memo: Memo, people: Person[]) {
   };
 }
 
-/** Money Forward から取り込んだ入出金。amount は入金が正、出金が負。読むだけなので ref を持たない */
-function formatTransaction(transaction: MoneyTransaction) {
+/**
+ * Money Forward から取り込んだ入出金。amount は入金が正、出金が負。読むだけなので ref を持たない。
+ * ルールで「共有」との立替として精算に入れるものは、立替と同じ paidBy・paidFor を添える
+ */
+function formatTransaction(transaction: MoneyTransaction, people: Person[]) {
+  const { parties } = transaction;
   return {
     type: 'transaction' as const,
     date: transaction.occurredOn,
     account: transaction.account,
     amount: transaction.amount,
     description: transaction.description,
+    ...(parties && {
+      paidBy: partyName(people, parties.fromUserId),
+      paidFor: partyName(people, parties.toUserId),
+    }),
   };
 }
 
@@ -163,7 +171,7 @@ export function formatEntry(entry: TimelineEntry, people: Person[]): FormattedEn
     case 'memo':
       return formatMemo(entry.memo, people);
     case 'transaction':
-      return formatTransaction(entry.transaction);
+      return formatTransaction(entry.transaction, people);
   }
 }
 

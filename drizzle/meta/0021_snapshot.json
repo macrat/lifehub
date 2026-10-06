@@ -1,5 +1,5 @@
 {
-  "id": "6fded499-c725-4be9-8e25-a9d4de736268",
+  "id": "b9e6328e-a419-434d-bcab-5def432e5e31",
   "prevId": "0f9024df-2955-4e51-a2b6-7e3803319e10",
   "version": "7",
   "dialect": "postgresql",
@@ -932,6 +932,113 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.money_rules": {
+      "name": "money_rules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pattern": {
+          "name": "pattern",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replace_description": {
+          "name": "replace_description",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replacement": {
+          "name": "replacement",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "money_rules_user_id_users_id_fk": {
+          "name": "money_rules_user_id_users_id_fk",
+          "tableFrom": "money_rules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "money_rules_created_by_users_id_fk": {
+          "name": "money_rules_created_by_users_id_fk",
+          "tableFrom": "money_rules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "money_rules_kind_check": {
+          "name": "money_rules_kind_check",
+          "value": "\"money_rules\".\"kind\" in ('spending', 'deposit', 'withdrawal') and (\"money_rules\".\"kind\" = 'spending') = (\"money_rules\".\"user_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.money_transactions": {
       "name": "money_transactions",
       "schema": "",
@@ -960,6 +1067,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "original_description": {
+          "name": "original_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -971,6 +1084,18 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -988,7 +1113,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "money_transactions_user_id_users_id_fk": {
+          "name": "money_transactions_user_id_users_id_fk",
+          "tableFrom": "money_transactions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "money_transactions_source_id_unique": {
@@ -1000,7 +1139,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "money_transactions_party_check": {
+          "name": "money_transactions_party_check",
+          "value": "(\"money_transactions\".\"direction\" is null) = (\"money_transactions\".\"user_id\" is null) and (\"money_transactions\".\"direction\" is null or \"money_transactions\".\"direction\" in ('deposit', 'withdrawal'))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.sent_notifications": {

@@ -18,6 +18,7 @@ import { Route as AuthenticatedLemonRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMoneyRouteImport } from './routes/_authenticated/money'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedWeatherRouteImport } from './routes/_authenticated/weather'
+import { Route as AuthenticatedAdminMoneyRulesRouteImport } from './routes/_authenticated/admin.money-rules'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -64,6 +65,12 @@ const AuthenticatedWeatherRoute = AuthenticatedWeatherRouteImport.update({
   path: '/weather',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminMoneyRulesRoute =
+  AuthenticatedAdminMoneyRulesRouteImport.update({
+    id: '/admin/money-rules',
+    path: '/admin/money-rules',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/money': typeof AuthenticatedMoneyRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
+  '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
 }
 export interface FileRoutesById {
@@ -103,6 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/weather': typeof AuthenticatedWeatherRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
 }
 export interface FileRouteTypes {
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/money'
     | '/settings'
     | '/weather'
+    | '/admin/money-rules'
     | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/weather'
     | '/'
+    | '/admin/money-rules'
     | '/admin/users'
   id:
     | '__root__'
@@ -139,6 +151,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/weather'
     | '/_authenticated/'
+    | '/_authenticated/admin/money-rules'
     | '/_authenticated/admin/users'
   fileRoutesById: FileRoutesById
 }
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWeatherRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/money-rules': {
+      id: '/_authenticated/admin/money-rules'
+      path: '/admin/money-rules'
+      fullPath: '/admin/money-rules'
+      preLoaderRoute: typeof AuthenticatedAdminMoneyRulesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/admin/users'
@@ -230,6 +250,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWeatherRoute: typeof AuthenticatedWeatherRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminMoneyRulesRoute: typeof AuthenticatedAdminMoneyRulesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
 }
 
@@ -240,6 +261,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWeatherRoute: AuthenticatedWeatherRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminMoneyRulesRoute: AuthenticatedAdminMoneyRulesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
 }
 

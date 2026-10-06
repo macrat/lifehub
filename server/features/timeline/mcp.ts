@@ -126,7 +126,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
     {
       title: 'タイムラインを読む',
       description: [
-        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで ref を持たない）。各日には祝日（holiday）と天気の要約（weather）も付く。',
+        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで ref を持たない。paidBy・paidFor があれば「共有」との立替として精算に入っている）。各日には祝日（holiday）と天気の要約（weather）も付く。',
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎれば今日に出る。完了したタスクは完了した日に出る。',
         '日時は JST。終日の予定・タスクは start / end が日付だけ（end はその日を含む）。',
         'q で文字（タイトル・メモ・立替の内容・メモの本文・入出金の内容など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',

@@ -28,7 +28,28 @@ export type MoneyAccount = {
   fetchedAt: string | null;
 };
 
-/** Money Forward から取り込んだ入出金 1 件 */
+/**
+ * 入出金の読み替えのルールの種別。spending はただの支出（精算に入れない）、deposit（入金）と withdrawal（出金）は
+ * 対象者と「共有」との立替として精算に入れる: 入金は対象者が共有口座へ入れた（From 対象者 → To 共有）、
+ * 出金は対象者が共有口座から引き出した（From 共有 → To 対象者）
+ */
+export const MONEY_RULE_KINDS = ['spending', 'deposit', 'withdrawal'] as const;
+export type MoneyRuleKind = (typeof MONEY_RULE_KINDS)[number];
+
+/** 立替の当事者（null は共有。`Expense` の From・To と同じ） */
+export type Parties = { fromUserId: string | null; toUserId: string | null };
+
+/** 入金・出金の向きと対象者から、立替の当事者 */
+export function transferParties(
+  direction: Exclude<MoneyRuleKind, 'spending'>,
+  userId: string,
+): Parties {
+  return direction === 'deposit'
+    ? { fromUserId: userId, toUserId: null }
+    : { fromUserId: null, toUserId: userId };
+}
+
+/** Money Forward から取り込んだ入出金 1 件（内容欄はルールで読み替えた後） */
 export type MoneyTransaction = {
   id: string;
   /** 金融機関の名前（`MoneyAccount` の name） */
@@ -37,6 +58,8 @@ export type MoneyTransaction = {
   description: string;
   /** 円。入金は正、出金は負 */
   amount: number;
+  /** ルールで「共有」との立替として精算に入れるときの当事者。ただの支出なら null */
+  parties: Parties | null;
 };
 
 /**

@@ -1,7 +1,6 @@
 import { parse } from 'csv-parse/sync';
 import { isDateString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import type { TransactionValues } from './repository.ts';
 
 /**
  * Money Forward から読んだものを、明細と口座の値にする。ブラウザを動かす `moneyforward.ts` は画面と CSV から
@@ -14,19 +13,31 @@ const COLUMNS = {
   description: '内容',
   amount: '金額（円）',
   account: '保有金融機関',
+  transfer: '振替',
   id: 'ID',
 } as const;
 
+/** CSV から読んだ明細 1 件（内容欄は Money Forward のまま。読み替えは `rules.ts`） */
+export type ParsedTransaction = {
+  sourceId: string;
+  account: string;
+  occurredOn: DateString;
+  originalDescription: string;
+  amount: number;
+};
+
 /**
  * 入出金の CSV（家計簿の「ダウンロード」。Shift_JIS を文字に直したもの）を明細の行にする。
- * accounts（取り込む口座の名前）に無い金融機関の明細は除く。
+ * accounts（取り込む口座の名前）に無い金融機関の明細と、振替（「振替」の列が 1。Money Forward が口座の間のお金の
+ * 移し替えとみなしたもの。カードの引き落としや口座の間の送金で、口座から口座へ動いただけで支出ではないので、取り込むと
+ * ノイズになる）は除く。
  * 形の合わない行（日付・金額・ID が読めない）や列があれば投げる: 黙って飛ばすと、Money Forward の形が変わったときに
  * 明細が消えていくのに気づけない。
  */
 export function parseTransactionsCsv(
   text: string,
   accounts: readonly string[],
-): TransactionValues[] {
+): ParsedTransaction[] {
   const records: Record<string, string>[] = parse(text, {
     columns: true,
     skip_empty_lines: true,
@@ -39,7 +50,7 @@ export function parseTransactionsCsv(
       return value.trim();
     };
     const account = matchAccount(column(COLUMNS.account), accounts);
-    if (!account) return [];
+    if (!account || column(COLUMNS.transfer) === '1') return [];
     const occurredOn = column(COLUMNS.date).replaceAll('/', '-');
     const amount = parseYen(column(COLUMNS.amount));
     const sourceId = column(COLUMNS.id);
@@ -52,7 +63,7 @@ export function parseTransactionsCsv(
         sourceId,
         account,
         occurredOn,
-        description: column(COLUMNS.description),
+        originalDescription: column(COLUMNS.description),
         amount,
       },
     ];

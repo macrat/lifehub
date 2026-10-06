@@ -1,9 +1,17 @@
 import { idParamSchema, withId } from '../../../shared/validation/common.ts';
-import { createExpenseRequestSchema, expenseSchema } from '../../../shared/validation/expenses.ts';
+import {
+  createExpenseRequestSchema,
+  expenseListQuerySchema,
+  expenseSchema,
+} from '../../../shared/validation/expenses.ts';
 import { procedure, router, userProcedure } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 export const expensesRouter = router({
+  /** お金の画面の一覧（立替と取り込んだ入出金を 1 本に並べた 1 ページ） */
+  list: procedure
+    .input(expenseListQuerySchema)
+    .query(({ input }) => service.listMoneyEntries(input)),
   totals: procedure.query(() => service.getTotals()),
   create: userProcedure
     .input(createExpenseRequestSchema)

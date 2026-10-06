@@ -6,7 +6,7 @@
 
 ## 画面
 
-- 立替の一覧: お金の画面（`/money`。画面の組み立て、口座のタイル、取り込んだ入出金と 1 本に並べる一覧とそのページ分けは [money.md](money.md#画面)）。精算のタイルと履歴（ホームのタイムラインと同じく上が新しく下が古い）。履歴は使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。行は左から印、金額、内容（上）と名前（下）で、カレンダーのリスト表示と同じ骨組み（`DateHeading` と `MarkedRow`。[ui.md](../ui.md#一覧)）に中身だけを入れ替えたもの。名前は共有のための支払い（To が共有）なら From だけ、それ以外は簿記の並びで「To ← From」（共有からの引き出しは「To ← 共有」）。印はベン図（`src/lib/ui/VennMark.tsx`）で、共有のために払ったものなら払った人の色の円 1 つ、それ以外は左が To・右が From の 2 つの円を重ね（共有は無彩色）、重なりは縦の線で左右に分ける（名前と同じ左右の並び。`src/features/money/components/MoneyList.tsx`）。金額は桁を揃えて右寄せにし、縦に見比べられるようにする。行を単押しすると詳細が開き、長押しするとその詳細が入力欄で開く（アプリ全体の「単押しは閲覧、長押しは編集」。[ui.md](../ui.md#記録のシート)）。AppBar の検索窓「記録を検索」に入れたキーワードで内容を絞り込み（キーワードは検索パラメータ `q`、大文字小文字を区別しない部分一致、`src/lib/search.ts`）、その右の絞り込みボタンで詳細な検索（後述）を AppBar の下に開く。手元にあるのは読んだページだけなので、絞り込みはサーバーが掛ける（条件は `shared/validation/expenses.ts` の `expenseFilterSchema` で、URL（`src/features/expenses/search.ts` の `expenseSearchSchema`）と API（`money.list`）が同じ規則を使う。取り込んだ入出金への読み替えは [money.md](money.md#画面)）。絞り込みを変えたら、取り直せるまで前の結果を出したままにする。精算は絞り込みに関わらず全体の貸借を示す。`add=expense` は入力を開いて始めるしるし（[architecture.md](../architecture.md#pwa)）。
+- 立替の一覧: お金の画面（`/money`。画面の組み立て、口座のタイル、取り込んだ入出金と 1 本に並べる一覧とそのページ分けは [money.md](money.md#画面)）。精算のタイルと履歴（ホームのタイムラインと同じく上が新しく下が古い）。履歴は使った日ごとに見出しを立て、その下に 1 件 1 行で並べる。行は左から印、金額、内容（上）と名前（下）で、カレンダーのリスト表示と同じ骨組み（`DateHeading` と `MarkedRow`。[ui.md](../ui.md#一覧)）に中身だけを入れ替えたもの。名前は共有のための支払い（To が共有）なら From だけ、それ以外は簿記の並びで「To ← From」（共有からの引き出しは「To ← 共有」）。印はベン図（`src/lib/ui/VennMark.tsx`）で、共有のために払ったものなら払った人の色の円 1 つ、それ以外は左が To・右が From の 2 つの円を重ね（共有は無彩色）、重なりは縦の線で左右に分ける（名前と同じ左右の並び。`src/features/money/components/MoneyList.tsx`）。金額は桁を揃えて右寄せにし、縦に見比べられるようにする。行を単押しすると詳細が開き、長押しするとその詳細が入力欄で開く（アプリ全体の「単押しは閲覧、長押しは編集」。[ui.md](../ui.md#記録のシート)）。AppBar の検索窓「記録を検索」に入れたキーワードで内容を絞り込み（キーワードは検索パラメータ `q`、大文字小文字を区別しない部分一致、`src/lib/search.ts`）、その右の絞り込みボタンで詳細な検索（後述）を AppBar の下に開く。手元にあるのは読んだページだけなので、絞り込みはサーバーが掛ける（条件は `shared/validation/expenses.ts` の `expenseFilterSchema` で、URL（`src/features/expenses/search.ts` の `expenseSearchSchema`）と API（`expenses.list`）が同じ規則を使う。取り込んだ入出金への読み替えは [money.md](money.md#画面)）。絞り込みを変えたら、取り直せるまで前の結果を出したままにする。精算は絞り込みに関わらず全体の貸借を示す。`add=expense` は入力を開いて始めるしるし（[architecture.md](../architecture.md#pwa)）。
 - 精算のタイル（`src/features/expenses/components/SettlementGrid.tsx`）: 帳消しにする資金移動（[計算ルール](#計算ルール)）を 1 つ 1 枚のタイルで出す。タイルはレモン画面の状況のタイルと同じもの（`src/lib/ui/StatusTile.tsx` の `StatusTile` と `TileGrid`）で、見出しは「債権者 ← 債務者」（履歴の「To ← From」と同じ向き。債務者が債権者に払えば消える）、その下に大きく金額。貸し借りのある組だけを出し、1 つも無ければ「精算済み」。タップすると、その精算（From = 債務者、To = 債権者、金額、内容「精算」。`src/features/expenses/parties.ts` の `settlementExpense`）を入れた追加の入力が開く。
 - 詳細な検索（`src/features/expenses/components/ExpenseFilterForm.tsx`、条件は `shared/validation/expenses.ts` の `expenseFilterSchema`、判定はサーバーの `server/features/expenses/repository.ts`）: 金額の範囲（`min` / `max`）、使った日の範囲（`since` / `until`）、To（`to`）、From（`from`）。どちらも `shared` は共有。フォームの振る舞い（入力するたびに絞り込む、範囲の端、URL、バッジ）は [ui.md](../ui.md#appbar-と検索)。
 - 立替の詳細（`src/features/expenses/components/ExpenseDetailSheet.tsx`）: 金額・日付・To／From を表示し（To・From はそのユーザーの色で塗る）、鉛筆で同じ入れ物の中が入力欄に変わる（行を長押しで開いたときは最初から入力欄。`initialEditing`）。削除は三点リーダーの中。一覧に操作ボタンは置かない（行が主役で、操作は詳細に集める）。
@@ -24,6 +24,7 @@
 - 当事者ごとに債権と債務を差し引いた正味を出し、最も大きい債権者と最も大きい債務者を突き合わせて資金移動を決めていく。正味にしてから組むので、循環（A→B→共有→A）は打ち消される。
   - 正味が 0 でない当事者が n 人なら移動は高々 n − 1 回。当事者は 3 者（ユーザー 2 人と共有）なので、これが最小になる。
   - WHY NOT 一般の最小化: 当事者が増えると最小の組み方を探すのは組み合わせの問題になるが、利用者は 2 人なので要らない。
+- 取り込んだ入出金のうち、ルールで入金・出金にしたものも「共有」との立替として入る（[money.md](money.md#入出金のルール)）。
 - 計算は `shared/expenses.ts` の `settlementsOf` 1 箇所に置き、サーバー（`getSettlements`）とクライアント（`useSettlements`）が同じものを使う。
   - サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても精算の応答は変わらない。
   - クライアントはその合計（`expenses.totals`）を受け取って精算を導き、書き込みの結果を先に出すとき（楽観的更新）は合計に 1 件分を足し引きする。WHY NOT 精算そのものを持つ: 移動の組み方からは 1 件分を足し引きできない。
@@ -36,12 +37,13 @@
 
 | 手続き | 種類 | 内容 |
 |---|---|---|
-| `expenses.totals` | 読み出し | 精算の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`。最大 6 行） |
+| `expenses.list` | 読み出し | お金の画面の一覧の 1 ページ（`{ items, nextCursor }`。items は古い順で、立替（`type: "expense"`）と取り込んだ入出金（`type: "transaction"`）が混ざる）。入力は続きの `before`（YYYY-MM-DD）と絞り込み（`q` / `min` / `max` / `since` / `until` / `to` / `from`。`expenseListQuerySchema`）。立替と入出金を合わせて新しいほうから 50 件ほどで、日の途中では切らない（同じ日の記録は必ず同じページに入る。件数は 50 を超えうる）。`nextCursor` はさらに前があるときの次の `before`（このページの最も古い日）。表ごとに区切りの日を集めて 1 本にする（`server/lib/history-source.ts` の `mergeHistoryPage`。立替は `service.ts` の `historySource`、入出金は money の `historySource` が渡し、どの feature も他の feature の表を直接読まない）。入出金への絞り込みの読み替えは [money.md](money.md#画面) |
+| `expenses.totals` | 読み出し | 精算の元になる「誰が誰のために払ったか」ごとの合計（`[{ fromUserId, toUserId, amount }]`）。立替の組ごとと、取り込んだ入出金のうちルールで「共有」との立替にしたものの組ごと（[money.md](money.md#入出金のルール)。同じ組が 2 行になりうるが、精算の式は足し合わせる） |
 | `expenses.create` | 書き込み | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
 | `expenses.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
 | `expenses.delete` | 書き込み | 削除（入力は `id`） |
 
-入力スキーマは `shared/validation/expenses.ts`。立替の一覧は、取り込んだ入出金と 1 本に並べた `money.list`（[money.md](money.md) の「API」）で読む。サーバーは並べる立替を `service.ts` の `historySource`（日は使った日）で渡す。
+入力スキーマは `shared/validation/expenses.ts`。
 
 ## MCP ツール
 

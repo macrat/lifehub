@@ -115,11 +115,14 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'transaction': {
-      const { account, amount, description } = entry.transaction;
+      const { account, amount, description, parties } = entry.transaction;
       return {
         ...view,
-        // 取り込んだ入出金は人に結び付かないので無彩色（お金の画面の一覧の点と同じ）
-        colors: [colorFor(null).fill],
+        // 取り込んだ入出金は人に結び付かないので無彩色。ルールで「共有」との立替にしたものは立替と同じ並びの色
+        // （お金の画面の一覧の印と同じ）
+        colors: parties
+          ? partiesInOrder(parties).map((id) => colorFor(id).fill)
+          : [colorFor(null).fill],
         icon: MoneyIcon,
         heading: account,
         body: `${formatSignedYen(amount)} ${description}`,

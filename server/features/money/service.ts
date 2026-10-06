@@ -1,22 +1,20 @@
 import { addMonths, today, toMonthString } from '../../../shared/date.ts';
+import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import {
-  expenseMoneyEntry,
   type MoneyAccount,
-  type MoneyEntry,
   type MoneyTransaction,
-  sortMoneyEntries,
-  transactionMoneyEntry,
+  transferParties,
 } from '../../../shared/money.ts';
 import { transactionEntry } from '../../../shared/timeline.ts';
-import type { HistoryPage } from '../../../shared/types.ts';
-import type { ExpenseListQuery } from '../../../shared/validation/expenses.ts';
+import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
+import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
-import { type HistorySource, mergeHistoryPage } from '../../lib/history-source.ts';
+import type { HistorySource } from '../../lib/history-source.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import * as expenses from '../expenses/service.ts';
 import * as repository from './repository.ts';
-import type { MoneyAccountRow, MoneyTransactionRow } from './schema.ts';
+import { applyRules } from './rules.ts';
+import type { MoneyAccountRow, MoneyRuleRow, MoneyTransactionRow } from './schema.ts';
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
 const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCOUNTS ?? [];
@@ -53,18 +51,20 @@ export async function syncMoneyForward(
   ]);
   const month = toMonthString(today(now));
   const months = [addMonths(month, -1), month];
-  const scraped = await scrapeMoneyForward(
-    { email, password, totpSecret },
-    configuredAccounts,
-    months,
-  );
+  const [scraped, rules] = await Promise.all([
+    scrapeMoneyForward({ email, password, totpSecret }, configuredAccounts, months),
+    listRules(),
+  ]);
 
-  // 2 か月の CSV の境目で同じ明細が重なっても 1 行にする
+  // 2 か月の CSV の境目で同じ明細が重なっても 1 行にする。内容欄は今のルールで読み替える（元のままの内容欄も持つ）
   const transactions = [
     ...new Map(
       scraped.csvs
         .flatMap((csv) => parseTransactionsCsv(csv, accountNames))
-        .map((row) => [row.sourceId, { ...row, id: newId() }]),
+        .map((row) => [
+          row.sourceId,
+          { ...row, ...applyRules(rules, row.originalDescription), id: newId() },
+        ]),
     ).values(),
   ];
   const days = transactions.map((row) => row.occurredOn).sort();
@@ -86,41 +86,40 @@ export async function listAccounts(): Promise<MoneyAccount[]> {
 }
 
 /**
- * お金の画面の一覧の 1 ページ（古い順）: 立替と取り込んだ入出金を 1 本に並べる。絞り込みは立替の一覧と同じ条件
- * （入出金への読み替えは `repository.ts` の `history`）。ページの分け方は立替だけの履歴と同じで、日の途中では切らない
- * （`mergeHistoryPage`）。
+ * お金の画面の一覧に並べる入出金（`HistorySource`。日は明細の日付）。絞り込みは立替の一覧と同じ条件の読み替え
+ * （`repository.ts` の `history`）。立替と 1 本に並べてページに分けるのは立替の service（`listMoneyEntries`）
  */
-export async function listMoney({
-  before,
-  ...filter
-}: ExpenseListQuery): Promise<HistoryPage<MoneyEntry>> {
-  const transactions = repository.history(filter);
-  const page = await mergeHistoryPage<MoneyEntry>(
-    [
-      mapSource(expenses.historySource(filter), expenseMoneyEntry),
-      {
-        recentDays: transactions.recentDays,
-        hasBefore: transactions.hasBefore,
-        findInDays: async (from, until) =>
-          (await transactions.findInDays(from, until)).map((row) =>
-            transactionMoneyEntry(toTransaction(row)),
-          ),
-      },
-    ],
-    before,
-  );
-  return { ...page, items: sortMoneyEntries(page.items) };
+export function historySource(filter: ExpenseFilter): HistorySource<MoneyTransaction> {
+  const queries = repository.history(filter);
+  return {
+    recentDays: queries.recentDays,
+    hasBefore: queries.hasBefore,
+    findInDays: async (from, before) => (await queries.findInDays(from, before)).map(toTransaction),
+  };
 }
 
-/** 出どころの行を一覧の行にする */
-function mapSource<T>(
-  source: HistorySource<T>,
-  toEntry: (record: T) => MoneyEntry,
-): HistorySource<MoneyEntry> {
-  return {
-    ...source,
-    findInDays: async (from, before) => (await source.findInDays(from, before)).map(toEntry),
-  };
+/** ルールで「共有」との立替にした入出金の、当事者ごとの合計（立替の精算に足す。`ExpenseTotal` の形） */
+export async function getTransferTotals(): Promise<ExpenseTotal[]> {
+  return repository.sumTransfers();
+}
+
+/** 入出金の読み替えのルール（上から順） */
+export async function listRules(): Promise<MoneyRule[]> {
+  return (await repository.findRules()).map(toRule);
+}
+
+/**
+ * ルールの並びを置き換え、取り込み済みのすべての入出金を新しいルールで読み替え直す（元の内容欄から当て直すので、
+ * 足した・直した・消したルールが過去の入出金にも効く）。userId は保存した人。
+ * 入出金は数千件の桁なので、全件を読んで当て直す。変わらない行も書くが、1 つの update にまとめる（`replaceRules`）
+ */
+export async function saveRules(rules: MoneyRule[], userId: string): Promise<void> {
+  const originals = await repository.findOriginals();
+  const rewritten = originals.map(({ id, originalDescription }) => ({
+    id,
+    ...applyRules(rules, originalDescription),
+  }));
+  await repository.replaceRules(rules, userId, rewritten);
 }
 
 /** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容の部分一致） */
@@ -144,12 +143,25 @@ function toAccount(
   };
 }
 
-/** 行から画面に出さない列（取り込みの鍵と監査列）を除く */
-function toTransaction({
-  sourceId: _,
-  createdAt: __,
-  updatedAt: ___,
-  ...transaction
-}: MoneyTransactionRow): MoneyTransaction {
-  return transaction;
+/** 行を画面に出す形にする（内容欄は読み替えた後。読み替えの向きと対象者は立替の当事者にする） */
+function toTransaction(row: MoneyTransactionRow): MoneyTransaction {
+  return {
+    id: row.id,
+    account: row.account,
+    occurredOn: row.occurredOn,
+    description: row.description,
+    amount: row.amount,
+    parties: row.direction && row.userId ? transferParties(row.direction, row.userId) : null,
+  };
+}
+
+function toRule({
+  id,
+  pattern,
+  replaceDescription,
+  replacement,
+  kind,
+  userId,
+}: MoneyRuleRow): MoneyRule {
+  return { id, pattern, replaceDescription, replacement, kind, userId };
 }

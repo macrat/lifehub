@@ -1,14 +1,19 @@
-import { and, gte, lte, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lte, notInArray, type SQL, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
-import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
+import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
+import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
 import { historyQueries } from '../../lib/db/history.ts';
 import { containsKeyword, startOfDateSql } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
+import type { Rewritten } from './rules.ts';
 import {
   type MoneyAccountRow,
+  type MoneyRuleRow,
   type MoneyTransactionRow,
   moneyAccounts,
+  moneyRules,
   moneyTransactions,
 } from './schema.ts';
 
@@ -62,8 +67,11 @@ export async function saveImport({
               set: {
                 account: sql`excluded.account`,
                 occurredOn: sql`excluded.occurred_on`,
+                originalDescription: sql`excluded.original_description`,
                 description: sql`excluded.description`,
                 amount: sql`excluded.amount`,
+                direction: sql`excluded.direction`,
+                userId: sql`excluded.user_id`,
                 updatedAt: new Date(),
               },
             }),
@@ -93,7 +101,8 @@ const keywordCondition = (q: string | undefined) =>
  * - キーワード: 内容の部分一致
  * - 金額の範囲: 出金も入金も額の大きさ（絶対値）で比べる（立替の金額と同じく「いくら動いたか」）
  * - 日付の範囲: 明細の日付。範囲は両端を含む
- * - To・From: 入出金は当事者を持たないので、どちらかで絞り込んでいれば出さない
+ * - To・From: ルールで「共有」との立替にした入出金だけが当事者を持つ（入金は 対象者 → 共有、出金は 共有 → 対象者）。
+ *   ただの支出は当事者を持たないので、どちらかで絞り込んでいれば出さない
  */
 export function history(filter: ExpenseFilter) {
   const amount = sql`abs(${moneyTransactions.amount})`;
@@ -106,9 +115,107 @@ export function history(filter: ExpenseFilter) {
       filter.max !== undefined ? lte(amount, filter.max) : undefined,
       filter.since !== undefined ? gte(moneyTransactions.occurredOn, filter.since) : undefined,
       filter.until !== undefined ? lte(moneyTransactions.occurredOn, filter.until) : undefined,
-      filter.to !== undefined || filter.from !== undefined ? sql`false` : undefined,
+      partyCondition('to', filter.to),
+      partyCondition('from', filter.from),
     ],
   });
+}
+
+/**
+ * To・From の絞り込みを入出金の向きと対象者に読み替える。共有は、To なら入金（共有口座へ入れた）、From なら出金。
+ * 人は、To なら出金（その人が引き出した）、From なら入金（その人が入れた）
+ */
+function partyCondition(side: 'to' | 'from', party: string | undefined): SQL | undefined {
+  if (party === undefined) return undefined;
+  const sharedSide = side === 'to' ? 'deposit' : 'withdrawal';
+  if (party === SHARED) return eq(moneyTransactions.direction, sharedSide);
+  const personSide = side === 'to' ? 'withdrawal' : 'deposit';
+  return and(eq(moneyTransactions.direction, personSide), eq(moneyTransactions.userId, party));
+}
+
+/**
+ * ルールで「共有」との立替にした入出金の、向きと対象者ごとの合計（立替の `sumByDirection` と同じ形。精算に足す）。
+ * 額は出金も入金も大きさ（絶対値）
+ */
+export async function sumTransfers(): Promise<ExpenseTotal[]> {
+  const rows = await db
+    .select({
+      direction: moneyTransactions.direction,
+      userId: moneyTransactions.userId,
+      amount: sql<number>`sum(abs(${moneyTransactions.amount}))::int`,
+    })
+    .from(moneyTransactions)
+    .where(isNotNull(moneyTransactions.direction))
+    .groupBy(moneyTransactions.direction, moneyTransactions.userId);
+  return rows.map(({ direction, userId, amount }) =>
+    direction === 'deposit'
+      ? { fromUserId: userId, toUserId: null, amount }
+      : { fromUserId: null, toUserId: userId, amount },
+  );
+}
+
+/** ルールの並び（上から順） */
+export async function findRules(): Promise<MoneyRuleRow[]> {
+  return db.select().from(moneyRules).orderBy(asc(moneyRules.position));
+}
+
+/** 読み替え直すための、すべての入出金の元の内容欄 */
+export async function findOriginals(): Promise<{ id: string; originalDescription: string }[]> {
+  return db
+    .select({
+      id: moneyTransactions.id,
+      originalDescription: moneyTransactions.originalDescription,
+    })
+    .from(moneyTransactions);
+}
+
+/**
+ * ルールの並びを rules に置き換え、入出金を読み替え直した値（rewritten。id ごと）で上書きする。
+ * 1 つのトランザクションで書くので、ルールと入出金の読み替えが食い違ったまま残らない（`runBatch`）。
+ * 読み替えは 1 つの update にまとめる（入出金の数だけ往復しない）
+ */
+export async function replaceRules(
+  rules: MoneyRule[],
+  createdBy: string,
+  rewritten: (Rewritten & { id: string })[],
+): Promise<void> {
+  const values = rewritten.map(
+    (row) => sql`(${row.id}::uuid, ${row.description}, ${row.direction}, ${row.userId}::uuid)`,
+  );
+  await runBatch((tx) => [
+    tx.delete(moneyRules),
+    ...(rules.length > 0
+      ? [
+          tx.insert(moneyRules).values(
+            rules.map((rule, position) => ({
+              id: rule.id,
+              position,
+              pattern: rule.pattern,
+              replaceDescription: rule.replaceDescription,
+              replacement: rule.replacement,
+              kind: rule.kind,
+              userId: rule.userId,
+              createdBy,
+            })),
+          ),
+        ]
+      : []),
+    ...(values.length > 0
+      ? [
+          tx
+            .update(moneyTransactions)
+            .set({
+              description: sql`v.description`,
+              direction: sql`v.direction`,
+              userId: sql`v.user_id`,
+            })
+            .from(
+              sql`(values ${sql.join(values, sql`, `)}) as v(id, description, direction, user_id)`,
+            )
+            .where(sql`${moneyTransactions.id} = v.id`),
+        ]
+      : []),
+  ]);
 }
 
 /** タイムラインの問い合わせ。置く日時は日付の始まり（明細は時刻を持たない。shared/timeline.ts の `transactionEntry` と同じ）。

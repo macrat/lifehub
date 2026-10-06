@@ -10,9 +10,8 @@ import {
 } from '../../../../shared/validation/expenses.ts';
 import { db } from '../../../lib/db/client.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
-import { addExpense } from '../../expenses/service.ts';
+import { addExpense, listMoneyEntries as listMoney } from '../../expenses/service.ts';
 import { moneyTransactions } from '../schema.ts';
-import { listMoney } from '../service.ts';
 
 /**
  * お金の画面の一覧（`listMoney`）: 立替と取り込んだ入出金を 1 本に並べたページと、立替の一覧と同じ絞り込み。
@@ -42,6 +41,7 @@ async function addTransaction(occurredOn: string, description: string, amount: n
     sourceId: newId(),
     account: 'テストカード',
     occurredOn: dateStringSchema.parse(occurredOn),
+    originalDescription: description,
     description,
     amount,
   });

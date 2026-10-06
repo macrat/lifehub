@@ -4,6 +4,7 @@ import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import type { ExpenseListQuery } from '../../../../shared/validation/expenses.ts';
 import { db } from '../../../lib/db/client.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
+import { listMoneyEntries as listMoney } from '../../expenses/service.ts';
 import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import {
@@ -14,7 +15,7 @@ import {
   parseYen,
 } from '../parse.ts';
 import { moneyAccounts, moneyTransactions } from '../schema.ts';
-import { listAccounts, listMoney, syncMoneyForward } from '../service.ts';
+import { listAccounts, syncMoneyForward } from '../service.ts';
 
 /** お金の画面の一覧の 1 ページから入出金だけ（絞り込みは立替の一覧と同じ条件） */
 async function listTransactions(query: ExpenseListQuery) {
@@ -28,12 +29,14 @@ async function listTransactions(query: ExpenseListQuery) {
 const HEADER =
   '"計算対象","日付","内容","金額（円）","保有金融機関","大項目","中項目","メモ","振替","ID"';
 
-/** CSV の 1 行。[日付, 内容, 金額, 金融機関, 大項目, 中項目, ID] */
-function csv(rows: [string, string, string, string, string, string, string][]): string {
+/** CSV の 1 行。[日付, 内容, 金額, 金融機関, 大項目, 中項目, ID, 振替（省けば 0）] */
+type Row = [string, string, string, string, string, string, string, ('0' | '1')?];
+
+function csv(rows: Row[]): string {
   return [
     HEADER,
-    ...rows.map(([date, description, amount, account, major, minor, id]) =>
-      ['1', date, description, amount, account, major, minor, '', '0', id]
+    ...rows.map(([date, description, amount, account, major, minor, id, transfer = '0']) =>
+      ['1', date, description, amount, account, major, minor, '', transfer, id]
         .map((v) => `"${v}"`)
         .join(','),
     ),
@@ -66,12 +69,15 @@ describe('money service', () => {
     vi.restoreAllMocks();
   });
 
-  it('CSV を明細にし、取り込む口座の明細だけを残す', () => {
+  it('CSV を明細にし、取り込む口座の明細だけを残し、口座の間の振替は除く', () => {
     const rows = parseTransactionsCsv(
       csv([
         ['2026/09/24', 'スーパー', '-3,200', 'テストカード', '食費', '食料品', 'a1'],
         ['2026/09/25', '給与', '300000', 'テスト銀行 普通', '収入', '未分類', 'a2'],
         ['2026/09/25', 'ほかの口座', '-100', 'よその銀行', '未分類', '未分類', 'a3'],
+        // カードの引き落とし（銀行 → カード）は両方の口座の振替
+        ['2026/09/26', 'カード引落', '-42000', 'テスト銀行', '振替', '振替', 'a4', '1'],
+        ['2026/09/26', '引落', '42000', 'テストカード', '振替', '振替', 'a5', '1'],
       ]),
       ACCOUNTS,
     );
@@ -80,14 +86,14 @@ describe('money service', () => {
         sourceId: 'a1',
         account: 'テストカード',
         occurredOn: '2026-09-24',
-        description: 'スーパー',
+        originalDescription: 'スーパー',
         amount: -3200,
       },
       {
         sourceId: 'a2',
         account: 'テスト銀行',
         occurredOn: '2026-09-25',
-        description: '給与',
+        originalDescription: '給与',
         amount: 300000,
       },
     ]);
@@ -183,6 +189,7 @@ describe('money service', () => {
       sourceId: 'removed',
       account: '外した銀行',
       occurredOn: dateStringSchema.parse('2026-01-01'),
+      originalDescription: '外した口座の明細',
       description: '外した口座の明細',
       amount: -1,
     });

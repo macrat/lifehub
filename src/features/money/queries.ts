@@ -1,8 +1,11 @@
 import { queryOptions } from '@tanstack/react-query';
 import { type MoneyEntry, moneyEntryDay, sortMoneyEntries } from '../../../shared/money.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
-import { api } from '../../lib/api.ts';
+import type { MoneyRule } from '../../../shared/validation/money.ts';
+import { api, write } from '../../lib/api.ts';
 import type { HistorySource } from '../../lib/history.ts';
+import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { recordWriteKeys } from '../timeline/queries.ts';
 
 /** 形はサーバーと共有する（shared/money.ts） */
 export type { MoneyAccount, MoneyEntry, MoneyTransaction } from '../../../shared/money.ts';
@@ -25,7 +28,27 @@ export const accountsQueryOptions = queryOptions({
  */
 export const moneyHistory: HistorySource<MoneyEntry, ExpenseFilter> = {
   key: [...MONEY_QUERY_KEY, 'list'],
-  fetch: (filter, before, signal) => api.money.list.query({ ...filter, before }, { signal }),
+  fetch: (filter, before, signal) => api.expenses.list.query({ ...filter, before }, { signal }),
   dayOf: moneyEntryDay,
   sort: sortMoneyEntries,
 };
+
+/** 入出金の読み替えのルール（上から順。管理画面の「入出金のルール」） */
+export const rulesQueryOptions = queryOptions({
+  queryKey: [...MONEY_QUERY_KEY, 'rules'],
+  queryFn: ({ signal }) => api.money.rules.query(undefined, { signal }),
+});
+
+/**
+ * ルールの並び全体を保存する。サーバーは取り込み済みの入出金を読み替え直すので、一覧・精算の元の合計（立替の
+ * `expenses` のクエリ）・タイムラインも取り直す。読み替えの結果は先回りしない（当て直しはサーバーだけが持つ）
+ */
+export function useSaveRules() {
+  return useOptimisticMutation<MoneyRule[]>({
+    request: write.money.saveRules,
+    keys: recordWriteKeys(rulesQueryOptions.queryKey, moneyHistory.key, ['expenses']),
+    apply: (client, rules) => {
+      client.setQueryData(rulesQueryOptions.queryKey, rules);
+    },
+  });
+}

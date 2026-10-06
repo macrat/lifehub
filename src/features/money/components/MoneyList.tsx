@@ -56,7 +56,8 @@ type Props = Omit<HistoryListProps<MoneyEntry>, 'children'> & {
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、印はベン図、主列は金額、本文は内容と補足:
  * - 立替: 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」（`partiesInOrder`）。
  *   印も同じ並びで、共有のために払ったものは払った人 1 色の円、人から人へのものは左を To・右を From の円にする
- * - 入出金: 印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）、補足は金融機関
+ * - 入出金: 補足は金融機関。印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）。ルールで「共有」との立替に
+ *   したもの（`parties`）は、立替と同じ並びと色のベン図
  */
 export function MoneyList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
@@ -74,7 +75,8 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
           <Box key={date} sx={{ pb: 1 }}>
             <DateHeading date={date} />
             {sameDay.map((entry) => {
-              const people = entry.type === 'expense' ? partiesInOrder(entry.expense) : [];
+              const parties = entry.type === 'expense' ? entry.expense : entry.transaction.parties;
+              const people = parties ? partiesInOrder(parties) : [];
               return (
                 <MarkedRow
                   key={entry.id}
@@ -83,7 +85,7 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
                   mark={
                     <VennMark
                       colors={
-                        entry.type === 'expense'
+                        people.length > 0
                           ? people.map((id) => colorFor(id).mark)
                           : [colorFor(null).mark]
                       }
