@@ -6,6 +6,13 @@ CREATE TABLE "money_accounts" (
 	"fetched_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "money_balances" (
+	"account" text NOT NULL,
+	"recorded_on" date NOT NULL,
+	"balance" integer NOT NULL,
+	CONSTRAINT "money_balances_account_recorded_on_pk" PRIMARY KEY("account","recorded_on")
+);
+--> statement-breakpoint
 CREATE TABLE "money_rules" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"position" integer NOT NULL,

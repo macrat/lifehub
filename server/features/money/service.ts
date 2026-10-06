@@ -1,12 +1,20 @@
-import { addMonths, today, toMonthString } from '../../../shared/date.ts';
+import {
+  addCalendarMonths,
+  addDays,
+  addMonths,
+  today,
+  toMonthString,
+} from '../../../shared/date.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import {
   type MoneyAccount,
+  type MoneyBalance,
   type MoneyTransaction,
   transferParties,
 } from '../../../shared/money.ts';
 import { transactionEntry } from '../../../shared/timeline.ts';
+import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
@@ -14,7 +22,12 @@ import type { HistorySource } from '../../lib/history-source.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import { applyRules } from './rules.ts';
-import type { MoneyAccountRow, MoneyRuleRow, MoneyTransactionRow } from './schema.ts';
+import type {
+  MoneyAccountRow,
+  MoneyBalanceRow,
+  MoneyRuleRow,
+  MoneyTransactionRow,
+} from './schema.ts';
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
 const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCOUNTS ?? [];
@@ -23,6 +36,7 @@ const accountNames = configuredAccounts.map((account) => account.name);
 
 /**
  * Money Forward から口座の値と入出金を取り込む（日次の Cron）。取り込んだ明細と口座の数を返す。
+ * 口座の値はその日（JST）の記録としても残す（残高の推移のグラフ。`money_balances`）。
  * 入出金は先月と今月の 2 か月分の CSV を読み、読んだ明細の最も古い日から最も新しい日までを、Money Forward の今の明細に
  * 置き換える（`saveImport`。Money Forward で消された明細はここで消える）。環境変数から外した口座の行と明細も、ここで消す。
  * WHY 外した口座を取り込みで消す: 読むたびに今の口座で絞ると、画面・タイムライン・MCP のどの読み出しにも同じ条件が要り、
@@ -75,6 +89,9 @@ export async function syncMoneyForward(
     range: from && to ? { from, to } : null,
     transactions,
     accountRows: scraped.accounts.map((account) => ({ ...account, fetchedAt })),
+    balanceRows: scraped.accounts.flatMap(({ name, balance }) =>
+      balance === null ? [] : [{ account: name, recordedOn: today(now), balance }],
+    ),
   });
   return { transactions: transactions.length, accounts: scraped.accounts.length };
 }
@@ -83,6 +100,41 @@ export async function syncMoneyForward(
 export async function listAccounts(): Promise<MoneyAccount[]> {
   const rows = new Map((await repository.findAccounts()).map((row) => [row.name, row]));
   return configuredAccounts.map((account) => toAccount(account, rows.get(account.name)));
+}
+
+/** 残高の推移の 1 ページの長さ（か月）。グラフが最初に出す期間（過去 3 か月）を 1 回で読める長さ */
+const BALANCE_PAGE_MONTHS = 3;
+
+/**
+ * 残高の推移の 1 ページ（今取り込んでいる口座すべて）。before（省けば明日）より前の BALANCE_PAGE_MONTHS か月の日の記録を、
+ * 日の古い順に返す。nextCursor はこのページの始まりの日で、それより前の記録が無ければ null。
+ * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う。
+ * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。
+ * 値の向きはカードと同じ（`MoneyBalance`）: カードは Money Forward の利用残高（負の数）の大きさを負債額にする
+ */
+export async function getBalancePage(
+  before: DateString | undefined,
+  now: Date = new Date(),
+): Promise<HistoryPage<MoneyBalance>> {
+  const end = before ?? addDays(today(now), 1);
+  const from = addCalendarMonths(end, -BALANCE_PAGE_MONTHS);
+  const { rows, hasOlder } = await repository.findBalances(from, end);
+  const kinds = new Map(configuredAccounts.map((account) => [account.name, account.kind]));
+  return {
+    items: rows.flatMap((row) => {
+      const kind = kinds.get(row.account);
+      return kind ? [toBalance(row, kind === 'card')] : [];
+    }),
+    nextCursor: hasOlder ? from : null,
+  };
+}
+
+function toBalance(row: MoneyBalanceRow, liability: boolean): MoneyBalance {
+  return {
+    account: row.account,
+    on: row.recordedOn,
+    amount: liability ? Math.abs(row.balance) : row.balance,
+  };
 }
 
 /**

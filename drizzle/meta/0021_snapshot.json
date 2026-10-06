@@ -1,5 +1,5 @@
 {
-  "id": "513b600f-570c-4aaf-b685-8d7493c0c7b1",
+  "id": "fbf41d35-9667-4dfb-aeef-b88a35602a80",
   "prevId": "0f9024df-2955-4e51-a2b6-7e3803319e10",
   "version": "7",
   "dialect": "postgresql",
@@ -927,6 +927,45 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.money_balances": {
+      "name": "money_balances",
+      "schema": "",
+      "columns": {
+        "account": {
+          "name": "account",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_on": {
+          "name": "recorded_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "balance": {
+          "name": "balance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "money_balances_account_recorded_on_pk": {
+          "name": "money_balances_account_recorded_on_pk",
+          "columns": [
+            "account",
+            "recorded_on"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

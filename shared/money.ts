@@ -29,6 +29,12 @@ export type MoneyAccount = {
 };
 
 /**
+ * 口座の 1 日の値（残高の推移のグラフの 1 点）。amount は種類ごとにカードの値と同じ向き: 銀行は残高、証券は評価額、
+ * クレジットカードは負債額（使ってまだ払っていない額。正の数）
+ */
+export type MoneyBalance = { account: string; on: DateString; amount: number };
+
+/**
  * 入出金の読み替えのルールの種別。spending はただの支出（精算に入れない）、deposit（入金）と withdrawal（出金）は
  * 対象者と「共有」との立替として精算に入れる: 入金は対象者が共有口座へ入れた（From 対象者 → To 共有）、
  * 出金は対象者が共有口座から引き出した（From 共有 → To 対象者）

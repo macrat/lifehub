@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { cursorShape } from '../../../shared/validation/common.ts';
 import { moneyRulesSchema } from '../../../shared/validation/money.ts';
 import { procedure, router, userProcedure } from '../../lib/trpc.ts';
 import * as service from './service.ts';
@@ -8,6 +10,10 @@ import * as service from './service.ts';
  */
 export const moneyRouter = router({
   accounts: procedure.query(() => service.listAccounts()),
+  /** 口座の値の推移の 1 ページ（3 か月。before を省けば最新） */
+  balances: procedure
+    .input(z.object(cursorShape))
+    .query(({ input }) => service.getBalancePage(input.before)),
   rules: procedure.query(() => service.listRules()),
   saveRules: userProcedure.input(moneyRulesSchema).mutation(async ({ ctx, input }) => {
     await service.saveRules(input, ctx.userId);

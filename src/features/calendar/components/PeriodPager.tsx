@@ -1,24 +1,12 @@
 import Box from '@mui/material/Box';
 import type { CalendarItem } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import { APP_BAR_HEIGHT, BOTTOM_NAV_HEIGHT } from '../../../lib/ui/layout.ts';
+import { FILL_HEIGHT, FILL_MARGIN_BOTTOM } from '../../../lib/ui/layout.ts';
 import type { Draft } from '../draft.ts';
 import type { GridDraft } from '../grid-draft.ts';
 import type { PeriodView } from '../use-calendar-page.ts';
 import { CalendarPane } from './CalendarPane.tsx';
 import { SwipePager } from './SwipePager.tsx';
-
-/**
- * 月・週・日の表示が画面の残り全部を占めるための高さ。
- * AppShell の main が下に確保している余白（追加ボタンの分）は負のマージンで打ち消す。
- * 基準は AppShell と同じ svh（ブラウザの URL バーなどが最大に出ている状態の高さ）。
- * dvh はそれらの出入りで値が変わるので、再読み込みの直後に画面より高くなってスクロールが要る表示になる。
- */
-const FILL_HEIGHT = {
-  xs: `calc(100svh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEIGHT}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`,
-  md: `calc(100svh - ${APP_BAR_HEIGHT}px - 8px)`,
-};
-const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 };
 
 type Props = {
   view: PeriodView;

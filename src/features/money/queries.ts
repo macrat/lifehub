@@ -1,5 +1,10 @@
 import { queryOptions } from '@tanstack/react-query';
-import { type MoneyEntry, moneyEntryDay, sortMoneyEntries } from '../../../shared/money.ts';
+import {
+  type MoneyBalance,
+  type MoneyEntry,
+  moneyEntryDay,
+  sortMoneyEntries,
+} from '../../../shared/money.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { api, write } from '../../lib/api.ts';
@@ -31,6 +36,18 @@ export const moneyHistory: HistorySource<MoneyEntry, ExpenseFilter> = {
   fetch: (filter, before, signal) => api.expenses.list.query({ ...filter, before }, { signal }),
   dayOf: moneyEntryDay,
   sort: sortMoneyEntries,
+};
+
+/**
+ * 口座の値の推移（残高の推移のグラフ）。1 ページは 3 か月で、古いほうはグラフを過去へ動かしたときに読み足す
+ * （`useBalanceChart`）。今取り込んでいる口座すべての物を読み、どの口座を出すかは画面が選ぶ（選び直しても読み直さない）
+ */
+export const balanceHistory: HistorySource<MoneyBalance, Record<string, never>> = {
+  key: [...MONEY_QUERY_KEY, 'balances'],
+  fetch: (_filter, before, signal) => api.money.balances.query({ before }, { signal }),
+  dayOf: (balance) => balance.on,
+  sort: (balances) => balances.toSorted((a, b) => a.on.localeCompare(b.on)),
+  oldestFirst: true,
 };
 
 /** 入出金の読み替えのルール（上から順。管理画面の「入出金のルール」） */

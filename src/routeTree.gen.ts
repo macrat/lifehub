@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedWeatherRouteImport } from './routes/_authenticated/weather'
 import { Route as AuthenticatedAdminMoneyRulesRouteImport } from './routes/_authenticated/admin.money-rules'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
+import { Route as AuthenticatedMoneyBalancesRouteImport } from './routes/_authenticated/money_.balances'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -76,6 +77,12 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMoneyBalancesRoute =
+  AuthenticatedMoneyBalancesRouteImport.update({
+    id: '/money_/balances',
+    path: '/money/balances',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/weather': typeof AuthenticatedWeatherRoute
   '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/money/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRoutesByTo {
   '/consent': typeof ConsentRoute
@@ -100,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/money/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -114,6 +123,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/money_/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/weather'
     | '/admin/money-rules'
     | '/admin/users'
+    | '/money/balances'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/consent'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/money-rules'
     | '/admin/users'
+    | '/money/balances'
   id:
     | '__root__'
     | '/_authenticated'
@@ -153,6 +165,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/money-rules'
     | '/_authenticated/admin/users'
+    | '/_authenticated/money_/balances'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/money_/balances': {
+      id: '/_authenticated/money_/balances'
+      path: '/money/balances'
+      fullPath: '/money/balances'
+      preLoaderRoute: typeof AuthenticatedMoneyBalancesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -252,6 +272,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedAdminMoneyRulesRoute: typeof AuthenticatedAdminMoneyRulesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedMoneyBalancesRoute: typeof AuthenticatedMoneyBalancesRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -263,6 +284,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedAdminMoneyRulesRoute: AuthenticatedAdminMoneyRulesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedMoneyBalancesRoute: AuthenticatedMoneyBalancesRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

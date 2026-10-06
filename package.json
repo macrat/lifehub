@@ -41,6 +41,7 @@
     "dataloader": "^2.2.3",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.3",
+    "echarts": "^6.1.0",
     "hono": "^4.13.11",
     "ical-generator": "^11.1.2",
     "ical.js": "^2.2.1",

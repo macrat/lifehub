@@ -1,6 +1,7 @@
-import { today } from '../shared/date.ts';
+import { addDays, today } from '../shared/date.ts';
 import {
   type MoneyAccount,
+  type MoneyBalance,
   type MoneyEntry,
   type MoneyTransaction,
   sortMoneyEntries,
@@ -181,4 +182,38 @@ test('入出金のルールを設定画面から足して並べ替え・削除�
   await expect(patterns).toHaveCount(1);
   await page.getByRole('button', { name: 'ルールを削除' }).nth(0).click();
   await expect.poll(savedPatterns).toEqual([]);
+});
+
+test('口座のタイルを押すとその口座の推移のグラフが開き、絞り込みで口座を足すと積み上げて出す', async ({
+  page,
+}) => {
+  // 口座の値の記録は取り込みが残すもので E2E の DB には無いので、推移の 1 ページ（最後のページ）を差し込む
+  const balances: MoneyBalance[] = [-2, -1, 0].flatMap((offset) => [
+    { account: 'テスト銀行', on: addDays(TODAY, offset), amount: 1_200_000 + offset * 10_000 },
+    { account: 'テストカード', on: addDays(TODAY, offset), amount: 40_000 - offset * 1_000 },
+  ]);
+  await rewriteJson(page, 'money.balances', () => ({ items: balances, nextCursor: null }));
+  await page.goto('/money');
+  await page
+    .getByRole('region', { name: '口座' })
+    .getByRole('button', { name: /テスト銀行/ })
+    .click();
+  await expect(page).toHaveURL(/\/money\/balances\?accounts=/);
+
+  // AppBar に出している期間（最初は今日までの過去 3 か月）。グラフは ECharts が読み上げ用の説明を付ける
+  const [, month, date] = TODAY.split('-').map(Number);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(`〜 ${month}/${date}`);
+  const chart = page.locator('[aria-label*="テスト銀行"]');
+  await expect(chart).toBeVisible();
+  await expect(chart).not.toHaveAttribute('aria-label', /テストカード/);
+
+  await page.getByRole('button', { name: '絞り込み' }).click();
+  await expect(page.getByRole('checkbox', { name: 'テスト銀行' })).toBeChecked();
+  await page.getByRole('checkbox', { name: 'テストカード' }).check();
+  await expect(page).toHaveURL(/accounts=.*accounts=/);
+  await expect(chart).toHaveAttribute('aria-label', /テストカード/);
+
+  // 戻るとお金の画面（口座の選び直しは履歴に積まない）
+  await page.getByRole('button', { name: '戻る' }).click();
+  await expect(page).toHaveURL('/money');
 });

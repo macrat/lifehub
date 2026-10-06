@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
@@ -39,7 +39,7 @@ export const Route = createFileRoute('/_authenticated/money')({
 const TILES_SX = { px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' } as const;
 
 /**
- * お金。口座のタイル（残高・評価額・カードの次回の引き落とし）、立替の精算、立替と取り込んだ入出金を 1 本に並べた履歴。
+ * お金。口座のタイル（残高・評価額・カードの次回の引き落とし。押すとその口座の値の推移）、立替の精算、立替と取り込んだ入出金を 1 本に並べた履歴。
  * 精算は専用の操作ではなく「誰かが誰かに払った額」を立替として追加し、精算のタイルをタップするとその精算を入れた入力が開く。
  * 履歴は上が新しく下が古い無限スクロールで、最初に出す位置は `HistoryList` が決め、下へ進むと古いほうのページを読む。
  * 絞り込みのフォームとタイルは一覧の上に貼り付け、ホームのタイルと同じく下へスクロールすると隠れ、少し戻すと出てくる
@@ -60,6 +60,7 @@ function MoneyPage() {
   // 追加のフォームと、最初に入れておく値（精算のタイルから開くとその精算）
   const adding = useOpenWith<Partial<ExpenseInput>>();
   const selection = useRecordSelection<MoneyEntry>();
+  const navigate = useNavigate();
   const selected = selection.selected;
 
   const openAdd = () => adding.open({});
@@ -76,7 +77,14 @@ function MoneyPage() {
       {accountsQuery.data?.length !== 0 && (
         <Box component="section" aria-label="口座" sx={TILES_SX}>
           <QueryView query={accountsQuery} skeleton={<AccountGridSkeleton />}>
-            {(accounts) => <AccountGrid accounts={accounts} />}
+            {(accounts) => (
+              <AccountGrid
+                accounts={accounts}
+                onSelect={(account) =>
+                  navigate({ to: '/money/balances', search: { accounts: [account.name] } })
+                }
+              />
+            )}
           </QueryView>
         </Box>
       )}

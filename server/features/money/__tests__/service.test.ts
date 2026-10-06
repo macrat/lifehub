@@ -15,7 +15,7 @@ import {
   parseYen,
 } from '../parse.ts';
 import { moneyAccounts, moneyTransactions } from '../schema.ts';
-import { listAccounts, syncMoneyForward } from '../service.ts';
+import { getBalancePage, listAccounts, syncMoneyForward } from '../service.ts';
 
 /** お金の画面の一覧の 1 ページから入出金だけ（絞り込みは立替の一覧と同じ条件） */
 async function listTransactions(query: ExpenseListQuery) {
@@ -199,6 +199,36 @@ describe('money service', () => {
       '外した銀行',
     );
     expect((await listTransactions({})).items.map((t) => t.description)).toEqual(['スーパー']);
+  });
+
+  it('取り込むたびに口座の値をその日の記録として残し、推移を 3 か月ごとのページで読める', async () => {
+    serve([csv([])]);
+    // 7 月の記録（最初のページの外）と、今日 2 度の取り込み（同じ日は上書き）
+    await syncMoneyForward(new Date('2026-07-01T09:00:00+09:00'));
+    await syncMoneyForward(NOW);
+    vi.spyOn(moneyforward, 'scrapeMoneyForward').mockResolvedValue({
+      csvs: [csv([])],
+      accounts: [
+        { name: 'テスト銀行', balance: 1_000, withdrawalAmount: null, withdrawalOn: null },
+      ],
+    });
+    await syncMoneyForward(NOW);
+
+    const byAccount = <T extends { account: string }>(items: T[]) =>
+      items.toSorted((a, b) => a.account.localeCompare(b.account));
+    const latest = await getBalancePage(undefined, NOW);
+    // 明日より前の 3 か月（7/7〜10/6）。カードは利用残高（負の数）の大きさを負債額にする
+    expect(byAccount(latest.items)).toEqual(
+      byAccount([
+        { account: 'テスト銀行', on: '2026-10-06', amount: 1_000 },
+        { account: 'テストカード', on: '2026-10-06', amount: 42_000 },
+        { account: 'テスト証券', on: '2026-10-06', amount: 890_000 },
+      ]),
+    );
+    expect(latest.nextCursor).toBe('2026-07-07');
+    const older = await getBalancePage(latest.nextCursor ?? undefined, NOW);
+    expect(older.items.map((b) => b.on)).toEqual(['2026-07-01', '2026-07-01', '2026-07-01']);
+    expect(older.nextCursor).toBeNull();
   });
 
   it('Money Forward が読めなければ投げ、前回の値を残す', async () => {

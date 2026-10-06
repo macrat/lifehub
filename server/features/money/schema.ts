@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { boolean, check, date, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  date,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { MONEY_RULE_KINDS, type MoneyRuleKind } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { users } from '../users/schema.ts';
@@ -22,6 +32,26 @@ export const moneyAccounts = pgTable('money_accounts', {
 });
 
 export type MoneyAccountRow = typeof moneyAccounts.$inferSelect;
+
+/**
+ * 口座の値の日ごとの記録（残高の推移のグラフ）。取り込むたびに、その日（JST）の行を口座の今の値で上書きする
+ * （同じ日に何度取り込んでも 1 日 1 行で、最後に読んだ値が残る）。
+ * WHY 自分で記録する: Money Forward の資産推移は分類（預金・株式など）ごとの合計だけで、口座ごとの推移を読める画面が無い。
+ * そのため推移は記録を始めた日からしか無い。
+ * balance は Money Forward の口座一覧の金額そのまま（カードは利用残高で、負の数で載る）。グラフに出す向きは service が決める。
+ * 環境変数から外した口座の行は、次の取り込みで消す（口座の行と同じ）。
+ */
+export const moneyBalances = pgTable(
+  'money_balances',
+  {
+    account: text('account').notNull(),
+    recordedOn: date('recorded_on').$type<DateString>().notNull(),
+    balance: integer('balance').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.account, table.recordedOn] })],
+);
+
+export type MoneyBalanceRow = typeof moneyBalances.$inferSelect;
 
 /**
  * Money Forward から取り込んだ入出金。取り込むたびに、取り込んだ期間の行を Money Forward の今の明細に合わせる

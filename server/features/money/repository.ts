@@ -1,6 +1,7 @@
-import { and, asc, eq, gte, isNotNull, lte, notInArray, type SQL, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lt, lte, notInArray, type SQL, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import type { DateString } from '../../../shared/types.ts';
 import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
@@ -10,9 +11,11 @@ import { timelineQueries } from '../../lib/db/timeline.ts';
 import type { Rewritten } from './rules.ts';
 import {
   type MoneyAccountRow,
+  type MoneyBalanceRow,
   type MoneyRuleRow,
   type MoneyTransactionRow,
   moneyAccounts,
+  moneyBalances,
   moneyRules,
   moneyTransactions,
 } from './schema.ts';
@@ -32,21 +35,25 @@ export async function findAccounts(): Promise<MoneyAccountRow[]> {
  *   transactions に無い明細は Money Forward で消されたものとして消す。transactions の id は新しく作るときだけ使う。
  *   明細を 1 つも読めなければ range は null で、明細には触らない（置き換える範囲は読んだ明細の日付で決めるため）
  * - 口座の値を上書きする（行が無ければ作る）
+ * - 口座の値の日ごとの記録（balanceRows）を足す。同じ口座・同じ日の行は上書きする
  */
 export async function saveImport({
   accounts,
   range,
   transactions,
   accountRows,
+  balanceRows,
 }: {
   accounts: string[];
   range: DateRange | null;
   transactions: (TransactionValues & { id: string })[];
   accountRows: MoneyAccountRow[];
+  balanceRows: MoneyBalanceRow[];
 }): Promise<void> {
   await runBatch((tx) => [
     tx.delete(moneyTransactions).where(notInArray(moneyTransactions.account, accounts)),
     tx.delete(moneyAccounts).where(notInArray(moneyAccounts.name, accounts)),
+    tx.delete(moneyBalances).where(notInArray(moneyBalances.account, accounts)),
     ...(range
       ? [
           tx.delete(moneyTransactions).where(
@@ -90,7 +97,41 @@ export async function saveImport({
           fetchedAt: sql`excluded.fetched_at`,
         },
       }),
+    ...(balanceRows.length > 0
+      ? [
+          tx
+            .insert(moneyBalances)
+            .values(balanceRows)
+            .onConflictDoUpdate({
+              target: [moneyBalances.account, moneyBalances.recordedOn],
+              set: { balance: sql`excluded.balance` },
+            }),
+        ]
+      : []),
   ]);
+}
+
+/**
+ * 口座の値の記録のうち [from, before) の日の行（日の古い順）と、from より前の記録がまだあるか。
+ * 2 つは同じ時点に投げる（往復を増やさない）
+ */
+export async function findBalances(
+  from: DateString,
+  before: DateString,
+): Promise<{ rows: MoneyBalanceRow[]; hasOlder: boolean }> {
+  const [rows, older] = await Promise.all([
+    db
+      .select()
+      .from(moneyBalances)
+      .where(and(gte(moneyBalances.recordedOn, from), lt(moneyBalances.recordedOn, before)))
+      .orderBy(asc(moneyBalances.recordedOn), asc(moneyBalances.account)),
+    db
+      .select({ one: sql`1` })
+      .from(moneyBalances)
+      .where(lt(moneyBalances.recordedOn, from))
+      .limit(1),
+  ]);
+  return { rows, hasOlder: older.length > 0 };
 }
 
 /** キーワードの条件: 内容の部分一致 */
