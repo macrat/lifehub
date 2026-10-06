@@ -1,9 +1,9 @@
 import { TOTP } from 'otpauth';
 import type { Browser, Page } from 'playwright-core';
-import type { MoneyAccountKind } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { env } from '../../lib/env.ts';
+import { env, type MoneyForwardAccount } from '../../lib/env.ts';
 import { matchAccount, parseWithdrawalAmount, parseWithdrawalDate, parseYen } from './parse.ts';
+import type { MoneyAccountRow } from './schema.ts';
 
 /**
  * Money Forward ME をブラウザ（Playwright）で開き、口座の値と入出金の CSV を読む。
@@ -32,30 +32,31 @@ const TIMEOUT_MS = 30_000;
 /** ログインの画面を進める回数の上限（メール → パスワード → 確認コード → アカウントの選択 → パスキーの案内） */
 const MAX_SIGN_IN_STEPS = 8;
 
-export type MonthOf = { year: number; month: number };
+/** 画面の文字だけを読むので、読み込まない種類（取り込みの時間を短くする） */
+const SKIPPED_RESOURCES = new Set(['image', 'font', 'media']);
+
+type Credentials = { email: string; password: string; totpSecret?: string | undefined };
 
 /** 口座 1 つの、画面から読んだ値（`money_accounts` の行） */
-type AccountValues = {
-  name: string;
-  balance: number | null;
-  withdrawalAmount: number | null;
-  withdrawalOn: DateString | null;
-};
+type AccountValues = Omit<MoneyAccountRow, 'fetchedAt'>;
 
 /**
- * ログインして、accounts の値と、months（年と月）ごとの入出金の CSV（文字に直したもの）を読む。
+ * ログインして、accounts の値と、months（YYYY-MM）ごとの入出金の CSV（文字に直したもの）を読む。
  * 口座一覧に見つからない口座は値を null にする（名前の書き間違いは画面に「—」で出るので気づける）。
  * ログインや CSV の取得に失敗したら投げる。
  */
 export async function scrapeMoneyForward(
-  credentials: { email: string; password: string; totpSecret?: string | undefined },
-  accounts: readonly { kind: MoneyAccountKind; name: string }[],
-  months: readonly MonthOf[],
+  credentials: Credentials,
+  accounts: readonly MoneyForwardAccount[],
+  months: readonly string[],
 ): Promise<{ csvs: string[]; accounts: AccountValues[] }> {
   const browser = await launch();
   try {
     const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
     context.setDefaultTimeout(TIMEOUT_MS);
+    await context.route('**/*', (route) =>
+      SKIPPED_RESOURCES.has(route.request().resourceType()) ? route.abort() : route.continue(),
+    );
     const page = await context.newPage();
     await signIn(page, credentials);
     const values = await readAccounts(page, accounts);
@@ -84,11 +85,8 @@ async function launch(): Promise<Browser> {
  * 途中の画面（メール、パスワード、2 段階認証、アカウントの選択、パスキーの案内）は出たり出なかったりし、
  * 順も決まっていないので、ME に戻るまで「今出ている画面」を見て 1 つずつ進める。
  */
-async function signIn(
-  page: Page,
-  credentials: { email: string; password: string; totpSecret?: string | undefined },
-): Promise<void> {
-  await page.goto(`${ME}/sign_in`);
+async function signIn(page: Page, credentials: Credentials): Promise<void> {
+  await visit(page, `${ME}/sign_in`);
   const screens = {
     email: page.locator('input[name="mfid_user[email]"]'),
     password: page.locator('input[name="mfid_user[password]"]'),
@@ -155,11 +153,11 @@ function isSignedIn(href: string): boolean {
  */
 async function readAccounts(
   page: Page,
-  accounts: readonly { kind: MoneyAccountKind; name: string }[],
+  accounts: readonly MoneyForwardAccount[],
 ): Promise<AccountValues[]> {
   const names = accounts.map((account) => account.name);
 
-  await page.goto(`${ME}/accounts`);
+  await visit(page, `${ME}/accounts`);
   await page.locator('#account-table').first().waitFor();
   const listed = new Map<string, { balance: number | null; href: string | null }>();
   for (const row of await page.locator('#account-table tbody tr').all()) {
@@ -173,26 +171,32 @@ async function readAccounts(
     });
   }
 
-  const cards = accounts.filter((account) => account.kind === 'card');
-  const withdrawalDates = cards.length > 0 ? await readWithdrawalDates(page, names) : new Map();
-  const values: AccountValues[] = [];
-  for (const { kind, name } of accounts) {
-    const found = listed.get(name);
-    const withdrawalAmount =
-      kind === 'card' && found?.href ? await readWithdrawalAmount(page, found.href) : null;
-    values.push({
-      name,
-      balance: found?.balance ?? null,
-      withdrawalAmount,
-      withdrawalOn: kind === 'card' ? (withdrawalDates.get(name) ?? null) : null,
-    });
-  }
-  return values;
+  const hasCard = accounts.some((account) => account.kind === 'card');
+  const withdrawalDates = hasCard ? await readWithdrawalDates(page, names) : new Map();
+  // カードの詳細は互いに依らないので、カードごとにタブを開いて並べて読む
+  return Promise.all(
+    accounts.map(async ({ kind, name }) => {
+      const found = listed.get(name);
+      const card = kind === 'card';
+      return {
+        name,
+        balance: found?.balance ?? null,
+        withdrawalAmount: card && found?.href ? await readWithdrawalAmount(page, found.href) : null,
+        withdrawalOn: card ? (withdrawalDates.get(name) ?? null) : null,
+      };
+    }),
+  );
 }
 
+/** カードの詳細を別のタブで開いて、引き落とし額を読む */
 async function readWithdrawalAmount(page: Page, href: string): Promise<number | null> {
-  await page.goto(new URL(href, ME).href);
-  return parseWithdrawalAmount(await page.locator('h1.heading-small').allInnerTexts());
+  const tab = await page.context().newPage();
+  try {
+    await visit(tab, new URL(href, ME).href);
+    return parseWithdrawalAmount(await tab.locator('h1.heading-small').allInnerTexts());
+  } finally {
+    await tab.close();
+  }
 }
 
 /** トップの口座の並びから、口座ごとの引き落とし日 */
@@ -200,7 +204,7 @@ async function readWithdrawalDates(
   page: Page,
   names: readonly string[],
 ): Promise<Map<string, DateString>> {
-  await page.goto(ME);
+  await visit(page, ME);
   const dates = new Map<string, DateString>();
   for (const item of await page.locator('li.account').all()) {
     const [heading = ''] = await item.locator('.heading-accounts').allInnerTexts();
@@ -216,10 +220,10 @@ async function readWithdrawalDates(
  * 1 か月分の入出金の CSV。ログインしたブラウザのセッション（Cookie）で求め、Shift_JIS を文字に直す。
  * セッションが切れているとログインの画面（HTML）が返るので、CSV の見出しで確かめる。
  */
-async function downloadCsv(page: Page, { year, month }: MonthOf): Promise<string> {
-  const from = `${year}/${String(month).padStart(2, '0')}/01`;
+async function downloadCsv(page: Page, month: string): Promise<string> {
+  const [year = '', m = ''] = month.split('-');
   const response = await page.request.get(
-    `${ME}/cf/csv?${new URLSearchParams({ from, month: String(month), year: String(year) })}`,
+    `${ME}/cf/csv?${new URLSearchParams({ from: `${year}/${m}/01`, month: String(Number(m)), year })}`,
   );
   if (!response.ok()) throw new Error(`moneyforward: CSV を取れません（${response.status()}）`);
   const text = new TextDecoder('shift_jis').decode(await response.body());
@@ -229,4 +233,9 @@ async function downloadCsv(page: Page, { year, month }: MonthOf): Promise<string
     );
   }
   return text;
+}
+
+/** 画面を開く。読むのは文字だけなので、画像などの読み込み（load）を待たず、文書ができた所で進む */
+async function visit(page: Page, url: string): Promise<void> {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
 }

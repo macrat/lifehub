@@ -29,7 +29,7 @@
 | `add_expense` / `update_expense` | 立替（精算を含む）を記録する・直す。書いた後の精算も返す |
 | `log_lemon_care` / `update_lemon_log` | レモンの世話を記録する・直す |
 | `add_memo` / `update_memo` | メモを書く・直す（直せるのは書いた本人だけ） |
-| `delete_entry` | どの種類のエントリーも ref で消す（取り込んだ入出金は消せず、Money Forward で消すよう返す） |
+| `delete_entry` | どの種類のエントリーも ref で消す（取り込んだ入出金は読むだけで ref を持たない） |
 
 命名は `動詞_対象`（`read_timeline`・`add_expense`）。読むツールは種類を問わず 1 本（`read_timeline`）にし、書くツールは種類ごとに分ける。読むときは「今週どうなってる？」のように種類をまたいで訊かれ、書くときは項目が種類ごとに違う（1 本にすると入力が種類ごとの分岐の `anyOf` になる）。ただし予定とタスクは 1 本（`add_event` / `update_event` の `kind`）: 画面と同じく同じ入力で書き、書いた後でも種類を入れ替えられるようにする（[events.md](events.md)）。項目は予定の終わり（`end` とその前の通知）のほかは同じなので、分岐にしなくても平らな入力で足りる。消すのは ref だけで足りるので 1 本（`delete_entry`）。ツールの性質（`readOnlyHint` / `destructiveHint` / `idempotentHint`）を付け、クライアントが確認の要否を決められるようにする。サーバーの説明（`instructions`。`server/mcp.ts`）には全体の捉え方と約束事だけを書き、個々の使い方は各ツールの説明に書く。
 

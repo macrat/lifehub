@@ -1,7 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { addDays, type DateRange, today } from '../../../shared/date.ts';
-import { ValidationError } from '../../lib/errors.ts';
 import {
   type FormattedEntry,
   formatEntry,
@@ -11,8 +10,8 @@ import {
 } from '../../lib/mcp/entries.ts';
 import {
   ENTRY_TYPES,
-  type EntryType,
   occurrenceTargetOf,
+  type ReadableEntryType,
   refSchema,
   scopeSchema,
 } from '../../lib/mcp/refs.ts';
@@ -60,7 +59,7 @@ function formatDay(day: TimelineDay, entries: FormattedEntry[]) {
 async function readDays(
   ctx: McpContext,
   days: DateRange,
-  filter: { q?: string | undefined; types?: EntryType[] | undefined },
+  filter: { q?: string | undefined; types?: ReadableEntryType[] | undefined },
 ) {
   const [people, timeline] = await Promise.all([ctx.people(), listDays(days, filter)]);
   const filtered = filter.q !== undefined || filter.types !== undefined;
@@ -127,7 +126,7 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
     {
       title: 'タイムラインを読む',
       description: [
-        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで直せない）。各日には祝日（holiday）と天気の要約（weather）も付く。',
+        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで ref を持たない）。各日には祝日（holiday）と天気の要約（weather）も付く。',
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎれば今日に出る。完了したタスクは完了した日に出る。',
         '日時は JST。終日の予定・タスクは start / end が日付だけ（end はその日を含む）。',
         'q で文字（タイトル・メモ・立替の内容・メモの本文・入出金の内容など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
@@ -178,10 +177,6 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
         case 'memo':
           await memos.deleteMemo(ref.id, ctx.userId);
           break;
-        case 'transaction':
-          throw new ValidationError(
-            '入出金は Money Forward から取り込んだもので、LifeHub からは消せません。Money Forward で消すと、次の取り込みで消えます',
-          );
         default: {
           // 種類を増やして消し方を足し忘れたら型エラーにする（何も消さずに「消しました」と返さない）
           const unhandled: never = ref.type;

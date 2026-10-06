@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { type CalendarItem, inRange, isCompletedTask } from '../../../shared/calendar.ts';
 import type { DateRange } from '../../../shared/date.ts';
+import { toMonthString } from '../../../shared/date.ts';
 import { matchesKeyword } from '../../../shared/search.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { dateStringSchema } from '../../../shared/validation/common.ts';
 import { addSearchSchema } from '../../lib/add-search.ts';
-import { toMonthString } from '../../lib/date.ts';
+
 import type { FilterConditions, Filters, FiltersPatch } from '../../lib/search.ts';
 import { type CalendarView, viewSchema } from './view.ts';
 

@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router';
 import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
 import { ExpenseDetailSheet } from '../../features/expenses/components/ExpenseDetailSheet.tsx';
 import { ExpenseFilterForm } from '../../features/expenses/components/ExpenseFilterForm.tsx';
@@ -46,6 +46,7 @@ import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
 export const Route = createFileRoute('/_authenticated/money')({
   validateSearch: moneySearchSchema,
+  search: { middlewares: [stripSearchParams({ view: 'expenses' })] },
   staticData: { ownsScroll: true },
   component: MoneyPage,
 });
@@ -65,7 +66,7 @@ const TILES_SX = { px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' } as 
  */
 function MoneyPage() {
   const search = Route.useSearch();
-  const view: MoneyView = search.view ?? 'expenses';
+  const { view } = search;
   const filter = useFilterSearch(search, MONEY_FILTER_CONDITIONS[view]);
   // この画面が読むもの: 口座、精算の元になる合計、立替と入出金の履歴（タブを切り替えたときにすぐ出せるよう両方を読む）
   useScreenQueries([accountsQueryOptions, totalsQueryOptions]);
@@ -84,7 +85,7 @@ function MoneyPage() {
   const openAdd = () => adding.open({});
   useAddShortcut(search.add, openAdd);
   const showView = (next: MoneyView, patch: { account?: string } = {}) =>
-    filter.setFilters({ view: next === 'expenses' ? undefined : next, ...patch });
+    filter.setFilters({ view: next, ...patch });
 
   const header = (
     <>

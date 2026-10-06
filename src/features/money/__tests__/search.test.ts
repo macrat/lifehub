@@ -8,7 +8,7 @@ const countActiveFilters = (search: MoneySearch, view: MoneyView = 'expenses') =
 
 const ME = '11111111-1111-4111-8111-111111111111';
 /** 何も絞り込んでいない状態 */
-const NO_FILTERS: MoneySearch = {};
+const NO_FILTERS: MoneySearch = { view: 'expenses' };
 
 describe('countActiveFilters', () => {
   it('範囲は上下をまとめて 1 つと数える', () => {

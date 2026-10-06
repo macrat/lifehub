@@ -62,21 +62,25 @@ export async function failFetches(page: Page, prefixes: readonly string[]): Prom
 /** 読み出しの結果の作り直し。入力と、本物の結果を読む関数を受け取る */
 type Rewrite = (input: unknown, real: () => Promise<unknown>) => unknown;
 
-/**
- * 手続き procedure（読み出し）の結果を、本物の結果から作り直したものに差し替える。
- * 本物を取ってから、まとめた中の当たる呼び出しの結果だけを差し替える。rewrite は呼び出しの入力を受け取る
- */
-export async function rewriteJson(page: Page, procedure: string, rewrite: Rewrite): Promise<void> {
-  await rewriteJsons(page, { [procedure]: rewrite });
-}
+/** ページごとの、手続きの名前 → 作り直し。ページに付ける差し替え（`page.route`）は 1 つだけにする */
+const rewritesOf = new WeakMap<Page, Map<string, Rewrite>>();
 
 /**
- * いくつかの手続きの結果を差し替える（`rewriteJson` の、手続きごとの作り直しの組）。同じ時点に読む手続きは
- * 1 本の要求にまとめて送られ、要求 1 本を受け持てる差し替えは 1 つだけなので、同じ画面で読む手続きはここに並べる。
+ * 手続き procedure（読み出し）の結果を、本物の結果から作り直したものに差し替える。
+ * 本物を取ってから、まとめた中の当たる呼び出しの結果だけを差し替える。rewrite は呼び出しの入力を受け取る。
+ * 同じ時点に読む手続きは 1 本の要求にまとめて送られ、要求 1 本を受け持てる差し替えは 1 つだけなので、
+ * 差し替えはページに 1 つだけ付け、何度呼んでもそこへ手続きを足す（同じ要求に載った手続きをどれも差し替えられる）。
  */
-export async function rewriteJsons(page: Page, rewrites: Record<string, Rewrite>): Promise<void> {
+export async function rewriteJson(page: Page, procedure: string, rewrite: Rewrite): Promise<void> {
+  const known = rewritesOf.get(page);
+  if (known) {
+    known.set(procedure, rewrite);
+    return;
+  }
+  const rewrites = new Map([[procedure, rewrite]]);
+  rewritesOf.set(page, rewrites);
   await page.route(
-    (url) => proceduresOf(String(url)).some((name) => name in rewrites),
+    (url) => proceduresOf(String(url)).some((name) => rewrites.has(name)),
     async (route) => {
       const url = route.request().url();
       const res = await route.fetch();
@@ -84,7 +88,7 @@ export async function rewriteJsons(page: Page, rewrites: Record<string, Rewrite>
       const rewritten = await Promise.all(
         proceduresOf(url).map(async (name, i): Promise<Part | undefined> => {
           const part = parts[i];
-          const rewrite = rewrites[name];
+          const rewrite = rewrites.get(name);
           if (!part || !rewrite) return part;
           const data = await rewrite(inputOf(url, i), async () => part.result?.data);
           return { result: { data } };

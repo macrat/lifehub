@@ -7,7 +7,7 @@ import type { Memo } from '../../../shared/memos.ts';
 import type { Actor } from '../../lib/actor.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
-  type FormattedEntry,
+  type FormattedRecord,
   formatCareLog,
   formatEvent,
   formatExpense,
@@ -138,7 +138,7 @@ function deliverAll(subscriptions: McpEventSubscriptionRow[], occurrence: Occurr
 }
 
 /** 記録をエントリーの形にする関数。予定・タスクを読み直すときは、人の一覧と並べて読めるよう先に読む */
-async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) => FormattedEntry> {
+async function formatterOf(changed: ChangedRecord): Promise<(people: Person[]) => FormattedRecord> {
   switch (changed.type) {
     case 'memo':
       return (people) => formatMemo(changed.record, people);

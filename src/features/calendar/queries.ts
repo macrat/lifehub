@@ -1,9 +1,10 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { CalendarPeriod } from '../../../shared/calendar.ts';
+import { toMonthString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { DailyWeather, HourlyWeather } from '../../../shared/weather.ts';
-import { toMonthString } from '../../lib/date.ts';
+
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { calendarMonthQueryOptions, useCalendarPeriods } from '../events/queries.ts';
 

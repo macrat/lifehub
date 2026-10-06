@@ -92,3 +92,22 @@ export function isDateString(value: string): value is DateString {
   const date = startOfDate(value as DateString);
   return !Number.isNaN(date.getTime()) && toDateString(date) === value;
 }
+
+/** "YYYY-MM" */
+export function toMonthString(date: DateString): string {
+  return date.slice(0, 7);
+}
+
+/** 年月（YYYY-MM）の 1 日 */
+export function firstDayOfMonth(month: string): DateString {
+  const date = `${month}-01`;
+  if (!isDateString(date)) throw new Error(`invalid month: ${month}`);
+  return date;
+}
+
+/** 月を n か月ずらす */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
+}

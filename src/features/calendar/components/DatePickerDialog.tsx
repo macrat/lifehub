@@ -7,16 +7,9 @@ import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { today } from '../../../../shared/date.ts';
+import { addMonths, firstDayOfMonth, today, toMonthString } from '../../../../shared/date.ts';
 import type { DateString } from '../../../../shared/types.ts';
-import {
-  addMonths,
-  firstDayOfMonth,
-  formatDateWithYear,
-  formatMonth,
-  toMonthString,
-  weekdayLabelColor,
-} from '../../../lib/date.ts';
+import { formatDateWithYear, formatMonth, weekdayLabelColor } from '../../../lib/date.ts';
 import { Dialog } from '../../../lib/ui/Dialog.tsx';
 import {
   formatWeekRange,

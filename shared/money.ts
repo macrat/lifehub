@@ -10,18 +10,18 @@ import type { DateString } from './types.ts';
  * 種類でお金の画面のカードに出す値が変わる: 銀行は残高、証券は評価額、クレジットカードは次回の引き落とし。
  */
 export const MONEY_ACCOUNT_KINDS = ['bank', 'securities', 'card'] as const;
-export type MoneyAccountKind = (typeof MONEY_ACCOUNT_KINDS)[number];
+type MoneyAccountKind = (typeof MONEY_ACCOUNT_KINDS)[number];
 
 /** お金の画面のカード 1 枚。並びは環境変数に書いた順 */
 export type MoneyAccount = {
   /** Money Forward での金融機関の名前（環境変数に書いた名前） */
   name: string;
   kind: MoneyAccountKind;
-  /** 銀行の残高・証券の評価額（円）。まだ取り込んでいない、または読めなかったら null */
+  /** 銀行の残高・証券の評価額（円）。クレジットカード、まだ取り込んでいない、または読めなかったら null */
   balance: number | null;
-  /** クレジットカードの次回の引き落とし額（円）。読めなかったら null */
+  /** クレジットカードの次回の引き落とし額（円）。カード以外、または読めなかったら null */
   withdrawalAmount: number | null;
-  /** クレジットカードの次回の引き落とし日。読めなかったら null */
+  /** クレジットカードの次回の引き落とし日。カード以外、または読めなかったら null */
   withdrawalOn: DateString | null;
   /** 最後に取り込んだ日時（ISO）。まだ取り込んでいなければ null */
   fetchedAt: string | null;

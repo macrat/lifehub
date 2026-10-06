@@ -1,6 +1,6 @@
-import { addDays, today } from '../../../shared/date.ts';
+import { addDays, firstDayOfMonth, today, toMonthString } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { firstDayOfMonth, formatMonth, toMonthString, weekdayIndex } from '../../lib/date.ts';
+import { formatMonth, weekdayIndex } from '../../lib/date.ts';
 
 /**
  * カレンダーの画面だけが使う日の並び（月のグリッド・週。月曜始まり）と、その見出し。

@@ -1,8 +1,8 @@
-import { startOfDate, today } from '../shared/date.ts';
+import { today } from '../shared/date.ts';
 import type { MoneyAccount, MoneyTransaction } from '../shared/money.ts';
-import type { TimelineEntry } from '../shared/timeline.ts';
+import { type TimelineEntry, transactionEntry } from '../shared/timeline.ts';
 import type { HistoryPage } from '../shared/types.ts';
-import { rewriteJsons } from './network.ts';
+import { rewriteJson } from './network.ts';
 import { expect, test } from './test.ts';
 
 /**
@@ -41,24 +41,16 @@ const SUPERMARKET: MoneyTransaction = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await rewriteJsons(page, {
-    'money.accounts': () => ACCOUNTS,
-    'money.transactions': (): HistoryPage<MoneyTransaction> => ({
-      items: [SUPERMARKET],
-      nextCursor: null,
-    }),
-    'timeline.get': async (input, real) => {
-      const latest = (await real()) as HistoryPage<TimelineEntry>;
-      if ((input as { before?: string } | undefined)?.before) return latest;
-      const entry: TimelineEntry = {
-        type: 'transaction',
-        id: `transaction:${SUPERMARKET.id}`,
-        at: startOfDate(TODAY).toISOString(),
-        dateOnly: true,
-        transaction: SUPERMARKET,
-      };
-      return { ...latest, items: [entry, ...latest.items] };
-    },
+  await rewriteJson(page, 'money.accounts', () => ACCOUNTS);
+  await rewriteJson(
+    page,
+    'money.transactions',
+    (): HistoryPage<MoneyTransaction> => ({ items: [SUPERMARKET], nextCursor: null }),
+  );
+  await rewriteJson(page, 'timeline.get', async (input, real) => {
+    const latest = (await real()) as HistoryPage<TimelineEntry>;
+    if ((input as { before?: string } | undefined)?.before) return latest;
+    return { ...latest, items: [transactionEntry(SUPERMARKET), ...latest.items] };
   });
 });
 

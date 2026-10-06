@@ -70,6 +70,9 @@ const envObject = z.object({
 
 export type Env = z.infer<typeof envObject>;
 
+/** 取り込む口座 1 つ（`MONEYFORWARD_ACCOUNTS` の 1 項目） */
+export type MoneyForwardAccount = z.infer<typeof moneyAccountsSchema>[number];
+
 /**
  * 本番で必ず要る変数。1 つでも欠けていれば起動しない。
  * 欠けたままでも通知の予約（`server/features/notifications/publisher.ts`）と送信（`server/features/push/service.ts`）、

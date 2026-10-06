@@ -116,10 +116,9 @@ export function formatMemo(memo: Memo, people: Person[]) {
   };
 }
 
-/** Money Forward から取り込んだ入出金。amount は入金が正、出金が負 */
+/** Money Forward から取り込んだ入出金。amount は入金が正、出金が負。読むだけなので ref を持たない */
 function formatTransaction(transaction: MoneyTransaction) {
   return {
-    ref: toRef('transaction', transaction.id),
     type: 'transaction' as const,
     date: transaction.occurredOn,
     account: transaction.account,
@@ -138,7 +137,7 @@ export function formatMoneyAccount(account: MoneyAccount) {
     name: account.name,
     kind: account.kind,
     ...compact({
-      balance: account.kind === 'card' ? null : account.balance,
+      balance: account.balance,
       withdrawalAmount: account.withdrawalAmount,
       withdrawalOn: account.withdrawalOn,
       fetchedAt: account.fetchedAt && jstDateTime(account.fetchedAt),
@@ -146,13 +145,13 @@ export function formatMoneyAccount(account: MoneyAccount) {
   };
 }
 
-export type FormattedEntry = ReturnType<
-  | typeof formatEvent
-  | typeof formatExpense
-  | typeof formatCareLog
-  | typeof formatMemo
-  | typeof formatTransaction
+/** ref を持つ（書き換え・消せる）エントリーの出力。MCP Events もこの形で知らせる */
+export type FormattedRecord = ReturnType<
+  typeof formatEvent | typeof formatExpense | typeof formatCareLog | typeof formatMemo
 >;
+
+/** タイムラインのエントリーの出力。読むだけの入出金は ref を持たない */
+export type FormattedEntry = FormattedRecord | ReturnType<typeof formatTransaction>;
 
 export function formatEntry(entry: TimelineEntry, people: Person[]): FormattedEntry {
   switch (entry.type) {

@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray, lte, notInArray, or, type SQL, sql } from 'drizzle-orm';
 import { TIME_ZONE } from '../../../shared/constants.ts';
-import type { DateString } from '../../../shared/types.ts';
+import type { DateRange } from '../../../shared/date.ts';
 import type { TransactionFilter, TransactionListQuery } from '../../../shared/validation/money.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
 import { findHistoryPage } from '../../lib/db/history.ts';
@@ -40,49 +40,42 @@ export async function upsertAccounts(rows: MoneyAccountRow[]): Promise<void> {
 }
 
 /**
- * accounts の [from, to]（両端を含む）の明細を、取り込んだ rows に置き換える。
+ * accounts の range（両端を含む）の明細を、取り込んだ rows に置き換える。
  * 同じ明細（`source_id`）は上書きし（行の id は変えない）、rows に無い明細は Money Forward で消されたものとして消す。
  * 1 つのトランザクションで書くので、途中で失敗しても前の明細が残る（`runBatch`）。
- * rows の id は新しく作るときだけ使う。
+ * rows の id は新しく作るときだけ使う。rows は空にしない（範囲は rows の日付から決めるので、空なら呼ばない）。
  */
 export async function replaceInRange(
   accounts: string[],
-  range: { from: DateString; to: DateString },
+  range: DateRange,
   rows: (TransactionValues & { id: string })[],
 ): Promise<void> {
-  if (accounts.length === 0) return;
-  const inRange = and(
-    inArray(moneyTransactions.account, accounts),
-    gte(moneyTransactions.occurredOn, range.from),
-    lte(moneyTransactions.occurredOn, range.to),
-  );
-  const sourceIds = rows.map((row) => row.sourceId);
   await runBatch((tx) => [
-    tx
-      .delete(moneyTransactions)
-      .where(
-        sourceIds.length > 0
-          ? and(inRange, notInArray(moneyTransactions.sourceId, sourceIds))
-          : inRange,
+    tx.delete(moneyTransactions).where(
+      and(
+        inArray(moneyTransactions.account, accounts),
+        gte(moneyTransactions.occurredOn, range.from),
+        lte(moneyTransactions.occurredOn, range.to),
+        notInArray(
+          moneyTransactions.sourceId,
+          rows.map((row) => row.sourceId),
+        ),
       ),
-    ...(rows.length > 0
-      ? [
-          tx
-            .insert(moneyTransactions)
-            .values(rows)
-            .onConflictDoUpdate({
-              target: moneyTransactions.sourceId,
-              set: {
-                account: sql`excluded.account`,
-                occurredOn: sql`excluded.occurred_on`,
-                description: sql`excluded.description`,
-                amount: sql`excluded.amount`,
-                category: sql`excluded.category`,
-                updatedAt: new Date(),
-              },
-            }),
-        ]
-      : []),
+    ),
+    tx
+      .insert(moneyTransactions)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: moneyTransactions.sourceId,
+        set: {
+          account: sql`excluded.account`,
+          occurredOn: sql`excluded.occurred_on`,
+          description: sql`excluded.description`,
+          amount: sql`excluded.amount`,
+          category: sql`excluded.category`,
+          updatedAt: new Date(),
+        },
+      }),
   ]);
 }
 

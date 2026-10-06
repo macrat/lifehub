@@ -112,10 +112,7 @@ describe('money service', () => {
     const scrape = serve([csv([])]);
     expect(await syncMoneyForward(NOW)).toEqual({ transactions: 0, accounts: 3 });
     // 先月と今月の 2 か月を読む
-    expect(scrape.mock.calls[0]?.[2]).toEqual([
-      { year: 2026, month: 9 },
-      { year: 2026, month: 10 },
-    ]);
+    expect(scrape.mock.calls[0]?.[2]).toEqual(['2026-09', '2026-10']);
     expect(await listAccounts()).toMatchObject([
       { name: 'テスト銀行', kind: 'bank', balance: 1_234_567 },
       { name: 'テスト証券', kind: 'securities', balance: 890_000 },

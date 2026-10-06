@@ -1,19 +1,16 @@
-import { addDays, today } from '../../../shared/date.ts';
+import { addMonths, today, toMonthString } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
-import type { MoneyAccount, MoneyAccountKind, MoneyTransaction } from '../../../shared/money.ts';
+import type { MoneyAccount, MoneyTransaction } from '../../../shared/money.ts';
 import { transactionEntry } from '../../../shared/timeline.ts';
-import type { DateString, HistoryPage } from '../../../shared/types.ts';
+import type { HistoryPage } from '../../../shared/types.ts';
 import type { TransactionListQuery } from '../../../shared/validation/money.ts';
-import { env } from '../../lib/env.ts';
+import { env, type MoneyForwardAccount } from '../../lib/env.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
-import { type MonthOf, scrapeMoneyForward } from './moneyforward.ts';
-import { parseTransactionsCsv } from './parse.ts';
 import * as repository from './repository.ts';
 import type { MoneyAccountRow, MoneyTransactionRow } from './schema.ts';
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
-const configuredAccounts: readonly { kind: MoneyAccountKind; name: string }[] =
-  env.MONEYFORWARD_ACCOUNTS ?? [];
+const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCOUNTS ?? [];
 
 const accountNames = configuredAccounts.map((account) => account.name);
 
@@ -27,6 +24,7 @@ const accountNames = configuredAccounts.map((account) => account.name);
  * ずれることがある。暦の月で置き換えると、CSV に載らなかった日の明細を消してしまう。
  * ログイン情報か口座が無ければ何もしない（本番では起動時に止まる。`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。
  * 取り込みに失敗したら何も書かずに投げる（前回の値が残る。Cron の失敗として残す）。
+ * ブラウザと CSV・2 段階認証の部品は取り込みのときだけ読む（同じ関数が受ける画面の API の要求のたびに読み込まない）。
  */
 export async function syncMoneyForward(
   now: Date = new Date(),
@@ -38,8 +36,12 @@ export async function syncMoneyForward(
   } = env;
   if (!email || !password || configuredAccounts.length === 0) return { skipped: true };
 
-  const date = today(now);
-  const months = [monthOf(addDays(monthStart(date), -1)), monthOf(date)];
+  const [{ scrapeMoneyForward }, { parseTransactionsCsv }] = await Promise.all([
+    import('./moneyforward.ts'),
+    import('./parse.ts'),
+  ]);
+  const month = toMonthString(today(now));
+  const months = [addMonths(month, -1), month];
   const scraped = await scrapeMoneyForward(
     { email, password, totpSecret },
     configuredAccounts,
@@ -67,7 +69,7 @@ export async function syncMoneyForward(
 /** お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる */
 export async function listAccounts(): Promise<MoneyAccount[]> {
   const rows = new Map((await repository.findAccounts(accountNames)).map((row) => [row.name, row]));
-  return configuredAccounts.map(({ name, kind }) => toAccount(name, kind, rows.get(name)));
+  return configuredAccounts.map((account) => toAccount(account, rows.get(account.name)));
 }
 
 /** 入出金の履歴の 1 ページ（古い順）。今取り込んでいる口座のものだけ */
@@ -83,37 +85,28 @@ export const timelineSource = recordTimelineSource(repository.timeline(accountNa
   transactionEntry(toTransaction(row)),
 );
 
+/** 種類ごとに、その種類のカードが出す値だけを持たせる（カードの利用残高は出さない） */
 function toAccount(
-  name: string,
-  kind: MoneyAccountKind,
+  { name, kind }: MoneyForwardAccount,
   row: MoneyAccountRow | undefined,
 ): MoneyAccount {
+  const card = kind === 'card';
   return {
     name,
     kind,
-    balance: row?.balance ?? null,
-    withdrawalAmount: row?.withdrawalAmount ?? null,
-    withdrawalOn: row?.withdrawalOn ?? null,
+    balance: card ? null : (row?.balance ?? null),
+    withdrawalAmount: card ? (row?.withdrawalAmount ?? null) : null,
+    withdrawalOn: card ? (row?.withdrawalOn ?? null) : null,
     fetchedAt: row?.fetchedAt.toISOString() ?? null,
   };
 }
 
-function toTransaction(row: MoneyTransactionRow): MoneyTransaction {
-  return {
-    id: row.id,
-    account: row.account,
-    occurredOn: row.occurredOn,
-    description: row.description,
-    amount: row.amount,
-    category: row.category,
-  };
-}
-
-/** その月の 1 日 */
-function monthStart(date: DateString): DateString {
-  return addDays(date, 1 - Number(date.slice(8, 10)));
-}
-
-function monthOf(date: DateString): MonthOf {
-  return { year: Number(date.slice(0, 4)), month: Number(date.slice(5, 7)) };
+/** 行から画面に出さない列（取り込みの鍵と監査列）を除く */
+function toTransaction({
+  sourceId: _,
+  createdAt: __,
+  updatedAt: ___,
+  ...transaction
+}: MoneyTransactionRow): MoneyTransaction {
+  return transaction;
 }
