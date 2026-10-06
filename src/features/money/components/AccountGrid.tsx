@@ -41,9 +41,7 @@ function tileValues(account: MoneyAccount): { value: string; sub: string } {
     case 'card':
       return {
         value: yen(account.withdrawalAmount),
-        sub: account.withdrawalOn
-          ? `${formatMonthDay(account.withdrawalOn)} 予定`
-          : '次回の引き落とし',
+        sub: account.withdrawalOn ? `次回 ${formatMonthDay(account.withdrawalOn)}` : '次回',
       };
   }
 }

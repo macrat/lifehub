@@ -74,9 +74,9 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   await expect(accounts).toContainText('テスト銀行');
   await expect(accounts).toContainText('¥1,234,567');
   await expect(accounts).toContainText('¥42,000');
-  // カードの引き落とし日は曜日を付けずに「10/27 予定」
+  // カードの引き落とし日は曜日を付けずに「次回 10/27」
   await expect(accounts).toContainText(
-    `${Number(TODAY.slice(5, 7))}/${Number(TODAY.slice(8, 10))} 予定`,
+    `次回 ${Number(TODAY.slice(5, 7))}/${Number(TODAY.slice(8, 10))}`,
   );
 
   // 立替は今までどおり足せて、同じ一覧に並ぶ
