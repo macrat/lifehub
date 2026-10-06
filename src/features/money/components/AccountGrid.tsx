@@ -3,8 +3,11 @@ import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/Status
 import { formatYen } from '../../../lib/yen.ts';
 import type { MoneyAccount } from '../queries.ts';
 
-/** スマホは 2 列、広い画面は 4 列（口座は数枚なので、1〜2 行に収まる） */
-const COLUMNS = { xs: 2, md: 4 };
+/**
+ * スマホは 3 列、広い画面は 4 列（口座は数枚なので、1〜2 行に収まる）。
+ * スマホの 3 列でも 7 桁（100 万円台）の金額が収まるよう、値の字は小さめにする（`StatusTile` の size small）
+ */
+const COLUMNS = { xs: 3, md: 4 };
 
 /** 値が読めていないときの表示（取り込む前、または Money Forward の画面から読めなかった） */
 const UNKNOWN = '—';
@@ -22,7 +25,7 @@ export function AccountGrid({ accounts }: Props) {
   return (
     <TileGrid columns={COLUMNS}>
       {accounts.map((account) => (
-        <StatusTile key={account.name} label={account.name} {...tileValues(account)} />
+        <StatusTile key={account.name} label={account.name} size="small" {...tileValues(account)} />
       ))}
     </TileGrid>
   );
@@ -49,8 +52,9 @@ function tileValues(account: MoneyAccount): { value: string; sub: string } {
 export function AccountGridSkeleton() {
   return (
     <TileGrid columns={COLUMNS}>
-      <StatusTileSkeleton />
-      <StatusTileSkeleton />
+      <StatusTileSkeleton size="small" />
+      <StatusTileSkeleton size="small" />
+      <StatusTileSkeleton size="small" />
     </TileGrid>
   );
 }

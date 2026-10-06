@@ -82,12 +82,12 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   await page.getByLabel('内容', { exact: true }).fill(description);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(description)).toBeVisible();
-  await expect(page.getByRole('main')).toContainText('-¥3,200');
+  await expect(page.getByRole('main')).toContainText('¥-3,200');
 
   // 行の押せる範囲は中身の下に敷いたボタンで、名前は中身の文字（`PressableRow`）
   await page.getByRole('button', { name: new RegExp(SUPERMARKET.description) }).click();
   const detail = page.getByRole('dialog', { name: SUPERMARKET.description });
-  await expect(detail).toContainText('-¥3,200');
+  await expect(detail).toContainText('¥-3,200');
   // 取り込んだ物は直せない
   await expect(detail.getByRole('button', { name: '編集' })).toHaveCount(0);
 });
@@ -96,7 +96,7 @@ test('取り込んだ入出金はホームのタイムラインに金融機関�
   await page.goto('/');
   const row = page.getByRole('button', { name: new RegExp(SUPERMARKET.description) });
   await expect(row).toHaveAccessibleName(/テストカード/);
-  await expect(page.getByText(`-¥3,200 ${SUPERMARKET.description}`)).toBeVisible();
+  await expect(page.getByText(`¥-3,200 ${SUPERMARKET.description}`)).toBeVisible();
   await row.click();
   await expect(page.getByRole('dialog', { name: SUPERMARKET.description })).toBeVisible();
 });
