@@ -2,7 +2,14 @@ import { TOTP } from 'otpauth';
 import type { Browser, Page } from 'playwright-core';
 import type { DateString } from '../../../shared/types.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
-import { matchAccount, parseWithdrawalAmount, parseWithdrawalDate, parseYen } from './parse.ts';
+import {
+  matchAccount,
+  parseCsvLinkMonth,
+  parseWithdrawalAmount,
+  parseWithdrawalDate,
+  parseYen,
+  type TransferRow,
+} from './parse.ts';
 import type { MoneyAccountRow } from './schema.ts';
 
 /**
@@ -10,7 +17,7 @@ import type { MoneyAccountRow } from './schema.ts';
  * Money Forward ME には個人で使える API が無いので、人が使うのと同じ画面を開いて読む。
  * 入出金は家計簿の CSV ダウンロード（有料プランの機能）で読む。WHY: 画面の表を読むより Money Forward が配る形のほうが
  * 見た目の変更に左右されず、明細の ID（同じ明細を 2 度入れないための鍵）も載っている。
- * 口座の値（残高・引き落とし）は CSV に無いので画面から読む。画面の作りに頼る所はこのファイルにまとめ、
+ * 口座の値（残高・引き落とし）と振替の相手の口座は CSV に無いので画面から読む。画面の作りに頼る所はこのファイルにまとめ、
  * 読んだ文字の読み方は `parse.ts` に置く。
  */
 
@@ -41,7 +48,7 @@ type Credentials = { email: string; password: string; totpSecret?: string | unde
 type AccountValues = Omit<MoneyAccountRow, 'fetchedAt'>;
 
 /**
- * ログインして、accounts の値と、months（YYYY-MM）ごとの入出金の CSV（文字に直したもの）を読む。
+ * ログインして、accounts の値と、months（YYYY-MM。古い順）ごとの入出金の CSV（文字に直したもの）と振替の行を読む。
  * 口座一覧に見つからない口座は値を null にする（名前の書き間違いは画面に「—」で出るので気づける）。
  * ログインや CSV の取得に失敗したら投げる。
  */
@@ -49,7 +56,7 @@ export async function scrapeMoneyForward(
   credentials: Credentials,
   accounts: readonly MoneyForwardAccount[],
   months: readonly string[],
-): Promise<{ csvs: string[]; accounts: AccountValues[] }> {
+): Promise<{ csvs: string[]; transfers: TransferRow[]; accounts: AccountValues[] }> {
   const browser = await launch();
   try {
     const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
@@ -63,7 +70,7 @@ export async function scrapeMoneyForward(
     const csvs = [];
     // 並べずに 1 つずつ読む（同じセッションで続けて CSV を求めても、Money Forward に負荷を掛けない）
     for (const month of months) csvs.push(await downloadCsv(page, month));
-    return { csvs, accounts: values };
+    return { csvs, transfers: await readTransfers(page, months), accounts: values };
   } finally {
     await browser.close();
   }
@@ -234,6 +241,54 @@ async function downloadCsv(page: Page, month: string): Promise<string> {
     );
   }
   return text;
+}
+
+/**
+ * 家計簿の画面（/cf）から、months の振替の行（明細の ID と、保有金融機関の欄の 2 つの口座）を読む。
+ * 振替の行の保有金融機関の欄は、片方の口座の名前の下に、もう片方の口座の名前を囲み（`.transfer_account_box`）で出す。
+ * 行の id は `js-transaction-<明細の ID>`（CSV の「ID」の列と同じ）。
+ * 家計簿の画面は今月から開き、月は「前の月」のボタンで遡る（月を URL で指定できない）。
+ */
+async function readTransfers(page: Page, months: readonly string[]): Promise<TransferRow[]> {
+  await visit(page, `${ME}/cf`);
+  await page.locator('#cf-detail-table').waitFor();
+  const transfers: TransferRow[] = [];
+  for (const month of months.toReversed()) {
+    await showMonth(page, month);
+    const box = page.locator('.transfer_account_box');
+    const rows = page.locator('#cf-detail-table tbody tr').filter({ has: box });
+    for (const row of await rows.all()) {
+      const cell = row.locator('td').filter({ has: box });
+      const [[text = ''], [counterpart = ''], id] = await Promise.all([
+        cell.allInnerTexts(),
+        cell.locator(box).allInnerTexts(),
+        row.getAttribute('id'),
+      ]);
+      if (!id?.startsWith('js-transaction-')) {
+        throw new Error('moneyforward: 家計簿の振替の行に明細の ID がありません');
+      }
+      transfers.push({
+        id: id.slice('js-transaction-'.length),
+        accounts: [text.replace(counterpart, '').trim(), counterpart.trim()],
+      });
+    }
+  }
+  return transfers;
+}
+
+/** 家計簿の画面を month まで遡る。出ている月は CSV のリンクの年月で見る（見出しは月の始まりの日の設定で形が変わる） */
+async function showMonth(page: Page, month: string): Promise<void> {
+  const csvLink = page.locator('a[href*="/cf/csv"]').first();
+  for (;;) {
+    const href = (await csvLink.getAttribute('href')) ?? '';
+    const shown = parseCsvLinkMonth(href);
+    if (shown === month) return;
+    if (!shown || shown < month) {
+      throw new Error(`moneyforward: 家計簿の画面を ${month} にできません（${shown}）`);
+    }
+    await page.locator('.fc-button-prev').first().click();
+    await page.locator(`a[href*="/cf/csv"]:not([href="${href}"])`).first().waitFor();
+  }
 }
 
 /** 画面を開く。読むのは文字だけなので、画像などの読み込み（load）を待たず、文書ができた所で進む */
