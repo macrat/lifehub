@@ -22,17 +22,17 @@ import type { HistorySource } from '../../lib/history-source.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
 import { applyRules } from './rules.ts';
-import type {
-  MoneyAccountRow,
-  MoneyBalanceRow,
-  MoneyRuleRow,
-  MoneyTransactionRow,
-} from './schema.ts';
+import type { MoneyAccountRow, MoneyRuleRow, MoneyTransactionRow } from './schema.ts';
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
 const configuredAccounts: readonly MoneyForwardAccount[] = env.MONEYFORWARD_ACCOUNTS ?? [];
 
 const accountNames = configuredAccounts.map((account) => account.name);
+
+/** クレジットカードの口座の名前（値の記録では負債額を負の数で持つ） */
+const cardNames = new Set(
+  configuredAccounts.filter((account) => account.kind === 'card').map((account) => account.name),
+);
 
 /**
  * Money Forward から口座の値と入出金を取り込む（日次の Cron）。取り込んだ明細と口座の数を返す。
@@ -89,8 +89,17 @@ export async function syncMoneyForward(
     range: from && to ? { from, to } : null,
     transactions,
     accountRows: scraped.accounts.map((account) => ({ ...account, fetchedAt })),
+    // カードの負債額は Money Forward の利用残高の符号に依らず、大きさに - を付ける（`MoneyBalance` の向き）
     balanceRows: scraped.accounts.flatMap(({ name, balance }) =>
-      balance === null ? [] : [{ account: name, recordedOn: today(now), balance }],
+      balance === null
+        ? []
+        : [
+            {
+              account: name,
+              recordedOn: today(now),
+              balance: cardNames.has(name) ? -Math.abs(balance) : balance,
+            },
+          ],
     ),
   });
   return { transactions: transactions.length, accounts: scraped.accounts.length };
@@ -109,8 +118,8 @@ const BALANCE_PAGE_MONTHS = 3;
  * 残高の推移の 1 ページ（今取り込んでいる口座すべて）。before（省けば明日）より前の BALANCE_PAGE_MONTHS か月の日の記録を、
  * 日の古い順に返す。nextCursor はこのページの始まりの日で、それより前の記録が無ければ null。
  * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う。
- * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。
- * 値の向き（`MoneyBalance`）: カードの負債額は負の数にする（Money Forward の利用残高の符号に依らず、大きさに - を付ける）
+ * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。並びは画面が日で揃える（`toSeries`）ので決めない。
+ * 値は記録したときに `MoneyBalance` の向きにしてある（カードの負債額は負の数）
  */
 export async function getBalancePage(
   before: DateString | undefined,
@@ -119,21 +128,9 @@ export async function getBalancePage(
   const end = before ?? addDays(today(now), 1);
   const from = addCalendarMonths(end, -BALANCE_PAGE_MONTHS);
   const { rows, hasOlder } = await repository.findBalances(from, end);
-  const kinds = new Map(configuredAccounts.map((account) => [account.name, account.kind]));
   return {
-    items: rows.flatMap((row) => {
-      const kind = kinds.get(row.account);
-      return kind ? [toBalance(row, kind === 'card')] : [];
-    }),
+    items: rows.map((row) => ({ account: row.account, on: row.recordedOn, amount: row.balance })),
     nextCursor: hasOlder ? from : null,
-  };
-}
-
-function toBalance(row: MoneyBalanceRow, liability: boolean): MoneyBalance {
-  return {
-    account: row.account,
-    on: row.recordedOn,
-    amount: liability ? -Math.abs(row.balance) : row.balance,
   };
 }
 

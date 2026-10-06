@@ -38,7 +38,7 @@ export type MoneyAccountRow = typeof moneyAccounts.$inferSelect;
  * （同じ日に何度取り込んでも 1 日 1 行で、最後に読んだ値が残る）。
  * WHY 自分で記録する: Money Forward の資産推移は分類（預金・株式など）ごとの合計だけで、口座ごとの推移を読める画面が無い。
  * そのため推移は記録を始めた日からしか無い。
- * balance は Money Forward の口座一覧の金額そのまま（カードは利用残高で、負の数で載る）。グラフに出す向きは service が決める。
+ * balance はグラフに出す向き（`MoneyBalance`）: 銀行は残高、証券は評価額、カードは負債額を負の数で持つ（取り込みで向きを揃える）。
  * 環境変数から外した口座の行は、次の取り込みで消す（口座の行と同じ）。
  */
 export const moneyBalances = pgTable(

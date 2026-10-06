@@ -72,7 +72,7 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 
 - `money_rules`: 入出金のルール（`position` の順）。`pattern`、`replace_description`、`replacement`、`kind`（`spending` / `deposit` / `withdrawal`）、`user_id`（支出なら null。CHECK 制約）、`hidden`（一覧に表示しない）。家族で 1 つの並びで、保存は並び全体の置き換え。
 - `money_accounts`: 口座の名前ごとの今の値（残高・評価額 `balance`、カードの引き落とし `withdrawal_amount`・`withdrawal_on`、取り込んだ日時 `fetched_at`）。読めなかった値は null。
-- `money_balances`: 口座の値の日ごとの記録（`account` と `recorded_on` が主キー）。`balance` は Money Forward の口座一覧の金額そのまま（カードは利用残高で負の数）。グラフに出す向き（カードの負債額は負の数）は `server/features/money/service.ts` の `getBalancePage` が決める。環境変数から外した口座の行は次の取り込みで消す。
+- `money_balances`: 口座の値の日ごとの記録（`account` と `recorded_on` が主キー）。`balance` は銀行なら残高、証券なら評価額、カードなら負債額を負の数で持つ（取り込みのときに向きを揃える。`server/features/money/service.ts` の `syncMoneyForward`）。環境変数から外した口座の行は次の取り込みで消す。
 - `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。`original_description` は Money Forward の内容欄そのまま、`description` はルールで読み替えた後。`direction`（`deposit` / `withdrawal`）と `user_id` はルールで「共有」との立替にしたときの向きと対象者で、組でしか持てない（CHECK 制約）。`hidden` はルールで一覧に出さないとしたもの。Money Forward の分類（大項目・中項目）は取り込まない（Money Forward の自動の分類は正しいとは限らず、LifeHub からは直せないので、出しても頼れない）。`source_id` は Money Forward の明細の ID（一意）。
 
 ## API（`server/features/money/routes.ts`）

@@ -67,6 +67,14 @@ export function toListFilter<T extends { q: string; add?: unknown }>({
   return keyword ? { ...filter, q: keyword } : filter;
 }
 
+/**
+ * いくつも選べる値の検索パラメータ（`?accounts=A&accounts=B`）。検索パラメータは URLSearchParams のまま読む
+ * （`src/main.tsx` の parseSearch）ので、値が 1 つなら配列ではなく文字列で届く。どちらも配列にそろえる
+ */
+export function searchArray<T extends z.ZodType<string>>(item: T) {
+  return z.union([z.array(item), item.transform((value) => [value])]);
+}
+
 /** 選択欄の「すべて」。絞り込まない状態は URL に残さないので、値としては持たず undefined にする */
 export const ALL = 'all';
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNotNull, lt, lte, notInArray, type SQL, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lte, notInArray, type SQL, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
@@ -111,27 +111,26 @@ export async function saveImport({
   ]);
 }
 
+/** 口座の値の記録の、日で区切る問い合わせ（`historyQueries`） */
+const balanceQueries = historyQueries({
+  table: moneyBalances,
+  day: moneyBalances.recordedOn,
+  conditions: [],
+});
+
 /**
- * 口座の値の記録のうち [from, before) の日の行（日の古い順）と、from より前の記録がまだあるか。
+ * 口座の値の記録のうち [from, before) の日の行と、from より前の記録がまだあるか。
  * 2 つは同じ時点に投げる（往復を増やさない）
  */
 export async function findBalances(
   from: DateString,
   before: DateString,
 ): Promise<{ rows: MoneyBalanceRow[]; hasOlder: boolean }> {
-  const [rows, older] = await Promise.all([
-    db
-      .select()
-      .from(moneyBalances)
-      .where(and(gte(moneyBalances.recordedOn, from), lt(moneyBalances.recordedOn, before)))
-      .orderBy(asc(moneyBalances.recordedOn), asc(moneyBalances.account)),
-    db
-      .select({ one: sql`1` })
-      .from(moneyBalances)
-      .where(lt(moneyBalances.recordedOn, from))
-      .limit(1),
+  const [rows, hasOlder] = await Promise.all([
+    balanceQueries.findInDays(from, before),
+    balanceQueries.hasBefore(from),
   ]);
-  return { rows, hasOlder: older.length > 0 };
+  return { rows, hasOlder };
 }
 
 /** キーワードの条件: 内容の部分一致 */

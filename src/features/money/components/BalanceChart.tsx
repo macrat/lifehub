@@ -1,3 +1,4 @@
+import type { DefaultLabelFormatterCallbackParams } from 'echarts';
 import { LineChart, type LineSeriesOption } from 'echarts/charts';
 import {
   AriaComponent,
@@ -13,13 +14,12 @@ import {
 } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MoneyBalance } from '../../../../shared/money.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { useColorMode } from '../../../lib/theme.ts';
 import { formatYen } from '../../../lib/yen.ts';
 import { axisRange, type ChartWindow, formatAxisYen, toSeries } from '../balance-chart.ts';
-import type { BalanceChartState } from '../use-balance-chart.ts';
 
 // 使う部品だけを読み込む（ECharts 全体は大きい。この画面のチャンクにだけ入る）
 echarts.use([
@@ -50,76 +50,98 @@ type Props = {
   accounts: readonly string[];
   /** 出す口座 */
   selected: readonly string[];
-  state: BalanceChartState;
+  /** 横軸の範囲 */
+  axis: ChartWindow;
+  /** 最初に出す期間。その後の期間はグラフ（dataZoom）が持つ */
+  initial: ChartWindow;
+  /** 操作で出している期間が変わったとき */
+  onWindowChange: (window: ChartWindow) => void;
 };
 
 /**
  * 残高の推移の、塗りつぶし付きの折れ線グラフ（ECharts）。選んだ口座を積み上げる。
- * - ピンチ・ホイールで期間を拡大縮小し、ドラッグで前後へ動かす（dataZoom の inside）
+ * - ピンチ・ホイールで期間を拡大縮小し、ドラッグで前後へ動かす（dataZoom の inside）。期間はグラフが持ち、
+ *   変わるたびに onWindowChange で知らせる（option には入れないので、操作のたびに系列を作り直さない）
  * - 縦軸は出している期間の値の最小と最大から少し広げた範囲（`axisRange`。dataZoom の filter で期間の外の値は除いて測る）
  * - グラフのどこかを押す・マウスを乗せると、その日の日付と金額（2 つ以上なら合計も）が出る
  * 口座はすべて系列として持ち、出さない口座は凡例の選択で隠す（系列の順が変わらないので、色が口座ごとに決まる）。
  */
-export function BalanceChart({ balances, accounts, selected, state }: Props) {
+export function BalanceChart({
+  balances,
+  accounts,
+  selected,
+  axis,
+  initial,
+  onWindowChange,
+}: Props) {
   const mode = useColorMode();
-  const { window, axisStart, onWindowChange } = state;
   const option = useMemo(
-    () => chartOption(balances, accounts, selected, window, axisStart),
-    [balances, accounts, selected, window, axisStart],
+    () => chartOption(balances, accounts, selected, axis),
+    [balances, accounts, selected, axis],
   );
-  const ref = useECharts(mode, option, onWindowChange);
+  const ref = useECharts(mode, option, initial, onWindowChange);
   return <div ref={ref} style={{ height: '100%' }} />;
 }
 
 /**
- * ECharts を div に描く。色の向き（mode）が変わったら作り直し、大きさは要素の大きさに合わせ続ける。
- * option が変わったら差分を当てる。期間の操作（dataZoom）で変わった期間を onWindowChange に渡す。
+ * ECharts を div に描く。色の向き（mode）が変わったら作り直し（そのときの期間は引き継ぐ）、大きさは要素の大きさに
+ * 合わせ続け、option が変わったら差分を当てる。期間の操作（dataZoom）で変わった期間を onWindowChange に渡す。
+ * 期間は操作の知らせの後に dataZoom から読む（知らせが持つのは割合で、その基準は横軸の min・max ではなくグラフの内部の範囲なので、
+ * 値に直せない）。
  * WHY NOT echarts-for-react: CommonJS だけで配られていて、Vite の本番の束ねでは default の読み込みが部品にならない。
  * 要るのは作る・合わせる・捨てるだけなので、ECharts の API を直に呼ぶ。
  */
 function useECharts(
   mode: 'light' | 'dark',
   option: ChartOption,
+  initial: ChartWindow,
   onWindowChange: (window: ChartWindow) => void,
 ) {
   const ref = useRef<HTMLDivElement>(null);
-  const chart = useRef<echarts.ECharts | null>(null);
-  const onChange = useRef(onWindowChange);
-  onChange.current = onWindowChange;
+  const [chart, setChart] = useState<echarts.ECharts | null>(null);
+  // 知らせのたびに読む最新の値（作り直さずに済むよう ref で持つ）。作り直すときはそのときの期間を引き継ぐ
+  const latest = useRef({ window: initial, onWindowChange });
+  latest.current.onWindowChange = onWindowChange;
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     const instance = echarts.init(element, mode === 'dark' ? 'dark' : undefined);
-    chart.current = instance;
     instance.on('datazoom', () => {
-      const [zoom] = (instance.getOption() as ChartOption).dataZoom as {
-        startValue: number;
-        endValue: number;
-      }[];
-      if (zoom) onChange.current({ start: zoom.startValue, end: zoom.endValue });
+      const [zoom] = instance.getOption().dataZoom as DataZoomComponentOption[];
+      if (zoom?.startValue === undefined || zoom.endValue === undefined) return;
+      const window = { start: Number(zoom.startValue), end: Number(zoom.endValue) };
+      latest.current.window = window;
+      latest.current.onWindowChange(window);
     });
     const observer = new ResizeObserver(() => instance.resize());
     observer.observe(element);
+    setChart(instance);
     return () => {
       observer.disconnect();
       instance.dispose();
-      chart.current = null;
     };
   }, [mode]);
-  // 作り直した後にも当てる（mode の変化で、option は同じまま描き直す）
-  // biome-ignore lint/correctness/useExhaustiveDependencies: mode は作り直しの合図
   useEffect(() => {
-    chart.current?.setOption(option);
-  }, [option, mode]);
+    // 期間は今の期間（グラフが知らせてきた物）を付けて当てる。付けないと、横軸が伸びたとき（古いほうを読み足したとき）に
+    // 割合のまま残って、出している期間がずれる
+    const { start, end } = latest.current.window;
+    chart?.setOption({ ...option, dataZoom: [{ ...DATA_ZOOM, startValue: start, endValue: end }] });
+  }, [chart, option]);
   return ref;
 }
+
+/** 期間の操作 */
+const DATA_ZOOM: DataZoomComponentOption = {
+  type: 'inside',
+  filterMode: 'filter',
+  minValueSpan: MIN_SPAN,
+};
 
 function chartOption(
   balances: readonly MoneyBalance[],
   accounts: readonly string[],
   selected: readonly string[],
-  window: ChartWindow,
-  axisStart: number,
+  axis: ChartWindow,
 ): ChartOption {
   return {
     backgroundColor: 'transparent',
@@ -137,8 +159,8 @@ function chartOption(
     },
     xAxis: {
       type: 'time',
-      min: axisStart,
-      max: window.end > Date.now() ? window.end : Date.now(),
+      min: axis.start,
+      max: axis.end,
       axisLabel: {
         formatter: { year: '{yyyy}年', month: '{M}月', day: '{M}/{d}' },
         hideOverlap: true,
@@ -151,15 +173,6 @@ function chartOption(
       // 上下の端は余白を足した中途半端な値なので、目盛りの数字は出さない（きりのよい目盛りとくっついて読みにくい）
       axisLabel: { formatter: formatAxisYen, showMinLabel: false, showMaxLabel: false },
     },
-    dataZoom: [
-      {
-        type: 'inside',
-        filterMode: 'filter',
-        startValue: window.start,
-        endValue: window.end,
-        minValueSpan: MIN_SPAN,
-      },
-    ],
     series: toSeries(balances, accounts).map(({ account, points }) => ({
       type: 'line',
       name: account,
@@ -171,25 +184,25 @@ function chartOption(
   };
 }
 
-/** 押した日の日付と、口座ごとの金額（2 つ以上なら合計も） */
-function tooltipText(
-  params: { axisValue?: unknown; marker?: unknown; seriesName?: string; value?: unknown }[],
-): string {
-  const rows = params.flatMap((param) => {
-    const amount = (param.value as [number, number | null] | undefined)?.[1];
-    return amount === null || amount === undefined
+/** 押した日の日付と、口座ごとの金額（2 つ以上なら合計も）。点はどれも [時刻, 金額]（`toSeries`） */
+function tooltipText(params: DefaultLabelFormatterCallbackParams[]): string {
+  const points = params.map((param) => ({
+    param,
+    point: param.value as [number, number | null],
+  }));
+  const rows = points.flatMap(({ param, point: [, amount] }) =>
+    amount === null
       ? []
-      : [{ label: `${param.marker ?? ''}${escapeHtml(param.seriesName ?? '')}`, amount }];
-  });
-  const day = params[0]?.axisValue;
-  const lines = [
-    typeof day === 'number' ? formatDateWithYear(new Date(day)) : '',
+      : [{ label: `${param.marker}${escapeHtml(param.seriesName ?? '')}`, amount }],
+  );
+  const day = points[0]?.point[0];
+  return [
+    ...(day === undefined ? [] : [formatDateWithYear(new Date(day))]),
     ...rows.map((row) => `${row.label} ${formatYen(row.amount)}`),
     ...(rows.length > 1
       ? [`合計 ${formatYen(rows.reduce((sum, row) => sum + row.amount, 0))}`]
       : []),
-  ];
-  return lines.join('<br>');
+  ].join('<br>');
 }
 
 /** 口座の名前を HTML に差し込むので、タグにならないようにする（ECharts の tooltip は HTML で描く） */

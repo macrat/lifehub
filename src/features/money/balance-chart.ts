@@ -1,6 +1,7 @@
 import { addCalendarMonths, startOfDate, toDateString } from '../../../shared/date.ts';
 import type { MoneyBalance } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
+import { formatMonthDay } from '../../lib/date.ts';
 import { formatYen } from '../../lib/yen.ts';
 
 /**
@@ -35,14 +36,17 @@ export function toSeries(
   accounts: readonly string[],
 ): BalanceSeries[] {
   const days = [...new Set(balances.map((balance) => balance.on))].sort();
-  const amounts = new Map(balances.map((b) => [`${b.account}\n${b.on}`, b.amount]));
+  const times = days.map((day) => startOfDate(day).getTime());
+  const amounts = new Map(accounts.map((account) => [account, new Map<DateString, number>()]));
+  for (const { account, on, amount } of balances) amounts.get(account)?.set(on, amount);
   return accounts.map((account) => {
+    const byDay = amounts.get(account);
     let last: number | null = null;
     return {
       account,
-      points: days.map((day) => {
-        last = amounts.get(`${account}\n${day}`) ?? last;
-        return [startOfDate(day).getTime(), last];
+      points: days.map((day, i) => {
+        last = byDay?.get(day) ?? last;
+        return [times[i] ?? 0, last];
       }),
     };
   });
@@ -83,10 +87,8 @@ export function formatAxisYen(value: number): string {
 }
 
 /** AppBar に出す期間（「2026/7/6 〜 10/6」。年をまたぐときは両方に年を付ける） */
-export function formatWindow(window: ChartWindow): string {
-  const parts = (time: number) =>
-    toDateString(new Date(time)).split('-').map(Number) as [number, number, number];
-  const [sy, sm, sd] = parts(window.start);
-  const [ey, em, ed] = parts(window.end);
-  return sy === ey ? `${sy}/${sm}/${sd} 〜 ${em}/${ed}` : `${sy}/${sm}/${sd} 〜 ${ey}/${em}/${ed}`;
+export function formatWindow({ start, end }: ChartWindow): string {
+  const year = (time: number) => toDateString(new Date(time)).slice(0, 4);
+  const endYear = year(end) === year(start) ? '' : `${year(end)}/`;
+  return `${year(start)}/${formatMonthDay(new Date(start))} 〜 ${endYear}${formatMonthDay(new Date(end))}`;
 }
