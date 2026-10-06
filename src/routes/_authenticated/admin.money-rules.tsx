@@ -3,6 +3,7 @@ import { MoneyRuleList } from '../../features/money/components/MoneyRuleList.tsx
 import { rulesQueryOptions } from '../../features/money/queries.ts';
 import { useMoneyRules } from '../../features/money/use-money-rules.ts';
 import { useScreenQueries } from '../../lib/screen-data.ts';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 
 export const Route = createFileRoute('/_authenticated/admin/money-rules')({
@@ -20,8 +21,11 @@ function AdminMoneyRulesPage() {
   useScreenQueries([rulesQueryOptions]);
   const state = useMoneyRules();
   return (
-    <QueryView query={state.rulesQuery} skeleton={<ListSkeleton rows={2} />}>
-      {() => <MoneyRuleList state={state} />}
-    </QueryView>
+    <>
+      <QueryView query={state.rulesQuery} skeleton={<ListSkeleton rows={2} />}>
+        {() => <MoneyRuleList state={state} />}
+      </QueryView>
+      <AddFab label="ルールを追加" onClick={state.add} />
+    </>
   );
 }

@@ -33,7 +33,7 @@
 
 決まった日に決まった内容で発生する立替（共有口座への定期の入金、個人の口座からの口座振替の支払い）を、日が来たら自動で記録する。
 
-- 画面: 設定の「お金」→「立替スケジュール」（`/admin/expense-schedules`。`src/routes/_authenticated/admin.expense-schedules.tsx`）。スケジュールを作った順に並べ、1 行に内容と金額、繰り返し・次に記録する日・To と From（`src/features/expenses/components/ExpenseScheduleList.tsx`）。AppBar の「スケジュールを追加」で追加し、行を押すと変更、三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
+- 画面: 設定の「お金」→「立替スケジュール」（`/admin/expense-schedules`。`src/routes/_authenticated/admin.expense-schedules.tsx`）。スケジュールを作った順に並べ、1 行に内容と金額、繰り返し・次に記録する日・To と From（`src/features/expenses/components/ExpenseScheduleList.tsx`）。右下の追加ボタン（「立替スケジュールを追加」）で追加し、行を押すと変更、三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
 - 立替スケジュールの追加・変更・削除はこの画面だけで行う。立替の入力・詳細・一覧はスケジュールに触れず、記録された立替は手で入れた立替と同じ普通の立替で、スケジュールとのつながりも持たない。WHY: 立替の入力欄に普段は使わない項目を足さず、記録された立替を直す・消すときに「この回だけ」のような区別を持ち込まない。
 - 回の日（`shared/expenses.ts` の `scheduleDate`）: どの回も最初の日から数える（前の回から数えない）。毎月・毎年でその日が無い月（31 日、2/29）はその月の末日にし、次の月には元の日に戻る（1/31 → 2/28 → 3/31。ずれていかない）。WHY NOT RRULE（予定・タスクの繰り返し）: RRULE の毎月はその日が無い月を飛ばし、月末払いが記録されない月ができる。繰り返しは 4 通りだけなので、日付の足し算で足りる。
 - 記録: 追加したとき、最初の日から今日までの回をその場で記録する（最初の日が先ならその日まで何も記録しない）。先の日の回は、日付が変わってすぐの Cron（`/api/cron/expenses`。`server/features/expenses/service.ts` の `recordScheduledExpenses`）が、日が来た回を記録する。Cron が止まっていた日の回は、次に動いたときにまとめて記録する。記録した人はスケジュールを作った人。

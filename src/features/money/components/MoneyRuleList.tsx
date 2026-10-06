@@ -13,10 +13,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -65,9 +63,6 @@ export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
           ))}
         </SortableContext>
       </DndContext>
-      <Button startIcon={<AddIcon />} onClick={state.add} sx={{ alignSelf: 'flex-start' }}>
-        ルールを追加
-      </Button>
     </Stack>
   );
 }

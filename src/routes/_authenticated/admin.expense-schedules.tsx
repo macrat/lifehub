@@ -1,5 +1,3 @@
-import AddIcon from '@mui/icons-material/Add';
-import Button from '@mui/material/Button';
 import { createFileRoute } from '@tanstack/react-router';
 import { ExpenseScheduleList } from '../../features/expenses/components/ExpenseScheduleList.tsx';
 import { ExpenseScheduleSheet } from '../../features/expenses/components/ExpenseScheduleSheet.tsx';
@@ -8,7 +6,7 @@ import {
   expenseSchedulesQueryOptions,
 } from '../../features/expenses/queries.ts';
 import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
-import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
+import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { useOpenWith } from '../../lib/ui/use-toggle.ts';
 
@@ -31,16 +29,6 @@ function AdminExpenseSchedulesPage() {
   const sheet = useOpenWith<{ schedule: ExpenseSchedule | null }>();
   return (
     <>
-      <AppBarContent>
-        <Button
-          color="inherit"
-          startIcon={<AddIcon />}
-          onClick={() => sheet.open({ schedule: null })}
-          sx={{ ml: 'auto' }}
-        >
-          スケジュールを追加
-        </Button>
-      </AppBarContent>
       <QueryView query={schedulesQuery} skeleton={<ListSkeleton rows={2} />}>
         {(schedules) => (
           <ExpenseScheduleList
@@ -49,6 +37,7 @@ function AdminExpenseSchedulesPage() {
           />
         )}
       </QueryView>
+      <AddFab label="立替スケジュールを追加" onClick={() => sheet.open({ schedule: null })} />
       {sheet.value && (
         <ExpenseScheduleSheet schedule={sheet.value.schedule} onClose={sheet.close} />
       )}

@@ -15,7 +15,7 @@ test('立替スケジュールを設定から追加すると今日までの回�
   await expect(page).toHaveURL('/admin/expense-schedules');
 
   // 昨日から毎日: 昨日と今日の 2 回がその場で記録される
-  await page.getByRole('button', { name: 'スケジュールを追加' }).click();
+  await page.getByRole('button', { name: '立替スケジュールを追加' }).click();
   await page.getByLabel('最初の日').fill(addDays(today(), -1));
   await page.getByLabel('繰り返し').click();
   await page.getByRole('option', { name: '毎日' }).click();
