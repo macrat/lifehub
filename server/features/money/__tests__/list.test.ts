@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays } from '../../../../shared/date.ts';
 import { newId } from '../../../../shared/id.ts';
+import type { Parties } from '../../../../shared/money.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import {
   type ExpenseInput,
@@ -26,10 +27,7 @@ async function addTransaction(
   occurredOn: string,
   description: string,
   amount: number,
-  parties: { fromUserId: string | null; toUserId: string | null } = {
-    fromUserId: null,
-    toUserId: null,
-  },
+  parties: Parties = { fromUserId: null, toUserId: null },
 ) {
   await db.insert(moneyRecords).values({
     id: newId(),

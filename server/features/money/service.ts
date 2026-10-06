@@ -10,7 +10,6 @@ import {
   scheduleDatesBetween,
   settlementsOf,
   sortBalances,
-  sortMoneyRecords,
 } from '../../../shared/money.ts';
 import { expenseEntry } from '../../../shared/timeline.ts';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
@@ -33,7 +32,7 @@ import type { MoneyAccountRow, MoneyRecordRow, MoneyRuleRow, MoneyScheduleRow } 
 /** お金の画面の一覧の 1 ページ（古い順。立替と取り込んだ入出金が 1 本に並ぶ） */
 export async function listRecords(query: MoneyListQuery): Promise<HistoryPage<MoneyRecord>> {
   const page = await repository.findPage(query);
-  return { ...page, items: sortMoneyRecords(page.items.map(toRecord)) };
+  return { ...page, items: page.items.map(toRecord) };
 }
 
 /** タイムラインに並べる記録（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */
@@ -89,7 +88,6 @@ export async function patchExpense(
 ): Promise<MoneyRecord> {
   const current = await repository.findById(id);
   if (!current) throw new NotFoundError('立替が見つかりません');
-  rejectImported(current);
   const { fromUserId, toUserId, amount, description, occurredOn } = current;
   const values = applyPatch(
     { fromUserId, toUserId, amount, description, occurredOn },
@@ -101,35 +99,25 @@ export async function patchExpense(
 
 /** 書き換えて、書いた後の立替を返す（直したことを MCP Events で知らせる） */
 async function write(id: string, values: ExpenseInput, actorId: string): Promise<MoneyRecord> {
-  const updated = await repository.update(id, values);
-  if (!updated) await notWritable(id);
-  const record = toRecord(updated as MoneyRecordRow);
+  const record = toRecord((await repository.update(id, values)) ?? (await notWritable(id)));
   publishChanged({ type: 'expense', record }, 'updated', { userId: actorId });
   return record;
 }
 
 /** 手で入れた立替を消す。actorId は消した人 */
 export async function deleteExpense(id: string, actorId: string): Promise<void> {
-  const deleted = await repository.remove(id);
-  if (!deleted) await notWritable(id);
-  publishChanged({ type: 'expense', record: toRecord(deleted as MoneyRecordRow) }, 'deleted', {
-    userId: actorId,
-  });
+  const deleted = (await repository.remove(id)) ?? (await notWritable(id));
+  publishChanged({ type: 'expense', record: toRecord(deleted) }, 'deleted', { userId: actorId });
 }
 
 /** 書けなかった理由を投げる: 無いか、取り込んだ入出金（直すのは Money Forward と取り込みルール） */
 async function notWritable(id: string): Promise<never> {
-  const row = await repository.findById(id);
-  if (row) rejectImported(row);
-  throw new NotFoundError('立替が見つかりません');
-}
-
-function rejectImported(row: MoneyRecordRow): void {
-  if (row.account !== null) {
+  if (await repository.findById(id)) {
     throw new ValidationError(
       'Money Forward から取り込んだ入出金は直せません（直すなら Money Forward で。内容欄や立替への読み替えは取り込みルールで）',
     );
   }
+  throw new NotFoundError('立替が見つかりません');
 }
 
 /** 立替スケジュール（作った順） */
@@ -201,7 +189,7 @@ export async function deleteExpenseSchedule(id: string): Promise<void> {
 function dueExpenses(
   schedule: ExpenseScheduleInput & Pick<MoneyScheduleRow, 'createdBy' | 'generatedThrough'>,
   through: DateString,
-): repository.ScheduledExpense[] {
+): repository.NewExpense[] {
   return scheduleDatesBetween(schedule, schedule.generatedThrough, through).map((occurredOn) => ({
     id: newId(),
     fromUserId: schedule.fromUserId,
@@ -253,7 +241,7 @@ const cardNames = new Set(
  */
 export async function syncMoneyForward(
   now: Date = new Date(),
-): Promise<{ transactions: number; accounts: number } | { skipped: true }> {
+): Promise<{ records: number; accounts: number } | { skipped: true }> {
   const {
     MONEYFORWARD_EMAIL: email,
     MONEYFORWARD_PASSWORD: password,
@@ -301,7 +289,7 @@ export async function syncMoneyForward(
           ],
     ),
   });
-  return { transactions: records.length, accounts: scraped.accounts.length };
+  return { records: records.length, accounts: scraped.accounts.length };
 }
 
 /** お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる */

@@ -1,31 +1,17 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
-import { partiesOf } from '../../../../shared/money.ts';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
-import { formatSignedYen, formatYen } from '../../../lib/yen.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { partiesInOrder, partiesLabel } from '../parties.ts';
 import type { MoneyRecord } from '../queries.ts';
+import { recordAmount, recordOwner } from '../record-text.ts';
 import { PartiesMark } from './PartiesMark.tsx';
 
 /** 印の枠の幅。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない */
 const MARK_WIDTH = 20;
-
-/** 金額の表示。手で入れた立替は額だけ、取り込んだ入出金は入金に + を付ける */
-function amountOf(record: MoneyRecord): string {
-  return record.account === null ? formatYen(record.amount) : formatSignedYen(record.amount);
-}
-
-/**
- * 行の補足。手で入れた立替は当事者の名前（`partiesInOrder` の並び）、取り込んだ入出金は金融機関
- */
-function captionOf(record: MoneyRecord, label: (party: string | null) => string): string {
-  return record.account ?? partiesLabel(partiesInOrder(record), label);
-}
 
 /**
  * 金額の列。列の幅は読んだ記録の中で一番幅を取る金額に合わせる（`widest`）: 決め打ちの幅だと、
@@ -70,7 +56,7 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
   const items = listProps.history.query.data?.items;
   // 読んだ記録が増えるほど重くなるので、記録が変わったときだけ求め直す。数字は等幅なので文字数で比べる
   const widest = useMemo(
-    () => (items ?? []).map(amountOf).reduce((a, b) => (b.length > a.length ? b : a), ''),
+    () => (items ?? []).map(recordAmount).reduce((a, b) => (b.length > a.length ? b : a), ''),
     [items],
   );
   return (
@@ -84,13 +70,13 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
                 key={record.id}
                 moveKey={record.id}
                 onSelect={(editing) => onSelect(record, editing)}
-                mark={<PartiesMark parties={partiesOf(record)} colorFor={colorFor} />}
+                mark={<PartiesMark parties={record} colorFor={colorFor} />}
                 markWidth={MARK_WIDTH}
-                lead={<Amount text={amountOf(record)} widest={widest} />}
+                lead={<Amount text={recordAmount(record)} widest={widest} />}
               >
                 <Typography sx={{ overflowWrap: 'anywhere' }}>{record.description}</Typography>
                 <Typography variant="caption" color="textSecondary" component="div" noWrap>
-                  {captionOf(record, label)}
+                  {recordOwner(record, label)}
                 </Typography>
               </MarkedRow>
             ))}

@@ -1,6 +1,6 @@
 import type { MoneyRecord } from '../queries.ts';
 import { ExpenseDetailSheet } from './ExpenseDetailSheet.tsx';
-import { TransactionDetailSheet } from './TransactionDetailSheet.tsx';
+import { ImportedRecordSheet } from './ImportedRecordSheet.tsx';
 
 type Props = {
   record: MoneyRecord;
@@ -17,6 +17,6 @@ export function MoneyRecordSheet({ record, initialEditing, onClose }: Props) {
   return record.account === null ? (
     <ExpenseDetailSheet expense={record} initialEditing={initialEditing} onClose={onClose} />
   ) : (
-    <TransactionDetailSheet transaction={record} onClose={onClose} />
+    <ImportedRecordSheet record={record} onClose={onClose} />
   );
 }

@@ -138,10 +138,11 @@ export async function sumByParties(): Promise<ExpenseTotal[]> {
     .groupBy(moneyRecords.fromUserId, moneyRecords.toUserId);
 }
 
+/** 手で入れる立替 1 件の行（スケジュールが記録する回も同じ） */
+export type NewExpense = ExpenseInput & { id: string; createdBy: string };
+
 /** 立替を作る。同じ id で送り直されたら何も書かず、今の行を返す（`insertOnce`） */
-export async function insert(
-  row: ExpenseInput & { id: string; createdBy: string },
-): Promise<MoneyRecordRow> {
+export async function insert(row: NewExpense): Promise<MoneyRecordRow> {
   return insertOnce(moneyRecords, row);
 }
 
@@ -168,9 +169,6 @@ export async function remove(id: string): Promise<MoneyRecordRow | undefined> {
   return deleted;
 }
 
-/** スケジュールが記録する立替 1 件 */
-export type ScheduledExpense = ExpenseInput & { id: string; createdBy: string };
-
 /** 立替スケジュール（作った順） */
 export async function findSchedules(): Promise<MoneyScheduleRow[]> {
   return db.select().from(moneySchedules).orderBy(asc(moneySchedules.createdAt));
@@ -188,7 +186,7 @@ export async function findSchedulesDue(through: DateString): Promise<MoneySchedu
 /** スケジュールを作り、今日までの回（due）を立替として記録する。1 つのトランザクションで書く（`runBatch`） */
 export async function insertSchedule(
   row: ExpenseScheduleInput & { id: string; createdBy: string; generatedThrough: DateString },
-  due: ScheduledExpense[],
+  due: NewExpense[],
 ): Promise<MoneyRecordRow[]> {
   const [, rows] = await runBatch((tx) => [
     tx.insert(moneySchedules).values(row),
@@ -204,7 +202,7 @@ export async function insertSchedule(
 export async function insertDue(
   scheduleIds: string[],
   through: DateString,
-  due: ScheduledExpense[],
+  due: NewExpense[],
 ): Promise<MoneyRecordRow[]> {
   if (scheduleIds.length === 0) return [];
   const [, rows] = await runBatch((tx) => [
@@ -218,7 +216,7 @@ export async function insertDue(
 }
 
 /** 記録する立替の insert（無ければ文を出さない。空の values は SQL にならない） */
-function insertExpenses(tx: Database, due: ScheduledExpense[]) {
+function insertExpenses(tx: Database, due: NewExpense[]) {
   return due.length > 0 ? [tx.insert(moneyRecords).values(due).returning()] : [];
 }
 

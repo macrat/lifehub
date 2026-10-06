@@ -13,12 +13,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ruleParties } from '../../../../shared/money.ts';
 import type { MoneyRule } from '../../../../shared/validation/money.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';
 import { type ItemColors, useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { describeRule, ruleParties } from '../rule-text.ts';
+import { describeRule } from '../rule-text.ts';
 import { PartiesMark } from './PartiesMark.tsx';
 
 /**

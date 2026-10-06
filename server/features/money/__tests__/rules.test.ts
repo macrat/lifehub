@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
-import { partiesOf } from '../../../../shared/money.ts';
+import { hasParties } from '../../../../shared/money.ts';
 import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import {
   type MoneyListQuery,
@@ -53,7 +53,10 @@ async function addTransaction(
 
 /** 一覧の入出金（内容欄と当事者） */
 async function transactions(query: MoneyListQuery = {}) {
-  return (await listRecords(query)).items.map((record) => [record.description, partiesOf(record)]);
+  return (await listRecords(query)).items.map(({ description, fromUserId, toUserId }) => [
+    description,
+    hasParties({ fromUserId, toUserId }) ? { fromUserId, toUserId } : null,
+  ]);
 }
 
 describe('ルールの当て方', () => {

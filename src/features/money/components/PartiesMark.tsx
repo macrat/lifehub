@@ -12,10 +12,9 @@ export function PartiesMark({
   parties,
   colorFor,
 }: {
-  parties: Parties | null;
+  parties: Parties;
   /** 一覧で 1 度だけ引いた `useUserColor` */
   colorFor: (userId: string | null) => ItemColors;
 }) {
-  const people = parties ? partiesInOrder(parties) : [null];
-  return <VennMark colors={people.map((id) => colorFor(id).mark)} />;
+  return <VennMark colors={partiesInOrder(parties).map((id) => colorFor(id).mark)} />;
 }

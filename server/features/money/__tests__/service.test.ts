@@ -130,7 +130,7 @@ describe('money service', () => {
       ['テストカード', null, null],
     ]);
     const scrape = serve([csv([])]);
-    expect(await syncMoneyForward(NOW)).toEqual({ transactions: 0, accounts: 3 });
+    expect(await syncMoneyForward(NOW)).toEqual({ records: 0, accounts: 3 });
     // 先月と今月の 2 か月を読む
     expect(scrape.mock.calls[0]?.[2]).toEqual(['2026-09', '2026-10']);
     expect(await listAccounts()).toMatchObject([
@@ -153,7 +153,7 @@ describe('money service', () => {
       csv([['2026/09/24', 'スーパー（直した）', '-3300', 'テストカード', '食費', '食料品', 'a1']]),
       csv([['2026/10/02', '新しい明細', '-700', 'テストカード', '食費', '外食', 'new']]),
     ]);
-    expect(await syncMoneyForward(NOW)).toEqual({ transactions: 2, accounts: 3 });
+    expect(await syncMoneyForward(NOW)).toEqual({ records: 2, accounts: 3 });
 
     const page = await listTransactions({});
     expect(page.items.map((t) => [t.occurredOn, t.description, t.amount])).toEqual([

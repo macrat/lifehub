@@ -29,9 +29,9 @@ export type MoneyRecord = {
 /** 立替の当事者（null は共有）。From は払った人（債権者）、To は誰のために払ったか（債務者） */
 export type Parties = { fromUserId: string | null; toUserId: string | null };
 
-/** 記録の当事者。どちらも持たない（ただの支出の入出金）なら null で、精算に入らない */
-export function partiesOf({ fromUserId, toUserId }: Parties): Parties | null {
-  return fromUserId === null && toUserId === null ? null : { fromUserId, toUserId };
+/** 当事者を持つか。どちらも null（ただの支出の入出金）なら持たず、精算に入らない */
+export function hasParties({ fromUserId, toUserId }: Parties): boolean {
+  return fromUserId !== null || toUserId !== null;
 }
 
 /**
@@ -112,11 +112,7 @@ export function nextScheduleDate(
 }
 
 /** 「誰が誰のために払ったか」ごとの合計。null は共有 */
-export type ExpenseTotal = {
-  fromUserId: string | null;
-  toUserId: string | null;
-  amount: number;
-};
+export type ExpenseTotal = Parties & { amount: number };
 
 /** 帳消しにするための資金移動 1 つ。debtorId が creditorId に amount 円を払う。null は共有 */
 export type Settlement = {
@@ -232,12 +228,19 @@ export function fullMatch(pattern: string): RegExp {
   return new RegExp(`^(?:${pattern})$`);
 }
 
-/** 入金・出金の向きと対象者から、立替の当事者 */
-export function transferParties(
-  direction: Exclude<MoneyRuleKind, 'spending'>,
-  userId: string,
-): Parties {
-  return direction === 'deposit'
+/**
+ * 取り込みルールに当たった入出金の当事者。入金（対象者が共有口座へ入れた）は 対象者 → 共有、
+ * 出金（対象者が共有口座から引き出した）は 共有 → 対象者、支出はどちらも持たない（ただの支出）
+ */
+export function ruleParties({
+  kind,
+  userId,
+}: {
+  kind: MoneyRuleKind;
+  userId: string | null;
+}): Parties {
+  if (kind === 'spending' || userId === null) return { fromUserId: null, toUserId: null };
+  return kind === 'deposit'
     ? { fromUserId: userId, toUserId: null }
     : { fromUserId: null, toUserId: userId };
 }

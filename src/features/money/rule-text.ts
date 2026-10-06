@@ -1,4 +1,4 @@
-import { type MoneyRuleKind, type Parties, transferParties } from '../../../shared/money.ts';
+import type { MoneyRuleKind } from '../../../shared/money.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 
 /** 種別の呼び方（支出はただの支出、入金・出金は対象者と「共有」との立替） */
@@ -7,16 +7,6 @@ export const KIND_LABELS: Record<MoneyRuleKind, string> = {
   deposit: '入金',
   withdrawal: '出金',
 };
-
-/**
- * ルールに当たった入出金の当事者（一覧の印。お金の画面の入出金の印と同じ）。支出は持たない（無彩色の点）、
- * 入金は対象者 → 共有（対象者の色の円 1 つ）、出金は共有 → 対象者（左に対象者、右に無彩色）
- */
-export function ruleParties(rule: Pick<MoneyRule, 'kind' | 'userId'>): Parties | null {
-  return rule.kind === 'spending' || rule.userId === null
-    ? null
-    : transferParties(rule.kind, rule.userId);
-}
 
 /** 一覧の説明: 置換後の内容欄・種別と対象者・一覧に表示しないか（「「$1 さん」に置換・入金 太郎・一覧に表示しない」） */
 export function describeRule(rule: MoneyRule, label: (userId: string | null) => string): string {

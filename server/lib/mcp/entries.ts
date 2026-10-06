@@ -2,9 +2,9 @@ import type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
 import {
+  hasParties,
   type MoneyAccount,
   type MoneyRecord,
-  partiesOf,
   type Settlement,
 } from '../../../shared/money.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
@@ -79,17 +79,16 @@ function partyName(people: Person[], id: string | null): string {
  * 「共有」との立替にしたものだけが paidBy・paidFor を持つ（精算に入っている）
  */
 export function formatExpense(expense: MoneyRecord, people: Person[]) {
-  const parties = partiesOf(expense);
   return {
     ...(expense.account === null ? { ref: toRef('expense', expense.id) } : {}),
     type: 'expense' as const,
     date: expense.occurredOn,
-    ...(expense.account === null ? {} : { account: expense.account }),
+    ...compact({ account: expense.account }),
     amount: expense.amount,
     description: expense.description,
-    ...(parties && {
-      paidBy: partyName(people, parties.fromUserId),
-      paidFor: partyName(people, parties.toUserId),
+    ...(hasParties(expense) && {
+      paidBy: partyName(people, expense.fromUserId),
+      paidFor: partyName(people, expense.toUserId),
     }),
   };
 }
