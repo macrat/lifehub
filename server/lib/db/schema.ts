@@ -11,6 +11,7 @@ export * from '../../features/holidays/schema.ts';
 export * from '../../features/lemon/schema.ts';
 export * from '../../features/mcp-events/schema.ts';
 export * from '../../features/memos/schema.ts';
+export * from '../../features/money/schema.ts';
 export * from '../../features/notifications/schema.ts';
 export * from '../../features/push/schema.ts';
 export * from '../../features/users/schema.ts';

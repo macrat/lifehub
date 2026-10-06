@@ -3,11 +3,12 @@ import { addDays, startOfDate, toDateString, today } from './date.ts';
 import type { Expense } from './expenses.ts';
 import type { CareLog } from './lemon.ts';
 import type { Memo } from './memos.ts';
+import type { MoneyTransaction } from './money.ts';
 import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
 /**
- * ホームのタイムラインに並ぶ記録（予定・タスク・立替・レモン・メモ）と、それぞれを置く日時。
+ * ホームのタイムラインに並ぶ記録（予定・タスク・立替・レモン・メモ・入出金）と、それぞれを置く日時。
  * サーバーの組み立て（`server/features/timeline/service.ts`）と、クライアントの楽観的更新が
  * 同じ規則で日時を決めるため、共通に置く。
  */
@@ -17,7 +18,7 @@ type EntryBase = {
   id: string;
   /** 並べる日時。null はタイムラインの一番上にまとめるタスク（未完了で、開始を過ぎたもの。`sortTimeline`） */
   at: string | null;
-  /** 日付だけを示す記録か（終日の予定・タスク、立替）。時刻は出さない */
+  /** 日付だけを示す記録か（終日の予定・タスク、立替、入出金）。時刻は出さない */
   dateOnly: boolean;
 };
 
@@ -25,7 +26,8 @@ export type TimelineEntry =
   | (EntryBase & { type: 'event'; item: CalendarItem })
   | (EntryBase & { type: 'expense'; at: string; expense: Expense })
   | (EntryBase & { type: 'lemon'; at: string; log: CareLog })
-  | (EntryBase & { type: 'memo'; at: string; memo: Memo });
+  | (EntryBase & { type: 'memo'; at: string; memo: Memo })
+  | (EntryBase & { type: 'transaction'; at: string; transaction: MoneyTransaction });
 
 /** 1 件の記録が 1 行になる種類（予定・タスクは繰り返しの回ごとに行があるので `occurrenceKey`） */
 type RecordType = Exclude<TimelineEntry['type'], 'event'>;
@@ -94,6 +96,20 @@ export function memoEntry(memo: Memo): TimelineEntry {
     at: memo.createdAt,
     dateOnly: false,
     memo,
+  };
+}
+
+/**
+ * Money Forward から取り込んだ入出金の行。明細は日付しか持たないので、その日の始まりに置く（日付だけを示す）。
+ * サーバーの問い合わせ（`money/repository.ts`）も同じ式で並べる。
+ */
+export function transactionEntry(transaction: MoneyTransaction): TimelineEntry {
+  return {
+    type: 'transaction',
+    id: timelineEntryId('transaction', transaction.id),
+    at: startOfDate(transaction.occurredOn).toISOString(),
+    dateOnly: true,
+    transaction,
   };
 }
 

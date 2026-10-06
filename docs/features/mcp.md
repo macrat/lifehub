@@ -16,11 +16,11 @@
 
 ## ツール一覧
 
-ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。DB の表や API の口ごとに並べず、LifeHub を **タイムライン（日付の上に並ぶ記録）** として見せる: 予定（event）・タスク（task）・立替（expense）・レモンの木の世話（lemon）・メモ（memo）は、どれも同じ形の「エントリー」として `read_timeline` で読み、エントリーの `ref` で書き換える・消す。天気と祝日は日に付く。
+ツールは REST API の写しではなく、LLM が説明を読んで迷わず呼べる形に作る（[architecture.md](../architecture.md) の「レイヤー構成」）。DB の表や API の口ごとに並べず、LifeHub を **タイムライン（日付の上に並ぶ記録）** として見せる: 予定（event）・タスク（task）・立替（expense）・レモンの木の世話（lemon）・メモ（memo）・Money Forward から取り込んだ入出金（transaction。読むだけ）は、どれも同じ形の「エントリー」として `read_timeline` で読み、エントリーの `ref` で書き換える・消す。天気と祝日は日に付く。
 
 | ツール | 内容 |
 |---|---|
-| `get_overview` | 最初に呼ぶ。今の日時と今日の日付、ユーザー（名前と自分）、今日と明日のタイムライン、立替の精算、レモンの世話の状況 |
+| `get_overview` | 最初に呼ぶ。今の日時と今日の日付、ユーザー（名前と自分）、今日と明日のタイムライン、立替の精算、レモンの世話の状況、取り込んだ口座の今の値（`moneyAccounts`。[money.md](money.md)） |
 | `read_timeline` | 期間（既定は今日から 7 日、最大 366 日）の記録を日ごとに。各日に祝日と天気の要約。`q`（文字の部分一致）と `types`（種類）で絞れる |
 | `get_weather` | 期間（既定は今日から 8 日、最大 31 日）の天気を日ごとに。3 時間ごとの天気と気温・6 時間ごとの降水確率も |
 | `add_event` | 予定かタスクを足す（`kind` で選ぶ。予定は `start` が必須で `end` は省ける、タスクは `start` だけを持ち省ける） |
@@ -29,7 +29,7 @@
 | `add_expense` / `update_expense` | 立替（精算を含む）を記録する・直す。書いた後の精算も返す |
 | `log_lemon_care` / `update_lemon_log` | レモンの世話を記録する・直す |
 | `add_memo` / `update_memo` | メモを書く・直す（直せるのは書いた本人だけ） |
-| `delete_entry` | どの種類のエントリーも ref で消す |
+| `delete_entry` | どの種類のエントリーも ref で消す（取り込んだ入出金は消せず、Money Forward で消すよう返す） |
 
 命名は `動詞_対象`（`read_timeline`・`add_expense`）。読むツールは種類を問わず 1 本（`read_timeline`）にし、書くツールは種類ごとに分ける。読むときは「今週どうなってる？」のように種類をまたいで訊かれ、書くときは項目が種類ごとに違う（1 本にすると入力が種類ごとの分岐の `anyOf` になる）。ただし予定とタスクは 1 本（`add_event` / `update_event` の `kind`）: 画面と同じく同じ入力で書き、書いた後でも種類を入れ替えられるようにする（[events.md](events.md)）。項目は予定の終わり（`end` とその前の通知）のほかは同じなので、分岐にしなくても平らな入力で足りる。消すのは ref だけで足りるので 1 本（`delete_entry`）。ツールの性質（`readOnlyHint` / `destructiveHint` / `idempotentHint`）を付け、クライアントが確認の要否を決められるようにする。サーバーの説明（`instructions`。`server/mcp.ts`）には全体の捉え方と約束事だけを書き、個々の使い方は各ツールの説明に書く。
 

@@ -3,7 +3,7 @@
  * 変換層を挟まない。金額は整数の円なので、小数点は入力できず結果は四捨五入する。
  */
 
-import { formatGrouped } from './format.ts';
+import { formatGrouped } from '../../lib/yen.ts';
 
 const OPERATORS = ['+', '-', '×', '÷'] as const;
 type Operator = (typeof OPERATORS)[number];

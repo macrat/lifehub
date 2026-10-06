@@ -34,7 +34,8 @@ function label(entry: TimelineEntry): string {
   if (entry.type === 'event') return entry.item.title;
   if (entry.type === 'expense') return entry.expense.description;
   if (entry.type === 'lemon') return entry.log.note ?? entry.log.careTypes.join('+');
-  return entry.memo.body;
+  if (entry.type === 'memo') return entry.memo.body;
+  return entry.transaction.description;
 }
 
 describe('timeline service', () => {

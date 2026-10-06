@@ -10,9 +10,10 @@ import { addDays, allDayDate } from '../../../shared/date.ts';
 import type { CareType } from '../../../shared/validation/lemon.ts';
 import { ADD_KINDS } from '../../lib/add-kinds.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
+import { formatSignedYen, formatYen } from '../../lib/yen.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
-import { formatYen } from '../expenses/format.ts';
 import { partiesInOrder, partiesLabel } from '../expenses/parties.ts';
+import { MoneyIcon } from '../money/icon.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -25,7 +26,7 @@ export type EntryView = {
   icon: ComponentType<SvgIconProps>;
   /** タスクなら左の丸が完了のチェックボックスになる（中にチェックの印を出す） */
   task: CalendarTaskItem | null;
-  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人（MCP で書いたメモはクライアントの名前） */
+  /** 上段: 予定・タスクはタイトル、立替は参加者、入出金は金融機関、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人（MCP で書いたメモはクライアントの名前） */
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
@@ -111,6 +112,17 @@ export function useEntryView(entry: TimelineEntry): EntryView {
         heading: writerName(memo.createdBy, memo.mcpClientName),
         pinned: memo.pinned,
         body: memo.body,
+      };
+    }
+    case 'transaction': {
+      const { account, amount, description } = entry.transaction;
+      return {
+        ...view,
+        // 取り込んだ入出金は人に結び付かないので無彩色（お金の画面の一覧の点と同じ）
+        colors: [colorFor(null).fill],
+        icon: MoneyIcon,
+        heading: account,
+        body: `${formatSignedYen(amount)} ${description}`,
       };
     }
   }

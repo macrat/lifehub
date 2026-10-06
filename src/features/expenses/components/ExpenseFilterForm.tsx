@@ -1,16 +1,16 @@
 import TextField from '@mui/material/TextField';
-import { numberOrUndefined } from '../../../lib/search.ts';
+import type { ExpenseFilter } from '../../../../shared/validation/expenses.ts';
+import { type FiltersPatch, numberOrUndefined } from '../../../lib/search.ts';
 import { DateRangeFilter } from '../../../lib/ui/DateRangeFilter.tsx';
 import { FilterPanel } from '../../../lib/ui/FilterPanel.tsx';
 import { FilterSelect } from '../../../lib/ui/FilterSelect.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { partyFilterOptions } from '../parties.ts';
-import type { ExpenseFilters, ExpenseFiltersPatch } from '../search.ts';
 
 type Props = {
   open: boolean;
-  filters: ExpenseFilters;
-  onChange: (next: ExpenseFiltersPatch) => void;
+  filters: ExpenseFilter;
+  onChange: (next: FiltersPatch<ExpenseFilter>) => void;
 };
 
 /**

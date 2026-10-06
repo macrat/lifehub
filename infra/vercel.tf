@@ -37,7 +37,7 @@ resource "vercel_project_domain" "lifehub" {
 
 locals {
   # 本番の秘密情報は Preview のビルドや実行環境に渡さない。
-  env_vars = {
+  env_vars = merge({
     DATABASE_URL               = local.database_url
     BETTER_AUTH_SECRET         = random_password.better_auth_secret.result
     CRON_SECRET                = random_password.cron_secret.result
@@ -47,7 +47,15 @@ locals {
     VAPID_PUBLIC_KEY           = var.vapid_public_key
     VAPID_PRIVATE_KEY          = var.vapid_private_key
     VAPID_SUBJECT              = var.vapid_subject
-  }
+    MONEYFORWARD_EMAIL         = var.moneyforward_email
+    MONEYFORWARD_PASSWORD      = var.moneyforward_password
+    MONEYFORWARD_ACCOUNTS      = var.moneyforward_accounts
+    },
+    # 2 段階認証を使わないなら置かない（空の値の変数は作れない）。空かどうかは秘密ではないので nonsensitive で見る
+    # （sensitive のまま条件に使うと map 全体が sensitive になり、for_each に渡せない）
+    nonsensitive(var.moneyforward_totp_secret == "") ? {} : {
+      MONEYFORWARD_TOTP_SECRET = var.moneyforward_totp_secret
+  })
 }
 
 resource "vercel_project_environment_variable" "shared" {

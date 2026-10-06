@@ -8,6 +8,13 @@ const LOCALE = 'en-JP';
 const yen = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'JPY' });
 const grouping = new Intl.NumberFormat(LOCALE);
 
+/** 入金に + を付ける（0 には付けない） */
+const signedYen = new Intl.NumberFormat(LOCALE, {
+  style: 'currency',
+  currency: 'JPY',
+  signDisplay: 'exceptZero',
+});
+
 /** 金額の表示（「¥1,200」）。精算・一覧・詳細で同じ書き方にする */
 export function formatYen(amount: number): string {
   return yen.format(amount);
@@ -16,4 +23,14 @@ export function formatYen(amount: number): string {
 /** 円記号を付けない桁区切り（「1,200」）。区切り方は `formatYen` と同じ */
 export function formatGrouped(amount: bigint): string {
   return grouping.format(amount);
+}
+
+/** 入金と出金のある金額の表示（「+¥300,000」「-¥3,200」）。入出金の一覧・詳細・タイムラインで同じ書き方にする */
+export function formatSignedYen(amount: number): string {
+  return signedYen.format(amount);
+}
+
+/** 金額の表示の中で一番幅を取るもの（`AlignedAmount` の widest）。数字は等幅なので文字数で比べる */
+export function widestOf(texts: string[]): string {
+  return texts.reduce((a, b) => (b.length > a.length ? b : a), '');
 }

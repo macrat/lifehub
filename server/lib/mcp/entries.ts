@@ -2,6 +2,7 @@ import type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
 import type { Expense, Settlement } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import type { MoneyAccount, MoneyTransaction } from '../../../shared/money.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
 import { SHARED } from '../../../shared/validation/expenses.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
@@ -115,8 +116,42 @@ export function formatMemo(memo: Memo, people: Person[]) {
   };
 }
 
+/** Money Forward から取り込んだ入出金。amount は入金が正、出金が負 */
+function formatTransaction(transaction: MoneyTransaction) {
+  return {
+    ref: toRef('transaction', transaction.id),
+    type: 'transaction' as const,
+    date: transaction.occurredOn,
+    account: transaction.account,
+    amount: transaction.amount,
+    description: transaction.description,
+    ...compact({ category: transaction.category }),
+  };
+}
+
+/**
+ * 口座の今の値。銀行は残高（balance）、証券は評価額（balance）、クレジットカードは次回の引き落とし
+ * （withdrawalAmount・withdrawalOn）。読めていない値は省く
+ */
+export function formatMoneyAccount(account: MoneyAccount) {
+  return {
+    name: account.name,
+    kind: account.kind,
+    ...compact({
+      balance: account.kind === 'card' ? null : account.balance,
+      withdrawalAmount: account.withdrawalAmount,
+      withdrawalOn: account.withdrawalOn,
+      fetchedAt: account.fetchedAt && jstDateTime(account.fetchedAt),
+    }),
+  };
+}
+
 export type FormattedEntry = ReturnType<
-  typeof formatEvent | typeof formatExpense | typeof formatCareLog | typeof formatMemo
+  | typeof formatEvent
+  | typeof formatExpense
+  | typeof formatCareLog
+  | typeof formatMemo
+  | typeof formatTransaction
 >;
 
 export function formatEntry(entry: TimelineEntry, people: Person[]): FormattedEntry {
@@ -129,6 +164,8 @@ export function formatEntry(entry: TimelineEntry, people: Person[]): FormattedEn
       return formatCareLog(entry.log, people);
     case 'memo':
       return formatMemo(entry.memo, people);
+    case 'transaction':
+      return formatTransaction(entry.transaction);
   }
 }
 

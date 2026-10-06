@@ -10,6 +10,7 @@ import { eventsRouter } from './features/events/routes.ts';
 import { expensesRouter } from './features/expenses/routes.ts';
 import { lemonRouter } from './features/lemon/routes.ts';
 import { memosRouter } from './features/memos/routes.ts';
+import { moneyRouter } from './features/money/routes.ts';
 import { pushRouter } from './features/push/routes.ts';
 import { recordsRoutes } from './features/records/routes.ts';
 import { timelineRouter } from './features/timeline/routes.ts';
@@ -39,6 +40,7 @@ const appRouter = router({
   calendarFeeds: calendarFeedsRouter,
   apiKeys: apiKeysRouter,
   expenses: expensesRouter,
+  money: moneyRouter,
   lemon: lemonRouter,
   memos: memosRouter,
   timeline: timelineRouter,

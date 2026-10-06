@@ -99,7 +99,7 @@ test('記録の行は長押しすると編集で開く（立替・レモンと�
   await expect(page.getByText(`${note}（長押しで直した）`)).toBeVisible();
 
   // 立替: 同じく行の長押しで金額から直せる
-  await page.goto('/expenses');
+  await page.goto('/money');
   const expenseRow = page.getByRole('button', { name: new RegExp(note) });
   await expect(expenseRow).toBeVisible();
 

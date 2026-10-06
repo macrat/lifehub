@@ -14,8 +14,8 @@ import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedLemonRouteImport } from './routes/_authenticated/lemon'
+import { Route as AuthenticatedMoneyRouteImport } from './routes/_authenticated/money'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedWeatherRouteImport } from './routes/_authenticated/weather'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -44,14 +44,14 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
-  id: '/expenses',
-  path: '/expenses',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedLemonRoute = AuthenticatedLemonRouteImport.update({
   id: '/lemon',
   path: '/lemon',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMoneyRoute = AuthenticatedMoneyRouteImport.update({
+  id: '/money',
+  path: '/money',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -75,8 +75,8 @@ export interface FileRoutesByFullPath {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
+  '/money': typeof AuthenticatedMoneyRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -85,8 +85,8 @@ export interface FileRoutesByTo {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
+  '/money': typeof AuthenticatedMoneyRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
   '/': typeof AuthenticatedIndexRoute
@@ -98,8 +98,8 @@ export interface FileRoutesById {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/lemon': typeof AuthenticatedLemonRoute
+  '/_authenticated/money': typeof AuthenticatedMoneyRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/weather': typeof AuthenticatedWeatherRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -112,8 +112,8 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/expenses'
     | '/lemon'
+    | '/money'
     | '/settings'
     | '/weather'
     | '/admin/users'
@@ -122,8 +122,8 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/expenses'
     | '/lemon'
+    | '/money'
     | '/settings'
     | '/weather'
     | '/'
@@ -134,8 +134,8 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/_authenticated/calendar'
-    | '/_authenticated/expenses'
     | '/_authenticated/lemon'
+    | '/_authenticated/money'
     | '/_authenticated/settings'
     | '/_authenticated/weather'
     | '/_authenticated/'
@@ -185,18 +185,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/expenses': {
-      id: '/_authenticated/expenses'
-      path: '/expenses'
-      fullPath: '/expenses'
-      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/lemon': {
       id: '/_authenticated/lemon'
       path: '/lemon'
       fullPath: '/lemon'
       preLoaderRoute: typeof AuthenticatedLemonRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/money': {
+      id: '/_authenticated/money'
+      path: '/money'
+      fullPath: '/money'
+      preLoaderRoute: typeof AuthenticatedMoneyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings': {
@@ -225,8 +225,8 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedLemonRoute: typeof AuthenticatedLemonRoute
+  AuthenticatedMoneyRoute: typeof AuthenticatedMoneyRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWeatherRoute: typeof AuthenticatedWeatherRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -235,8 +235,8 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedLemonRoute: AuthenticatedLemonRoute,
+  AuthenticatedMoneyRoute: AuthenticatedMoneyRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWeatherRoute: AuthenticatedWeatherRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

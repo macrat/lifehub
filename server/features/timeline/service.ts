@@ -24,6 +24,7 @@ import * as expenses from '../expenses/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
+import * as money from '../money/service.ts';
 import { listDailyWeather } from '../weather/service.ts';
 
 /**
@@ -43,6 +44,7 @@ const recordSources = {
   expense: expenses.timelineSource,
   lemon: lemon.timelineSource,
   memo: memos.timelineSource,
+  transaction: money.timelineSource,
 } satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
 
 /** 絞り込んでいるときにタイムラインに並べる記録の出どころ（ピン止めしたメモも含む） */
@@ -58,7 +60,7 @@ const unfilteredSources: TimelineSource[] = [
 ];
 
 /**
- * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・立替・レモン・メモを 1 本に並べる。
+ * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・立替・レモン・メモ・入出金を 1 本に並べる。
  *
  * ページの分け方は立替・レモンの履歴（`HistoryPage`）と同じで、日の途中では切らない。記録の種類ごとに
  * 新しいほうから PAGE_SIZE 件の日時を集め、全体で PAGE_SIZE 件目の日からをこのページにする。

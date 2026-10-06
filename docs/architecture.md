@@ -104,7 +104,8 @@ server/                       # サーバー（Hono）
                               #   events/occurrences.ts（繰り返しの回の展開）・events/targets.ts（書き込む回の指し方と実体化）・
                               #   events/patch.ts（MCP の部分更新の補い方）・events/timeline.ts（タイムラインの口）・
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
-                              #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）
+                              #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）、
+                              #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
   features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
@@ -123,7 +124,7 @@ shared/                       # クライアント・サーバー共通
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
   calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と精算の式）  lemon.ts（世話の記録と状態）
-  memos.ts（メモの形とピン止めの並び）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
+  memos.ts（メモの形とピン止めの並び）  money.ts（口座と入出金の形）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
   search.ts（キーワードの一致と絞り込みの有無）  sort.ts（並べ替えのキーの比べ方）  sentry.ts
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
@@ -134,7 +135,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（画面のパス → `index.html`）は `vercel.json` の rewrites で設定する。フォールバックするのは `.` を含まないパスだけ（画面のパスは `.` を含まない）で、無いファイル（デプロイで消えた旧版の `/assets/*.js` など）には `index.html` を返さず 404 にする。HTML を 200 で返すと、壊れたのは何なのか（無いのか、中身が違うのか）が応答から分からず、ブラウザも MIME の不一致としてしか報告しないため。E2E とローカル確認用の `server/dev.ts` も同じ規則でフォールバックする。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
-- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/holidays.md](features/holidays.md)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/weather.md](features/weather.md#取得と保存)）と、日次の前日の最高・最低気温の観測値での上書き（`/api/cron/weather/observed`。同）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/holidays.md](features/holidays.md)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/weather.md](features/weather.md#取得と保存)）と、日次の前日の最高・最低気温の観測値での上書き（`/api/cron/weather/observed`。同）と、日次の Money Forward の取り込み（`/api/cron/money`。[features/money.md](features/money.md#取り込み)）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
 - 2 人だけが使う非公開のアプリなので、検索エンジンに載せない。クロールは `public/robots.txt`（全パスを `Disallow`）で断り、索引は `vercel.json` の全パスへの `X-Robots-Tag: noindex, nofollow` ヘッダで断る。ヘッダは HTML 以外（API の JSON やアイコン）にも効き、`<meta name="robots">` と違って `index.html` を経ない応答も覆えるため、meta タグではなくヘッダで付ける。robots.txt を守らないクローラーでもヘッダで索引から外れ、robots.txt を守るクローラーはそもそも取りに来ない。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppRouter` を型としてだけ参照する。

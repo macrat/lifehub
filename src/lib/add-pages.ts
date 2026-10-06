@@ -8,7 +8,7 @@
 export const ADD_PAGES = {
   '/': ['memo'],
   '/calendar': ['event', 'task'],
-  '/expenses': ['expense'],
+  '/money': ['expense'],
   '/lemon': ['lemon'],
 } as const;
 

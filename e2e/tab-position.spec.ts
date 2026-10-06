@@ -89,8 +89,8 @@ const tabs: Tab[] = [
     scrollAwayHeader: (page) => page.getByText('葉水'),
   },
   {
-    name: '立替',
-    path: '/expenses',
+    name: 'お金',
+    path: '/money',
     today: expenseToday,
     initial: expenseHistory,
     scrollAwayHeader: expenseHistory.sticky,

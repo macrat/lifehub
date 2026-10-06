@@ -1,7 +1,7 @@
 import Typography from '@mui/material/Typography';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
+import { formatYen } from '../../../lib/yen.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import { formatYen } from '../format.ts';
 import { partiesLabel } from '../parties.ts';
 import type { Settlement } from '../queries.ts';
 

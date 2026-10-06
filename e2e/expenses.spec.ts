@@ -5,7 +5,7 @@ test('共有のための立替で「債権者 ← 共有」の精算が出て、
   page,
 }) => {
   const description = `E2E 旅行 ${Date.now()}`;
-  await page.goto('/expenses');
+  await page.goto('/money');
   await page.getByRole('button', { name: '立替を追加' }).click();
   await page.getByLabel('金額（円）').fill('1000');
   await page.getByLabel('内容', { exact: true }).fill(description);

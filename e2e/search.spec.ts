@@ -10,7 +10,7 @@ import { expect, test } from './test.ts';
 test('検索窓で日本語を変換でき、履歴を増やさずに URL が変わる', async ({ page }) => {
   // 戻る先（直前の画面）としてホームを開いておく
   await openHome(page);
-  await page.goto('/expenses');
+  await page.goto('/money');
   const search = page.getByLabel('立替を検索');
   await search.click();
 
@@ -28,7 +28,7 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
   // 変換して確定する
   await ime.send('Input.insertText', { text: '日本語' });
   await expect(search).toHaveValue('日本語');
-  await expect(page).toHaveURL(`/expenses?q=${encodeURIComponent('日本語')}`);
+  await expect(page).toHaveURL(`/money?q=${encodeURIComponent('日本語')}`);
 
   // 戻るは打った文字ではなく直前の画面へ
   await page.goBack();
@@ -40,7 +40,7 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
  * q が書き戻されて消えないこと（消えると、開き直したときにキーワードが失われる）。
  */
 test('キーワードを打ってから絞り込みを変えても、URL のキーワードは残る', async ({ page }) => {
-  await page.goto('/expenses');
+  await page.goto('/money');
   await page.getByLabel('立替を検索').fill('スーパー');
   await expect(page).toHaveURL(/q=/);
 
@@ -78,7 +78,7 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
     expense({ amount: 500, description: small, spentOn: '2031-03-01' }),
     expense({ amount: 5000, description: large, spentOn: '2031-03-10', toUserId: partner }),
   ]);
-  await page.goto('/expenses');
+  await page.goto('/money');
   const smallRow = page.getByRole('button', { name: new RegExp(small) });
   const largeRow = page.getByRole('button', { name: new RegExp(large) });
 

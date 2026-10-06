@@ -21,12 +21,13 @@
 3. トークン発行: Vercel API トークン（スコープにそのチームを含める）、Neon API キー、HCP Terraform の API トークン（organization `macrat` にワークスペース `lifehub` を作成し、Execution Mode を **Local** にする。plan/apply は GitHub Actions 側で走らせるため）。トークンはワークスペースの state をロックできる **User token か Team token** を使う（Organization token は state 操作に使えず、`Error acquiring the state lock: resource not found` になる）。Sentry の **User Auth Token**（User Settings → Personal Tokens。権限は Organization: Read、Team: Admin、Project: Admin、Release: Admin、Alerts: Read & Write。Terraform がチーム・プロジェクト・DSN・稼働監視を作り、デプロイがソースマップを送る。Organization Token はソースマップの送信にしか使えない）。
 4. Upstash コンソールで QStash を有効化し、**US（us-east-1）リージョン**のトークンと Current/Next Signing Key を控える（リージョンごとにアカウント・トークン・署名鍵が独立していて、コードは US のエンドポイントに固定してある。`server/features/notifications/publisher.ts`。US を選ぶのは日本から近いため。SDK の既定は EU）。
 5. `pnpm vapid:generate` で VAPID 鍵ペアを生成する。
-6. 上記を GitHub Secrets に登録する:
-   `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`
-7. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
-8. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
-9. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
-10. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
+6. Money Forward ME（有料プラン）のログインに使うメールアドレスとパスワード、取り込む口座の並び（書き方は [features/money.md](features/money.md#口座の指定)）を用意する。Money Forward ID で 2 段階認証（認証アプリ）を使うなら、その秘密鍵（base32）も控える。新しい端末からのログインでメールの確認コードを求められると取り込めないので、認証アプリの 2 段階認証を設定しておく。
+7. 上記を GitHub Secrets に登録する:
+   `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`, `TF_VAR_moneyforward_email`, `TF_VAR_moneyforward_password`, `TF_VAR_moneyforward_accounts`（2 段階認証を使うなら `TF_VAR_moneyforward_totp_secret` も）
+8. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
+9. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
+10. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
+11. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
 
 ## Terraform（`infra/`）
 
@@ -34,14 +35,14 @@
 |---|---|---|
 | Vercel プロジェクト | `vercel_project` | フレームワーク `vite`、`git_repository` は設定しない（自動デプロイを無効化し、デプロイは GitHub Actions が行う）。`automatically_expose_system_environment_variables` を有効にし、`VERCEL`・`VERCEL_ENV`・`VERCEL_URL`・`VERCEL_BRANCH_URL` を関数に渡す。関数の地域は `resource_config.function_default_regions` で Neon と同じ `sin1`（シンガポール）にする（HTTP ドライバは問い合わせごとに DB と往復するので、利用者より DB の隣に置くほうが速い。Neon に日本の地域は無い） |
 | ドメイン | `vercel_project_domain`（`lifehub.crat.jp`） | 外部 DNS への CNAME 登録は手動。登録先の値は `terraform output dns_cname_target` |
-| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`（変数から）。秘密情報は `sensitive` で置く。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。通知の秘密情報（`QSTASH_*`・`VAPID_*`・`CRON_SECRET`）が欠けたままだと、予約（`createPublisher()` が `null`）と送信（`ensureConfigured()` が `false`）は何もせずに正常終了し、画面にもログにも異常が出ないので、起動時に落とす以外に気づく手段が無いため。判定は `VERCEL_ENV` を読むので、システム環境変数の公開（上の行）が要る。ローカルと Preview は通知用の秘密情報を持たないので対象外 |
+| 環境変数 | `vercel_project_environment_variable` | `DATABASE_URL`（Neon の出力）、`BETTER_AUTH_SECRET`・`CRON_SECRET`（`random_password`）、`QSTASH_*`・`VAPID_*`・`MONEYFORWARD_*`（変数から。`MONEYFORWARD_TOTP_SECRET` は空なら置かない）。秘密情報は `sensitive` で置く。本番の秘密情報は production だけに置き、Preview には専用の `BETTER_AUTH_SECRET` と、デプロイ時に渡す PR ブランチの `DATABASE_URL` だけを渡す。`APP_URL` は production のみで `sensitive` ではない。production で欠けているものがあればサーバーは起動しない（`server/lib/env.ts` の `PRODUCTION_REQUIRED`）。通知の秘密情報（`QSTASH_*`・`VAPID_*`・`CRON_SECRET`）や Money Forward のログイン情報と口座（`MONEYFORWARD_*`）が欠けたままだと、予約（`createPublisher()` が `null`）と送信（`ensureConfigured()` が `false`）と取り込み（`syncMoneyForward` が `skipped`）は何もせずに正常終了し、画面にもログにも異常が出ないので、起動時に落とす以外に気づく手段が無いため。判定は `VERCEL_ENV` を読むので、システム環境変数の公開（上の行）が要る。ローカルと Preview は通知用の秘密情報を持たないので対象外 |
 | Neon | `neon_project`, `neon_branch`（`dev`）, `neon_endpoint`, `neon_database`, `neon_role` | `dev` ブランチはローカル開発用。PR ごとの Preview ブランチは GitHub Actions が作成・削除する |
 | Sentry | `sentry_team`, `sentry_project`, `sentry_key`（DSN。日ごとの上限付き）, `sentry_uptime_monitor`（`/api/health`） | 下記「監視（Sentry）」。DSN は `SENTRY_DSN` として production にだけ渡す（`sensitive` ではない） |
 | 内部シークレット | `random_password` | Terraform が生成し state に保持する |
 | Preview 保護 | `vercel_project.vercel_authentication`（`standard_protection_new`） | Preview URL を Vercel 認証で保護する |
 | 出力 | `vercel_org_id`, `vercel_project_id`, `dns_cname_target`, `database_url`(sensitive), `neon_project_id`, `sentry_organization`, `sentry_project` | GitHub Actions と初回セットアップが参照する |
 
-- Terraform の入力（変数）として外部から渡すもの: Vercel API トークン、Neon API キーと組織 ID、Vercel のチーム、Sentry の User Auth Token、QStash トークンと署名鍵、VAPID 鍵ペア。GitHub Secrets → `TF_VAR_*` として渡す。
+- Terraform の入力（変数）として外部から渡すもの: Vercel API トークン、Neon API キーと組織 ID、Vercel のチーム、Sentry の User Auth Token、QStash トークンと署名鍵、VAPID 鍵ペア、Money Forward のログイン情報と取り込む口座。GitHub Secrets → `TF_VAR_*` として渡す。
 - GitHub Secrets はワークフローやジョブの `env` に置かず、それを使うステップの `env` にだけ渡す。テストやアプリのビルドなど依存パッケージのコードが動くステップにクレデンシャルを渡さないため。`typecheck / lint / test` ジョブは Secrets を一切受け取らず、`vercel build` にはトークンを渡さない。Terraform の出力（DB 接続文字列など）も `GITHUB_ENV` ではなくステップ出力にして、使うステップにだけ渡す。
 - Terraform 対象外: Vercel Cron の定義（`vercel.json`）、外部 DNS の CNAME、DB マイグレーション、初期ユーザー作成。
 - state は HCP Terraform（Free）のワークスペース `lifehub` にリモート保存し、GitHub Actions からは `TF_API_TOKEN` で接続する。

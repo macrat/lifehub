@@ -1,9 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { addDays, type DateRange, today } from '../../../shared/date.ts';
+import { ValidationError } from '../../lib/errors.ts';
 import {
   type FormattedEntry,
   formatEntry,
+  formatMoneyAccount,
   formatSettlements,
   weatherSummary,
 } from '../../lib/mcp/entries.ts';
@@ -28,6 +30,7 @@ import * as events from '../events/service.ts';
 import * as expenses from '../expenses/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
+import * as money from '../money/service.ts';
 import { listDays, type TimelineDay } from './service.ts';
 
 /**
@@ -88,18 +91,19 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     {
       title: '今の状況',
       description:
-        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
+        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・やるべきタスク・記録・天気）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）、Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
     async () => {
       const now = new Date();
       const date = today(now);
-      const [people, timeline, settlements, lemonStatus] = await Promise.all([
+      const [people, timeline, settlements, lemonStatus, moneyAccounts] = await Promise.all([
         ctx.people(),
         readDays(ctx, { from: date, to: addDays(date, 1) }, {}),
         expenses.getSettlements(),
         lemon.getStatus(now),
+        money.listAccounts(),
       ]);
       return jsonResult({
         now: jstDateTime(now),
@@ -111,6 +115,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
         lemon: lemonStatus.map(({ careType, lastDoneAt, daysSince }) =>
           compact({ careType, lastDoneAt: lastDoneAt && jstDateTime(lastDoneAt), daysSince }),
         ),
+        moneyAccounts: moneyAccounts.map(formatMoneyAccount),
       });
     },
   );
@@ -122,10 +127,10 @@ function registerReadTimeline(server: McpServer, ctx: McpContext) {
     {
       title: 'タイムラインを読む',
       description: [
-        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ。各日には祝日（holiday）と天気の要約（weather）も付く。',
+        '期間の記録を日ごとに返す。記録（エントリー）の種類は type で分かる: event=予定、task=タスク、expense=立替、lemon=レモンの木の世話、memo=メモ、transaction=Money Forward から取り込んだ口座の入出金（amount は入金が正・出金が負。読むだけで直せない）。各日には祝日（holiday）と天気の要約（weather）も付く。',
         '予定は掛かる日すべてに出る（複数日は day が "2/3" のように何日目か）。未完了のタスクは、開始が過ぎれば今日に出る。完了したタスクは完了した日に出る。',
         '日時は JST。終日の予定・タスクは start / end が日付だけ（end はその日を含む）。',
-        'q で文字（タイトル・メモ・立替の内容・メモの本文など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
+        'q で文字（タイトル・メモ・立替の内容・メモの本文・入出金の内容など）の部分一致、types で種類を絞れる。絞ると記録の無い日は省く。「前回の歯医者」「先月の立替」のような探し物は、期間を広めに取って q か types で絞る。',
         `一度に返すのは ${MAX_ENTRIES} 件まで。`,
         '各エントリーの ref を update_event・set_task_done・update_expense・update_lemon_log・update_memo・delete_entry に渡す。',
       ].join(' '),
@@ -173,6 +178,10 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
         case 'memo':
           await memos.deleteMemo(ref.id, ctx.userId);
           break;
+        case 'transaction':
+          throw new ValidationError(
+            '入出金は Money Forward から取り込んだもので、LifeHub からは消せません。Money Forward で消すと、次の取り込みで消えます',
+          );
         default: {
           // 種類を増やして消し方を足し忘れたら型エラーにする（何も消さずに「消しました」と返さない）
           const unhandled: never = ref.type;

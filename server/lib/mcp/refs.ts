@@ -6,7 +6,7 @@ import { ValidationError } from '../errors.ts';
  * タイムラインに並ぶ記録（エントリー）の種類。予定とタスクは DB では同じ表（kind）だが、
  * LLM にとっては別の物なので分ける。
  */
-export const ENTRY_TYPES = ['event', 'task', 'expense', 'lemon', 'memo'] as const;
+export const ENTRY_TYPES = ['event', 'task', 'expense', 'lemon', 'memo', 'transaction'] as const;
 export type EntryType = (typeof ENTRY_TYPES)[number];
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
@@ -15,6 +15,7 @@ const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   expense: '立替',
   lemon: 'レモンの世話',
   memo: 'メモ',
+  transaction: '入出金',
 };
 
 /**

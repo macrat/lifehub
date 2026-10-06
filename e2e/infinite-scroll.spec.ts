@@ -68,7 +68,7 @@ test('予定のリストは基準の日を一番上に出し、上へ戻ると�
 const histories = [
   {
     name: '立替の履歴は今日の最新の記録を精算のすぐ下に出して未来の物を上に隠し、精算は上に貼り付いて下へスクロールすると隠れる',
-    path: '/expenses',
+    path: '/money',
     ...expenseHistory,
     scrollsAway: true,
   },

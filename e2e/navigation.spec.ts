@@ -15,8 +15,8 @@ test('タブの切り替えはデータを待たず、届くまで骨組みを�
   // 立替の履歴（この端末ではまだ開いていない＝キャッシュに無い）を、確かめ終わるまで止める
   const release = await stall(page, ['expenses.']);
 
-  await page.getByRole('link', { name: '立替' }).click();
-  await expect(page).toHaveURL('/expenses');
+  await page.getByRole('link', { name: 'お金' }).click();
+  await expect(page).toHaveURL('/money');
   // 立替の画面（AppBar の検索窓）が出て、ホームの検索窓は残っていない
   await expect(page.getByLabel('立替を検索')).toBeVisible();
   await expect(page.getByLabel('記録を検索')).toHaveCount(0);
@@ -39,12 +39,12 @@ test('ユーザーは画面を移っても取り直さない', async ({ page }) 
     await page.getByRole('link', { name }).click();
     await expect(arrived).toBeVisible();
   };
-  await visit('立替', page.getByLabel('立替を検索'));
+  await visit('お金', page.getByLabel('立替を検索'));
   await visit('レモン', page.getByLabel('メモを検索'));
   await visit('予定', page.getByRole('button', { name: '表示の切替' }));
   await visit('ホーム', page.getByLabel('記録を検索'));
   // 戻ってきたときも取り直さない
-  await visit('立替', page.getByLabel('立替を検索'));
+  await visit('お金', page.getByLabel('立替を検索'));
   await quiet(page, fetches);
 
   expect(fetches()).toBe(0);
