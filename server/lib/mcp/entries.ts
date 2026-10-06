@@ -124,7 +124,6 @@ function formatTransaction(transaction: MoneyTransaction) {
     account: transaction.account,
     amount: transaction.amount,
     description: transaction.description,
-    ...compact({ category: transaction.category }),
   };
 }
 

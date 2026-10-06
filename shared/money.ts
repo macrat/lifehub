@@ -37,8 +37,6 @@ export type MoneyTransaction = {
   description: string;
   /** 円。入金は正、出金は負 */
   amount: number;
-  /** Money Forward の分類（「食費 / 外食」）。未分類なら null */
-  category: string | null;
 };
 
 /**

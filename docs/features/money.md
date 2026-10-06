@@ -11,13 +11,13 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 - お金 `/money?q=&min=&max=&since=YYYY-MM-DD&until=YYYY-MM-DD&to=&from=&add=expense`（`src/routes/_authenticated/money.tsx`。下部ナビの「お金」。絵は `src/features/money/icon.ts` の `MoneyIcon`）。上から口座のタイル、精算のタイル、立替と入出金を 1 本に並べた一覧。タイルと絞り込みのフォームは、ホームのタイルと同じく下へスクロールすると AppBar の裏へ隠れる（絞り込みのフォームを開いている間は隠さない）。右下の追加ボタンは立替の追加。
   - 検索窓は「記録を検索」（入出金にも掛かるので）、一覧が空のときは「記録がありません」（絞り込んでいれば「一致する記録はありません」）。
   - 立替の行・精算のタイル・立替の詳細と入力・検索窓と詳細な検索は、立替だけの一覧だったときのまま（[expenses.md](expenses.md#画面)）。検索パラメータも立替の物（`src/features/expenses/search.ts` の `expenseSearchSchema`）。
-  - 絞り込みは入出金にも読み替えて掛ける（サーバーの `server/features/money/repository.ts` の `history`）: キーワードは内容か分類の部分一致、金額の範囲は出金も入金も額の大きさ（絶対値）、日付の範囲は明細の日付。入出金は当事者を持たないので、To・From のどちらかで絞り込んでいれば出さない。
+  - 絞り込みは入出金にも読み替えて掛ける（サーバーの `server/features/money/repository.ts` の `history`）: キーワードは内容の部分一致、金額の範囲は出金も入金も額の大きさ（絶対値）、日付の範囲は明細の日付。入出金は当事者を持たないので、To・From のどちらかで絞り込んでいれば出さない。
 - 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 2 列、PC は 4 列）。タイルはレモン・精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額で、補足は「残高」「評価額」、カードは引き落とし日（「10/27(火) 引き落とし」。日が読めなければ「次回の引き落とし」）。まだ取り込んでいない値や読めなかった値は「—」。見せるだけで押せない。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
 - 一覧（`src/features/money/components/MoneyList.tsx`）: 上が新しく下が古い無限スクロール（`src/features/money/queries.ts` の `moneyHistory`。最初の位置・ページ分け・貼り付くものの決まりは [ui.md](../ui.md#無限スクロール)）。日ごとに見出しを立て、その下に 1 件 1 行で並べる。行の骨組みはカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、左から印、金額、内容（上）と補足（下）。金額は桁を揃えて右寄せにし、列の幅は読んだ中で一番幅を取る金額に合わせる。
   - 立替の行は立替だけの一覧だったときのまま（[expenses.md](expenses.md#画面)）。
-  - 入出金の行: 印は無彩色の点（取り込んだ入出金は人に結び付かない。ホームのタイムラインの丸と同じ色）、金額は入金に + を付け（`src/lib/yen.ts` の `formatSignedYen`）、補足は「金融機関・分類」。
+  - 入出金の行: 印は無彩色の点（取り込んだ入出金は人に結び付かない。ホームのタイムラインの丸と同じ色）、金額は入金に + を付け（`src/lib/yen.ts` の `formatSignedYen`）、補足は金融機関。
   - 同じ日の中は、立替は記録した順、入出金は時刻を持たないのでその日の立替より下に置く（`shared/money.ts` の `sortMoneyEntries`）。
-- 入出金の詳細（`src/features/money/components/TransactionDetailSheet.tsx`）: 金額・日付・金融機関と分類。読むだけなので鉛筆も三点リーダーも出さず、行の長押しも単押しと同じく閲覧で開く。入れ物は `RecordSheet`。
+- 入出金の詳細（`src/features/money/components/TransactionDetailSheet.tsx`）: 金額・日付・金融機関。読むだけなので鉛筆も三点リーダーも出さず、行の長押しも単押しと同じく閲覧で開く。入れ物は `RecordSheet`。
 
 ## 口座の指定
 
@@ -46,7 +46,7 @@ Money Forward ME に登録した銀行口座・証券口座・クレジットカ
 `money_accounts`・`money_transactions`（[data-model.md](../data-model.md)）。
 
 - `money_accounts`: 口座の名前ごとの今の値（残高・評価額 `balance`、カードの引き落とし `withdrawal_amount`・`withdrawal_on`、取り込んだ日時 `fetched_at`）。読めなかった値は null。
-- `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。`category` は Money Forward の分類（「大項目 / 中項目」。未分類なら null、中項目が未分類なら大項目だけ）。`source_id` は Money Forward の明細の ID（一意）。
+- `money_transactions`: 入出金 1 件。`amount` は入金が正・出金が負の円。Money Forward の分類（大項目・中項目）は取り込まない（Money Forward の自動の分類は正しいとは限らず、LifeHub からは直せないので、出しても頼れない）。`source_id` は Money Forward の明細の ID（一意）。
 
 ## API（`server/features/money/routes.ts`）
 

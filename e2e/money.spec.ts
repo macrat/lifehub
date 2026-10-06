@@ -43,7 +43,6 @@ const SUPERMARKET: MoneyTransaction = {
   occurredOn: TODAY,
   description: 'E2E スーパー',
   amount: -3200,
-  category: '食費 / 食料品',
 };
 
 test.beforeEach(async ({ page }) => {
@@ -81,7 +80,6 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   await page.getByLabel('内容', { exact: true }).fill(description);
   await page.getByRole('button', { name: '保存' }).click();
   await expect(page.getByText(description)).toBeVisible();
-  await expect(page.getByText('テストカード・食費 / 食料品')).toBeVisible();
   await expect(page.getByRole('main')).toContainText('-¥3,200');
 
   // 行の押せる範囲は中身の下に敷いたボタンで、名前は中身の文字（`PressableRow`）

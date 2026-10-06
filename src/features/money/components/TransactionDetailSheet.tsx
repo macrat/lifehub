@@ -3,7 +3,6 @@ import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { formatSignedYen } from '../../../lib/yen.ts';
 import type { MoneyTransaction } from '../queries.ts';
-import { transactionCaption } from '../transaction-view.ts';
 
 type Props = {
   transaction: MoneyTransaction;
@@ -26,7 +25,7 @@ export function TransactionDetailSheet({ transaction, onClose }: Props) {
         {formatSignedYen(transaction.amount)}
       </Typography>
       <Typography>{formatDateWithYear(transaction.occurredOn)}</Typography>
-      <Typography color="textSecondary">{transactionCaption(transaction)}</Typography>
+      <Typography color="textSecondary">{transaction.account}</Typography>
     </RecordSheet>
   );
 }

@@ -14,13 +14,8 @@ const COLUMNS = {
   description: '内容',
   amount: '金額（円）',
   account: '保有金融機関',
-  major: '大項目',
-  minor: '中項目',
   id: 'ID',
 } as const;
-
-/** 分類の「未分類」。分類が無いものとして扱う */
-const UNCATEGORIZED = '未分類';
 
 /**
  * 入出金の CSV（家計簿の「ダウンロード」。Shift_JIS を文字に直したもの）を明細の行にする。
@@ -59,7 +54,6 @@ export function parseTransactionsCsv(
         occurredOn,
         description: column(COLUMNS.description),
         amount,
-        category: categoryOf(column(COLUMNS.major), column(COLUMNS.minor)),
       },
     ];
   });
@@ -100,10 +94,4 @@ export function parseWithdrawalDate(text: string): DateString | null {
   if (!match) return null;
   const value = `${match[1]}-${match[2]?.padStart(2, '0')}-${match[3]?.padStart(2, '0')}`;
   return isDateString(value) ? value : null;
-}
-
-/** 分類の名前（「食費 / 外食」）。大項目が未分類なら null、中項目が未分類なら大項目だけ */
-function categoryOf(major: string, minor: string): string | null {
-  if (major === '' || major === UNCATEGORIZED) return null;
-  return minor === '' || minor === UNCATEGORIZED ? major : `${major} / ${minor}`;
 }

@@ -44,7 +44,6 @@ async function addTransaction(occurredOn: string, description: string, amount: n
     occurredOn: dateStringSchema.parse(occurredOn),
     description,
     amount,
-    category: '食費',
   });
 }
 
@@ -197,7 +196,7 @@ describe('立替と入出金を 1 本に並べる', () => {
       '給与',
       'コンビニ',
     ]);
-    expect(await labels({ q: '食費' })).toEqual(['スーパー', '給与', 'コンビニ']);
+    expect(await labels({ q: 'コンビ' })).toEqual(['コンビニ']);
     expect(await labels({ to: SHARED })).toEqual([]);
     expect(await labels({ from: a })).toEqual([]);
   });

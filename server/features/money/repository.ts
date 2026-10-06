@@ -1,4 +1,4 @@
-import { and, gte, lte, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, gte, lte, notInArray, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
@@ -64,7 +64,6 @@ export async function saveImport({
                 occurredOn: sql`excluded.occurred_on`,
                 description: sql`excluded.description`,
                 amount: sql`excluded.amount`,
-                category: sql`excluded.category`,
                 updatedAt: new Date(),
               },
             }),
@@ -85,15 +84,13 @@ export async function saveImport({
   ]);
 }
 
-/** キーワードの条件: 内容か分類の部分一致 */
-function keywordCondition(q: string | undefined): SQL | undefined {
-  const description = containsKeyword(moneyTransactions.description, q);
-  return description && or(description, containsKeyword(moneyTransactions.category, q));
-}
+/** キーワードの条件: 内容の部分一致 */
+const keywordCondition = (q: string | undefined) =>
+  containsKeyword(moneyTransactions.description, q);
 
 /**
  * お金の画面の一覧に並べる問い合わせ（`historyQueries`）。絞り込みは立替の一覧と同じ条件を入出金に読み替える:
- * - キーワード: 内容か分類の部分一致
+ * - キーワード: 内容の部分一致
  * - 金額の範囲: 出金も入金も額の大きさ（絶対値）で比べる（立替の金額と同じく「いくら動いたか」）
  * - 日付の範囲: 明細の日付。範囲は両端を含む
  * - To・From: 入出金は当事者を持たないので、どちらかで絞り込んでいれば出さない
@@ -115,7 +112,7 @@ export function history(filter: ExpenseFilter) {
 }
 
 /** タイムラインの問い合わせ。置く日時は日付の始まり（明細は時刻を持たない。shared/timeline.ts の `transactionEntry` と同じ）。
- * キーワードは内容か分類の部分一致 */
+ * キーワードは内容の部分一致 */
 export const timeline = timelineQueries({
   table: moneyTransactions,
   at: startOfDateSql(moneyTransactions.occurredOn).mapWith(moneyTransactions.createdAt),

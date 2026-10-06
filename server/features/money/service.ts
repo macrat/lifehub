@@ -123,7 +123,7 @@ function mapSource<T>(
   };
 }
 
-/** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容か分類の部分一致） */
+/** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容の部分一致） */
 export const timelineSource = recordTimelineSource(repository.timeline, (row) =>
   transactionEntry(toTransaction(row)),
 );

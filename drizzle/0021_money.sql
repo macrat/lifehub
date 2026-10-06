@@ -13,7 +13,6 @@ CREATE TABLE "money_transactions" (
 	"occurred_on" date NOT NULL,
 	"description" text NOT NULL,
 	"amount" integer NOT NULL,
-	"category" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "money_transactions_source_id_unique" UNIQUE("source_id")

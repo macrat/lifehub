@@ -35,8 +35,6 @@ export const moneyTransactions = pgTable('money_transactions', {
   description: text('description').notNull(),
   /** 円。入金は正、出金は負 */
   amount: integer('amount').notNull(),
-  /** Money Forward の分類（「食費 / 外食」）。未分類なら null */
-  category: text('category'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

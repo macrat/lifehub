@@ -82,7 +82,6 @@ describe('money service', () => {
         occurredOn: '2026-09-24',
         description: 'スーパー',
         amount: -3200,
-        category: '食費 / 食料品',
       },
       {
         sourceId: 'a2',
@@ -90,7 +89,6 @@ describe('money service', () => {
         occurredOn: '2026-09-25',
         description: '給与',
         amount: 300000,
-        category: '収入',
       },
     ]);
   });
@@ -155,9 +153,9 @@ describe('money service', () => {
       ['2026-09-24', 'スーパー（直した）', -3300],
       ['2026-10-02', '新しい明細', -700],
     ]);
-    // 分類でも絞り込める
-    expect(await listTransactions({ q: '外食' })).toMatchObject({
-      items: [{ description: '新しい明細', category: '食費 / 外食' }],
+    // 内容で絞り込める
+    expect(await listTransactions({ q: '新しい' })).toMatchObject({
+      items: [{ description: '新しい明細' }],
     });
   });
 

@@ -29,7 +29,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 | `lemon_care_logs` | `care_types` (`mist` 葉水 / `water` 水やり / `fertilize` 施肥 / `bloom` 開花 / `drop` 落果 / `harvest` 収穫 の配列), `done_at`, `note` | 世話の記録（[features/lemon.md](features/lemon.md#データ)）。空の配列は項目に結び付かない記録＝メモで、本文必須。綴りと「空なら本文必須」は CHECK 制約でも守る。`created_by` は API キーで入れた記録では null で、代わりに `api_key_name` にそのキーの名前を持つ（どちらか一方だけ。CHECK 制約） |
 | `memos` | `body`, `pinned`, `created_by`, `mcp_client_name`, `created_at` | メモ（[features/memos.md](features/memos.md)）。500 文字までのプレーンテキスト（Zod で守る）。日時は書いた時刻（`created_at`）だけで、編集しても動かない。ホームのタイムラインにだけ出る。`pinned` はホームの一番上に固定するか（[features/memos.md](features/memos.md#ピン止め)） |
 | `money_accounts` | `name`(PK), `balance`, `withdrawal_amount`, `withdrawal_on`, `fetched_at` | Money Forward から取り込んだ口座の今の値。値は null を許す。取り込みと規則は [features/money.md](features/money.md) |
-| `money_transactions` | `source_id`(unique), `account`, `occurred_on`, `description`, `amount`, `category` | Money Forward から取り込んだ入出金。`amount` は入金が正・出金が負。取り込みと規則は [features/money.md](features/money.md) |
+| `money_transactions` | `source_id`(unique), `account`, `occurred_on`, `description`, `amount` | Money Forward から取り込んだ入出金。`amount` は入金が正・出金が負。取り込みと規則は [features/money.md](features/money.md) |
 | `holidays` | `date`(PK) | 日本の祝日・休日。取得と規則は [features/holidays.md](features/holidays.md) |
 | `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京）。気温と降水確率は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#日ごとの天気weather) |
 | `weather_hourly` | `starts_at`(PK), `weather`, `temp` | 3 時間ごとの天気と気温（東京地方）。`temp` は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#3-時間ごとの天気と気温weather_hourly) |

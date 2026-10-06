@@ -11,7 +11,6 @@ import { partiesInOrder, partiesLabel } from '../../expenses/parties.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import type { MoneyEntry } from '../queries.ts';
-import { transactionCaption } from '../transaction-view.ts';
 
 /** 印の枠の幅。印（`VennMark`）は見せるだけで押せないので、枠を印の大きさぴったりにして金額との間を空けない */
 const MARK_WIDTH = 20;
@@ -57,7 +56,7 @@ type Props = Omit<HistoryListProps<MoneyEntry>, 'children'> & {
  * 体裁はカレンダーのリスト表示と同じ（`DateHeading` と `MarkedRow`）で、印はベン図、主列は金額、本文は内容と補足:
  * - 立替: 名前は共有なら払った人だけ、相手が決まっていれば簿記の並びで「To ← From」（`partiesInOrder`）。
  *   印も同じ並びで、共有のために払ったものは払った人 1 色の円、人から人へのものは左を To・右を From の円にする
- * - 入出金: 印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）、補足は「金融機関・分類」
+ * - 入出金: 印は無彩色の点（人に結び付かない。タイムラインの丸も同じ色）、補足は金融機関
  */
 export function MoneyList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
@@ -101,7 +100,7 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
                   <Typography variant="caption" color="textSecondary" component="div" noWrap>
                     {entry.type === 'expense'
                       ? partiesLabel(people, label)
-                      : transactionCaption(entry.transaction)}
+                      : entry.transaction.account}
                   </Typography>
                 </MarkedRow>
               );
