@@ -1,3 +1,4 @@
+import { addCalendarMonths, addDays } from './date.ts';
 import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
@@ -17,6 +18,69 @@ export type Expense = {
   spentOn: DateString;
   createdAt: string;
 };
+
+/** 立替スケジュールの繰り返し */
+export const SCHEDULE_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
+export type ScheduleFrequency = (typeof SCHEDULE_FREQUENCIES)[number];
+
+/**
+ * 立替スケジュール（設定の「立替スケジュール」）。日が来たら、この内容の立替を 1 件ずつ記録する。
+ * startsOn は最初の日、frequency は繰り返し。終わりは持たない（止めるならスケジュールを消す）
+ */
+export type ExpenseSchedule = {
+  id: string;
+  fromUserId: string | null;
+  toUserId: string | null;
+  amount: number;
+  description: string;
+  startsOn: DateString;
+  frequency: ScheduleFrequency;
+};
+
+/**
+ * スケジュールの n 回目（0 が最初の日）の日。どの回も最初の日から数える（前の回から数えない）ので、毎月・毎年で
+ * 無い日（31 日、2/29）はその月の末日になり、次の月には元の日に戻る（1/31 → 2/28 → 3/31。ずれていかない）
+ */
+function scheduleDate(
+  { startsOn, frequency }: Pick<ExpenseSchedule, 'startsOn' | 'frequency'>,
+  n: number,
+): DateString {
+  switch (frequency) {
+    case 'daily':
+      return addDays(startsOn, n);
+    case 'weekly':
+      return addDays(startsOn, n * 7);
+    case 'monthly':
+      return addCalendarMonths(startsOn, n);
+    case 'yearly':
+      return addCalendarMonths(startsOn, n * 12);
+  }
+}
+
+/** スケジュールの、after より後で through まで（両端のうち through を含む）の回の日 */
+export function scheduleDatesBetween(
+  schedule: Pick<ExpenseSchedule, 'startsOn' | 'frequency'>,
+  after: DateString,
+  through: DateString,
+): DateString[] {
+  const dates: DateString[] = [];
+  for (let n = 0; ; n++) {
+    const date = scheduleDate(schedule, n);
+    if (date > through) return dates;
+    if (date > after) dates.push(date);
+  }
+}
+
+/** スケジュールの、after より後の最初の回の日（次に記録する日） */
+export function nextScheduleDate(
+  schedule: Pick<ExpenseSchedule, 'startsOn' | 'frequency'>,
+  after: DateString,
+): DateString {
+  for (let n = 0; ; n++) {
+    const date = scheduleDate(schedule, n);
+    if (date > after) return date;
+  }
+}
 
 /** 「誰が誰のために払ったか」ごとの合計。null は共有 */
 export type ExpenseTotal = {

@@ -1,6 +1,7 @@
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import type { ReactNode } from 'react';
 import { today } from '../../../../shared/date.ts';
 import { SELECT_NONE, selectValue } from '../../../lib/form.ts';
 import { formatExpression, normalizeExpression, pressKey } from '../calculator.ts';
@@ -8,12 +9,17 @@ import type { ExpenseFieldsState } from '../use-expense-form.ts';
 import { Calculator } from './Calculator.tsx';
 
 /** 最初に入れておく値（initial）は `useExpenseForm` に渡したもの。省いた項目は追加の既定値（日付は今日） */
-type Props = ExpenseFieldsState;
+type Props = ExpenseFieldsState & {
+  /** 日付の欄の名前（立替スケジュールは「最初の日」） */
+  dateLabel?: string;
+  /** 日付のすぐ下に置く欄（立替スケジュールの繰り返し） */
+  afterDate?: ReactNode;
+};
 
 /**
  * 立替の項目。上から日付・To/From・内容・金額と並べ、いちばん下の電卓で金額欄をそのまま計算する。
  * To は誰のために払ったか（既定は共有）、From は払った人（既定はログイン中のユーザー）。どちらにも共有（共有口座）を選べる。
- * 追加のフォームと詳細の編集で同じものを使う。
+ * 追加のフォームと詳細の編集、立替スケジュールで同じものを使う。
  */
 export function ExpenseFields({
   initial,
@@ -25,12 +31,14 @@ export function ExpenseFields({
   amount,
   onChangeAmount,
   errors,
+  dateLabel = '日付',
+  afterDate,
 }: Props) {
   return (
     <>
       <TextField
         name="spentOn"
-        label="日付"
+        label={dateLabel}
         type="date"
         defaultValue={initial?.spentOn ?? today()}
         slotProps={{ inputLabel: { shrink: true } }}
@@ -38,6 +46,7 @@ export function ExpenseFields({
         helperText={errors.spentOn}
         fullWidth
       />
+      {afterDate}
       {/* 簿記に倣い To（貸方）を左、From（借方）を右に横並び */}
       <Stack direction="row" spacing={1}>
         <TextField

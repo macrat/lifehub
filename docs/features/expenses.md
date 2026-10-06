@@ -29,9 +29,22 @@
   - サーバーは `(from_user_id, to_user_id)` ごとの合計を SQL で出してから渡すので、履歴が増えても精算の応答は変わらない。
   - クライアントはその合計（`expenses.totals`）を受け取って精算を導き、書き込みの結果を先に出すとき（楽観的更新）は合計に 1 件分を足し引きする。WHY NOT 精算そのものを持つ: 移動の組み方からは 1 件分を足し引きできない。
 
+## 立替スケジュール
+
+決まった日に決まった内容で発生する立替（共有口座への定期の入金、個人の口座からの口座振替の支払い）を、日が来たら自動で記録する。
+
+- 画面: 設定の「お金」→「立替スケジュール」（`/admin/expense-schedules`。`src/routes/_authenticated/admin.expense-schedules.tsx`）。スケジュールを作った順に並べ、1 行に内容と金額、繰り返し・次に記録する日・To と From（`src/features/expenses/components/ExpenseScheduleList.tsx`）。AppBar の「スケジュールを追加」で追加し、行を押すと変更、三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
+- 立替スケジュールの追加・変更・削除はこの画面だけで行う。立替の入力・詳細・一覧はスケジュールに触れず、記録された立替は手で入れた立替と同じ普通の立替で、スケジュールとのつながりも持たない。WHY: 立替の入力欄に普段は使わない項目を足さず、記録された立替を直す・消すときに「この回だけ」のような区別を持ち込まない。
+- 回の日（`shared/expenses.ts` の `scheduleDate`）: どの回も最初の日から数える（前の回から数えない）。毎月・毎年でその日が無い月（31 日、2/29）はその月の末日にし、次の月には元の日に戻る（1/31 → 2/28 → 3/31。ずれていかない）。WHY NOT RRULE（予定・タスクの繰り返し）: RRULE の毎月はその日が無い月を飛ばし、月末払いが記録されない月ができる。繰り返しは 4 通りだけなので、日付の足し算で足りる。
+- 記録: 追加したとき、最初の日から今日までの回をその場で記録する（最初の日が先ならその日まで何も記録しない）。先の日の回は、日付が変わってすぐの Cron（`/api/cron/expenses`。`server/features/expenses/service.ts` の `recordScheduledExpenses`）が、日が来た回を記録する。Cron が止まっていた日の回は、次に動いたときにまとめて記録する。記録した人はスケジュールを作った人。
+- 記録し終えた日（`generated_through`）で、どの回まで記録したかを覚える。記録した立替を消しても記録し直さない。
+- 変更（全項目の置き換え）は、まだ記録していない回（明日から）にだけ効く。記録した立替はそのまま（直すならその立替を直す）。削除しても記録した立替は残る。
+
 ## データ
 
-`expenses`（[data-model.md](../data-model.md)）。`from_user_id`・`to_user_id` の null は共有。両方が null の行は持てない（`expenses_parties_check`。共有から共有へは貸し借りが生じない）。
+`expenses`・`expense_schedules`（[data-model.md](../data-model.md)）。`from_user_id`・`to_user_id` の null は共有。両方が null の行は持てない（`expenses_parties_check`・`expense_schedules_parties_check`。共有から共有へは貸し借りが生じない）。
+
+- `expense_schedules`: 立替スケジュール。立替と同じ項目に、`starts_on`（最初の日）、`frequency`（`daily` / `weekly` / `monthly` / `yearly`。CHECK 制約）、`generated_through`（記録し終えた日。最初は最初の日の前日）。
 
 ## API（`server/features/expenses/routes.ts`）
 
@@ -42,6 +55,10 @@
 | `expenses.create` | 書き込み | 立替（精算を含む）を追加。From と To に同じ人は選べない。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
 | `expenses.update` | 書き込み | 編集。入力は記録の `id` と全項目（追加と同じ形）で、全項目を置き換える。値は返さない |
 | `expenses.delete` | 書き込み | 削除（入力は `id`） |
+| `expenses.schedules` | 読み出し | 立替スケジュール（作った順。`[{ id, fromUserId, toUserId, amount, description, startsOn, frequency }]`）。次に記録する日は画面が `nextScheduleDate` で数える |
+| `expenses.createSchedule` | 書き込み | 立替スケジュールを追加（項目は立替と同じで `spentOn` が最初の日、それに `frequency`。`expenseScheduleSchema`）。今日までの回をその場で立替として記録する。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
+| `expenses.updateSchedule` | 書き込み | 変更。入力は `id` と全項目で、全項目を置き換える（まだ記録していない回にだけ効く）。値は返さない |
+| `expenses.deleteSchedule` | 書き込み | 削除（入力は `id`）。記録した立替は残る |
 
 入力スキーマは `shared/validation/expenses.ts`。
 

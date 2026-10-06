@@ -1,7 +1,9 @@
 import { idParamSchema, withId } from '../../../shared/validation/common.ts';
 import {
   createExpenseRequestSchema,
+  createExpenseScheduleRequestSchema,
   expenseListQuerySchema,
+  expenseScheduleSchema,
   expenseSchema,
 } from '../../../shared/validation/expenses.ts';
 import { procedure, router, userProcedure } from '../../lib/trpc.ts';
@@ -25,5 +27,20 @@ export const expensesRouter = router({
     }),
   delete: userProcedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
     await service.deleteExpense(input.id, ctx.userId);
+  }),
+  /** 立替スケジュール（作った順）。日が来たら、この内容の立替を記録する */
+  schedules: procedure.query(() => service.listExpenseSchedules()),
+  createSchedule: userProcedure
+    .input(createExpenseScheduleRequestSchema)
+    .mutation(async ({ ctx, input: { id, ...input } }) => {
+      await service.addExpenseSchedule(input, ctx.userId, id);
+    }),
+  updateSchedule: userProcedure
+    .input(withId(expenseScheduleSchema))
+    .mutation(async ({ input: { id, ...input } }) => {
+      await service.updateExpenseSchedule(id, input);
+    }),
+  deleteSchedule: userProcedure.input(idParamSchema).mutation(async ({ input }) => {
+    await service.deleteExpenseSchedule(input.id);
   }),
 });

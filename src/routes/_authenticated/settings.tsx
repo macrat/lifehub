@@ -1,4 +1,5 @@
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import LogoutIcon from '@mui/icons-material/Logout';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RuleIcon from '@mui/icons-material/Rule';
@@ -31,7 +32,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
  * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL と API キー）、
- * 入出金のルール、ユーザー管理、ログアウト、バージョン。
+ * 入出金のルールと立替スケジュール、ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
   // この画面が読むもの: 配信 URL と API キーの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
@@ -61,6 +62,17 @@ function SettingsPage() {
             <ListItemText
               primary="入出金のルール"
               secondary="取り込んだ入出金の内容欄の置換と、共有との立替への読み替え"
+            />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={Link} to="/admin/expense-schedules">
+            <ListItemIcon>
+              <EventRepeatIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="立替スケジュール"
+              secondary="共有口座への定期の入金や口座振替の支払いを、日が来たら自動で記録する"
             />
           </ListItemButton>
         </ListItem>

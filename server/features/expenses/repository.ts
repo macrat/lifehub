@@ -1,10 +1,10 @@
-import { eq, gte, isNull, lte, type SQL, sql } from 'drizzle-orm';
+import { asc, eq, gte, inArray, isNull, lt, lte, type SQL, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
-import { db } from '../../lib/db/client.ts';
+import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { historyQueries } from '../../lib/db/history.ts';
 import {
   containsKeyword,
@@ -15,7 +15,7 @@ import {
   updateById,
 } from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
-import { type ExpenseRow, expenses } from './schema.ts';
+import { type ExpenseRow, type ExpenseScheduleRow, expenseSchedules, expenses } from './schema.ts';
 
 /** 立替そのものの値（id や記録者は含まない） */
 type ExpenseValues = {
@@ -103,4 +103,77 @@ export async function update(id: string, row: ExpenseValues): Promise<ExpenseRow
 /** 消した行（無ければ undefined） */
 export async function remove(id: string): Promise<ExpenseRow | undefined> {
   return deleteById(expenses, id);
+}
+
+/** 立替スケジュールの値（id・記録し終えた日・監査列は含まない） */
+type ScheduleValues = Omit<
+  ExpenseScheduleRow,
+  'id' | 'generatedThrough' | 'createdAt' | 'updatedAt' | 'createdBy'
+>;
+
+/** スケジュールが記録する立替 1 件 */
+export type ScheduledExpense = ExpenseValues & { id: string; createdBy: string };
+
+/** 立替スケジュール（作った順） */
+export async function findSchedules(): Promise<ExpenseScheduleRow[]> {
+  return db.select().from(expenseSchedules).orderBy(asc(expenseSchedules.createdAt));
+}
+
+export async function findScheduleById(id: string): Promise<ExpenseScheduleRow | undefined> {
+  return findRowById(expenseSchedules, id);
+}
+
+/** 記録し終えた日が through より前のスケジュール（記録する回が残っているかもしれない物） */
+export async function findSchedulesDue(through: DateString): Promise<ExpenseScheduleRow[]> {
+  return db.select().from(expenseSchedules).where(lt(expenseSchedules.generatedThrough, through));
+}
+
+/** スケジュールを作り、今日までの回（due）を立替として記録する。1 つのトランザクションで書く（`runBatch`） */
+export async function insertSchedule(
+  row: ScheduleValues & { id: string; createdBy: string; generatedThrough: DateString },
+  due: ScheduledExpense[],
+): Promise<ExpenseRow[]> {
+  const [, rows] = await runBatch((tx) => [
+    tx.insert(expenseSchedules).values(row),
+    ...insertExpenses(tx, due),
+  ]);
+  return (rows as ExpenseRow[] | undefined) ?? [];
+}
+
+/**
+ * スケジュールの回を記録し、記録し終えた日を through にする（日次の Cron）。1 つのトランザクションで書く（`runBatch`）。
+ * 記録する回が無いスケジュールも、記録し終えた日だけは進める
+ */
+export async function insertDue(
+  scheduleIds: string[],
+  through: DateString,
+  due: ScheduledExpense[],
+): Promise<ExpenseRow[]> {
+  if (scheduleIds.length === 0) return [];
+  const [, rows] = await runBatch((tx) => [
+    tx
+      .update(expenseSchedules)
+      .set({ generatedThrough: through })
+      .where(inArray(expenseSchedules.id, scheduleIds)),
+    ...insertExpenses(tx, due),
+  ]);
+  return (rows as ExpenseRow[] | undefined) ?? [];
+}
+
+/** 記録する立替の insert（無ければ文を出さない。空の values は SQL にならない） */
+function insertExpenses(tx: Database, due: ScheduledExpense[]) {
+  return due.length > 0 ? [tx.insert(expenses).values(due).returning()] : [];
+}
+
+/** スケジュールを書き換え、書いた後の行を返す（無ければ undefined）。記録し終えた日は変えない（記録した立替はそのまま） */
+export async function updateSchedule(
+  id: string,
+  row: ScheduleValues,
+): Promise<ExpenseScheduleRow | undefined> {
+  return updateById(expenseSchedules, id, row);
+}
+
+/** スケジュールを消す。記録した立替は残る */
+export async function removeSchedule(id: string): Promise<ExpenseScheduleRow | undefined> {
+  return deleteById(expenseSchedules, id);
 }

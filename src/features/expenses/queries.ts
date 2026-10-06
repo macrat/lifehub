@@ -1,12 +1,13 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import {
   type Expense,
+  type ExpenseSchedule,
   type ExpenseTotal,
   type Settlement,
   settlementsOf,
 } from '../../../shared/expenses.ts';
 import { expenseMoneyEntry, moneyEntryId } from '../../../shared/money.ts';
-import type { ExpenseInput } from '../../../shared/validation/expenses.ts';
+import type { ExpenseInput, ExpenseScheduleInput } from '../../../shared/validation/expenses.ts';
 import { api, write } from '../../lib/api.ts';
 import { applyToHistories, findInHistories } from '../../lib/history.ts';
 import {
@@ -19,7 +20,7 @@ import { moneyHistory } from '../money/queries.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 行と精算の形はサーバーと共有する（楽観的更新もこの形で導く。shared/expenses.ts） */
-export type { Expense, Settlement } from '../../../shared/expenses.ts';
+export type { Expense, ExpenseSchedule, Settlement } from '../../../shared/expenses.ts';
 
 const EXPENSES_QUERY_KEY = ['expenses'] as const;
 
@@ -60,6 +61,56 @@ export const totalsQueryOptions = queryOptions({
 export function useSettlements(): QueryState<Settlement[]> {
   const totals = useStoreQuery(totalsQueryOptions);
   return { data: totals.data && settlementsOf(totals.data), error: totals.error };
+}
+
+/** 立替スケジュール（作った順）。設定の「立替スケジュール」が読む */
+export const expenseSchedulesQueryOptions = queryOptions({
+  queryKey: [...EXPENSES_QUERY_KEY, 'schedules'],
+  queryFn: ({ signal }): Promise<ExpenseSchedule[]> =>
+    api.expenses.schedules.query(undefined, { signal }),
+});
+
+/** スケジュールの並びに 1 件の変化（id のスケジュールが next になる。削除は null。追加は末尾）を先回りして書く */
+function applySchedule(client: QueryClient, id: string, next: ExpenseSchedule | null): void {
+  client.setQueryData(expenseSchedulesQueryOptions.queryKey, (list) => {
+    if (!list) return list;
+    if (!list.some((schedule) => schedule.id === id)) return next ? [...list, next] : list;
+    return list.flatMap((schedule) => (schedule.id !== id ? [schedule] : next ? [next] : []));
+  });
+}
+
+/**
+ * 立替スケジュールを作る。最初の日が今日までなら、サーバーがその場で立替も記録するので、一覧・精算・タイムラインも取り直す
+ * （記録される立替は先回りして書かない。回の日の数え方はサーバーと同じだが、ID はサーバーが決める）
+ */
+export function useAddExpenseSchedule() {
+  return useCreateMutation<ExpenseScheduleInput>({
+    request: write.expenses.createSchedule,
+    keys: WRITE_KEYS,
+    apply: (client, { id, spentOn, ...input }) => {
+      applySchedule(client, id, { ...input, id, startsOn: spentOn });
+    },
+  });
+}
+
+/** 立替スケジュールを書き換える。まだ記録していない回にだけ効くので、記録した立替は変わらない */
+export function useUpdateExpenseSchedule() {
+  return useOptimisticMutation<ExpenseScheduleInput & { id: string }>({
+    request: write.expenses.updateSchedule,
+    keys: [expenseSchedulesQueryOptions.queryKey],
+    apply: (client, { id, spentOn, ...input }) => {
+      applySchedule(client, id, { ...input, id, startsOn: spentOn });
+    },
+  });
+}
+
+/** 立替スケジュールを消す。記録した立替は残る */
+export function useDeleteExpenseSchedule() {
+  return useOptimisticMutation({
+    request: (id: string) => write.expenses.deleteSchedule({ id }),
+    keys: [expenseSchedulesQueryOptions.queryKey],
+    apply: (client, id) => applySchedule(client, id, null),
+  });
 }
 
 /**
