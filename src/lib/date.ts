@@ -3,15 +3,12 @@ import { format, getDay } from 'date-fns';
 import { TIME_ZONE } from '../../shared/constants.ts';
 import {
   addDays,
-  addMonths,
   allDayDate,
   type DateRange,
-  firstDayOfMonth,
   isDateString,
   startOfDate,
   toDateString,
   today,
-  toMonthString,
 } from '../../shared/date.ts';
 import type { DateString } from '../../shared/types.ts';
 
@@ -166,6 +163,18 @@ export function formatMinutesOfDay(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/** "YYYY-MM" */
+export function toMonthString(date: DateString): string {
+  return date.slice(0, 7);
+}
+
+/** 年月（YYYY-MM）の 1 日 */
+export function firstDayOfMonth(month: string): DateString {
+  const date = `${month}-01`;
+  if (!isDateString(date)) throw new Error(`invalid month: ${month}`);
+  return date;
+}
+
 /** 年月（YYYY-MM）の全日を覆う範囲（両端含む） */
 export function monthRange(month: string): DateRange {
   return { from: firstDayOfMonth(month), to: addDays(firstDayOfMonth(addMonths(month, 1)), -1) };
@@ -176,6 +185,13 @@ export function monthsInRange(from: DateString, to: DateString): string[] {
   const months: string[] = [];
   for (let m = toMonthString(from); m <= toMonthString(to); m = addMonths(m, 1)) months.push(m);
   return months;
+}
+
+/** 月を n か月ずらす */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
 /** 月曜 = 0 の曜日番号 */

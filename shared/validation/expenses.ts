@@ -58,7 +58,7 @@ export const SHARED = 'shared';
 
 /**
  * 履歴の絞り込み。範囲は両端を含み、省略した端は制限しない（最小だけ・終了日だけでも絞り込める）。
- * 立替画面の URL（`expenseSearchSchema`）と API（`expenseListQuerySchema`）が同じ規則を使う。
+ * お金の画面の URL（`expenseSearchSchema`）と API（`expenseListQuerySchema`）が同じ規則を使う。
  */
 export const expenseFilterSchema = z.object({
   /** 内容のキーワード（大文字小文字を区別しない部分一致） */
@@ -76,6 +76,6 @@ export const expenseFilterSchema = z.object({
 });
 export type ExpenseFilter = z.infer<typeof expenseFilterSchema>;
 
-/** お金の画面の一覧の 1 ページの取得（`money.list`。`cursorShape`） */
+/** お金の画面の一覧の 1 ページの取得（`expenses.list`。`cursorShape`） */
 export const expenseListQuerySchema = expenseFilterSchema.extend(cursorShape);
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

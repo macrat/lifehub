@@ -1,10 +1,4 @@
-import {
-  addCalendarMonths,
-  addDays,
-  addMonths,
-  today,
-  toMonthString,
-} from '../../../shared/date.ts';
+import { addCalendarMonths, addDays, today } from '../../../shared/date.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import {
@@ -19,10 +13,10 @@ import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { ExpenseFilter } from '../../../shared/validation/expenses.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
-import type { HistorySource } from '../../lib/history-source.ts';
+import { type HistorySource, mapHistorySource } from '../../lib/history-source.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import * as repository from './repository.ts';
-import { applyRules } from './rules.ts';
+import { applyRules, type Rewritten } from './rules.ts';
 import type { MoneyAccountRow, MoneyRuleRow, MoneyTransactionRow } from './schema.ts';
 
 /** 取り込む口座（環境変数 `MONEYFORWARD_ACCOUNTS` に書いた順）。書いていなければ空 */
@@ -64,22 +58,20 @@ export async function syncMoneyForward(
     import('./moneyforward.ts'),
     import('./parse.ts'),
   ]);
-  const month = toMonthString(today(now));
-  const months = [addMonths(month, -1), month];
+  // 年月（YYYY-MM）。Money Forward の CSV は月ごとに読む
+  const months = [addCalendarMonths(today(now), -1), today(now)].map((day) => day.slice(0, 7));
   const [scraped, rules] = await Promise.all([
     scrapeMoneyForward({ email, password, totpSecret }, configuredAccounts, months),
     listRules(),
   ]);
 
   // 2 か月の CSV の境目で同じ明細が重なっても 1 行にする。内容欄は今のルールで読み替える（元のままの内容欄も持つ）
+  const rewrite = applyRules(rules);
   const transactions = [
     ...new Map(
       scraped.csvs
         .flatMap((csv) => parseTransactionsCsv(csv, accountNames))
-        .map((row) => [
-          row.sourceId,
-          { ...row, ...applyRules(rules, row.originalDescription), id: newId() },
-        ]),
+        .map((row) => [row.sourceId, { ...row, ...rewrite(row.originalDescription), id: newId() }]),
     ).values(),
   ];
   const days = transactions.map((row) => row.occurredOn).sort();
@@ -141,12 +133,7 @@ export async function getBalancePage(
  * （`repository.ts` の `history`）。立替と 1 本に並べてページに分けるのは立替の service（`listMoneyEntries`）
  */
 export function historySource(filter: ExpenseFilter): HistorySource<MoneyTransaction> {
-  const queries = repository.history(filter);
-  return {
-    recentDays: queries.recentDays,
-    hasBefore: queries.hasBefore,
-    findInDays: async (from, before) => (await queries.findInDays(from, before)).map(toTransaction),
-  };
+  return mapHistorySource(repository.history(filter), toTransaction);
 }
 
 /** ルールで「共有」との立替にした入出金の、当事者ごとの合計（立替の精算に足す。`ExpenseTotal` の形） */
@@ -162,15 +149,21 @@ export async function listRules(): Promise<MoneyRule[]> {
 /**
  * ルールの並びを置き換え、取り込み済みのすべての入出金を新しいルールで読み替え直す（元の内容欄から当て直すので、
  * 足した・直した・消したルールが過去の入出金にも効く）。userId は保存した人。
- * 入出金は数千件の桁なので、全件を読んで当て直す。変わらない行も書くが、1 つの update にまとめる（`replaceRules`）
+ * 入出金は数千件の桁なので、全件を読んで当て直し、読み替えが変わった行だけを 1 つの update で書く（`replaceRules`。
+ * 並べ替えだけなら、たいてい書く行は無い）
  */
 export async function saveRules(rules: MoneyRule[], userId: string): Promise<void> {
-  const originals = await repository.findOriginals();
-  const rewritten = originals.map(({ id, originalDescription }) => ({
-    id,
-    ...applyRules(rules, originalDescription),
-  }));
-  await repository.replaceRules(rules, userId, rewritten);
+  const rewrite = applyRules(rules);
+  const changed = (await repository.findRewritten()).flatMap(
+    ({ id, originalDescription, ...current }) => {
+      const next = rewrite(originalDescription);
+      const same = (Object.keys(next) as (keyof Rewritten)[]).every(
+        (key) => next[key] === current[key],
+      );
+      return same ? [] : [{ id, ...next }];
+    },
+  );
+  await repository.replaceRules(rules, userId, changed);
 }
 
 /** タイムラインに並べる入出金（置く日時は shared/timeline.ts の `transactionEntry`。キーワードは内容の部分一致） */

@@ -23,6 +23,27 @@ function amountOf(entry: MoneyEntry): string {
 }
 
 /**
+ * 行の当事者・内容・補足（立替と入出金で違う所）。補足は、立替なら当事者の名前（`partiesInOrder` の並び）、
+ * 入出金なら金融機関
+ */
+function rowOf(entry: MoneyEntry, label: (party: string | null) => string) {
+  if (entry.type === 'expense') {
+    const { expense } = entry;
+    return {
+      parties: expense,
+      description: expense.description,
+      caption: partiesLabel(partiesInOrder(expense), label),
+    };
+  }
+  const { transaction } = entry;
+  return {
+    parties: transaction.parties,
+    description: transaction.description,
+    caption: transaction.account,
+  };
+}
+
+/**
  * 金額の列。列の幅は読んだ記録の中で一番幅を取る金額に合わせる（`widest`）: 決め打ちの幅だと、
  * 普段の数千円の記録にまれな 6 桁が収まる幅を取り続けて本文が狭くなる。
  * 幅は測らず、一番幅を取る金額を透明にして同じ升目に重ね、CSS に中身の幅として決めさせる
@@ -75,26 +96,19 @@ export function MoneyList({ onSelect, ...listProps }: Props) {
           <Box key={date} sx={{ pb: 1 }}>
             <DateHeading date={date} />
             {sameDay.map((entry) => {
-              const parties = entry.type === 'expense' ? entry.expense : entry.transaction.parties;
-              const people = parties ? partiesInOrder(parties) : [];
+              const row = rowOf(entry, label);
               return (
                 <MarkedRow
                   key={entry.id}
                   moveKey={entry.id}
                   onSelect={(editing) => onSelect(entry, editing)}
-                  mark={<PartiesMark parties={parties} colorFor={colorFor} />}
+                  mark={<PartiesMark parties={row.parties} colorFor={colorFor} />}
                   markWidth={MARK_WIDTH}
                   lead={<Amount text={amountOf(entry)} widest={widest} />}
                 >
-                  <Typography sx={{ overflowWrap: 'anywhere' }}>
-                    {entry.type === 'expense'
-                      ? entry.expense.description
-                      : entry.transaction.description}
-                  </Typography>
+                  <Typography sx={{ overflowWrap: 'anywhere' }}>{row.description}</Typography>
                   <Typography variant="caption" color="textSecondary" component="div" noWrap>
-                    {entry.type === 'expense'
-                      ? partiesLabel(people, label)
-                      : entry.transaction.account}
+                    {row.caption}
                   </Typography>
                 </MarkedRow>
               );

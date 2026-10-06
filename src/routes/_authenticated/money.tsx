@@ -111,7 +111,7 @@ function MoneyPage() {
         history={history}
         header={header}
         headerScrollsAway={!filter.panelOpen}
-        emptyMessage={filter.filtering ? filter.emptyMessage('記録') : '記録がありません'}
+        emptyMessage={filter.emptyMessage('記録')}
         onSelect={selection.open}
       />
 

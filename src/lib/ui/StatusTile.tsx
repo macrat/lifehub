@@ -39,15 +39,14 @@ type Props = {
    * 別の画面の同じタイルとその場で動く名前（View Transition。タイルごと動く）。相手の画面に同じタイルが無ければ付けない
    */
   transitionName?: string;
-  /** 押したとき。省くと押せない（見せるだけの値。お金の画面の口座） */
-  onClick?: () => void;
+  onClick: () => void;
   /** 値の字の大きさ（省けば medium） */
   size?: TileSize;
 };
 
 /**
  * 最新の状態のタイル（天気、レモンの項目ごとの状況、立替の精算）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
- * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く（押す先の無い値は押せない）。
+ * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く。
  */
 export function StatusTile({
   icon,
@@ -67,15 +66,9 @@ export function StatusTile({
         viewTransitionName: transitionName,
       }}
     >
-      {onClick ? (
-        <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
-          <TileLines icon={icon} label={label} value={value} sub={sub} size={size} />
-        </CardActionArea>
-      ) : (
-        <Box sx={{ p: TILE_PADDING }}>
-          <TileLines icon={icon} label={label} value={value} sub={sub} size={size} />
-        </Box>
-      )}
+      <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
+        <TileLines icon={icon} label={label} value={value} sub={sub} size={size} />
+      </CardActionArea>
     </Card>
   );
 }

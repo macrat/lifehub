@@ -19,19 +19,23 @@ export type Rewritten = {
  * `String.prototype.replace` と同じ書き方で、当たった所（$&）・キャプチャ（$1、$<名前>）・$ そのもの（$$）を差し込める。
  * WHY 全体を置き換える: 管理画面の欄は「置換後の内容欄」で、Money Forward の長い内容欄（「AMAZON.CO.JP 1234...」）を
  * 短い名前にしたいとき、当たった部分だけを置き換えると残りが付いてくる。
+ * パターンは最初に 1 度だけ正規表現にし、返す関数を内容欄ごとに呼ぶ（保存のたびに数千件の入出金へ当てる）。
  */
-export function applyRules(rules: readonly MoneyRule[], original: string): Rewritten {
-  for (const rule of rules) {
-    const match = fullMatch(rule.pattern).exec(original);
-    if (!match) continue;
-    return {
-      description: rule.replaceDescription ? expand(rule.replacement, match) : original,
-      direction: rule.kind === 'spending' ? null : rule.kind,
-      userId: rule.kind === 'spending' ? null : rule.userId,
-      hidden: rule.hidden,
-    };
-  }
-  return { description: original, direction: null, userId: null, hidden: false };
+export function applyRules(rules: readonly MoneyRule[]): (original: string) => Rewritten {
+  const compiled = rules.map((rule) => ({ rule, pattern: fullMatch(rule.pattern) }));
+  return (original) => {
+    for (const { rule, pattern } of compiled) {
+      const match = pattern.exec(original);
+      if (!match) continue;
+      return {
+        description: rule.replaceDescription ? expand(rule.replacement, match) : original,
+        direction: rule.kind === 'spending' ? null : rule.kind,
+        userId: rule.kind === 'spending' ? null : rule.userId,
+        hidden: rule.hidden,
+      };
+    }
+    return { description: original, direction: null, userId: null, hidden: false };
+  };
 }
 
 /** 置換後の内容欄の $ の書き方を、当たった所とキャプチャで埋める（無いキャプチャは空にする） */

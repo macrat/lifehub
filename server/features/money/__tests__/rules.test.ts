@@ -62,13 +62,13 @@ describe('ルールの当て方', () => {
       rule({ pattern: 'AMAZON.*', replaceDescription: true, replacement: 'アマゾン' }),
       rule({ pattern: 'AMAZON PRIME.*', replaceDescription: true, replacement: 'プライム' }),
     ];
-    expect(applyRules(rules, 'AMAZON PRIME 会費')).toEqual({
+    expect(applyRules(rules)('AMAZON PRIME 会費')).toEqual({
       description: 'アマゾン',
       direction: null,
       userId: null,
       hidden: false,
     });
-    expect(applyRules(rules, 'スーパー')).toEqual({
+    expect(applyRules(rules)('スーパー')).toEqual({
       description: 'スーパー',
       direction: null,
       userId: null,
@@ -78,7 +78,7 @@ describe('ルールの当て方', () => {
 
   it('パターンは内容欄全体と一致したときだけ当たり、選択（|）も全体に掛かる', () => {
     const matches = (pattern: string, original: string) =>
-      applyRules([rule({ pattern, kind: 'deposit', userId: 'u1' })], original).direction !== null;
+      applyRules([rule({ pattern, kind: 'deposit', userId: 'u1' })])(original).direction !== null;
     expect(matches('振込', '振込')).toBe(true);
     expect(matches('振込', '振込 タロウ')).toBe(false);
     expect(matches('振込', 'ネット振込')).toBe(false);
@@ -91,7 +91,7 @@ describe('ルールの当て方', () => {
 
   it('置換後の内容欄にキャプチャ・名前付きキャプチャ・当たった所・$ を差し込める', () => {
     const replaced = (pattern: string, replacement: string, original: string) =>
-      applyRules([rule({ pattern, replaceDescription: true, replacement })], original).description;
+      applyRules([rule({ pattern, replaceDescription: true, replacement })])(original).description;
     expect(replaced('振込 (\\S+) 様', '$1 から振込', '振込 ヤマダタロウ 様')).toBe(
       'ヤマダタロウ から振込',
     );
@@ -103,7 +103,7 @@ describe('ルールの当て方', () => {
 
   it('置換しないルールは内容欄を変えずに、入金・出金を対象者との立替にする', () => {
     expect(
-      applyRules([rule({ pattern: '振込 .*', kind: 'deposit', userId: 'u1' })], '振込 タロウ'),
+      applyRules([rule({ pattern: '振込 .*', kind: 'deposit', userId: 'u1' })])('振込 タロウ'),
     ).toEqual({
       description: '振込 タロウ',
       direction: 'deposit',

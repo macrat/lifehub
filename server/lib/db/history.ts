@@ -11,13 +11,8 @@ import {
 } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { DateString, HistoryPage } from '../../../shared/types.ts';
+import { HISTORY_PAGE_SIZE } from '../history-source.ts';
 import { db } from './client.ts';
-
-/**
- * 履歴（立替・レモンの記録）の 1 ページの件数の目安。ページは日の途中では切らないので、
- * これより多くなることがある。1 日は数件なので、スマホの画面数枚分になる
- */
-const HISTORY_PAGE_SIZE = 50;
 
 type PageQuery<T extends PgTable> = {
   table: T;

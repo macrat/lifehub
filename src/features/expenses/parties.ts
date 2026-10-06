@@ -1,11 +1,12 @@
 import type { Settlement } from '../../../shared/expenses.ts';
+import type { Parties } from '../../../shared/money.ts';
 import { type ExpenseInput, SHARED } from '../../../shared/validation/expenses.ts';
 
 /** 立替の当事者（ユーザー ID。null は共有） */
 export type Party = string | null;
 
-/** 立替の To（誰のために払ったか）と From（払った人）の組 */
-export type Parties = Pick<ExpenseInput, 'toUserId' | 'fromUserId'>;
+/** 立替の To（誰のために払ったか）と From（払った人）の組（取り込んだ入出金の当事者と同じ形。shared/money.ts） */
+export type { Parties };
 
 /** From の選択肢: 共有（先頭）とユーザー */
 export function fromCandidates(users: { id: string }[]): Party[] {

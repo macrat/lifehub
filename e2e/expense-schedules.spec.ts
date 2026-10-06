@@ -1,4 +1,5 @@
 import { addDays, today } from '../shared/date.ts';
+import { detailAction } from './detail.ts';
 import { expect, test } from './test.ts';
 
 /**
@@ -39,9 +40,16 @@ test('立替スケジュールを設定から追加すると今日までの回�
   await page.goto('/admin/expense-schedules');
   await page.getByRole('button', { name: `${description} を編集` }).click();
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'その他の操作' }).click();
-  await page.getByRole('menuitem', { name: '削除' }).click();
+  await detailAction(page, '削除');
   await expect(row).toHaveCount(0);
   await page.goto('/money');
   await expect(page.getByText(description)).toHaveCount(2);
+
+  // 後片付け: 記録した立替を消す（同じ worker の精算を確かめるテストに残さない）
+  page.on('dialog', (dialog) => dialog.accept());
+  for (const remaining of [1, 0]) {
+    await page.getByRole('button', { name: description }).first().click();
+    await detailAction(page, '削除');
+    await expect(page.getByText(description)).toHaveCount(remaining);
+  }
 });

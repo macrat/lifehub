@@ -24,12 +24,15 @@ import {
   expenseRulesSchema,
 } from '../../../shared/validation/expenses.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import { type HistorySource, mergeHistoryPage } from '../../lib/history-source.ts';
+import {
+  type HistorySource,
+  mapHistorySource,
+  mergeHistoryPage,
+} from '../../lib/history-source.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import * as money from '../money/service.ts';
-import type { ScheduledExpense } from './repository.ts';
 import * as repository from './repository.ts';
 import type { ExpenseRow, ExpenseScheduleRow } from './schema.ts';
 
@@ -38,12 +41,7 @@ import type { ExpenseRow, ExpenseScheduleRow } from './schema.ts';
  * 一覧は入出金と 1 本に並べるので、ページに分けるのはお金の service（`listMoney`）
  */
 export function historySource(filter: ExpenseFilter): HistorySource<Expense> {
-  const queries = repository.history(filter);
-  return {
-    recentDays: queries.recentDays,
-    hasBefore: queries.hasBefore,
-    findInDays: async (from, before) => (await queries.findInDays(from, before)).map(toExpense),
-  };
+  return mapHistorySource(repository.history(filter), toExpense);
 }
 
 /** タイムラインに並べる立替（置く日時は shared/timeline.ts の `expenseEntry`。キーワードは内容の部分一致） */
@@ -86,23 +84,12 @@ export async function listMoneyEntries({
 }: ExpenseListQuery): Promise<HistoryPage<MoneyEntry>> {
   const page = await mergeHistoryPage<MoneyEntry>(
     [
-      mapSource(historySource(filter), expenseMoneyEntry),
-      mapSource(money.historySource(filter), transactionMoneyEntry),
+      mapHistorySource(historySource(filter), expenseMoneyEntry),
+      mapHistorySource(money.historySource(filter), transactionMoneyEntry),
     ],
     before,
   );
   return { ...page, items: sortMoneyEntries(page.items) };
-}
-
-/** 出どころの行を一覧の行にする */
-function mapSource<T>(
-  source: HistorySource<T>,
-  toEntry: (record: T) => MoneyEntry,
-): HistorySource<MoneyEntry> {
-  return {
-    ...source,
-    findInDays: async (from, before) => (await source.findInDays(from, before)).map(toEntry),
-  };
 }
 
 /**
@@ -232,7 +219,7 @@ export async function deleteExpenseSchedule(id: string): Promise<void> {
 function dueExpenses(
   schedule: ExpenseScheduleInput & Pick<ExpenseScheduleRow, 'createdBy' | 'generatedThrough'>,
   through: DateString,
-): ScheduledExpense[] {
+): repository.ScheduledExpense[] {
   return scheduleDatesBetween(schedule, schedule.generatedThrough, through).map((spentOn) => ({
     id: newId(),
     fromUserId: schedule.fromUserId,

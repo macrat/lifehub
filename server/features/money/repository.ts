@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, isNotNull, lte, notInArray, type SQL, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { ExpenseTotal } from '../../../shared/expenses.ts';
+import { transferParties } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { type ExpenseFilter, SHARED } from '../../../shared/validation/expenses.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
@@ -82,6 +83,8 @@ export async function saveImport({
                 hidden: sql`excluded.hidden`,
                 updatedAt: new Date(),
               },
+              // 変わっていない明細は書かない（毎日 2 か月分を読み直すので、ほとんどの明細は前と同じ）
+              setWhere: sql`(${moneyTransactions.account}, ${moneyTransactions.occurredOn}, ${moneyTransactions.originalDescription}, ${moneyTransactions.description}, ${moneyTransactions.amount}, ${moneyTransactions.direction}, ${moneyTransactions.userId}, ${moneyTransactions.hidden}) is distinct from (excluded.account, excluded.occurred_on, excluded.original_description, excluded.description, excluded.amount, excluded.direction, excluded.user_id, excluded.hidden)`,
             }),
         ]
       : []),
@@ -192,10 +195,9 @@ export async function sumTransfers(): Promise<ExpenseTotal[]> {
     .from(moneyTransactions)
     .where(isNotNull(moneyTransactions.direction))
     .groupBy(moneyTransactions.direction, moneyTransactions.userId);
-  return rows.map(({ direction, userId, amount }) =>
-    direction === 'deposit'
-      ? { fromUserId: userId, toUserId: null, amount }
-      : { fromUserId: null, toUserId: userId, amount },
+  // 向きと対象者は揃って入る（`money_transactions_party_check`）
+  return rows.flatMap(({ direction, userId, amount }) =>
+    direction && userId ? [{ ...transferParties(direction, userId), amount }] : [],
   );
 }
 
@@ -204,18 +206,24 @@ export async function findRules(): Promise<MoneyRuleRow[]> {
   return db.select().from(moneyRules).orderBy(asc(moneyRules.position));
 }
 
-/** 読み替え直すための、すべての入出金の元の内容欄 */
-export async function findOriginals(): Promise<{ id: string; originalDescription: string }[]> {
+/** 読み替え直すための、すべての入出金の元の内容欄と、今の読み替え（変わった行だけを書くため） */
+export async function findRewritten(): Promise<
+  (Rewritten & { id: string; originalDescription: string })[]
+> {
   return db
     .select({
       id: moneyTransactions.id,
       originalDescription: moneyTransactions.originalDescription,
+      description: moneyTransactions.description,
+      direction: moneyTransactions.direction,
+      userId: moneyTransactions.userId,
+      hidden: moneyTransactions.hidden,
     })
     .from(moneyTransactions);
 }
 
 /**
- * ルールの並びを rules に置き換え、入出金を読み替え直した値（rewritten。id ごと）で上書きする。
+ * ルールの並びを rules に置き換え、読み替えが変わった入出金を読み替え直した値（rewritten。id ごと）で上書きする。
  * 1 つのトランザクションで書くので、ルールと入出金の読み替えが食い違ったまま残らない（`runBatch`）。
  * 読み替えは 1 つの update にまとめる（入出金の数だけ往復しない）
  */
