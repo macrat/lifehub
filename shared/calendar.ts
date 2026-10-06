@@ -175,6 +175,12 @@ export function toInputInstants(
  */
 export type TaskTime = { kind: 'done' | 'start'; date: DateString; at: string | null };
 
+/** 予定・タスクの種別の呼び名。追加の入口・MCP の出力・通知の見出しで同じ言葉を使う */
+export const EVENT_KIND_LABELS = { event: '予定', task: 'タスク' } as const satisfies Record<
+  EventKind,
+  string
+>;
+
 /** 予定・タスクの端（開始・予定の終了）の呼び名。入力欄・通知の本文・詳細で同じ言葉を使う */
 export const EDGE_LABELS = { start: '開始', end: '終了' } as const;
 

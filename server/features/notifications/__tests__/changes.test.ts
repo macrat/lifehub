@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import webpush from 'web-push';
 import { iso, jst } from '../../../../shared/__tests__/jst.ts';
-import type { PushMessage } from '../../../../shared/push.ts';
 import { createEventSchema } from '../../../../shared/validation/events.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
-import { env } from '../../../lib/env.ts';
 import { completeEvent, createEvent, deleteEvent } from '../../events/service.ts';
+import { type SentPush, stubWebPush } from '../../push/__tests__/web-push-stub.ts';
 import { subscribe } from '../../push/service.ts';
 
 const keys = { p256dh: 'test', auth: 'test' };
@@ -15,50 +13,28 @@ describe('予定・タスクの追加・削除の通知', () => {
   let me: string;
   let partner: string;
   /** 端末（endpoint）ごとに届いた通知 */
-  let received: { endpoint: string; message: PushMessage }[];
-  const vapid = {
-    VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,
-  };
+  let received: SentPush[];
 
   beforeEach(async () => {
     ({ userId: me, partnerId: partner } = await resetUsers());
     // 「今日」を 2026-09-14 の正午に固定する（DB の待ち合わせのタイマーは本物のまま）
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(jst('2026-09-14T12:00:00'));
-    // 送信は外へ出さない。鍵の設定は形の検査だけなので止める
-    Object.assign(env, { VAPID_PUBLIC_KEY: 'test-public', VAPID_PRIVATE_KEY: 'test-private' });
-    vi.spyOn(webpush, 'setVapidDetails').mockImplementation(() => {});
-    received = [];
-    vi.spyOn(webpush, 'sendNotification').mockImplementation(async (sub, payload) => {
-      received.push({ endpoint: sub.endpoint, message: JSON.parse(String(payload)) });
-      return { statusCode: 201, body: '', headers: {} };
-    });
+    received = stubWebPush();
     await subscribe(me, { endpoint: endpointOf(me), keys }, null);
     await subscribe(partner, { endpoint: endpointOf(partner), keys }, null);
   });
 
   afterEach(() => {
-    Object.assign(env, vapid);
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  const task = (input: Record<string, unknown>) =>
-    createEventSchema.parse({
-      kind: 'task',
-      title: '買い物',
-      participantIds: [me, partner],
-      ...input,
-    });
-
-  const event = (input: Record<string, unknown>) =>
-    createEventSchema.parse({
-      kind: 'event',
-      title: '歯医者',
-      participantIds: [me, partner],
-      ...input,
-    });
+  /** 2 人が参加する予定・タスクの入力（残りの項目は input で渡す） */
+  const itemOf = (kind: 'event' | 'task', title: string) => (input: Record<string, unknown>) =>
+    createEventSchema.parse({ kind, title, participantIds: [me, partner], ...input });
+  const task = itemOf('task', '買い物');
+  const event = itemOf('event', '歯医者');
 
   /** 届いた通知の [宛先の端末, 見出し, 本文]（順不同なので並べ替える） */
   const summary = () => received.map((r) => [r.endpoint, r.message.title, r.message.body]).sort();
@@ -166,7 +142,7 @@ describe('予定・タスクの追加・削除の通知', () => {
       me,
     );
     await vi.waitFor(() => expect(received).toHaveLength(4));
-    received = [];
+    received.length = 0;
 
     await deleteEvent(done.id, { scope: 'all' }, partner);
     await deleteEvent(single.id, { scope: 'all' }, partner);
@@ -196,7 +172,7 @@ describe('予定・タスクの追加・削除の通知', () => {
       me,
     );
     await vi.waitFor(() => expect(received).toHaveLength(1));
-    received = [];
+    received.length = 0;
     await deleteEvent(
       daily.id,
       { scope: 'this', occurrenceStart: jst('2026-09-15T08:00:00') },

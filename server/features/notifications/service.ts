@@ -3,7 +3,7 @@ import { DAY_MINUTES } from '../../../shared/constants.ts';
 import { addDays, type InstantRange, instantRange, today } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
-import { nameOf } from '../../lib/mcp/people.ts';
+import { nameOf } from '../../lib/people.ts';
 import {
   type ChangeAction,
   changeMessage,

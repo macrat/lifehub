@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { type CalendarItem, EDGE_LABELS, occurrenceKey } from '../../../shared/calendar.ts';
+import {
+  type CalendarItem,
+  EDGE_LABELS,
+  EVENT_KIND_LABELS,
+  occurrenceKey,
+} from '../../../shared/calendar.ts';
 import {
   DAY_MINUTES,
   DEFAULT_ALL_DAY_NOTIFY_MINUTES,
@@ -16,7 +21,6 @@ import {
 } from '../../../shared/date.ts';
 import type { PushMessage } from '../../../shared/push.ts';
 import { instantSchema, uuidSchema } from '../../../shared/validation/common.ts';
-import type { EventKind } from '../../../shared/validation/events.ts';
 import { listItems } from './occurrences.ts';
 import type { Target } from './targets.ts';
 
@@ -208,7 +212,6 @@ const CHANGE_LABELS = { added: '追加', deleted: '削除' } as const satisfies 
   ChangeAction,
   string
 >;
-const KIND_LABELS = { event: '予定', task: 'タスク' } as const satisfies Record<EventKind, string>;
 
 /**
  * 予定・タスク（id。繰り返しなら全部の回）のうち、今日の時点で手を付ける必要がある回。追加・削除をすぐ知らせる対象。
@@ -256,7 +259,7 @@ export function changeMessage(
   actorName: string,
 ): PushMessage {
   return {
-    title: `${actorName}が${KIND_LABELS[item.kind]}を${CHANGE_LABELS[action]}しました`,
+    title: `${actorName}が${EVENT_KIND_LABELS[item.kind]}を${CHANGE_LABELS[action]}しました`,
     body: body(item, 'start', item.startsAt),
     url: `/calendar?date=${item.placementDate}`,
     // 同じ追加・削除の送り直し（オフラインで溜めた書き込みの再送）は、端末で前の通知に重ねて 1 つにする

@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import type { Actor } from '../actor.ts';
 import { ValidationError } from '../errors.ts';
-import type { Person } from './types.ts';
+import type { Person } from '../people.ts';
 
 /**
  * 人の指定。LLM には ID ではなく名前（か "me"）で指させ、出力にも名前を出す。
@@ -28,14 +27,4 @@ export function resolvePerson(people: Person[], value: string, me: string): stri
       ? `「${value}」という名前の人が複数います。get_overview の users の id で指定してください`
       : `「${value}」という人はいません。${choices} か "me" で指定してください`,
   );
-}
-
-/** 記録を書いた人の名前。API キーで入れた記録は人が分からないので、キーの名前で表す */
-export function authorName(people: Person[], author: Actor): string {
-  return 'userId' in author ? nameOf(people, author.userId) : `API キー「${author.apiKeyName}」`;
-}
-
-/** ID を名前にする。いない人（消されたユーザー）は ID のまま */
-export function nameOf(people: Person[], id: string): string {
-  return people.find((p) => p.id === id)?.name ?? id;
 }
