@@ -17,6 +17,8 @@ export function EditableList({ children }: { children: ReactNode }) {
 }
 
 type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'> & {
+  /** アイコンのさらに左に置くもの（並べ替えられる一覧の取っ手） */
+  handle?: ReactNode;
   /** 左のアイコン（ユーザーのアバター、立替や取り込みルールの印）。アバターの大きさの枠の中央に置く */
   icon: ReactNode;
   primary: string;
@@ -26,8 +28,9 @@ type ItemProps = Omit<ListItemProps, 'children' | 'secondaryAction' | 'divider'>
   onEdit: () => void;
 };
 
-/** `EditableList` の行 1 つ。並べ替えられる一覧（取り込みルール）は、行そのものに並べ替えの ref と操作を渡す */
+/** `EditableList` の行 1 つ。並べ替えられる一覧（取り込みルール）は、左端に取っ手（handle）を置き、行に並べ替えの ref を渡す */
 export function EditableListItem({
+  handle,
   icon,
   primary,
   secondary,
@@ -45,6 +48,7 @@ export function EditableListItem({
       }
       {...item}
     >
+      {handle}
       <ListItemAvatar>
         <Box sx={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}>{icon}</Box>
       </ListItemAvatar>

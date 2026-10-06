@@ -13,6 +13,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import IconButton from '@mui/material/IconButton';
 import type { MoneyRule } from '../../../../shared/validation/money.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';
@@ -22,22 +24,13 @@ import { describeRule, ruleParties } from '../rule-text.ts';
 import type { MoneyRulesState } from '../use-money-rules.ts';
 
 /**
- * 指で並べ替えを始めるまでの長押しの長さ（ms）と、その間に動いてよい距離（px）。行は押すとスクロールにも使うので、
- * 長押しで並べ替えを始める（取っ手は置かない。行の形をほかの管理の一覧と揃える）
- */
-const PRESS_DELAY = 250;
-const PRESS_TOLERANCE = 5;
-
-/**
  * 取り込みルールの一覧（上から順に当てる）。行は左に当たった入出金の印（お金の画面の入出金の印と同じ）、パターンと
  * 説明（置換・種別と対象者・一覧に表示しない）、右端の鉛筆で変更を開く（形は `EditableList`）。
- * 行を長押しして引くと並べ替える（キーボードでも動かせる）。状態と保存は `useMoneyRules`
+ * 行の左端の取っ手を引くと並べ替える（キーボードでも動かせる）。状態と保存は `useMoneyRules`
  */
 export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { delay: PRESS_DELAY, tolerance: PRESS_TOLERANCE },
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   if (state.rules.length === 0) {
@@ -64,19 +57,33 @@ export function MoneyRuleList({ state }: { state: MoneyRulesState }) {
 
 function RuleItem({ rule, onEdit }: { rule: MoneyRule; onEdit: () => void }) {
   const { label } = useUserLabels();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: rule.id,
-  });
-  // 並べ替えの部品は行を button にするが、行の中に鉛筆のボタンがあるので、行は一覧の行のままにする
-  const { role: _role, ...dragAttributes } = attributes;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: rule.id });
   return (
     <EditableListItem
       ref={setNodeRef}
-      {...dragAttributes}
-      {...listeners}
       // 引いている間は描くたびに位置が変わるので、クラスを作らずに style で動かす
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      sx={{ bgcolor: isDragging ? 'action.selected' : undefined, touchAction: 'manipulation' }}
+      sx={{ bgcolor: isDragging ? 'action.selected' : undefined, pl: 0.5 }}
+      handle={
+        <IconButton
+          ref={setActivatorNodeRef}
+          aria-label="並べ替え"
+          {...attributes}
+          {...listeners}
+          // 指で引くときに画面がスクロールしないよう、取っ手の上ではブラウザのタッチ操作を止める
+          sx={{ cursor: 'grab', touchAction: 'none' }}
+        >
+          <DragIndicatorIcon />
+        </IconButton>
+      }
       icon={<PartiesMark parties={ruleParties(rule)} />}
       primary={rule.pattern}
       secondary={describeRule(rule, label)}

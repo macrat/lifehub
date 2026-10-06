@@ -105,7 +105,7 @@ test('取り込んだ入出金はホームのタイムラインに金融機関�
   await expect(page.getByRole('dialog', { name: SUPERMARKET.description })).toBeVisible();
 });
 
-test('取り込みルールを設定画面から足して直し、長押しで並べ替えて削除でき、欄は種別と置換のスイッチで無効になる', async ({
+test('取り込みルールを設定画面から足して直し、取っ手で並べ替えて削除でき、欄は種別と置換のスイッチで無効になる', async ({
   page,
 }) => {
   const api = apiOf(page.request);
@@ -157,15 +157,17 @@ test('取り込みルールを設定画面から足して直し、長押しで�
   await sheet.getByRole('button', { name: '保存' }).click();
   await expect.poll(savedPatterns).toEqual(['ATM .*', '振込 (\\S+)']);
 
-  // 2 つ目の行を長押しして 1 つ目の上へ引く（行は押してから少し待つと並べ替えが始まる）
-  const from = await rows.nth(1).boundingBox();
-  const to = await rows.nth(0).boundingBox();
-  if (!from || !to) throw new Error('行が見えない');
-  await page.mouse.move(from.x + 80, from.y + from.height / 2);
+  // 2 つ目の行の取っ手を 1 つ目の上へ引く。引き始めと、1 つ目が下へ避けたのを見届けてから離す
+  // （並べ替えの部品は位置を測ってから動かす）
+  const handles = page.getByRole('button', { name: '並べ替え' });
+  const from = await handles.nth(1).boundingBox();
+  const to = await handles.nth(0).boundingBox();
+  if (!from || !to) throw new Error('取っ手が見えない');
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(400);
-  await page.mouse.move(from.x + 80, from.y + from.height / 2 - 10, { steps: 2 });
-  await page.mouse.move(to.x + 80, to.y + 5, { steps: 10 });
+  await page.mouse.move(from.x + from.width / 2, from.y, { steps: 2 });
+  await expect(rows.nth(1)).toHaveAttribute('style', /translate/);
+  await page.mouse.move(to.x + to.width / 2, to.y - 10, { steps: 10 });
   await expect(rows.nth(0)).toHaveAttribute('style', /translate/);
   await page.mouse.up();
   await expect.poll(savedPatterns).toEqual(['振込 (\\S+)', 'ATM .*']);
