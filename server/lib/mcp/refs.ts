@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EVENT_KIND_LABELS } from '../../../shared/calendar.ts';
 import type { OccurrenceTarget } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../errors.ts';
 
@@ -10,8 +11,7 @@ export const ENTRY_TYPES = ['event', 'task', 'expense', 'lemon', 'memo'] as cons
 export type EntryType = (typeof ENTRY_TYPES)[number];
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
-  event: '予定',
-  task: 'タスク',
+  ...EVENT_KIND_LABELS,
   expense: '立替',
   lemon: 'レモンの世話',
   memo: 'メモ',

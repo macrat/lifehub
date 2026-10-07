@@ -21,7 +21,7 @@
 | ツール | 内容 |
 |---|---|
 | `get_overview` | 最初に呼ぶ。今の日時と今日の日付、ユーザー（名前と自分）、今日と明日のタイムライン、立替の精算、レモンの世話の状況、取り込んだ口座の今の値（`moneyAccounts`。[money.md](money.md)） |
-| `read_timeline` | 期間（既定は今日から 7 日、最大 366 日）の記録を日ごとに。各日に祝日と天気の要約。`q`（文字の部分一致）と `types`（種類）で絞れる |
+| `read_timeline` | 期間（既定は今日から 7 日、最大 366 日）の記録を日ごとに。各日に祝日と天気の要約。`q`（文字の部分一致）と `types`（種類）で絞れる。自分以外のタスクは `includeOthersTasks` のときだけ（[home.md](home.md#自分以外のタスク)） |
 | `get_weather` | 期間（既定は今日から 8 日、最大 31 日）の天気を日ごとに。3 時間ごとの天気と気温・6 時間ごとの降水確率も |
 | `add_event` | 予定かタスクを足す（`kind` で選ぶ。予定は `start` が必須で `end` は省ける、タスクは `start` だけを持ち省ける） |
 | `update_event` | 予定・タスクを ref で部分更新する。`kind` で予定とタスクを入れ替えられる |
@@ -42,7 +42,7 @@
 - **タスクは開始だけを持つ**。タスクに `end`・`remindBeforeEnd` を渡すと、捨てずに文で返す（理由は [events.md](events.md#データ) の API の入力の規則と同じ）。MCP は LLM が渡した項目の名前で直し方を返す（`rejectTaskEnd`）。`update_event` で `kind` を変えるときは、変えた後の種類で決める。タスクの `start` を省くと今日の終日（`defaultTaskStart`。画面の追加の既定と同じ）。
 - **予定とタスクの入れ替えは画面と同じ規則**（`update_event` の `kind`。`server/features/events/patch.ts` の `switchedKind`。終わりは `shared/calendar.ts` の `switchedEnds`。規則は [events.md](events.md#予定とタスクの切り替え)）。一緒に渡した `start`・`end` はそのまま使う。繰り返しの 1 回だけ（`scope: this`）は入れ替えられない。
 - **予定の終了は省ける**（`add_event`）。省いたときの長さは画面と同じ既定（[events.md](events.md#予定とタスクの切り替え)の `defaultEventEnd`）。「明日 10 時に歯医者」のように終わりを言わない頼み方が多く、必須にすると LLM が推し量った終わりが記録される。
-- **人は名前で指し、名前で返す**（`server/lib/mcp/people.ts`）。利用者は 2 人で、会話の中の人は名前で出てくる。自分は `"me"`、同じ名前の人がいるときのために ID も受ける。当てはまらなければ選べる名前を文で返す。立替の To・From の共有（共有口座）は `"shared"`。ユーザーの一覧は要求の中で 1 度だけ読む（`McpContext.people`）。
+- **人は名前で指し、名前で返す**（入力の引き当ては `server/lib/mcp/people.ts`、名前の出し方は `server/lib/people.ts`）。利用者は 2 人で、会話の中の人は名前で出てくる。自分は `"me"`、同じ名前の人がいるときのために ID も受ける。当てはまらなければ選べる名前を文で返す。立替の To・From の共有（共有口座）は `"shared"`。ユーザーの一覧は要求の中で 1 度だけ読む（`McpContext.people`）。
 - **「今」を指す日時は省ける**。世話の日時・立替の日付は省くと今・今日、予定・タスクの参加者は省くと自分。LLM は今の日時を正確には知らず、必須にすると推し量った日時が記録される。今日の日付が要る計算（「明日」「来週」）のために、`get_overview` が今日を返す。
 - **更新は部分更新**（`server/lib/patch.ts` の `applyPatch`）。LLM は「タイトルだけ変えて」を頼まれたとき他の項目を書き写さないので、省いた項目は今のまま、`null` は消す。service（`patchEvent` / `patchExpense` / `patchLog`）が今の値に重ね、追加・編集と同じ規則（`eventRulesSchema` / `expenseRulesSchema` / `careLogRulesSchema`）を掛け、規則を通った値で書く。予定の開始だけが変われば、長さを保って終了もずらす（`server/features/events/patch.ts` の `keepDuration`。「3 時からにして」で終了を渡されないと、開始が終了を追い越すか予定が伸び縮みする）。終日と時刻ありを切り替えるときは、今の値が持つ日時（開始と、予定なら終了）をすべて指定させる（`requireBothEnds`）。終日の日時は保存のときに 0:00 に丸めるので、省いた端を残すと「終了を日付にして」で開始の時刻が切り詰められるように、省いた項目が黙って変わる。開始は消せない（`null` を受けない）。予定の繰り返しの回（`scope: this`）では、その回の今の値に重ね、変えた回（回の ref とその回の値）を返す。
 - **作成でも組み合わせの規則を掛ける**。MCP の入力は API のスキーマを通らず `mcp.ts` が組み立てるので、service の作成（`createEvent` / `addExpense` / `logCare`）が書き込む所で規則を掛ける（`server/lib/patch.ts` の `checkRules`）。部分更新の `applyPatch` と同じ所で確かめるので、どの経路の書き込みも規則を通る。

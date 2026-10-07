@@ -10,10 +10,10 @@ import {
 import type { TimelineEntry } from '../../../shared/timeline.ts';
 import { SHARED } from '../../../shared/validation/money.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
-import { authorName, nameOf } from './people.ts';
+import { authorName, nameOf, type Person } from '../people.ts';
 import { toRef } from './refs.ts';
 import { jstDateTime, whenOutput } from './time.ts';
-import { compact, type Person } from './types.ts';
+import { compact } from './types.ts';
 
 /**
  * タイムラインのエントリーを LLM に返す形にする。どの種類も `ref`（書くツールに渡す）と `type` を先頭に持ち、

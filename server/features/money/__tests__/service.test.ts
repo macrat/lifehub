@@ -191,9 +191,10 @@ describe('money service', () => {
   });
 
   it('入出金はタイムラインにその日の始まりで並び、キーワードで絞れる', async () => {
+    const { userId } = await resetUsers();
     serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
     await syncMoneyForward(NOW);
-    const { items } = await getTimelinePage({ q: 'スーパー' }, NOW);
+    const { items } = await getTimelinePage({ q: 'スーパー' }, userId, NOW);
     expect(items).toMatchObject([
       {
         type: 'expense',

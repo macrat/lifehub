@@ -12,8 +12,8 @@ import {
   jsonResult,
   type McpContext,
   type McpRegistrar,
-  type Person,
 } from '../../lib/mcp/types.ts';
+import type { Person } from '../../lib/people.ts';
 import * as service from './service.ts';
 
 /**

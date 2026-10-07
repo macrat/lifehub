@@ -83,7 +83,7 @@ describe('timeline service', () => {
     );
     await createEvent(task({ title: '開始済み', startsAt: iso('2026-09-10T09:00:00') }), userId);
 
-    const page = await getTimelinePage({}, now);
+    const page = await getTimelinePage({}, userId, now);
     expect(labels(page.items)).toEqual([
       '開始済み',
       '明日の朝',
@@ -108,7 +108,7 @@ describe('timeline service', () => {
     // 開始がまだ先なら、その位置に置く
     await createEvent(task({ title: '明日開始', startsAt: iso('2026-09-15T08:00:00') }), userId);
 
-    const page = await getTimelinePage({}, now);
+    const page = await getTimelinePage({}, userId, now);
     // 開始を過ぎたものは開始の古い順、開始が同じなら登録の古い順
     expect(labels(page.items)).toEqual([
       '開始済み',
@@ -155,7 +155,7 @@ describe('timeline service', () => {
     );
     await completeEvent(done.id, {}, userId, jst('2026-09-14T08:00:00'));
 
-    const page = await getTimelinePage({}, now);
+    const page = await getTimelinePage({}, userId, now);
     expect(labels(page.items)).toEqual([
       '開始済み',
       '明日の終日',
@@ -171,7 +171,7 @@ describe('timeline service', () => {
     );
 
     // 終わった予定は終わる日に置く。今日に置いた予定は、今日より前のページには出さない
-    const earlier = await getTimelinePage({ before: day('2026-09-14') }, now);
+    const earlier = await getTimelinePage({ before: day('2026-09-14') }, userId, now);
     expect(labels(earlier.items)).toEqual(['先週の連休']);
     expect(earlier.items[0]?.at).toBe(iso('2026-09-09T23:59:59.999'));
   });
@@ -187,11 +187,11 @@ describe('timeline service', () => {
       logCare({ careTypes: [], doneAt: jst('2025-01-01T10:00:00'), note: '昔のメモ' }, { userId }),
     ]);
 
-    const first = await getTimelinePage({}, now);
+    const first = await getTimelinePage({}, userId, now);
     expect(first.nextCursor).not.toBeNull();
     // 日の途中では切らない: 続きはこのページの最も古い日より前から
     expect(first.nextCursor).toBe(first.items[0]?.at && dayOf(first.items[0].at));
-    const second = await getTimelinePage({ before: day(first.nextCursor ?? '') }, now);
+    const second = await getTimelinePage({ before: day(first.nextCursor ?? '') }, userId, now);
     // 2 ページ目で昔の記録まで届き、そこで終わる
     expect(labels(second.items).at(-1)).toBe('昔のメモ');
     expect(second.nextCursor).toBeNull();
@@ -212,7 +212,7 @@ describe('timeline service', () => {
     const pages: TimelineEntry[][] = [];
     let before: string | null | undefined;
     do {
-      const page = await getTimelinePage(before ? { before: day(before) } : {}, now);
+      const page = await getTimelinePage(before ? { before: day(before) } : {}, userId, now);
       pages.push(page.items);
       before = page.nextCursor;
     } while (before);
@@ -244,8 +244,11 @@ describe('timeline service', () => {
       { userId },
     );
 
-    expect(labels((await getTimelinePage({ q: '買い物' }, now)).items)).toEqual(['掃除', '買い物']);
-    expect(labels((await getTimelinePage({ q: '水やり' }, now)).items)).toEqual(['water']);
+    expect(labels((await getTimelinePage({ q: '買い物' }, userId, now)).items)).toEqual([
+      '掃除',
+      '買い物',
+    ]);
+    expect(labels((await getTimelinePage({ q: '水やり' }, userId, now)).items)).toEqual(['water']);
   });
 
   it('「この回だけ」で直した回は、繰り返し元に当たらないキーワードでも見つかる', async () => {
@@ -269,8 +272,8 @@ describe('timeline service', () => {
       userId,
     );
 
-    expect(labels((await getTimelinePage({ q: '歯医者' }, now)).items)).toEqual(['歯医者']);
-    expect(labels((await getTimelinePage({ q: '朝会' }, now)).items)).toEqual(['朝会']);
+    expect(labels((await getTimelinePage({ q: '歯医者' }, userId, now)).items)).toEqual(['歯医者']);
+    expect(labels((await getTimelinePage({ q: '朝会' }, userId, now)).items)).toEqual(['朝会']);
   });
 
   it('日付の範囲で絞り込むと、その範囲の記録だけを出し、今日に繰り越したタスクは出さない', async () => {
@@ -282,15 +285,54 @@ describe('timeline service', () => {
     ] as const) {
       await logCare({ careTypes: [], doneAt: jst(doneAt), note }, { userId });
     }
-    const page = await getTimelinePage({ since: day('2026-09-02'), until: day('2026-09-05') }, now);
+    const page = await getTimelinePage(
+      { since: day('2026-09-02'), until: day('2026-09-05') },
+      userId,
+      now,
+    );
     expect(labels(page.items)).toEqual(['5日']);
     expect(page.nextCursor).toBeNull();
+  });
+
+  it('自分が参加者にいないタスクは includeOthersTasks のときだけ出し、予定は誰のものでも出す', async () => {
+    const partners = { participantIds: [partnerId] };
+    await createEvent(
+      task({ title: '相手の開始済み', startsAt: iso('2026-09-10T09:00:00'), ...partners }),
+      partnerId,
+    );
+    const done = await createEvent(
+      task({ title: '相手の完了', startsAt: iso('2026-09-10T09:00:00'), ...partners }),
+      partnerId,
+    );
+    await completeEvent(done.id, {}, partnerId, jst('2026-09-13T20:00:00'));
+    await createEvent(
+      task({
+        title: '一緒',
+        startsAt: iso('2026-09-11T09:00:00'),
+        participantIds: [userId, partnerId],
+      }),
+      partnerId,
+    );
+    await createEvent(
+      event({
+        title: '相手の予定',
+        startsAt: iso('2026-09-13T15:00:00'),
+        endsAt: iso('2026-09-13T16:00:00'),
+        ...partners,
+      }),
+      partnerId,
+    );
+
+    expect(labels((await getTimelinePage({}, userId, now)).items)).toEqual(['一緒', '相手の予定']);
+    expect(
+      labels((await getTimelinePage({ includeOthersTasks: true }, userId, now)).items),
+    ).toEqual(['相手の開始済み', '一緒', '相手の完了', '相手の予定']);
   });
 
   it('メモは書いた人と一緒に、書いた時刻に並ぶ', async () => {
     const realNow = new Date();
     await addMemo({ body: 'ひとこと' }, { userId: partnerId });
-    const page = await getTimelinePage({}, realNow);
+    const page = await getTimelinePage({}, userId, realNow);
     expect(page.items).toMatchObject([
       { type: 'memo', memo: { body: 'ひとこと', createdBy: partnerId } },
     ]);
@@ -301,16 +343,16 @@ describe('timeline service', () => {
     const pinned = await addMemo({ body: '固定のメモ' }, { userId });
     await addMemo({ body: 'ふつうのメモ' }, { userId });
     await setMemoPinned(pinned.id, true);
-    expect(labels((await getTimelinePage({}, realNow)).items)).toEqual(['ふつうのメモ']);
-    expect(labels((await getTimelinePage({ q: 'メモ' }, realNow)).items)).toEqual([
+    expect(labels((await getTimelinePage({}, userId, realNow)).items)).toEqual(['ふつうのメモ']);
+    expect(labels((await getTimelinePage({ q: 'メモ' }, userId, realNow)).items)).toEqual([
       'ふつうのメモ',
       '固定のメモ',
     ]);
-    expect(labels((await getTimelinePage({ q: 'ふつう' }, realNow)).items)).toEqual([
+    expect(labels((await getTimelinePage({ q: 'ふつう' }, userId, realNow)).items)).toEqual([
       'ふつうのメモ',
     ]);
     const today = day(dayOf(realNow.toISOString()));
-    expect(labels((await getTimelinePage({ since: today }, realNow)).items)).toEqual([
+    expect(labels((await getTimelinePage({ since: today }, userId, realNow)).items)).toEqual([
       'ふつうのメモ',
       '固定のメモ',
     ]);

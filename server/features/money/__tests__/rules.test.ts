@@ -191,7 +191,7 @@ describe('ルールの保存', () => {
     await addImported('スーパー', -3_000);
     await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a, hidden: true })], a);
     expect(await listedRecords()).toEqual([['スーパー', null]]);
-    const { items } = await getTimelinePage({}, new Date('2026-10-06T09:00:00+09:00'));
+    const { items } = await getTimelinePage({}, a, new Date('2026-10-06T09:00:00+09:00'));
     expect(items.filter((item) => item.type === 'expense')).toMatchObject([
       { expense: { description: 'スーパー' } },
     ]);
@@ -232,7 +232,11 @@ describe('ルールの保存', () => {
     expect(await names({})).toEqual(['振込', 'ATM', 'スーパー']);
 
     // タイムラインの行も当事者を持つ（色に使う）
-    const { items } = await getTimelinePage({ q: '振込' }, new Date('2026-10-06T09:00:00+09:00'));
+    const { items } = await getTimelinePage(
+      { q: '振込' },
+      a,
+      new Date('2026-10-06T09:00:00+09:00'),
+    );
     expect(items).toMatchObject([
       { type: 'expense', expense: { account: 'テスト銀行', fromUserId: a, toUserId: null } },
     ]);

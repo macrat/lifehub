@@ -79,6 +79,35 @@ describe('MCP server: 予定・タスク', () => {
     expect(day?.entries.map((e) => e.title)).toEqual(['終日のタスク', '10 時の予定', '終日の予定']);
   });
 
+  it('自分が参加者にいないタスクは、includeOthersTasks のときだけ返す（予定は誰のものでも返す）', async () => {
+    const client = await connect(userId);
+    const day = { start: '2030-01-08' };
+    await call(client, 'add_event', { kind: 'task', title: '自分のタスク', ...day });
+    await call(client, 'add_event', {
+      kind: 'task',
+      title: 'B のタスク',
+      participants: ['B'],
+      ...day,
+    });
+    await call(client, 'add_event', {
+      kind: 'event',
+      title: 'B の予定',
+      participants: ['B'],
+      ...day,
+      end: '2030-01-08',
+    });
+    const titles = async (args: Record<string, unknown>) =>
+      (await readDays(client, { from: '2030-01-08', to: '2030-01-08', ...args }))[0]?.entries
+        .map((e) => e.title)
+        .sort();
+    expect(await titles({})).toEqual(['B の予定', '自分のタスク']);
+    expect(await titles({ includeOthersTasks: true })).toEqual([
+      'B のタスク',
+      'B の予定',
+      '自分のタスク',
+    ]);
+  });
+
   it('開始と終了の形（日付と日時）が混ざっていれば、揃えるよう文で返す', async () => {
     const client = await connect(userId);
     const message = await fail(client, 'add_event', {

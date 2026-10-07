@@ -13,8 +13,7 @@ import {
   formatExpense,
   formatMemo,
 } from '../../lib/mcp/entries.ts';
-import { authorName } from '../../lib/mcp/people.ts';
-import type { Person } from '../../lib/mcp/types.ts';
+import { authorName, type Person } from '../../lib/people.ts';
 import { newSecret } from '../../lib/secret.ts';
 import { listPeople } from '../users/people.ts';
 import * as repository from './repository.ts';

@@ -7,9 +7,9 @@
 
 ## 画面
 
-`/?q=&since=YYYY-MM-DD&until=YYYY-MM-DD`（`src/routes/_authenticated/index.tsx`）。上から:
+`/?q=&since=YYYY-MM-DD&until=YYYY-MM-DD&includeOthersTasks=true`（`src/routes/_authenticated/index.tsx`）。上から:
 
-- **AppBar**: 左端にスマホでは設定への歯車（PC はサイドナビに設定があるので出さない。同じ入口を 2 か所に出さない）、その右に検索窓（「記録を検索」）と絞り込みボタン。お金・レモンと同じ部品（`FilterSearchField` / `FilterPanel`）と状態（`useFilterSearch`）。キーワードは全種類の記録の文字（予定・タスクのタイトルとメモ、立替の内容、レモンのメモと項目の名前、メモの本文）に部分一致で掛かり、絞り込みは記録の日付の範囲（`since` / `until`。`src/features/timeline/components/TimelineFilterForm.tsx`）。条件は `shared/validation/timeline.ts` の `timelineFilterSchema` で、サーバーが掛ける。日付で絞り込んでいる間は、一番上にまとめるタスクは置く日を持たないので出さない。
+- **AppBar**: 左端にスマホでは設定への歯車（PC はサイドナビに設定があるので出さない。同じ入口を 2 か所に出さない）、その右に検索窓（「記録を検索」）と絞り込みボタン。お金・レモンと同じ部品（`FilterSearchField` / `FilterPanel`）と状態（`useFilterSearch`）。キーワードは全種類の記録の文字（予定・タスクのタイトルとメモ、立替の内容、レモンのメモと項目の名前、メモの本文）に部分一致で掛かり、絞り込みは記録の日付の範囲（`since` / `until`）と「自分以外のタスクも含める」（`includeOthersTasks`。既定は外す。[自分以外のタスク](#自分以外のタスク)）で、フォームは `src/features/timeline/components/TimelineFilterForm.tsx`。条件は `shared/validation/timeline.ts` の `timelineFilterSchema` で、サーバーが掛ける。日付で絞り込んでいる間は、一番上にまとめるタスクは置く日を持たないので出さない。
 - **最新の状態**（`src/features/dashboard/components/StatusCards.tsx`）: 天気（`WeatherTile`。[weather.md](weather.md)）・葉水・水やり（`CareStatusTile`）のタイルを横に 3 つ。タイルは角だけなめらかな角丸（角 24px の超楕円でつなぐ。`src/lib/ui/squircle.ts` の `TILE_MASK`）で、大きさによらず角の丸みが揃う（レモン画面のタイルも同じ部品なので同じ形。読み込み中の骨組みも同じ形の `StatusTileSkeleton`）。天気を押すと週間天気の画面が、葉水・水やりを押すとその項目にチェックを入れたレモンの記録の入力が開く。絞り込みに関わらず今の状態を示す。下へスクロールすると AppBar の裏へ隠れ、少し上へ戻すと出てくる（`src/lib/ui/ScrollAwayHeader.tsx`）。絞り込みのフォームも同じ帯の中に開き、開いている間は隠れない。
 - **ピン止めしたメモ**（`src/features/timeline/components/PinnedMemoList.tsx`）: タイムラインの一番上に固定する。行はタイムラインと同じで、日時の右に控えめなピンを添える。絞り込んでいないときだけ出す（絞り込み中はタイムラインがほかのメモと同じ位置に出す）。届くまでは何も出さない（無いことが多く、骨組みを出すと届いたときにタイムラインの位置が動く）。どれをどの順に出すかは [memos.md](memos.md#ピン止め)。
 - **タイムライン**（`src/features/timeline/components/TimelineList.tsx`）: 上が新しく下が古い。下の端に近づくと古いほうのページを読み足す（無限スクロール）。最新のページは 24 時間先までに始まる予定を含み、それより先はまだ出さない。
@@ -53,18 +53,30 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 繰り返す予定・タスクは回ごとに 1 行（タスクの未完了の回はカレンダーと同じく先頭の 2 つだけ。[events.md](events.md)）。
 
+## 自分以外のタスク
+
+自分が参加者にいないタスク（相手だけのタスク）は、既定ではタイムラインに出さない。「自分以外のタスクも含める」を選んだときだけ出す。
+
+- タスクはやることの一覧で、相手だけのやることは自分の手を動かさない。一番上にまとめる未完了のタスクが相手の分で埋まると、自分のやることが押し下げられる。
+- 予定は誰のものでも出す。家の予定は相手のものでも知っておきたい（いつ家にいないかなど）。
+- 自分と相手が両方参加者にいるタスクは自分のタスクとして出す。
+- 繰り返すタスクは回ごとに見る（「この回だけ」で参加者を変えた回は、その回の参加者で決める）。
+- 含めるかどうかは絞り込みのバッジに数える（既定と違う状態を、フォームを開かずに気付けるように）が、ピン止めしたメモの出し方は変えない（`shared/validation/timeline.ts` の `pinsOnTop`）。探し物をしている状態ではなく、出す記録の範囲を選ぶ設定のため。
+- MCP の読み出しも同じ既定で、`read_timeline` の `includeOthersTasks` で含める（[MCP ツール](#mcp-ツール)）。
+
 ## データ
 
 無し。各機能の記録を読んで並べる（下記「API」）。
 
 ## API
 
-`timeline.get`（`server/features/timeline/`。入力は絞り込みの `q`・期間の `since` / `until`・続きの `before`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/timeline-source.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `calendar.get` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`recordSources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
+`timeline.get`（`server/features/timeline/`。入力は絞り込みの `q`・期間の `since` / `until`・自分以外のタスクを含めるかの `includeOthersTasks`・続きの `before`）が 1 ページ（`HistoryPage<TimelineEntry>`。古い順）を返す。記録を持たない集約の feature で、各機能の service が持つ `timelineSource`（`server/lib/timeline-source.ts` の `TimelineSource`。ページの区切りに使う日時と、範囲の中の行を返す）から記録を集めて並べる（カレンダーの `calendar.get` と同じ位置付け）。どの記録をどの日時に置くかは各機能と `shared/timeline.ts` が決め、タイムラインは出どころの一覧（`recordSources`）を回すだけなので、記録の種類を足しても並べる側は変わらない。
 
 - ページの分け方はお金・レモンの履歴と同じで、日の途中では切らない。記録の種類ごとに新しいほうから 50 件の日時を集め、全体で 50 件目の日からをそのページにする。日数でなく件数で区切るので、記録の無い期間が続いても空のページを読み続けない。未完了のタスクは一番上か 24 時間以内にしか出ないので数えない。繰り返す予定は繰り返し元ごとに、続きの前の 50 回を展開して数える。
 - 最新のページ（`before` なし）の上端は今から 24 時間後、続きのページは `before` の日の始まり。`until` があればその日の終わりで頭打ち、`since` があればその日の始まりで止める。
   - 最新のページの上端は、行の日時ではなく記録の始まりで見る。終日の予定は置く日の終わりに置くので、行の日時で見ると明日の終日の予定や `until` を越えて続く予定が出なくなる。続きのページは上のページと行の日時で分け合う（同じ行を 2 つのページに出さない）。
-- 絞り込んでいないとき（`q`・`since`・`until` のどれも無い。`shared/search.ts` の `isFiltered`）は、ピン止めしたメモをどのページにも出さない（画面がタイムラインの上に固定して出す）。メモの出どころをピン止めしていないものだけの `unpinnedTimelineSource` に替えるので、ページの区切りにも数えない。絞り込んでいるときはほかのメモと同じに出す（[memos.md](memos.md#ピン止め)）。
+- 自分以外のタスクを含めないときは、予定・タスクの出どころを、タスクを自分が参加者にいるものだけにしたもの（`server/features/events/timeline.ts` の `timelineSource(userId)`）に替える。ページの区切りにも数えないので、相手のタスクが多くてもページが空にならない。
+- 絞り込んでいないとき（`q`・`since`・`until` のどれも無い。`shared/validation/timeline.ts` の `pinsOnTop`）は、ピン止めしたメモをどのページにも出さない（画面がタイムラインの上に固定して出す）。メモの出どころをピン止めしていないものだけの `unpinnedTimelineSource` に替えるので、ページの区切りにも数えない。絞り込んでいるときはほかのメモと同じに出す（[memos.md](memos.md#ピン止め)）。
   - WHY NOT 最新のページの一番上に混ぜる: 画面の手元の控えは行を置く日でページに振り分ける（`entryDay`）ので、書いた日の古いメモを最新のページに置くには、ホームでだけ置く日を変える規則が要る。MCP の日ごとの読み出しは同じ行を書いた日に置くので、規則が 2 つに割れる。
 - WHY NOT 種類ごとのページを画面で繋ぐ: 種類ごとに読み進んだ位置が違うので、どこまで出してよいかを画面が決めることになり、並びの規則が画面とサーバーに割れる。
 
@@ -76,4 +88,4 @@ X の投稿と同じ組み方で、左に丸いアイコン、右は上段と下
 
 ## MCP ツール
 
-タイムラインは MCP の中心で、`read_timeline` が期間の記録を日ごとに返し、`get_overview` が今日と明日の分を含む今の状況を返す（[mcp.md](mcp.md)）。MCP は日を指して読むので、ページではなく日ごとに分けた形（`listDays`）を読む。
+タイムラインは MCP の中心で、`read_timeline` が期間の記録を日ごとに返し、`get_overview` が今日と明日の分を含む今の状況を返す（[mcp.md](mcp.md)）。MCP は日を指して読むので、ページではなく日ごとに分けた形（`listDays`）を読む。自分以外のタスクはホームと同じく既定では出さず、`read_timeline` の `includeOthersTasks` で含める（`get_overview` は含めない）。

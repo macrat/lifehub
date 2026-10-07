@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -77,20 +78,26 @@ function candidateKeywordOf(table: CandidateColumns, q: string | undefined): SQL
 }
 
 /**
- * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）。どちらも省けば絞らない。
- * 種別は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
+ * 候補の絞り込み: 種別（kind）と、タイトルかメモの部分一致（q）と、ID（id）。どれも省けば絞らない。
+ * 種別と ID は繰り返し元・単発の行で絞り、実体化された回は繰り返し元に付いてくる（回の種別は繰り返し元のもの）
  */
-export type CandidateFilter = { kind?: EventKind | undefined; q?: string | undefined };
+export type CandidateFilter = {
+  kind?: EventKind | undefined;
+  q?: string | undefined;
+  /** 1 つの予定・タスク（繰り返しなら全部の回）だけを読む */
+  id?: string | undefined;
+};
 
 function isCandidate(
   table: CandidateColumns,
   from: Date,
   to: Date,
-  { kind, q }: CandidateFilter,
+  { kind, q, id }: CandidateFilter,
 ): SQL | undefined {
   return and(
     candidateKeywordOf(table, q),
     kind && eq(table.kind, kind),
+    id === undefined ? undefined : eq(table.id, id),
     // 実体化された回は候補にしない（繰り返し元をたどって別に読む）
     isNull(table.seriesId),
     or(
@@ -185,12 +192,14 @@ end`.mapWith(events.startsAt);
 
 /**
  * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
- * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する
+ * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する。
+ * tasksOf を渡すと、タスクはその人が参加者にいるものだけを数える（予定は絞らない。`listOccurrences` の tasksOf と同じ）
  */
 export async function findRecentTimelineInstants(
   before: Date,
   q: string | undefined,
   limit: number,
+  tasksOf?: string,
 ): Promise<Date[]> {
   const rows = await db
     .select({ at: timelineAt })
@@ -201,6 +210,7 @@ export async function findRecentTimelineInstants(
         not(events.cancelled),
         lt(timelineAt, before),
         keywordOf(events, q),
+        tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(tasksOf)),
       ),
     )
     .orderBy(desc(timelineAt))
@@ -335,6 +345,17 @@ function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
 function hasNoParticipants(tx: Database): SQL {
   const own = alias(eventParticipants, 'own_participants');
   return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
+}
+
+/** events の行の参加者に userId がいる */
+function hasParticipant(userId: string): SQL {
+  const own = alias(eventParticipants, 'own_participants');
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(own)
+      .where(and(eq(own.eventId, events.id), eq(own.userId, userId))),
+  );
 }
 
 export async function remove(id: string): Promise<void> {
