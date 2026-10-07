@@ -63,6 +63,16 @@ describe('立替スケジュール', () => {
     ]);
   });
 
+  it('記録が重ねて走っても、同じ回を二重に記録しない', async () => {
+    await addExpenseSchedule(rent('2026-10-25'), a, undefined, at('2026-10-06'));
+    const results = await Promise.all([
+      recordScheduledExpenses(at('2026-11-26')),
+      recordScheduledExpenses(at('2026-11-26')),
+    ]);
+    expect(results.reduce((sum, { count }) => sum + count, 0)).toBe(2);
+    expect((await allExpenses()).map(([date]) => date)).toEqual(['2026-10-25', '2026-11-25']);
+  });
+
   it('同じ ID で送り直しても二重に記録しない', async () => {
     const id = '01990000-0000-7000-8000-0000000000a1';
     await addExpenseSchedule(rent('2026-10-06'), a, id, at('2026-10-06'));

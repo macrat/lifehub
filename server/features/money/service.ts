@@ -1,3 +1,4 @@
+import { v5 as uuidv5 } from 'uuid';
 import { addCalendarMonths, addDays, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
 import {
@@ -186,13 +187,25 @@ export async function deleteExpenseSchedule(id: string): Promise<void> {
   }
 }
 
-/** スケジュールの、記録し終えた日の翌日から through までの回 */
+/**
+ * スケジュールの回の立替の ID の名前空間（UUID v5）。値に意味は無く、変えると記録済みの回と ID が合わなくなる
+ */
+const SCHEDULED_EXPENSE_NAMESPACE = 'a308985f-61ed-464d-a652-fef620e84c40';
+
+/**
+ * スケジュールの、記録し終えた日の翌日から through までの回。ID はスケジュールと日から決める。
+ * WHY: 記録は「記録し終えた日より後の回を読み、記録して日を進める」の 2 往復で、Cron が重ねて走る
+ * （Vercel が同じ Cron を 2 度呼ぶ、手で呼ぶ）と両方が同じ回を読む。ID が同じなので後の記録は
+ * 主キーで何も書かず、同じ回を二重に記録しない。
+ * WHY NOT UUID v7（ほかの行と同じ）: 書くたびに違う ID になり、重なった記録を見分けられない。
+ * 立替の並びは記録した日時が先で、ID は同時刻の並びを決めるだけなので、時刻順でなくても困らない。
+ */
 function dueExpenses(
-  schedule: ExpenseScheduleInput & Pick<MoneyScheduleRow, 'createdBy' | 'generatedThrough'>,
+  schedule: ExpenseScheduleInput & Pick<MoneyScheduleRow, 'id' | 'createdBy' | 'generatedThrough'>,
   through: DateString,
 ): repository.NewExpense[] {
   return scheduleDatesBetween(schedule, schedule.generatedThrough, through).map((occurredOn) => ({
-    id: newId(),
+    id: uuidv5(`${schedule.id}:${occurredOn}`, SCHEDULED_EXPENSE_NAMESPACE),
     fromUserId: schedule.fromUserId,
     toUserId: schedule.toUserId,
     amount: schedule.amount,

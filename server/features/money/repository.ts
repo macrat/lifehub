@@ -215,9 +215,14 @@ export async function insertDue(
   return (rows as MoneyRecordRow[] | undefined) ?? [];
 }
 
-/** 記録する立替の insert（無ければ文を出さない。空の values は SQL にならない） */
+/**
+ * 記録する立替の insert（無ければ文を出さない。空の values は SQL にならない）。
+ * 既に記録した回（同じ ID）は何も書かず、返す行にも入らない（重なった Cron の記録で二重に知らせない）
+ */
 function insertExpenses(tx: Database, due: NewExpense[]) {
-  return due.length > 0 ? [tx.insert(moneyRecords).values(due).returning()] : [];
+  return due.length > 0
+    ? [tx.insert(moneyRecords).values(due).onConflictDoNothing().returning()]
+    : [];
 }
 
 /** スケジュールを書き換え、書いた後の行を返す（無ければ undefined）。記録し終えた日は変えない（記録した立替はそのまま） */
