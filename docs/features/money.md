@@ -56,7 +56,7 @@
 
 決まった日に決まった内容で発生する立替（共有口座への定期の入金、個人の口座からの口座振替の支払い）を、日が来たら自動で記録する。
 
-- 画面: `/admin/expense-schedules`（`src/routes/_authenticated/admin.expense-schedules.tsx`。設定の「お金」セクションの「立替スケジュール」から開く）。AppBar は戻るボタンと「立替スケジュール」。一覧（`src/features/money/components/ExpenseScheduleList.tsx`。形は設定から開くほかの管理の画面と同じ `EditableList`）はスケジュールを作った順に並べ、行は左に記録する立替の印（お金の画面の印と同じ `PartiesMark`）、内容と説明（金額・繰り返し・次に記録する日）、右端の鉛筆。右下の追加ボタン（「立替スケジュールを追加」）で追加し、鉛筆で変更、変更のシートの三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.tsx`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
+- 画面: `/admin/expense-schedules`（`src/routes/_authenticated/admin.expense-schedules.tsx`。設定の「お金」セクションの「立替スケジュール」から開く）。AppBar は戻るボタンと「立替スケジュール」。一覧（`src/features/money/components/ExpenseScheduleList.tsx`。形は設定から開くほかの管理の画面と同じ `EditableList`）はスケジュールを作った順に並べ、行は左に記録する立替の印（お金の画面の印と同じ `PartiesMark`）、内容と説明（金額・繰り返し・次に記録する日）、右端の鉛筆。右下の追加ボタン（「立替スケジュールを追加」）で追加し、鉛筆で変更、変更のシートの三点リーダーで削除する（`ExpenseScheduleSheet`。状態と操作は `use-expense-schedule-sheet.ts`）。項目は立替と同じ（`ExpenseFields`）で、日付は「最初の日」、その下に「繰り返し」（毎日・毎週・毎月・毎年。既定は毎月）。終わりの日は持たず、止めるならスケジュールを削除する。
 - 立替スケジュールの追加・変更・削除はこの画面だけで行う。立替の入力・詳細・一覧はスケジュールに触れず、記録された立替は手で入れた立替と同じ普通の立替で、スケジュールとのつながりも持たない。WHY: 立替の入力欄に普段は使わない項目を足さず、記録された立替を直す・消すときに「この回だけ」のような区別を持ち込まない。
 - 回の日（`shared/money.ts` の `scheduleDate`）: どの回も最初の日から数える（前の回から数えない）。毎月・毎年でその日が無い月（31 日、2/29）はその月の末日にし、次の月には元の日に戻る（1/31 → 2/28 → 3/31。ずれていかない）。WHY NOT RRULE（予定・タスクの繰り返し）: RRULE の毎月はその日が無い月を飛ばし、月末払いが記録されない月ができる。繰り返しは 4 通りだけなので、日付の足し算で足りる。
 - 記録: 追加したとき、最初の日から今日までの回をその場で記録する（最初の日が先ならその日まで何も記録しない）。先の日の回は、日付が変わってすぐの Cron（`/api/cron/money/schedules`。`server/features/money/service.ts` の `recordScheduledExpenses`）が、日が来た回を記録する。Cron が止まっていた日の回は、次に動いたときにまとめて記録する。記録した人はスケジュールを作った人。
@@ -124,7 +124,7 @@
 | `money.updateSchedule` | 書き込み | 変更。入力は `id` と全項目で、全項目を置き換える（まだ記録していない回にだけ効く）。値は返さない |
 | `money.deleteSchedule` | 書き込み | 削除（入力は `id`）。記録した立替は残る |
 | `money.accounts` | 読み出し | 口座のタイル（`[{ name, kind, balance, withdrawalAmount, withdrawalOn, fetchedAt }]`）。環境変数に書いた順で、まだ取り込んでいない口座も値を null にして並べる |
-| `money.balances` | 読み出し | 口座の値の推移の 1 ページ（入力 `{ before? }`。`{ items: [{ account, on, amount }], nextCursor }`）。before（省けば明日）より前の 3 か月の記録を日の古い順に、今取り込んでいる口座すべての分。nextCursor はそのページの始まりの日で、それより前の記録が無ければ null。WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う |
+| `money.balances` | 読み出し | 口座の値の推移の 1 ページ（入力 `{ before? }`。`{ items: [{ account, on, amount }], nextCursor }`）。before（省けば明日）より前の 6 か月の記録を日の古い順に、今取り込んでいる口座すべての分。nextCursor はそのページの始まりの日で、それより前の記録が無ければ null。WHY 件数ではなく期間で区切る: グラフは期間で見るもので、開いたときに要る期間（最初に出す 3 か月と、その半分手前までの先読み）が 1 回の取得で揃う（`shared/money.ts` の `BALANCE_PAGE_MONTHS`） |
 | `money.rules` | 読み出し | 取り込みルールの並び（上から順。`[{ id, pattern, replaceDescription, replacement, kind, userId, hidden }]`） |
 | `money.saveRules` | 書き込み | ルールの並び全体を置き換え（入力は `moneyRulesSchema`）、取り込み済みの入出金を読み替え直す。値は返さない |
 

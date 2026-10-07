@@ -1,7 +1,7 @@
+import type { MoneyAccount } from '../../../../shared/money.ts';
 import { formatMonthDay } from '../../../lib/date.ts';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { formatYen } from '../../../lib/yen.ts';
-import type { MoneyAccount } from '../queries.ts';
 
 /**
  * スマホは 3 列、広い画面は 4 列（口座は数枚なので、1〜2 行に収まる）。

@@ -23,7 +23,7 @@ let b: string;
 const on = dateStringSchema.parse('2026-09-01');
 
 /** 取り込んだ入出金を 1 件入れる（取り込みそのものは service.test.ts で確かめる）。parties はルールで立替にしたときの当事者 */
-async function addTransaction(
+async function addImported(
   occurredOn: string,
   description: string,
   amount: number,
@@ -156,8 +156,8 @@ describe('立替と入出金を 1 本に並べる', () => {
 
   it('日の古い順に並べ、同じ日の中は記録した順（取り込んだ入出金は取り込んだ時刻）', async () => {
     await add('2026-09-02', '立替 2 日');
-    await addTransaction('2026-09-02', '入出金 2 日', -500);
-    await addTransaction('2026-09-01', '入出金 1 日', 300000);
+    await addImported('2026-09-02', '入出金 2 日', -500);
+    await addImported('2026-09-01', '入出金 1 日', 300000);
     expect(await labels()).toEqual(['入出金 1 日', '立替 2 日', '入出金 2 日']);
   });
 
@@ -168,7 +168,7 @@ describe('立替と入出金を 1 本に並べる', () => {
     );
     await Promise.all(
       days.map((day, i) =>
-        i % 2 === 0 ? add(day, `立替 ${i}`) : addTransaction(day, `入出金 ${i}`, -1),
+        i % 2 === 0 ? add(day, `立替 ${i}`) : addImported(day, `入出金 ${i}`, -1),
       ),
     );
     const first = await listRecords({});
@@ -180,10 +180,10 @@ describe('立替と入出金を 1 本に並べる', () => {
   });
 
   it('入出金にも同じ絞り込みを掛ける（金額は額の大きさ。当事者を持たない入出金は To・From で絞れば出さない）', async () => {
-    await addTransaction('2026-09-01', 'スーパー', -3200);
-    await addTransaction('2026-09-02', '給与', 300000);
-    await addTransaction('2026-09-03', 'コンビニ', -500);
-    await addTransaction('2026-09-04', '共有口座へ', 50000, { fromUserId: a, toUserId: null });
+    await addImported('2026-09-01', 'スーパー', -3200);
+    await addImported('2026-09-02', '給与', 300000);
+    await addImported('2026-09-03', 'コンビニ', -500);
+    await addImported('2026-09-04', '共有口座へ', 50000, { fromUserId: a, toUserId: null });
     expect(await labels({ min: 1000, max: 5000 })).toEqual(['スーパー']);
     expect(await labels({ since: dateStringSchema.parse('2026-09-02') })).toEqual([
       '給与',
@@ -197,7 +197,7 @@ describe('立替と入出金を 1 本に並べる', () => {
   });
 
   it('取り込んだ入出金は直せず、消せない', async () => {
-    await addTransaction('2026-09-01', 'スーパー', -3200);
+    await addImported('2026-09-01', 'スーパー', -3200);
     const [record] = (await listRecords({})).items;
     if (!record) throw new Error('no record');
     await expect(deleteExpense(record.id, a)).rejects.toThrow('取り込んだ入出金は直せません');

@@ -6,7 +6,6 @@ import TextField from '@mui/material/TextField';
 import { MONEY_RULE_KINDS, type MoneyRuleKind } from '../../../../shared/money.ts';
 import type { MoneyRule } from '../../../../shared/validation/money.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import { deleteAction } from '../../../lib/ui/use-record-detail.tsx';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { KIND_LABELS } from '../rule-text.ts';
 import { useMoneyRuleForm } from '../use-money-rule-form.ts';
@@ -31,23 +30,10 @@ type Props = {
  */
 export function MoneyRuleSheet({ rule, onSubmit, onDelete, onClose }: Props) {
   const { users } = useUserLabels();
-  const { fields, sheet } = useMoneyRuleForm({ rule, onSubmit, onSaved: onClose });
+  const { fields, sheet } = useMoneyRuleForm({ rule, onSubmit, onDelete, onClose });
   const { errors } = fields;
-  const actions = rule
-    ? [
-        deleteAction(
-          { confirm: 'この取り込みルールを削除しますか？', run: () => onDelete(rule.id) },
-          onClose,
-        ),
-      ]
-    : [];
   return (
-    <RecordSheet
-      {...sheet}
-      onClose={onClose}
-      actions={actions}
-      title={rule ? rule.pattern : '取り込みルールを追加'}
-    >
+    <RecordSheet {...sheet} title={rule ? rule.pattern : '取り込みルールを追加'}>
       <TextField
         name="pattern"
         label="パターン（正規表現）"

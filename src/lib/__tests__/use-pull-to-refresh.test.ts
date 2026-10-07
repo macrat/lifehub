@@ -98,7 +98,7 @@ describe('usePullGesture', () => {
     expect(refetch).not.toHaveBeenCalled();
   });
 
-  it('一覧の無い画面と、下へ読み足す一覧（ホーム・立替・レモン）は、上端からだけ引ける', () => {
+  it('一覧の無い画面と、下へ読み足す一覧（ホーム・お金・レモン）は、上端からだけ引ける', () => {
     setup();
     pull(-(PULL_THRESHOLD + 20));
     expect(refetch).not.toHaveBeenCalled();

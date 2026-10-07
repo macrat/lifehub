@@ -15,7 +15,6 @@ export function useMoneyRules() {
   const rules = rulesQuery.data ?? [];
   return {
     rulesQuery,
-    rules,
     /** シートで保存したルールを並びに入れる（同じ id なら置き換え、新しいルールは末尾） */
     put: (rule: MoneyRule) => save.mutateAsync(putById(rules, rule.id, rule)),
     remove: (id: string) => save.mutate(putById(rules, id, null)),

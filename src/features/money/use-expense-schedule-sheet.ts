@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import type { ScheduleFrequency } from '../../../shared/money.ts';
+import type { ExpenseSchedule, ScheduleFrequency } from '../../../shared/money.ts';
 import { deleteAction } from '../../lib/ui/use-record-detail.tsx';
 import {
-  type ExpenseSchedule,
   useAddExpenseSchedule,
   useDeleteExpenseSchedule,
   useUpdateExpenseSchedule,

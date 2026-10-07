@@ -1,8 +1,8 @@
 import Typography from '@mui/material/Typography';
+import type { MoneyRecord } from '../../../../shared/money.ts';
 import { formatDateWithYear } from '../../../lib/date.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { formatSignedYen } from '../../../lib/yen.ts';
-import type { MoneyRecord } from '../queries.ts';
 
 type Props = {
   /** 取り込んだ入出金（account を持つお金の記録） */

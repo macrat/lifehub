@@ -35,11 +35,7 @@ const rule = (values: Partial<MoneyRule> & Pick<MoneyRule, 'pattern'>): MoneyRul
 });
 
 /** 取り込み済みの入出金を 1 件入れる（読み替える前のまま） */
-async function addTransaction(
-  originalDescription: string,
-  amount: number,
-  occurredOn = '2026-10-01',
-) {
+async function addImported(originalDescription: string, amount: number, occurredOn = '2026-10-01') {
   await db.insert(moneyRecords).values({
     id: newId(),
     sourceId: newId(),
@@ -52,7 +48,7 @@ async function addTransaction(
 }
 
 /** 一覧の入出金（内容欄と当事者） */
-async function transactions(query: MoneyListQuery = {}) {
+async function listedRecords(query: MoneyListQuery = {}) {
   return (await listRecords(query)).items.map(({ description, fromUserId, toUserId }) => [
     description,
     hasParties({ fromUserId, toUserId }) ? { fromUserId, toUserId } : null,
@@ -140,7 +136,7 @@ describe('ルールの保存', () => {
   });
 
   it('足す・直す・消すと、取り込み済みの入出金を元の内容欄から読み替え直す', async () => {
-    await addTransaction('振込 タロウ', 50_000);
+    await addImported('振込 タロウ', 50_000);
     const deposit = rule({
       pattern: '振込 (\\S+)',
       replaceDescription: true,
@@ -149,16 +145,16 @@ describe('ルールの保存', () => {
       userId: a,
     });
     await saveRules([deposit], a);
-    expect(await transactions()).toEqual([['タロウ の入金', { fromUserId: a, toUserId: null }]]);
+    expect(await listedRecords()).toEqual([['タロウ の入金', { fromUserId: a, toUserId: null }]]);
     expect(await listRules()).toEqual([deposit]);
 
     // 直すと、読み替えた後ではなく元の内容欄から当て直す
     await saveRules([{ ...deposit, replacement: '$1 さん', kind: 'withdrawal', userId: b }], a);
-    expect(await transactions()).toEqual([['タロウ さん', { fromUserId: null, toUserId: b }]]);
+    expect(await listedRecords()).toEqual([['タロウ さん', { fromUserId: null, toUserId: b }]]);
 
     // 消すと元に戻る
     await saveRules([], a);
-    expect(await transactions()).toEqual([['振込 タロウ', null]]);
+    expect(await listedRecords()).toEqual([['振込 タロウ', null]]);
     expect(await listRules()).toEqual([]);
   });
 
@@ -185,16 +181,16 @@ describe('ルールの保存', () => {
       accounts: [{ name: 'テスト銀行', balance: 0, withdrawalAmount: null, withdrawalOn: null }],
     });
     await syncMoneyForward(new Date('2026-10-06T09:00:00+09:00'));
-    expect(await transactions()).toEqual([['ATM 引き出し', { fromUserId: null, toUserId: b }]]);
+    expect(await listedRecords()).toEqual([['ATM 引き出し', { fromUserId: null, toUserId: b }]]);
     const [row] = await db.select().from(moneyRecords);
     expect(row?.originalDescription).toBe('ATM 0123');
   });
 
   it('一覧に表示しないルールに当たった入出金は、一覧とタイムラインに出ないが精算には入る', async () => {
-    await addTransaction('振込', 30_000);
-    await addTransaction('スーパー', -3_000);
+    await addImported('振込', 30_000);
+    await addImported('スーパー', -3_000);
     await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a, hidden: true })], a);
-    expect(await transactions()).toEqual([['スーパー', null]]);
+    expect(await listedRecords()).toEqual([['スーパー', null]]);
     const { items } = await getTimelinePage({}, new Date('2026-10-06T09:00:00+09:00'));
     expect(items.filter((item) => item.type === 'expense')).toMatchObject([
       { expense: { description: 'スーパー' } },
@@ -203,16 +199,16 @@ describe('ルールの保存', () => {
 
     // スイッチを戻すと、また出る
     await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a })], a);
-    expect((await transactions()).map(([description]) => description)).toEqual([
+    expect((await listedRecords()).map(([description]) => description)).toEqual([
       '振込',
       'スーパー',
     ]);
   });
 
   it('入金・出金は「共有」との立替として精算に入り、To・From で絞り込める', async () => {
-    await addTransaction('振込', 30_000);
-    await addTransaction('ATM', -10_000);
-    await addTransaction('スーパー', -3_000);
+    await addImported('振込', 30_000);
+    await addImported('ATM', -10_000);
+    await addImported('スーパー', -3_000);
     await saveRules(
       [
         rule({ pattern: '振込', kind: 'deposit', userId: a }),
@@ -226,7 +222,7 @@ describe('ルールの保存', () => {
       { creditorId: a, debtorId: b, amount: 10_000 },
     ]);
     const names = async (query: MoneyListQuery) =>
-      (await transactions(query)).map(([description]) => description);
+      (await listedRecords(query)).map(([description]) => description);
     expect(await names({ to: SHARED })).toEqual(['振込']);
     expect(await names({ from: SHARED })).toEqual(['ATM']);
     expect(await names({ from: a })).toEqual(['振込']);

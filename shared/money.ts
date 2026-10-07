@@ -207,6 +207,16 @@ export type MoneyAccount = {
  */
 export type MoneyBalance = { account: string; on: DateString; amount: number };
 
+/** 残高の推移のグラフが最初に出す期間の長さ（か月）。今日までの過去 3 か月 */
+export const BALANCE_WINDOW_MONTHS = 3;
+
+/**
+ * 残高の推移の 1 ページの長さ（か月）。グラフは出している期間の始まりより、期間の長さの半分手前まで読んでおく
+ * （`src/features/money/balance-chart.ts` の `needsEarlier`）ので、最初の期間にその半分を足しても収まる長さにし、
+ * 開いたときの取得を 1 回で済ませる
+ */
+export const BALANCE_PAGE_MONTHS = BALANCE_WINDOW_MONTHS * 2;
+
 /** 日の古い順（推移の 1 ページの中の並び。`HistoryPage` は古い順） */
 export function sortBalances(balances: MoneyBalance[]): MoneyBalance[] {
   return balances.toSorted((a, b) => compareKeys(a.on, b.on) || compareKeys(a.account, b.account));

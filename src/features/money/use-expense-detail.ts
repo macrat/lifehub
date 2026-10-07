@@ -1,5 +1,6 @@
+import type { MoneyRecord } from '../../../shared/money.ts';
 import { useRecordDetail } from '../../lib/ui/use-record-detail.tsx';
-import { type MoneyRecord, useDeleteExpense, useUpdateExpense } from './queries.ts';
+import { useDeleteExpense, useUpdateExpense } from './queries.ts';
 import { useExpenseForm } from './use-expense-form.ts';
 
 /**

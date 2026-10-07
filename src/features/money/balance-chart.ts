@@ -1,5 +1,5 @@
 import { addCalendarMonths, startOfDate, toDateString } from '../../../shared/date.ts';
-import type { MoneyBalance } from '../../../shared/money.ts';
+import { BALANCE_WINDOW_MONTHS, type MoneyBalance } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
 import { formatMonthDay } from '../../lib/date.ts';
 import { formatYen } from '../../lib/yen.ts';
@@ -12,13 +12,10 @@ import { formatYen } from '../../lib/yen.ts';
 /** グラフに出している期間（ECharts の時間軸の値。その日の 0:00 JST の時刻） */
 export type ChartWindow = { start: number; end: number };
 
-/** 最初に出す期間の長さ（か月） */
-const DEFAULT_MONTHS = 3;
-
 /** 最初に出す期間: 今日までの過去 3 か月 */
 export function defaultWindow(day: DateString): ChartWindow {
   return {
-    start: startOfDate(addCalendarMonths(day, -DEFAULT_MONTHS)).getTime(),
+    start: startOfDate(addCalendarMonths(day, -BALANCE_WINDOW_MONTHS)).getTime(),
     end: startOfDate(day).getTime(),
   };
 }

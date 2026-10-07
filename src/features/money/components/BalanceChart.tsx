@@ -107,15 +107,21 @@ function useECharts(
     const element = ref.current;
     if (!element) return;
     const instance = echarts.init(element, mode === 'dark' ? 'dark' : undefined);
+    // 指で動かしている間は 1 秒に何十回も届くので、描くごとに 1 度だけ読む（getOption は option 全体を写すので重い）
+    let frame = 0;
     instance.on('datazoom', () => {
-      // 時間軸なので、期間は時刻の数で入っている
-      const [zoom] = instance.getOption().dataZoom as { startValue: number; endValue: number }[];
-      if (zoom) latest.current.onWindowChange({ start: zoom.startValue, end: zoom.endValue });
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // 時間軸なので、期間は時刻の数で入っている
+        const [zoom] = instance.getOption().dataZoom as { startValue: number; endValue: number }[];
+        if (zoom) latest.current.onWindowChange({ start: zoom.startValue, end: zoom.endValue });
+      });
     });
     const observer = new ResizeObserver(() => instance.resize());
     observer.observe(element);
     setChart(instance);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
       instance.dispose();
     };
@@ -187,7 +193,7 @@ function tooltipText(params: DefaultLabelFormatterCallbackParams[]): string {
     param.value as [number, number | null];
   const rows = params.flatMap((param) => {
     const [, amount] = point(param);
-    const label = `${param.marker}${escapeHtml(param.seriesName ?? '')}`;
+    const label = `${param.marker}${echarts.format.encodeHTML(param.seriesName ?? '')}`;
     return amount === null ? [] : [{ label, amount }];
   });
   const [first] = params;
@@ -198,9 +204,4 @@ function tooltipText(params: DefaultLabelFormatterCallbackParams[]): string {
       ? [`合計 ${formatYen(rows.reduce((sum, row) => sum + row.amount, 0))}`]
       : []),
   ].join('<br>');
-}
-
-/** 口座の名前を HTML に差し込むので、タグにならないようにする（ECharts の tooltip は HTML で描く） */
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }

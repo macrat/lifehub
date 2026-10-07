@@ -4,9 +4,6 @@ import { type ExpenseInput, SHARED } from '../../../shared/validation/money.ts';
 /** 立替の当事者（ユーザー ID。null は共有） */
 export type Party = string | null;
 
-/** 立替の To（誰のために払ったか）と From（払った人）の組（取り込んだ入出金の当事者と同じ形。shared/money.ts） */
-export type { Parties };
-
 /** From の選択肢: 共有（先頭）とユーザー */
 export function fromCandidates(users: { id: string }[]): Party[] {
   return [null, ...users.map((u) => u.id)];

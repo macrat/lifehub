@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import type { MoneyRecord } from '../../../shared/money.ts';
 import type { ExpenseInput } from '../../../shared/validation/money.ts';
 import { AccountGrid, AccountGridSkeleton } from '../../features/money/components/AccountGrid.tsx';
 import { ExpenseForm } from '../../features/money/components/ExpenseForm.tsx';
@@ -13,7 +14,6 @@ import {
 import { settlementExpense } from '../../features/money/parties.ts';
 import {
   accountsQueryOptions,
-  type MoneyRecord,
   moneyHistory,
   totalsQueryOptions,
   useSettlements,

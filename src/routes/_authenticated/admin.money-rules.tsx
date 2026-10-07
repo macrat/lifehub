@@ -30,9 +30,9 @@ function AdminMoneyRulesPage() {
     <>
       <SubPageBar title="取り込みルール" fallback="/settings" />
       <QueryView query={state.rulesQuery} skeleton={<ListSkeleton rows={2} />}>
-        {() => (
+        {(rules) => (
           <MoneyRuleList
-            rules={state.rules}
+            rules={rules}
             onMove={state.move}
             onEdit={(rule) => sheet.open({ rule })}
           />

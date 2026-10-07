@@ -26,25 +26,16 @@ export function applyRules(rules: readonly MoneyRule[]): (original: string) => R
   const compiled = rules.map((rule) => ({ rule, pattern: fullMatch(rule.pattern) }));
   return (original) => {
     for (const { rule, pattern } of compiled) {
-      const match = pattern.exec(original);
-      if (!match) continue;
+      if (!pattern.test(original)) continue;
       return {
         ...ruleParties(rule),
-        description: rule.replaceDescription ? expand(rule.replacement, match) : original,
+        // パターンは全体に当たる（`fullMatch`）ので、置き換えると内容欄全体が置換後の内容欄になる
+        description: rule.replaceDescription
+          ? original.replace(pattern, rule.replacement)
+          : original,
         hidden: rule.hidden,
       };
     }
     return { fromUserId: null, toUserId: null, description: original, hidden: false };
   };
-}
-
-/** 置換後の内容欄の $ の書き方を、当たった所とキャプチャで埋める（無いキャプチャは空にする） */
-function expand(template: string, match: RegExpExecArray): string {
-  return template.replace(/\$(\$|&|\d{1,2}|<([^>]*)>)/g, (token, ref: string, name?: string) => {
-    if (ref === '$') return '$';
-    if (ref === '&') return match[0];
-    if (name !== undefined) return match.groups?.[name] ?? '';
-    const index = Number(ref);
-    return index < match.length ? (match[index] ?? '') : token;
-  });
 }

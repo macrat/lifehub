@@ -1,10 +1,10 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import type { ExpenseSchedule } from '../../../../shared/money.ts';
 import { SCHEDULE_FREQUENCIES, type ScheduleFrequency } from '../../../../shared/money.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
-import type { ExpenseSchedule } from '../queries.ts';
 import { FREQUENCY_LABELS } from '../schedule-labels.ts';
-import { useExpenseScheduleSheet } from '../use-expense-schedule-sheet.tsx';
+import { useExpenseScheduleSheet } from '../use-expense-schedule-sheet.ts';
 import { ExpenseFields } from './ExpenseFields.tsx';
 
 type Props = {

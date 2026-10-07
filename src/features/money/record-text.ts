@@ -1,6 +1,6 @@
+import type { MoneyRecord } from '../../../shared/money.ts';
 import { formatSignedYen, formatYen } from '../../lib/yen.ts';
 import { partiesInOrder, partiesLabel } from './parties.ts';
-import type { MoneyRecord } from './queries.ts';
 
 /** お金の記録の金額の表示。手で入れた立替は額だけ、取り込んだ入出金は入金に + を付ける */
 export function recordAmount(record: MoneyRecord): string {

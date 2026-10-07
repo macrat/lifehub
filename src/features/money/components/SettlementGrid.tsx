@@ -1,9 +1,9 @@
 import Typography from '@mui/material/Typography';
+import type { Settlement } from '../../../../shared/money.ts';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
 import { formatYen } from '../../../lib/yen.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
 import { partiesLabel } from '../parties.ts';
-import type { Settlement } from '../queries.ts';
 
 /**
  * 移動はユーザー 2 人と共有の 3 者で高々 2 つ（`settlementsOf`）なので、2 列で 1 行に収まる。

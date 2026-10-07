@@ -1,4 +1,4 @@
-import type { MoneyRecord } from '../queries.ts';
+import type { MoneyRecord } from '../../../../shared/money.ts';
 import { ExpenseDetailSheet } from './ExpenseDetailSheet.tsx';
 import { ImportedRecordSheet } from './ImportedRecordSheet.tsx';
 

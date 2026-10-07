@@ -10,7 +10,7 @@ const keywordSearchSchema = z.object({ q: z.string().optional() });
 type KeywordSearch = z.infer<typeof keywordSearchSchema>;
 
 /**
- * 絞り込みのある画面（ホーム・立替・レモン）の検索パラメータ。キーワード（q）と入力を開くしるし
+ * 絞り込みのある画面（ホーム・お金・レモン）の検索パラメータ。キーワード（q）と入力を開くしるし
  * （`add`。`src/lib/add-search.ts` の `addSearchSchema`）に、API と同じ絞り込みのスキーマ（`filter`）を足す。
  * 絞り込みは URL に持つので、再読み込みや共有で同じ絞り込みに戻り、規則を API と共有するので
  * そのままサーバーに渡して絞り込ませる。q は検索窓が持つ（`useKeywordSearch`）ので、API の物ではなく
@@ -138,7 +138,7 @@ export function countActiveFilters<S>(search: S, conditions: FilterConditions<S>
 }
 
 /**
- * 絞り込みのある画面（ホーム・立替・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
+ * 絞り込みのある画面（ホーム・お金・レモン）の検索の状態。URL の検索パラメータが絞り込みそのもので、
  * 画面はここから受け取った値を描く。キーワードだけは打つたびに反映するので手元に持つ（`useKeywordSearch`）。
  * AppBar の検索窓と絞り込みボタン（`FilterSearchField`）と、その下に開くフォームが同じものを読む。
  * conditions は、絞り込みボタンのバッジに数える条件（`FilterConditions`）の feature ごとの規則。

@@ -1,10 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
+import type { ExpenseSchedule } from '../../../shared/money.ts';
 import { ExpenseScheduleList } from '../../features/money/components/ExpenseScheduleList.tsx';
 import { ExpenseScheduleSheet } from '../../features/money/components/ExpenseScheduleSheet.tsx';
-import {
-  type ExpenseSchedule,
-  expenseSchedulesQueryOptions,
-} from '../../features/money/queries.ts';
+import { expenseSchedulesQueryOptions } from '../../features/money/queries.ts';
 import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';

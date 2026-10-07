@@ -26,14 +26,6 @@ import {
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
-/** 形はサーバーと共有する（楽観的更新もこの形で導く。shared/money.ts） */
-export type {
-  ExpenseSchedule,
-  MoneyAccount,
-  MoneyRecord,
-  Settlement,
-} from '../../../shared/money.ts';
-
 const MONEY_QUERY_KEY = ['money'] as const;
 
 /**

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { today } from '../../../shared/date.ts';
+import type { Parties } from '../../../shared/money.ts';
 import { type ExpenseInput, expenseSchema } from '../../../shared/validation/money.ts';
 import { formText, useFormSubmit } from '../../lib/form.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import { evaluate } from './calculator.ts';
-import { chooseFrom, fromCandidates, type Parties, type Party, toCandidates } from './parties.ts';
+import { chooseFrom, fromCandidates, type Party, toCandidates } from './parties.ts';
 
 /**
  * 立替フォームの共通処理。追加（`ExpenseForm`）と詳細からの編集（`ExpenseDetailSheet`）で

@@ -225,10 +225,10 @@ describe('money service', () => {
     expect((await listTransactions({})).items.map((t) => t.description)).toEqual(['スーパー']);
   });
 
-  it('取り込むたびに口座の値をその日の記録として残し、推移を 3 か月ごとのページで読める', async () => {
+  it('取り込むたびに口座の値をその日の記録として残し、推移を 6 か月ごとのページで読める', async () => {
     serve([csv([])]);
-    // 7 月の記録（最初のページの外）と、今日 2 度の取り込み（同じ日は上書き）
-    await syncMoneyForward(new Date('2026-07-01T09:00:00+09:00'));
+    // 4 月の記録（最初のページの外）と、今日 2 度の取り込み（同じ日は上書き）
+    await syncMoneyForward(new Date('2026-04-01T09:00:00+09:00'));
     await syncMoneyForward(NOW);
     vi.spyOn(moneyforward, 'scrapeMoneyForward').mockResolvedValue({
       csvs: [csv([])],
@@ -241,7 +241,7 @@ describe('money service', () => {
     const byAccount = <T extends { account: string }>(items: T[]) =>
       items.toSorted((a, b) => a.account.localeCompare(b.account));
     const latest = await getBalancePage(undefined, NOW);
-    // 明日より前の 3 か月（7/7〜10/6）。カードの負債額は負の数
+    // 明日より前の 6 か月（4/7〜10/6）。カードの負債額は負の数
     expect(byAccount(latest.items)).toEqual(
       byAccount([
         { account: 'テスト銀行', on: '2026-10-06', amount: 1_000 },
@@ -249,9 +249,9 @@ describe('money service', () => {
         { account: 'テスト証券', on: '2026-10-06', amount: 890_000 },
       ]),
     );
-    expect(latest.nextCursor).toBe('2026-07-07');
+    expect(latest.nextCursor).toBe('2026-04-07');
     const older = await getBalancePage(latest.nextCursor ?? undefined, NOW);
-    expect(older.items.map((b) => b.on)).toEqual(['2026-07-01', '2026-07-01', '2026-07-01']);
+    expect(older.items.map((b) => b.on)).toEqual(['2026-04-01', '2026-04-01', '2026-04-01']);
     expect(older.nextCursor).toBeNull();
   });
 

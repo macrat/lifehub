@@ -55,7 +55,7 @@ export const calendarSearchSchema = z.object({
   /** 期間の絞り込み。省略した端へは無限スクロールでどこまでも広がる */
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
-  // 省略は「絞り込まない」。立替・レモンと同じく「すべて」を値として URL に残さない（`src/lib/search.ts` の ALL）
+  // 省略は「絞り込まない」。お金・レモンと同じく「すべて」を値として URL に残さない（`src/lib/search.ts` の ALL）
   kind: kindFilterSchema.optional(),
   /** 参加者のユーザー ID */
   participant: z.string().optional(),

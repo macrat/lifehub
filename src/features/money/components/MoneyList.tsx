@@ -1,12 +1,12 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
+import type { MoneyRecord } from '../../../../shared/money.ts';
 import { DateHeading } from '../../../lib/ui/DateHeading.tsx';
 import { HistoryList, type HistoryListProps } from '../../../lib/ui/HistoryList.tsx';
 import { MarkedRow } from '../../../lib/ui/MarkedRow.tsx';
 import { useUserColor } from '../../users/use-user-color.ts';
 import { useUserLabels } from '../../users/use-user-labels.ts';
-import type { MoneyRecord } from '../queries.ts';
 import { recordAmount, recordOwner } from '../record-text.ts';
 import { PartiesMark } from './PartiesMark.tsx';
 

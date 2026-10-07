@@ -86,7 +86,7 @@ declare module '@tanstack/react-router' {
   }
   interface StaticDataRouteOption {
     /**
-     * 最初の位置を画面自身が決める（ホームは一番上、立替・レモンは今日の記録、天気は今日）。true ならルーターは
+     * 最初の位置を画面自身が決める（ホームは一番上、お金・レモンは今日の記録、天気は今日）。true ならルーターは
      * スクロール位置に触らない（戻る・進むでも前にいた位置へ戻さず、最初の位置で出す）
      */
     ownsScroll?: boolean;

@@ -1,6 +1,7 @@
 import { addCalendarMonths, addDays, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
 import {
+  BALANCE_PAGE_MONTHS,
   type ExpenseSchedule,
   type ExpenseTotal,
   type MoneyAccount,
@@ -298,14 +299,11 @@ export async function listAccounts(): Promise<MoneyAccount[]> {
   return configuredAccounts.map((account) => toAccount(account, rows.get(account.name)));
 }
 
-/** 残高の推移の 1 ページの長さ（か月）。グラフが最初に出す期間（過去 3 か月）を 1 回で読める長さ */
-const BALANCE_PAGE_MONTHS = 3;
-
 /**
  * 残高の推移の 1 ページ（今取り込んでいる口座すべて）。before（省けば明日）より前の BALANCE_PAGE_MONTHS か月の日の記録を、
  * 日の古い順に返す。nextCursor はこのページの始まりの日で、それより前の記録が無ければ null。
- * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、最初に出す 3 か月が 1 回の取得で揃う。
- * 1 日の行は口座の数だけなので、3 か月でも数百行に収まる。
+ * WHY 件数ではなく期間で区切る: グラフは期間で見るもので、開いたときに要る期間が 1 回の取得で揃う。
+ * 1 日の行は口座の数だけなので、6 か月でも千行ほどに収まる。
  * 値は記録したときに `MoneyBalance` の向きにしてある（カードの負債額は負の数）
  */
 export async function getBalancePage(
@@ -348,18 +346,17 @@ export async function saveRules(rules: MoneyRule[], userId: string): Promise<voi
   await repository.replaceRules(rules, userId, changed);
 }
 
-/** 種類ごとに、その種類のカードが出す値だけを持たせる（カードの利用残高は出さない） */
+/** カードの利用残高は出さない（カードのタイルは次回の引き落とし。引き落としの値はカードの行だけが持つ。`moneyforward.ts`） */
 function toAccount(
   { name, kind }: MoneyForwardAccount,
   row: MoneyAccountRow | undefined,
 ): MoneyAccount {
-  const card = kind === 'card';
   return {
     name,
     kind,
-    balance: card ? null : (row?.balance ?? null),
-    withdrawalAmount: card ? (row?.withdrawalAmount ?? null) : null,
-    withdrawalOn: card ? (row?.withdrawalOn ?? null) : null,
+    balance: kind === 'card' ? null : (row?.balance ?? null),
+    withdrawalAmount: row?.withdrawalAmount ?? null,
+    withdrawalOn: row?.withdrawalOn ?? null,
     fetchedAt: row?.fetchedAt.toISOString() ?? null,
   };
 }

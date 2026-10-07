@@ -1,11 +1,11 @@
 import { today } from '../../../../shared/date.ts';
+import type { ExpenseSchedule } from '../../../../shared/money.ts';
 import { nextScheduleDate } from '../../../../shared/money.ts';
 import { formatDate } from '../../../lib/date.ts';
 import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import { EmptyMessage } from '../../../lib/ui/QueryView.tsx';
 import { formatYen } from '../../../lib/yen.ts';
 import { useUserColor } from '../../users/use-user-color.ts';
-import type { ExpenseSchedule } from '../queries.ts';
 import { FREQUENCY_LABELS } from '../schedule-labels.ts';
 import { PartiesMark } from './PartiesMark.tsx';
 

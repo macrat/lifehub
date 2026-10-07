@@ -32,7 +32,7 @@ export function recordWriteKeys(...own: (readonly unknown[])[]): (readonly unkno
 
 /**
  * ホームのタイムライン（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。ページの分け方は
- * 立替・レモンの履歴と同じで、絞り込みはサーバーが掛ける。各ページの中は古い順なので、画面は繋いだものを
+ * お金・レモンの履歴と同じで、絞り込みはサーバーが掛ける。各ページの中は古い順なので、画面は繋いだものを
  * 逆さに（新しい順に）出す。
  */
 export const timelineHistory: HistorySource<TimelineEntry, TimelineFilter> = {
