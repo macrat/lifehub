@@ -12,7 +12,7 @@
   - 宛先はユーザーごとに時刻が違うので、終日の項目は参加者ごとに予約する（`ref.userId`）。時刻のある項目は `userId: null` で参加者全員に 1 つ。
   - 通知時刻を変えると、users service が当日〜翌日の分を予約し直す（下記「仕組み」の 2）。通知時刻は `server/features/users/people.ts` の `listAllDayNotifyMinutes` で読み、列挙と再検証（`server/features/events/notifications.ts`）には引数で渡す（users service から読むと、予約し直す呼び出しと合わせて import が一巡する）。古い時刻の予約は配信時の再検証で配信予定時刻が合わずに捨てられる。
 - 送信先: 参加者の全端末（終日の項目は `ref.userId` の全端末）。
-- 通知をタップすると該当画面（`/calendar?date=YYYY-MM-DD`）を開く。
+- 通知をタップすると該当画面（`/calendar?date=YYYY-MM-DD`）を開く（アプリを開いていればその中で移る。仕組みは [architecture.md](../architecture.md#pwa)）。
 
 ## 追加・削除の通知
 
