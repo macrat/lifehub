@@ -59,7 +59,11 @@ export async function scrapeMoneyForward({
 }): Promise<{ csvs: string[]; accounts: AccountValues[] }> {
   const browser = await launch();
   try {
-    const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
+    const context = await browser.newContext({
+      locale: 'ja-JP',
+      timezoneId: 'Asia/Tokyo',
+      userAgent: userAgentOf(browser),
+    });
     context.setDefaultTimeout(TIMEOUT_MS);
     await context.route('**/*', (route) =>
       SKIPPED_RESOURCES.has(route.request().resourceType()) ? route.abort() : route.continue(),
@@ -76,6 +80,15 @@ export async function scrapeMoneyForward({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * 画面を求めるときに名乗るブラウザ。ヘッドレスの Chromium は User-Agent に「HeadlessChrome」と名乗り、
+ * Money Forward はそれに 403（Forbidden）を返すので、同じ版の普通の Chrome として名乗る。
+ */
+function userAgentOf(browser: Browser): string {
+  const major = browser.version().split('.')[0];
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
 }
 
 async function launch(): Promise<Browser> {
@@ -97,7 +110,8 @@ async function launch(): Promise<Browser> {
 async function signIn(page: Page, credentials: Credentials): Promise<void> {
   await visit(page, `${ME}/sign_in`);
   const screens = {
-    email: page.locator('input[name="mfid_user[email]"]'),
+    // パスワードの画面にも入れたメールアドレスが読み取り専用で残るので、書ける欄だけをメールの画面とみなす
+    email: page.locator('input[name="mfid_user[email]"]:not([readonly])'),
     password: page.locator('input[name="mfid_user[password]"]'),
     totp: page.locator('input#otp_attempt, input[autocomplete="one-time-code"]'),
     emailOtp: page.locator('input#email_otp'),
@@ -113,7 +127,21 @@ async function signIn(page: Page, credentials: Credentials): Promise<void> {
     if (isSignedIn(page.url())) return;
     const shown = Object.values(screens).reduce((a, b) => a.or(b));
     // どちらかが来るまで待つ（any は負けた側の失敗も受け止めるので、待ちきれずに落ちた側が宙に浮かない）
-    await Promise.any([shown.first().waitFor(), page.waitForURL((url) => isSignedIn(url.href))]);
+    await Promise.any([
+      shown.first().waitFor(),
+      page.waitForURL((url) => isSignedIn(url.href)),
+    ]).catch(async () => {
+      // 知らない画面（アクセスの拒否、作りの変わった画面など）。何が出ていたかをエラーに残す
+      const text = (
+        await page
+          .locator('body')
+          .innerText()
+          .catch(() => '')
+      ).slice(0, 100);
+      throw new Error(
+        `moneyforward: ログインの画面を進められません（${new URL(page.url()).pathname}: ${text}）`,
+      );
+    });
     if (isSignedIn(page.url())) return;
 
     const before = page.url();
