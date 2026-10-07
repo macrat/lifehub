@@ -1,6 +1,8 @@
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import LogoutIcon from '@mui/icons-material/Logout';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import RuleIcon from '@mui/icons-material/Rule';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -30,7 +32,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
  * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL と API キー）、
- * ユーザー管理、ログアウト、バージョン。
+ * 取り込みルールと立替スケジュール、ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
   // この画面が読むもの: 配信 URL と API キーの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
@@ -51,16 +53,31 @@ function SettingsPage() {
         <CalendarFeedList />
         <ApiKeyList />
       </SettingsSection>
+      <SettingsSection title="お金">
+        <ListItem disablePadding>
+          <ListItemButton component={Link} to="/admin/money-rules">
+            <ListItemIcon>
+              <RuleIcon />
+            </ListItemIcon>
+            <ListItemText primary="取り込みルール" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton component={Link} to="/admin/expense-schedules">
+            <ListItemIcon>
+              <EventRepeatIcon />
+            </ListItemIcon>
+            <ListItemText primary="立替スケジュール" />
+          </ListItemButton>
+        </ListItem>
+      </SettingsSection>
       <SettingsSection title="アカウント">
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/admin/users">
             <ListItemIcon>
               <AdminPanelSettingsIcon />
             </ListItemIcon>
-            <ListItemText
-              primary="ユーザー管理"
-              secondary="ユーザーの登録、名前・色・パスワードの変更"
-            />
+            <ListItemText primary="ユーザー管理" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

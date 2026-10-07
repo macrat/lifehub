@@ -4,8 +4,8 @@ import type { OccurrenceTarget } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../errors.ts';
 
 /**
- * タイムラインに並ぶ記録（エントリー）の種類。予定とタスクは DB では同じ表（kind）だが、
- * LLM にとっては別の物なので分ける。
+ * エントリーの種類（`read_timeline` の types、ref の種類）。予定とタスクは DB では同じ表（kind）だが、
+ * LLM にとっては別の物なので分ける。expense はお金の記録で、ref を持つ（書き換え・消せる）のは手で入れた立替だけ
  */
 export const ENTRY_TYPES = ['event', 'task', 'expense', 'lemon', 'memo'] as const;
 export type EntryType = (typeof ENTRY_TYPES)[number];

@@ -3,13 +3,13 @@ import { toDateString } from '../shared/date.ts';
 import { type Api, apiOf } from './api.ts';
 
 /**
- * 立替・レモンの履歴（`src/lib/ui/HistoryList.tsx`）を確かめるテストの道具。
+ * お金の記録・レモンの履歴（`src/lib/ui/HistoryList.tsx`）を確かめるテストの道具。
  * 記録は API で置き、最初の位置は「今日の最新の記録が、一覧の上に貼り付いた帯のすぐ下」で見る。
  */
 
 /** 記録の出どころ。add で ID を決めた記録を 1 件置き、router の delete で消す */
 export type History = {
-  router: 'expenses' | 'lemon';
+  router: 'money' | 'lemon';
   add: (api: Api, id: string, me: string, at: Date, text: string) => Promise<void>;
   /** 一覧の上に貼り付いた帯の中の物（最初の位置は、今日の最新の記録がこの帯のすぐ下） */
   sticky: (page: Page) => Locator;
@@ -17,15 +17,15 @@ export type History = {
 
 /** 立替（自分が払った 100 円） */
 export const expenseHistory: History = {
-  router: 'expenses',
+  router: 'money',
   add: (api, id, me, at, text) =>
-    api.expenses.create.mutate({
+    api.money.create.mutate({
       id,
       fromUserId: me,
       toUserId: null,
       amount: 100,
       description: text,
-      spentOn: toDateString(at),
+      occurredOn: toDateString(at),
     }),
   sticky: (page) => page.getByRole('region', { name: '精算' }),
 };

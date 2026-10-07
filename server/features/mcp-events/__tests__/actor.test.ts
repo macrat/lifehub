@@ -4,8 +4,8 @@ import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import { createEventSchema, updateEventSchema } from '../../../../shared/validation/events.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
-import { addExpense, deleteExpense, patchExpense } from '../../expenses/service.ts';
 import { logCare, patchLog } from '../../lemon/service.ts';
+import { addExpense, deleteExpense, patchExpense } from '../../money/service.ts';
 import { type EventName, subscribe } from '../service.ts';
 import { holdDeliveries, newSecret, receiver } from './fixtures.ts';
 
@@ -47,7 +47,7 @@ describe('別の人が直す・消したときの data.by', () => {
         toUserId: null,
         amount: 2000,
         description: '食材',
-        spentOn: dateStringSchema.parse('2026-10-01'),
+        occurredOn: dateStringSchema.parse('2026-10-01'),
       },
       a,
     );

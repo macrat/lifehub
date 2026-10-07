@@ -23,15 +23,15 @@ import {
 import type { DailyWeather } from '../../../shared/weather.ts';
 import type { TimelineSource } from '../../lib/timeline-source.ts';
 import * as events from '../events/service.ts';
-import * as expenses from '../expenses/service.ts';
 import { listHolidays } from '../holidays/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
+import * as money from '../money/service.ts';
 import { listDailyWeather } from '../weather/service.ts';
 
 /**
  * 1 ページの件数の目安。ページは日の途中では切らないので、これより多くなることがある
- * （立替・レモンの履歴の `HISTORY_PAGE_SIZE` と同じ考え方）
+ * （お金・レモンの履歴の `HISTORY_PAGE_SIZE` と同じ考え方）
  */
 const PAGE_SIZE = 50;
 
@@ -43,7 +43,7 @@ const LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
  * 日ごとのタイムライン（`listDays`）は予定・タスクだけをカレンダーと同じ規則で置くので、分けて持つ
  */
 const recordSources = {
-  expense: expenses.timelineSource,
+  expense: money.timelineSource,
   lemon: lemon.timelineSource,
   memo: memos.timelineSource,
 } satisfies Record<Exclude<TimelineEntry['type'], 'event'>, TimelineSource>;
@@ -71,9 +71,9 @@ function sourcesOf(filter: TimelineFilter, userId: string): TimelineSource[] {
 }
 
 /**
- * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・立替・レモン・メモを 1 本に並べる。
+ * ホームのタイムラインの 1 ページ（古い順。画面は逆さに出す）。予定・タスク・お金の記録・レモン・メモを 1 本に並べる。
  *
- * ページの分け方は立替・レモンの履歴（`HistoryPage`）と同じで、日の途中では切らない。記録の種類ごとに
+ * ページの分け方はお金・レモンの履歴（`HistoryPage`）と同じで、日の途中では切らない。記録の種類ごとに
  * 新しいほうから PAGE_SIZE 件の日時を集め、全体で PAGE_SIZE 件目の日からをこのページにする。
  * 日数ではなく件数で区切るので、記録の無い期間が続いても空のページを読み続けない。
  * WHY NOT 種類ごとに別々のページを読んで画面で繋ぐ: 種類ごとに読み進んだ位置が違うので、

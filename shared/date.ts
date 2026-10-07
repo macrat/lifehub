@@ -1,5 +1,10 @@
 import { TZDate } from '@date-fns/tz';
-import { addDays as addDaysFn, differenceInCalendarDays, format } from 'date-fns';
+import {
+  addDays as addDaysFn,
+  addMonths as addMonthsFn,
+  differenceInCalendarDays,
+  format,
+} from 'date-fns';
 import { TIME_ZONE } from './constants.ts';
 import type { DateString } from './types.ts';
 
@@ -28,6 +33,11 @@ export function startOfDate(date: DateString): Date {
 /** JST の暦日 + n 日 */
 export function addDays(date: DateString, days: number): DateString {
   return toDateString(addDaysFn(new TZDate(startOfDate(date), TIME_ZONE), days));
+}
+
+/** JST の暦日 + n か月（月末は、行き先の月に同じ日が無ければその月の末日） */
+export function addCalendarMonths(date: DateString, months: number): DateString {
+  return toDateString(addMonthsFn(new TZDate(startOfDate(date), TIME_ZONE), months));
 }
 
 /** 2 つの JST 暦日の差（b - a、日数） */

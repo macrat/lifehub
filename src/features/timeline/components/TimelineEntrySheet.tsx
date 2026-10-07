@@ -1,7 +1,7 @@
 import { ItemDetailSheet } from '../../events/components/ItemDetailSheet.tsx';
-import { ExpenseDetailSheet } from '../../expenses/components/ExpenseDetailSheet.tsx';
 import { CareLogDetailSheet } from '../../lemon/components/CareLogDetailSheet.tsx';
 import { MemoDetailSheet } from '../../memos/components/MemoDetailSheet.tsx';
+import { MoneyRecordSheet } from '../../money/components/MoneyRecordSheet.tsx';
 import type { TimelineEntry } from '../queries.ts';
 
 type Props = {
@@ -21,7 +21,7 @@ export function TimelineEntrySheet({ entry, initialEditing, onClose }: Props) {
     case 'event':
       return <ItemDetailSheet item={entry.item} {...props} />;
     case 'expense':
-      return <ExpenseDetailSheet expense={entry.expense} {...props} />;
+      return <MoneyRecordSheet record={entry.expense} {...props} />;
     case 'lemon':
       return <CareLogDetailSheet log={entry.log} {...props} />;
     case 'memo':

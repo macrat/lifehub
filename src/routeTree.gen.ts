@@ -14,11 +14,14 @@ import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedLemonRouteImport } from './routes/_authenticated/lemon'
+import { Route as AuthenticatedMoneyRouteImport } from './routes/_authenticated/money'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedWeatherRouteImport } from './routes/_authenticated/weather'
+import { Route as AuthenticatedAdminExpenseSchedulesRouteImport } from './routes/_authenticated/admin.expense-schedules'
+import { Route as AuthenticatedAdminMoneyRulesRouteImport } from './routes/_authenticated/admin.money-rules'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
+import { Route as AuthenticatedMoneyBalancesRouteImport } from './routes/_authenticated/money_.balances'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -44,14 +47,14 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
-  id: '/expenses',
-  path: '/expenses',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedLemonRoute = AuthenticatedLemonRouteImport.update({
   id: '/lemon',
   path: '/lemon',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMoneyRoute = AuthenticatedMoneyRouteImport.update({
+  id: '/money',
+  path: '/money',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -64,33 +67,57 @@ const AuthenticatedWeatherRoute = AuthenticatedWeatherRouteImport.update({
   path: '/weather',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminExpenseSchedulesRoute =
+  AuthenticatedAdminExpenseSchedulesRouteImport.update({
+    id: '/admin/expense-schedules',
+    path: '/admin/expense-schedules',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminMoneyRulesRoute =
+  AuthenticatedAdminMoneyRulesRouteImport.update({
+    id: '/admin/money-rules',
+    path: '/admin/money-rules',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMoneyBalancesRoute =
+  AuthenticatedMoneyBalancesRouteImport.update({
+    id: '/money_/balances',
+    path: '/money/balances',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
+  '/money': typeof AuthenticatedMoneyRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
+  '/admin/expense-schedules': typeof AuthenticatedAdminExpenseSchedulesRoute
+  '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/money/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRoutesByTo {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/expenses': typeof AuthenticatedExpensesRoute
   '/lemon': typeof AuthenticatedLemonRoute
+  '/money': typeof AuthenticatedMoneyRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/weather': typeof AuthenticatedWeatherRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/expense-schedules': typeof AuthenticatedAdminExpenseSchedulesRoute
+  '/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/money/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,12 +125,15 @@ export interface FileRoutesById {
   '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/lemon': typeof AuthenticatedLemonRoute
+  '/_authenticated/money': typeof AuthenticatedMoneyRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/weather': typeof AuthenticatedWeatherRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/expense-schedules': typeof AuthenticatedAdminExpenseSchedulesRoute
+  '/_authenticated/admin/money-rules': typeof AuthenticatedAdminMoneyRulesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/money_/balances': typeof AuthenticatedMoneyBalancesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -112,34 +142,43 @@ export interface FileRouteTypes {
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/expenses'
     | '/lemon'
+    | '/money'
     | '/settings'
     | '/weather'
+    | '/admin/expense-schedules'
+    | '/admin/money-rules'
     | '/admin/users'
+    | '/money/balances'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/consent'
     | '/login'
     | '/calendar'
-    | '/expenses'
     | '/lemon'
+    | '/money'
     | '/settings'
     | '/weather'
     | '/'
+    | '/admin/expense-schedules'
+    | '/admin/money-rules'
     | '/admin/users'
+    | '/money/balances'
   id:
     | '__root__'
     | '/_authenticated'
     | '/consent'
     | '/login'
     | '/_authenticated/calendar'
-    | '/_authenticated/expenses'
     | '/_authenticated/lemon'
+    | '/_authenticated/money'
     | '/_authenticated/settings'
     | '/_authenticated/weather'
     | '/_authenticated/'
+    | '/_authenticated/admin/expense-schedules'
+    | '/_authenticated/admin/money-rules'
     | '/_authenticated/admin/users'
+    | '/_authenticated/money_/balances'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,18 +224,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/expenses': {
-      id: '/_authenticated/expenses'
-      path: '/expenses'
-      fullPath: '/expenses'
-      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/lemon': {
       id: '/_authenticated/lemon'
       path: '/lemon'
       fullPath: '/lemon'
       preLoaderRoute: typeof AuthenticatedLemonRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/money': {
+      id: '/_authenticated/money'
+      path: '/money'
+      fullPath: '/money'
+      preLoaderRoute: typeof AuthenticatedMoneyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings': {
@@ -213,6 +252,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWeatherRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/expense-schedules': {
+      id: '/_authenticated/admin/expense-schedules'
+      path: '/admin/expense-schedules'
+      fullPath: '/admin/expense-schedules'
+      preLoaderRoute: typeof AuthenticatedAdminExpenseSchedulesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/money-rules': {
+      id: '/_authenticated/admin/money-rules'
+      path: '/admin/money-rules'
+      fullPath: '/admin/money-rules'
+      preLoaderRoute: typeof AuthenticatedAdminMoneyRulesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/admin/users'
@@ -220,27 +273,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/money_/balances': {
+      id: '/_authenticated/money_/balances'
+      path: '/money/balances'
+      fullPath: '/money/balances'
+      preLoaderRoute: typeof AuthenticatedMoneyBalancesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedLemonRoute: typeof AuthenticatedLemonRoute
+  AuthenticatedMoneyRoute: typeof AuthenticatedMoneyRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWeatherRoute: typeof AuthenticatedWeatherRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminExpenseSchedulesRoute: typeof AuthenticatedAdminExpenseSchedulesRoute
+  AuthenticatedAdminMoneyRulesRoute: typeof AuthenticatedAdminMoneyRulesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedMoneyBalancesRoute: typeof AuthenticatedMoneyBalancesRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedLemonRoute: AuthenticatedLemonRoute,
+  AuthenticatedMoneyRoute: AuthenticatedMoneyRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWeatherRoute: AuthenticatedWeatherRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminExpenseSchedulesRoute:
+    AuthenticatedAdminExpenseSchedulesRoute,
+  AuthenticatedAdminMoneyRulesRoute: AuthenticatedAdminMoneyRulesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedMoneyBalancesRoute: AuthenticatedMoneyBalancesRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

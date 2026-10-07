@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Expense } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import type { MoneyRecord } from '../../../shared/money.ts';
 import {
   careLogEntry,
   entryDay,
@@ -32,7 +32,7 @@ export function recordWriteKeys(...own: (readonly unknown[])[]): (readonly unkno
 
 /**
  * ホームのタイムライン（`src/lib/history.ts`。画面は `useScreenHistory` で購読する）。ページの分け方は
- * 立替・レモンの履歴と同じで、絞り込みはサーバーが掛ける。各ページの中は古い順なので、画面は繋いだものを
+ * お金・レモンの履歴と同じで、絞り込みはサーバーが掛ける。各ページの中は古い順なので、画面は繋いだものを
  * 逆さに（新しい順に）出す。
  */
 export const timelineHistory: HistorySource<TimelineEntry, TimelineFilter> = {
@@ -48,7 +48,7 @@ export function findInTimeline(client: QueryClient, id: string): TimelineEntry |
 }
 
 /** 1 件が 1 行になる記録（立替・レモン・メモ）の種類と、その行が持つ記録 */
-type TimelineRecords = { expense: Expense; lemon: CareLog; memo: Memo };
+type TimelineRecords = { expense: MoneyRecord; lemon: CareLog; memo: Memo };
 
 /** 種類ごとの、行から記録を取り出す・記録から行を作る組 */
 const RECORD_ENTRY: {

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Expense } from '../../shared/expenses.ts';
+import type { MoneyRecord } from '../../shared/money.ts';
 import type { HistoryPage } from '../../shared/types.ts';
 import { dateStringSchema } from '../../shared/validation/common.ts';
 import { app } from '../app.ts';
-import { addExpense } from '../features/expenses/service.ts';
+import { addExpense } from '../features/money/service.ts';
 import { updateUser } from '../features/users/service.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
@@ -30,32 +30,32 @@ describe('条件付き要求', () => {
     ((await res.json()) as { result: { data: T } }).result.data;
 
   it('内容が同じなら 304 を返し、本文を送らない', async () => {
-    const first = await get('expenses.list', {});
+    const first = await get('money.list', {});
     expect(first.status).toBe(200);
     const etag = first.headers.get('etag');
     expect(etag).toBeTruthy();
     expect(first.headers.get('cache-control')).toBe('private, no-cache');
 
-    const second = await get('expenses.list', {}, etag ?? '');
+    const second = await get('money.list', {}, etag ?? '');
     expect(second.status).toBe(304);
     expect(await second.text()).toBe('');
   });
 
   it('内容が変わったら 200 で新しい本文を返す', async () => {
-    const etag = (await get('expenses.list', {})).headers.get('etag') ?? '';
+    const etag = (await get('money.list', {})).headers.get('etag') ?? '';
     await addExpense(
       {
         fromUserId: userId,
         toUserId: null,
         amount: 1200,
         description: '牛乳',
-        spentOn: dateStringSchema.parse('2026-09-14'),
+        occurredOn: dateStringSchema.parse('2026-09-14'),
       },
       userId,
     );
-    const res = await get('expenses.list', {}, etag);
+    const res = await get('money.list', {}, etag);
     expect(res.status).toBe(200);
-    expect((await dataOf<HistoryPage<Expense>>(res)).items).toHaveLength(1);
+    expect((await dataOf<HistoryPage<MoneyRecord>>(res)).items).toHaveLength(1);
   });
 
   it('me.get は色の変更に追従する（セッションから返しても古くならない）', async () => {

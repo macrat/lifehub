@@ -8,7 +8,7 @@ import { SQUIRCLE_SHADOW } from './squircle.ts';
 /** 下部ナビの高さ。ページ側で「画面いっぱい」を計算するときに使う */
 export const BOTTOM_NAV_HEIGHT = 56;
 /** AppBar（dense）の高さ */
-export const APP_BAR_HEIGHT = 48;
+const APP_BAR_HEIGHT = 48;
 /** AppBar の下端。一覧の上に貼り付ける物（絞り込みのフォーム、状況のタイル）はここに貼り付く */
 export const STICKY_TOP = `calc(${APP_BAR_HEIGHT}px + env(safe-area-inset-top))`;
 /** 下部ナビの上端。スマホで画面の下端に寄せる物（引っ張って更新の印、スクロールの下端）はここを下端にする */
@@ -18,6 +18,18 @@ export const BOTTOM_NAV_TOP = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset
  * md から PC（サイドナビ。`useIsDesktop` と同じ境界）
  */
 export const MAIN_BOTTOM_PADDING = { xs: `calc(${BOTTOM_NAV_TOP} + 96px)`, md: '96px' } as const;
+
+/**
+ * 画面の残り全部を占める表示（カレンダーの月・週・日、残高の推移のグラフ）の高さ。
+ * AppShell の main が下に確保している余白（追加ボタンの分）は、FILL_MARGIN_BOTTOM の負のマージンで打ち消す。
+ * 基準は AppShell と同じ svh（ブラウザの URL バーなどが最大に出ている状態の高さ）。
+ * dvh はそれらの出入りで値が変わるので、再読み込みの直後に画面より高くなってスクロールが要る表示になる。
+ */
+export const FILL_HEIGHT = {
+  xs: `calc(100svh - ${APP_BAR_HEIGHT}px - ${BOTTOM_NAV_HEIGHT}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`,
+  md: `calc(100svh - ${APP_BAR_HEIGHT}px - 8px)`,
+} as const;
+export const FILL_MARGIN_BOTTOM = { xs: '-96px', md: -12 } as const;
 
 /** 右下の追加ボタン（FAB / SpeedDial）の置き場所（位置と影）。スマホでは下部ナビの上に置く */
 export const FAB_SX = {

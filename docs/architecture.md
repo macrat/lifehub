@@ -33,6 +33,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 | 通知スケジューラ | Vercel Cron（日次）+ Upstash QStash（Free） | Hobby の Cron は分単位では呼べない（呼べる頻度は [Cron の決まり](#ディレクトリ構成機能単位で凝集)）ので、分単位の配信は QStash の遅延配信で行う。 |
 | UI | MUI（Material UI） | マテリアルデザインを「書かずに」得る。 |
 | カレンダー UI | 自作の月／週グリッド（MUI 部品で構成）。日時の入力は `<input type="date">` / `<input type="time">`（MUI の TextField 経由。予定・タスクの日時は日付と時刻の欄に分ける）。記録の日時（レモンの世話）は `<input type="datetime-local">` | 汎用カレンダーライブラリは要件に対して過剰で見た目の統一が難しい。日時入力は Web 標準で足り、スマホではネイティブのピッカーが使える。MUI X Date Pickers は date-fns アダプタがタイムゾーン非対応のため採用しない。 |
+| グラフ | ECharts（`echarts`。使う部品だけを読み込む） | 口座の推移のグラフのピンチでの拡大縮小・押した位置の値の表示・積み上げを設定だけで得る。理由の詳細は [features/money.md](features/money.md#画面) |
 | フォーム | React 標準（`<form>` + `FormData`）+ Zod | フォームライブラリは入れない。 |
 | 日付 | `Intl.DateTimeFormat` で表示、計算は date-fns（`@date-fns/tz`）。date-fns を読むのは日時の変換の部品（`shared/date.ts`・`src/lib/date.ts`・`server/lib/mcp/time.ts`）だけで、ほかは `shared/date.ts` の関数を通す（`lint/date-fns.grit` が強制する） | 表示は Web 標準で足りる。JST の暦日での計算はタイムゾーンを扱えるライブラリに任せ、自作しない。date-fns の計算を Date にそのまま掛けると実行環境のタイムゾーンの暦で計算され、夏時間のあるタイムゾーンでは 1 日が 24 時間にならない日がある。 |
 | PWA | `vite-plugin-pwa`（Workbox, `injectManifest`）+ Web App Manifest | アプリシェルの precache、Service Worker での push / notificationclick 処理。 |
@@ -68,7 +69,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
   - WHY NOT dependency-cruiser（規則を足し合わせられ、型だけの import も見分けられる）: TypeScript 7 は JS のコンパイラ API を持たず、dependency-cruiser が TS を読めない。
-- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`expenses.ts` = 精算、`lemon.ts` = 世話の状態、`memos.ts` = ピン止めの並び、`timeline.ts` = タイムラインの行と日時）。繰り返しの展開だけはサーバーにしか無い。
+- クライアントは Service 層の結果を表示し、入力を送るだけ。計算（精算・繰り返し展開・タスクの表示位置）をクライアントで再実装しない。楽観的更新（下記）でクライアントも同じ結果を先に出す必要があるものは、再実装ではなく `shared/` に置いて両方が同じコードを使う（`calendar.ts` = 暦日への割り当てと並び、`money.ts` = 精算、`lemon.ts` = 世話の状態、`memos.ts` = ピン止めの並び、`timeline.ts` = タイムラインの行と日時）。繰り返しの展開だけはサーバーにしか無い。
 - 予定とタスクは 1 つの `events` feature（テーブルも 1 つ、`kind` で区別）。カレンダー（月・週・日・リスト）は `calendar.get` が返す `CalendarItem[]`（と、同じ応答に載るその期間の祝日・天気）だけを読む。`CalendarItem` は `kind: 'event' | 'task'` と `placementDate` を持ち、予定とタスクの差はカードの描画と操作（完了ボタンの有無）と表示位置の規則にのみ現れる。
 
 ## ディレクトリ構成（機能単位で凝集）
@@ -80,7 +81,7 @@ src/                          # クライアント（Vite + React）
   main.tsx（ルーター生成・永続化キャッシュの復元・テーマ）  routeTree.gen.ts（生成物）  sw.ts（Service Worker: push / notificationclick）
   routes/                     # TanStack Router ファイルベースルート。ページは features の部品とフックを組み立てるだけ
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
-    api-keys/  calendar/  calendar-feeds/  events/  expenses/  lemon/  memos/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
+    api-keys/  calendar/  calendar-feeds/  events/  lemon/  memos/  money/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
       （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持つ）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
@@ -104,7 +105,8 @@ server/                       # サーバー（Hono）
                               #   events/occurrences.ts（繰り返しの回の展開）・events/targets.ts（書き込む回の指し方と実体化）・
                               #   events/patch.ts（MCP の部分更新の補い方）・events/timeline.ts（タイムラインの口）・
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
-                              #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）
+                              #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）、
+                              #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
   features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
@@ -112,7 +114,7 @@ server/                       # サーバー（Hono）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
         coalesce-reads.ts = 同じ時点の読み取りを 1 往復にまとめる、
         query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での更新と削除・参加者の書き込み）、
-        history.ts = 履歴のページ分け、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
+        history.ts = 履歴のページ分け（1 つの表と、表をまたいで並べる `historyQueries`）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
@@ -122,8 +124,8 @@ shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
   types.ts（DateString の brand 型）  constants.ts（TIME_ZONE ほか）  date.ts（JST 固定の日付変換）  color.ts（OKLCH の色）
-  calendar.ts（CalendarItem の形・暦日への割り当て・並び）  expenses.ts（立替の行と精算の式）  lemon.ts（世話の記録と状態）
-  memos.ts（メモの形とピン止めの並び）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
+  calendar.ts（CalendarItem の形・暦日への割り当て・並び）  lemon.ts（世話の記録と状態）
+  memos.ts（メモの形とピン止めの並び）  money.ts（お金の記録の形と精算の式、立替スケジュールの回の日、口座と取り込みルールの形）  timeline.ts（タイムラインの行と日時）  weather.ts（天気の形）  push.ts（プッシュ通知の中身）
   search.ts（キーワードの一致と絞り込みの有無）  sort.ts（並べ替えのキーの比べ方）  sentry.ts
 drizzle/                      # マイグレーション SQL（生成物・コミットする）
 infra/                        # Terraform
@@ -134,7 +136,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 - ローカル開発は `vite dev`（`/api` と `/.well-known` を `server/dev.ts` へプロキシ）で行い、`vercel dev` に依存しない。
 - 静的ファイルは Vite の `dist/` を Vercel が配信し、SPA のフォールバック（画面のパス → `index.html`）は `vercel.json` の rewrites で設定する。フォールバックするのは `.` を含まないパスだけ（画面のパスは `.` を含まない）で、無いファイル（デプロイで消えた旧版の `/assets/*.js` など）には `index.html` を返さず 404 にする。HTML を 200 で返すと、壊れたのは何なのか（無いのか、中身が違うのか）が応答から分からず、ブラウザも MIME の不一致としてしか報告しないため。E2E とローカル確認用の `server/dev.ts` も同じ規則でフォールバックする。`/api/*` は rewrite で `api/index.ts` の 1 関数に集約する（関数は元の URL を受け取るので Hono がパスで振り分ける）。Vercel CLI は `[[...route]].ts` のような catch-all を 1 セグメントしか一致させないため、ファイル名ではなく rewrite で行う。
-- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/holidays.md](features/holidays.md)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/weather.md](features/weather.md#取得と保存)）と、日次の前日の最高・最低気温の観測値での上書き（`/api/cron/weather/observed`。同）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
+- Cron は `vercel.json` の `crons` に UTC で書く（00:00 JST = `0 15 * * *`）。Cron が呼ぶ入口は `/api/cron/*`（`server/cron.ts`）の 1 か所に集め、`CRON_SECRET` の Bearer トークンの検査をその集まり全体に 1 度だけ掛ける。Cron を足すときは `crons` と `cron.ts` に 1 行ずつ足すだけで、機能ごとに認証の外の入口を増やさず、保護の付け忘れも起きない。今あるのは日次の通知の予約（`/api/cron/notifications`。[features/notifications.md](features/notifications.md)）と、月次の祝日の取り直し（`/api/cron/holidays`。[features/holidays.md](features/holidays.md)）と、1 日 3 回の天気の取り直し（`/api/cron/weather`。日ごとと 3 時間ごと。[features/weather.md](features/weather.md#取得と保存)）と、日次の前日の最高・最低気温の観測値での上書き（`/api/cron/weather/observed`。同）と、日次の Money Forward の取り込み（`/api/cron/money`。[features/money.md](features/money.md#取り込み)）と、日次の立替スケジュールの記録（`/api/cron/money/schedules`。[features/money.md](features/money.md#立替スケジュール)）。Hobby の Cron は 1 つの式が 1 日 1 回までなので、1 日に何度も呼びたい入口は、時をずらした日次の式を同じパスに並べる。
 - 2 人だけが使う非公開のアプリなので、検索エンジンに載せない。クロールは `public/robots.txt`（全パスを `Disallow`）で断り、索引は `vercel.json` の全パスへの `X-Robots-Tag: noindex, nofollow` ヘッダで断る。ヘッダは HTML 以外（API の JSON やアイコン）にも効き、`<meta name="robots">` と違って `index.html` を経ない応答も覆えるため、meta タグではなくヘッダで付ける。robots.txt を守らないクローラーでもヘッダで索引から外れ、robots.txt を守るクローラーはそもそも取りに来ない。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppRouter` を型としてだけ参照する。
@@ -144,7 +146,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 - **MCP**: 各 feature の `mcp.ts` を `server/mcp.ts` に列挙する（[features/mcp.md](features/mcp.md#組み立て)）。
 - **ホーム**（[features/home.md](features/home.md)）: 状態のタイル（`src/features/dashboard/components/StatusCards.tsx`）は各機能のクエリ（天気の `useHomeWeather` / レモンの `lemonStatusQueryOptions`）をそのまま読むので、サーバーの計算結果はキャッシュに 1 つしか無い。タイムラインは全機能の記録を 1 本に並べる集約の API（`timeline.get`、`server/features/timeline/`）を読む。各機能の service から記録を集めるだけで、記録の規則は各機能が持つ。どの機能の書き込みもタイムラインを invalidate する（タイムラインのキーは外に出さず、記録の書き込みのキーは `src/features/timeline/queries.ts` の `recordWriteKeys` で作る）。
-- **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・expenses・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（`server/features/users/people.ts`）だけを読み、記録の feature を読まない。予定・タスクの通知（`event.reminder`）は、通知の service が配信のときに `publishReminder` を呼ぶ。
+- **MCP Events**（[features/mcp-events.md](features/mcp-events.md)）: 記録を書く service（memos・events・money・lemon）が、書いた・消した後に `server/features/mcp-events/service.ts` の `publishChanged` を直接呼ぶ。知らせる側が 4 つで形も決まっているので registry を置かない。依存は記録の feature → mcp-events の一方向で、mcp-events は記録の形（`shared/`）・LLM 向けの形（`server/lib/mcp/entries.ts`）・ユーザーの一覧（`server/features/users/people.ts`）だけを読み、記録の feature を読まない。予定・タスクの通知（`event.reminder`）は、通知の service が配信のときに `publishReminder` を呼ぶ。
 - **通知**: `server/features/notifications/service.ts` が `server/features/events/notifications.ts` を直接呼ぶ（[features/notifications.md](features/notifications.md#構成)）。
 - 新機能の追加手順は [.claude/skills/creating-new-feature/SKILL.md](../.claude/skills/creating-new-feature/SKILL.md)。
 

@@ -11,6 +11,16 @@ import { TILE_MASK } from './squircle.ts';
 /** タイルの内側の余白（タイルと骨組みで同じ高さにする） */
 const TILE_PADDING = 1;
 
+/**
+ * 値の字の大きさ。small は、スマホで 3 列に並べても 7 桁の金額（「¥1,234,567」）が収まる大きさ
+ * （幅 402px の iPhone 17・412px の Pixel 6 で、タイルの中は約 100px）。
+ */
+type TileSize = 'medium' | 'small';
+const VALUE_FONT_SIZE: Record<TileSize, string | undefined> = {
+  medium: undefined,
+  small: '1.0625rem',
+};
+
 type Props = {
   /**
    * 名前の左のアイコン（MUI の SvgIcon）。大きさはタイルが名前の字に合わせる。
@@ -30,13 +40,23 @@ type Props = {
    */
   transitionName?: string;
   onClick: () => void;
+  /** 値の字の大きさ（省けば medium） */
+  size?: TileSize;
 };
 
 /**
  * 最新の状態のタイル（天気、レモンの項目ごとの状況、立替の精算）。名前・値・補足の 3 段で、どのタイルも同じ大きさに並ぶ。
  * 形は角だけなめらかな角丸（`TILE_MASK`。押したときの波紋も同じ形に収まる）。押すとその記録の入力を開く。
  */
-export function StatusTile({ icon, label, value, sub, transitionName, onClick }: Props) {
+export function StatusTile({
+  icon,
+  label,
+  value,
+  sub,
+  transitionName,
+  onClick,
+  size = 'medium',
+}: Props) {
   return (
     <Card
       sx={{
@@ -47,7 +67,7 @@ export function StatusTile({ icon, label, value, sub, transitionName, onClick }:
       }}
     >
       <CardActionArea onClick={onClick} sx={{ p: TILE_PADDING, height: '100%' }}>
-        <TileLines icon={icon} label={label} value={value} sub={sub} />
+        <TileLines icon={icon} label={label} value={value} sub={sub} size={size} />
       </CardActionArea>
     </Card>
   );
@@ -58,10 +78,17 @@ export function StatusTile({ icon, label, value, sub, transitionName, onClick }:
  * タイルの文字の大きさや余白を変えても骨組みの高さがずれず、読み込めたときに形も高さも変わらない。
  * WHY NOT 高さを数で書く: タイルは高さを持たず中身で決まるので、数を書くとタイルを直したときに黙ってずれる。
  */
-export function StatusTileSkeleton({ withSub = true }: { withSub?: boolean }) {
+export function StatusTileSkeleton({
+  withSub = true,
+  size = 'medium',
+}: {
+  withSub?: boolean;
+  /** 置き換わるタイルと同じ大きさ */
+  size?: TileSize;
+}) {
   return (
     <Skeleton variant="rectangular" sx={{ p: TILE_PADDING, mask: TILE_MASK, maxWidth: 'none' }}>
-      <TileLines label={'\u00a0'} value={'\u00a0'} sub={withSub ? '' : undefined} />
+      <TileLines label={'\u00a0'} value={'\u00a0'} sub={withSub ? '' : undefined} size={size} />
     </Skeleton>
   );
 }
@@ -72,11 +99,13 @@ function TileLines({
   label,
   value,
   sub,
+  size,
 }: {
   icon?: ReactNode;
   label: string;
   value: string;
   sub?: string;
+  size: TileSize;
 }) {
   return (
     <>
@@ -101,6 +130,7 @@ function TileLines({
         noWrap
         sx={{
           lineHeight: 1.3,
+          fontSize: VALUE_FONT_SIZE[size],
           fontVariantNumeric: 'tabular-nums',
         }}
       >

@@ -44,7 +44,7 @@ export type PeriodPage = {
  */
 export function useCalendarPage(search: CalendarSearch) {
   const patchSearch = usePatchSearch();
-  // リスト表示の検索と絞り込み（ホーム・立替・レモンと同じ `useFilterSearch`）
+  // リスト表示の検索と絞り込み（ホーム・お金・レモンと同じ `useFilterSearch`）
   const filter = useFilterSearch(search, LIST_FILTER_CONDITIONS);
   // 時間軸の高さ（週・日）。3 面で 1 つの値を使う（`use-hour-zoom.ts`）
   const { hourHeight, zoom } = useHourZoom();

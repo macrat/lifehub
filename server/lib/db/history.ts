@@ -14,7 +14,7 @@ import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import { db } from './client.ts';
 
 /**
- * 履歴（立替・レモンの記録）の 1 ページの件数の目安。ページは日の途中では切らないので、
+ * 履歴（お金の記録・レモンの記録）の 1 ページの件数の目安。ページは日の途中では切らないので、
  * これより多くなることがある。1 日は数件なので、スマホの画面数枚分になる
  */
 const HISTORY_PAGE_SIZE = 50;

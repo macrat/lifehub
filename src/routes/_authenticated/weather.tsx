@@ -1,7 +1,4 @@
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { WeatherDayList } from '../../features/weather/components/WeatherDayList.tsx';
 import { useHomeWeatherDay, weatherHistory } from '../../features/weather/queries.ts';
@@ -9,10 +6,9 @@ import { weatherSearchSchema } from '../../features/weather/search.ts';
 import { useExpandedDays } from '../../features/weather/use-expanded-days.ts';
 import { useRevealDay } from '../../features/weather/use-reveal-day.ts';
 import { useScreenHistory } from '../../lib/screen-data.ts';
-import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
 import { HistoryList } from '../../lib/ui/HistoryList.tsx';
 import { READING_MAX_WIDTH } from '../../lib/ui/layout.ts';
-import { useGoBack } from '../../lib/ui/use-go-back.ts';
+import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
 
 export const Route = createFileRoute('/_authenticated/weather')({
   staticData: { ownsScroll: true },
@@ -31,19 +27,11 @@ function WeatherPage() {
   // この画面が読むもの: 天気の日々
   const history = useScreenHistory(weatherHistory, {});
   const expanded = useExpandedDays();
-  const goBack = useGoBack();
   const homeDay = useHomeWeatherDay();
   const reveal = useRevealDay(history, Route.useSearch().day);
   return (
     <>
-      <AppBarContent>
-        <IconButton aria-label="戻る" onClick={goBack} size="small">
-          <ArrowBackIosNewIcon fontSize="small" />
-        </IconButton>
-        <Typography component="h1" variant="subtitle1">
-          東京
-        </Typography>
-      </AppBarContent>
+      <SubPageBar title="東京" />
       <Box sx={{ maxWidth: READING_MAX_WIDTH, mx: 'auto' }}>
         <HistoryList history={history} emptyMessage="予報がまだありません" reveal={reveal}>
           {(days) => (

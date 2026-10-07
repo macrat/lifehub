@@ -10,8 +10,8 @@ import { expect, test } from './test.ts';
 test('検索窓で日本語を変換でき、履歴を増やさずに URL が変わる', async ({ page }) => {
   // 戻る先（直前の画面）としてホームを開いておく
   await openHome(page);
-  await page.goto('/expenses');
-  const search = page.getByLabel('立替を検索');
+  await page.goto('/money');
+  const search = page.getByLabel('記録を検索');
   await search.click();
 
   // 未確定の文字を 1 文字ずつ増やす（変換候補を選ぶ前の状態）
@@ -28,7 +28,7 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
   // 変換して確定する
   await ime.send('Input.insertText', { text: '日本語' });
   await expect(search).toHaveValue('日本語');
-  await expect(page).toHaveURL(`/expenses?q=${encodeURIComponent('日本語')}`);
+  await expect(page).toHaveURL(`/money?q=${encodeURIComponent('日本語')}`);
 
   // 戻るは打った文字ではなく直前の画面へ
   await page.goBack();
@@ -40,8 +40,8 @@ test('検索窓で日本語を変換でき、履歴を増やさずに URL が変
  * q が書き戻されて消えないこと（消えると、開き直したときにキーワードが失われる）。
  */
 test('キーワードを打ってから絞り込みを変えても、URL のキーワードは残る', async ({ page }) => {
-  await page.goto('/expenses');
-  await page.getByLabel('立替を検索').fill('スーパー');
+  await page.goto('/money');
+  await page.getByLabel('記録を検索').fill('スーパー');
   await expect(page).toHaveURL(/q=/);
 
   await page.getByRole('button', { name: '絞り込み' }).click();
@@ -50,7 +50,7 @@ test('キーワードを打ってから絞り込みを変えても、URL のキ�
   expect(new URL(page.url()).searchParams.get('q')).toBe('スーパー');
 
   await page.reload();
-  await expect(page.getByLabel('立替を検索')).toHaveValue('スーパー');
+  await expect(page.getByLabel('記録を検索')).toHaveValue('スーパー');
 });
 
 /**
@@ -67,18 +67,18 @@ test('詳細検索で金額・日付・To で絞り込める', async ({ page }) 
   const expense = async (body: {
     amount: number;
     description: string;
-    spentOn: string;
+    occurredOn: string;
     toUserId?: string | null;
   }): Promise<Created> => {
     const id = crypto.randomUUID();
-    await api.expenses.create.mutate({ id, fromUserId: me.id, toUserId: null, ...body });
-    return { router: 'expenses', id };
+    await api.money.create.mutate({ id, fromUserId: me.id, toUserId: null, ...body });
+    return { router: 'money', id };
   };
   const records = await Promise.all([
-    expense({ amount: 500, description: small, spentOn: '2031-03-01' }),
-    expense({ amount: 5000, description: large, spentOn: '2031-03-10', toUserId: partner }),
+    expense({ amount: 500, description: small, occurredOn: '2031-03-01' }),
+    expense({ amount: 5000, description: large, occurredOn: '2031-03-10', toUserId: partner }),
   ]);
-  await page.goto('/expenses');
+  await page.goto('/money');
   const smallRow = page.getByRole('button', { name: new RegExp(small) });
   const largeRow = page.getByRole('button', { name: new RegExp(large) });
 

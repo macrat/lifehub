@@ -1,7 +1,7 @@
 import * as events from '../server/features/events/service.ts';
-import * as expenses from '../server/features/expenses/service.ts';
 import * as lemon from '../server/features/lemon/service.ts';
 import * as memos from '../server/features/memos/service.ts';
+import * as money from '../server/features/money/service.ts';
 import * as users from '../server/features/users/service.ts';
 import { clearTables } from '../server/lib/db/test-db.ts';
 import { addDays, startOfDate, today } from '../shared/date.ts';
@@ -114,44 +114,44 @@ await task({
 const done = await task({ title: '電球を交換する', participantIds: [me.id] });
 await events.completeEvent(done.id, {}, me.id, dayAt(0, 9));
 
-await expenses.addExpense(
+await money.addExpense(
   {
     fromUserId: me.id,
     toUserId: null,
     amount: 6480,
     description: '食材（スーパー）',
-    spentOn: addDays(t, -1),
+    occurredOn: addDays(t, -1),
   },
   me.id,
 );
-await expenses.addExpense(
+await money.addExpense(
   {
     fromUserId: partner.id,
     toUserId: null,
     amount: 2200,
     description: '日用品',
-    spentOn: addDays(t, -3),
+    occurredOn: addDays(t, -3),
   },
   partner.id,
 );
-await expenses.addExpense(
+await money.addExpense(
   {
     fromUserId: me.id,
     toUserId: null,
     amount: 12000,
     description: '電気代',
-    spentOn: addDays(t, -7),
+    occurredOn: addDays(t, -7),
   },
   me.id,
 );
 
-await expenses.addExpense(
+await money.addExpense(
   {
     fromUserId: partner.id,
     toUserId: me.id,
     amount: 5000,
     description: '精算',
-    spentOn: addDays(t, -2),
+    occurredOn: addDays(t, -2),
   },
   partner.id,
 );

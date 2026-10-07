@@ -9,7 +9,7 @@ export const SHORTCUTS = [
   { kind: 'calendar', name: 'カレンダー', shortName: 'カレンダー', url: '/calendar' },
   { kind: 'event', name: '予定登録', shortName: '予定', url: addUrl('/calendar', 'event') },
   { kind: 'task', name: 'タスク登録', shortName: 'タスク', url: addUrl('/calendar', 'task') },
-  { kind: 'expense', name: '立替登録', shortName: '立替', url: addUrl('/expenses', 'expense') },
+  { kind: 'expense', name: '立替登録', shortName: '立替', url: addUrl('/money', 'expense') },
   { kind: 'lemon', name: 'レモンの記録', shortName: 'レモン', url: addUrl('/lemon', 'lemon') },
 ] as const;
 

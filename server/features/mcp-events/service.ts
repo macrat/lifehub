@@ -1,9 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { CalendarItem, WrittenEvent } from '../../../shared/calendar.ts';
-import type { Expense } from '../../../shared/expenses.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import type { MoneyRecord } from '../../../shared/money.ts';
 import type { Actor } from '../../lib/actor.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
@@ -51,7 +51,7 @@ type ChangedRecord =
       record: WrittenEvent | (() => Promise<WrittenEvent>);
       scope?: 'this' | 'following';
     }
-  | { type: 'expense'; record: Expense }
+  | { type: 'expense'; record: MoneyRecord }
   | { type: 'lemon'; record: CareLog };
 
 type Action = 'added' | 'updated' | 'deleted';

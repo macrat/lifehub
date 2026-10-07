@@ -11,8 +11,9 @@ import type { CareType } from '../../../shared/validation/lemon.ts';
 import { ADD_KINDS } from '../../lib/add-kinds.ts';
 import { formatTimelineDays, formatTimelineTime } from '../../lib/date.ts';
 import { participantColors } from '../events/use-participant-colors.ts';
-import { formatYen } from '../expenses/format.ts';
-import { partiesInOrder, partiesLabel } from '../expenses/parties.ts';
+import { MoneyIcon } from '../money/icon.ts';
+import { partiesInOrder } from '../money/parties.ts';
+import { recordAmount, recordOwner } from '../money/record-text.ts';
 import { useUserColor } from '../users/use-user-color.ts';
 import { useUserLabels } from '../users/use-user-labels.ts';
 import type { TimelineEntry } from './queries.ts';
@@ -25,7 +26,7 @@ export type EntryView = {
   icon: ComponentType<SvgIconProps>;
   /** タスクなら左の丸が完了のチェックボックスになる（中にチェックの印を出す） */
   task: CalendarTaskItem | null;
-  /** 上段: 予定・タスクはタイトル、立替は参加者、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人（MCP で書いたメモはクライアントの名前） */
+  /** 上段: 予定・タスクはタイトル、立替は参加者、入出金は金融機関、レモンは記録した人（API キーで入れた記録はキーの名前）、メモは書いた人（MCP で書いたメモはクライアントの名前） */
   heading: string;
   /** 上段に取り消し線を引く（完了したタスク） */
   struck: boolean;
@@ -75,15 +76,15 @@ export function useEntryView(entry: TimelineEntry): EntryView {
       };
     }
     case 'expense': {
-      const { fromUserId, toUserId, amount, description } = entry.expense;
-      // 名前と色の並びは立替の履歴と同じ（`partiesInOrder`）
-      const people = partiesInOrder({ toUserId, fromUserId });
+      const { expense } = entry;
       return {
         ...view,
-        colors: people.map((id) => colorFor(id).fill),
-        icon: ADD_KINDS.expense.icon,
-        heading: partiesLabel(people, label),
-        body: `${formatYen(amount)} ${description}`,
+        // 名前と色の並びはお金の画面の一覧と同じ（`partiesInOrder`）。当事者を持たない入出金は無彩色
+        colors: partiesInOrder(expense).map((id) => colorFor(id).fill),
+        // 取り込んだ入出金は下部ナビのお金と同じ財布、手で入れた立替は追加ボタンと同じアイコン
+        icon: expense.account === null ? ADD_KINDS.expense.icon : MoneyIcon,
+        heading: recordOwner(expense, label),
+        body: `${recordAmount(expense)} ${expense.description}`,
       };
     }
     case 'lemon': {

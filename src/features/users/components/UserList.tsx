@@ -1,9 +1,4 @@
-import EditIcon from '@mui/icons-material/Edit';
-import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemAvatar from '@mui/material/ListItemAvatar';
-import ListItemText from '@mui/material/ListItemText';
+import { EditableList, EditableListItem } from '../../../lib/ui/EditableList.tsx';
 import type { User } from '../queries.ts';
 import { UserAvatar } from './UserAvatar.tsx';
 
@@ -12,25 +7,20 @@ type Props = {
   onEdit: (user: User) => void;
 };
 
+/** ユーザー管理の一覧。左にアバター、名前とメール、右端の鉛筆で編集を開く（形は `EditableList`） */
 export function UserList({ users, onEdit }: Props) {
   return (
-    <List disablePadding>
+    <EditableList>
       {users.map((user) => (
-        <ListItem
+        <EditableListItem
           key={user.id}
-          divider
-          secondaryAction={
-            <IconButton edge="end" aria-label={`${user.name} を編集`} onClick={() => onEdit(user)}>
-              <EditIcon />
-            </IconButton>
-          }
-        >
-          <ListItemAvatar>
-            <UserAvatar name={user.name} hue={user.hue} />
-          </ListItemAvatar>
-          <ListItemText primary={user.name} secondary={user.email} />
-        </ListItem>
+          icon={<UserAvatar name={user.name} hue={user.hue} />}
+          primary={user.name}
+          secondary={user.email}
+          editLabel={`${user.name} を編集`}
+          onEdit={() => onEdit(user)}
+        />
       ))}
-    </List>
+    </EditableList>
   );
 }

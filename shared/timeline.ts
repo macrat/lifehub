@@ -1,13 +1,13 @@
 import { type CalendarItem, occurrenceKey } from './calendar.ts';
 import { addDays, startOfDate, toDateString, today } from './date.ts';
-import type { Expense } from './expenses.ts';
 import type { CareLog } from './lemon.ts';
 import type { Memo } from './memos.ts';
+import type { MoneyRecord } from './money.ts';
 import { compareKeys } from './sort.ts';
 import type { DateString } from './types.ts';
 
 /**
- * ホームのタイムラインに並ぶ記録（予定・タスク・立替・レモン・メモ）と、それぞれを置く日時。
+ * ホームのタイムラインに並ぶ記録（予定・タスク・お金の記録・レモン・メモ）と、それぞれを置く日時。
  * サーバーの組み立て（`server/features/timeline/service.ts`）と、クライアントの楽観的更新が
  * 同じ規則で日時を決めるため、共通に置く。
  */
@@ -17,13 +17,13 @@ type EntryBase = {
   id: string;
   /** 並べる日時。null はタイムラインの一番上にまとめるタスク（未完了で、開始を過ぎたもの。`sortTimeline`） */
   at: string | null;
-  /** 日付だけを示す記録か（終日の予定・タスク、立替）。時刻は出さない */
+  /** 日付だけを示す記録か（終日の予定・タスク、お金の記録）。時刻は出さない */
   dateOnly: boolean;
 };
 
 export type TimelineEntry =
   | (EntryBase & { type: 'event'; item: CalendarItem })
-  | (EntryBase & { type: 'expense'; at: string; expense: Expense })
+  | (EntryBase & { type: 'expense'; at: string; expense: MoneyRecord })
   | (EntryBase & { type: 'lemon'; at: string; log: CareLog })
   | (EntryBase & { type: 'memo'; at: string; memo: Memo });
 
@@ -59,15 +59,15 @@ export function eventEntry(item: CalendarItem, now: Date = new Date()): Timeline
 }
 
 /**
- * 立替の行。立替は使った日しか持たないので、その日に記録したものは記録した時刻に置き
- * （記録した直後の立替が、その日の他の記録と同じく一番上に出る）、
- * 後から記録したものはその日の始まりに置く。サーバーの問い合わせ（`expenses/repository.ts`）も同じ式で並べる。
+ * お金の記録の行（種類の名前は MCP の ref・ツール名と揃えて expense）。記録は日付しか持たないので、手で入れた立替のうち
+ * その日に記録したものは記録した時刻に置き（記録した直後の立替が、その日の他の記録と同じく一番上に出る）、
+ * 後から記録したものと取り込んだ入出金はその日の始まりに置く。サーバーの問い合わせ（`money/repository.ts`）も同じ式で並べる。
  */
-export function expenseEntry(expense: Expense): TimelineEntry {
+export function expenseEntry(expense: MoneyRecord): TimelineEntry {
   const at =
-    toDateString(new Date(expense.createdAt)) === expense.spentOn
+    expense.account === null && toDateString(new Date(expense.createdAt)) === expense.occurredOn
       ? expense.createdAt
-      : startOfDate(expense.spentOn).toISOString();
+      : startOfDate(expense.occurredOn).toISOString();
   return {
     type: 'expense',
     id: timelineEntryId('expense', expense.id),

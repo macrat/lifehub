@@ -24,7 +24,7 @@ test('立替の詳細・編集は戻るで閉じ、画面の操作で閉じた�
   const expense = await addRecord(page, expenseHistory, await myId(page), new Date(), description);
   // 戻る先（前の画面）としてホームを開いておく
   await openHome(page);
-  await page.goto('/expenses');
+  await page.goto('/money');
   const row = page.getByRole('button', { name: new RegExp(description) });
   await expect(row).toBeVisible();
 
@@ -33,7 +33,7 @@ test('立替の詳細・編集は戻るで閉じ、画面の操作で閉じた�
   await expect(page.getByRole('heading', { name: description })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page).toHaveURL('/expenses');
+  await expect(page).toHaveURL('/money');
 
   // 編集は同じ詳細の中で入力欄に変わるだけなので、戻ると詳細ごと閉じる（履歴は 1 つのまま）
   await row.click();
@@ -41,7 +41,7 @@ test('立替の詳細・編集は戻るで閉じ、画面の操作で閉じた�
   await expect(page.getByLabel('金額（円）')).toHaveValue('100');
   await page.goBack();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page).toHaveURL('/expenses');
+  await expect(page).toHaveURL('/money');
   await expect(row).toBeVisible();
   await settled(page);
 

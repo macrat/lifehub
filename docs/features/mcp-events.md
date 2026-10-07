@@ -12,7 +12,7 @@ MCP クライアント（ChatGPT など）が、記録が足された・変え�
 |---|---|
 | `memo.changed` | メモ（[memos.md](memos.md)）が書かれた・直された・消された |
 | `event.changed` | 予定・タスク（[events.md](events.md)）が足された・変えられた・消された（タスクの完了・完了の取り消しも。繰り返しの 1 回だけを変えた・消したときは、その回） |
-| `expense.changed` | 立替（[expenses.md](expenses.md)）が記録された・直された・消された |
+| `expense.changed` | 立替（手で入れたお金の記録。[money.md](money.md)）が記録された・直された・消された（取り込んだ入出金は知らせない） |
 | `lemon.changed` | レモンの世話（[lemon.md](lemon.md)）が記録された・直された・消された（API キーからの記録も） |
 | `event.reminder` | 予定・タスクのプッシュ通知（[notifications.md](notifications.md)）を送った |
 

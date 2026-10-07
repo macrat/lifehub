@@ -2,10 +2,10 @@ import { requireMcpAuth } from '@better-auth/mcp';
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { Hono } from 'hono';
 import { registerEventTools } from './features/events/mcp.ts';
-import { registerExpenseTools } from './features/expenses/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
+import { registerExpenseTools } from './features/money/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
 import { getOAuthClientName, listPeople } from './features/users/people.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
@@ -30,7 +30,7 @@ const registrars: McpRegistrar[] = [
  * 個々のツールの使い方は各ツールの説明に書き、ここには全体に通じることだけを書く。
  */
 const INSTRUCTIONS = [
-  'LifeHub は 2 人（家族）の家庭用アプリ。記録はすべて、日付の上に並ぶタイムラインのエントリーとして扱う: 予定（event）、タスク（task）、立替（expense）、レモンの木の世話（lemon）、メモ（memo）。天気と祝日も日ごとに付く。',
+  'LifeHub は 2 人（家族）の家庭用アプリ。記録はすべて、日付の上に並ぶタイムラインのエントリーとして扱う: 予定（event）、タスク（task）、お金の記録（expense。手で入れた立替と、Money Forward から取り込んだ口座の入出金。取り込んだものは読むだけ）、レモンの木の世話（lemon）、メモ（memo）。天気と祝日も日ごとに付く。',
   'まず get_overview で今日の日付・ユーザーの名前・直近の状況をつかむ。期間や過去の記録は read_timeline で読む。書き込みは種類ごとの add_* / log_lemon_care で足し（予定とタスクは同じ add_event で、kind で選ぶ）、エントリーの ref を update_* / set_task_done / delete_entry に渡して変える・消す。',
   '日付は JST の YYYY-MM-DD、日時は JST の YYYY-MM-DDTHH:mm（タイムゾーンは省ける）。人は名前（自分は "me"）で指す。',
 ].join('\n');

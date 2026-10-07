@@ -20,6 +20,9 @@ const production = {
   VAPID_PRIVATE_KEY: 'vapid-private',
   VAPID_SUBJECT: 'mailto:admin@example.com',
   SENTRY_DSN: 'https://public@o0.ingest.sentry.io/0',
+  MONEYFORWARD_EMAIL: 'mf@example.com',
+  MONEYFORWARD_PASSWORD: 'mf-password',
+  MONEYFORWARD_ACCOUNTS: 'bank:テスト銀行',
 };
 
 describe('環境変数', () => {
@@ -42,6 +45,22 @@ describe('環境変数', () => {
 
   it('Preview は本番の秘密情報を持たないので対象外', () => {
     expect(parseEnv({ ...base, VERCEL_ENV: 'preview' }).VERCEL_ENV).toBe('preview');
+  });
+
+  it('取り込む口座を書いた順に種類と名前で読み、書き方が違えば起動しない', () => {
+    expect(
+      parseEnv({ ...base, MONEYFORWARD_ACCOUNTS: 'bank:テスト銀行, card: テスト:カード ,' })
+        .MONEYFORWARD_ACCOUNTS,
+    ).toEqual([
+      { kind: 'bank', name: 'テスト銀行' },
+      { kind: 'card', name: 'テスト:カード' },
+    ]);
+    expect(() => parseEnv({ ...base, MONEYFORWARD_ACCOUNTS: 'テスト銀行' })).toThrow(
+      'MONEYFORWARD_ACCOUNTS',
+    );
+    expect(() =>
+      parseEnv({ ...base, MONEYFORWARD_ACCOUNTS: 'bank:テスト銀行,card:テスト銀行' }),
+    ).toThrow('2 度');
   });
 
   it('本番で揃っていれば起動する', () => {

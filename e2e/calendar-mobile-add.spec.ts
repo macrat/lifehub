@@ -74,8 +74,8 @@ test('カレンダーで「予定」を押すと一段広い表示へ移り、�
   await expect(shownView(page)).toHaveText('週');
   await expect(page).toHaveURL(/view=week&date=2031-06-18/);
 
-  await page.getByRole('link', { name: '立替' }).click();
-  await expect(page).toHaveURL('/expenses');
+  await page.getByRole('link', { name: 'お金' }).click();
+  await expect(page).toHaveURL('/money');
   await page.getByRole('link', { name: '予定' }).click();
   await expect(shownView(page)).toHaveText('週');
 

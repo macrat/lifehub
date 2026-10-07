@@ -67,6 +67,39 @@ variable "vapid_private_key" {
   default   = ""
 }
 
+# Money Forward の取り込み（server/features/money/）。口座の書き方は server/lib/env.ts の moneyAccountsSchema
+variable "moneyforward_email" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "moneyforward_password" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+# 2 段階認証（認証アプリ）を使っていなければ空のまま
+variable "moneyforward_totp_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+# グループで絞らなければ空のまま
+variable "moneyforward_group" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "moneyforward_accounts" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "vapid_subject" {
   type    = string
   default = "mailto:m@crat.jp"

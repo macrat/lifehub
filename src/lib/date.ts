@@ -32,6 +32,11 @@ const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
   day: 'numeric',
   weekday: 'short',
 });
+const monthDayFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE,
+  month: 'numeric',
+  day: 'numeric',
+});
 const paddedDateFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: TIME_ZONE,
   month: '2-digit',
@@ -52,6 +57,11 @@ const weekdayFormatter = new Intl.DateTimeFormat('ja-JP', {
 /** "9/20(日)" */
 export function formatDate(value: Date | string | DateString): string {
   return dateFormatter.format(toDate(value));
+}
+
+/** "9/20"。曜日まで入らない狭い所（お金の画面の口座のタイル）で使う */
+export function formatMonthDay(value: Date | string | DateString): string {
+  return monthDayFormatter.format(toDate(value));
 }
 
 /**

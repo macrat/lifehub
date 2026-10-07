@@ -1,9 +1,14 @@
 import type { CalendarItem, EventMaster } from '../../../shared/calendar.ts';
-import type { Expense, Settlement } from '../../../shared/expenses.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
+import {
+  hasParties,
+  type MoneyAccount,
+  type MoneyRecord,
+  type Settlement,
+} from '../../../shared/money.ts';
 import type { TimelineEntry } from '../../../shared/timeline.ts';
-import { SHARED } from '../../../shared/validation/expenses.ts';
+import { SHARED } from '../../../shared/validation/money.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
 import { authorName, nameOf, type Person } from '../people.ts';
 import { toRef } from './refs.ts';
@@ -67,16 +72,24 @@ function partyName(people: Person[], id: string | null): string {
   return id === null ? SHARED : nameOf(people, id);
 }
 
-/** 立替。paidBy・paidFor の "shared" は共有口座 */
-export function formatExpense(expense: Expense, people: Person[]) {
+/**
+ * お金の記録。paidBy・paidFor の "shared" は共有口座。
+ * 手で入れた立替は ref を持つ（update_expense・delete_entry で直せる）。Money Forward から取り込んだ入出金は
+ * account（金融機関）を持ち、amount は入金が正・出金が負で、読むだけなので ref を持たない。取り込みルールで
+ * 「共有」との立替にしたものだけが paidBy・paidFor を持つ（精算に入っている）
+ */
+export function formatExpense(expense: MoneyRecord, people: Person[]) {
   return {
-    ref: toRef('expense', expense.id),
+    ...(expense.account === null ? { ref: toRef('expense', expense.id) } : {}),
     type: 'expense' as const,
-    date: expense.spentOn,
+    date: expense.occurredOn,
+    ...compact({ account: expense.account }),
     amount: expense.amount,
     description: expense.description,
-    paidBy: partyName(people, expense.fromUserId),
-    paidFor: partyName(people, expense.toUserId),
+    ...(hasParties(expense) && {
+      paidBy: partyName(people, expense.fromUserId),
+      paidFor: partyName(people, expense.toUserId),
+    }),
   };
 }
 
@@ -115,6 +128,27 @@ export function formatMemo(memo: Memo, people: Person[]) {
   };
 }
 
+/**
+ * 口座の今の値。銀行は残高（balance）、証券は評価額（balance）、クレジットカードは次回の引き落とし
+ * （withdrawalAmount・withdrawalOn）。読めていない値は省く
+ */
+export function formatMoneyAccount(account: MoneyAccount) {
+  return {
+    name: account.name,
+    kind: account.kind,
+    ...compact({
+      balance: account.balance,
+      withdrawalAmount: account.withdrawalAmount,
+      withdrawalOn: account.withdrawalOn,
+      fetchedAt: account.fetchedAt && jstDateTime(account.fetchedAt),
+    }),
+  };
+}
+
+/**
+ * エントリーの出力（タイムライン。MCP Events もこの形で知らせる）。書き換え・消せるエントリーは ref を持つ
+ * （取り込んだ入出金は読むだけで持たない）
+ */
 export type FormattedEntry = ReturnType<
   typeof formatEvent | typeof formatExpense | typeof formatCareLog | typeof formatMemo
 >;

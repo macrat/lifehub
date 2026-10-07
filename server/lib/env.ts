@@ -1,4 +1,32 @@
 import { z } from 'zod';
+import { MONEY_ACCOUNT_KINDS } from '../../shared/money.ts';
+
+/**
+ * Money Forward から取り込む口座（`MONEYFORWARD_ACCOUNTS`）。`種類:名前` をカンマで区切って並べる
+ * （`bank:三井住友銀行,securities:SBI証券,card:楽天カード`）。名前は Money Forward に出る金融機関の名前そのもの。
+ * 並べた順がお金の画面のカードの順になる。種類は `MONEY_ACCOUNT_KINDS`。
+ * WHY 種類を書かせる: カードに出す値（残高か次回の引き落としか）が種類で決まり、Money Forward の画面から
+ * 種類を読み取るより、書いてもらうほうが確か。
+ */
+const moneyAccountsSchema = z
+  .string()
+  .transform((value) =>
+    value
+      .split(',')
+      .filter((entry) => entry.trim() !== '')
+      .map((entry) => {
+        const [kind = '', ...name] = entry.split(':');
+        return { kind: kind.trim(), name: name.join(':').trim() };
+      }),
+  )
+  .pipe(
+    z
+      .array(z.object({ kind: z.enum(MONEY_ACCOUNT_KINDS), name: z.string().min(1) }))
+      .min(1)
+      .refine((accounts) => new Set(accounts.map((a) => a.name)).size === accounts.length, {
+        message: '同じ名前の口座が 2 度書かれています',
+      }),
+  );
 
 /**
  * サーバーが参照する環境変数。起動時に一度だけ検証し、以後は型付きで参照する。
@@ -16,6 +44,18 @@ const envObject = z.object({
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).optional(),
+  /** Money Forward ID のメールアドレスとパスワード。口座の取り込み（server/features/money/）がログインに使う */
+  MONEYFORWARD_EMAIL: z.string().min(1).optional(),
+  MONEYFORWARD_PASSWORD: z.string().min(1).optional(),
+  /**
+   * Money Forward ID の 2 段階認証（認証アプリ）の秘密鍵（base32）。2 段階認証を使っていなければ要らない。
+   * 新しい端末からのログインで確認コードを求められたとき、メールの代わりにこれで答える
+   */
+  MONEYFORWARD_TOTP_SECRET: z.string().min(1).optional(),
+  /** 取り込むときに選ぶ Money Forward のグループ（docs/features/money.md） */
+  MONEYFORWARD_GROUP: z.string().min(1).optional(),
+  /** 取り込む口座（`moneyAccountsSchema`） */
+  MONEYFORWARD_ACCOUNTS: moneyAccountsSchema.optional(),
   /** Sentry への送り先（server/lib/sentry.ts）。無ければ送らない（ローカル・テスト・Preview）。 */
   SENTRY_DSN: z.url().optional(),
   // ここから下は Vercel のシステム環境変数。Vercel プロジェクトの「システム環境変数の公開」
@@ -32,10 +72,13 @@ const envObject = z.object({
 
 export type Env = z.infer<typeof envObject>;
 
+/** 取り込む口座 1 つ（`MONEYFORWARD_ACCOUNTS` の 1 項目） */
+export type MoneyForwardAccount = z.infer<typeof moneyAccountsSchema>[number];
+
 /**
  * 本番で必ず要る変数。1 つでも欠けていれば起動しない。
  * 欠けたままでも通知の予約（`server/features/notifications/publisher.ts`）と送信（`server/features/push/service.ts`）、
- * Sentry への送信（`server/lib/sentry.ts`）は何もせずに正常終了してしまい、画面にもログにも異常が出ないので、
+ * Sentry への送信（`server/lib/sentry.ts`）、口座の取り込み（`server/features/money/service.ts`）は何もせずに正常終了してしまい、画面にもログにも異常が出ないので、
  * 起動時に落とすしかない。
  * Preview には本番の秘密情報を渡さない（`infra/vercel.tf`）ので対象は production だけ。
  */
@@ -49,6 +92,9 @@ const PRODUCTION_REQUIRED = [
   'VAPID_PRIVATE_KEY',
   'VAPID_SUBJECT',
   'SENTRY_DSN',
+  'MONEYFORWARD_EMAIL',
+  'MONEYFORWARD_PASSWORD',
+  'MONEYFORWARD_ACCOUNTS',
 ] as const satisfies readonly (keyof Env)[];
 
 const envSchema = envObject.superRefine((value, ctx) => {

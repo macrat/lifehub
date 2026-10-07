@@ -156,7 +156,7 @@ const PAGE_DAYS = 14;
  * before を省くと最新のページ（今日の 1 週間前から週間予報の終わりまで）、渡すとその日の前の 2 週間。
  * ページは日で区切るので、日の途中では切れない。nextCursor は、それより前に取っておいた日があるときの次の before
  * （取り始めた日より前は無い）。
- * WHY NOT 件数で区切る（立替・レモンの履歴のように）: 天気は 1 日 1 行で、日数で区切れば件数も決まる。
+ * WHY NOT 件数で区切る（お金・レモンの履歴のように）: 天気は 1 日 1 行で、日数で区切れば件数も決まる。
  */
 export async function listWeatherPage(
   before: DateString | undefined,

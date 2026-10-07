@@ -1,5 +1,6 @@
 import { type Column, eq, getTableColumns, ilike, inArray, type SQL, sql } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
+import { TIME_ZONE } from '../../../shared/constants.ts';
 import { type Database, db } from './client.ts';
 
 /**
@@ -13,6 +14,14 @@ import { type Database, db } from './client.ts';
 export function containsKeyword(column: Column, keyword: string | undefined): SQL | undefined {
   const q = keyword?.trim();
   return q ? ilike(column, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined;
+}
+
+/**
+ * JST の暦日（date 型の列）の始まりの瞬間。shared/date.ts の `startOfDate` の SQL 版で、日付しか持たない記録を
+ * タイムラインに置く日時を、画面が置く位置（shared/timeline.ts）と同じ式で DB でも出すのに使う
+ */
+export function startOfDateSql(column: Column): SQL<Date> {
+  return sql<Date>`${column}::timestamp at time zone ${TIME_ZONE}`;
 }
 
 /**
