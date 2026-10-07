@@ -64,7 +64,18 @@ export async function occurrenceOf(
   master: EventWithParticipants,
   occurrenceStart: Date,
 ): Promise<WrittenEvent> {
-  const row = await occurrenceRowOf(master, occurrenceStart);
+  return writtenOccurrence(master, await occurrenceRowOf(master, occurrenceStart), occurrenceStart);
+}
+
+/**
+ * 回の値を、書き込んだ予定・タスクの形にする。一覧が回を出すときと同じく、id と繰り返しは
+ * 繰り返し元のもの（`buildOccurrence`）
+ */
+export function writtenOccurrence(
+  master: { id: string; rrule: string | null },
+  row: Parameters<typeof toMaster>[0],
+  occurrenceStart: Date,
+): WrittenEvent {
   return {
     ...toMaster({ ...row, id: master.id, rrule: master.rrule }),
     occurrenceStart: occurrenceStart.toISOString(),

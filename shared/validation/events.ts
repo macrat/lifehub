@@ -176,7 +176,6 @@ export const occurrenceTargetSchema = z.discriminatedUnion('scope', [
 export type OccurrenceTarget = z.infer<typeof occurrenceTargetSchema>;
 
 export const updateEventSchema = withEventRules(inputEventSchema.and(occurrenceTargetSchema));
-export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 
 /** 完了・完了取り消し（タスクのみ）。繰り返しでは occurrenceStart で回を指定する（完了は常に 1 つの回に対して行う） */
 export const completeEventSchema = z.object({

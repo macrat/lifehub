@@ -12,11 +12,10 @@ import {
   type EventValues,
   eventRulesSchema,
   type OccurrenceTarget,
-  type UpdateEventInput,
 } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../../lib/errors.ts';
 import { checkRules } from '../../lib/patch.ts';
-import { normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
+import { continuationFrom, normalizeRRule, withUntilBefore } from '../../lib/recurrence/index.ts';
 import { publishChanged } from '../mcp-events/service.ts';
 import { notifyChanged, scheduleUpcoming } from '../notifications/service.ts';
 import { actionableToday } from './notifications.ts';
@@ -30,6 +29,7 @@ import {
   occurrenceOf,
   resolveTarget,
   type Target,
+  writtenOccurrence,
   writtenOf,
 } from './targets.ts';
 
@@ -47,8 +47,8 @@ export async function patchEvent(
   userId: string,
 ): Promise<WrittenEvent> {
   const master = await findMaster(id);
-  const merged = await patchedInput(master, target, patch);
-  return writeUpdate(master, { ...merged, ...target }, userId);
+  const resolved = resolveTarget(master, target);
+  return writeUpdate(master, resolved, await patchedInput(master, resolved, patch), userId);
 }
 
 export async function getEvent(id: string): Promise<EventMaster> {
@@ -70,7 +70,7 @@ export async function createEvent(
   const created = writtenOf(
     await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
   );
-  scheduleUpcoming();
+  scheduleUpcoming(created.id);
   notifyChanged(actionableToday(created.id, new Date()), 'added', userId);
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
@@ -81,10 +81,12 @@ export async function updateEvent(
   input: EventValues & OccurrenceTarget,
   userId: string,
 ): Promise<void> {
-  // 回の指定（scope・occurrenceStart）は入力のまま、項目は規則を通した種別の形にする
+  const master = await findMaster(id);
+  // 項目は規則を通した種別の形にする
   await writeUpdate(
-    await findMaster(id),
-    { ...input, ...checkRules(input, eventRulesSchema) },
+    master,
+    resolveTarget(master, input),
+    checkRules(input, eventRulesSchema),
     userId,
   );
 }
@@ -92,22 +94,23 @@ export async function updateEvent(
 /** 書き換え、通知を予約し直し、直したことを MCP Events で知らせる。書いた後の予定・タスクを返す */
 async function writeUpdate(
   master: EventWithParticipants,
-  input: UpdateEventInput,
+  target: Target,
+  input: CreateEventInput,
   userId: string,
 ): Promise<WrittenEvent> {
-  const written = await applyUpdate(master, input, userId);
-  scheduleUpcoming();
+  const written = await applyUpdate(master, target, input, userId);
+  scheduleUpcoming(written.id);
   publishChanged({ type: 'event', record: written }, 'updated', { userId });
   return written;
 }
 
 async function applyUpdate(
   master: EventWithParticipants,
-  input: UpdateEventInput,
+  target: Target,
+  input: CreateEventInput,
   userId: string,
 ): Promise<WrittenEvent> {
   const { id } = master;
-  const target = resolveTarget(master, input);
   const values = normalizeInput(input);
   const { participantIds } = input;
   const kindChanged = input.kind !== master.kind;
@@ -123,23 +126,30 @@ async function applyUpdate(
       participantIds,
       userId,
     );
-    // 一覧が回を出すときと同じく、id と繰り返しは繰り返し元のもの（`buildOccurrence`）
-    return {
-      ...toMaster({ ...values, id, rrule: master.rrule, participantIds, completedAt }),
-      occurrenceStart: target.occurrenceStart.toISOString(),
-    };
+    return writtenOccurrence(
+      master,
+      { ...values, id, participantIds, completedAt },
+      target.occurrenceStart,
+    );
   }
 
   // ここから下は保存した値がすべて手元にあるので、読み直さずに応答を組み立てる（往復を 1 回減らす）
   if (target.scope === 'following') {
+    const rrule =
+      values.rrule === target.rrule
+        ? continuationFrom(target.rrule, master.startsAt, target.occurrenceStart)
+        : values.rrule;
     const splitId = await repository.splitFollowing({
       masterId: id,
       masterRRule: withUntilBefore(target.rrule, target.occurrenceStart),
       splitAt: target.occurrenceStart,
-      newRow: { ...values, createdBy: userId },
+      newRow: { ...values, rrule, createdBy: userId },
       participantIds,
+      // 完了した回は履歴として新しい繰り返しに移す（「すべて」で基準を変えたときと同じ）。
+      // 予定になった繰り返しには置けない（予定は完了を持てない。`occurrencesToDrop`）
+      keepCompleted: values.kind === 'task',
     });
-    return writtenOf({ ...values, id: splitId, participantIds, completedAt: null });
+    return writtenOf({ ...values, rrule, id: splitId, participantIds, completedAt: null });
   }
 
   // 種別を変えると完了は意味を失う（予定は完了を持てない）ので外す。変えないときは完了に触らない
@@ -214,7 +224,7 @@ export async function uncompleteEvent(
 ): Promise<void> {
   const record = await setCompletedAt(id, input, null, userId);
   // 完了していた間は日次 Cron が列挙しないので、当日の通知はここで予約し直さないと届かない
-  scheduleUpcoming();
+  scheduleUpcoming(id);
   publishChanged({ type: 'event', record }, 'updated', { userId });
 }
 

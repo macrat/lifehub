@@ -110,7 +110,11 @@ function remindTargets(
  * 範囲の先頭を流用すると、配信時の再検証（範囲を配信予定時刻の前後 1 日に取る）で 1 日前の
  * 状態を見てしまい、リンク先の日付がずれる。
  */
-async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem[]> {
+async function itemsAround(
+  range: InstantRange,
+  now: Date,
+  id: string | undefined,
+): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
     {
@@ -118,6 +122,7 @@ async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem
       to: addDays(toDateString(new Date(range.to.getTime() + MAX_REMIND_MS)), 1),
     },
     now,
+    { id },
   );
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -160,14 +165,18 @@ function body(item: CalendarItem, edge: Edge, anchor: string): string {
   return `${label} ${when}${location}`;
 }
 
-/** [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ） */
+/**
+ * [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ）。
+ * id を渡すとその予定・タスクの通知だけ
+ */
 export async function listNotifications(
   range: InstantRange,
   notifyTimes: NotifyTimes,
+  id?: string,
 ): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
-  const items = await itemsAround(range, range.from);
+  const items = await itemsAround(range, range.from, id);
   for (const item of items) {
     for (const edge of EDGES) {
       for (const { at, userId } of remindTargets(item, edge, notifyTimes)) {
@@ -192,6 +201,7 @@ export async function resolveNotification(
       to: new Date(ref.at.getTime() + MAX_REMIND_MS),
     },
     ref.at,
+    ref.id,
   );
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;

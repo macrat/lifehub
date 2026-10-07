@@ -61,6 +61,9 @@ describe('notifications', () => {
       [`event:${event.id}:single:start:${iso('2026-09-15T09:30:00')}`, iso('2026-09-15T09:30:00')],
       [`event:${task.id}:single:start:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
     ]);
+    // id で絞ると、その予定・タスクの通知だけ（書き込みの後の予約）
+    const onlyTask = await listNotifications(tomorrow, await notifyTimes(), task.id);
+    expect(onlyTask.map((p) => p.ref.id)).toEqual([task.id]);
   });
 
   it('配信時に再検証し、削除・変更・完了済みなら送らない', async () => {

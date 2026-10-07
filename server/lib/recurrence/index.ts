@@ -144,6 +144,21 @@ export function withUntilBefore(rrule: string, instant: Date): string {
   return RRule.optionsToString({ ...options, until, count: undefined }).replace(/^RRULE:/, '');
 }
 
+/**
+ * 「これ以降すべて」で分けた後ろ側の繰り返しに引き継ぐ RRULE。COUNT は繰り返し全体の回数なので、
+ * at より前の回の数だけ減らす（そのまま引き継ぐと、分けた前後で合わせた回数が元より増える）。
+ * COUNT を持たないルールはそのまま返す。at は繰り返しの回であること（at 以降に 1 回以上残る）。
+ */
+export function continuationFrom(rrule: string, dtstart: Date, at: Date): string {
+  const options = parseRRule(rrule);
+  if (options.count == null) return rrule;
+  const before = expandOccurrences({ rrule, dtstart, from: dtstart, to: at }).length;
+  return RRule.optionsToString({ ...options, count: options.count - before }).replace(
+    /^RRULE:/,
+    '',
+  );
+}
+
 function buildRule(rrule: string, dtstart: Date): RRule {
   return new RRule({ ...parseRRule(rrule), dtstart: toFloating(dtstart) });
 }

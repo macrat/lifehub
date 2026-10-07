@@ -335,19 +335,30 @@ export async function remove(id: string): Promise<void> {
 
 /**
  * 「これ以降すべて」の分割: 元の繰り返しを UNTIL 付きに更新し、以降の回を消し、新しい繰り返し元を作る。
+ * keepCompleted なら、以降の回のうち完了した回は消さずに新しい繰り返し元へ付け替える（履歴を残す）。
  * 全文を原子的に実行する（runBatch）。新しい行の id を返す
  */
 export async function splitFollowing(
   input: Truncation & {
     newRow: Omit<NewEventRow, 'id'>;
     participantIds: string[];
+    keepCompleted: boolean;
   },
 ): Promise<string> {
   const id = newId();
   await runBatch((tx) => [
-    ...truncateWrites(tx, input),
     tx.insert(events).values({ ...input.newRow, id }),
     insertParticipantsWhere(tx, eq(events.id, id), input.participantIds),
+    // 付け替えは新しい繰り返し元を作った後（series_id の外部キー）、以降の回を消す前に行う
+    ...(input.keepCompleted
+      ? [
+          tx
+            .update(events)
+            .set({ seriesId: id })
+            .where(and(following(input), isNotNull(events.completedAt))),
+        ]
+      : []),
+    ...truncateWrites(tx, input),
   ]);
   return id;
 }
@@ -359,10 +370,13 @@ type Truncation = { masterId: string; masterRRule: string; splitAt: Date };
 function truncateWrites(tx: Database, input: Truncation) {
   return [
     tx.update(events).set({ rrule: input.masterRRule }).where(eq(events.id, input.masterId)),
-    tx
-      .delete(events)
-      .where(and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt))),
+    tx.delete(events).where(following(input)),
   ] as const;
+}
+
+/** 繰り返しの、打ち切る回から後の実体化された回 */
+function following(input: Truncation): SQL | undefined {
+  return and(eq(events.seriesId, input.masterId), gte(events.occurrenceStart, input.splitAt));
 }
 
 /** 「これ以降すべて」の削除: 元の繰り返しを打ち切る（`truncateWrites`） */
