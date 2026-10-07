@@ -10,16 +10,25 @@ import {
 } from '../../../../shared/validation/money.ts';
 import { db } from '../../../lib/db/client.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
-import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import { applyRules } from '../rules.ts';
 import { moneyRecords } from '../schema.ts';
-import { getSettlements, listRecords, listRules, saveRules, syncMoneyForward } from '../service.ts';
+import {
+  getSettlements,
+  listRecords,
+  listRules,
+  saveRules,
+  syncMoneyForward,
+  timelineSource,
+} from '../service.ts';
 
 /**
  * 入出金の読み替えのルール: 当て方（`applyRules`）、保存したら過去の入出金にも効くこと、取り込みに効くこと、
  * 「共有」との立替として精算・絞り込み・タイムラインに入ること。
  */
+
+const NOW = new Date('2026-10-06T09:00:00+09:00');
+const EVERYTHING = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };
 
 let a: string;
 let b: string;
@@ -180,7 +189,7 @@ describe('ルールの保存', () => {
       ],
       accounts: [{ name: 'テスト銀行', balance: 0, withdrawalAmount: null, withdrawalOn: null }],
     });
-    await syncMoneyForward(new Date('2026-10-06T09:00:00+09:00'));
+    await syncMoneyForward(NOW);
     expect(await listedRecords()).toEqual([['ATM 引き出し', { fromUserId: null, toUserId: b }]]);
     const [row] = await db.select().from(moneyRecords);
     expect(row?.originalDescription).toBe('ATM 0123');
@@ -191,8 +200,7 @@ describe('ルールの保存', () => {
     await addImported('スーパー', -3_000);
     await saveRules([rule({ pattern: '振込', kind: 'deposit', userId: a, hidden: true })], a);
     expect(await listedRecords()).toEqual([['スーパー', null]]);
-    const { items } = await getTimelinePage({}, a, new Date('2026-10-06T09:00:00+09:00'));
-    expect(items.filter((item) => item.type === 'expense')).toMatchObject([
+    expect(await timelineSource.entries(EVERYTHING, undefined, NOW)).toMatchObject([
       { expense: { description: 'スーパー' } },
     ]);
     expect(await getSettlements()).toEqual([{ creditorId: a, debtorId: null, amount: 30_000 }]);
@@ -232,12 +240,7 @@ describe('ルールの保存', () => {
     expect(await names({})).toEqual(['振込', 'ATM', 'スーパー']);
 
     // タイムラインの行も当事者を持つ（色に使う）
-    const { items } = await getTimelinePage(
-      { q: '振込' },
-      a,
-      new Date('2026-10-06T09:00:00+09:00'),
-    );
-    expect(items).toMatchObject([
+    expect(await timelineSource.entries(EVERYTHING, '振込', NOW)).toMatchObject([
       { type: 'expense', expense: { account: 'テスト銀行', fromUserId: a, toUserId: null } },
     ]);
   });

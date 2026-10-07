@@ -95,8 +95,16 @@ function registerOverview(server: McpServer, ctx: McpContext) {
     'get_overview',
     {
       title: '今の状況',
-      description:
-        '会話の最初に呼ぶ。今の日時と今日の日付（JST）、ユーザー（名前と、どれが自分か）、今日と明日のタイムライン（予定・自分のやるべきタスク・記録・天気。自分以外のタスクは read_timeline の includeOthersTasks で読む）、立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）、レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）、Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）をまとめて返す。あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
+      description: [
+        '会話の最初に呼ぶ。次をまとめて返す:',
+        '今の日時と今日の日付（JST）。',
+        'ユーザー（名前と、どれが自分か）。',
+        '今日と明日のタイムライン（予定・自分のやるべきタスク・記録・天気。自分以外のタスクは read_timeline の includeOthersTasks で読む）。',
+        '立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）。',
+        'レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）。',
+        'Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）。',
+        'あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
+      ].join(' '),
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },

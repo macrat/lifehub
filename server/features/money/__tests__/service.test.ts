@@ -4,7 +4,6 @@ import { dateStringSchema } from '../../../../shared/validation/common.ts';
 import type { MoneyListQuery } from '../../../../shared/validation/money.ts';
 import { db } from '../../../lib/db/client.ts';
 import { clearTables, resetUsers } from '../../../lib/db/test-db.ts';
-import { getTimelinePage } from '../../timeline/service.ts';
 import * as moneyforward from '../moneyforward.ts';
 import {
   matchAccount,
@@ -20,6 +19,7 @@ import {
   listAccounts,
   listRecords,
   syncMoneyForward,
+  timelineSource,
 } from '../service.ts';
 
 /** お金の画面の一覧の 1 ページから取り込んだ入出金だけ */
@@ -46,6 +46,7 @@ function csv(rows: Row[]): string {
 }
 
 const NOW = new Date('2026-10-06T09:00:00+09:00');
+const EVERYTHING = { from: new Date(0), to: new Date('2100-01-01T00:00:00Z') };
 const ACCOUNTS = ['テスト銀行', 'テスト証券', 'テストカード'];
 
 /** ブラウザで Money Forward を開く所だけを差し替える（取り込んだ後の読み書きは本物の DB で確かめる） */
@@ -191,11 +192,9 @@ describe('money service', () => {
   });
 
   it('入出金はタイムラインにその日の始まりで並び、キーワードで絞れる', async () => {
-    const { userId } = await resetUsers();
     serve([csv([['2026/10/02', 'スーパー', '-3200', 'テストカード', '食費', '食料品', 'a1']])]);
     await syncMoneyForward(NOW);
-    const { items } = await getTimelinePage({ q: 'スーパー' }, userId, NOW);
-    expect(items).toMatchObject([
+    expect(await timelineSource.entries(EVERYTHING, 'スーパー', NOW)).toMatchObject([
       {
         type: 'expense',
         at: new Date('2026-10-02T00:00:00+09:00').toISOString(),
