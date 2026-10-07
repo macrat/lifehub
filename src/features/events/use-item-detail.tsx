@@ -66,8 +66,12 @@ export function useItemDetail(
     onSubmit: (input) => updateEvent.mutateAsync({ ...input, ...writeTarget(item, scope) }),
     onSaved: onClose,
   });
-  // 編集で開いているか。繰り返し元を読んでいる間はまだ入力欄に変えない（違う日時のまま出さない）
-  const editing = editScope !== null && (!fromMaster || master.data !== undefined);
+  // 編集で開いているか。繰り返し元を読んでいる間はまだ入力欄に変えない（違う日時のまま出さない）。
+  // 手元に前の行があっても、取り直しが済むまで待つ: 入力欄は開いた時の値から始まる（制御しない）ので、
+  // 古い行で開くと保存がそれを書き戻してしまう（行のキャッシュは 7 日残る）。
+  // オフラインでは取得が保留（fetching ではない）になるので、待たずに手元の行で開く
+  const editing =
+    editScope !== null && (!fromMaster || (master.data !== undefined && !master.isFetching));
 
   return {
     /** 入力欄に渡すもの。閲覧中は null */
