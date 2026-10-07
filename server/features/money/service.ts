@@ -258,7 +258,12 @@ export async function syncMoneyForward(
   // 年月（YYYY-MM）。Money Forward の CSV は月ごとに読む
   const months = [addCalendarMonths(today(now), -1), today(now)].map((day) => day.slice(0, 7));
   const [scraped, rules] = await Promise.all([
-    scrapeMoneyForward({ email, password, totpSecret }, configuredAccounts, months, group),
+    scrapeMoneyForward({
+      credentials: { email, password, totpSecret },
+      accounts: configuredAccounts,
+      months,
+      group,
+    }),
     listRules(),
   ]);
 

@@ -87,7 +87,7 @@ variable "moneyforward_totp_secret" {
   default   = ""
 }
 
-# 取り込むときに選ぶグループの名前。空なら今選ばれているグループのまま読む
+# グループで絞らなければ空のまま
 variable "moneyforward_group" {
   type      = string
   sensitive = true

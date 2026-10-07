@@ -42,16 +42,21 @@ type AccountValues = Omit<MoneyAccountRow, 'fetchedAt'>;
 
 /**
  * ログインして、accounts の値と、months（YYYY-MM）ごとの入出金の CSV（文字に直したもの）を読む。
- * group があれば、読む間だけそのグループに切り替える（`selectGroup`）。
+ * group があれば、読む間だけそのグループに切り替える（`inGroup`）。
  * 口座一覧に見つからない口座は値を null にする（名前の書き間違いは画面に「—」で出るので気づける）。
  * ログインや CSV の取得に失敗したら投げる。
  */
-export async function scrapeMoneyForward(
-  credentials: Credentials,
-  accounts: readonly MoneyForwardAccount[],
-  months: readonly string[],
-  group: string | undefined,
-): Promise<{ csvs: string[]; accounts: AccountValues[] }> {
+export async function scrapeMoneyForward({
+  credentials,
+  accounts,
+  months,
+  group,
+}: {
+  credentials: Credentials;
+  accounts: readonly MoneyForwardAccount[];
+  months: readonly string[];
+  group?: string | undefined;
+}): Promise<{ csvs: string[]; accounts: AccountValues[] }> {
   const browser = await launch();
   try {
     const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
@@ -61,14 +66,13 @@ export async function scrapeMoneyForward(
     );
     const page = await context.newPage();
     await signIn(page, credentials);
-    const previousGroup = group && (await selectGroup(page, group));
-    const values = await readAccounts(page, accounts);
-    const csvs = [];
-    // 並べずに 1 つずつ読む（同じセッションで続けて CSV を求めても、Money Forward に負荷を掛けない）
-    for (const month of months) csvs.push(await downloadCsv(page, month));
-    // 選んでいるグループは Money Forward 側に残るので、人がアプリで見ていたグループに戻す
-    if (previousGroup && previousGroup !== group) await selectGroup(page, previousGroup);
-    return { csvs, accounts: values };
+    return await inGroup(page, group, async () => {
+      const values = await readAccounts(page, accounts);
+      const csvs = [];
+      // 並べずに 1 つずつ読む（同じセッションで続けて CSV を求めても、Money Forward に負荷を掛けない）
+      for (const month of months) csvs.push(await downloadCsv(page, month));
+      return { csvs, accounts: values };
+    });
   } finally {
     await browser.close();
   }
@@ -151,28 +155,43 @@ function isSignedIn(href: string): boolean {
 }
 
 /**
- * 家計簿を Money Forward の「グループ」で絞る。グループは口座の中の内訳（家族カードなど）の単位で口座を選べ、
- * CSV にも効く。WHY: CSV の「保有金融機関」は口座の名前だけで内訳を持たないので、こちらでは内訳を見分けられない。
- * グループはトップの選択欄（グループの名前の選択肢を持つ select）で切り替える。選び終えたらトップを開き直し、
- * そのグループが選ばれていることを確かめる（切り替わらないまま読むと、違う明細を黙って取り込むため）。
- * 返すのは切り替える前に選ばれていたグループの名前。
+ * group に切り替えて read を走らせ、終わったら（失敗しても）元のグループに戻す（なぜグループで絞るか・戻すかは
+ * docs/features/money.md の「口座の指定」）。group が無ければ今のグループのまま読む。
  */
-async function selectGroup(page: Page, group: string): Promise<string> {
-  const selector = page.locator('select', {
-    has: page.getByRole('option', { name: group, exact: true }),
-  });
+async function inGroup<T>(
+  page: Page,
+  group: string | undefined,
+  read: () => Promise<T>,
+): Promise<T> {
+  if (!group) return read();
+  const previous = await switchGroup(page, group);
+  try {
+    return await read();
+  } finally {
+    if (previous !== group) await switchGroup(page, previous);
+  }
+}
+
+/**
+ * トップの選択欄（グループの名前の選択肢を持つ select）でグループを切り替え、切り替わったページでそのグループが
+ * 選ばれていることを確かめる。返すのは切り替える前に選ばれていたグループの名前。
+ */
+async function switchGroup(page: Page, group: string): Promise<string> {
+  const selector = page
+    .locator('select', { has: page.getByRole('option', { name: group, exact: true }) })
+    .first();
   const selected = async () => {
-    await visit(page, `${ME}/`);
+    if (page.url() !== `${ME}/`) await visit(page, `${ME}/`);
     if ((await selector.count()) === 0) {
       throw new Error(`moneyforward: グループ「${group}」が見つかりません`);
     }
-    return ((await selector.first().locator('option:checked').textContent()) ?? '').trim();
+    return ((await selector.locator('option:checked').textContent()) ?? '').trim();
   };
   const previous = await selected();
   if (previous === group) return previous;
   await Promise.all([
     page.waitForEvent('domcontentloaded'),
-    selector.first().selectOption({ label: group }),
+    selector.selectOption({ label: group }),
   ]);
   if ((await selected()) !== group) {
     throw new Error(`moneyforward: グループ「${group}」に切り替えられませんでした`);
