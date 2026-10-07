@@ -49,7 +49,7 @@ export const moneyRouter = router({
     await service.deleteExpenseSchedule(input.id);
   }),
   accounts: procedure.query(() => service.listAccounts()),
-  /** 口座の値の推移の 1 ページ（3 か月。before を省けば最新） */
+  /** 口座の値の推移の 1 ページ（`BALANCE_PAGE_MONTHS` か月。before を省けば最新） */
   balances: procedure
     .input(z.object(cursorShape))
     .query(({ input }) => service.getBalancePage(input.before)),

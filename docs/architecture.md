@@ -64,7 +64,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
-  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
+  - サーバー: repository（`repository.ts` と、大きくなった feature が関心ごとに分けた `<関心ごと>-repository.ts`）・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の feature 以外の repository も読めない（他の feature のデータはその feature の service を通す）。他の feature から読めるのは `service.ts` と表の定義 `schema.ts` だけで、例外は通知が読む `events/notifications.ts`（[features/notifications.md](features/notifications.md#構成)）と人の一覧の `users/people.ts`（[development.md](development.md#型と-lint)）だけ（feature の中の分け方は外から見えない）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。重ねて開く MUI の部品（Dialog など）を直接使うことの禁止は [ui.md](ui.md#ダイアログと履歴)。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
@@ -97,7 +97,7 @@ server/                       # サーバー（Hono）
   dev.ts                      # ローカル起動用（@hono/node-server）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
-    repository.ts             # DB アクセス
+    repository.ts             # DB アクセス。大きくなった feature は関心ごとに <関心ごと>-repository.ts へ分ける（money/sync-repository.ts）
     service.ts                # 業務ロジック
     routes.ts                 # 画面の API の tRPC router（`.input` の Zod 検証 → service）。外と約束した口を持つ feature は Hono のルートも置く
     mcp.ts                    # MCP ツール定義
@@ -106,15 +106,17 @@ server/                       # サーバー（Hono）
                               #   events/patch.ts（MCP の部分更新の補い方）・events/timeline.ts（タイムラインの口）・
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
                               #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）、
+                              #   money/sync.ts（Money Forward の取り込み・口座・取り込みルール）・
                               #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
+                              # 分けた業務ロジックも、ほかの feature と入口（routes・mcp・cron）からは service.ts の再 export で読む
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
   features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
         coalesce-reads.ts = 同じ時点の読み取りを 1 往復にまとめる、
-        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での更新と削除・参加者の書き込み）、
-        history.ts = 履歴のページ分け（1 つの表と、表をまたいで並べる `historyQueries`）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
+        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での（条件付きの）更新と削除・参加者の読み書き）、
+        history.ts = 1 つの表の履歴のページ分け（`findHistoryPage`。表をまたいで並べるのはタイムラインの service）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、

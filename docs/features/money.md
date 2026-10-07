@@ -82,7 +82,7 @@
 
 ## 取り込み
 
-- 日に 1 度、朝 7:00（JST）の Cron（`/api/cron/money`。`vercel.json`）が `server/features/money/service.ts` の `syncMoneyForward` を呼ぶ。
+- 日に 1 度、朝 7:00（JST）の Cron（`/api/cron/money`。`vercel.json`）が `server/features/money/sync.ts` の `syncMoneyForward` を呼ぶ。
 - Money Forward ME には個人で使える API が無いので、人が使うのと同じ画面をブラウザ（Playwright）で開いて読む（`server/features/money/moneyforward.ts`）。画面の作りに頼る所はこのファイルにまとめ、読んだ文字の読み方は `parse.ts` に置く（ブラウザ無しでテストできる）。
   - ログイン: ME の `/sign_in` から Money Forward ID を経て戻ってくる。途中の画面（メール、パスワード、2 段階認証、アカウントの選択、パスキーの案内）は出たり出なかったりし順も決まっていないので、ME に戻るまで今出ている画面を見て 1 つずつ進める。メールの確認コードを求められたら答えられないので、2 段階認証（認証アプリ）を設定するよう言って失敗する。知らない画面で止まったら、そのページのパスと文字の先頭をエラーに残して失敗する。
   - ブラウザは同じ版の普通の Chrome の User-Agent を名乗る。WHY: ヘッドレスの Chromium の User-Agent（HeadlessChrome）には Money Forward が 403 を返す。

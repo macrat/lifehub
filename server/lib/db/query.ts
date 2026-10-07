@@ -87,29 +87,34 @@ export async function findById<T extends TableWithId>(
   return row;
 }
 
-/** id の行の項目を置き換え、書いた後の行を返す（無ければ undefined） */
+/**
+ * id の行の項目を置き換え、書いた後の行を返す（無ければ undefined）。
+ * where を渡すと、それにも合う行だけを書く（持ち主の行だけ、手で入れた行だけ）
+ */
 export async function updateById<T extends TableWithId>(
   table: T,
   id: string,
   values: Partial<T['$inferInsert']>,
+  where?: SQL,
 ): Promise<T['$inferSelect'] | undefined> {
   // update の set は総称の表から項目の型を導けないので、ここだけ具体的な表の型に広げる
   const [row] = await db
     .update(table as TableWithId)
     .set(values)
-    .where(eq(table.id, id))
+    .where(and(eq(table.id, id), where))
     .returning();
   return row as T['$inferSelect'] | undefined;
 }
 
-/** id の行を消し、消した行を返す（無ければ undefined） */
+/** id の行を消し、消した行を返す（無ければ undefined）。where は `updateById` と同じ */
 export async function deleteById<T extends TableWithId>(
   table: T,
   id: string,
+  where?: SQL,
 ): Promise<T['$inferSelect'] | undefined> {
   const [row] = await db
     .delete(table as TableWithId)
-    .where(eq(table.id, id))
+    .where(and(eq(table.id, id), where))
     .returning();
   return row as T['$inferSelect'] | undefined;
 }

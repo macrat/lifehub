@@ -116,7 +116,7 @@
     {
       "includes": [
         "server/**/*.ts",
-        "!**/repository.ts",
+        "!**/*repository.ts",
         "!**/schema.ts",
         "!server/lib/db/**",
         "!server/**/__tests__/**"
@@ -143,8 +143,18 @@
                     "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
-                    "group": ["**/repository.ts", "!./repository.ts"],
-                    "message": "他の feature の repository は直接使わず、その feature の service を通す（自分の ./repository.ts だけを読む）"
+                    "group": ["**/*repository.ts", "!./*repository.ts"],
+                    "message": "他の feature の repository は直接使わず、その feature の service を通す（自分の ./repository.ts・./*-repository.ts だけを読む）"
+                  },
+                  {
+                    "group": [
+                      "../*/*.ts",
+                      "!../*/service.ts",
+                      "!../*/schema.ts",
+                      "!../events/notifications.ts",
+                      "!../users/people.ts"
+                    ],
+                    "message": "他の feature は service.ts（と表の定義 schema.ts）を通して使う。例外は通知が読む events/notifications.ts と、人の一覧の users/people.ts だけ（docs/development.md）"
                   }
                 ]
               }
@@ -177,8 +187,18 @@
                     "message": "DB は repository.ts と lib/db からだけ触る（service や lib の処理は repository を通す）。lib/db の外から使ってよいのは auth-adapter.ts と health.ts だけ"
                   },
                   {
-                    "group": ["./repository.ts", "**/repository.ts"],
+                    "group": ["./*repository.ts", "**/*repository.ts"],
                     "message": "routes.ts / mcp.ts は入力を検証して service を呼ぶだけにする（repository を直接呼ばない）"
+                  },
+                  {
+                    "group": [
+                      "../*/*.ts",
+                      "!../*/service.ts",
+                      "!../*/schema.ts",
+                      "!../events/notifications.ts",
+                      "!../users/people.ts"
+                    ],
+                    "message": "他の feature は service.ts（と表の定義 schema.ts）を通して使う。例外は通知が読む events/notifications.ts と、人の一覧の users/people.ts だけ（docs/development.md）"
                   },
                   {
                     "group": ["@hono/zod-validator"],
