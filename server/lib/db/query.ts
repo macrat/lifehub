@@ -1,5 +1,16 @@
-import { type Column, eq, getTableColumns, ilike, inArray, type SQL, sql } from 'drizzle-orm';
-import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
+import {
+  and,
+  type Column,
+  eq,
+  exists,
+  getTableColumns,
+  ilike,
+  inArray,
+  notExists,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
+import { alias, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { type Database, db } from './client.ts';
 
@@ -103,6 +114,19 @@ export async function deleteById<T extends TableWithId>(
   return row as T['$inferSelect'] | undefined;
 }
 
+/** 別名を付けた総称の表と、その列を名前で引く関数（総称の表の別名は、列を名前で引けると型に出ない） */
+function columnsOf(table: PgTable) {
+  const columns = table as unknown as Record<string, PgColumn>;
+  return {
+    table,
+    column: (name: string): PgColumn => {
+      const column = columns[name];
+      if (!column) throw new Error(`no column: ${name}`);
+      return column;
+    },
+  };
+}
+
 /**
  * 参加者（親の行とユーザーの多対多）を読み書きする問い合わせの組。予定（events）と配信 URL（calendar_feeds）が
  * 同じ形で使う。親と参加者の表の結びつけ方（どの列で結ぶか・ID の配列へのまとめ方）をここだけに書く。
@@ -168,5 +192,51 @@ export function participantsOf<
       string[]
     >`(select ${idArrayAgg(participants.userId)} from ${participants} where ${parentColumn} = ${parent.id})`;
 
-  return { insertWhere, replaceWhere, selectWithParticipants, participantIdsOfRow };
+  /**
+   * 外側の問い合わせの親の行の参加者（userId を渡せばその人だけ）を読む副問い合わせ。
+   * 外側の FROM に参加者の表が並んでいても混ざらないよう別名で読む
+   */
+  const participantsOfOuterRow = (tx: Database, userId?: string) => {
+    const own = columnsOf(alias(participantsTable, 'own_participants'));
+    return tx
+      .select({ one: sql`1` })
+      .from(own.table)
+      .where(
+        and(
+          eq(own.column(parentKey), parent.id),
+          userId === undefined ? undefined : eq(own.column('userId'), userId),
+        ),
+      );
+  };
+
+  /** 親の行が参加者を 1 人も持たない（参加者は 1 人以上なので、真なのは参加者を入れる前だけ） */
+  const hasNone = (tx: Database): SQL => notExists(participantsOfOuterRow(tx));
+
+  /** 親の行の参加者に userId がいる */
+  const has = (userId: string): SQL => exists(participantsOfOuterRow(db, userId));
+
+  /**
+   * where に合う親の行が参加者を持たなければ、sourceParent の列が指す別の親の行の参加者を写す文
+   * （繰り返しの回を実体化したとき、繰り返し元の参加者を写す）
+   */
+  const copyWhere = (tx: Database, where: SQL | undefined, sourceParent: PgColumn) => {
+    const source = columnsOf(alias(participantsTable, 'source_participants'));
+    return tx.insert(participants).select(
+      tx
+        .select({ [parentKey]: parent.id, userId: source.column('userId') })
+        .from(parentTable)
+        .innerJoin(source.table, eq(source.column(parentKey), sourceParent))
+        .where(and(where, hasNone(tx))) as never,
+    );
+  };
+
+  return {
+    insertWhere,
+    replaceWhere,
+    copyWhere,
+    selectWithParticipants,
+    participantIdsOfRow,
+    hasNone,
+    has,
+  };
 }

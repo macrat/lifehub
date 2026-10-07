@@ -7,6 +7,7 @@ import { db } from './client.ts';
  * 1 件の記録が 1 つの日時に置かれる表の、タイムライン向けの問い合わせ（`TimelineSource` の元）。
  * at はタイムラインに置く日時の列か式、keyword はキーワードの条件（空のキーワードは undefined を返す）、
  * where はキーワードに関わらずいつも掛ける条件（省けば表のすべての行）。
+ * 呼び出しごとに変わる条件（誰の記録か）は、各問い合わせの also に渡す。
  */
 export function timelineQueries<T extends PgTable>({
   table,
@@ -22,11 +23,16 @@ export function timelineQueries<T extends PgTable>({
   // 列も式も SQL として同じに扱える（どちらも Date に読み替えられる。式は mapWith で渡される）
   const instant = at as SQL<Date>;
   return {
-    async findRecentInstants(before: Date, q: string | undefined, limit: number): Promise<Date[]> {
+    async findRecentInstants(
+      before: Date,
+      q: string | undefined,
+      limit: number,
+      also?: SQL,
+    ): Promise<Date[]> {
       const rows = await db
         .select({ at: instant })
         .from(table as PgTable)
-        .where(and(lt(instant, before), keyword(q), where))
+        .where(and(lt(instant, before), keyword(q), where, also))
         .orderBy(desc(instant))
         .limit(limit);
       return rows.map((row) => row.at);

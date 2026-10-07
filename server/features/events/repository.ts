@@ -1,8 +1,6 @@
 import {
   and,
-  desc,
   eq,
-  exists,
   gt,
   gte,
   inArray,
@@ -10,7 +8,6 @@ import {
   isNull,
   lt,
   not,
-  notExists,
   or,
   type SQL,
   sql,
@@ -20,6 +17,7 @@ import { newId } from '../../../shared/id.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { type Database, db, runBatch } from '../../lib/db/client.ts';
 import { containsKeyword, participantsOf } from '../../lib/db/query.ts';
+import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type EventRow, eventParticipants, events, type NewEventRow } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -35,6 +33,9 @@ const {
   selectWithParticipants,
   insertWhere: insertParticipantsWhere,
   replaceWhere: replaceParticipantsWhere,
+  copyWhere: copyParticipantsWhere,
+  hasNone: hasNoParticipants,
+  has: hasParticipant,
 } = participantsOf({ parent: events, participants: eventParticipants, parentKey: 'eventId' });
 
 /** 条件に合う行を 1 つ、参加者と一緒に読む */
@@ -190,6 +191,14 @@ const timelineAt = sql<Date>`case
   else ${events.completedAt}
 end`.mapWith(events.startsAt);
 
+/** 単発の行と実体化された回（取り消した回を除く）の、タイムラインの問い合わせ */
+const timeline = timelineQueries({
+  table: events,
+  at: timelineAt,
+  keyword: (q) => keywordOf(events, q),
+  where: and(isNull(events.rrule), not(events.cancelled)),
+});
+
 /**
  * 単発の行と実体化された回（取り消した回を除く）のうち、タイムラインの日時が before より前の、
  * 新しいほうから limit 件の日時（タイムラインのページ分け）。繰り返し元の回は `findRecurringEventsBefore` から展開する。
@@ -201,21 +210,12 @@ export async function findRecentTimelineInstants(
   limit: number,
   tasksOf?: string,
 ): Promise<Date[]> {
-  const rows = await db
-    .select({ at: timelineAt })
-    .from(events)
-    .where(
-      and(
-        isNull(events.rrule),
-        not(events.cancelled),
-        lt(timelineAt, before),
-        keywordOf(events, q),
-        tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(tasksOf)),
-      ),
-    )
-    .orderBy(desc(timelineAt))
-    .limit(limit);
-  return rows.map((row) => row.at);
+  return timeline.findRecentInstants(
+    before,
+    q,
+    limit,
+    tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(tasksOf)),
+  );
 }
 
 /**
@@ -322,40 +322,11 @@ export async function materializeOccurrence(
       })
       .returning({ completedAt: events.completedAt }),
     ...(participantIds === undefined
-      ? [copyMasterParticipants(tx, isTarget)]
+      ? [copyParticipantsWhere(tx, isTarget, events.seriesId)]
       : replaceParticipantsWhere(tx, isTarget, participantIds)),
   ]);
   if (!written) throw new Error('materialize returned no row');
   return written;
-}
-
-/** 回が参加者を持たなければ、繰り返し元の参加者を写す */
-function copyMasterParticipants(tx: Database, isTarget: SQL | undefined) {
-  const master = alias(eventParticipants, 'master_participants');
-  return tx.insert(eventParticipants).select(
-    tx
-      .select({ eventId: events.id, userId: master.userId })
-      .from(events)
-      .innerJoin(master, eq(master.eventId, events.seriesId))
-      .where(and(isTarget, hasNoParticipants(tx))),
-  );
-}
-
-/** events の行が参加者を 1 人も持たない。参加者は 1 人以上なので、これが真なのは参加者を入れる前だけ */
-function hasNoParticipants(tx: Database): SQL {
-  const own = alias(eventParticipants, 'own_participants');
-  return notExists(tx.select({ one: sql`1` }).from(own).where(eq(own.eventId, events.id)));
-}
-
-/** events の行の参加者に userId がいる */
-function hasParticipant(userId: string): SQL {
-  const own = alias(eventParticipants, 'own_participants');
-  return exists(
-    db
-      .select({ one: sql`1` })
-      .from(own)
-      .where(and(eq(own.eventId, events.id), eq(own.userId, userId))),
-  );
 }
 
 export async function remove(id: string): Promise<void> {
