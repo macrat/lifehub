@@ -117,6 +117,7 @@ jobs:
           TF_VAR_moneyforward_email: ${{ secrets.TF_VAR_moneyforward_email }}
           TF_VAR_moneyforward_password: ${{ secrets.TF_VAR_moneyforward_password }}
           TF_VAR_moneyforward_totp_secret: ${{ secrets.TF_VAR_moneyforward_totp_secret }}
+          TF_VAR_moneyforward_group: ${{ secrets.TF_VAR_moneyforward_group }}
           TF_VAR_moneyforward_accounts: ${{ secrets.TF_VAR_moneyforward_accounts }}
       - name: Comment plan on PR
         if: always()

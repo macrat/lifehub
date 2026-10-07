@@ -247,6 +247,7 @@ export async function syncMoneyForward(
     MONEYFORWARD_EMAIL: email,
     MONEYFORWARD_PASSWORD: password,
     MONEYFORWARD_TOTP_SECRET: totpSecret,
+    MONEYFORWARD_GROUP: group,
   } = env;
   if (!email || !password || configuredAccounts.length === 0) return { skipped: true };
 
@@ -257,7 +258,7 @@ export async function syncMoneyForward(
   // 年月（YYYY-MM）。Money Forward の CSV は月ごとに読む
   const months = [addCalendarMonths(today(now), -1), today(now)].map((day) => day.slice(0, 7));
   const [scraped, rules] = await Promise.all([
-    scrapeMoneyForward({ email, password, totpSecret }, configuredAccounts, months),
+    scrapeMoneyForward({ email, password, totpSecret }, configuredAccounts, months, group),
     listRules(),
   ]);
 

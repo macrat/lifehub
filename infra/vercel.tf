@@ -51,10 +51,13 @@ locals {
     MONEYFORWARD_PASSWORD      = var.moneyforward_password
     MONEYFORWARD_ACCOUNTS      = var.moneyforward_accounts
     },
-    # 2 段階認証を使わないなら置かない（空の値の変数は作れない）。空かどうかは秘密ではないので nonsensitive で見る
+    # 2 段階認証やグループを使わないなら置かない（空の値の変数は作れない）。空かどうかは秘密ではないので nonsensitive で見る
     # （sensitive のまま条件に使うと map 全体が sensitive になり、for_each に渡せない）
     nonsensitive(var.moneyforward_totp_secret == "") ? {} : {
       MONEYFORWARD_TOTP_SECRET = var.moneyforward_totp_secret
+    },
+    nonsensitive(var.moneyforward_group == "") ? {} : {
+      MONEYFORWARD_GROUP = var.moneyforward_group
   })
 }
 

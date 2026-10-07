@@ -52,6 +52,11 @@ const envObject = z.object({
    * 新しい端末からのログインで確認コードを求められたとき、メールの代わりにこれで答える
    */
   MONEYFORWARD_TOTP_SECRET: z.string().min(1).optional(),
+  /**
+   * 取り込むときに選ぶ Money Forward の「グループ」の名前。無ければ今選ばれているグループのまま読む。
+   * 口座の中の内訳（家族カードなど）だけを取り込みたいときに、その内訳だけを含むグループを作って指す
+   */
+  MONEYFORWARD_GROUP: z.string().min(1).optional(),
   /** 取り込む口座（`moneyAccountsSchema`） */
   MONEYFORWARD_ACCOUNTS: moneyAccountsSchema.optional(),
   /** Sentry への送り先（server/lib/sentry.ts）。無ければ送らない（ローカル・テスト・Preview）。 */
