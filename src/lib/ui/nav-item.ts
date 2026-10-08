@@ -12,6 +12,6 @@ export type NavItem = {
    * （`scrollToInitialPosition`）
    */
   reselectSearch?: LinkProps['search'];
-  /** true なら PC のサイドナビにだけ出す（スマホの下部ナビには出さず、ホームの末尾から開く） */
+  /** true なら PC のサイドナビにだけ出す（スマホの下部ナビには出さず、ホームの AppBar の歯車から開く） */
   desktopOnly?: boolean;
 };
