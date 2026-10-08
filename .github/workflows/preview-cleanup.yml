@@ -22,9 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_wrapper: false
+      - uses: ./.github/actions/setup-terraform
       - run: terraform -chdir=infra init -input=false
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}

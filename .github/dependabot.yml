@@ -6,6 +6,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # ラベルを付けない。PR を開いた直後に付くラベルが CI（ci.yml の labeled）をもう一度走らせ、
+    # 最初の実行を取り消させるため。ラベルはどこでも使っていない。
+    labels: []
 
     # pnpm-workspace.yaml の minimumReleaseAge と同じ 3 日の猶予。Dependabot は pnpm の設定を
     # 読まない独立した解決系なので、同じ制限をこちらにも書く。GitHub のデフォルトも現状 3 日だが、
@@ -24,9 +27,13 @@ updates:
   # GitHub Actions（uses は SHA で固定。docs/development.md）。猶予とまとめ方は npm と同じ理由。
   # Action の更新は npm より少ないので月次にし、CI の実行回数を増やしすぎない。
   - package-ecosystem: github-actions
-    directory: /
+    # / は .github/workflows を指す。ローカルの合成 Action の中の uses は別に指定しないと見ない。
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: monthly
+    labels: []
     cooldown:
       default-days: 3
     groups:

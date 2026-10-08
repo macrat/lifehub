@@ -75,15 +75,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Dependabot の PR では動かさない。Dependabot が起こした実行には Actions の secrets が渡らず、
+  # init の時点で必ず落ちる。依存の更新は infra/ を変えないので plan を見る意味も無い。
+  # WHY NOT Dependabot secrets に同じ値を登録: すべての秘密を 2 か所で管理することになる。
+  # 下の preview はこのジョブに依存するので、一緒に飛ばされる。
   terraform:
     name: terraform plan
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     outputs:
       # main への最初のデプロイ（terraform apply）が済んでいるか。済むまで preview は作れない
       applied: ${{ steps.state.outputs.applied }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - uses: ./.github/actions/setup-terraform
       - run: terraform -chdir=infra fmt -check
       - run: terraform -chdir=infra init -input=false
         env:
@@ -147,9 +152,7 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_wrapper: false
+      - uses: ./.github/actions/setup-terraform
       - run: terraform -chdir=infra init -input=false
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}

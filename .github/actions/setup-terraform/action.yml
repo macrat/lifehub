@@ -1,0 +1,17 @@
+name: Setup Terraform
+description: CI で使う Terraform を、固定した版で入れる。
+
+# 版を固定する。WHY: setup-terraform の既定は latest で、新しい版が出るとその日の CI から
+# 秘密を持つジョブ（plan / apply / output）で動く。新しい版で apply すると state の形式が
+# 上がり、手元の古い Terraform で読めなくなることもある。
+# infra/providers.tf の required_version は手元で使える下限で、ここはそれを満たす 1 つの版。
+#
+# ラッパーは使わない。ラッパーは stdout などを手順の出力に写すためのもので、どのワークフローも
+# その出力を使っていない。
+runs:
+  using: composite
+  steps:
+    - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      with:
+        terraform_version: 1.16.5
+        terraform_wrapper: false
