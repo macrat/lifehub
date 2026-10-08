@@ -35,8 +35,6 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
  * 要求 1 本ぶんのコンテキスト。検証は手続きが要るとき（`authed`）に始め、1 本の要求に載った手続きが分け合う。
  * WHY 作った時点で始めない: tRPC はコンテキストを作ってから手続きを探すので、無い手続きの呼び出しでは
  * 誰も検証を待たず、失敗が取りこぼしの reject（unhandledRejection）になる。
- * `authed` が手続きを走らせる直前に始めても、作った時点で始めるのと同じ処理の続きの中で始まるので、
- * 検証と読み取りが DB へ出る時点は変わらない。
  */
 export function createContext(req: Request): TrpcContext {
   let user: Promise<AuthUser> | undefined;
@@ -79,23 +77,21 @@ const t = initTRPC.context<TrpcContext>().create({
 
 /**
  * ログインを必須にする。サーバー側のこの検証が唯一の防御線（クライアントのルートガードは UX のためだけ）。
- * 読み出しは、検証を待たずに手続きを走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED にする。
- * 検証の問い合わせと手続きの読み取りが同じ時点に出るので、DB へは 1 往復にまとまり
- * （`lib/db/coalesce-reads.ts`）、検証を待ってから読むより往復が 1 回少ない。ユーザーが要る手続きは
- * `userProcedure` で検証を待つ。書き込みは検証が通ってから走らせる（ログインしていない要求に書き換えさせない）。
+ * 読み出しも書き込みも、検証が通ってから手続きを走らせる。
+ *
+ * WHY NOT 読み出しを検証と並べて走らせる（検証が通らなければ結果を捨てる）: 検証と読み取りが DB へ
+ * 1 往復にまとまる代わりに、ログインしていない要求でも手続きの処理が最後まで走る。期間の長い
+ * `calendar.get` のように入力しだいで重くなる手続きがあると、誰でも 401 を受け取りながら計算だけを
+ * 走らせ続けられる。手続きの入力に上限を付けても、1 本の要求に載せる数や、まとめて読む手続き
+ * （`calendarLoader` は載った期間すべてを覆う範囲を読む）で重さを積み増せるので、手続きごとの上限では
+ * 塞ぎきれない。ログインしていない要求に何もさせないのが、手続きを足しても崩れない唯一の形。
  *
  * WHY NOT Cookie に署名付きのセッションを持たせて DB を読まない（better-auth の cookieCache）: 失効
  * （パスワードの変更・ログアウト）が次の要求から効かなくなる（`lib/auth.ts`）。
  */
-const authed = t.middleware(async ({ ctx, type, next }) => {
-  const user = ctx.user();
-  if (type === 'mutation') {
-    await user;
-    return next();
-  }
-  const result = next();
-  await user;
-  return result;
+const authed = t.middleware(async ({ ctx, next }) => {
+  await ctx.user();
+  return next();
 });
 
 /** service が投げる業務エラー（`lib/errors.ts`）を、tRPC の失敗の種類に置き換える。残るのは想定外の失敗だけ */
@@ -128,13 +124,10 @@ const traced = t.middleware(({ path, type, next }) =>
 export const router = t.router;
 export const procedure = t.procedure.use(traced).use(authed).use(domainErrors);
 
-/** 検証を待ってから、ログイン中のユーザーの ID を `ctx.userId` に置く */
+/** ログイン中のユーザーの ID を `ctx.userId` に置く */
 const withUserId = t.middleware(async ({ ctx, next }) =>
   next({ ctx: { userId: (await ctx.user()).id } }),
 );
 
-/**
- * ログイン中のユーザーの ID を使う手続き（書き込みと、自分の物だけを返す読み出し）。
- * ユーザーが要らない読み出しは、検証と並べて走らせる `procedure` を使う
- */
+/** ログイン中のユーザーの ID を使う手続き（書き込みと、自分の物だけを返す読み出し） */
 export const userProcedure = procedure.use(withUserId);

@@ -29,12 +29,23 @@ describe('ログインと認証の口', () => {
     query.mockRestore();
   });
 
-  it('未認証の読み出しは、ハンドラを走らせても中身を返さず 401', async () => {
-    const res = await app.request('/api/trpc/lemon.status');
+  it('未認証の読み出しは、ハンドラを走らせずに 401', async () => {
+    const query = vi.spyOn((db as unknown as { $client: Pool }).$client, 'query');
+    const input = encodeURIComponent(JSON.stringify({ from: '2020-01-01', to: '2020-01-31' }));
+    const res = await app.request(`/api/trpc/calendar.get?input=${input}`, {
+      headers: { cookie: 'better-auth.session_token=forged' },
+    });
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body).toMatchObject({ error: { message: 'ログインが必要です' } });
     expect(body).not.toHaveProperty('result');
+    // 応答の後に裏で走り出す処理も無い
+    await new Promise((resolve) => setImmediate(resolve));
+    const statements = query.mock.calls.map(([config]) =>
+      typeof config === 'string' ? config : (config as { text: string }).text,
+    );
+    expect(statements.filter((text) => /"events"/.test(text))).toEqual([]);
+    query.mockRestore();
   });
 
   it('未認証の書き込みは、ハンドラを走らせずに 401', async () => {
