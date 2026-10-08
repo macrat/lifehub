@@ -110,7 +110,11 @@ function remindTargets(
  * 範囲の先頭を流用すると、配信時の再検証（範囲を配信予定時刻の前後 1 日に取る）で 1 日前の
  * 状態を見てしまい、リンク先の日付がずれる。
  */
-async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem[]> {
+async function itemsAround(
+  range: InstantRange,
+  now: Date,
+  filter: NotificationFilter,
+): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
     {
@@ -118,6 +122,7 @@ async function itemsAround(range: InstantRange, now: Date): Promise<CalendarItem
       to: addDays(toDateString(new Date(range.to.getTime() + MAX_REMIND_MS)), 1),
     },
     now,
+    filter,
   );
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -160,14 +165,21 @@ function body(item: CalendarItem, edge: Edge, anchor: string): string {
   return `${label} ${when}${location}`;
 }
 
-/** [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ） */
+/** 列挙する通知の絞り込み。id はその予定・タスク（繰り返しなら全部の回）の通知だけ */
+export type NotificationFilter = { id?: string };
+
+/**
+ * [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ）。
+ * 終日の通知時刻は読み出し中のものを受けてよい（予定の読み出しと同じ時点に投げ、1 往復にまとめる）
+ */
 export async function listNotifications(
   range: InstantRange,
-  notifyTimes: NotifyTimes,
+  times: NotifyTimes | Promise<NotifyTimes>,
+  filter: NotificationFilter = {},
 ): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
-  const items = await itemsAround(range, range.from);
+  const [items, notifyTimes] = await Promise.all([itemsAround(range, range.from, filter), times]);
   for (const item of items) {
     for (const edge of EDGES) {
       for (const { at, userId } of remindTargets(item, edge, notifyTimes)) {
@@ -180,19 +192,26 @@ export async function listNotifications(
   return planned;
 }
 
-/** 配信直前の再検証。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら null */
+/**
+ * 配信直前の再検証。削除・変更（配信予定時刻や通知時刻がずれた、宛先が参加者でなくなった）・完了済みなら null。
+ * 終日の通知時刻は `listNotifications` と同じく読み出し中のものを受けてよい
+ */
 export async function resolveNotification(
   ref: NotificationRef,
-  notifyTimes: NotifyTimes,
+  times: NotifyTimes | Promise<NotifyTimes>,
 ): Promise<NotificationPayload | null> {
   // 配信予定時刻の時点の状態で見る（QStash の再送で実時刻がずれても、通知が指す瞬間は変わらない）
-  const items = await itemsAround(
-    {
-      from: new Date(ref.at.getTime() - MAX_REMIND_MS),
-      to: new Date(ref.at.getTime() + MAX_REMIND_MS),
-    },
-    ref.at,
-  );
+  const [items, notifyTimes] = await Promise.all([
+    itemsAround(
+      {
+        from: new Date(ref.at.getTime() - MAX_REMIND_MS),
+        to: new Date(ref.at.getTime() + MAX_REMIND_MS),
+      },
+      ref.at,
+      { id: ref.id },
+    ),
+    times,
+  ]);
   const item = items.find((i) => i.id === ref.id && i.occurrenceStart === ref.occurrenceStart);
   if (!item) return null;
   const target = remindTargets(item, ref.edge, notifyTimes).find(

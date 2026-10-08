@@ -67,9 +67,11 @@ export function careStatuses(logs: CareLog[], now: Date): CareStatus[] {
 }
 
 /**
- * ページの中の並び: 実施日時の古い順。同じ日時は元の並びのまま。サーバーのページ（`findPage`）も同じ並びで返す
+ * ページの中の並び: 実施日時の古い順。同じ日時は記録した順。サーバーのページ
+ * （`server/features/lemon/repository.ts` の `findPage`。実施日時・作成日時・id の順）と同じ並びにする。
+ * 記録は作成日時を持たないので、記録した順は id（UUID v7 で、採番した時刻の順に並ぶ）で比べる
  * （画面に出す向きは `src/lib/screen-data.ts` の `useScreenHistory` が決める）
  */
 export function sortCareLogs(logs: CareLog[]): CareLog[] {
-  return [...logs].sort((a, b) => compareKeys(a.doneAt, b.doneAt));
+  return logs.toSorted((a, b) => compareKeys(a.doneAt, b.doneAt) || compareKeys(a.id, b.id));
 }

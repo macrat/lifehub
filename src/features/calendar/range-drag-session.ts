@@ -1,7 +1,8 @@
 import type { PointerEvent } from 'react';
+import { movedPastSlop } from '../../lib/ui/tap-slop.ts';
 import { blockTouchMove } from '../../lib/ui/touch-block.ts';
 // 長押しの区切りはアプリで 1 つ（一覧の行も同じ長さで編集に入る。`use-record-press.ts`）
-import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../lib/ui/use-record-press.ts';
+import { LONG_PRESS_MS } from '../../lib/ui/use-record-press.ts';
 
 /** ドラッグの今の姿。from は押した所、to は今の所（同じなら動いていない） */
 export type Drag<P, G> = {
@@ -113,9 +114,7 @@ export class RangeDragSession<P, G, R> {
   move(event: PointerEvent<HTMLElement>, cb: RangeCallbacks<P, G, R>) {
     const d = this.#drag;
     if (!d || d.pointerId !== event.pointerId) return;
-    const far =
-      Math.abs(event.clientX - d.origin.x) > LONG_PRESS_SLOP ||
-      Math.abs(event.clientY - d.origin.y) > LONG_PRESS_SLOP;
+    const far = movedPastSlop(d.origin, event);
     if (d.phase.kind === 'waiting') {
       // 長押しを待つ間に動いたらスクロールのつもりとみなしてやめる
       if (far) this.stop();

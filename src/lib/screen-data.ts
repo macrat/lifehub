@@ -2,23 +2,19 @@ import {
   hashKey,
   keepPreviousData,
   type QueriesOptions,
+  type QueriesResults,
   type QueryKey,
   type UseInfiniteQueryOptions,
   type UseQueryOptions,
   type UseQueryResult,
   useInfiniteQuery,
+  useIsFetching,
   useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { today } from '../../shared/date.ts';
-import {
-  arrangeAroundToday,
-  type HistoryPages,
-  type HistorySource,
-  historyQueryOptions,
-} from './history.ts';
+import { type HistoryPages, type HistorySource, historyQueryOptions } from './history.ts';
 
 /**
  * 画面のデータの取得と配信。サーバーの状態は TanStack Query のキャッシュ（store）に 1 つだけ置き、
@@ -27,7 +23,7 @@ import {
  * - **取得**は画面（ルート。`src/routes/**`）が 1 か所で決める（`useScreenQueries` / `useScreenHistory`）。
  *   画面で読むクエリをすべてここで購読し、画面を開いている間の取り直し（画面に入ったとき・フォーカス・
  *   再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、
- *   まとめて 1 本の要求で届く。
+ *   まとめて 1 本の要求で届く。画面が自分で出すものは購読の結果をそのまま使う。
  * - **配信**: 部品は store から読むだけで、自分では取得を始めない（`useStoreQuery` ほか。取得を
  *   止めた購読 `enabled: false` なので、キャッシュが変われば描き直されるが、問い合わせは出ない）。
  *   画面が購読していないクエリを読むと、骨組みのまま出続ける。
@@ -41,19 +37,18 @@ import {
 
 /**
  * 画面が読むクエリを購読する（取り直しはこの購読が起こす）。画面（ルート）からだけ呼ぶ。
- * 結果は返さない。部品は store から読む（`useStoreQuery` など）。
+ * 結果は並べたクエリの順に返す。画面が自分で出すもの（`QueryView` に渡す状態など）はこれを使い、
+ * 部品は store から読む（`useStoreQuery` など）。
  */
 export function useScreenQueries<T extends unknown[]>(
   queries: readonly [...QueriesOptions<T>],
-): void {
-  useQueries({ queries });
+): QueriesResults<T> {
+  return useQueries({ queries });
 }
 
 /**
- * 画面が読む履歴を購読し、読んだページを古い順に繋いだ全部と、それを一覧の最初の位置より上（above）と
- * そこから下（below）に分けて画面に出す順（出どころが `oldestFirst` なら古い順、そうでなければ新しい順）に並べた物を返す。
- * 古い側の端（load。古い順なら上、新しい順なら下）へ近づいたら古いほうのページを読む（`HistoryList` にそのまま渡せる形）。
- * 画面（ルート）からだけ呼ぶ。
+ * 画面が読む履歴を購読し、読んだページを古い順に繋いだ全部を返す。画面（ルート）からだけ呼ぶ。
+ * 画面に出す向きと最初の位置での分け方は一覧の側が決める（`lib/ui/use-history-layout.ts`）。
  * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
  * - resetKey は取得のキーで、変わったら一覧を最初の位置（`HistoryList`）へ戻す合図。ready は出している結果が
  *   そのキーの物か（前の結果を出している間は位置を決めない）
@@ -78,24 +73,18 @@ export function useScreenHistory<T, F extends object>(source: HistorySource<T, F
     [queryClient, resetKey],
   );
   // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ。
-  // 画面は入力のたびに描き直されるので、読んだページか日付が変わったときだけ繋ぎ直す
-  const day = today();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: source は機能ごとに 1 つの定数。day は今日で分け直す合図
-  const joined = useMemo(() => {
-    const items = data?.pages.toReversed().flatMap((page) => page.items);
-    // items は分けない全部（古い順）。今日で分けずに扱う所（タイムライン、立替の金額の列の幅）が繋ぎ直さずに済む
-    return items && { items, ...arrangeAroundToday(items, source) };
-  }, [data, day]);
-  const loadEarlier =
-    hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null;
+  // 画面は入力のたびに描き直されるので、読んだページが変わったときだけ繋ぎ直す
+  const items = useMemo(() => data?.pages.toReversed().flatMap((page) => page.items), [data]);
   return {
-    query: { data: joined, error },
+    /** 読んだ分の全部（古い順） */
+    query: { data: items, error },
+    /** 出どころ（一覧が並べ方を読む） */
+    source,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,
     /** 古いほうのページを読む。読み込み中・読み切ったときは null（`EdgeLoader`） */
-    loadEarlier,
-    /** 古いほうのページを読み足す端と、読む物（`InfiniteScroll` の load） */
-    load: source.oldestFirst ? { top: loadEarlier } : { bottom: loadEarlier },
+    loadEarlier:
+      hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null,
   };
 }
 
@@ -127,4 +116,23 @@ export function useStoreInfiniteQuery<TPage, TData, TPageParam>(
   options: UseInfiniteQueryOptions<TPage, Error, TData, QueryKey, TPageParam>,
 ) {
   return useInfiniteQuery({ ...options, enabled: false });
+}
+
+/**
+ * 画面が読むクエリの状態（`useQuery` / `useQueries` の結果をそのまま渡せる形）。
+ * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
+ */
+export type QueryState<T> = { data: T | undefined; error: Error | null };
+
+/**
+ * 手元に何も出せないまま取得を待っているか（画面上部のインジケータが見るもの）。
+ * 数に入れるのはデータを持たないクエリの取得だけで、キャッシュを出しながらの取り直しは入れない。
+ * WHY: 画面には既に中身が出ていて裏で差し替わるだけなので、待っていることを伝える相手がいない。
+ * 画面を移るたびに取り直す作りなので、入れてしまうと移動のたびに毎回インジケータが出る。
+ * WHY NOT 書き込みも数える: 結果は楽観的更新で先に画面へ出ており（`useOptimisticMutation`）、
+ * 送り直しの最中も画面は変わらない。諦めたときだけ通知が伝える。オフラインで溜めた書き込みに
+ * 至っては送られるまで終わらないので、数えると出したままになってしまう。
+ */
+export function useIsLoadingWithoutCache(): boolean {
+  return useIsFetching({ predicate: (query) => query.state.data === undefined }) > 0;
 }

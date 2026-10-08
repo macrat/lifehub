@@ -16,7 +16,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
 import { createLink, useLocation } from '@tanstack/react-router';
 import { type ReactNode, useRef } from 'react';
-import { useIsLoadingWithoutCache } from '../query-client.ts';
+import { useIsLoadingWithoutCache } from '../screen-data.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { scrollToInitialPosition } from './initial-position.ts';
 import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP, MAIN_BOTTOM_PADDING } from './layout.ts';
@@ -43,7 +43,7 @@ type Props = {
  * - ページタイトルは出さない（下部ナビ／サイドナビが現在地を示す）
  * - AppBar は各ページの操作（月の切替、検索など）のための帯（AppBarContent で差し込む）。それ以外はオフラインの印（左端）だけを置く
  * - スマホは AppBar + BottomNavigation、PC は permanent Drawer（アプリ名は出さない）。ページ自体は共通。
- * - 設定は PC のサイドナビにだけ置く。スマホではホームの末尾から開く（下部ナビは主要 4 画面に絞る）。
+ * - 設定は PC のサイドナビにだけ置く。スマホではホームの AppBar の歯車から開く（下部ナビは主要 4 画面に絞る）。
  */
 export function AppShell({ navItems, children }: Props) {
   const isDesktop = useIsDesktop();

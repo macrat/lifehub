@@ -284,6 +284,30 @@ describe('events service', () => {
       expect(new Set(list.map((o) => o.id)).size).toBe(2);
     });
 
+    it('「これ以降すべて」で回数（COUNT）の繰り返しを分けても、合わせた回数は変わらない', async () => {
+      const created = await createEvent({ ...weekly(), rrule: 'FREQ=WEEKLY;COUNT=4' }, userId);
+      await updateEvent(
+        created.id,
+        updateEventSchema.parse({
+          ...weekly(),
+          rrule: 'FREQ=WEEKLY;COUNT=4',
+          title: '週次ミーティング（後半）',
+          startsAt: iso('2026-09-21T09:00:00'),
+          endsAt: iso('2026-09-21T10:00:00'),
+          scope: 'following',
+          occurrenceStart: iso('2026-09-21T09:00:00'),
+        }),
+        userId,
+      );
+      const autumn = dateRangeQuerySchema.parse({ from: '2026-09-01', to: '2026-10-31' });
+      expect((await listItems(autumn, now)).map((o) => o.startsAt)).toEqual([
+        iso('2026-09-07T09:00:00'),
+        iso('2026-09-14T09:00:00'),
+        iso('2026-09-21T09:00:00'),
+        iso('2026-09-28T09:00:00'),
+      ]);
+    });
+
     it('「これ以降すべて」の削除。先頭の回に対しては繰り返しごと消す', async () => {
       const created = await createEvent(weekly(), userId);
       await deleteEvent(

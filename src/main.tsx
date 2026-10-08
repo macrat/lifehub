@@ -9,9 +9,11 @@ import { createRoot } from 'react-dom/client';
 import { UNAUTHORIZED_EVENT } from './lib/api.ts';
 import { watchAppBadge } from './lib/app-badge.ts';
 import { markSignedOut } from './lib/auth.ts';
-import { persistOptions, queryClient, resumeWrites } from './lib/query-client.ts';
+import { resumeWrites } from './lib/mutation.ts';
+import { persistOptions, queryClient } from './lib/query-client.ts';
 import { reloadApp, reloadOnStaleChunk } from './lib/reload.ts';
 import { initSentry, reportCaughtError } from './lib/sentry.ts';
+import { listenNavigateMessages } from './lib/sw-navigate.ts';
 import { useAppTheme } from './lib/theme.ts';
 import { ErrorPage } from './lib/ui/ErrorPage.tsx';
 import { ListSkeleton } from './lib/ui/QueryView.tsx';
@@ -117,6 +119,9 @@ reloadOnStaleChunk();
 
 // 通知が付けたホーム画面のアイコンの点を、アプリを見た時点で消す
 watchAppBadge();
+
+// 通知をタップしたら、開いているアプリの中でその画面へ移る（`src/sw.ts` の notificationclick）
+listenNavigateMessages((href) => void router.navigate({ href }));
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('#root not found');

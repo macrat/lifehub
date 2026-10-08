@@ -5,8 +5,7 @@ import type { DateString, HistoryPage } from '../../../shared/types.ts';
 import type { WeatherDay } from '../../../shared/weather.ts';
 import { api } from '../../lib/api.ts';
 import { type HistorySource, historyQueryOptions } from '../../lib/history.ts';
-import type { QueryState } from '../../lib/query-client.ts';
-import { useStoreInfiniteQuery } from '../../lib/screen-data.ts';
+import { type QueryState, useStoreInfiniteQuery } from '../../lib/screen-data.ts';
 import { useClock } from '../../lib/use-now.ts';
 
 /**

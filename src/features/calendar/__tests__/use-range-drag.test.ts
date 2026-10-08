@@ -1,7 +1,8 @@
 import { act, type PointerEvent } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '../../../lib/__tests__/render-hook.ts';
-import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../../lib/ui/use-record-press.ts';
+import { TAP_SLOP } from '../../../lib/ui/tap-slop.ts';
+import { LONG_PRESS_MS } from '../../../lib/ui/use-record-press.ts';
 import type { Drag } from '../range-drag-session.ts';
 import { useRangeDrag } from '../use-range-drag.ts';
 
@@ -77,7 +78,7 @@ describe('useRangeDrag', () => {
   it('長押しを待つ間に動いたらスクロールとみなしてやめる', () => {
     const { handlers, onChange } = setup();
     handlers.props.onPointerDown(pointer(10, { pointerType: 'touch' }));
-    handlers.props.onPointerMove(pointer(10 + LONG_PRESS_SLOP + 1, { pointerType: 'touch' }));
+    handlers.props.onPointerMove(pointer(10 + TAP_SLOP + 1, { pointerType: 'touch' }));
     vi.advanceTimersByTime(LONG_PRESS_MS);
     handlers.props.onPointerUp(pointer(10, { pointerType: 'touch' }));
     expect(onChange).not.toHaveBeenCalled();
@@ -124,7 +125,7 @@ describe('useRangeDrag', () => {
     const grab = handlers.grabProps('item', { tap: false });
     grab.onPointerDown(pointer(10));
     // 指のぶれの内側ではまだクリックかもしれないので知らせない
-    grab.onPointerMove(pointer(10 + LONG_PRESS_SLOP));
+    grab.onPointerMove(pointer(10 + TAP_SLOP));
     grab.onPointerMove(pointer(40));
     grab.onPointerUp(pointer(40));
     expect(onChange.mock.calls).toEqual([

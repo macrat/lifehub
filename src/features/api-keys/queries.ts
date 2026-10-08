@@ -1,7 +1,8 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { type ApiOutputs, api, write } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { putById } from '../../lib/list.ts';
+import { useOptimisticMutation } from '../../lib/mutation.ts';
 
 /** 記録投入用の API キー（[docs/features/api-keys.md](../../../docs/features/api-keys.md)） */
 export type ApiKey = ApiOutputs['apiKeys']['list'][number];
@@ -27,7 +28,10 @@ export function useCreateApiKey() {
     mutationFn: (input: ApiKeyInput): Promise<IssuedApiKey> => api.apiKeys.create.mutate(input),
     networkMode: 'always',
     onSuccess: ({ key: _key, ...apiKey }) => {
-      queryClient.setQueryData(apiKeysQueryOptions.queryKey, (keys) => keys && [...keys, apiKey]);
+      queryClient.setQueryData(
+        apiKeysQueryOptions.queryKey,
+        (keys) => keys && putById(keys, apiKey.id, apiKey),
+      );
     },
   });
 }
@@ -42,9 +46,7 @@ export function useRevokeApiKey() {
     queue: false,
     keys: [apiKeysQueryOptions.queryKey],
     apply: (client, id) => {
-      client.setQueryData(apiKeysQueryOptions.queryKey, (keys) =>
-        keys?.filter((key) => key.id !== id),
-      );
+      client.setQueryData(apiKeysQueryOptions.queryKey, (keys) => keys && putById(keys, id, null));
     },
   });
 }

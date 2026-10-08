@@ -10,7 +10,7 @@ import type { CareLogFilter } from '../../../shared/validation/lemon.ts';
 import { type ApiInputs, api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
 import type { HistorySource } from '../../lib/history.ts';
-import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/mutation.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 /** 追加と編集で同じ形（編集は全項目を置き換える） */

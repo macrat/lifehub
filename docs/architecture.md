@@ -64,7 +64,7 @@ LifeHub のソフトウェアとしての設計（技術の選定、層と依存
 - **MCP ツールは API ではなく LLM 向けのインターフェース**として作る。REST API は自分のクライアントだけが呼ぶ内部の口で、型の厳密さ（判別共用体、省略させない項目）を優先してよい。MCP ツールは LLM が説明を読んで正しく呼べることを最優先にし、API の形をなぞらない（例: 入力の最上位は平らなオブジェクトにし、`anyOf` にしない。考えなくてよい項目は省略させ、既定を置く。組み合わせの誤りは何を足せばよいかの文で返す）。LLM の入力を Service の入力に直すのは `mcp.ts` の役目。API の変更に合わせて MCP の形を変える必要は無く、逆も同じ。
 - Repository 層は Drizzle クエリのみ。ビジネスルールを持たない。
 - 層と依存の向きは Biome の `noRestrictedImports`（`biome.json` の overrides）で強制する。
-  - サーバー: `repository.ts`・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の `./repository.ts` 以外の repository も読めない（他の feature のデータはその feature の service を通す）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
+  - サーバー: repository（`repository.ts` と、大きくなった feature が関心ごとに分けた `<関心ごと>-repository.ts`）・`schema.ts` と DB の土台（`lib/db/`。接続・全表の集約・repository が使う問い合わせの部品・better-auth のアダプタ・ヘルスチェック・テストの DB）を除いて、`lib/db/` と `drizzle-orm` を import できない。例外は `lib/db/auth-adapter.ts` と `lib/db/health.ts` だけで、`lib/db/` に足したファイルは既定で外から読めない。自分の feature 以外の repository も読めない（他の feature のデータはその feature の service を通す）。他の feature から読めるのは `service.ts` と表の定義 `schema.ts` だけで、例外は通知が読む `events/notifications.ts`（[features/notifications.md](features/notifications.md#構成)）と人の一覧の `users/people.ts`（[development.md](development.md#型と-lint)）だけ（feature の中の分け方は外から見えない）。`routes.ts` / `mcp.ts` は自分の feature の repository も読めない。入力の検証は、tRPC の手続きは `.input`、MCP ツールは `inputSchema`、Hono の口は `lib/validator.ts` の `validate` で行う（`@hono/zod-validator` は使わない）。`lib/` は features を読まない（DB の表の定義 `features/*/schema.ts` だけは、全表の集約（`lib/db/schema.ts`）と DB の土台のために読める）。feature を組み立てるのは `server/` 直下の入口（`app.ts`・`cron.ts`・`qstash.ts`・`mcp.ts`）だけ。
   - クライアント: API（`lib/api.ts`）を呼べるのは `features/*/queries.ts` と `lib/` だけ。`lib/` は `features/` を読まない。events は calendar を読まない（予定・タスクのデータは events が持ち、依存は calendar → events の一方向）。重ねて開く MUI の部品（Dialog など）を直接使うことの禁止は [ui.md](ui.md#ダイアログと履歴)。
   - 置き場所の間: `shared/` は `server/` も `src/` も読まない。`server/` は `src/` を読まない。`src/` は `server/` を読まない（API の型だけは `src/lib/api.ts` が `server/app.ts` の `AppRouter` を `import type` で読む。Biome の規則は型だけの import を見分けないので、`api.ts` には `server/app.ts` だけを許す規則を掛け、それ以外のサーバーのコードは読めないままにしている）。
   - Biome の override は、同じ規則の options を足し合わせず後の物で置き換える。そこで import の規則の override は「どのファイルもどれか 1 つの組み合わせに当たる」ように分け、各 override にそのファイルに掛かる禁止をすべて書く（禁止の文言が override の間で重なるのはこのため）。規則を足すときは、その規則が掛かるファイルを含む override すべてに足す。
@@ -83,10 +83,10 @@ src/                          # クライアント（Vite + React）
   features/                   # 機能ごとの UI（components/, queries.ts（クエリと mutation）, optimistic.ts（楽観的更新の書き換え。events のみ）, use-*.ts（ページの状態・操作を持つフック）, __tests__/）
     api-keys/  calendar/  calendar-feeds/  events/  lemon/  memos/  money/  users/  push/  weather/  dashboard/（ホームの状態のタイル。各機能のクエリを読む）
     timeline/（ホームのタイムライン。全機能の記録を 1 本に並べ、行から各機能の詳細を開く）
-      （calendar は events の項目を暦の上に並べる画面。項目のクエリ・書き込み・参加者の印は events が持つ）
+      （calendar は events の項目を暦の上に並べる画面。暦月ごとの項目の取得は calendar が持ち、項目の書き込み・楽観的更新・参加者の印とクエリのキーは events が持つ）
   lib/                        # 横断。features を読まない（依存は features → lib の一方向。biome が禁じる）
-    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（永続化設定・書き込みキュー・useOptimisticMutation・useCreateMutation・QueryState）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  view-transition.ts + move-animation.ts（画面と記録の動き）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
-    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
+    api.ts（tRPC のクライアント `api`・WriteRequest と、その組み立て `write`・sendWrite）  query-client.ts（QueryClient・永続化設定・オンライン判定の初期値）  mutation.ts（書き込み: 書き込みキュー・useOptimisticMutation・useCreateMutation・resumeWrites）  form.ts（useFormSubmit・formText・formSelect・formList）  theme.ts（useAppTheme・useColorMode・previewHue（保存前のアクセントカラー））  store.ts（createStore。React の外に置く小さな値）  online.ts（useOnline）  update.ts（useUpdateApp: 最新版に入れ替えて起動し直す）  use-now.ts  date.ts  math.ts  list.ts（一覧の 1 件の先回りの入れ替え `putById`）  yen.ts（金額の表示）  platform.ts（iOS かの判定）  add-kinds.ts（追加できる種類の名前とアイコン）  add-pages.ts + add-search.ts（入力を開いて始める URL のしるし `add`）  shortcuts.ts（PWA のショートカット）  login-search.ts（ログイン後の戻り先の検証）  reload.ts（読み込み直し）  sentry.ts  app-badge.ts（ホーム画面のアイコンの点）  sw-navigate.ts（通知のタップで、開いているアプリの画面を移す）  view-transition.ts + move-animation.ts（画面と記録の動き）  screen-data.ts（画面のデータの取得と配信。画面が購読する `useScreenQueries`・`useScreenHistory` と、部品が store から読む `useStoreQuery` など、読む側の状態 `QueryState`・`useIsLoadingWithoutCache`）  history.ts（無限スクロールの履歴の出どころと楽観的更新）  search.ts（検索窓と絞り込みの検索パラメータ。`useFilterSearch`（キーワードは中の `useKeywordSearch`））  auth.ts（ログイン状態のすべて: me・ルートのガード・ログイン・ログアウト・同意・未ログインの反映）
+    ui/（AppShell（通知の表示など）+ layout.ts（枠の寸法・FAB_SX）, AddFab / AddMenu（右下の追加ボタン。種類を選ばない画面と選ぶ画面）, ナビゲーション, Dialog + dialog-history.ts（履歴を持つダイアログ）, ActionMenu + use-action-menu.ts（ボタンから開く操作のメニュー。履歴を持つ）, RecordSheet（記録 1 件のシート）+ use-record-detail.tsx（閲覧と編集の切り替え・削除・記録ごとの操作。直せない・消せない記録には鉛筆・削除を出さない）, use-record-selection.ts（一覧から開いている記録と、閲覧・編集のどちらで開いたか）, use-toggle.ts（開いているかだけの状態 useToggle・値を持って開く状態 useOpenWith。開け閉めの関数は固定）, BottomSheet（下から出るシート）, notice.ts（保存の失敗などの通知）, QueryView + ListSkeleton（読み込み中の骨組みと取得失敗の表示）, CenteredPage, SettingsSection（設定画面の見出し + 行）, 共通部品）
 iot/                          # LifeHub に記録を送るデバイスのファームウェア（Arduino）。記録投入用エンドポイントを API キーで呼ぶ
   lemon-record-button/        # レモンの世話を記録するボタン（M5Stack AtomS3R）
 server/                       # サーバー（Hono）
@@ -97,7 +97,7 @@ server/                       # サーバー（Hono）
   dev.ts                      # ローカル起動用（@hono/node-server）
   features/<name>/            # 1 機能 = 1 ディレクトリ
     schema.ts                 # Drizzle テーブル定義
-    repository.ts             # DB アクセス
+    repository.ts             # DB アクセス。大きくなった feature は関心ごとに <関心ごと>-repository.ts へ分ける（money/sync-repository.ts）
     service.ts                # 業務ロジック
     routes.ts                 # 画面の API の tRPC router（`.input` の Zod 検証 → service）。外と約束した口を持つ feature は Hono のルートも置く
     mcp.ts                    # MCP ツール定義
@@ -106,15 +106,17 @@ server/                       # サーバー（Hono）
                               #   events/patch.ts（MCP の部分更新の補い方）・events/timeline.ts（タイムラインの口）・
                               #   events/notifications.ts（通知対象の列挙と配信時再検証）、calendar-feeds/ics.ts（ics の形）、
                               #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）、
+                              #   money/sync.ts（Money Forward の取り込み・口座・取り込みルール）・
                               #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
+                              # 分けた業務ロジックも、ほかの feature と server/ 直下の入口からは service.ts（の再 export）で読む
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
-  features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
+  features/mcp-events/        # MCP Events の配信（service）、購読の作成と取り消し（subscriptions.ts）、購読の台帳（repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
         coalesce-reads.ts = 同じ時点の読み取りを 1 往復にまとめる、
-        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での更新と削除・参加者の書き込み）、
-        history.ts = 履歴のページ分け（1 つの表と、表をまたいで並べる `historyQueries`）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
+        query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での（条件付きの）更新と削除・参加者の読み書き）、
+        history.ts = 1 つの表の履歴のページ分け（`findHistoryPage`。表をまたいで並べるのはタイムラインの service）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
     auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
@@ -194,7 +196,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 - ルーターは永続化キャッシュの復元が終わってから起動する（`src/main.tsx`）。ログイン判定の `beforeLoad` は `resolveMe`（`src/lib/auth.ts`）を使い、オフラインではネットワークを待たずにキャッシュだけを返す（TanStack Query はオフライン中の取得を一時停止するため、待つと完了しない）。
 - ルートに loader は置かない。データの到着を待ってから画面を切り替えると、キャッシュに無いページ（その端末で初めて開くタブ）では回線の速さのぶんだけ前の画面に留まり、操作が効いていないように見えるため。画面はマウントと同時に購読を始め、部品は `QueryView` で「手元のデータ・骨組み・失敗」を描き分ける（[ui.md](ui.md#移動と読み込み)）。
 - **データの取得は画面が 1 か所で決め、部品は store から読むだけにする**（`src/lib/screen-data.ts`）。サーバーの状態は TanStack Query のキャッシュ（store）に 1 つだけ置く。
-  - 画面（`src/routes/**`）が、その画面で読むクエリをすべて 1 か所で購読する（`useScreenQueries` / `useScreenHistory`）。どの画面も読むもの（ログイン中のユーザーとユーザーの一覧）はログインが要る画面をまとめるレイアウト（`routes/_authenticated.tsx`）が購読する。画面を開いている間の取り直し（入ったとき・フォーカス・再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、まとめて 1 本の要求で届く（[通信の往復](#通信の往復)）。
+  - 画面（`src/routes/**`）が、その画面で読むクエリをすべて 1 か所で購読する（`useScreenQueries` / `useScreenHistory`）。どの画面も読むもの（ログイン中のユーザーとユーザーの一覧）はログインが要る画面をまとめるレイアウト（`routes/_authenticated.tsx`）が購読する。画面を開いている間の取り直し（入ったとき・フォーカス・再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、まとめて 1 本の要求で届く（[通信の往復](#通信の往復)）。画面が自分で出すもの（`QueryView` に渡すクエリの状態）は、購読の結果（`useScreenQueries` の返り値）をそのまま使う。
   - 部品は store から読むだけで、自分では取得を始めない（`useStoreQuery` など。取得を止めた購読なので、キャッシュが変われば描き直されるが問い合わせは出ない）。画面が購読していないクエリを読むと骨組みのまま出続けるので、画面に出すものを足したら画面の購読にも足す。
   - 取得を決める画面の状態（カレンダーで出している月、リストで広げた月、選択ダイアログで送っている月）は、部品ではなく画面の状態として持つ（`src/features/calendar/use-calendar-page.ts` の `months`）。
   - 利用者の操作で読み足すもの（古いほうのページ、繰り返しの予定の繰り返し元）は操作の中で読む（`useScreenHistory` の `loadEarlier`、`src/features/events/queries.ts` の `loadEvent`）。
@@ -205,7 +207,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 ## 書き込み
 
-- 更新系は TanStack Query の mutation（`useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き（楽観的更新）、失敗したら書き込み前へ戻す。
+- 更新系は TanStack Query の mutation（`src/lib/mutation.ts` の `useOptimisticMutation`）で行う。送信と同時にサーバーが返すはずの値をキャッシュへ書き（楽観的更新）、失敗したら書き込み前へ戻す。
 - 送信が終われば関連クエリを invalidate してサーバーの値に合わせる。再取得の完了は待たない。待つと操作の結果が回線の速さに左右され、切れれば永遠に出ない。
 - フォームは送り始めた時点（オフラインなら端末に溜めた時点）で保存できたものとして扱って閉じる（画面での見え方は [ui.md](ui.md#保存と失敗)）。
 - 楽観的更新に必要な計算は `shared/` の共通コードで行い、クライアントで別実装しない（上記「レイヤー構成」）。繰り返しの展開だけはサーバーにしか無いので、投機的に出すのは操作した回だけ（残りの回は再取得で揃う）。
@@ -232,6 +234,8 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 - ステータスバー（スマホ）とタイトルバー（PC）の色は、メディアクエリ付きの `theme-color` メタで配色ごとに渡す。値はアプリの面の色そのもの（`shared/color.ts` の `SURFACE`）で、AppBar と地続きに見える。テーマと二重管理にならないよう、index.html には直接書かず `vite.config.ts` の `themeColorMeta` が注入する。
 - iOS 向け: `apple-mobile-web-app-*` メタ、`apple-touch-icon`。ステータスバーは `default`（iOS がページの背景色に合わせて塗り、文字色も選ぶ）。
 - Service Worker（`vite-plugin-pwa`, `injectManifest` 方式で `src/sw.ts` を自前管理）: precache、`push` / `notificationclick` の処理。`registerType: 'autoUpdate'`（`skipWaiting` + `clientsClaim`）。
+- 通知のタップ（`notificationclick`）: 開いているアプリがあれば前に出し、Service Worker からの知らせ（`postMessage`）でその中のルーターが画面を移る（`src/lib/sw-navigate.ts`）。無ければその画面で新しく開く。
+  - WHY NOT Service Worker がタブを移す（`WindowClient.navigate`）: ページごと読み込み直すので、手元の状態（入力途中の値、開いているシート）を捨て、読み込み直しの決まり（`reloadApp`）も通らない。Service Worker が受け持っていないタブ（更新の直後など）では失敗し、どの画面も開かない。
 - 手動更新: 設定画面の「バージョン」の右の更新ボタン（`src/lib/update.ts`）。インストールした PWA は precache から起動するため再読み込みでは版が変わらないので、`registration.update()` で Service Worker を取りに行き直す。新版が見つかれば、それが有効になった時点で上記 `autoUpdate` の経路が読み込み直す。新版が無いときと、取りに行けなかったとき（オフライン等）だけ自分で読み込み直す（押しても何も起きない状態を作らない）。
 - デプロイで消えた旧版のコード: 旧版のページがまだ読み込んでいない画面のコードは、デプロイ後はサーバーにも、新版の Service Worker が入れ替えた precache にも無い。取りに行って失敗したら（`vite:preloadError`）読み込み直し、新版で開き直す（`src/lib/reload.ts` の `reloadOnStaleChunk`）。
   - 読み込み直しても同じ失敗がすぐ続く（オフラインで precache にも無い、壊れたデプロイなど）ときは繰り返さず、エラー画面を出す。回数（セッションで 1 度）ではなく間隔（`STALE_CHUNK_RELOAD_INTERVAL_MS`）で止めるのは、同じタブを開いたまま次のデプロイを迎えたときに、また読み込み直せるようにするため。

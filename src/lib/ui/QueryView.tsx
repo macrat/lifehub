@@ -4,7 +4,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
-import type { QueryState } from '../query-client.ts';
+import type { QueryState } from '../screen-data.ts';
 
 type Props<T> = {
   query: QueryState<T>;

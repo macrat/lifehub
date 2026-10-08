@@ -6,7 +6,7 @@ import type { DateString } from '../../../../shared/types.ts';
 import { firstDayOfMonth, formatMonth } from '../../../lib/date.ts';
 import { InfiniteScroll } from '../../../lib/ui/InfiniteScroll.tsx';
 import { ListSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
-import { useCalendarItems } from '../../events/queries.ts';
+import { useCalendarItems } from '../queries.ts';
 import { type ListFilters, type ListFiltersPatch, listSections } from '../search.ts';
 import type { ListMonths } from '../use-list-months.ts';
 import { DayList } from './DayList.tsx';

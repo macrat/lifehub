@@ -36,7 +36,11 @@ export function useMoneyRuleForm({
       id,
       pattern: formText(fd, 'pattern') ?? '',
       replaceDescription,
-      replacement: formText(fd, 'replacement') ?? rule?.replacement ?? '',
+      // 置換しない間は欄が無効で送られないので、前の値を残す（置換に戻したときに打ち直さずに済む）。
+      // 置換するなら欄の値そのもので、空にしたら空のまま検証に掛ける
+      replacement: replaceDescription
+        ? (formText(fd, 'replacement') ?? '')
+        : (rule?.replacement ?? ''),
       kind,
       userId,
       hidden,

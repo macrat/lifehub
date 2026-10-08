@@ -3,15 +3,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { type FormEvent, type ReactNode, type Ref, useState } from 'react';
+import type { FormEvent, ReactNode, Ref } from 'react';
+import { ActionMenu, type MenuAction } from './ActionMenu.tsx';
 import { BottomSheet } from './BottomSheet.tsx';
 import { Dialog } from './Dialog.tsx';
-import { useDialogHistory } from './dialog-history.ts';
 import { SubmitButton } from './SubmitButton.tsx';
 import { useIsMobile } from './use-breakpoint.ts';
 
@@ -20,15 +17,6 @@ import { useIsMobile } from './use-breakpoint.ts';
  * PC ではそれに合わせ、画面の端まで使うスマホのシートは 16dp にする。
  */
 const GUTTER = { xs: 2, sm: 3 };
-
-/** 三点リーダーのメニューに並べる操作。削除のような、表に出しておきたくない操作を集める */
-export type RecordAction = {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  /** 取り返しのつかない操作。赤で出す */
-  danger?: boolean;
-};
 
 /**
  * 読むだけの状態を持つシート（既にある記録の詳細）。鉛筆を押すと入力欄に変わる。
@@ -58,12 +46,12 @@ type Props = {
   open?: boolean;
   onClose: () => void;
   /**
-   * 項目が多いフォーム（予定・タスク・ユーザー）。中身の高さでは結局画面を覆うので、
+   * 項目が多いフォーム（予定・タスクの全項目のフォーム）。中身の高さでは結局画面を覆うので、
    * スマホでは最初から画面いっぱいで出し、PC では少し広いダイアログにする。
    */
   full?: boolean;
-  /** 三点リーダーのメニュー。何も無ければ出さない */
-  actions?: RecordAction[];
+  /** 三点リーダーのメニュー（削除のような、表に出しておきたくない操作）。何も無ければ出さない */
+  actions?: MenuAction[];
   /**
    * 上端の帯の真ん中に置くもの（`SheetHeader` の middle。予定・タスクの種類の切り替えなど）。
    * 帯は見出しを出す閲覧のときには見出しを出し、入力しているときは空いているので、そこに出る
@@ -91,14 +79,12 @@ type Props = {
  */
 export function RecordSheet(props: Props) {
   const isMobile = useIsMobile();
-  // 履歴の項目はそれぞれが自分で持つ（`useDialogHistory`）ので、常にどちらか一方だけをマウントする
+  // 履歴の項目は入れ物がそれぞれ自分で持つ（`useDialogHistory`）ので、常にどちらか一方だけをマウントする
   return isMobile ? <Sheet {...props} /> : <Centered {...props} />;
 }
 
 /** スマホ: 画面の下から出るシート。下へスワイプすると閉じる */
 function Sheet(props: Props) {
-  // 戻る操作では前の画面へ行かずシートだけを閉じる
-  useDialogHistory(props.onClose);
   return (
     <BottomSheet
       open={props.open}
@@ -160,7 +146,16 @@ function Body({
               </IconButton>
             )
           )}
-          {actions.length > 0 && <ActionsMenu actions={actions} />}
+          {actions.length > 0 && (
+            <ActionMenu
+              actions={actions}
+              button={(open) => (
+                <IconButton aria-label="その他の操作" onClick={open}>
+                  <MoreVertIcon />
+                </IconButton>
+              )}
+            />
+          )}
         </SheetHeader>
         {error && (
           <Alert severity="error" sx={{ mx: GUTTER }}>
@@ -235,33 +230,5 @@ export function SheetHeader({
       )}
       {children}
     </Stack>
-  );
-}
-
-function ActionsMenu({ actions }: { actions: RecordAction[] }) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  return (
-    <>
-      <IconButton aria-label="その他の操作" onClick={(event) => setAnchor(event.currentTarget)}>
-        <MoreVertIcon />
-      </IconButton>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        {actions.map((action) => (
-          <MenuItem
-            key={action.label}
-            onClick={() => {
-              setAnchor(null);
-              action.onClick();
-            }}
-            sx={action.danger ? { color: 'error.main' } : undefined}
-          >
-            <ListItemIcon sx={action.danger ? { color: 'error.main' } : undefined}>
-              {action.icon}
-            </ListItemIcon>
-            {action.label}
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
   );
 }

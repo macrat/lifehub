@@ -24,7 +24,6 @@ import {
   type McpContext,
   type McpRegistrar,
 } from '../../lib/mcp/types.ts';
-import type { Person } from '../../lib/people.ts';
 import * as service from './service.ts';
 
 /**
@@ -48,7 +47,7 @@ const fields = {
   location: eventFieldTypes.location.describe('場所'),
   note: eventFieldTypes.note.describe('メモ'),
   repeat: eventFieldTypes.rrule.describe(
-    '繰り返し。RFC 5545 の RRULE（DTSTART なし。開始が基準）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）',
+    '繰り返し。RFC 5545 の RRULE（DTSTART なし。開始が基準）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）、5 回だけ毎週 "FREQ=WEEKLY;COUNT=5"。終わりは COUNT か UNTIL のどちらか一方',
   ),
   remind: (what: string) =>
     eventFieldTypes.remindStartMinutes.describe(
@@ -69,9 +68,10 @@ function allDayOf(...whens: (When | undefined)[]): boolean | undefined {
   return allDay;
 }
 
-/** 参加者の名前 → ID。省けば自分だけ */
-function participantIdsOf(ctx: McpContext, people: Person[], names: string[] | undefined) {
+/** 参加者の名前 → ID。省けば自分だけ（ユーザーの一覧を読まない） */
+async function participantIdsOf(ctx: McpContext, names: string[] | undefined) {
   if (!names) return [ctx.userId];
+  const people = await ctx.people();
   return [...new Set(names.map((name) => resolvePerson(people, name, ctx.userId)))];
 }
 
@@ -142,23 +142,27 @@ function registerAdd(server: McpServer, ctx: McpContext) {
         : defaultTaskStart();
       const endsAt =
         input.kind === 'event' ? (end ? instantOf(end) : defaultEventEnd(allDay, startsAt)) : null;
-      const people = await ctx.people();
-      const created = await service.createEvent(
-        {
-          kind: input.kind,
-          title: input.title,
-          allDay,
-          startsAt,
-          endsAt,
-          participantIds: participantIdsOf(ctx, people, input.participants),
-          location: input.location ?? null,
-          note: input.note ?? null,
-          rrule: input.repeat ?? null,
-          remindStartMinutes: input.remindBeforeStart ?? null,
-          remindEndMinutes: input.remindBeforeEnd ?? null,
-        },
-        ctx.userId,
-      );
+      const participantIds = await participantIdsOf(ctx, input.participants);
+      // 書き込みとユーザーの一覧（返す形に要る）は並べて読む（同じ時点の読み取りは 1 往復にまとまる）
+      const [created, people] = await Promise.all([
+        service.createEvent(
+          {
+            kind: input.kind,
+            title: input.title,
+            allDay,
+            startsAt,
+            endsAt,
+            participantIds,
+            location: input.location ?? null,
+            note: input.note ?? null,
+            rrule: input.repeat ?? null,
+            remindStartMinutes: input.remindBeforeStart ?? null,
+            remindEndMinutes: input.remindBeforeEnd ?? null,
+          },
+          ctx.userId,
+        ),
+        ctx.people(),
+      ]);
       return jsonResult(formatEvent(created, people));
     },
   );
@@ -195,21 +199,23 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       // 終わりを持てるかは変えた後の種類で決める（タスクを予定にするなら end を渡せる）
       rejectTaskEnd(input.kind ?? ref.type, input);
       const { end } = input;
-      const people = await ctx.people();
       const patch: EventPatch = {
         kind: input.kind,
         title: input.title,
         allDay: allDayOf(input.start, end),
         startsAt: input.start && instantOf(input.start),
         endsAt: end && instantOf(end),
-        participantIds: input.participants && participantIdsOf(ctx, people, input.participants),
+        participantIds: input.participants && (await participantIdsOf(ctx, input.participants)),
         location: input.location,
         note: input.note,
         rrule: input.repeat,
         remindStartMinutes: input.remindBeforeStart,
         remindEndMinutes: input.remindBeforeEnd,
       };
-      const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
+      const [updated, people] = await Promise.all([
+        service.patchEvent(ref.id, target, patch, ctx.userId),
+        ctx.people(),
+      ]);
       return jsonResult(formatEvent(updated, people));
     },
   );

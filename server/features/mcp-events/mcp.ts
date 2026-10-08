@@ -1,7 +1,8 @@
 import { ProtocolError } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { McpRegistrar } from '../../lib/mcp/types.ts';
-import { EVENT_NAMES, type EventName, subscribe, unsubscribe } from './service.ts';
+import { EVENT_NAMES, type EventName } from './service.ts';
+import { subscribe, unsubscribe } from './subscriptions.ts';
 
 /**
  * MCP Events（`io.modelcontextprotocol/events`。ドラフトの拡張）の webhook 配信。

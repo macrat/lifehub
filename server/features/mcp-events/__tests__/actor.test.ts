@@ -6,7 +6,8 @@ import { resetUsers } from '../../../lib/db/test-db.ts';
 import { completeEvent, createEvent, updateEvent } from '../../events/service.ts';
 import { logCare, patchLog } from '../../lemon/service.ts';
 import { addExpense, deleteExpense, patchExpense } from '../../money/service.ts';
-import { type EventName, subscribe } from '../service.ts';
+import type { EventName } from '../service.ts';
+import { subscribe } from '../subscriptions.ts';
 import { holdDeliveries, newSecret, receiver } from './fixtures.ts';
 
 /**

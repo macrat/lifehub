@@ -11,10 +11,11 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type FormEventHandler, type ReactNode, type RefObject, useRef, useState } from 'react';
-import { BottomSheet, type SheetDetent } from '../../../lib/ui/BottomSheet.tsx';
+import { BottomSheet } from '../../../lib/ui/BottomSheet.tsx';
 import { useDialogHistory } from '../../../lib/ui/dialog-history.ts';
 import { SheetHeader } from '../../../lib/ui/RecordSheet.tsx';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
+import type { SheetDetent } from '../../../lib/ui/use-bottom-sheet.ts';
 import { useIsMobile } from '../../../lib/ui/use-breakpoint.ts';
 import { usePressOutside } from '../../../lib/ui/use-press-outside.ts';
 import { ExtraFields, ScopeChip, WhenFields } from '../../events/components/ItemFields.tsx';
@@ -53,8 +54,6 @@ type Props = Pick<QuickProps, 'onExpand'> & {
  */
 export function QuickForm({ onExpand, ...props }: Props) {
   const isMobile = useIsMobile();
-  // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
-  useDialogHistory(props.onClose);
   return isMobile ? (
     <QuickSheet {...props} />
   ) : (
@@ -184,6 +183,8 @@ function QuickBubble({
   onClose,
   onExpand,
 }: LayoutProps & { onExpand: () => void }) {
+  // 戻る操作では前の画面へ行かず下書きを取り消す（シートは `BottomSheet` が持つ。吹き出しは Popper なので自分で持つ）
+  useDialogHistory(onClose);
   const { form } = quick;
   const paperRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
