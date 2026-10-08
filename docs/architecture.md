@@ -118,7 +118,7 @@ server/                       # サーバー（Hono）
         query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での（条件付きの）更新と削除・参加者の読み書き）、
         history.ts = 1 つの表の履歴のページ分け（`findHistoryPage`。表をまたいで並べるのはタイムラインの service）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
-    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
+    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）  fetch.ts（外部への GET。2xx 以外は失敗）  secret.ts（推測できない秘密の値 `newSecret`）
@@ -154,7 +154,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 ## 認証・認可
 
-- Web: better-auth のセッション Cookie（同一オリジン）。画面の API（tRPC。`/api/trpc/*`）は手続きごとにログインを確かめ（`server/lib/trpc.ts` の `authed`）、クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
+- Web: better-auth のセッション Cookie（同一オリジン）。画面の API（tRPC。`/api/trpc/*`）は手続きごとにログインを確かめ、通ってから手続きを走らせる（読み出しも。ログインしていない要求に処理をさせない。`server/lib/trpc.ts` の `authed`）。クライアントは 401 を受けたら `/login` へ遷移する。**サーバー側の検証が唯一の防御線**であり、クライアント側のルートガードは UX のためだけに置く。
 - `/api` の下の tRPC 以外の口は、それぞれが自分の資格を検査する。`/api` 全体に掛かる認証のミドルウェアは無いので、口を足すときは、その口に保護を付ける。
   - better-auth 自身（`/api/auth/*`。OAuth の探索メタデータ `/.well-known/*` は `/api` の外）: better-auth が扱う。
   - `/api/health`: 認証不要（下記）。
@@ -163,7 +163,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
   - MCP（`/api/mcp`）: OAuth のアクセストークン（[features/mcp.md](features/mcp.md)）。
   - カレンダーの ics 配信 `/api/calendar/<token>.ics`: URL のトークンだけ（[features/calendar-feeds.md](features/calendar-feeds.md)）。
   - 記録投入 `/api/records`: API キーだけ（[features/api-keys.md](features/api-keys.md)）。
-  - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。画面の API はログインの検証を読み出しと並べて走らせる（[通信の往復](#通信の往復)）ので、先に検証を待つミドルウェアは往復も 1 回増やす。
+  - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。Sentry の稼働監視が使う（[operations.md](operations.md#監視sentry)）。
 - パスワードとセッションの扱いは [features/users.md](features/users.md#認証)。
@@ -171,18 +171,17 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 
 ## 通信の往復
 
-本番の応答時間は、処理の量より「待つ往復の回数」で決まる（Neon の HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回。関数は要求ごとに起動を待つことがある）。往復を減らす仕組みは、個々の画面や repository ではなく、次の 4 つの層に 1 つずつ置く。どれも呼び出し側の書き方を変えずに効く。
+本番の応答時間は、処理の量より「待つ往復の回数」で決まる（Neon の HTTP ドライバは問い合わせ 1 回が HTTP の往復 1 回。関数は要求ごとに起動を待つことがある）。往復を減らす仕組みは、個々の画面や repository ではなく、次の 3 つの層に 1 つずつ置く。どれも呼び出し側の書き方を変えずに効く。
 
 1. **画面の API の呼び出しを 1 本にまとめる**（tRPC の `httpBatchLink`。`src/lib/api.ts`、サーバーは `server/lib/trpc.ts` と `server/app.ts` の `/api/trpc`）: 画面は機能ごと・月ごとのクエリを並べて読むので、開くと呼び出しが何本も同時に出る（ホームはユーザー・タイムライン・天気・レモン、カレンダーは表示に掛かる月の数）。同じ時点に出た呼び出しは 1 本の要求（読み出しは GET、書き込みは POST）で送られ、サーバーはその中の手続きを並べて実行する。
    - キャッシュの単位はクエリ（機能ごと・月ごと）のまま変わらず、まとめるのは運び方だけ。書き込みの後の取り直しも、その時点に取り直すクエリだけがまとまる。WHY NOT 画面ごとに要るものを返す API: キャッシュが画面ごとの大きな塊になり、一部だけの取り直しも、画面の間でのデータの分け合いもできなくなる。
    - 運び方をまとめても、サーバーでは手続きごとに問い合わせが走るので、同じ手続きを鍵（カレンダーの月）だけ変えて並べると、往復は 1 回でも同じ形の問い合わせが鍵の数だけ走る（N+1）。カレンダーは 1 本の要求に載った呼び出しをサーバーでまとめて読む（[features/calendar.md](features/calendar.md#api)）。要求ごとに 1 つだけ作る読み手は `server/lib/trpc.ts` の `perRequest` に置く。
    - WHY tRPC: まとめて運ぶ仕組み・型の伝え方・入力の検証を自分で書かずに済む。WHY NOT GraphQL: 取り出す項目を画面が選ぶ仕組みは、画面専用で応答の形をサーバーが決めているこの API には要らず、スキーマと resolver を別に書く分だけ増える。
    - 手続きごとに Sentry のスパンを作る（`trpc/timeline.get`。1 本の要求に載った手続きのどれに時間が掛かったかを見る。[operations.md](operations.md#監視sentry)）。
-2. **読み出しはログインの検証と並べて走らせる**（`server/lib/trpc.ts` の `authed`）: 読み出しの手続きは検証を待たずに走らせ、検証が通らなければ手続きの結果を捨てて UNAUTHORIZED（401）にする。ユーザーが要る手続きは `userProcedure` で検証を待ち、`ctx.userId` で ID を読む。書き込みは検証が通ってから走らせる。
-3. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
-4. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、ログインの検証の問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `server/lib/db/client.ts` の `runBatch` で明示的にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。読み取りは `runBatch` に入れない（Drizzle の `batch` はまとめる仕組みを通らず自分だけで 1 往復を使うので、ほかの読み取りと同じ往復に載らなくなる。`runBatch` の型が select を拒む）。
+2. **ログインの検証を 1 回の問い合わせにする**（`server/lib/auth.ts` の `advanced.database.joins`）: better-auth はセッションとユーザーを別々に読むが、結合を有効にしてセッションからユーザーを結合して読ませる（Drizzle のリレーションは `server/features/users/schema.ts`）。Cookie にセッションを持たせて DB を読まない方法（cookieCache）は、失効が次の要求から効かなくなるので使わない（[features/users.md](features/users.md#認証)）。
+3. **同じ時点に出た DB の読み取りを 1 往復にまとめる**（`server/lib/db/coalesce-reads.ts`）: Neon のドライバを包み、同じ時点（`setImmediate` まで）に投げられた読み取りを 1 つの読み取り専用のトランザクションとして 1 回の HTTP 要求で送る。`Promise.all` で並べた問い合わせも、1 本の要求に載った各手続きの問い合わせも、同じ時点に出ればまとまる。書き込みはまとめず、複数文の書き込みは `server/lib/db/client.ts` の `runBatch` で明示的にまとめる（neon-http では `db.batch()` が 1 往復で 1 トランザクションとして実行し、node-postgres では明示的なトランザクションで包む。どちらでも全部通るか何も残らないかになる）。読み取りは `runBatch` に入れない（Drizzle の `batch` はまとめる仕組みを通らず自分だけで 1 往復を使うので、ほかの読み取りと同じ往復に載らなくなる。`runBatch` の型が select を拒む）。
 
-問い合わせの結果に次の問い合わせが依るとき（タイムラインのページの区切りを決めてから行を読むなど）は、その依存の数だけ往復が残る。依存を SQL の 1 文に押し込むことはしない（別々に読める表を 1 文の中で結び付けると、読むのも直すのも難しくなる）。
+問い合わせの結果に次の問い合わせが依るとき（タイムラインのページの区切りを決めてから行を読むなど）は、その依存の数だけ往復が残る。画面の API のログインの検証もその 1 つで、手続きは検証が通ってから走る（[認証・認可](#認証認可)）ので、要求 1 本ごとに検証の 1 往復が手続きの読み取りの前に掛かる。依存を SQL の 1 文に押し込むことはしない（別々に読める表を 1 文の中で結び付けると、読むのも直すのも難しくなる）。
 
 ## オフラインと起動速度
 

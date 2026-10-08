@@ -8,7 +8,7 @@ import {
   moneyListQuerySchema,
   moneyRulesSchema,
 } from '../../../shared/validation/money.ts';
-import { procedure, router, userProcedure } from '../../lib/trpc.ts';
+import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
 /**
@@ -20,32 +20,32 @@ export const moneyRouter = router({
   list: procedure.input(moneyListQuerySchema).query(({ input }) => service.listRecords(input)),
   /** 精算の元になる当事者ごとの合計 */
   totals: procedure.query(() => service.getTotals()),
-  create: userProcedure
+  create: procedure
     .input(createExpenseRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addExpense(input, ctx.userId, id);
+      await service.addExpense(input, ctx.user.id, id);
     }),
-  update: userProcedure
+  update: procedure
     .input(withId(expenseSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateExpense(id, input, ctx.userId);
+      await service.updateExpense(id, input, ctx.user.id);
     }),
-  delete: userProcedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
-    await service.deleteExpense(input.id, ctx.userId);
+  delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
+    await service.deleteExpense(input.id, ctx.user.id);
   }),
   /** 立替スケジュール（作った順）。日が来たら、この内容の立替を記録する */
   schedules: procedure.query(() => service.listExpenseSchedules()),
-  createSchedule: userProcedure
+  createSchedule: procedure
     .input(createExpenseScheduleRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addExpenseSchedule(input, ctx.userId, id);
+      await service.addExpenseSchedule(input, ctx.user.id, id);
     }),
-  updateSchedule: userProcedure
+  updateSchedule: procedure
     .input(withId(expenseScheduleSchema))
     .mutation(async ({ input: { id, ...input } }) => {
       await service.updateExpenseSchedule(id, input);
     }),
-  deleteSchedule: userProcedure.input(idParamSchema).mutation(async ({ input }) => {
+  deleteSchedule: procedure.input(idParamSchema).mutation(async ({ input }) => {
     await service.deleteExpenseSchedule(input.id);
   }),
   accounts: procedure.query(() => service.listAccounts()),
@@ -54,7 +54,7 @@ export const moneyRouter = router({
     .input(z.object(cursorShape))
     .query(({ input }) => service.getBalancePage(input.before)),
   rules: procedure.query(() => service.listRules()),
-  saveRules: userProcedure.input(moneyRulesSchema).mutation(async ({ ctx, input }) => {
-    await service.saveRules(input, ctx.userId);
+  saveRules: procedure.input(moneyRulesSchema).mutation(async ({ ctx, input }) => {
+    await service.saveRules(input, ctx.user.id);
   }),
 });

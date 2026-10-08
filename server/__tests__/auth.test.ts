@@ -1,14 +1,15 @@
-import type { Pool } from 'pg';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../app.ts';
 import { memos } from '../features/memos/schema.ts';
 import { getAuth } from '../lib/auth.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
+import { recordStatements } from './statements.ts';
 
 describe('ログインと認証の口', () => {
   beforeEach(clearTables);
+  afterEach(() => vi.restoreAllMocks());
 
   it('公開のサインアップ経路は閉じている', async () => {
     const res = await app.request('/api/auth/sign-up/email', {
@@ -22,19 +23,25 @@ describe('ログインと認証の口', () => {
   it('セッションの確認は、セッションとユーザーを 1 回の問い合わせで読む', async () => {
     const { cookie, userId } = await loginAs('A');
     const auth = await getAuth();
-    const query = vi.spyOn((db as unknown as { $client: Pool }).$client, 'query');
+    const statements = recordStatements();
     const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
     expect(session?.user.id).toBe(userId);
-    expect(query).toHaveBeenCalledTimes(1);
-    query.mockRestore();
+    expect(statements).toHaveLength(1);
   });
 
-  it('未認証の読み出しは、ハンドラを走らせても中身を返さず 401', async () => {
-    const res = await app.request('/api/trpc/lemon.status');
+  it('未認証の読み出しは、ハンドラを走らせずに 401', async () => {
+    const statements = recordStatements();
+    const input = encodeURIComponent(JSON.stringify({ from: '2020-01-01', to: '2020-01-31' }));
+    const res = await app.request(`/api/trpc/calendar.get?input=${input}`, {
+      headers: { cookie: 'better-auth.session_token=forged' },
+    });
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body).toMatchObject({ error: { message: 'ログインが必要です' } });
     expect(body).not.toHaveProperty('result');
+    // 応答の後に裏で走り出す処理も無い（セッションの検証のほかに、DB へ何も問い合わせない）
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(statements.filter((text) => !/"sessions"/.test(text))).toEqual([]);
   });
 
   it('未認証の書き込みは、ハンドラを走らせずに 401', async () => {
