@@ -21,13 +21,12 @@ updates:
         patterns:
           - '*'
 
-  # GitHub Actions。ワークフローの uses はコミット SHA で固定している（docs/development.md）ので、
-  # SHA と横のバージョンのコメントを一緒に書き換える PR を作らせる。
-  # 猶予と 1 PR へのまとめ方は npm と同じ理由。
+  # GitHub Actions（uses は SHA で固定。docs/development.md）。猶予と 1 PR へのまとめ方は npm と同じ理由。
+  # Action の更新は npm より少ないので月次にし、CI の実行回数を増やしすぎない。
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 3
     groups:

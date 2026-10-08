@@ -52,15 +52,13 @@
 
 ## 依存の取り込み
 
-- 依存の更新は Dependabot（`.github/dependabot.yml`）が npm と GitHub Actions について、週次・それぞれまとめて 1 PR で提案し、マージは人が判断する。
+- 依存の更新は Dependabot（`.github/dependabot.yml`）が npm（週次）と GitHub Actions（月次）について、それぞれまとめて 1 PR で提案し、マージは人が判断する。
 - Terraform は Dependabot の対象外。Terraform のプロバイダ更新はリソース再作成の事故を避けるため、バージョン制約を編集する PR で行う（[operations.md](operations.md#terraforminfra)）。
 - **npm パッケージは公開から 3 日以上経ったものだけを取り込む**。乗っ取られたアカウントからの publish が発覚・取り下げされるまでの猶予を取り、サプライチェーン攻撃を避けるため。
-  - Dependabot は pnpm の設定を読まない別の解決系なので、経路ごとに同じ猶予を書く。pnpm は `pnpm-workspace.yaml` の `minimumReleaseAge: 4320`（分）、Dependabot は `.github/dependabot.yml` の `cooldown.default-days: 3`。
-  - GitHub Actions も Dependabot の同じ猶予（`cooldown.default-days: 3`）で取り込む。
+  - Dependabot は pnpm の設定を読まない別の解決系なので、経路ごとに同じ猶予を書く。pnpm は `pnpm-workspace.yaml` の `minimumReleaseAge: 4320`（分）、Dependabot は `.github/dependabot.yml` の `cooldown.default-days: 3`（GitHub Actions も同じ）。
   - この猶予が効かない経路が 2 つある。CI の `pnpm install --frozen-lockfile` は解決済みのロックファイルをそのまま入れるので再検査しない。Dependabot の security updates は仕様上 cooldown の対象外で、即座に PR が作られる。
-- **GitHub Actions の `uses` は 40 桁のコミット SHA で固定し、横にバージョンをコメントで書く**（`actions/checkout@<SHA> # v4.4.0`）。
-  - WHY: タグやブランチは配布元が付け替えられる。配布元が乗っ取られると、次の CI 実行で付け替えた先のコードが秘密（`TF_VAR_*`・`NEON_API_KEY`・`VERCEL_TOKEN` など。`terraform plan` の `tfplan` にも平文で入る）と同じジョブで動く。SHA は付け替えられない。
-  - 強制はリポジトリの設定 **Require actions to be pinned to a full-length commit SHA**（Settings → Actions → General）で行う。SHA で固定していない `uses` があるとワークフローが失敗する。
+- **GitHub Actions の `uses` は 40 桁のコミット SHA で固定し、横にバージョンをコメントで書く**（`actions/checkout@<SHA> # vX.Y.Z`）。
+  - WHY: タグやブランチは配布元が付け替えられる。配布元が乗っ取られると、次の CI 実行で付け替えた先のコードが秘密（`terraform plan` の `tfplan` に平文で入るものも含む）と同じジョブで動く。SHA は付け替えられない。
+  - 強制は GitHub のリポジトリ設定で行う（[operations.md](operations.md#初回セットアップ人が一度だけ行う手作業)）。SHA で固定していない `uses` があるとワークフローが失敗する。
     - WHY NOT lint（zizmor など）: GitHub の標準の設定で足りる。CI のチェックだと、チェック自体が動く前に固定していない Action が動いてしまう。
   - 固定は Action が内部で使う Action には及ばない。新しく Action を足すときは、その `action.yml` の `uses` も SHA で固定されているかを確かめる。
-  - 更新は上の Dependabot に任せる。SHA とコメントのバージョンを一緒に書き換える。
