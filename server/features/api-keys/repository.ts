@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
-import { deleteById } from '../../lib/db/query.ts';
+import { deleteById, keepUpdatedAt } from '../../lib/db/query.ts';
 import { type ApiKeyRow, apiKeys } from './schema.ts';
 
 export async function findByUser(userId: string): Promise<ApiKeyRow[]> {
@@ -36,7 +36,7 @@ export async function touchByHash(
 ): Promise<{ userId: string; name: string } | undefined> {
   const touched = await db
     .update(apiKeys)
-    .set({ lastUsedAt: now })
+    .set({ lastUsedAt: now, updatedAt: keepUpdatedAt(apiKeys) })
     .where(eq(apiKeys.keyHash, keyHash))
     .returning({ userId: apiKeys.userId, name: apiKeys.name });
   return touched[0];

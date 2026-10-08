@@ -54,6 +54,14 @@ function idArrayAgg(column: PgColumn): SQL<string[]> {
   return sql`coalesce(array_agg(${column}::text order by ${column}) filter (where ${column} is not null), '{}')`;
 }
 
+/**
+ * update の set で `updated_at` を今の値のままにする（`$onUpdate` で書き換えない）。
+ * 使った日時の記録（API キー・配信 URL）は行の中身を変えたのではないので、変えた日時を進めない
+ */
+export function keepUpdatedAt(table: PgTable & { updatedAt: PgColumn }): SQL<Date> {
+  return sql<Date>`${table.updatedAt}`;
+}
+
 /** `id` 列を主キーに持つ表 */
 type TableWithId = PgTable & { id: PgColumn };
 
