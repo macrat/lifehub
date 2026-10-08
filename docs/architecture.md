@@ -116,7 +116,7 @@ server/                       # サーバー（Hono）
         query.ts = repository が使う問い合わせの部品（キーワード・作成の冪等な insert（insertOnce）・id での更新と削除・参加者の書き込み）、
         history.ts = 履歴のページ分け（1 つの表と、表をまたいで並べる `historyQueries`）、timeline.ts = タイムラインの問い合わせ、auth-adapter.ts = better-auth のアダプタ、
         health.ts = ヘルスチェック、test-db.ts = テスト・seed 用の全表の消去とテスト用ユーザー）
-    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure / userProcedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
+    auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
     recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）  fetch.ts（外部への GET。2xx 以外は失敗）  secret.ts（推測できない秘密の値 `newSecret`）
@@ -161,7 +161,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
   - MCP（`/api/mcp`）: OAuth のアクセストークン（[features/mcp.md](features/mcp.md)）。
   - カレンダーの ics 配信 `/api/calendar/<token>.ics`: URL のトークンだけ（[features/calendar-feeds.md](features/calendar-feeds.md)）。
   - 記録投入 `/api/records`: API キーだけ（[features/api-keys.md](features/api-keys.md)）。
-  - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。画面の API はログインの検証を読み出しと並べて走らせる（[通信の往復](#通信の往復)）ので、先に検証を待つミドルウェアは往復も 1 回増やす。
+  - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。
 - 権限: 全ユーザー管理者のため認可ロジックは書かない。ただし「誰が作成したか」は必ず記録する。
 - `GET /api/health` は認証不要で DB 接続を確認する（`{ ok, db }`）。Sentry の稼働監視が使う（[operations.md](operations.md#監視sentry)）。
 - パスワードとセッションの扱いは [features/users.md](features/users.md#認証)。

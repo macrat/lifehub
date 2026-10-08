@@ -6,6 +6,7 @@ import { getAuth } from '../lib/auth.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { loginAs } from './login.ts';
+import { recordStatements } from './statements.ts';
 
 describe('ログインと認証の口', () => {
   beforeEach(clearTables);
@@ -30,7 +31,7 @@ describe('ログインと認証の口', () => {
   });
 
   it('未認証の読み出しは、ハンドラを走らせずに 401', async () => {
-    const query = vi.spyOn((db as unknown as { $client: Pool }).$client, 'query');
+    const statements = recordStatements();
     const input = encodeURIComponent(JSON.stringify({ from: '2020-01-01', to: '2020-01-31' }));
     const res = await app.request(`/api/trpc/calendar.get?input=${input}`, {
       headers: { cookie: 'better-auth.session_token=forged' },
@@ -41,11 +42,8 @@ describe('ログインと認証の口', () => {
     expect(body).not.toHaveProperty('result');
     // 応答の後に裏で走り出す処理も無い
     await new Promise((resolve) => setImmediate(resolve));
-    const statements = query.mock.calls.map(([config]) =>
-      typeof config === 'string' ? config : (config as { text: string }).text,
-    );
     expect(statements.filter((text) => /"events"/.test(text))).toEqual([]);
-    query.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('未認証の書き込みは、ハンドラを走らせずに 401', async () => {
