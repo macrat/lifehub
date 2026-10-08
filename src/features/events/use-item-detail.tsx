@@ -22,7 +22,7 @@ import { useRecurrenceEditing } from './use-recurrence-editing.ts';
 /**
  * 予定・タスクの詳細（`ItemDetailSheet`）の状態と操作。閲覧から編集への切り替え（繰り返しなら範囲の
  * 選択を挟む）、編集の初期値、保存・削除・完了の切り替え、三点リーダーの操作をまとめ、シートには
- * 表示するものだけを返す。どの操作も済んだら詳細を閉じる（`onClose`）。
+ * 表示するものだけを返す（`sheet` は `RecordSheet` にそのまま広げる。立替・レモン・メモの `useRecordDetail` と同じ形）。どの操作も済んだら詳細を閉じる（`onClose`）。
  * 複製は詳細の代わりにフォームを出すことで、どちらを出すかはシートが持つので、始める処理（`onDuplicate`）を受け取る。
  */
 export function useItemDetail(
@@ -54,6 +54,10 @@ export function useItemDetail(
   const scope = editScope ?? 'all';
 
   const completed = isCompletedTask(item);
+  const toggleCompletion = () => {
+    toggle.mutate({ id: item.id, occurrenceStart: item.occurrenceStart, completed: !completed });
+    onClose();
+  };
   // 編集の途中で種類（予定・タスク）を切り替えられる。切り替えたら、その既定値から入力し直す
   const { initial, switchTo } = useKindSwitch(
     ((fromMaster ? master.data : undefined) ?? item) satisfies ItemFormValues,
@@ -92,29 +96,30 @@ export function useItemDetail(
     pendingScope: recurrence.pending,
     selectScope: recurrence.selectScope,
     cancelScope: recurrence.cancel,
-    startEdit: () => recurrence.start('edit'),
-    form,
-    completed,
-    /** 三点リーダーの操作。タスクは完了（の取り消し）、どちらも複製と削除 */
-    actions: [
-      ...(item.kind === 'task'
-        ? [
-            {
-              label: completed ? '完了を取り消す' : '完了にする',
-              icon: completed ? <UndoIcon /> : <CheckCircleOutlineIcon />,
-              onClick: () => {
-                toggle.mutate({
-                  id: item.id,
-                  occurrenceStart: item.occurrenceStart,
-                  completed: !completed,
-                });
-                onClose();
-              },
-            },
-          ]
-        : []),
-      { label: '複製', icon: <ContentCopyIcon />, onClick: onDuplicate },
-      deleteMenuAction(() => recurrence.start('delete')),
-    ] satisfies MenuAction[],
+    /**
+     * `RecordSheet` にそのまま広げる props（見出しの `title` と帯の真ん中のほか）: 編集のフォーム、閉じる、
+     * 完了の取り消し線、鉛筆（繰り返しなら範囲の選択から）、三点リーダーの操作
+     */
+    sheet: {
+      ...form.sheet,
+      onClose,
+      struck: completed,
+      editing,
+      onEdit: () => recurrence.start('edit'),
+      actions: [
+        ...(item.kind === 'task' ? [completionAction(completed, toggleCompletion)] : []),
+        { label: '複製', icon: <ContentCopyIcon />, onClick: onDuplicate },
+        deleteMenuAction(() => recurrence.start('delete')),
+      ],
+    },
+  };
+}
+
+/** 三点リーダーのタスクの完了（の取り消し） */
+function completionAction(completed: boolean, onClick: () => void): MenuAction {
+  return {
+    label: completed ? '完了を取り消す' : '完了にする',
+    icon: completed ? <UndoIcon /> : <CheckCircleOutlineIcon />,
+    onClick,
   };
 }

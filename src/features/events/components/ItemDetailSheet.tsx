@@ -43,18 +43,13 @@ function ItemDetail({
   onDuplicate,
 }: Props & { onDuplicate: () => void }) {
   const detail = useItemDetail(item, initialEditing, onClose, onDuplicate);
-  const { form, completed, fields } = detail;
+  const { fields } = detail;
 
   return (
     <>
       <RecordSheet
         title={item.title}
-        struck={completed}
-        {...form.sheet}
-        onClose={onClose}
-        editing={fields !== null}
-        onEdit={detail.startEdit}
-        actions={detail.actions}
+        {...detail.sheet}
         headerMiddle={
           fields && (
             <KindToggle
