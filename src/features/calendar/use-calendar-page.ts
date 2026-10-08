@@ -10,6 +10,7 @@ import {
   toMonthString,
 } from '../../lib/date.ts';
 import { useFilterSearch, usePatchSearch } from '../../lib/search.ts';
+import { afterDialogClosed } from '../../lib/ui/dialog-history.ts';
 import { formatWeekRange, monthGridDays, weekDays, weekStart } from './calendar-dates.ts';
 import {
   type CalendarSearch,
@@ -132,6 +133,21 @@ export function useCalendarPage(search: CalendarSearch) {
       open: () => setPickerMonth(toMonthString(date)),
       close: () => setPickerMonth(null),
       setMonth: setPickerMonth,
+      /**
+       * 選んだ月・週・日へ移る。受け取るのは選んだ範囲の最初の日。その範囲が今日を含むなら今日にして、
+       * 「今日」が選ばれている見え方に揃える。ダイアログを閉じ、その履歴の項目を戻し終えてから移る
+       * （`afterDialogClosed`。閉じると同時に移ると、移った先がダイアログの項目の後ろに積まれる）
+       */
+      select: (d: DateString) => {
+        setPickerMonth(null);
+        const includesToday =
+          view === 'month'
+            ? toMonthString(d) === toMonthString(today())
+            : view === 'week'
+              ? weekDays(d).includes(today())
+              : d === today();
+        afterDialogClosed(() => setSearch({ date: includesToday ? today() : d }));
+      },
     },
     title,
     /** リスト表示の検索と絞り込み（`useFilterSearch`） */
@@ -148,20 +164,6 @@ export function useCalendarPage(search: CalendarSearch) {
     previewDay: () => setDayPreview(search.view === 'month' || search.view === 'list'),
     /** 予定の入力を閉じた。日表示を出していたなら元の表示に戻す */
     endPreview: () => setDayPreview(false),
-    /**
-     * 選択ダイアログからの移動。受け取るのは選んだ月・週・日の最初の日。
-     * その範囲が今日を含むなら今日にして、「今日」が選ばれている見え方に揃える。
-     * ダイアログが持つ履歴の項目を選んだ結果で置き換える（積むと、戻ったときに中身のない項目を踏む）
-     */
-    selectDate: (d: DateString) => {
-      const includesToday =
-        view === 'month'
-          ? toMonthString(d) === toMonthString(today())
-          : view === 'week'
-            ? weekDays(d).includes(today())
-            : d === today();
-      setSearch({ date: includesToday ? today() : d }, { replace: true });
-    },
   };
 }
 

@@ -92,10 +92,7 @@ function CalendarPage() {
           month={page.picker.month}
           onChangeMonth={page.picker.setMonth}
           onClose={page.picker.close}
-          onSelect={(date) => {
-            page.picker.close();
-            page.selectDate(date);
-          }}
+          onSelect={page.picker.select}
         />
       )}
 

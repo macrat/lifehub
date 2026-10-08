@@ -42,14 +42,14 @@ describe('書き込みの後の通知の予約', () => {
   it('作成・変更で、書いた予定・タスクの通知だけを予約する', async () => {
     const created = await createEvent(task(), userId);
     expect(schedule).toHaveBeenCalledTimes(1);
-    expect(schedule).toHaveBeenLastCalledWith(created.id);
+    expect(schedule).toHaveBeenLastCalledWith({ id: created.id });
     await updateEvent(
       created.id,
       updateEventSchema.parse({ ...task(), startsAt: iso('2026-09-14T19:00:00'), scope: 'all' }),
       userId,
     );
     expect(schedule).toHaveBeenCalledTimes(2);
-    expect(schedule).toHaveBeenLastCalledWith(created.id);
+    expect(schedule).toHaveBeenLastCalledWith({ id: created.id });
   });
 
   it('完了の取り消しで予約し直す（完了していた間は日次 Cron が予約しない）', async () => {

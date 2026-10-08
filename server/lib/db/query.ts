@@ -213,7 +213,7 @@ export function participantsOf<
   const hasNone = (tx: Database): SQL => notExists(participantsOfOuterRow(tx));
 
   /** 親の行の参加者に userId がいる */
-  const has = (userId: string): SQL => exists(participantsOfOuterRow(db, userId));
+  const has = (tx: Database, userId: string): SQL => exists(participantsOfOuterRow(tx, userId));
 
   /**
    * where に合う親の行が参加者を持たなければ、sourceParent の列が指す別の親の行の参加者を写す文

@@ -2,7 +2,7 @@ import type { CalendarItem, WrittenEvent } from '../../../shared/calendar.ts';
 import { newId } from '../../../shared/id.ts';
 import type { CareLog } from '../../../shared/lemon.ts';
 import type { Memo } from '../../../shared/memos.ts';
-import type { MoneyRecord } from '../../../shared/money.ts';
+import type { ManualExpense } from '../../../shared/money.ts';
 import type { Actor } from '../../lib/actor.ts';
 import { afterResponse } from '../../lib/after-response.ts';
 import {
@@ -49,7 +49,8 @@ type ChangedRecord =
       record: WrittenEvent | (() => Promise<WrittenEvent>);
       scope?: 'this' | 'following';
     }
-  | { type: 'expense'; record: MoneyRecord }
+  // 取り込んだ入出金は ref を持たず（イベントの ID を決められない）、書き込みも無いので知らせない
+  | { type: 'expense'; record: ManualExpense }
   | { type: 'lemon'; record: CareLog };
 
 type Action = 'added' | 'updated' | 'deleted';

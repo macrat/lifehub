@@ -4,6 +4,7 @@ import { newId } from '../../../shared/id.ts';
 import {
   type ExpenseSchedule,
   type ExpenseTotal,
+  type ManualExpense,
   type MoneyRecord,
   type Settlement,
   scheduleDatesBetween,
@@ -69,7 +70,7 @@ export async function addExpense(
   id: string = newId(),
 ): Promise<MoneyRecord> {
   const values = checkRules(input, expenseRulesSchema);
-  const record = toRecord(await repository.insert({ ...values, id, createdBy: userId }));
+  const record = toManualExpense(await repository.insert({ ...values, id, createdBy: userId }));
   publishChanged({ type: 'expense', record }, 'added', { userId });
   return record;
 }
@@ -103,7 +104,7 @@ export async function patchExpense(
 
 /** 書き換えて、書いた後の立替を返す（直したことを MCP Events で知らせる） */
 async function write(id: string, values: ExpenseInput, actorId: string): Promise<MoneyRecord> {
-  const record = toRecord(
+  const record = toManualExpense(
     (await repository.update(id, values)) ?? notWritable(await repository.findById(id)),
   );
   publishChanged({ type: 'expense', record }, 'updated', { userId: actorId });
@@ -113,7 +114,9 @@ async function write(id: string, values: ExpenseInput, actorId: string): Promise
 /** 手で入れた立替を消す。actorId は消した人 */
 export async function deleteExpense(id: string, actorId: string): Promise<void> {
   const deleted = (await repository.remove(id)) ?? notWritable(await repository.findById(id));
-  publishChanged({ type: 'expense', record: toRecord(deleted) }, 'deleted', { userId: actorId });
+  publishChanged({ type: 'expense', record: toManualExpense(deleted) }, 'deleted', {
+    userId: actorId,
+  });
 }
 
 /** 書けなかった理由を投げる: 無いか（row が undefined）、取り込んだ入出金（直すのは Money Forward と取り込みルール） */
@@ -224,11 +227,21 @@ function publishAdded(rows: MoneyRecordRow[]): void {
   for (const row of rows) {
     // スケジュールが記録する立替は、手で入れた立替と同じく必ず記録した人を持つ
     if (row.createdBy) {
-      publishChanged({ type: 'expense', record: toRecord(row) }, 'added', {
+      publishChanged({ type: 'expense', record: toManualExpense(row) }, 'added', {
         userId: row.createdBy,
       });
     }
   }
+}
+
+/**
+ * 手で入れた立替の行を、手で入れた立替の形にする。書き込み（追加・変更・削除・スケジュールの記録）が
+ * 返す行はどれも手で入れた立替なので、取り込んだ入出金が来たら書き込みの条件の誤り
+ */
+function toManualExpense(row: MoneyRecordRow): ManualExpense {
+  const record = toRecord(row);
+  if (record.account !== null) throw new Error(`expected a manual expense: ${row.id}`);
+  return { ...record, account: null };
 }
 
 function toRecord(row: MoneyRecordRow): MoneyRecord {

@@ -73,7 +73,7 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   await expect(page.getByLabel('タイトルを追加')).toHaveCount(0);
   await expect(title).toBeVisible();
 
-  // 年月を選ぶと、ダイアログの履歴は選んだ月で置き換わる（戻ると開く前の月）
+  // 年月を選ぶと、ダイアログの項目を戻してから選んだ月へ移る（中身のない項目を残さず、戻ると開く前の月）
   await title.click();
   await page.getByRole('button', { name: '7月' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);

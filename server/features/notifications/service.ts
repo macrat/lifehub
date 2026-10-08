@@ -9,6 +9,7 @@ import {
   changeMessage,
   changeRecipients,
   listNotifications,
+  type NotificationFilter,
   type NotificationRef,
   resolveNotification,
 } from '../events/notifications.ts';
@@ -22,14 +23,14 @@ const SENT_RETENTION_DAYS = 30;
 
 /**
  * 指定期間の通知を列挙して QStash に予約する。予約先が無い環境（ローカル・Preview）では何もしない。
- * id を渡すとその予定・タスク（繰り返しなら全部の回）の通知だけを予約する。
+ * filter で予約する予定・タスクを絞れる（`NotificationFilter`）。
  */
 export async function enqueueRange(
   range: InstantRange,
   publisher: Publisher | null = createPublisher(),
-  id?: string,
+  filter: NotificationFilter = {},
 ): Promise<{ planned: number; published: number }> {
-  const planned = await listNotifications(range, listAllDayNotifyMinutes(), id);
+  const planned = await listNotifications(range, listAllDayNotifyMinutes(), filter);
   if (!publisher) return { planned: planned.length, published: 0 };
   // 1 件ずつ待つと件数分の往復が直列に積み重なる（日次 Cron の応答や、書き込みの後の予約が長引く）。
   // 並べて投げ、失敗した分だけ記録する（1 件の失敗で他を止めない。重複は deduplicationId で防がれる）
@@ -64,20 +65,20 @@ export async function enqueueTomorrow(
  * 日次 Cron は翌日分しか予約しないので、当日の分はここで予約しないと届かない。
  * 日次 Cron が既に予約した分は deduplicationId で重複しない。減らす書き込み（削除・完了）は呼ばなくてよい
  * （古い予約は配信時の再検証で捨てられる）。
- * 1 つの予定・タスクの書き込みは、id でその通知だけを予約する。
+ * 1 つの予定・タスクの書き込みは、その id で絞って通知を予約する（`{ id }`）。
  * WHY: 省くと、書き込みのたびにすべての予定の通知を列挙して QStash に投げ直す（重複は捨てられるが、
  * 投げた数は無料枠の 1 日の上限に数えられうる）。id を省くのは、すべての予定に効く書き込み（終日の通知時刻）だけ。
  */
-export function scheduleUpcoming(id?: string, now: Date = new Date()): void {
-  afterResponse('notifications: enqueueUpcoming', () => enqueueUpcoming(id, now));
+export function scheduleUpcoming(filter: NotificationFilter = {}, now: Date = new Date()): void {
+  afterResponse('notifications: enqueueUpcoming', () => enqueueUpcoming(filter, now));
 }
 
-async function enqueueUpcoming(id: string | undefined, now: Date): Promise<void> {
+async function enqueueUpcoming(filter: NotificationFilter, now: Date): Promise<void> {
   // 予約先が無い環境（ローカル・Preview）では、列挙（予定の読み出しと繰り返しの展開）もしない
   const publisher = createPublisher();
   if (!publisher) return;
   const { to } = instantRange({ from: today(now), to: addDays(today(now), 1) });
-  await enqueueRange({ from: now, to }, publisher, id);
+  await enqueueRange({ from: now, to }, publisher, filter);
 }
 
 /**

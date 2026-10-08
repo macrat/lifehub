@@ -214,7 +214,7 @@ export async function findRecentTimelineInstants(
     before,
     q,
     limit,
-    tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(tasksOf)),
+    tasksOf === undefined ? undefined : or(eq(events.kind, 'event'), hasParticipant(db, tasksOf)),
   );
 }
 

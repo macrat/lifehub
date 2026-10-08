@@ -70,7 +70,7 @@ export async function createEvent(
   const created = writtenOf(
     await repository.insert({ ...values, id, createdBy: userId }, input.participantIds),
   );
-  scheduleUpcoming(created.id);
+  scheduleUpcoming({ id: created.id });
   notifyChanged(actionableToday(created.id, new Date()), 'added', userId);
   publishChanged({ type: 'event', record: created }, 'added', { userId });
   return created;
@@ -99,7 +99,7 @@ async function writeUpdate(
   userId: string,
 ): Promise<WrittenEvent> {
   const written = await applyUpdate(master, target, input, userId);
-  scheduleUpcoming(written.id);
+  scheduleUpcoming({ id: written.id });
   publishChanged({ type: 'event', record: written }, 'updated', { userId });
   return written;
 }
@@ -224,7 +224,7 @@ export async function uncompleteEvent(
 ): Promise<void> {
   const record = await setCompletedAt(id, input, null, userId);
   // 完了していた間は日次 Cron が列挙しないので、当日の通知はここで予約し直さないと届かない
-  scheduleUpcoming(id);
+  scheduleUpcoming({ id });
   publishChanged({ type: 'event', record }, 'updated', { userId });
 }
 

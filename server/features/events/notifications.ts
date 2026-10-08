@@ -113,7 +113,7 @@ function remindTargets(
 async function itemsAround(
   range: InstantRange,
   now: Date,
-  id: string | undefined,
+  filter: NotificationFilter,
 ): Promise<CalendarItem[]> {
   // タスクの表示位置は「今日」に繰り越されるので前後 1 日を含め、予定は最大リマインド分だけ先まで読む
   const items = await listItems(
@@ -122,7 +122,7 @@ async function itemsAround(
       to: addDays(toDateString(new Date(range.to.getTime() + MAX_REMIND_MS)), 1),
     },
     now,
-    { id },
+    filter,
   );
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -165,19 +165,21 @@ function body(item: CalendarItem, edge: Edge, anchor: string): string {
   return `${label} ${when}${location}`;
 }
 
+/** 列挙する通知の絞り込み。id はその予定・タスク（繰り返しなら全部の回）の通知だけ */
+export type NotificationFilter = { id?: string };
+
 /**
  * [from, to) に配信すべき通知（予定・タスクの開始／終了の n 分前、参加者の全端末へ）。
- * id を渡すとその予定・タスクの通知だけ。
  * 終日の通知時刻は読み出し中のものを受けてよい（予定の読み出しと同じ時点に投げ、1 往復にまとめる）
  */
 export async function listNotifications(
   range: InstantRange,
   times: NotifyTimes | Promise<NotifyTimes>,
-  id?: string,
+  filter: NotificationFilter = {},
 ): Promise<PlannedNotification[]> {
   const planned: PlannedNotification[] = [];
   // 予約する範囲の先頭時点の状態で数える（日次 Cron は翌日分を、作成・変更時は今からの分を予約する）
-  const [items, notifyTimes] = await Promise.all([itemsAround(range, range.from, id), times]);
+  const [items, notifyTimes] = await Promise.all([itemsAround(range, range.from, filter), times]);
   for (const item of items) {
     for (const edge of EDGES) {
       for (const { at, userId } of remindTargets(item, edge, notifyTimes)) {
@@ -206,7 +208,7 @@ export async function resolveNotification(
         to: new Date(ref.at.getTime() + MAX_REMIND_MS),
       },
       ref.at,
-      ref.id,
+      { id: ref.id },
     ),
     times,
   ]);

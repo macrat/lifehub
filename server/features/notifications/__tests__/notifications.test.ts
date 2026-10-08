@@ -62,7 +62,7 @@ describe('notifications', () => {
       [`event:${task.id}:single:start:${iso('2026-09-15T17:00:00')}`, iso('2026-09-15T17:00:00')],
     ]);
     // id で絞ると、その予定・タスクの通知だけ（書き込みの後の予約）
-    const onlyTask = await listNotifications(tomorrow, await notifyTimes(), task.id);
+    const onlyTask = await listNotifications(tomorrow, await notifyTimes(), { id: task.id });
     expect(onlyTask.map((p) => p.ref.id)).toEqual([task.id]);
   });
 
