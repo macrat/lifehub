@@ -86,18 +86,17 @@ export function afterDialogClosed(run: () => void): void {
  *
  * 開いている間はマウントし続けること。閉じた見た目にするだけ（open={false}）では項目は残る
  * （送信中だけ閉じて見せる `RecordSheet` のように、見た目とマウントは別でよい）。
- * マウントしたまま開け閉めする物（閉じる動きを見せるメニュー。`ActionMenu`）は、開いているかを open で渡す。
+ * マウントしたまま開け閉めする物（閉じる動きを見せるメニュー）は、開いている間だけこれを呼ぶ部品を描く（`ActionMenu`）。
  *
  * ダイアログの中から別の画面へ移る操作は replace で行う（例: 日付の選択ダイアログ）。
  * push するとダイアログの項目が履歴に残り、戻ったときに中身のないダイアログの項目を踏む。
  */
-export function useDialogHistory(onClose: () => void, open = true): void {
+export function useDialogHistory(onClose: () => void): void {
   const router = useRouter();
   // onClose は毎描画で作り直されるので Effect Event にし、開いている間は購読を張り直さない
   const close = useEffectEvent(onClose);
 
   useEffect(() => {
-    if (!open) return;
     const depth = ++openCount;
     syncHistoryDepth(router);
     const unsubscribe = router.history.subscribe(({ location, action }) => {
@@ -110,5 +109,5 @@ export function useDialogHistory(onClose: () => void, open = true): void {
       openCount -= 1;
       syncHistoryDepth(router);
     };
-  }, [router, open]);
+  }, [router]);
 }

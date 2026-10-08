@@ -73,7 +73,7 @@ export async function occurrenceOf(
  */
 export function writtenOccurrence(
   master: { id: string; rrule: string | null },
-  row: Parameters<typeof toMaster>[0],
+  row: Omit<Parameters<typeof toMaster>[0], 'id' | 'rrule'>,
   occurrenceStart: Date,
 ): WrittenEvent {
   return {

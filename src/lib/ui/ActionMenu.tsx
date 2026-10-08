@@ -2,6 +2,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import type { MouseEvent, ReactNode } from 'react';
+import { useDialogHistory } from './dialog-history.ts';
 import { useActionMenu } from './use-action-menu.ts';
 
 /** メニューに並べる操作 */
@@ -34,6 +35,7 @@ export function ActionMenu({
   return (
     <>
       {button(menu.open)}
+      {menu.anchor && <MenuHistory onClose={menu.close} />}
       <Menu anchorEl={menu.anchor} open={menu.anchor !== null} onClose={menu.close}>
         {actions.map((action) => (
           <MenuItem
@@ -51,4 +53,13 @@ export function ActionMenu({
       </Menu>
     </>
   );
+}
+
+/**
+ * 開いている間だけ描き、メニューに履歴の項目を持たせる。メニューそのものは閉じる動きを見せるために
+ * マウントしたままなので、履歴の項目の持ち主を開いている間だけの部品に分ける
+ */
+function MenuHistory({ onClose }: { onClose: () => void }) {
+  useDialogHistory(onClose);
+  return null;
 }

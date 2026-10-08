@@ -39,7 +39,10 @@ import { type DayEntryType, listDays, type TimelineDay } from './service.ts';
 
 // ref の種類（ENTRY_TYPES）と、タイムラインが並べる記録の種類（DayEntryType）は同じ物を指す。
 // 記録の種類を足したのに ref の種類に足し忘れると、read_timeline で絞れず delete_entry で消せない種類ができるので型で止める
-true satisfies [DayEntryType] extends [EntryType] ? true : never;
+type _SameEntryTypes = Assert<
+  [DayEntryType] extends [EntryType] ? ([EntryType] extends [DayEntryType] ? true : false) : false
+>;
+type Assert<T extends true> = T;
 
 /** 1 回の read_timeline で返すエントリーの上限。越えた日からは省き、絞り方を添える（LLM の文脈を溢れさせない） */
 const MAX_ENTRIES = 200;

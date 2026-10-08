@@ -127,19 +127,6 @@ export async function deleteById<T extends TableWithId>(
   return row as T['$inferSelect'] | undefined;
 }
 
-/** 別名を付けた総称の表と、その列を名前で引く関数（総称の表の別名は、列を名前で引けると型に出ない） */
-function columnsOf(table: PgTable) {
-  const columns = table as unknown as Record<string, PgColumn>;
-  return {
-    table,
-    column: (name: string): PgColumn => {
-      const column = columns[name];
-      if (!column) throw new Error(`no column: ${name}`);
-      return column;
-    },
-  };
-}
-
 /**
  * 参加者（親の行とユーザーの多対多）を読み書きする問い合わせの組。予定（events）と配信 URL（calendar_feeds）が
  * 同じ形で使う。親と参加者の表の結びつけ方（どの列で結ぶか・ID の配列へのまとめ方）をここだけに書く。
@@ -210,14 +197,14 @@ export function participantsOf<
    * 外側の FROM に参加者の表が並んでいても混ざらないよう別名で読む
    */
   const participantsOfOuterRow = (tx: Database, userId?: string) => {
-    const own = columnsOf(alias(participantsTable, 'own_participants'));
+    const own = alias(participants, 'own_participants');
     return tx
       .select({ one: sql`1` })
-      .from(own.table)
+      .from(own as PgTable)
       .where(
         and(
-          eq(own.column(parentKey), parent.id),
-          userId === undefined ? undefined : eq(own.column('userId'), userId),
+          eq(own[parentKey] as PgColumn, parent.id),
+          userId === undefined ? undefined : eq(own.userId as PgColumn, userId),
         ),
       );
   };
@@ -233,12 +220,12 @@ export function participantsOf<
    * （繰り返しの回を実体化したとき、繰り返し元の参加者を写す）
    */
   const copyWhere = (tx: Database, where: SQL | undefined, sourceParent: PgColumn) => {
-    const source = columnsOf(alias(participantsTable, 'source_participants'));
+    const source = alias(participants, 'source_participants');
     return tx.insert(participants).select(
       tx
-        .select({ [parentKey]: parent.id, userId: source.column('userId') })
+        .select({ [parentKey]: parent.id, userId: source.userId as PgColumn })
         .from(parentTable)
-        .innerJoin(source.table, eq(source.column(parentKey), sourceParent))
+        .innerJoin(source as PgTable, eq(source[parentKey] as PgColumn, sourceParent))
         .where(and(where, hasNone(tx))) as never,
     );
   };

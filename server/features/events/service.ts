@@ -128,7 +128,7 @@ async function applyUpdate(
     );
     return writtenOccurrence(
       master,
-      { ...values, id, participantIds, completedAt },
+      { ...values, participantIds, completedAt },
       target.occurrenceStart,
     );
   }

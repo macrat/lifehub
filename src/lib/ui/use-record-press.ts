@@ -1,5 +1,5 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
-import { TAP_SLOP } from './tap-slop.ts';
+import { movedPastSlop } from './tap-slop.ts';
 
 /** タッチで長押しと認めるまでの時間（ms）。タップや縦スクロールと取り違えないための区切り */
 export const LONG_PRESS_MS = 300;
@@ -89,9 +89,7 @@ export function useRecordPress(onSelect: (editing: boolean) => void): RecordPres
     onPointerMove: (event) => {
       const from = press.current;
       if (!from) return;
-      const far =
-        Math.abs(event.clientX - from.x) > TAP_SLOP || Math.abs(event.clientY - from.y) > TAP_SLOP;
-      if (far) cancel();
+      if (movedPastSlop(from, event)) cancel();
     },
     onPointerUp: cancel,
     onPointerCancel: cancel,
