@@ -43,14 +43,19 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           PROJECT_ID: ${{ steps.tf.outputs.neon_project_id }}
         run: |
-          exists=$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" \
+          id=$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" \
             "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches" \
-            | jq --arg name "$NEON_BRANCH" 'any(.branches[]; .name == $name)')
-          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+            | jq -r --arg name "$NEON_BRANCH" '.branches[] | select(.name == $name) | .id')
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+      # WHY NOT neondatabase/delete-branch-action: 実行時に `npm i -g neonctl@v2` で最新の
+      # neonctl を入れるので、SHA で固定しても NEON_API_KEY と同じ場所で動くコードが固定されない。
+      # API を 1 回呼ぶだけなので curl で足りる。
       - name: Delete Neon preview branch
-        if: steps.branch.outputs.exists == 'true'
-        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
-        with:
-          project_id: ${{ steps.tf.outputs.neon_project_id }}
-          branch: ${{ env.NEON_BRANCH }}
-          api_key: ${{ secrets.NEON_API_KEY }}
+        if: steps.branch.outputs.id != ''
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          PROJECT_ID: ${{ steps.tf.outputs.neon_project_id }}
+          BRANCH_ID: ${{ steps.branch.outputs.id }}
+        run: |
+          curl -fsS -X DELETE -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID" > /dev/null

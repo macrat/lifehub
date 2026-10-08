@@ -14,14 +14,14 @@ updates:
     cooldown:
       default-days: 3
 
-    # 更新をまとめて 1 つの PR にする。CI は PR ごとに Neon ブランチと Vercel Preview を作るので、
-    # PR を分けると無料枠を圧迫するため。まとめても個々の変更はロックファイルの差分で追える。
+    # 更新をまとめて 1 つの PR にする。PR を分けると、そのたびに CI が走り、人が見てマージする
+    # 手間も増えるため。まとめても個々の変更はロックファイルの差分で追える。
     groups:
       npm:
         patterns:
           - '*'
 
-  # GitHub Actions（uses は SHA で固定。docs/development.md）。猶予と 1 PR へのまとめ方は npm と同じ理由。
+  # GitHub Actions（uses は SHA で固定。docs/development.md）。猶予とまとめ方は npm と同じ理由。
   # Action の更新は npm より少ないので月次にし、CI の実行回数を増やしすぎない。
   - package-ecosystem: github-actions
     directory: /
@@ -30,9 +30,14 @@ updates:
     cooldown:
       default-days: 3
     groups:
+      # メジャー更新はまとめない。Action のメジャー更新は動作が変わる（実行する Node の版、
+      # 既定値など）ことがあり、CI が落ちたときにどの Action が原因かを切り分けられるよう 1 つずつ出す。
       github-actions:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
 
 # Terraform は対象にしない。プロバイダ更新はリソース再作成の事故を避けるため、バージョン制約を
 # 編集する PR で行う（docs/development.md）。
