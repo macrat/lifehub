@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type CalendarItem, isCompletedTask } from '../../../shared/calendar.ts';
 import type { EventKind } from '../../../shared/validation/events.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
-import type { RecordAction } from '../../lib/ui/RecordSheet.tsx';
+import type { MenuAction } from '../../lib/ui/ActionMenu.tsx';
 import { deleteMenuAction } from '../../lib/ui/use-record-detail.tsx';
 import type { ItemFormValues } from './form-values.ts';
 import {
@@ -115,6 +115,6 @@ export function useItemDetail(
         : []),
       { label: '複製', icon: <ContentCopyIcon />, onClick: onDuplicate },
       deleteMenuAction(() => recurrence.start('delete')),
-    ] satisfies RecordAction[],
+    ] satisfies MenuAction[],
   };
 }

@@ -388,9 +388,10 @@
                     "group": [
                       "@mui/material/Modal",
                       "@mui/material/Popover",
-                      "@mui/material/Drawer"
+                      "@mui/material/Drawer",
+                      "@mui/material/Menu"
                     ],
-                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet / ActionMenu を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
                   }
                 ]
               }
@@ -456,9 +457,10 @@
                     "group": [
                       "@mui/material/Modal",
                       "@mui/material/Popover",
-                      "@mui/material/Drawer"
+                      "@mui/material/Drawer",
+                      "@mui/material/Menu"
                     ],
-                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
+                    "message": "重ねて開く入れ物は lib/ui の Dialog / RecordSheet / ActionMenu を使う（履歴に項目を持ち、ブラウザバックで閉じるため）"
                   },
                   {
                     "group": ["**/calendar/**"],

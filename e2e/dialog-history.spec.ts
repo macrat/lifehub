@@ -82,6 +82,35 @@ test('カレンダーの追加フォームは戻るで閉じ、日付の選択�
   await expect(title).toBeVisible();
 });
 
+/**
+ * ボタンから開くメニュー（`ActionMenu`）も開いている間だけ履歴に項目を持つ。項目の操作はメニューの項目を
+ * 戻し終えてから行うので、画面を移る項目（表示の切替）を選んでも、戻る 1 回で前の表示に戻る。
+ */
+test('表示の切替のメニューは戻るで閉じ、選んだ表示からは戻る 1 回で前の表示に戻る', async ({
+  page,
+}) => {
+  await page.goto('/calendar?view=month&date=2030-03-15');
+  const views = page.getByRole('button', { name: '表示の切替' });
+  const week = page.getByRole('menuitem', { name: '週' });
+
+  await views.click();
+  await expect(week).toBeVisible();
+  await page.goBack();
+  await expect(week).toHaveCount(0);
+  await expect(page).toHaveURL(/view=month/);
+  await settled(page);
+
+  await views.click();
+  await week.click();
+  await expect(page).toHaveURL(/view=week/);
+  await settled(page);
+  await page.goBack();
+  await expect(page).toHaveURL(/view=month/);
+  await expect(page.getByRole('button', { name: '2030年03月（年月を選ぶ）' })).toBeVisible();
+  // 戻った先はメニューの抜け殻ではなく、メニューを開く前の項目
+  await settled(page);
+});
+
 test('グリッドで作りかけの予定も戻るで取り消せる', async ({ page }) => {
   await page.goto('/calendar?view=week&date=2031-06-04');
 
