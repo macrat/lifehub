@@ -4,7 +4,7 @@ import { changeView, recordViewTransitions } from './view.ts';
 
 /**
  * カレンダーの項目（と同じ応答に載る祝日・天気）を取り直すのは画面に入ったときだけ
- * （`src/features/events/queries.ts` の `useRefreshCalendarItems`）。月のキャッシュが古くならないことに支えられているので、
+ * （`src/features/calendar/queries.ts` の `useRefreshCalendarItems`）。月のキャッシュが古くならないことに支えられているので、
  * `staleTime` が戻ると表示を切り替えるたびに静かに通信が増える。回数で押さえる。
  */
 
