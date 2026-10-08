@@ -1,7 +1,17 @@
+import type { DefaultLabelFormatterCallbackParams } from 'echarts';
+import type { LineSeriesOption } from 'echarts/charts';
+import type {
+  AriaComponentOption,
+  DataZoomComponentOption,
+  GridComponentOption,
+  LegendComponentOption,
+  TooltipComponentOption,
+} from 'echarts/components';
+import { type ComposeOption, format } from 'echarts/core';
 import { addCalendarMonths, startOfDate, toDateString } from '../../../shared/date.ts';
 import { BALANCE_WINDOW_MONTHS, type MoneyBalance } from '../../../shared/money.ts';
 import type { DateString } from '../../../shared/types.ts';
-import { formatMonthDay } from '../../lib/date.ts';
+import { formatDateWithYear, formatMonthDay } from '../../lib/date.ts';
 import { formatYen } from '../../lib/yen.ts';
 
 /**
@@ -88,4 +98,96 @@ export function formatWindow({ start, end }: ChartWindow): string {
   const year = (time: number) => toDateString(new Date(time)).slice(0, 4);
   const endYear = year(end) === year(start) ? '' : `${year(end)}/`;
   return `${year(start)}/${formatMonthDay(new Date(start))} 〜 ${endYear}${formatMonthDay(new Date(end))}`;
+}
+
+/** グラフの設定（ECharts の option）。使う部品の分だけの型 */
+export type ChartOption = ComposeOption<
+  | LineSeriesOption
+  | GridComponentOption
+  | TooltipComponentOption
+  | DataZoomComponentOption
+  | LegendComponentOption
+  | AriaComponentOption
+>;
+
+/** 縮めて出せる最も短い期間（1 週間） */
+const MIN_SPAN = 7 * 24 * 60 * 60 * 1000;
+
+/** 期間の操作 */
+const DATA_ZOOM: DataZoomComponentOption = {
+  type: 'inside',
+  filterMode: 'filter',
+  minValueSpan: MIN_SPAN,
+};
+
+/** option に出している期間を添える（`useECharts` が option を当てるとき） */
+export function withWindow(option: ChartOption, { start, end }: ChartWindow): ChartOption {
+  return { ...option, dataZoom: [{ ...DATA_ZOOM, startValue: start, endValue: end }] };
+}
+
+/** 選んだ口座の推移を積み上げた、塗りつぶし付きの折れ線グラフの設定（期間は `withWindow` で添える） */
+export function chartOption(
+  balances: readonly MoneyBalance[],
+  accounts: readonly string[],
+  selected: readonly string[],
+  axis: ChartWindow,
+): ChartOption {
+  return {
+    backgroundColor: 'transparent',
+    animation: false,
+    aria: { enabled: true },
+    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    legend: {
+      show: false,
+      selected: Object.fromEntries(accounts.map((name) => [name, selected.includes(name)])),
+    },
+    tooltip: {
+      // 既定でマウスを乗せたとき・押したとき（スマホのタップ）の両方で出る
+      trigger: 'axis',
+      formatter: (params) => tooltipText(Array.isArray(params) ? params : [params]),
+    },
+    xAxis: {
+      type: 'time',
+      min: axis.start,
+      max: axis.end,
+      axisLabel: {
+        formatter: { year: '{yyyy}年', month: '{M}月', day: '{M}/{d}' },
+        hideOverlap: true,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      min: (value) => axisRange(value.min, value.max).min,
+      max: (value) => axisRange(value.min, value.max).max,
+      // 上下の端は余白を足した中途半端な値なので、目盛りの数字は出さない（きりのよい目盛りとくっついて読みにくい）
+      axisLabel: { formatter: formatAxisYen, showMinLabel: false, showMaxLabel: false },
+    },
+    series: toSeries(balances, accounts).map(({ account, points }) => ({
+      type: 'line',
+      name: account,
+      stack: 'balance',
+      areaStyle: {},
+      showSymbol: false,
+      data: points,
+    })),
+  };
+}
+
+/** 押した日の日付と、口座ごとの金額（2 つ以上なら合計も）。点はどれも [時刻, 金額]（`toSeries`） */
+function tooltipText(params: DefaultLabelFormatterCallbackParams[]): string {
+  const point = (param: DefaultLabelFormatterCallbackParams) =>
+    param.value as [number, number | null];
+  const rows = params.flatMap((param) => {
+    const [, amount] = point(param);
+    const label = `${param.marker}${format.encodeHTML(param.seriesName ?? '')}`;
+    return amount === null ? [] : [{ label, amount }];
+  });
+  const [first] = params;
+  return [
+    ...(first ? [formatDateWithYear(new Date(point(first)[0]))] : []),
+    ...rows.map((row) => `${row.label} ${formatYen(row.amount)}`),
+    ...(rows.length > 1
+      ? [`合計 ${formatYen(rows.reduce((sum, row) => sum + row.amount, 0))}`]
+      : []),
+  ].join('<br>');
 }
