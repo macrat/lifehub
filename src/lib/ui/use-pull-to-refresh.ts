@@ -4,6 +4,7 @@ import { type RefObject, useEffect, useState } from 'react';
 import { useOnline } from '../online.ts';
 import { loadingEdges } from './loading-edge.ts';
 import { notify } from './notice.ts';
+import { TAP_SLOP } from './tap-slop.ts';
 
 /** 離したときに取り直す、指を下ろした所からの引いた向きへの動き（px） */
 export const PULL_THRESHOLD = 80;
@@ -13,9 +14,6 @@ export type PullEdge = 'top' | 'bottom';
 
 /** 取り直せなかった知らせを出しておく長さ（ms）。一言なので既定より短く */
 const FAILED_NOTICE_MS = 3000;
-
-/** 向きを決めるまでの動き（px）。これに満たない間はタップかもしれないので何もしない */
-const DIRECTION_SLOP = 8;
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -189,7 +187,8 @@ export function usePullGesture(area: RefObject<HTMLElement | null>, enabled: boo
         const dx = touch.clientX - origin.x;
         const dy = touch.clientY - origin.y;
         if (!pulling) {
-          if (Math.hypot(dx, dy) < DIRECTION_SLOP) return;
+          // 向きを決めるまでの動き。これに満たない間はタップかもしれないので何もしない
+          if (Math.hypot(dx, dy) < TAP_SLOP) return;
           // 下へ動かせば上端から、上へ動かせば下端から引いている。引けない端へのなぞり（ページのスクロール）と
           // 横のなぞり（スワイプ）は引いたことにしない
           const toward: PullEdge = dy > 0 ? 'top' : 'bottom';

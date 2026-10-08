@@ -1,11 +1,6 @@
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { clamp } from '../math.ts';
-
-/**
- * 追従を始めるまでの動き（px）。これに満たない間はシートを動かさないので、
- * 入力欄やボタンの上から始めても、タップはそのまま中身に届く。
- */
-const DRAG_SLOP = 8;
+import { TAP_SLOP } from './tap-slop.ts';
 
 /** 指を下ろしてから離すまで。動かし始める（follow が付く）までは中身の操作に任せる */
 type Press = {
@@ -57,7 +52,9 @@ function scrolls(el: HTMLElement, dy: number): boolean {
  */
 function startsFollowing(press: Press, event: PointerEvent<HTMLElement>): boolean {
   const dy = event.clientY - press.y;
-  return Math.abs(dy) >= DRAG_SLOP && Math.abs(dy) > Math.abs(event.clientX - press.x);
+  // 追従を始めるまでの動き。これに満たない間はシートを動かさないので、入力欄やボタンの上から始めても、
+  // タップはそのまま中身に届く
+  return Math.abs(dy) >= TAP_SLOP && Math.abs(dy) > Math.abs(event.clientX - press.x);
 }
 
 /**
@@ -65,7 +62,7 @@ function startsFollowing(press: Press, event: PointerEvent<HTMLElement>): boolea
  * 離したら動いた量を `onRelease` に渡すだけ。止まる位置は呼び出し側が `resting` で返す。
  *
  * ドラッグは中身のどこからでも始められる（入力欄やボタンの上も含む。つまむ帯だけでは狭すぎる）。
- * 縦に `DRAG_SLOP` 動かすまではシートを動かさないので、タップや文字の選択は中身に届く。
+ * 縦に `TAP_SLOP` 動かすまではシートを動かさないので、タップや文字の選択は中身に届く。
  * 中身のスクロールもここで面倒を見る: 指の下がまだスクロールできるならそちらを先に動かし、
  * 端まで行ってからシートが動く。ブラウザに任せる（`touch-action: pan-y`）と、スクロールできない
  * 所でもブラウザがなぞりを取り上げて pointercancel を送るため、シートを動かせなくなる。

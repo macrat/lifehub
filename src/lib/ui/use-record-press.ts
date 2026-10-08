@@ -1,9 +1,8 @@
 import { type PointerEvent, useEffect, useRef } from 'react';
+import { TAP_SLOP } from './tap-slop.ts';
 
 /** タッチで長押しと認めるまでの時間（ms）。タップや縦スクロールと取り違えないための区切り */
 export const LONG_PRESS_MS = 300;
-/** 長押しを待つ間に許す指のぶれ（px）。タップとなぞりの境目でもある */
-export const LONG_PRESS_SLOP = 8;
 
 /** 記録 1 件を出す行・タイルに渡すハンドラ */
 type RecordPressHandlers = {
@@ -22,7 +21,7 @@ type RecordPressHandlers = {
  *
  * 長押しを見るのはタッチのときだけ。マウス・ペンでは押しっぱなしに意味を持たせず、
  * 開いた詳細の鉛筆から編集に入る（長押しは指の作法で、そこには鉛筆という近くて確かな入口がある）。
- * 待っている間に指が `LONG_PRESS_SLOP` より動いたら一覧をスクロールするつもりとみなしてやめる。
+ * 待っている間に指が `TAP_SLOP` より動いたら一覧をスクロールするつもりとみなしてやめる。
  *
  * 長押ししても文字は選ばれずメニューも出ない（`user-select` と `-webkit-touch-callout` を
  * `src/lib/theme.ts` で 1 か所止めてある）ので、ここで既定の動きを打ち消すことはしない。
@@ -91,8 +90,7 @@ export function useRecordPress(onSelect: (editing: boolean) => void): RecordPres
       const from = press.current;
       if (!from) return;
       const far =
-        Math.abs(event.clientX - from.x) > LONG_PRESS_SLOP ||
-        Math.abs(event.clientY - from.y) > LONG_PRESS_SLOP;
+        Math.abs(event.clientX - from.x) > TAP_SLOP || Math.abs(event.clientY - from.y) > TAP_SLOP;
       if (far) cancel();
     },
     onPointerUp: cancel,
