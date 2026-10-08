@@ -13,13 +13,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { today } from '../../shared/date.ts';
-import {
-  arrangeAroundToday,
-  type HistoryPages,
-  type HistorySource,
-  historyQueryOptions,
-} from './history.ts';
+import { type HistoryPages, type HistorySource, historyQueryOptions } from './history.ts';
 
 /**
  * 画面のデータの取得と配信。サーバーの状態は TanStack Query のキャッシュ（store）に 1 つだけ置き、
@@ -51,10 +45,8 @@ export function useScreenQueries<T extends unknown[]>(
 }
 
 /**
- * 画面が読む履歴を購読し、読んだページを古い順に繋いだ全部と、それを一覧の最初の位置より上（above）と
- * そこから下（below）に分けて画面に出す順（出どころが `oldestFirst` なら古い順、そうでなければ新しい順）に並べた物を返す。
- * 古い側の端（load。古い順なら上、新しい順なら下）へ近づいたら古いほうのページを読む（`HistoryList` にそのまま渡せる形）。
- * 画面（ルート）からだけ呼ぶ。
+ * 画面が読む履歴を購読し、読んだページを古い順に繋いだ全部を返す。画面（ルート）からだけ呼ぶ。
+ * 画面に出す向きと最初の位置での分け方は一覧の側が決める（`lib/ui/use-history-layout.ts`）。
  * - 絞り込みを変えたら、取り直せるまで前の結果を出したままにする（打つたびに骨組みへ戻さない）
  * - resetKey は取得のキーで、変わったら一覧を最初の位置（`HistoryList`）へ戻す合図。ready は出している結果が
  *   そのキーの物か（前の結果を出している間は位置を決めない）
@@ -79,24 +71,18 @@ export function useScreenHistory<T, F extends object>(source: HistorySource<T, F
     [queryClient, resetKey],
   );
   // pages[0] が最新のページ。各ページの中は古い順なので、ページを逆に並べて繋ぐ。
-  // 画面は入力のたびに描き直されるので、読んだページか日付が変わったときだけ繋ぎ直す
-  const day = today();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: source は機能ごとに 1 つの定数。day は今日で分け直す合図
-  const joined = useMemo(() => {
-    const items = data?.pages.toReversed().flatMap((page) => page.items);
-    // items は分けない全部（古い順）。今日で分けずに扱う所（タイムライン、立替の金額の列の幅）が繋ぎ直さずに済む
-    return items && { items, ...arrangeAroundToday(items, source) };
-  }, [data, day]);
-  const loadEarlier =
-    hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null;
+  // 画面は入力のたびに描き直されるので、読んだページが変わったときだけ繋ぎ直す
+  const items = useMemo(() => data?.pages.toReversed().flatMap((page) => page.items), [data]);
   return {
-    query: { data: joined, error },
+    /** 読んだ分の全部（古い順） */
+    query: { data: items, error },
+    /** 出どころ（一覧が並べ方を読む） */
+    source,
     resetKey,
     ready: data !== undefined && !isPlaceholderData,
     /** 古いほうのページを読む。読み込み中・読み切ったときは null（`EdgeLoader`） */
-    loadEarlier,
-    /** 古いほうのページを読み足す端と、読む物（`InfiniteScroll` の load） */
-    load: source.oldestFirst ? { top: loadEarlier } : { bottom: loadEarlier },
+    loadEarlier:
+      hasNextPage && !isFetchingNextPage && !isPlaceholderData ? () => void fetchNextPage() : null,
   };
 }
 

@@ -39,7 +39,7 @@ function BalancesPage() {
   useScreenQueries([accountsQueryOptions]);
   const history = useScreenHistory(balanceHistory, {});
   const accountsQuery = useStoreQuery(accountsQueryOptions);
-  const balances = history.query.data?.items ?? NO_BALANCES;
+  const balances = history.query.data ?? NO_BALANCES;
   const chart = useBalanceChart(balances, history.loadEarlier);
   const panel = useToggle();
   const names = useMemo(
