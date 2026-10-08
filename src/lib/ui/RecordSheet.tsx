@@ -11,7 +11,6 @@ import Typography from '@mui/material/Typography';
 import { type FormEvent, type ReactNode, type Ref, useState } from 'react';
 import { BottomSheet } from './BottomSheet.tsx';
 import { Dialog } from './Dialog.tsx';
-import { useDialogHistory } from './dialog-history.ts';
 import { SubmitButton } from './SubmitButton.tsx';
 import { useIsMobile } from './use-breakpoint.ts';
 
@@ -91,14 +90,12 @@ type Props = {
  */
 export function RecordSheet(props: Props) {
   const isMobile = useIsMobile();
-  // 履歴の項目はそれぞれが自分で持つ（`useDialogHistory`）ので、常にどちらか一方だけをマウントする
+  // 履歴の項目は入れ物がそれぞれ自分で持つ（`useDialogHistory`）ので、常にどちらか一方だけをマウントする
   return isMobile ? <Sheet {...props} /> : <Centered {...props} />;
 }
 
 /** スマホ: 画面の下から出るシート。下へスワイプすると閉じる */
 function Sheet(props: Props) {
-  // 戻る操作では前の画面へ行かずシートだけを閉じる
-  useDialogHistory(props.onClose);
   return (
     <BottomSheet
       open={props.open}

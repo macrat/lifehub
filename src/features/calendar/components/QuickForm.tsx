@@ -53,8 +53,6 @@ type Props = Pick<QuickProps, 'onExpand'> & {
  */
 export function QuickForm({ onExpand, ...props }: Props) {
   const isMobile = useIsMobile();
-  // 全画面のフォームと同じく、戻る操作では前の画面へ行かず下書きを取り消す
-  useDialogHistory(props.onClose);
   return isMobile ? (
     <QuickSheet {...props} />
   ) : (
@@ -184,6 +182,8 @@ function QuickBubble({
   onClose,
   onExpand,
 }: LayoutProps & { onExpand: () => void }) {
+  // 戻る操作では前の画面へ行かず下書きを取り消す（シートは `BottomSheet` が持つ。吹き出しは Popper なので自分で持つ）
+  useDialogHistory(onClose);
   const { form } = quick;
   const paperRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);

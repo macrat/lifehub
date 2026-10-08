@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import Paper from '@mui/material/Paper';
 import { type ReactNode, type RefObject, useEffect, useState } from 'react';
+import { useDialogHistory } from './dialog-history.ts';
 import { SLIDE_MS, sheetSx } from './sheet-style.ts';
 import { useSheetDrag } from './use-sheet-drag.ts';
 import { useSheetSize } from './use-sheet-size.ts';
@@ -72,6 +73,7 @@ const STEP_DISTANCE = 40;
  * 段を持たないシートでは、上へのスワイプは `onExpand` に渡す（中身を広げるのは呼び出し側の仕事）。
  *
  * 高さは `translateY` で見える量を変える。段の位置は中身の実測（`useSheetSize`）から決める。
+ * 開いている間は履歴に項目を 1 つ持ち（`useDialogHistory`）、戻る操作では前の画面へ行かずシートだけを閉じる。
  */
 export function BottomSheet({
   open = true,
@@ -85,6 +87,7 @@ export function BottomSheet({
   onExpand,
   children,
 }: Props) {
+  useDialogHistory(onClose);
   const [sheet, setSheet] = useState<HTMLElement | null>(null);
   const size = useSheetSize(sheet, peekRef);
   const [closing, setClosing] = useState(false);
