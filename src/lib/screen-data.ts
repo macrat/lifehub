@@ -7,6 +7,7 @@ import {
   type UseQueryOptions,
   type UseQueryResult,
   useInfiniteQuery,
+  useIsFetching,
   useQueries,
   useQuery,
   useQueryClient,
@@ -127,4 +128,23 @@ export function useStoreInfiniteQuery<TPage, TData, TPageParam>(
   options: UseInfiniteQueryOptions<TPage, Error, TData, QueryKey, TPageParam>,
 ) {
   return useInfiniteQuery({ ...options, enabled: false });
+}
+
+/**
+ * 画面が読むクエリの状態（`useQuery` / `useQueries` の結果をそのまま渡せる形）。
+ * `lib/ui/QueryView.tsx` が「手元のデータ・骨組み・失敗」の描き分けに使う。
+ */
+export type QueryState<T> = { data: T | undefined; error: Error | null };
+
+/**
+ * 手元に何も出せないまま取得を待っているか（画面上部のインジケータが見るもの）。
+ * 数に入れるのはデータを持たないクエリの取得だけで、キャッシュを出しながらの取り直しは入れない。
+ * WHY: 画面には既に中身が出ていて裏で差し替わるだけなので、待っていることを伝える相手がいない。
+ * 画面を移るたびに取り直す作りなので、入れてしまうと移動のたびに毎回インジケータが出る。
+ * WHY NOT 書き込みも数える: 結果は楽観的更新で先に画面へ出ており（`useOptimisticMutation`）、
+ * 送り直しの最中も画面は変わらない。諦めたときだけ通知が伝える。オフラインで溜めた書き込みに
+ * 至っては送られるまで終わらないので、数えると出したままになってしまう。
+ */
+export function useIsLoadingWithoutCache(): boolean {
+  return useIsFetching({ predicate: (query) => query.state.data === undefined }) > 0;
 }

@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { type ApiOutputs, api, write } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useOptimisticMutation } from '../../lib/mutation.ts';
 
 /** 記録投入用の API キー（[docs/features/api-keys.md](../../../docs/features/api-keys.md)） */
 export type ApiKey = ApiOutputs['apiKeys']['list'][number];

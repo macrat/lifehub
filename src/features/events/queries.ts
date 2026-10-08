@@ -17,12 +17,8 @@ import { eventEntry } from '../../../shared/timeline.ts';
 import type { updateEventSchema } from '../../../shared/validation/events.ts';
 import { type ApiInputs, api, write } from '../../lib/api.ts';
 import { monthRange, monthsInRange } from '../../lib/date.ts';
-import {
-  type QueryState,
-  useCreateMutation,
-  useOptimisticMutation,
-} from '../../lib/query-client.ts';
-import { useStoreQueries } from '../../lib/screen-data.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/mutation.ts';
+import { type QueryState, useStoreQueries } from '../../lib/screen-data.ts';
 import { applyToTimeline, findInTimeline, recordWriteKeys } from '../timeline/queries.ts';
 import { insertItem, removeItem, setCompleted, updateItem } from './optimistic.ts';
 import { CALENDAR_QUERY_KEY, EVENTS_QUERY_KEY } from './query-keys.ts';

@@ -16,7 +16,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Toolbar from '@mui/material/Toolbar';
 import { createLink, useLocation } from '@tanstack/react-router';
 import { type ReactNode, useRef } from 'react';
-import { useIsLoadingWithoutCache } from '../query-client.ts';
+import { useIsLoadingWithoutCache } from '../screen-data.ts';
 import { AppBarSlotOutlet, AppBarSlotProvider } from './app-bar-slot.tsx';
 import { scrollToInitialPosition } from './initial-position.ts';
 import { BOTTOM_NAV_HEIGHT, BOTTOM_NAV_TOP, MAIN_BOTTOM_PADDING } from './layout.ts';

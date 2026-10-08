@@ -18,12 +18,8 @@ import type {
 import { api, write } from '../../lib/api.ts';
 import type { HistorySource } from '../../lib/history.ts';
 import { putById } from '../../lib/list.ts';
-import {
-  type QueryState,
-  useCreateMutation,
-  useOptimisticMutation,
-} from '../../lib/query-client.ts';
-import { useStoreQuery } from '../../lib/screen-data.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/mutation.ts';
+import { type QueryState, useStoreQuery } from '../../lib/screen-data.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
 const MONEY_QUERY_KEY = ['money'] as const;

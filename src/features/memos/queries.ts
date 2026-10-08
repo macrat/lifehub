@@ -3,7 +3,7 @@ import { type Memo, sortPinnedMemos } from '../../../shared/memos.ts';
 import type { MemoInput } from '../../../shared/validation/memos.ts';
 import { api, write } from '../../lib/api.ts';
 import { signedInUserId } from '../../lib/auth.ts';
-import { useCreateMutation, useOptimisticMutation } from '../../lib/query-client.ts';
+import { useCreateMutation, useOptimisticMutation } from '../../lib/mutation.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { recordWriteKeys, timelineRecordCache } from '../timeline/queries.ts';
 
