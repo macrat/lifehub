@@ -20,7 +20,7 @@ import {
 } from '../../features/money/queries.ts';
 import { MONEY_FILTER_CONDITIONS, moneySearchSchema } from '../../features/money/search.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
-import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
+import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -53,9 +53,8 @@ function MoneyPage() {
   const search = Route.useSearch();
   const filter = useFilterSearch(search, MONEY_FILTER_CONDITIONS);
   // この画面が読むもの: 口座、精算の元になる合計、絞り込んだ履歴
-  useScreenQueries([accountsQueryOptions, totalsQueryOptions]);
+  const [accountsQuery] = useScreenQueries([accountsQueryOptions, totalsQueryOptions]);
   const history = useScreenHistory(moneyHistory, filter.listFilter);
-  const accountsQuery = useStoreQuery(accountsQueryOptions);
   const settlementsQuery = useSettlements();
   // 追加のフォームと、最初に入れておく値（精算のタイルから開くとその精算）
   const adding = useOpenWith<Partial<ExpenseInput>>();

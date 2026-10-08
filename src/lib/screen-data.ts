@@ -2,6 +2,7 @@ import {
   hashKey,
   keepPreviousData,
   type QueriesOptions,
+  type QueriesResults,
   type QueryKey,
   type UseInfiniteQueryOptions,
   type UseQueryOptions,
@@ -22,7 +23,7 @@ import { type HistoryPages, type HistorySource, historyQueryOptions } from './hi
  * - **取得**は画面（ルート。`src/routes/**`）が 1 か所で決める（`useScreenQueries` / `useScreenHistory`）。
  *   画面で読むクエリをすべてここで購読し、画面を開いている間の取り直し（画面に入ったとき・フォーカス・
  *   再接続・書き込みの後）はこの購読が受け持つ。1 つの画面の取得は同じ描画で一斉に始まるので、
- *   まとめて 1 本の要求で届く。
+ *   まとめて 1 本の要求で届く。画面が自分で出すものは購読の結果をそのまま使う。
  * - **配信**: 部品は store から読むだけで、自分では取得を始めない（`useStoreQuery` ほか。取得を
  *   止めた購読 `enabled: false` なので、キャッシュが変われば描き直されるが、問い合わせは出ない）。
  *   画面が購読していないクエリを読むと、骨組みのまま出続ける。
@@ -36,12 +37,13 @@ import { type HistoryPages, type HistorySource, historyQueryOptions } from './hi
 
 /**
  * 画面が読むクエリを購読する（取り直しはこの購読が起こす）。画面（ルート）からだけ呼ぶ。
- * 結果は返さない。部品は store から読む（`useStoreQuery` など）。
+ * 結果は並べたクエリの順に返す。画面が自分で出すもの（`QueryView` に渡す状態など）はこれを使い、
+ * 部品は store から読む（`useStoreQuery` など）。
  */
 export function useScreenQueries<T extends unknown[]>(
   queries: readonly [...QueriesOptions<T>],
-): void {
-  useQueries({ queries });
+): QueriesResults<T> {
+  return useQueries({ queries });
 }
 
 /**

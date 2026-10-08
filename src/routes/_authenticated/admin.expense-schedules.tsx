@@ -3,7 +3,7 @@ import type { ExpenseSchedule } from '../../../shared/money.ts';
 import { ExpenseScheduleList } from '../../features/money/components/ExpenseScheduleList.tsx';
 import { ExpenseScheduleSheet } from '../../features/money/components/ExpenseScheduleSheet.tsx';
 import { expenseSchedulesQueryOptions } from '../../features/money/queries.ts';
-import { useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
+import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { ListSkeleton, QueryView } from '../../lib/ui/QueryView.tsx';
 import { SubPageBar } from '../../lib/ui/SubPageBar.tsx';
@@ -22,8 +22,7 @@ export const Route = createFileRoute('/_authenticated/admin/expense-schedules')(
  */
 function AdminExpenseSchedulesPage() {
   // この画面が読むもの: 立替スケジュール
-  useScreenQueries([expenseSchedulesQueryOptions]);
-  const schedulesQuery = useStoreQuery(expenseSchedulesQueryOptions);
+  const [schedulesQuery] = useScreenQueries([expenseSchedulesQueryOptions]);
   // 開いているシート: null は追加、スケジュールはその変更
   const sheet = useOpenWith<{ schedule: ExpenseSchedule | null }>();
   return (
