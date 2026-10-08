@@ -1,6 +1,12 @@
-import { and, eq, type SQL } from 'drizzle-orm';
+import { eq, type SQL } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
-import { containsKeyword, insertOnce } from '../../lib/db/query.ts';
+import {
+  containsKeyword,
+  deleteById,
+  findById,
+  insertOnce,
+  updateById,
+} from '../../lib/db/query.ts';
 import { timelineQueries } from '../../lib/db/timeline.ts';
 import { type MemoRow, memos } from './schema.ts';
 
@@ -29,8 +35,7 @@ export async function insert(row: {
 }
 
 export async function exists(id: string): Promise<boolean> {
-  const [row] = await db.select({ id: memos.id }).from(memos).where(eq(memos.id, id));
-  return row !== undefined;
+  return (await findById(memos, id)) !== undefined;
 }
 
 /** createdBy が書いたメモの本文を置き換える（置き換えた行を返す）。書いた人・書いた MCP クライアント・書いた時刻は変えない */
@@ -39,22 +44,12 @@ export async function update(
   createdBy: string,
   body: string,
 ): Promise<MemoRow | undefined> {
-  const [updated] = await db
-    .update(memos)
-    .set({ body })
-    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
-    .returning();
-  return updated;
+  return updateById(memos, id, { body }, eq(memos.createdBy, createdBy));
 }
 
 /** メモのピン止めを変える（メモがあったか）。誰が書いたメモでも変えられる */
 export async function setPinned(id: string, pinned: boolean): Promise<boolean> {
-  const updated = await db
-    .update(memos)
-    .set({ pinned })
-    .where(eq(memos.id, id))
-    .returning({ id: memos.id });
-  return updated.length > 0;
+  return (await updateById(memos, id, { pinned })) !== undefined;
 }
 
 /** ピン止めしたメモ。並びは問わない（service が `sortPinnedMemos` で並べる） */
@@ -64,9 +59,5 @@ export async function findPinned(): Promise<MemoRow[]> {
 
 /** createdBy が書いたメモを消す。消した行を返す（無ければ undefined） */
 export async function remove(id: string, createdBy: string): Promise<MemoRow | undefined> {
-  const [deleted] = await db
-    .delete(memos)
-    .where(and(eq(memos.id, id), eq(memos.createdBy, createdBy)))
-    .returning();
-  return deleted;
+  return deleteById(memos, id, eq(memos.createdBy, createdBy));
 }

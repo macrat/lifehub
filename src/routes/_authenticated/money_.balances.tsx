@@ -9,7 +9,7 @@ import { BalanceChart } from '../../features/money/components/BalanceChart.tsx';
 import { accountsQueryOptions, balanceHistory } from '../../features/money/queries.ts';
 import { balanceSearchSchema } from '../../features/money/search.ts';
 import { useBalanceAccounts, useBalanceChart } from '../../features/money/use-balance-chart.ts';
-import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
+import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { FilterButton } from '../../lib/ui/FilterButton.tsx';
 import { FilterPanel } from '../../lib/ui/FilterPanel.tsx';
 import { FILL_HEIGHT, FILL_MARGIN_BOTTOM } from '../../lib/ui/layout.ts';
@@ -36,10 +36,9 @@ const NO_BALANCES: MoneyBalance[] = [];
 function BalancesPage() {
   const { accounts: selected } = Route.useSearch();
   // この画面が読むもの: 口座（並びと名前）、口座の値の推移
-  useScreenQueries([accountsQueryOptions]);
+  const [accountsQuery] = useScreenQueries([accountsQueryOptions]);
   const history = useScreenHistory(balanceHistory, {});
-  const accountsQuery = useStoreQuery(accountsQueryOptions);
-  const balances = history.query.data?.items ?? NO_BALANCES;
+  const balances = history.query.data ?? NO_BALANCES;
   const chart = useBalanceChart(balances, history.loadEarlier);
   const panel = useToggle();
   const names = useMemo(

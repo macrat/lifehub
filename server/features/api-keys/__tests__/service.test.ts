@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { db } from '../../../lib/db/client.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
+import { apiKeys } from '../schema.ts';
 import { authenticate, createKey, listKeys, revokeKey } from '../service.ts';
+
+const updatedAtOf = async () => (await db.select({ at: apiKeys.updatedAt }).from(apiKeys))[0]?.at;
 
 const now = new Date('2026-09-24T03:00:00Z');
 
@@ -17,8 +21,11 @@ describe('api-keys service', () => {
     const issued = await createKey({ name: 'レモンのボタン' }, userId);
     expect(issued.key).toMatch(/^[\w-]{43}$/);
     expect(issued.lastUsedAt).toBeNull();
+    const updatedAt = await updatedAtOf();
 
     expect(await authenticate(issued.key, now)).toEqual({ userId, name: 'レモンのボタン' });
+    // 使った日時の記録は行の中身を変えたのではないので、変えた日時（updated_at）は進めない
+    expect(await updatedAtOf()).toEqual(updatedAt);
     const [listed] = await listKeys(userId);
     expect(listed).toEqual({
       id: issued.id,

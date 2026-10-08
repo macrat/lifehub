@@ -19,7 +19,12 @@ export function useMyColor() {
   const update = useUpdateUser();
   const picked = usePreviewHue();
 
-  useEffect(() => () => previewHue(null), []);
+  // 選んでいる色は、保存済みの色が変わったとき（保存した・保存に失敗して戻った・ほかの端末で変えた）と、
+  // 使うのをやめたときに手放して、保存済みの色を出す。手放さないと、失敗して戻っても設定画面にいる間は選んだ色のままになる。
+  // WHY NOT 保存ボタンで手放す: 楽観的更新が `me.hue` に届くのは少し後なので、その間だけ前の色が出てちらつく。
+  // 保存済みの色が変わった後なら、保存したときは選んだ色と同じなので見た目は変わらない
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 保存済みの色が変わった合図だけに使う
+  useEffect(() => () => previewHue(null), [me?.hue]);
 
   const hue = picked ?? me?.hue ?? DEFAULT_HUE;
   return {
@@ -27,7 +32,7 @@ export function useMyColor() {
     hue,
     /**
      * 保存できる（＝保存済みの色と違う）か。保存すると楽観的更新で `me.hue` が先に変わるので、
-     * 押した時点で保存済みの色と同じになる。失敗すれば元に戻り、また押せる（通知も出る）。
+     * 押した時点で保存済みの色と同じになる。失敗すれば保存済みの色に戻る（通知も出る）。
      */
     changed: me != null && hue !== me.hue,
     pick: previewHue,

@@ -10,7 +10,7 @@ import { findDayRow } from './components/day-row.ts';
  * （読み足すたびに `InfiniteScroll` が置き直す）。
  */
 export function useRevealDay(history: ScreenHistory<WeatherDay>, day: DateString | undefined) {
-  const oldest = history.query.data?.items[0]?.date;
+  const oldest = history.query.data?.[0]?.date;
   const loadEarlier = useEffectEvent(() => history.loadEarlier?.());
   useEffect(() => {
     if (day !== undefined && oldest !== undefined && day < oldest) loadEarlier();

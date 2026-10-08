@@ -27,7 +27,7 @@ import { users } from '../users/schema.ts';
  * - 取り込んだ入出金（account が金融機関の名前）: amount は入金が正・出金が負。取り込みルール（`money_rules`）で
  *   「共有」との立替にしたものは from・to を持ち（入金は 対象者 → 共有、出金は 共有 → 対象者）、ただの支出は from・to とも null。
  *   内容欄は Money Forward のまま（`original_description`）と読み替えた後（`description`）の両方を持ち、ルールを変えたら
- *   取り込み直さずに読み替え直す（`service.ts` の `saveRules`）。`source_id` は Money Forward の明細の ID で、同じ明細を
+ *   取り込み直さずに読み替え直す（`sync.ts` の `saveRules`）。`source_id` は Money Forward の明細の ID で、同じ明細を
  *   2 度入れないための鍵。人が作る記録ではないので `created_by` は持たない。画面からは直さない
  * WHY 1 つの表: 画面では立替と入出金を 1 本の一覧に並べ、同じ絞り込みと精算に入れる。表を分けると、一覧のページ分け・
  * 絞り込み・精算の合計・タイムラインのどれにも 2 つの表をつなぐ読み替えが要る。
@@ -122,7 +122,7 @@ export type MoneyScheduleRow = typeof moneySchedules.$inferSelect;
  * Money Forward から取り込んだ口座の今の値（お金の画面のカード）。口座の名前ごとに 1 行で、取り込むたびに上書きする。
  * 人が作る記録ではなく外のサービスを写しただけなので、`created_by` などの共通の列は持たない（天気と同じ）。
  * どの口座をどの順に出すか・口座の種類は環境変数（`MONEYFORWARD_ACCOUNTS`）が決めるので、ここには値だけを置く。
- * 環境変数から外した口座の行は、次の取り込みで消す（`service.ts` の `syncMoneyForward`）。
+ * 環境変数から外した口座の行は、次の取り込みで消す（`sync.ts` の `syncMoneyForward`）。
  */
 export const moneyAccounts = pgTable('money_accounts', {
   /** Money Forward での金融機関の名前 */

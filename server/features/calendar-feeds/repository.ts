@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db, runBatch } from '../../lib/db/client.ts';
-import { participantsOf } from '../../lib/db/query.ts';
+import { keepUpdatedAt, participantsOf } from '../../lib/db/query.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -82,7 +82,7 @@ export async function touchByToken(
 ): Promise<{ participantIds: string[] } | undefined> {
   const touched = await db
     .update(calendarFeeds)
-    .set({ lastAccessedAt: now })
+    .set({ lastAccessedAt: now, updatedAt: keepUpdatedAt(calendarFeeds) })
     .where(eq(calendarFeeds.token, token))
     .returning({ participantIds: participantIdsOfRow() });
   return touched[0];

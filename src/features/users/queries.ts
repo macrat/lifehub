@@ -1,7 +1,7 @@
 import type { UpdateUserInput } from '../../../shared/validation/users.ts';
 import { write } from '../../lib/api.ts';
 import { type Me, meQueryOptions } from '../../lib/auth.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { useOptimisticMutation } from '../../lib/mutation.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
 
 export type User = Me['users'][number];

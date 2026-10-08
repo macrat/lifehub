@@ -1,5 +1,6 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { db } from '../../lib/db/client.ts';
+import { deleteById, keepUpdatedAt } from '../../lib/db/query.ts';
 import { type ApiKeyRow, apiKeys } from './schema.ts';
 
 export async function findByUser(userId: string): Promise<ApiKeyRow[]> {
@@ -22,11 +23,7 @@ export async function insert(values: {
 
 /** 失効。持ち主のものだけを消し、消せたかどうかを返す */
 export async function remove(id: string, userId: string): Promise<boolean> {
-  const removed = await db
-    .delete(apiKeys)
-    .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)))
-    .returning({ id: apiKeys.id });
-  return removed.length > 0;
+  return (await deleteById(apiKeys, id, eq(apiKeys.userId, userId))) !== undefined;
 }
 
 /**
@@ -39,7 +36,7 @@ export async function touchByHash(
 ): Promise<{ userId: string; name: string } | undefined> {
   const touched = await db
     .update(apiKeys)
-    .set({ lastUsedAt: now })
+    .set({ lastUsedAt: now, updatedAt: keepUpdatedAt(apiKeys) })
     .where(eq(apiKeys.keyHash, keyHash))
     .returning({ userId: apiKeys.userId, name: apiKeys.name });
   return touched[0];

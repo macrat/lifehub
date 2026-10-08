@@ -10,6 +10,7 @@ import {
 import type { TimelineEntry } from '../../../shared/timeline.ts';
 import { SHARED } from '../../../shared/validation/money.ts';
 import type { DailyWeather } from '../../../shared/weather.ts';
+import { actorOf } from '../actor.ts';
 import { authorName, nameOf, type Person } from '../people.ts';
 import { toRef } from './refs.ts';
 import { jstDateTime, whenOutput } from './time.ts';
@@ -109,10 +110,7 @@ export function formatCareLog(log: CareLog, people: Person[]) {
     at: jstDateTime(log.doneAt),
     careTypes: log.careTypes,
     ...compact({ note: log.note }),
-    by: authorName(
-      people,
-      log.createdBy ? { userId: log.createdBy } : { apiKeyName: log.apiKeyName ?? '' },
-    ),
+    by: authorName(people, actorOf(log)),
   };
 }
 

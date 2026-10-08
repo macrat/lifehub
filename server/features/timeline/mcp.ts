@@ -29,13 +29,20 @@ import * as events from '../events/service.ts';
 import * as lemon from '../lemon/service.ts';
 import * as memos from '../memos/service.ts';
 import * as money from '../money/service.ts';
-import { listDays, type TimelineDay } from './service.ts';
+import { type DayEntryType, listDays, type TimelineDay } from './service.ts';
 
 /**
  * タイムラインを中心にした MCP ツール。LifeHub の記録（予定・タスク・立替・レモンの世話・メモ）は、
  * どれも日付の上に並ぶエントリーとして読み（`read_timeline`）、エントリーの ref で書き換える・消す（`delete_entry`）。
  * 種類ごとの書き込み（追加・更新）は各 feature の mcp.ts が持つ。
  */
+
+// ref の種類（ENTRY_TYPES）と、タイムラインが並べる記録の種類（DayEntryType）は同じ物を指す。
+// 記録の種類を足したのに ref の種類に足し忘れると、read_timeline で絞れず delete_entry で消せない種類ができるので型で止める
+type _SameEntryTypes = Assert<
+  [DayEntryType] extends [EntryType] ? ([EntryType] extends [DayEntryType] ? true : false) : false
+>;
+type Assert<T extends true> = T;
 
 /** 1 回の read_timeline で返すエントリーの上限。越えた日からは省き、絞り方を添える（LLM の文脈を溢れさせない） */
 const MAX_ENTRIES = 200;

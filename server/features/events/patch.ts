@@ -3,25 +3,24 @@ import {
   type EventPatch,
   type EventValues,
   eventRulesSchema,
-  type OccurrenceTarget,
 } from '../../../shared/validation/events.ts';
 import { ValidationError } from '../../lib/errors.ts';
 import { applyPatch } from '../../lib/patch.ts';
 import type { EventWithParticipants } from './repository.ts';
-import { occurrenceRowOf, resolveTarget } from './targets.ts';
+import { occurrenceRowOf, type Target } from './targets.ts';
 
 /**
  * 一部の項目だけを変える更新（MCP。`applyPatch`）の、重ねた後の値。patch で undefined の項目は今の値のまま。
  * 種別を変えるときは、今の値を切り替えた種別の値に直してから重ねる（`switchedKind`）。
  * 予定の開始だけが指定されたら、終了も同じだけずらす（`keepDuration`）。
  * 終日と時刻ありを切り替えるときは、日時を持つ端をすべて指定させる（`requireBothEnds`）。
- * 繰り返し元は呼ぶ側（`service.ts` の `patchEvent`）が読んで渡し、書き込みにも同じものを使う。
+ * 繰り返し元と対象の回は呼ぶ側（`service.ts` の `patchEvent`）が読んで確かめて渡し、書き込みにも同じものを使う。
  * WHY 規則を service から分ける: LLM の頼み方（開始だけ・種別だけ）に合わせた補い方で、
  * 画面の書き込み（全項目を送る）には要らない。
  */
 export async function patchedInput(
   master: EventWithParticipants,
-  target: OccurrenceTarget,
+  target: Target,
   patch: EventPatch,
 ) {
   const current = switchedKind(await currentInput(master, target), patch);
@@ -77,11 +76,7 @@ function keepDuration(current: EventValues, patch: EventPatch): EventPatch {
  * all は繰り返し元。this / following はその回（実体化されていればその行、無ければ繰り返し元をずらした値）。
  * 繰り返し元の値で埋めると、回の日時が最初の回の日時に戻ってしまう。
  */
-async function currentInput(
-  master: EventWithParticipants,
-  input: OccurrenceTarget,
-): Promise<EventValues> {
-  const target = resolveTarget(master, input);
+async function currentInput(master: EventWithParticipants, target: Target): Promise<EventValues> {
   const row =
     target.scope === 'all' ? master : await occurrenceRowOf(master, target.occurrenceStart);
   return {

@@ -1,7 +1,7 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useState } from 'react';
 import type { FormSheetProps } from '../form.ts';
-import type { RecordAction } from './RecordSheet.tsx';
+import type { MenuAction } from './ActionMenu.tsx';
 
 type Options = {
   /** 開いた時点から入力欄にするか（行を長押しで開いたとき） */
@@ -13,7 +13,7 @@ type Options = {
   /** 削除の前に確かめる文と、消す処理。無ければ三点リーダーに削除を出さない（ほかの人のメモ） */
   remove?: { confirm: string; run: () => void } | undefined;
   /** 三点リーダーで削除の上に並べる、その記録だけの操作（メモのピン止め） */
-  actions?: RecordAction[];
+  actions?: MenuAction[];
   onClose: () => void;
 };
 
@@ -46,7 +46,7 @@ export function useRecordDetail({
 }
 
 /** 三点リーダーの削除の見た目。押したときの処理は記録の種類が決める（予定・タスクは範囲の選択を挟む） */
-export function deleteMenuAction(onClick: () => void): RecordAction {
+export function deleteMenuAction(onClick: () => void): MenuAction {
   return { label: '削除', icon: <DeleteIcon />, danger: true, onClick };
 }
 
@@ -57,7 +57,7 @@ export function deleteMenuAction(onClick: () => void): RecordAction {
 export function deleteAction(
   remove: NonNullable<Options['remove']>,
   onClose: () => void,
-): RecordAction {
+): MenuAction {
   return deleteMenuAction(() => {
     if (!window.confirm(remove.confirm)) return;
     remove.run();
