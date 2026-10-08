@@ -69,10 +69,18 @@ function allDayOf(...whens: (When | undefined)[]): boolean | undefined {
   return allDay;
 }
 
-/** 参加者の名前 → ID。省けば自分だけ */
-function participantIdsOf(ctx: McpContext, people: Person[], names: string[] | undefined) {
+/**
+ * 参加者の名前 → ID。省けば自分だけ。ユーザーの一覧は名前を渡されたときだけ待つ
+ * （書き込みの読み出しと同じ時点に投げれば、1 往復にまとまる）
+ */
+async function participantIdsOf(
+  ctx: McpContext,
+  people: Promise<Person[]>,
+  names: string[] | undefined,
+) {
   if (!names) return [ctx.userId];
-  return [...new Set(names.map((name) => resolvePerson(people, name, ctx.userId)))];
+  const list = await people;
+  return [...new Set(names.map((name) => resolvePerson(list, name, ctx.userId)))];
 }
 
 const kindSchema = eventFieldTypes.kind.describe(
@@ -142,7 +150,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
         : defaultTaskStart();
       const endsAt =
         input.kind === 'event' ? (end ? instantOf(end) : defaultEventEnd(allDay, startsAt)) : null;
-      const people = await ctx.people();
+      const people = ctx.people();
       const created = await service.createEvent(
         {
           kind: input.kind,
@@ -150,7 +158,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
           allDay,
           startsAt,
           endsAt,
-          participantIds: participantIdsOf(ctx, people, input.participants),
+          participantIds: await participantIdsOf(ctx, people, input.participants),
           location: input.location ?? null,
           note: input.note ?? null,
           rrule: input.repeat ?? null,
@@ -159,7 +167,7 @@ function registerAdd(server: McpServer, ctx: McpContext) {
         },
         ctx.userId,
       );
-      return jsonResult(formatEvent(created, people));
+      return jsonResult(formatEvent(created, await people));
     },
   );
 }
@@ -195,14 +203,15 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
       // 終わりを持てるかは変えた後の種類で決める（タスクを予定にするなら end を渡せる）
       rejectTaskEnd(input.kind ?? ref.type, input);
       const { end } = input;
-      const people = await ctx.people();
+      const people = ctx.people();
       const patch: EventPatch = {
         kind: input.kind,
         title: input.title,
         allDay: allDayOf(input.start, end),
         startsAt: input.start && instantOf(input.start),
         endsAt: end && instantOf(end),
-        participantIds: input.participants && participantIdsOf(ctx, people, input.participants),
+        participantIds:
+          input.participants && (await participantIdsOf(ctx, people, input.participants)),
         location: input.location,
         note: input.note,
         rrule: input.repeat,
@@ -210,7 +219,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
         remindEndMinutes: input.remindBeforeEnd,
       };
       const updated = await service.patchEvent(ref.id, target, patch, ctx.userId);
-      return jsonResult(formatEvent(updated, people));
+      return jsonResult(formatEvent(updated, await people));
     },
   );
 

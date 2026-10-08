@@ -8,7 +8,7 @@ import { createEvent, deleteEvent } from '../../events/service.ts';
 import { logCare } from '../../lemon/service.ts';
 import { addMemo, deleteMemo, updateMemo } from '../../memos/service.ts';
 import { deliver as deliverNotification, enqueueRange } from '../../notifications/service.ts';
-import { subscribe, unsubscribe } from '../service.ts';
+import { subscribe, unsubscribe } from '../subscriptions.ts';
 import * as webhook from '../webhook.ts';
 import { holdDeliveries, newSecret, receiver } from './fixtures.ts';
 

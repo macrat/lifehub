@@ -7,7 +7,7 @@ import {
   type CareLogListQuery,
   careLogRulesSchema,
 } from '../../../shared/validation/lemon.ts';
-import type { Actor } from '../../lib/actor.ts';
+import { type Actor, actorColumns } from '../../lib/actor.ts';
 import { NotFoundError } from '../../lib/errors.ts';
 import { applyPatch, checkRules } from '../../lib/patch.ts';
 import { recordTimelineSource } from '../../lib/timeline-source.ts';
@@ -52,8 +52,7 @@ export async function logCare(
     await repository.insert({
       ...checkRules(input, careLogRulesSchema),
       id,
-      createdBy: 'userId' in source ? source.userId : null,
-      apiKeyName: 'apiKeyName' in source ? source.apiKeyName : null,
+      ...actorColumns(source),
     }),
   );
   publishChanged({ type: 'lemon', record: log }, 'added', source);

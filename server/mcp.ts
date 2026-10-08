@@ -48,7 +48,12 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId?: stri
   const ctx: McpContext = {
     userId,
     people: () => {
-      people ??= listPeople();
+      if (!people) {
+        people = listPeople();
+        // 書き込みと並べて読み、書き込みの失敗で待たれずに終わることがある。そのときの失敗を未処理の拒否にしない
+        // （待つ側には同じ失敗が届く）
+        people.catch(() => {});
+      }
       return people;
     },
     // 名前の無いクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す

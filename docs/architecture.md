@@ -108,9 +108,9 @@ server/                       # サーバー（Hono）
                               #   weather/jma.ts（気象庁の JSON の取得と読み取り）・weather/telops.ts（天気コードの表）、
                               #   money/sync.ts（Money Forward の取り込み・口座・取り込みルール）・
                               #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
-                              # 分けた業務ロジックも、ほかの feature と入口（routes・mcp・cron）からは service.ts の再 export で読む
+                              # 分けた業務ロジックも、ほかの feature と server/ 直下の入口からは service.ts（の再 export）で読む
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
-  features/mcp-events/        # MCP Events の購読（service・repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
+  features/mcp-events/        # MCP Events の配信（service）、購読の作成と取り消し（subscriptions.ts）、購読の台帳（repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
     db/（DB の土台。client.ts = 接続と runBatch、schema.ts = 全 feature の schema の集約、oauth-schema.ts = OAuth プラグインの表、
