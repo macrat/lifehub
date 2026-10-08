@@ -48,7 +48,7 @@ const fields = {
   location: eventFieldTypes.location.describe('場所'),
   note: eventFieldTypes.note.describe('メモ'),
   repeat: eventFieldTypes.rrule.describe(
-    '繰り返し。RFC 5545 の RRULE（DTSTART なし。開始が基準）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）',
+    '繰り返し。RFC 5545 の RRULE（DTSTART なし。開始が基準）。例: 毎週月曜 "FREQ=WEEKLY;BYDAY=MO"、毎月末 "FREQ=MONTHLY;BYMONTHDAY=-1"、年末まで毎日 "FREQ=DAILY;UNTIL=20261231T235959"（UNTIL は JST）、5 回だけ毎週 "FREQ=WEEKLY;COUNT=5"。終わりは COUNT か UNTIL のどちらか一方',
   ),
   remind: (what: string) =>
     eventFieldTypes.remindStartMinutes.describe(

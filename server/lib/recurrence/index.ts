@@ -88,9 +88,20 @@ function parseRRule(rrule: string): Partial<Options> {
   return options;
 }
 
-/** RRULE 文字列を検証し、正規形（rrule ライブラリの出力）にして返す。 */
+/**
+ * RRULE 文字列を検証し、正規形（rrule ライブラリの出力）にして返す。保存する前（予定・タスクの書き込み）に通す。
+ * COUNT と UNTIL の両方を持つものは拒む（RFC 5545 が禁じている。どちらで終わるかが決まらない）。
+ * WHY NOT 展開（`parseRRule`）でも拒む: 保存済みのルールが両方を持っていると、その予定を含む期間の
+ * 読み出しがすべて失敗する。拒むのは書き込みだけにし、保存済みのものは rrule ライブラリの解釈で展開を続ける。
+ */
 export function normalizeRRule(rrule: string): string {
-  return RRule.optionsToString(parseRRule(rrule)).replace(/^RRULE:/, '');
+  const options = parseRRule(rrule);
+  if (options.count != null && options.until != null) {
+    throw new ValidationError(
+      '繰り返しの終わりは、回数（COUNT）か終了日（UNTIL）のどちらか一方で指定してください',
+    );
+  }
+  return RRule.optionsToString(options).replace(/^RRULE:/, '');
 }
 
 /**
