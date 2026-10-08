@@ -21,5 +21,19 @@ updates:
         patterns:
           - '*'
 
-# GitHub Actions と Terraform は対象にしない。Terraform のプロバイダ更新はリソース再作成の事故を
-# 避けるためバージョン制約を編集する PR で行う（docs/development.md）。
+  # GitHub Actions。ワークフローの uses はコミット SHA で固定している（docs/development.md）ので、
+  # SHA と横のバージョンのコメントを一緒に書き換える PR を作らせる。
+  # 猶予と 1 PR へのまとめ方は npm と同じ理由。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+
+# Terraform は対象にしない。プロバイダ更新はリソース再作成の事故を避けるため、バージョン制約を
+# 編集する PR で行う（docs/development.md）。

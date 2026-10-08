@@ -24,10 +24,11 @@
 6. Money Forward ME（有料プラン）のログインに使うメールアドレスとパスワード、取り込む口座の並び（書き方は [features/money.md](features/money.md#口座の指定)）を用意する。Money Forward ID で 2 段階認証（認証アプリ）を使うなら、その秘密鍵（base32）も控える。新しい端末からのログインでメールの確認コードを求められると取り込めないので、認証アプリの 2 段階認証を設定しておく。
 7. 上記を GitHub Secrets に登録する:
    `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`, `TF_VAR_moneyforward_email`, `TF_VAR_moneyforward_password`, `TF_VAR_moneyforward_accounts`（2 段階認証を使うなら `TF_VAR_moneyforward_totp_secret`、グループで絞るなら `TF_VAR_moneyforward_group` も）
-8. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
-9. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
-10. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
-11. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
+8. GitHub リポジトリの Settings → Actions → General で **Require actions to be pinned to a full-length commit SHA** を有効にする（理由は [development.md](development.md#依存の取り込み)）。
+9. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
+10. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
+11. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
+12. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
 
 ## Terraform（`infra/`）
 
