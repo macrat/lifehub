@@ -6,12 +6,12 @@ import * as service from './service.ts';
 export const pushRouter = router({
   vapidPublicKey: procedure.query(() => ({ publicKey: service.vapidPublicKey() })),
   status: procedure.input(pushEndpointRefSchema).query(async ({ ctx, input }) => ({
-    subscribed: await service.isSubscribed(ctx.userId, input.endpoint),
+    subscribed: await service.isSubscribed(ctx.user.id, input.endpoint),
   })),
   subscribe: procedure.input(pushSubscriptionSchema).mutation(async ({ ctx, input }) => {
-    await service.subscribe(ctx.userId, input, ctx.userAgent);
+    await service.subscribe(ctx.user.id, input, ctx.userAgent);
   }),
   unsubscribe: procedure.input(pushEndpointRefSchema).mutation(async ({ ctx, input }) => {
-    await service.unsubscribe(ctx.userId, input.endpoint);
+    await service.unsubscribe(ctx.user.id, input.endpoint);
   }),
 });

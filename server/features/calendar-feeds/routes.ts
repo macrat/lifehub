@@ -9,17 +9,17 @@ import * as service from './service.ts';
  * 発行した URL は、画面は書き込み後に取り直す一覧から読む（発行の応答も何も返さない）。
  */
 export const calendarFeedsRouter = router({
-  list: procedure.query(async ({ ctx }) => service.listFeeds(ctx.userId)),
+  list: procedure.query(async ({ ctx }) => service.listFeeds(ctx.user.id)),
   create: procedure.input(calendarFeedSchema).mutation(async ({ ctx, input }) => {
-    await service.createFeed(input, ctx.userId);
+    await service.createFeed(input, ctx.user.id);
   }),
   update: procedure
     .input(withId(calendarFeedSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateFeed(id, input, ctx.userId);
+      await service.updateFeed(id, input, ctx.user.id);
     }),
   revoke: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
-    await service.revokeFeed(input.id, ctx.userId);
+    await service.revokeFeed(input.id, ctx.user.id);
   }),
 });
 

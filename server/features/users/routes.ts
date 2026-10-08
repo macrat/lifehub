@@ -16,6 +16,6 @@ export const usersRouter = router({
   update: procedure
     .input(withId(updateUserSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateUser(id, input, ctx.userId);
+      await service.updateUser(id, input, ctx.user.id);
     }),
 });

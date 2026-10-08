@@ -11,11 +11,12 @@ import { setSentryUser } from './sentry.ts';
  * 手続きを並べて実行するので、DB の問い合わせも 1 往復にまとまる（`lib/db/coalesce-reads.ts`）。
  * 外と約束した口（better-auth・MCP・ics の配信・記録投入・Cron・QStash）は Hono のまま（`server/app.ts`）。
  *
- * コンテキストはログイン中のユーザー（を検証する関数。下の `createContext`）。検証の扱いは `authed` が決める。
+ * 要求ごとのコンテキスト（下の `createContext`）はセッションを検証する関数を持ち、`authed` がそれを待って
+ * ログイン中のユーザーを `ctx.user` に足す。
  */
 type TrpcContext = {
   /** セッションの検証。最初に呼んだときに始め、同じ要求の中では同じ Promise を返す */
-  authenticate: () => Promise<AuthUser>;
+  verifySession: () => Promise<AuthUser>;
   /** 要求の User-Agent（プッシュの購読に端末の名前として残す） */
   userAgent: string | null;
   /** 要求ごとに 1 つだけ作る値の置き場（`perRequest`） */
@@ -39,7 +40,7 @@ async function authenticate(headers: Headers): Promise<AuthUser> {
 export function createContext(req: Request): TrpcContext {
   let user: Promise<AuthUser> | undefined;
   return {
-    authenticate: () => {
+    verifySession: () => {
       user ??= authenticate(req.headers);
       return user;
     },
@@ -77,8 +78,7 @@ const t = initTRPC.context<TrpcContext>().create({
 
 /**
  * ログインを必須にする。サーバー側のこの検証が唯一の防御線（クライアントのルートガードは UX のためだけ）。
- * 読み出しも書き込みも、検証が通ってから手続きを走らせ、ログイン中のユーザーを `ctx.user`、
- * その ID を `ctx.userId` に置く。
+ * 読み出しも書き込みも、検証が通ってから手続きを走らせ、ログイン中のユーザーを `ctx.user` に置く。
  *
  * WHY NOT 読み出しを検証と並べて走らせる（検証が通らなければ結果を捨てる）: 検証と読み取りが DB へ
  * 1 往復にまとまる代わりに、ログインしていない要求でも手続きの処理が最後まで走り、入力しだいで重くなる
@@ -89,8 +89,7 @@ const t = initTRPC.context<TrpcContext>().create({
  * （パスワードの変更・ログアウト）が次の要求から効かなくなる（`lib/auth.ts`）。
  */
 const authed = t.middleware(async ({ ctx, next }) => {
-  const user = await ctx.authenticate();
-  return next({ ctx: { user, userId: user.id } });
+  return next({ ctx: { user: await ctx.verifySession() } });
 });
 
 /** service が投げる業務エラー（`lib/errors.ts`）を、tRPC の失敗の種類に置き換える。残るのは想定外の失敗だけ */
@@ -106,6 +105,8 @@ const domainErrors = t.middleware(async ({ next }) => {
 /**
  * 手続きごとに Sentry のスパンを作る（名前は `trpc/timeline.get` のような手続きの名前）。1 本の要求に
  * いくつもの手続きが載るので、どの手続きに時間が掛かったかを手続きの単位で見られるようにする。
+ * スパンはログインの検証（`authed`）の後に始める。検証は 1 本の要求に載った手続きが分け合うので、
+ * 中に入れるとどの手続きのスパンにも同じ待ち時間が載り、遅い手続きを見分けられなくなる。
  * WHY NOT `Sentry.trpcMiddleware`: 失敗をすべて（業務エラーや入力の検証の失敗も）報告する。エラーの報告は
  * `console.error` の 1 経路にまとめている（`lib/sentry.ts`）ので、スパンだけを作る
  */
@@ -121,4 +122,4 @@ const traced = t.middleware(({ path, type, next }) =>
 );
 
 export const router = t.router;
-export const procedure = t.procedure.use(traced).use(authed).use(domainErrors);
+export const procedure = t.procedure.use(authed).use(traced).use(domainErrors);

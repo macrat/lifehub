@@ -23,22 +23,22 @@ export const moneyRouter = router({
   create: procedure
     .input(createExpenseRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addExpense(input, ctx.userId, id);
+      await service.addExpense(input, ctx.user.id, id);
     }),
   update: procedure
     .input(withId(expenseSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateExpense(id, input, ctx.userId);
+      await service.updateExpense(id, input, ctx.user.id);
     }),
   delete: procedure.input(idParamSchema).mutation(async ({ ctx, input }) => {
-    await service.deleteExpense(input.id, ctx.userId);
+    await service.deleteExpense(input.id, ctx.user.id);
   }),
   /** 立替スケジュール（作った順）。日が来たら、この内容の立替を記録する */
   schedules: procedure.query(() => service.listExpenseSchedules()),
   createSchedule: procedure
     .input(createExpenseScheduleRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.addExpenseSchedule(input, ctx.userId, id);
+      await service.addExpenseSchedule(input, ctx.user.id, id);
     }),
   updateSchedule: procedure
     .input(withId(expenseScheduleSchema))
@@ -55,6 +55,6 @@ export const moneyRouter = router({
     .query(({ input }) => service.getBalancePage(input.before)),
   rules: procedure.query(() => service.listRules()),
   saveRules: procedure.input(moneyRulesSchema).mutation(async ({ ctx, input }) => {
-    await service.saveRules(input, ctx.userId);
+    await service.saveRules(input, ctx.user.id);
   }),
 });

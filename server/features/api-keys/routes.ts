@@ -5,12 +5,12 @@ import * as service from './service.ts';
 
 /** API キーの管理。ログイン中のユーザー自身のキーだけを扱う */
 export const apiKeysRouter = router({
-  list: procedure.query(async ({ ctx }) => service.listKeys(ctx.userId)),
+  list: procedure.query(async ({ ctx }) => service.listKeys(ctx.user.id)),
   /** 発行したキーそのものは、この応答でしか見せられないので返す */
   create: procedure
     .input(apiKeySchema)
-    .mutation(async ({ ctx, input }) => service.createKey(input, ctx.userId)),
+    .mutation(async ({ ctx, input }) => service.createKey(input, ctx.user.id)),
   revoke: procedure
     .input(idParamSchema)
-    .mutation(async ({ ctx, input }) => service.revokeKey(input.id, ctx.userId)),
+    .mutation(async ({ ctx, input }) => service.revokeKey(input.id, ctx.user.id)),
 });

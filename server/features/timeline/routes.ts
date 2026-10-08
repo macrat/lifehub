@@ -6,5 +6,5 @@ import * as service from './service.ts';
 export const timelineRouter = router({
   get: procedure
     .input(timelineQuerySchema)
-    .query(({ ctx, input }) => service.getTimelinePage(input, ctx.userId)),
+    .query(({ ctx, input }) => service.getTimelinePage(input, ctx.user.id)),
 });

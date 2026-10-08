@@ -15,26 +15,26 @@ export const eventsRouter = router({
   create: procedure
     .input(createEventRequestSchema)
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.createEvent(input, ctx.userId, id);
+      await service.createEvent(input, ctx.user.id, id);
     }),
   update: procedure
     .input(withId(updateEventSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.updateEvent(id, input, ctx.userId);
+      await service.updateEvent(id, input, ctx.user.id);
     }),
   delete: procedure
     .input(withId(occurrenceTargetSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.deleteEvent(id, input, ctx.userId);
+      await service.deleteEvent(id, input, ctx.user.id);
     }),
   complete: procedure
     .input(withId(completeEventRequestSchema))
     .mutation(async ({ ctx, input: { id, completedAt, ...input } }) => {
-      await service.completeEvent(id, input, ctx.userId, completedAt);
+      await service.completeEvent(id, input, ctx.user.id, completedAt);
     }),
   uncomplete: procedure
     .input(withId(completeEventSchema))
     .mutation(async ({ ctx, input: { id, ...input } }) => {
-      await service.uncompleteEvent(id, input, ctx.userId);
+      await service.uncompleteEvent(id, input, ctx.user.id);
     }),
 });
