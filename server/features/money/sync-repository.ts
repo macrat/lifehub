@@ -1,4 +1,4 @@
-import { and, asc, gte, isNotNull, lt, lte, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, gte, isNotNull, lt, lte, notInArray, sql } from 'drizzle-orm';
 import type { DateRange } from '../../../shared/date.ts';
 import type { DateString } from '../../../shared/types.ts';
 import type { MoneyRule } from '../../../shared/validation/money.ts';
@@ -25,6 +25,20 @@ const imported = isNotNull(moneyRecords.account);
 /** 口座の今の値（取り込んでいる口座の分だけ。外した口座の行は取り込みで消す） */
 export async function findAccounts(): Promise<MoneyAccountRow[]> {
   return db.select().from(moneyAccounts);
+}
+
+/** 口座ごとの、on の日までの最後の記録の値（その日の口座の値）。その日までの記録が無い口座は入らない */
+export async function findBalancesAsOf(
+  on: DateString,
+): Promise<Pick<MoneyBalanceRow, 'account' | 'balance'>[]> {
+  return db
+    .selectDistinctOn([moneyBalances.account], {
+      account: moneyBalances.account,
+      balance: moneyBalances.balance,
+    })
+    .from(moneyBalances)
+    .where(lte(moneyBalances.recordedOn, on))
+    .orderBy(moneyBalances.account, desc(moneyBalances.recordedOn));
 }
 
 /** 取り込んだ明細 1 件（ルールで読み替えた後の値も持つ） */

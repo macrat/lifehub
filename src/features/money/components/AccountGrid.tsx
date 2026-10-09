@@ -1,7 +1,7 @@
 import type { MoneyAccount } from '../../../../shared/money.ts';
 import { formatMonthDay } from '../../../lib/date.ts';
 import { StatusTile, StatusTileSkeleton, TileGrid } from '../../../lib/ui/StatusTile.tsx';
-import { formatYen } from '../../../lib/yen.ts';
+import { formatSignedYen, formatYen } from '../../../lib/yen.ts';
 
 /**
  * スマホは 3 列、広い画面は 4 列（口座は数枚なので、1〜2 行に収まる）。
@@ -20,7 +20,8 @@ type Props = {
 
 /**
  * 口座のタイル（お金の画面）。並びはサーバーの環境変数に書いた順。
- * 銀行は残高、証券は評価額、クレジットカードは次回の引き落とし額と日を出す（種類は `MoneyAccount` の kind）。
+ * 銀行は残高、証券は評価額と、その下に 30 日前の値からの差（`MoneyAccount` の balanceChange）を出す。
+ * クレジットカードは次回の引き落とし額と日を出す（種類は `MoneyAccount` の kind）。
  * タイルはレモン・精算と同じもの（`StatusTile`）。押すとその口座の値の推移が開く。
  */
 export function AccountGrid({ accounts, onSelect }: Props) {
@@ -43,9 +44,11 @@ function tileValues(account: MoneyAccount): { value: string; sub: string } {
   const yen = (amount: number | null) => (amount === null ? UNKNOWN : formatYen(amount));
   switch (account.kind) {
     case 'bank':
-      return { value: yen(account.balance), sub: '残高' };
     case 'securities':
-      return { value: yen(account.balance), sub: '評価額' };
+      return {
+        value: yen(account.balance),
+        sub: account.balanceChange === null ? UNKNOWN : formatSignedYen(account.balanceChange),
+      };
     case 'card':
       return {
         value: yen(account.withdrawalAmount),

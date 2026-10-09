@@ -196,6 +196,11 @@ export type MoneyAccount = {
   kind: MoneyAccountKind;
   /** 銀行の残高・証券の評価額（円）。クレジットカード、まだ取り込んでいない、または読めなかったら null */
   balance: number | null;
+  /**
+   * balance の、BALANCE_CHANGE_DAYS 日前の値からの差（円。増えたら正）。その日の値は、その日までの最後の記録（`money_balances`）。
+   * balance が null、またはその日までの記録が無ければ null
+   */
+  balanceChange: number | null;
   /** クレジットカードの次回の引き落とし額（円）。カード以外、または読めなかったら null */
   withdrawalAmount: number | null;
   /** クレジットカードの次回の引き落とし日。カード以外、または読めなかったら null */
@@ -209,6 +214,9 @@ export type MoneyAccount = {
  * （使ってまだ払っていない額）を負の数で持つ。グラフでは負債を 0 より下へ積む
  */
 export type MoneyBalance = { account: string; on: DateString; amount: number };
+
+/** 口座のタイルで、今の値と比べる過去の日（何日前か） */
+export const BALANCE_CHANGE_DAYS = 30;
 
 /** 残高の推移のグラフが最初に出す期間の長さ（か月）。今日までの過去 3 か月 */
 export const BALANCE_WINDOW_MONTHS = 3;
