@@ -3,8 +3,8 @@ import { expect, it, vi } from 'vitest';
 import type { CalendarItem, CalendarPeriod } from '../../../../shared/calendar.ts';
 import type { DateString } from '../../../../shared/types.ts';
 import { renderHook } from '../../../lib/__tests__/render-hook.ts';
+import { CALENDAR_QUERY_KEY } from '../../events/query-keys.ts';
 import { useCalendarItems } from '../queries.ts';
-import { CALENDAR_QUERY_KEY } from '../query-keys.ts';
 
 /**
  * 描き直しても手元のキャッシュが変わらなければ、繋ぎ直さずに同じ配列を返す。

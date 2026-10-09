@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { type ApiOutputs, api, write } from '../../lib/api.ts';
-import { useOptimisticMutation } from '../../lib/query-client.ts';
+import { putById } from '../../lib/list.ts';
+import { useOptimisticMutation } from '../../lib/mutation.ts';
 
 /** カレンダーの ics 配信 URL（[docs/features/calendar-feeds.md](../../../docs/features/calendar-feeds.md)） */
 export type CalendarFeed = ApiOutputs['calendarFeeds']['list'][number];
@@ -51,8 +52,9 @@ export function useRevokeCalendarFeed() {
     queue: false,
     keys: [calendarFeedsQueryOptions.queryKey],
     apply: (client, id) => {
-      client.setQueryData(calendarFeedsQueryOptions.queryKey, (feeds) =>
-        feeds?.filter((feed) => feed.id !== id),
+      client.setQueryData(
+        calendarFeedsQueryOptions.queryKey,
+        (feeds) => feeds && putById(feeds, id, null),
       );
     },
   });

@@ -1,4 +1,3 @@
-import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { iso, jst } from '../../shared/__tests__/jst.ts';
 import type { DateString } from '../../shared/types.ts';
@@ -7,6 +6,7 @@ import { weather, weatherHourly } from '../features/weather/schema.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
 import { apiClient, batchedApiClient, loginAs } from './login.ts';
+import { recordStatements } from './statements.ts';
 
 /** 祝日の配布元の応答（2030-05-06 と、期間の外の 2030-07-15） */
 const ICS = [
@@ -34,21 +34,6 @@ async function insertWeather() {
     { startsAt: jst('2030-05-31T21:00'), weather: '晴れ' },
     { startsAt: jst('2030-06-01T00:00'), weather: '晴れ' },
   ]);
-}
-
-/** 行った SQL 文（node-postgres の接続が送ったもの。トランザクションの中の文も含む） */
-function recordStatements(): string[] {
-  const statements: string[] = [];
-  const query = pg.Client.prototype.query;
-  vi.spyOn(pg.Client.prototype, 'query').mockImplementation(function (
-    this: pg.Client,
-    ...args: unknown[]
-  ) {
-    const config = args[0];
-    statements.push(typeof config === 'string' ? config : (config as { text: string }).text);
-    return (query as (...a: unknown[]) => unknown).apply(this, args) as never;
-  });
-  return statements;
 }
 
 /** 月の全日（画面は月ごとに 1 回ずつ呼ぶ。`calendarMonthQueryOptions`） */

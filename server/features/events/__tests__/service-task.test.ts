@@ -214,6 +214,34 @@ describe('events service', () => {
       ]);
     });
 
+    it('「これ以降すべて」の分割でも、以降の完了した回は履歴として新しい繰り返しに残る', async () => {
+      const created = await createEvent(weeklyTask(), userId);
+      // 先の回（9/28）を早めに完了しておく
+      await completeEvent(
+        created.id,
+        { occurrenceStart: jst('2026-09-28T09:00:00') },
+        userId,
+        jst('2026-09-10T10:00:00'),
+      );
+      await updateEvent(
+        created.id,
+        updateEventSchema.parse({
+          ...weeklyTask(),
+          title: '資源ゴミ',
+          startsAt: iso('2026-09-21T09:00:00'),
+          scope: 'following',
+          occurrenceStart: iso('2026-09-21T09:00:00'),
+        }),
+        userId,
+      );
+      const completed = (await listItems(september, jst('2026-09-12T12:00:00'))).filter(
+        (t) => t.completedAt !== null,
+      );
+      expect(completed.map((t) => [t.id === created.id, t.occurrenceStart, t.completedAt])).toEqual(
+        [[false, iso('2026-09-28T09:00:00'), iso('2026-09-10T10:00:00')]],
+      );
+    });
+
     it('「すべて」の変更で基準日時が変わっても、完了した回は履歴として残る', async () => {
       const created = await createEvent(weeklyTask(), userId);
       await completeEvent(

@@ -31,7 +31,7 @@ export function TimelineList({ timeline, emptyMessage, onSelect }: Props) {
   return (
     <>
       <QueryView query={timeline.query} skeleton={<ListSkeleton />}>
-        {({ items }) =>
+        {(items) =>
           items.length === 0 ? (
             <EmptyMessage>{emptyMessage}</EmptyMessage>
           ) : (

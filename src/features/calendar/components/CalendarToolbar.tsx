@@ -2,10 +2,8 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import TodayIcon from '@mui/icons-material/Today';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import type { ComponentProps } from 'react';
-import { useState } from 'react';
+import { ActionMenu } from '../../../lib/ui/ActionMenu.tsx';
 import { FilterSearchField } from '../../../lib/ui/FilterSearchField.tsx';
 import type { PeriodView } from '../use-calendar-page.ts';
 import type { CalendarView } from '../view.ts';
@@ -47,7 +45,6 @@ export function CalendarToolbar({
   onChangeView,
   search,
 }: Props) {
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
       {view === 'list' ? (
@@ -77,30 +74,25 @@ export function CalendarToolbar({
           </IconButton>
         </>
       )}
-      <Button
-        color="inherit"
-        onClick={(e) => setMenuAnchor(e.currentTarget)}
-        endIcon={<ArrowDropDownIcon />}
-        aria-label="表示の切替"
-        aria-haspopup="menu"
-        sx={{ minWidth: 0, px: 1, whiteSpace: 'nowrap', '& .MuiButton-endIcon': { ml: 0 } }}
-      >
-        {VIEW_LABELS[view]}
-      </Button>
-      <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
-        {(Object.keys(VIEW_LABELS) as CalendarView[]).map((v) => (
-          <MenuItem
-            key={v}
-            selected={v === view}
-            onClick={() => {
-              setMenuAnchor(null);
-              onChangeView(v);
-            }}
+      <ActionMenu
+        actions={(Object.keys(VIEW_LABELS) as CalendarView[]).map((v) => ({
+          label: VIEW_LABELS[v],
+          selected: v === view,
+          onClick: () => onChangeView(v),
+        }))}
+        button={(open) => (
+          <Button
+            color="inherit"
+            onClick={open}
+            endIcon={<ArrowDropDownIcon />}
+            aria-label="表示の切替"
+            aria-haspopup="menu"
+            sx={{ minWidth: 0, px: 1, whiteSpace: 'nowrap', '& .MuiButton-endIcon': { ml: 0 } }}
           >
-            {VIEW_LABELS[v]}
-          </MenuItem>
-        ))}
-      </Menu>
+            {VIEW_LABELS[view]}
+          </Button>
+        )}
+      />
     </>
   );
 }

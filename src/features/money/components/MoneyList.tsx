@@ -53,7 +53,7 @@ type Props = Omit<HistoryListProps<MoneyRecord>, 'children'> & {
 export function MoneyList({ onSelect, ...listProps }: Props) {
   const { label } = useUserLabels();
   const colorFor = useUserColor();
-  const items = listProps.history.query.data?.items;
+  const items = listProps.history.query.data;
   // 読んだ記録が増えるほど重くなるので、記録が変わったときだけ求め直す。数字は等幅なので文字数で比べる
   const widest = useMemo(
     () => (items ?? []).map(recordAmount).reduce((a, b) => (b.length > a.length ? b : a), ''),

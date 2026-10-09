@@ -26,6 +26,9 @@ export type MoneyRecord = {
   account: string | null;
 };
 
+/** 手で入れた立替（取り込んだ入出金でないもの）。直せる・消せる・ref を持つのはこれだけ */
+export type ManualExpense = MoneyRecord & { account: null };
+
 /** 立替の当事者（null は共有）。From は払った人（債権者）、To は誰のために払ったか（債務者） */
 export type Parties = { fromUserId: string | null; toUserId: string | null };
 

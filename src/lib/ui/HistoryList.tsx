@@ -4,10 +4,11 @@ import type { ScreenHistory } from '../screen-data.ts';
 import { InfiniteScroll, type InfiniteScrollHeaderProps } from './InfiniteScroll.tsx';
 import { MAIN_BOTTOM_PADDING, STICKY_TOP } from './layout.ts';
 import { EmptyMessage, ListSkeleton, QueryView } from './QueryView.tsx';
+import { useHistoryLayout } from './use-history-layout.ts';
 
 /** 画面ごとの一覧（`MoneyList` など）は、行の描き方（children）以外をこのまま受けて渡す */
 export type HistoryListProps<T> = InfiniteScrollHeaderProps & {
-  /** 読んだ分の記録（画面に出す順に、最初の位置より上と、そこから下に分けた物）と、古い側の端での読み足しなど（画面が購読した `useScreenHistory`） */
+  /** 読んだ分の記録と、古いほうのページの読み足しなど（画面が購読した `useScreenHistory`） */
   history: ScreenHistory<T>;
   /** 1 件も無いときの文言。検索で 0 件なのか、まだ 1 件も無いのかは画面が判断する */
   emptyMessage: string;
@@ -38,7 +39,7 @@ const INITIAL_MIN_HEIGHT = {
  *   一番上にあると今日の記録が押し下げられて隠れる
  * - 天気（出どころが `oldestFirst`）: 上が古く下が新しい。最初は今日を一番上に出し、その下に先の日を続ける
  *   （見たいのは今日から先で、過ぎた日は上へ戻って見る）。上の端で古いほうを読み足す
- * 最初の位置の境は描いた中身から探さず、`useScreenHistory` がデータで分けて並べた物を別々に描く（画面ごとの描き方に
+ * 最初の位置の境は描いた中身から探さず、データで分けて並べた物（`useHistoryLayout`）を別々に描く（画面ごとの描き方に
  * 目印を付けて回らなくて済む）。
  * 読み込み中・失敗・0 件の出し方をここに置き、中身の行の描き方だけを画面ごとに渡す。
  * 引っ張って更新は、読み足す端の逆の端から引いて取り直す（読み足す端から引いても取り直さない。`EdgeSentinel` の印）。
@@ -51,15 +52,16 @@ export function HistoryList<T>({
   ...headerProps
 }: HistoryListProps<T>) {
   const initialRef = useRef<HTMLDivElement>(null);
+  const layout = useHistoryLayout(history);
   return (
     <InfiniteScroll
       {...headerProps}
-      load={history.load}
+      load={layout.load}
       initial={{ target: () => initialRef.current, reveal }}
       resetKey={history.resetKey}
       ready={history.ready}
     >
-      <QueryView query={history.query} skeleton={<ListSkeleton />}>
+      <QueryView query={layout.query} skeleton={<ListSkeleton />}>
         {({ items, above, below }) =>
           items.length === 0 ? (
             <EmptyMessage>{emptyMessage}</EmptyMessage>

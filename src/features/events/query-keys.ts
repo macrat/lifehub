@@ -1,5 +1,6 @@
 /**
- * 予定・タスクのクエリのキー。クエリ（queries.ts）と楽観的更新（optimistic.ts）の両方が使う。
+ * 予定・タスクのクエリのキー。クエリ（queries.ts）と楽観的更新（optimistic.ts）の両方が使い、
+ * カレンダーの項目の取得（`src/features/calendar/queries.ts`）もこのキーで読む（書き込みが invalidate するのはこちら）。
  * queries.ts は optimistic.ts を読むので、キーを queries.ts に置くと import が一巡する。
  */
 

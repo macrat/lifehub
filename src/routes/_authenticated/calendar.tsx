@@ -5,14 +5,14 @@ import { DatePickerDialog } from '../../features/calendar/components/DatePickerD
 import { EventComposer } from '../../features/calendar/components/EventComposer.tsx';
 import { ListView } from '../../features/calendar/components/ListView.tsx';
 import { PeriodPager } from '../../features/calendar/components/PeriodPager.tsx';
+import {
+  calendarMonthQueryOptions,
+  useRefreshCalendarItems,
+} from '../../features/calendar/queries.ts';
 import { calendarSearchSchema } from '../../features/calendar/search.ts';
 import { useCalendarAdd } from '../../features/calendar/use-calendar-add.ts';
 import { useCalendarPage } from '../../features/calendar/use-calendar-page.ts';
 import { ItemDetailSheet } from '../../features/events/components/ItemDetailSheet.tsx';
-import {
-  calendarMonthQueryOptions,
-  useRefreshCalendarItems,
-} from '../../features/events/queries.ts';
 import { ADD_PAGES } from '../../lib/add-pages.ts';
 import { useScreenQueries } from '../../lib/screen-data.ts';
 import { AddMenu } from '../../lib/ui/AddMenu.tsx';
@@ -92,10 +92,7 @@ function CalendarPage() {
           month={page.picker.month}
           onChangeMonth={page.picker.setMonth}
           onClose={page.picker.close}
-          onSelect={(date) => {
-            page.picker.close();
-            page.selectDate(date);
-          }}
+          onSelect={page.picker.select}
         />
       )}
 

@@ -1,5 +1,16 @@
-import { type Column, eq, getTableColumns, ilike, inArray, type SQL, sql } from 'drizzle-orm';
-import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
+import {
+  and,
+  type Column,
+  eq,
+  exists,
+  getTableColumns,
+  ilike,
+  inArray,
+  notExists,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
+import { alias, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { TIME_ZONE } from '../../../shared/constants.ts';
 import { type Database, db } from './client.ts';
 
@@ -43,6 +54,14 @@ function idArrayAgg(column: PgColumn): SQL<string[]> {
   return sql`coalesce(array_agg(${column}::text order by ${column}) filter (where ${column} is not null), '{}')`;
 }
 
+/**
+ * update の set で `updated_at` を今の値のままにする（`$onUpdate` で書き換えない）。
+ * 使った日時の記録（API キー・配信 URL）は行の中身を変えたのではないので、変えた日時を進めない
+ */
+export function keepUpdatedAt(table: PgTable & { updatedAt: PgColumn }): SQL<Date> {
+  return sql<Date>`${table.updatedAt}`;
+}
+
 /** `id` 列を主キーに持つ表 */
 type TableWithId = PgTable & { id: PgColumn };
 
@@ -76,29 +95,34 @@ export async function findById<T extends TableWithId>(
   return row;
 }
 
-/** id の行の項目を置き換え、書いた後の行を返す（無ければ undefined） */
+/**
+ * id の行の項目を置き換え、書いた後の行を返す（無ければ undefined）。
+ * where を渡すと、それにも合う行だけを書く（持ち主の行だけ、手で入れた行だけ）
+ */
 export async function updateById<T extends TableWithId>(
   table: T,
   id: string,
   values: Partial<T['$inferInsert']>,
+  where?: SQL,
 ): Promise<T['$inferSelect'] | undefined> {
   // update の set は総称の表から項目の型を導けないので、ここだけ具体的な表の型に広げる
   const [row] = await db
     .update(table as TableWithId)
     .set(values)
-    .where(eq(table.id, id))
+    .where(and(eq(table.id, id), where))
     .returning();
   return row as T['$inferSelect'] | undefined;
 }
 
-/** id の行を消し、消した行を返す（無ければ undefined） */
+/** id の行を消し、消した行を返す（無ければ undefined）。where は `updateById` と同じ */
 export async function deleteById<T extends TableWithId>(
   table: T,
   id: string,
+  where?: SQL,
 ): Promise<T['$inferSelect'] | undefined> {
   const [row] = await db
     .delete(table as TableWithId)
-    .where(eq(table.id, id))
+    .where(and(eq(table.id, id), where))
     .returning();
   return row as T['$inferSelect'] | undefined;
 }
@@ -168,5 +192,51 @@ export function participantsOf<
       string[]
     >`(select ${idArrayAgg(participants.userId)} from ${participants} where ${parentColumn} = ${parent.id})`;
 
-  return { insertWhere, replaceWhere, selectWithParticipants, participantIdsOfRow };
+  /**
+   * 外側の問い合わせの親の行の参加者（userId を渡せばその人だけ）を読む副問い合わせ。
+   * 外側の FROM に参加者の表が並んでいても混ざらないよう別名で読む
+   */
+  const participantsOfOuterRow = (tx: Database, userId?: string) => {
+    const own = alias(participants, 'own_participants');
+    return tx
+      .select({ one: sql`1` })
+      .from(own as PgTable)
+      .where(
+        and(
+          eq(own[parentKey] as PgColumn, parent.id),
+          userId === undefined ? undefined : eq(own.userId as PgColumn, userId),
+        ),
+      );
+  };
+
+  /** 親の行が参加者を 1 人も持たない（参加者は 1 人以上なので、真なのは参加者を入れる前だけ） */
+  const hasNone = (tx: Database): SQL => notExists(participantsOfOuterRow(tx));
+
+  /** 親の行の参加者に userId がいる */
+  const has = (tx: Database, userId: string): SQL => exists(participantsOfOuterRow(tx, userId));
+
+  /**
+   * where に合う親の行が参加者を持たなければ、sourceParent の列が指す別の親の行の参加者を写す文
+   * （繰り返しの回を実体化したとき、繰り返し元の参加者を写す）
+   */
+  const copyWhere = (tx: Database, where: SQL | undefined, sourceParent: PgColumn) => {
+    const source = alias(participants, 'source_participants');
+    return tx.insert(participants).select(
+      tx
+        .select({ [parentKey]: parent.id, userId: source.userId as PgColumn })
+        .from(parentTable)
+        .innerJoin(source as PgTable, eq(source[parentKey] as PgColumn, sourceParent))
+        .where(and(where, hasNone(tx))) as never,
+    );
+  };
+
+  return {
+    insertWhere,
+    replaceWhere,
+    copyWhere,
+    selectWithParticipants,
+    participantIdsOfRow,
+    hasNone,
+    has,
+  };
 }

@@ -17,7 +17,7 @@ import {
 import { LEMON_FILTER_CONDITIONS, lemonSearchSchema } from '../../features/lemon/search.ts';
 import { DEFAULT_CARE_TYPES } from '../../features/lemon/use-care-log-form.ts';
 import { useAddShortcut } from '../../lib/add-search.ts';
-import { useScreenHistory, useScreenQueries, useStoreQuery } from '../../lib/screen-data.ts';
+import { useScreenHistory, useScreenQueries } from '../../lib/screen-data.ts';
 import { useFilterSearch } from '../../lib/search.ts';
 import { AddFab } from '../../lib/ui/AddFab.tsx';
 import { AppBarContent } from '../../lib/ui/app-bar-slot.tsx';
@@ -45,9 +45,8 @@ function LemonPage() {
   const search = Route.useSearch();
   const filter = useFilterSearch(search, LEMON_FILTER_CONDITIONS);
   // この画面が読むもの: 項目ごとの状況と、絞り込んだ記録
-  useScreenQueries([lemonStatusQueryOptions]);
+  const [statusQuery] = useScreenQueries([lemonStatusQueryOptions]);
   const history = useScreenHistory(careLogHistory, filter.listFilter);
-  const statusQuery = useStoreQuery(lemonStatusQueryOptions);
   // 追加のフォームと、最初から選んでおく項目（状況のタイルから開くとその項目）
   const adding = useOpenWith<CareType[]>();
   const selection = useRecordSelection<CareLog>();

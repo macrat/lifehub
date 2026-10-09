@@ -17,12 +17,21 @@ function depthOf(state: unknown): number {
 /** 今開いているダイアログの数。履歴の深さは常にこれに合わせる */
 let openCount = 0;
 let syncScheduled = false;
+/** 履歴の深さを合わせ終えたら行う操作（`afterDialogClosed`） */
+let afterSync: (() => void)[] = [];
+
+function runAfterSync(): void {
+  const pending = afterSync;
+  afterSync = [];
+  for (const run of pending) run();
+}
 
 /**
  * 履歴の深さを openCount に合わせる。足りなければ項目を積み、余っていればその数だけ戻る。
  * 同じ描画の中での開け閉めは 1 回の操作にまとめる。入れ子のダイアログをまとめて閉じても戻るのは 1 度
  * （back を連打するとブラウザが取りこぼす）、閉じると同時に別のダイアログを開くなら深さは変わらない。
  * StrictMode が効果を 2 度実行しても、差し引きで 1 回の push になる。
+ * 戻る（history.go）は後から届くので、待っている操作は戻り終えた知らせを受けてから行う。
  */
 function syncHistoryDepth(router: Router): void {
   if (syncScheduled) return;
@@ -39,9 +48,31 @@ function syncHistoryDepth(router: Router): void {
         resetScroll: false,
       });
     } else if (diff < 0) {
+      if (afterSync.length > 0) {
+        const unsubscribe = router.history.subscribe(() => {
+          unsubscribe();
+          runAfterSync();
+        });
+      }
       router.history.go(diff);
+      return;
     }
+    runAfterSync();
   });
+}
+
+/**
+ * ダイアログを閉じた後の操作を、閉じたダイアログの項目を履歴から戻し終えてから行う。ダイアログの中から
+ * 画面を移る操作（`ActionMenu` の項目、日付の選択ダイアログ）はすべてこれを通す。
+ * ダイアログを閉じるのと同じ操作の中で呼ぶ（閉じたことで履歴を合わせ直すときに行われる）。
+ * WHY: 閉じると同時に画面を移る（push する）と、移った先がダイアログの項目の後ろに積まれる。
+ * 戻ると中身のないダイアログの項目を踏み、戻るを 1 回余計に押すことになる。
+ * WHY NOT 中から移る操作を replace にする: 移る操作がどこから呼ばれるかを知らなければならず、下書きを
+ * 開いたまま表示を切り替えたときは、置き換えた項目が下書きの深さを持たないので、戻ると前の表示ではなく
+ * 下書きが閉じてしまう。
+ */
+export function afterDialogClosed(run: () => void): void {
+  afterSync.push(run);
 }
 
 /**
@@ -56,9 +87,9 @@ function syncHistoryDepth(router: Router): void {
  *
  * 開いている間はマウントし続けること。閉じた見た目にするだけ（open={false}）では項目は残る
  * （送信中だけ閉じて見せる `RecordSheet` のように、見た目とマウントは別でよい）。
+ * マウントしたまま開け閉めする物（閉じる動きを見せるメニュー）は、開いている間だけこれを呼ぶ部品を描く（`ActionMenu`）。
  *
- * ダイアログの中から別の画面へ移る操作は replace で行う（例: 日付の選択ダイアログ）。
- * push するとダイアログの項目が履歴に残り、戻ったときに中身のないダイアログの項目を踏む。
+ * ダイアログの中から画面を移る操作は、閉じてから `afterDialogClosed` で行う。
  */
 export function useDialogHistory(onClose: () => void): void {
   const router = useRouter();

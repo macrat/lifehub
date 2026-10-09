@@ -8,7 +8,7 @@ export const UNAUTHORIZED_EVENT = 'lifehub:unauthorized';
 
 /**
  * 通信そのものが届かなかった失敗（オフライン・回線の切断）。サーバーが理由を返した失敗と区別する。
- * 送り直せば通る見込みがあるので、書き込みはこれだけを送り直す（`lib/query-client.ts`）。
+ * 送り直せば通る見込みがあるので、書き込みはこれだけを送り直す（`lib/mutation.ts`）。
  */
 class NetworkError extends Error {}
 
@@ -82,7 +82,7 @@ type WriteBuilders = {
  * 書き込みの送る内容を作る（`useOptimisticMutation` の `request: write.memos.create`）。
  * 型は API の手続きから導き、実体は名前を `path` にするだけ。
  * WHY NOT tRPC のクライアントで送る関数をそのまま渡す: 送る内容は端末に溜めて後から（次の起動で）送るので、
- * 関数ではなく値で持つ必要がある（`lib/query-client.ts` の `Write`）
+ * 関数ではなく値で持つ必要がある（`lib/mutation.ts` の `Write`）
  */
 export const write = new Proxy({} as WriteBuilders, {
   get: (_, router: string) =>

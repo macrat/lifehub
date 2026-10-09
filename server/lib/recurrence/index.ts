@@ -88,9 +88,25 @@ function parseRRule(rrule: string): Partial<Options> {
   return options;
 }
 
-/** RRULE 文字列を検証し、正規形（rrule ライブラリの出力）にして返す。 */
+/** rrule のオプションを、保存する RRULE 文字列（`RRULE:` を付けない）にする */
+function toRRuleString(options: Partial<Options>): string {
+  return RRule.optionsToString(options).replace(/^RRULE:/, '');
+}
+
+/**
+ * RRULE 文字列を検証し、正規形（rrule ライブラリの出力）にして返す。保存する前（予定・タスクの書き込み）に通す。
+ * COUNT と UNTIL の両方を持つものは拒む（RFC 5545 が禁じている。どちらで終わるかが決まらない）。
+ * WHY NOT 展開（`parseRRule`）でも拒む: 保存済みのルールが両方を持っていると、その予定を含む期間の
+ * 読み出しがすべて失敗する。拒むのは書き込みだけにし、保存済みのものは rrule ライブラリの解釈で展開を続ける。
+ */
 export function normalizeRRule(rrule: string): string {
-  return RRule.optionsToString(parseRRule(rrule)).replace(/^RRULE:/, '');
+  const options = parseRRule(rrule);
+  if (options.count != null && options.until != null) {
+    throw new ValidationError(
+      '繰り返しの終わりは、回数（COUNT）か終了日（UNTIL）のどちらか一方で指定してください',
+    );
+  }
+  return toRRuleString(options);
 }
 
 /**
@@ -141,7 +157,19 @@ export function expandOccurrences(input: {
 export function withUntilBefore(rrule: string, instant: Date): string {
   const options = parseRRule(rrule);
   const until = toFloating(new Date(instant.getTime() - 1000));
-  return RRule.optionsToString({ ...options, until, count: undefined }).replace(/^RRULE:/, '');
+  return toRRuleString({ ...options, until, count: undefined });
+}
+
+/**
+ * 「これ以降すべて」で分けた後ろ側の繰り返しに引き継ぐ RRULE。COUNT は繰り返し全体の回数なので、
+ * at より前の回の数だけ減らす（そのまま引き継ぐと、分けた前後で合わせた回数が元より増える）。
+ * COUNT を持たないルールはそのまま返す。at は繰り返しの回であること（at 以降に 1 回以上残る）。
+ */
+export function continuationFrom(rrule: string, dtstart: Date, at: Date): string {
+  const options = parseRRule(rrule);
+  if (options.count == null) return rrule;
+  const before = expandOccurrences({ rrule, dtstart, from: dtstart, to: at }).length;
+  return toRRuleString({ ...options, count: options.count - before });
 }
 
 function buildRule(rrule: string, dtstart: Date): RRule {

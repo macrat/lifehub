@@ -31,6 +31,10 @@ describe('normalizeRRule', () => {
     );
     expect(() => normalizeRRule('hello')).toThrow(ValidationError);
     expect(() => normalizeRRule('FREQ=HOURLY')).toThrow(ValidationError);
+    // 回数と終了日の両方は RFC 5545 が禁じている
+    expect(() => normalizeRRule('FREQ=WEEKLY;COUNT=3;UNTIL=20261231T235959')).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -85,6 +89,18 @@ describe('expandOccurrences', () => {
       to: jst('2026-09-02T10:00:00'),
     });
     expect(result).toHaveLength(1);
+  });
+});
+
+describe('保存済みの COUNT と UNTIL の両方を持つルール', () => {
+  it('書き込みでは拒むが、展開は止めない（その予定を含む期間の読み出しを失敗させない）', () => {
+    const result = expandOccurrences({
+      rrule: 'FREQ=WEEKLY;COUNT=2;UNTIL=20261231T235959',
+      dtstart: jst('2026-09-07T09:00:00'),
+      from: jst('2026-09-01T00:00:00'),
+      to: jst('2026-10-01T00:00:00'),
+    });
+    expect(result).toHaveLength(2);
   });
 });
 

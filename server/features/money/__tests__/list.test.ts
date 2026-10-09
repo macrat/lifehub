@@ -11,7 +11,7 @@ import {
 import { db } from '../../../lib/db/client.ts';
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { moneyRecords } from '../schema.ts';
-import { addExpense, deleteExpense, listRecords, updateExpense } from '../service.ts';
+import { addExpense, deleteExpense, listRecords, patchExpense, updateExpense } from '../service.ts';
 
 /**
  * お金の画面の一覧（`listRecords`）: 立替と取り込んだ入出金を 1 本に並べたページと絞り込み。
@@ -208,6 +208,10 @@ describe('立替と入出金を 1 本に並べる', () => {
         a,
       ),
     ).rejects.toThrow('取り込んだ入出金は直せません');
+    // 一部だけ直す（MCP）ときも、項目の規則の誤り（入出金の負の金額）より先に、直せない理由を返す
+    await expect(patchExpense(record.id, { description: 'x' }, a)).rejects.toThrow(
+      '取り込んだ入出金は直せません',
+    );
     expect(await labels()).toEqual(['スーパー']);
   });
 });

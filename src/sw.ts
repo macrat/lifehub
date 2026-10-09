@@ -7,6 +7,7 @@ import {
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import type { PushMessage } from '../shared/push.ts';
+import type { NavigateMessage } from './lib/sw-navigate.ts';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -46,23 +47,27 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// タップで該当画面を開く。既に開いているタブがあればそれを使う。
+// タップで該当画面を開く。既に開いているタブがあれば前に出し、その中で画面を移らせる（`src/lib/sw-navigate.ts`）。
+// 無ければ新しく開く。
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   self.navigator.clearAppBadge?.();
   const url = new URL(
     (event.notification.data as { url?: string } | undefined)?.url ?? '/',
     self.location.origin,
-  ).href;
+  );
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       const existing = clients.find((c) => 'focus' in c);
-      if (existing) {
-        await existing.focus();
-        if ('navigate' in existing) await existing.navigate(url);
+      if (!existing) {
+        await self.clients.openWindow(url.href);
         return;
       }
-      await self.clients.openWindow(url);
+      await existing.focus();
+      existing.postMessage({
+        type: 'navigate',
+        url: `${url.pathname}${url.search}${url.hash}`,
+      } satisfies NavigateMessage);
     }),
   );
 });
