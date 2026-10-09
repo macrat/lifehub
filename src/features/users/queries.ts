@@ -1,8 +1,9 @@
-import type { UpdateUserInput } from '../../../shared/validation/users.ts';
+import type { ChangePasswordInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { write } from '../../lib/api.ts';
-import { type Me, meQueryOptions } from '../../lib/auth.ts';
+import { type Me, meQueryOptions, useLeaveToLogin } from '../../lib/auth.ts';
 import { useOptimisticMutation } from '../../lib/mutation.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
+import { notify } from '../../lib/ui/notice.ts';
 
 export type User = Me['users'][number];
 
@@ -39,14 +40,13 @@ export function useCreateUser() {
   });
 }
 
-/** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
+/** 共有プロフィール（名前・色・通知時刻）の変更。ほかの記録と同じく、オフラインでは溜めて後で送る */
 export function useUpdateUser() {
   return useOptimisticMutation<UpdateUserInput & { id: string }>({
     request: write.users.update,
-    queue: false,
     keys: [meQueryOptions.queryKey],
-    apply: (client, { id, password: _password, ...input }) => {
-      // パスワードは表示に関わらないので当てない。送らなかった項目（undefined）で今の値を消さない
+    apply: (client, { id, ...input }) => {
+      // 送らなかった項目（undefined）で今の値を消さない
       const changes = Object.fromEntries(
         Object.entries(input).filter(([, value]) => value !== undefined),
       ) as Partial<typeof input>;
@@ -57,4 +57,22 @@ export function useUpdateUser() {
       });
     },
   });
+}
+
+/**
+ * 本人のパスワードの変更（今のパスワードも送る）。登録と同じくオフラインでは溜めない。
+ * サーバーは全端末のセッションを切るので、変えられたらログアウトと同じ後始末でログイン画面へ送る。
+ */
+export function useChangePassword() {
+  const change = useOptimisticMutation({
+    request: write.me.changePassword,
+    queue: false,
+    keys: [],
+  });
+  const leave = useLeaveToLogin();
+  return async (input: ChangePasswordInput) => {
+    await change.mutateAsync(input);
+    await leave();
+    notify('info', 'パスワードを変更しました。新しいパスワードでログインしてください');
+  };
 }

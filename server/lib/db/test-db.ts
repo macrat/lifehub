@@ -85,8 +85,11 @@ export async function resetUsers(): Promise<{ userId: string; partnerId: string 
   return { userId, partnerId: await createTestUser('B') };
 }
 
+/** テスト用のユーザー（`createTestUser`）のパスワード */
+export const TEST_PASSWORD = 'password-123456';
+
 /**
- * テスト用のユーザーのパスワード `password-123456` のハッシュ（better-auth の `hashPassword` で作った物）。
+ * テスト用のユーザーのパスワード `TEST_PASSWORD` のハッシュ（better-auth の `hashPassword` で作った物）。
  * WHY 定数: テストの中で作るとモジュール変数に持つことになり、環境変数を変えるテストが `vi.resetModules` で
  * モジュールを作り直すたびに作り直し（scrypt）が走る。
  */

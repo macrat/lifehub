@@ -1,5 +1,5 @@
 import {
-  createUserSchema,
+  registerUserSchema,
   type UpdateUserInput,
   updateUserSchema,
 } from '../../../shared/validation/users.ts';
@@ -25,7 +25,7 @@ export function useUserAdmin() {
     createForm: creating.value
       ? {
           user: null,
-          schema: createUserSchema,
+          schema: registerUserSchema,
           onClose: creating.off,
           onSubmit: createUser.mutateAsync,
         }

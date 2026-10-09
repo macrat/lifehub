@@ -221,7 +221,7 @@ describe('notifications', () => {
 
   it('終日の項目は参加者それぞれの通知時刻に送る（既定は 7:00、前日も選べる）', async () => {
     const other = await createTestUser('B');
-    await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 }, other);
+    await updateUser(other, { allDayNotifyMinutes: 8 * 60 + 30 });
     const task = await createEvent(
       createEventSchema.parse({
         kind: 'task',
@@ -267,7 +267,7 @@ describe('notifications', () => {
     });
 
     // 通知時刻を変えると古い予約は送らない
-    await updateUser(userId, { allDayNotifyMinutes: 6 * 60 }, userId);
+    await updateUser(userId, { allDayNotifyMinutes: 6 * 60 });
     expect(await resolveNotification(mine as NotificationRef, await notifyTimes())).toBeNull();
     expect(
       await resolveNotification(theirs as NotificationRef, await notifyTimes()),

@@ -4,9 +4,9 @@ import { newId } from '../../../../shared/id.ts';
 import { createUserSchema } from '../../../../shared/validation/users.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
-import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
-import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
-import { createUser, listUsers, updateUser } from '../service.ts';
+import { clearTables } from '../../../lib/db/test-db.ts';
+import { ConflictError, NotFoundError } from '../../../lib/errors.ts';
+import { changePassword, createUser, listUsers, updateUser } from '../service.ts';
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };
 
@@ -35,7 +35,7 @@ describe('users service', () => {
       hue: 120,
     });
     expect(third.hue).toBe(120);
-    await updateUser(third.id, { hue: 10 }, third.id);
+    await updateUser(third.id, { hue: 10 });
     expect((await listUsers()).find((u) => u.id === third.id)?.hue).toBe(10);
   });
 
@@ -58,7 +58,7 @@ describe('users service', () => {
     for (const cookie of cookies)
       expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(200);
 
-    await updateUser(created.id, { password: 'new-password-123' }, created.id);
+    await changePassword(created.id, 'new-password-123');
     expect(await listUsers()).toEqual([created]);
     for (const cookie of cookies)
       expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
@@ -67,22 +67,6 @@ describe('users service', () => {
   });
 
   it('いないユーザーは変更できない', async () => {
-    const id = newId();
-    await expect(updateUser(id, { name: 'だれか' }, id)).rejects.toThrow(NotFoundError);
-    await expect(updateUser(id, { password: 'new-password-123' }, id)).rejects.toThrow(
-      NotFoundError,
-    );
-  });
-
-  it('他のユーザーのプロフィールは変更できるが、パスワードは変更できない', async () => {
-    const created = await createUser(alice);
-    const other = await createTestUser('B');
-    await updateUser(created.id, { name: 'Alicia' }, other);
-    await expect(
-      updateUser(created.id, { name: 'Mallory', password: 'stolen-password-1' }, other),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    // 拒否したときはプロフィールも変えない
-    expect((await listUsers()).find((u) => u.id === created.id)?.name).toBe('Alicia');
-    expect((await login(alice.email, alice.password)).status).toBe(200);
+    await expect(updateUser(newId(), { name: 'だれか' })).rejects.toThrow(NotFoundError);
   });
 });

@@ -1,12 +1,12 @@
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import type { z } from 'zod';
-import { PASSWORD_MIN_LENGTH } from '../../../../shared/constants.ts';
 import { CopyField } from '../../../lib/ui/CopyField.tsx';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { User } from '../queries.ts';
 import { useUserForm } from '../use-user-form.ts';
 import { HueSlider } from './HueSlider.tsx';
+import { PasswordField } from './PasswordField.tsx';
 
 /**
  * 登録と編集のどちらか。検証のスキーマと保存先を組にして持つので（`useUserAdmin`）、
@@ -20,7 +20,7 @@ type Props<S extends z.ZodType> = {
   onSubmit: (input: z.output<S>) => Promise<unknown>;
 };
 
-/** ユーザーの登録（user が null）と、名前・パスワード・色の変更を 1 つのシートで扱う。 */
+/** ユーザーの登録（user が null）と、名前・色の変更を 1 つのシートで扱う。パスワードの変更は設定画面（`ChangePasswordItem`） */
 export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
   const { errors, sheet, hue } = useUserForm({ user, ...options });
 
@@ -37,25 +37,25 @@ export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
         fullWidth
       />
       {!user && (
-        <TextField
-          name="email"
-          label="メールアドレス"
-          type="email"
-          autoComplete="off"
-          error={Boolean(errors.email)}
-          helperText={errors.email}
-          fullWidth
-        />
+        <>
+          <TextField
+            name="email"
+            label="メールアドレス"
+            type="email"
+            autoComplete="off"
+            error={Boolean(errors.email)}
+            helperText={errors.email}
+            fullWidth
+          />
+          <PasswordField name="password" label="パスワード" kind="new" error={errors.password} />
+          <PasswordField
+            name="currentPassword"
+            label="あなたの今のパスワード"
+            kind="current"
+            error={errors.currentPassword}
+          />
+        </>
       )}
-      <TextField
-        name="password"
-        label={user ? '新しいパスワード（変更する場合）' : 'パスワード'}
-        type="password"
-        autoComplete="new-password"
-        error={Boolean(errors.password)}
-        helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
-        fullWidth
-      />
       <HueSlider {...hue} />
       {/* Sentry の記録（`server/lib/sentry.ts` の `setSentryUser`）や DB と見比べるために出す */}
       {user && (
