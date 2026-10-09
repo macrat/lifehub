@@ -7,10 +7,14 @@ import { createTestUser } from '../lib/db/test-db.ts';
 /** サーバーのテストで、ログインして Cookie を得るための共通の手順 */
 
 /** メールとパスワードでログインする。失敗（401）を確かめるテストのため、応答をそのまま返す */
-export async function signIn(email: string, password: string): Promise<Response> {
-  return await app.request('/api/auth/sign-in/email', {
+export async function signIn(
+  email: string,
+  password: string,
+  { app: target = app, headers = {} }: { app?: typeof app; headers?: Record<string, string> } = {},
+): Promise<Response> {
+  return await target.request('/api/auth/sign-in/email', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify({ email, password }),
   });
 }

@@ -1,32 +1,19 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { app as App } from '../app.ts';
+import { appWith } from './app-with.ts';
 
 /**
  * ログインの origin チェック。Preview は URL がデプロイごとに変わるので、
  * APP_URL が無いときも、このデプロイとブランチの URL に限定する。
  */
 
-/**
- * env.ts と auth.ts は読み込み時に環境変数を固めるので、設定を変えるにはモジュールごと作り直す。
- * 作り直しは重いので、同じ設定のテストは describe ごとに 1 度だけ読み込んだものを使う。
- */
-function appWith(appUrl: string, { vercelHosts = true } = {}): () => typeof App {
-  let app: typeof App | undefined;
-  beforeAll(async () => {
-    vi.resetModules();
-    vi.stubEnv('APP_URL', appUrl);
-    vi.stubEnv('VERCEL_URL', vercelHosts ? 'lifehub-abc123-macrat.vercel.app' : '');
-    vi.stubEnv('VERCEL_BRANCH_URL', vercelHosts ? 'lifehub-git-security-macrat.vercel.app' : '');
-    try {
-      app = (await import('../app.ts')).app;
-    } finally {
-      vi.unstubAllEnvs();
-    }
+/** APP_URL と、このデプロイ・ブランチの Vercel 上の URL を決めてアプリを作り直す */
+function originApp(appUrl: string, { vercelHosts = true } = {}): () => typeof App {
+  return appWith({
+    APP_URL: appUrl,
+    VERCEL_URL: vercelHosts ? 'lifehub-abc123-macrat.vercel.app' : '',
+    VERCEL_BRANCH_URL: vercelHosts ? 'lifehub-git-security-macrat.vercel.app' : '',
   });
-  return () => {
-    if (!app) throw new Error('app が読み込まれていない');
-    return app;
-  };
 }
 
 /** origin チェックが働くのは Cookie を持つリクエスト（＝ブラウザからの操作）。 */
@@ -44,13 +31,8 @@ function signIn(origin: string) {
  */
 const status = async (app: typeof App, request: Request) => (await app.request(request)).status;
 
-// 後のテストファイルが、このファイルの環境変数で作ったモジュールを使わないようにする
-afterAll(() => {
-  vi.resetModules();
-});
-
 describe('APP_URL が無いとき（Preview）', () => {
-  const app = appWith('');
+  const app = originApp('');
 
   it('Preview とブランチの URL からログインできる', async () => {
     expect(await status(app(), signIn('https://lifehub-abc123-macrat.vercel.app'))).toBe(400);
@@ -69,7 +51,7 @@ describe('APP_URL が無いとき（Preview）', () => {
 describe('Vercel のホストが分からないとき', () => {
   // Vercel のシステム環境変数が公開されていない場合。allowedHosts を空にすると
   // better-auth が作るときに例外を投げ、認証が丸ごと使えなくなる。
-  const app = appWith('', { vercelHosts: false });
+  const app = originApp('', { vercelHosts: false });
 
   it('起動でき、既定の URL だけを受け入れる', async () => {
     expect(await status(app(), signIn('http://localhost:5173'))).toBe(400);
@@ -78,7 +60,7 @@ describe('Vercel のホストが分からないとき', () => {
 });
 
 describe('APP_URL があるとき（本番）', () => {
-  const app = appWith('https://lifehub.crat.jp');
+  const app = originApp('https://lifehub.crat.jp');
 
   it('APP_URL のオリジンだけを受け入れる', async () => {
     expect(await status(app(), signIn('https://lifehub.crat.jp'))).toBe(400);

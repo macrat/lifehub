@@ -87,6 +87,13 @@ export const verifications = pgTable(
   (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
 
+/** ログインのレート制限の数え（`server/lib/db/auth-adapter.ts` の `rateLimitStorage`） */
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull(),
+  resetAt: timestamp('reset_at', { withTimezone: true }).notNull(),
+});
+
 /**
  * ユーザー・セッション・アカウントの結び付き。better-auth が結合して 1 回の問い合わせで読むのに使う
  * （`server/lib/auth.ts` の `advanced.database.joins`）: 要求ごとのセッションの確認（セッション → ユーザー）と、
