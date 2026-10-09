@@ -1,12 +1,12 @@
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import type { z } from 'zod';
-import { PASSWORD_MIN_LENGTH } from '../../../../shared/constants.ts';
 import { CopyField } from '../../../lib/ui/CopyField.tsx';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import type { User } from '../queries.ts';
 import { useUserForm } from '../use-user-form.ts';
 import { HueSlider } from './HueSlider.tsx';
+import { PasswordField } from './PasswordField.tsx';
 
 /**
  * 登録と編集のどちらか。検証のスキーマと保存先を組にして持つので（`useUserAdmin`）、
@@ -47,24 +47,12 @@ export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
             helperText={errors.email}
             fullWidth
           />
-          <TextField
-            name="password"
-            label="パスワード"
-            type="password"
-            autoComplete="new-password"
-            error={Boolean(errors.password)}
-            helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
-            fullWidth
-          />
-          {/* 本人の確認（`server/lib/trpc.ts` の `reauthedProcedure`）。登録する人のパスワード */}
-          <TextField
+          <PasswordField name="password" label="パスワード" kind="new" error={errors.password} />
+          <PasswordField
             name="currentPassword"
             label="あなたの今のパスワード"
-            type="password"
-            autoComplete="current-password"
-            error={Boolean(errors.currentPassword)}
-            helperText={errors.currentPassword}
-            fullWidth
+            kind="current"
+            error={errors.currentPassword}
           />
         </>
       )}

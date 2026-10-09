@@ -1,7 +1,7 @@
 import { withId } from '../../../shared/validation/common.ts';
 import {
   changePasswordSchema,
-  createUserSchema,
+  registerUserSchema,
   updateUserSchema,
 } from '../../../shared/validation/users.ts';
 import { procedure, reauthedProcedure, router } from '../../lib/trpc.ts';
@@ -18,9 +18,11 @@ export const meRouter = router({
 
 /** ユーザーの登録と共有プロフィールの変更。一覧はログイン中のユーザーと一緒に `me.get` が返す */
 export const usersRouter = router({
-  create: reauthedProcedure.input(createUserSchema).mutation(async ({ input }) => {
-    await service.createUser(input);
-  }),
+  create: reauthedProcedure
+    .input(registerUserSchema)
+    .mutation(async ({ input: { currentPassword: _, ...input } }) => {
+      await service.createUser(input);
+    }),
   update: procedure
     .input(withId(updateUserSchema))
     .mutation(async ({ input: { id, ...input } }) => {

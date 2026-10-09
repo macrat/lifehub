@@ -126,9 +126,10 @@ export const router = t.router;
 export const procedure = t.procedure.use(authed).use(traced).use(domainErrors);
 
 /**
- * 本人の確認（`reauthedProcedure`）。手続きの入力はこの前の `.input(reauthSchema)` で検証済みで、
- * ここでは型を付けるためだけに読み直す（`t.middleware` は入力の型を知らない）。
- * ログイン中のユーザーは `authed` が始めた検証の結果を分け合う（`verifySession` は同じ Promise を返す）
+ * 本人の確認（`reauthedProcedure`）。入力はこの前の `.input(reauthSchema)` で検証済みで、型を付けるためだけに
+ * 読み直す。ユーザーは `authed` の検証の結果を分け合う（`verifySession` は同じ Promise を返す）。
+ * WHY NOT `.use()` に直に書いて入力と `ctx.user` の型を受け取る: 無名の関数を `.use()` に渡すのは lint で止めている
+ * （`lint/named-middleware.grit`）。型付きの単独のミドルウェア（`experimental_standaloneMiddleware`）は非推奨。
  */
 const verifyCurrentPassword = t.middleware(async ({ ctx, input, next }) => {
   const user = await ctx.verifySession();
@@ -139,9 +140,9 @@ const verifyCurrentPassword = t.middleware(async ({ ctx, input, next }) => {
 });
 
 /**
- * 本人の確認が要る手続き。入力に操作する人の今のパスワード（`currentPassword`。`reauthSchema`）を求め、
- * 合わなければ手続きを走らせずに FORBIDDEN にする。手続きの入力（`.input()` で足すもの）はこれと合わさる。
- * 使うのは、奪ったセッションだけで持ち主を締め出したり居座ったりできる操作（ユーザーの登録・パスワードの変更）。
+ * 本人の確認が要る手続き（どれに使うかとその理由は docs/features/users.md#認証）。入力に操作する人の今のパスワード
+ * （`currentPassword`。`reauthSchema`）を求め、合わなければ手続きを走らせずに FORBIDDEN にする。
+ * 手続きの入力（`.input()` で足すもの）はこれと合わさるので、service へ渡す前に `currentPassword` を外す。
  * 確かめはログインの試行回数の制限（`lib/auth.ts` の `rateLimit`）に数えない。試すにはセッションが要り、
  * 12 文字以上のパスワードを要求ごとの scrypt で総当たりするのは現実的でない。
  */

@@ -28,18 +28,16 @@ export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: nu
 
 /**
  * ユーザーを作る。パスワードのハッシュは better-auth に任せる。
- * 公開のサインアップ経路は閉じているので、画面（`users.create`。登録する人の今のパスワードを確かめた後）と
- * scripts/create-user.ts だけが作成経路になる。
+ * 公開のサインアップ経路は閉じているので、画面（`users.create`）と scripts/create-user.ts だけが作成経路になる。
  * メールの重複は事前に確認する（autoSignIn を切った better-auth は列挙対策として重複時も成功を装うため）。
  */
 export async function createUser(input: CreateUserInput): Promise<repository.UserRow> {
   if (await repository.findByEmail(input.email)) {
     throw new ConflictError('このメールアドレスは既に登録されています');
   }
-  // better-auth に渡すのは資格情報だけ。手続きの入力には本人の確認（currentPassword）も載ってくる
-  const { email, name, password, hue } = input;
+  const { hue, ...credentials } = input;
   const auth = await getAuth();
-  const result = await auth.api.signUpEmail({ body: { email, name, password } });
+  const result = await auth.api.signUpEmail({ body: credentials });
   // 色は better-auth の外側の属性なので、作成後に自前で更新する。指定が無ければ既存のユーザーと離れた色相にする
   const existing = await repository.findAll();
   const resolvedHue =
@@ -49,10 +47,7 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
   return user;
 }
 
-/**
- * 共有プロフィール（名前・色・通知時刻）を変える。家族で管理するものなので誰でも他人の分も変えられる。
- * パスワードは `changePassword` で本人だけが変える。
- */
+/** 共有プロフィール（名前・色・通知時刻）を変える。他人の分も変えられる（docs/features/users.md#認証） */
 export async function updateUser(id: string, input: UpdateUserInput): Promise<void> {
   const updated = await repository.update(id, input);
   if (!updated) throw new NotFoundError('ユーザーが見つかりません');
@@ -61,11 +56,7 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<vo
   if (input.allDayNotifyMinutes !== undefined) scheduleUpcoming();
 }
 
-/**
- * 自分のパスワードを変え、全端末のセッションを失効させる（今の端末もログインし直しになる）。
- * 今のパスワードは手続きが確かめてから呼ぶ（`reauthedProcedure`）。相手を受け取らず、本人の分しか変えられない形にする
- * （他人のパスワードを変えられると、片方のセッションを得た攻撃者がもう片方のアカウントも奪える）
- */
+/** 本人のパスワードを変え、全端末のセッションを失効させる（`me.changePassword`。docs/features/users.md#認証） */
 export async function changePassword(userId: string, newPassword: string): Promise<void> {
   await repository.replacePassword(userId, await hashPassword(newPassword));
 }

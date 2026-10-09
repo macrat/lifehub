@@ -8,11 +8,7 @@ const passwordSchema = z
   .min(PASSWORD_MIN_LENGTH, `パスワードは${PASSWORD_MIN_LENGTH}文字以上にしてください`)
   .max(128);
 
-/**
- * 本人の確認。操作する人（ログイン中のユーザー）の今のパスワードを添えさせる。
- * ユーザーの登録とパスワードの変更に使い（`server/lib/trpc.ts` の `reauthedProcedure`）、奪ったセッションだけでは
- * 持ち主を締め出したり、別のユーザーという入口を作ったりできないようにする
- */
+/** 本人の確認に添える、操作する人の今のパスワード（`server/lib/trpc.ts` の `reauthedProcedure`） */
 export const reauthSchema = z.object({
   currentPassword: z.string().min(1, '今のパスワードを入力してください').max(128),
 });
@@ -40,10 +36,7 @@ export const createUserSchema = z.object({
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
-/**
- * 画面の API（`users.create`）からの登録。登録する人の今のパスワードも受け取る。
- * scripts/create-user.ts は DB に直接つなぐ（ログインしている人がいない）ので `createUserSchema` を使う
- */
+/** 画面の API（`users.create`）からの登録。scripts/create-user.ts はログインしている人がいないので `createUserSchema` */
 export const registerUserSchema = createUserSchema.extend(reauthSchema.shape);
 
 /** 共有プロフィールの変更（他人の分も変えられる）。パスワードは含めない（`changePasswordSchema`） */

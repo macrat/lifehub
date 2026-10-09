@@ -3,8 +3,6 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import TextField from '@mui/material/TextField';
-import { PASSWORD_MIN_LENGTH } from '../../../../shared/constants.ts';
 import {
   type ChangePasswordInput,
   changePasswordSchema,
@@ -12,6 +10,7 @@ import {
 import { formValues, useFormSubmit } from '../../../lib/form.ts';
 import { RecordSheet } from '../../../lib/ui/RecordSheet.tsx';
 import { useChangePasswordItem } from '../use-change-password-item.ts';
+import { PasswordField } from './PasswordField.tsx';
 
 /** 設定画面の「アカウント」の、自分のパスワードの変更の行。押すと変更のシートを開く */
 export function ChangePasswordItem() {
@@ -39,7 +38,7 @@ type Props = {
   onSubmit: (input: ChangePasswordInput) => Promise<unknown>;
 };
 
-/** 今のパスワード（本人の確認。`server/lib/trpc.ts` の `reauthedProcedure`）と新しいパスワード */
+/** 今のパスワードと新しいパスワード */
 function ChangePasswordForm({ onClose, onSubmit }: Props) {
   const { errors, sheet } = useFormSubmit({
     schema: changePasswordSchema,
@@ -49,24 +48,18 @@ function ChangePasswordForm({ onClose, onSubmit }: Props) {
   });
   return (
     <RecordSheet {...sheet} onClose={onClose} title="パスワードを変更">
-      <TextField
+      <PasswordField
         name="currentPassword"
         label="今のパスワード"
-        type="password"
-        autoComplete="current-password"
-        error={Boolean(errors.currentPassword)}
-        helperText={errors.currentPassword}
+        kind="current"
+        error={errors.currentPassword}
         autoFocus
-        fullWidth
       />
-      <TextField
+      <PasswordField
         name="newPassword"
         label="新しいパスワード"
-        type="password"
-        autoComplete="new-password"
-        error={Boolean(errors.newPassword)}
-        helperText={errors.newPassword ?? `${PASSWORD_MIN_LENGTH}文字以上`}
-        fullWidth
+        kind="new"
+        error={errors.newPassword}
       />
     </RecordSheet>
   );

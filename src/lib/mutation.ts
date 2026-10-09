@@ -119,7 +119,7 @@ type OptimisticMutationOptions<TInput> = {
   apply?: (client: QueryClient, input: NoInfer<TInput>) => void;
   /**
    * オフラインで溜めずにその場で失敗させる。溜めても意味が無い書き込みを false にする:
-   * 端末に残したくないもの（パスワードを含むユーザーの登録・変更）と、
+   * 端末に残したくないもの（パスワードを含むユーザーの登録とパスワードの変更）と、
    * 送れるまで結果を出せないもの（カレンダーの配信 URL は、発行されるまで渡す URL が無い）。
    */
   queue?: boolean;
