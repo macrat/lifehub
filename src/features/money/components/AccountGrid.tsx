@@ -20,7 +20,7 @@ type Props = {
 
 /**
  * 口座のタイル（お金の画面）。並びはサーバーの環境変数に書いた順。
- * 銀行は残高、証券は評価額と、その下に 30 日前の値からの差（`MoneyAccount` の balanceChange）を出す。
+ * 銀行は残高、証券は評価額と、その下に過去の値からの差（`MoneyAccount` の balanceChange）を出す。
  * クレジットカードは次回の引き落とし額と日を出す（種類は `MoneyAccount` の kind）。
  * タイルはレモン・精算と同じもの（`StatusTile`）。押すとその口座の値の推移が開く。
  */
@@ -41,14 +41,12 @@ export function AccountGrid({ accounts, onSelect }: Props) {
 }
 
 function tileValues(account: MoneyAccount): { value: string; sub: string } {
-  const yen = (amount: number | null) => (amount === null ? UNKNOWN : formatYen(amount));
+  const yen = (amount: number | null, format = formatYen) =>
+    amount === null ? UNKNOWN : format(amount);
   switch (account.kind) {
     case 'bank':
     case 'securities':
-      return {
-        value: yen(account.balance),
-        sub: account.balanceChange === null ? UNKNOWN : formatSignedYen(account.balanceChange),
-      };
+      return { value: yen(account.balance), sub: yen(account.balanceChange, formatSignedYen) };
     case 'card':
       return {
         value: yen(account.withdrawalAmount),

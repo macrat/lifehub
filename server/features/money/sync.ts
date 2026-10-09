@@ -82,7 +82,7 @@ export async function syncMoneyForward(
 
 /**
  * お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる。
- * 差（balanceChange）は今日（JST）の BALANCE_CHANGE_DAYS 日前までの最後の記録と比べる。
+ * 差（balanceChange）は今日（JST）の BALANCE_CHANGE_DAYS 日前までの最後の記録と比べ、記録が無ければ null。
  * WHY その日までの最後の記録: 取り込みに失敗した日は記録が無いが、口座の値はその前に読んだ値のままとみなせる
  */
 export async function listAccounts(now: Date = new Date()): Promise<MoneyAccount[]> {

@@ -27,7 +27,10 @@ export async function findAccounts(): Promise<MoneyAccountRow[]> {
   return db.select().from(moneyAccounts);
 }
 
-/** 口座ごとの、on の日までの最後の記録の値（その日の口座の値）。その日までの記録が無い口座は入らない */
+/**
+ * 口座ごとの、on の日までの最後の記録の値。その日までの記録が無い口座は入らない。
+ * 並びを主キー（account, recorded_on）の逆順に揃え、索引を後ろから読むだけで済ませる（並べ替えを挟まない）
+ */
 export async function findBalancesAsOf(
   on: DateString,
 ): Promise<Pick<MoneyBalanceRow, 'account' | 'balance'>[]> {
@@ -38,7 +41,7 @@ export async function findBalancesAsOf(
     })
     .from(moneyBalances)
     .where(lte(moneyBalances.recordedOn, on))
-    .orderBy(moneyBalances.account, desc(moneyBalances.recordedOn));
+    .orderBy(desc(moneyBalances.account), desc(moneyBalances.recordedOn));
 }
 
 /** 取り込んだ明細 1 件（ルールで読み替えた後の値も持つ） */

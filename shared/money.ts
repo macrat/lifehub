@@ -196,10 +196,7 @@ export type MoneyAccount = {
   kind: MoneyAccountKind;
   /** 銀行の残高・証券の評価額（円）。クレジットカード、まだ取り込んでいない、または読めなかったら null */
   balance: number | null;
-  /**
-   * balance の、BALANCE_CHANGE_DAYS 日前の値からの差（円。増えたら正）。その日の値は、その日までの最後の記録（`money_balances`）。
-   * balance が null、またはその日までの記録が無ければ null
-   */
+  /** balance の、BALANCE_CHANGE_DAYS 日前の値からの差（円。増えたら正）。求め方はサーバーの `listAccounts`。求められなければ null */
   balanceChange: number | null;
   /** クレジットカードの次回の引き落とし額（円）。カード以外、または読めなかったら null */
   withdrawalAmount: number | null;
