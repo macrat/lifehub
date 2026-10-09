@@ -1,14 +1,5 @@
 import { relations } from 'drizzle-orm';
-import {
-  bigint,
-  boolean,
-  index,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { DEFAULT_HUE } from '../../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 
@@ -97,14 +88,13 @@ export const verifications = pgTable(
 );
 
 /**
- * better-auth のレート制限の数え（`server/lib/auth.ts` の `rateLimit`）。`key` は「IP|パス」。
- * `last_request` はその窓の最後の要求の時刻（Unix ミリ秒。better-auth が数値で比べる）。
+ * ログインのレート制限の数え（`server/lib/db/auth-adapter.ts` の `rateLimitStorage`）。`key` は better-auth が作る「IP|パス」。
+ * `reset_at` で窓が閉じるまで `count` を足していき、過ぎたら 1 から数え直す。
  */
 export const rateLimits = pgTable('rate_limits', {
-  id: uuid('id').primaryKey(),
-  key: text('key').notNull().unique(),
+  key: text('key').primaryKey(),
   count: integer('count').notNull(),
-  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+  resetAt: timestamp('reset_at', { withTimezone: true }).notNull(),
 });
 
 /**

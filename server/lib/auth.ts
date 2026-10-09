@@ -7,7 +7,7 @@ import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
 import { newId } from '../../shared/id.ts';
 import { afterResponse } from './after-response.ts';
-import { authDatabase } from './db/auth-adapter.ts';
+import { authDatabase, rateLimitStorage } from './db/auth-adapter.ts';
 import { env, resolveBaseUrl } from './env.ts';
 
 /**
@@ -65,23 +65,22 @@ const options = {
     autoSignIn: false,
   },
   /**
-   * ログイン（`/sign-in/email`）の試行を IP ごとに 15 分で 10 回までに絞る。数えは DB の `rate_limits` に置き、
-   * Vercel Function のどのインスタンスでも同じ数えを使う。既定（10 秒で 3 回）だと 1 つの IP から 1 日に 2 万回以上試せる。
-   * 家族の打ち間違いには十分な回数を残す。
-   * - ログイン以外の口は数えない（`'/**': false`）。数えるたびに DB を 2 往復するので、MCP クライアントの
+   * ログイン（`/sign-in/email`）の試行を IP ごとに 15 分で 10 回までに絞る。数えは DB の `rate_limits` に置き
+   * （`server/lib/db/auth-adapter.ts` の `rateLimitStorage`）、Vercel Function のどのインスタンスでも同じ数えを使う。
+   * 既定（10 秒で 3 回）だと 1 つの IP から 1 日に 2 万回以上試せる。家族の打ち間違いには十分な回数を残す。
+   * - ログイン以外の口は数えない（`'/**': false`）。数えるたびに DB を引くので、MCP クライアントの
    *   トークンの更新（1 時間ごと）など日常の要求を遅くする。守りたいのはパスワードの推測だけ。
    * - 掛けるのは本番ビルド（Preview も含む）だけ。開発とテストでは、同じ IP からの大量のログインを止めない。
    * - WHY 既定（better-auth も NODE_ENV で決める）に任せず書く: better-auth は読み込み時に一度だけ決めるので、
    *   テストで本番の設定に作り直しても変わらない（server/__tests__/auth.test.ts）。
    * - WHY NOT メモリ（既定）: インスタンスごとに別々に数え、起動し直すと消えるので、数を絞っても効かない。
-   * - WHY NOT secondary-storage（Redis など）: そのためだけに外部サービスを足すことになる。ログインは
-   *   まれなので、そのたびに DB を引く費用は小さい。
+   * - WHY NOT secondary-storage（Redis など）: そのためだけに外部サービスを足すことになる。DB でも往復は 1 回で済む。
    * - WHY NOT アカウント（メールアドレス）ごとの制限: リスト型攻撃はアカウントごとに数回しか試さないので防げず、
    *   攻撃者が家族のメールアドレスを知っていればログインを締め出せてしまう。
    */
   rateLimit: {
     enabled: env.NODE_ENV === 'production',
-    storage: 'database',
+    customStorage: rateLimitStorage,
     customRules: {
       // 先に書いた規則から当てる
       '/sign-in/email': { window: 15 * 60, max: 10 },
@@ -127,8 +126,8 @@ const options = {
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
     disableOriginCheck: false,
-    // better-auth の後始末（レート制限の古い行の刈り込みなど）を応答の後に回す。渡さないと要求の中で待つ。
-    // 刈り込みは前の試行から窓（15 分）を過ぎたログインで走るので、普段のログインはほぼ毎回これに当たる
+    // better-auth の後始末（サインアウトしたセッションに結び付く OAuth のトークンの失効など）を応答の後に回す。
+    // 渡さないと要求の中で待つ
     backgroundTasks: {
       handler: (task) => afterResponse('better-auth: background task', () => task),
     },

@@ -75,31 +75,39 @@ describe('ログインと認証の口', () => {
     const productionApp = appWith({ NODE_ENV: 'production' });
 
     /** 形の正しくないメールで試す（WHY は auth-origin.test.ts の `status`） */
-    const signInFrom = async (ip: string) =>
-      (
-        await signIn('nobody', 'password', {
-          app: productionApp(),
-          headers: { 'x-forwarded-for': ip },
-        })
-      ).status;
+    const signInFrom = (ip: string) =>
+      signIn('nobody', 'password', { app: productionApp(), headers: { 'x-forwarded-for': ip } });
+    const counts = () =>
+      db
+        .select({ key: rateLimits.key, count: rateLimits.count })
+        .from(rateLimits)
+        .orderBy(rateLimits.key);
 
-    it('ログインだけを IP ごとに 15 分で 10 回まで試せて、数えは DB に残る', async () => {
-      for (let i = 0; i < 10; i++) expect(await signInFrom('203.0.113.1')).toBe(400);
-      expect(await signInFrom('203.0.113.1')).toBe(429);
-      expect(await signInFrom('203.0.113.2')).toBe(400);
+    it('ログインだけを IP ごとに 15 分で 10 回まで試せる', async () => {
+      for (let i = 0; i < 10; i++) expect((await signInFrom('203.0.113.1')).status).toBe(400);
+      const blocked = await signInFrom('203.0.113.1');
+      expect(blocked.status).toBe(429);
+      expect(Number(blocked.headers.get('x-retry-after'))).toBeGreaterThan(0);
+      expect((await signInFrom('203.0.113.2')).status).toBe(400);
       // ログイン以外の口は数えない
       await productionApp().request('/api/auth/ok', {
         headers: { 'x-forwarded-for': '203.0.113.1' },
       });
-      expect(
-        await db
-          .select({ key: rateLimits.key, count: rateLimits.count })
-          .from(rateLimits)
-          .orderBy(rateLimits.key),
-      ).toEqual([
-        { key: '203.0.113.1|/sign-in/email', count: 10 },
+      expect(await counts()).toEqual([
+        { key: '203.0.113.1|/sign-in/email', count: 11 },
         { key: '203.0.113.2|/sign-in/email', count: 1 },
       ]);
+    });
+
+    it('数えは 1 回の問い合わせで済み、窓を過ぎたら数え直して、期限を過ぎたほかの行を消す', async () => {
+      await signInFrom('203.0.113.1');
+      await signInFrom('203.0.113.2');
+      await db.update(rateLimits).set({ resetAt: new Date(Date.now() - 1000) });
+      const statements = recordStatements();
+      expect((await signInFrom('203.0.113.1')).status).toBe(400);
+      const counted = statements.filter((text) => /"rate_limits"/.test(text));
+      expect(counted).toHaveLength(1);
+      expect(await counts()).toEqual([{ key: '203.0.113.1|/sign-in/email', count: 1 }]);
     });
   });
 });

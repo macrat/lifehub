@@ -1,5 +1,5 @@
 {
-  "id": "1627ebfe-6b22-44d1-b6fb-90bf3f19df7f",
+  "id": "f7dd9c86-e1ac-4d10-a319-02692e77d4a9",
   "prevId": "853eadb5-741c-45bf-bb69-208b5d89a16c",
   "version": "7",
   "dialect": "postgresql",
@@ -1524,16 +1524,10 @@
       "name": "rate_limits",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
         "key": {
           "name": "key",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "count": {
@@ -1542,9 +1536,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "last_request": {
-          "name": "last_request",
-          "type": "bigint",
+        "reset_at": {
+          "name": "reset_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -1552,15 +1546,7 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "rate_limits_key_unique": {
-          "name": "rate_limits_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
