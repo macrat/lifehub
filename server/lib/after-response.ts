@@ -6,7 +6,7 @@ import { waitUntil } from '@vercel/functions';
  * （Vercel の外、ローカルの Node サーバーやテストでは何もしないが、プロセスが生きているので処理は最後まで走る）。
  * 失敗は応答に載せられないので、ログに残すだけにする。
  */
-export function afterResponse(label: string, task: () => Promise<unknown>): void {
+export function afterResponse(label: string, task: () => Promise<void>): void {
   waitUntil(
     task().catch((error: unknown) => {
       console.error(`${label} failed`, error);

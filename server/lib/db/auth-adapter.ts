@@ -1,10 +1,9 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import type { BetterAuthOptions } from 'better-auth';
-import { and, lte, ne, sql } from 'drizzle-orm';
+import { and, ne, sql } from 'drizzle-orm';
 import { db } from './client.ts';
 import * as schema from './schema.ts';
-
-const { rateLimits } = schema;
+import { rateLimits } from './schema.ts';
 
 /**
  * better-auth が読み書きする表（ユーザー・セッション・OAuth）。表の定義は各 feature の schema と
@@ -41,13 +40,13 @@ type RateLimitStorage = NonNullable<NonNullable<BetterAuthOptions['rateLimit']>[
  */
 export const rateLimitStorage: RateLimitStorage = {
   async consume(key, { window, max }) {
+    const windowClosed = sql`${rateLimits.resetAt} <= now()`;
     const expired = db.$with('expired').as(
       db
         .delete(rateLimits)
-        .where(and(lte(rateLimits.resetAt, sql`now()`), ne(rateLimits.key, key)))
+        .where(and(windowClosed, ne(rateLimits.key, key)))
         .returning({ key: rateLimits.key }),
     );
-    const windowClosed = sql`${rateLimits.resetAt} <= now()`;
     const [row] = await db
       .with(expired)
       .insert(rateLimits)

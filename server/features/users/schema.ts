@@ -87,10 +87,7 @@ export const verifications = pgTable(
   (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
 
-/**
- * ログインのレート制限の数え（`server/lib/db/auth-adapter.ts` の `rateLimitStorage`）。`key` は better-auth が作る「IP|パス」。
- * `reset_at` で窓が閉じるまで `count` を足していき、過ぎたら 1 から数え直す。
- */
+/** ログインのレート制限の数え（`server/lib/db/auth-adapter.ts` の `rateLimitStorage`） */
 export const rateLimits = pgTable('rate_limits', {
   key: text('key').primaryKey(),
   count: integer('count').notNull(),

@@ -34,7 +34,7 @@ const moneyAccountsSchema = z
  */
 const envObject = z.object({
   DATABASE_URL: z.string().min(1),
-  /** ビルドの種類。Preview でも `production` になる（本番のデプロイかどうかは下の `isProduction`）。読むのは server/lib/auth.ts の `rateLimit` */
+  /** ビルドの種類。Preview でも `production` になる（本番のデプロイかどうかは下の `isProduction`） */
   NODE_ENV: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().min(32),
   /** アプリの公開 URL。Vercel では VERCEL_URL から導出する（下記 resolveBaseUrl）。 */

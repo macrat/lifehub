@@ -39,7 +39,7 @@ export function receiver(status: (received: Received) => number = () => 200) {
  * 書き込みの後に配信を待てるようにする。ほかの応答の後の処理（通知の予約など）はそのまま走らせる
  */
 export function holdDeliveries(): () => Promise<void> {
-  const held: (() => Promise<unknown>)[] = [];
+  const held: (() => Promise<void>)[] = [];
   vi.spyOn(afterResponse, 'afterResponse').mockImplementation((label, task) => {
     if (label === 'mcp-events') held.push(task);
     else void task();
