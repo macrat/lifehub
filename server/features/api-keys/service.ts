@@ -1,7 +1,8 @@
 import { newId } from '../../../shared/id.ts';
+import type { Issued } from '../../../shared/types.ts';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import { hashSecret, type Issued, newSecret } from '../../lib/secret.ts';
+import { hashSecret, newSecret } from '../../lib/secret.ts';
 import * as repository from './repository.ts';
 import type { ApiKeyRow } from './schema.ts';
 

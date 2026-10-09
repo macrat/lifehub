@@ -7,8 +7,7 @@ import { users } from '../users/schema.ts';
  *
  * `user_id` は作成者ではなく持ち主なので `created_by` を別に持たない（`push_subscriptions` と同じ）。
  *
- * トークンそのものは置かず、ハッシュだけを置く（`server/lib/secret.ts` の `hashSecret`）。
- * DB のダンプが漏れても、そこから配信 URL を組み立てられないようにするため。
+ * トークンそのものは置かず、ハッシュだけを置く（理由は docs/features/calendar-feeds.md の「トークン」）。
  *
  * 索引は `token_hash` の一意制約だけにする。配信のたびに引くのはトークンのハッシュで、一覧は数本しかない行の
  * 全走査で足りる（`docs/data-model.md` の共通規約）。

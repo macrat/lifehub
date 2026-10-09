@@ -1,4 +1,3 @@
-import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
 import { useToggle } from '../../lib/ui/use-toggle.ts';
 import { type ApiKey, apiKeysQueryOptions, useCreateApiKey, useRevokeApiKey } from './queries.ts';
@@ -24,7 +23,7 @@ export function useApiKeyList() {
     createForm: creating.value
       ? {
           onClose: creating.off,
-          onSubmit: (input: ApiKeyInput) => createKey.issue(input),
+          onSubmit: createKey.issue,
         }
       : null,
     issued: createKey.issued,

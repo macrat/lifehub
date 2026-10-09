@@ -1,9 +1,10 @@
 import { addDays, toDateString, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
+import type { Issued } from '../../../shared/types.ts';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { resolveBaseUrl } from '../../lib/env.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import { hashSecret, type Issued, newSecret } from '../../lib/secret.ts';
+import { hashSecret, newSecret } from '../../lib/secret.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
 import type { CalendarFeedWithParticipants } from './repository.ts';

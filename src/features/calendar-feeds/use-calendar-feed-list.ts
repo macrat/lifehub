@@ -44,7 +44,7 @@ export function useCalendarFeedList() {
     createForm: creating.value
       ? {
           onClose: creating.off,
-          onSubmit: (input: CalendarFeedInput) => createFeed.issue(input),
+          onSubmit: createFeed.issue,
         }
       : null,
     editForm: editingFeed

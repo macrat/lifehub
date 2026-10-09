@@ -63,8 +63,15 @@ describe('calendar-feeds service', () => {
     expect(feed.url).toMatch(/\/api\/calendar\/[\w-]{43}\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
     // 一覧には URL を出さない（トークンを保存していないので出せない）
-    const { url: _url, ...listed } = feed;
-    expect(await listFeeds(userId)).toStrictEqual([listed]);
+    expect(await listFeeds(userId)).toStrictEqual([
+      {
+        id: feed.id,
+        name: 'スマホ',
+        participantIds: [userId],
+        createdAt: feed.createdAt,
+        lastAccessedAt: null,
+      },
+    ]);
 
     const ics = await icsOf(feed);
     expect(lines(ics)[0]).toBe('BEGIN:VCALENDAR');
