@@ -65,6 +65,8 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べ、�
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL(/\/consent\?/);
   await expect(page.getByRole('heading', { name: 'アクセスの許可' })).toBeVisible();
+  // 見分けに使う戻り先のホストを出す
+  await expect(page.getByText(`127.0.0.1:${server.port}`)).toBeVisible();
   // 戻り先（クライアントのリダイレクト URI）は LifeHub の画面ではないので、届いた要求から code を読み、
   // 開かせずに止める。開かせると、ログインしていないオリジン（127.0.0.1）で画面がさらに移り、
   // 移り終わるのを待つ間に読み込みが打ち切られることがある
