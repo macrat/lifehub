@@ -65,9 +65,13 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べ、�
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL(/\/consent\?/);
   await expect(page.getByRole('heading', { name: 'アクセスの許可' })).toBeVisible();
+  // 戻り先（クライアントのリダイレクト URI）は LifeHub の画面ではないので、届いた要求から code を読み、
+  // 開かせずに止める。開かせると、ログインしていないオリジン（127.0.0.1）で画面がさらに移り、
+  // 移り終わるのを待つ間に読み込みが打ち切られることがある
+  await page.route('**/oauth-callback?*', (route) => route.fulfill({ body: '' }));
+  const callbackRequest = page.waitForRequest(/\/oauth-callback\?/);
   await page.getByRole('button', { name: '許可' }).click();
-  await page.waitForURL(/\/oauth-callback\?/);
-  const callback = new URL(page.url());
+  const callback = new URL((await callbackRequest).url());
   expect(callback.searchParams.get('state')).toBe(state);
   const code = callback.searchParams.get('code');
   expect(code).toBeTruthy();
@@ -106,10 +110,14 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べ、�
 
   // 許可したクライアントが設定の「外部連携」に並び、失効すると期限内のトークンでも呼べなくなる
   await page.goto('/settings');
-  const section = page.getByRole('region', { name: '外部連携' });
+  // 再試行では前の試行で許可したクライアントも並ぶので、このクライアント（配布元の欄にクライアント ID が出る）の行を選ぶ
+  const row = page
+    .getByRole('region', { name: '外部連携' })
+    .getByRole('listitem')
+    .filter({ hasText: clientId });
   page.once('dialog', (dialog) => void dialog.accept());
-  await section.getByRole('button', { name: 'E2E MCP Client を失効' }).click();
-  await expect(section.getByText('E2E MCP Client')).toBeHidden();
+  await row.getByRole('button', { name: 'E2E MCP Client を失効' }).click();
+  await expect(row).toHaveCount(0);
   const revoked = await request.post('/api/mcp', {
     headers: {
       authorization: `Bearer ${accessToken}`,
