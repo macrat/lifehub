@@ -155,6 +155,13 @@
       "when": 1791327925133,
       "tag": "0021_money",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791507318431,
+      "tag": "0022_mcp_event_subscription_client",
+      "breakpoints": true
     }
   ]
 }

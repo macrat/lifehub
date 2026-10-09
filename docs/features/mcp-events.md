@@ -46,14 +46,15 @@ MCP クライアント（ChatGPT など）が、記録が足された・変え�
 ## 購読
 
 - 初めての購読は、受け手が challenge を返せることを確かめてから保存する（`{"type":"verification","challenge":…}` を送り、同じ値が返ること）。他人の URL を通知先に書いて、LifeHub から無関係なサーバーへ POST させないため。確かめられなければ `-32015`（`data.reason` は `connection_refused` / `timeout` / `tls_error` / `http_4xx` / `http_5xx` / `challenge_failed`）。
-- 購読の id は人・URL・イベント名から決める（`sub_` + SHA-256）。同じ購読をし直すと同じ行の期限と鍵を更新し、確かめ直さない（冪等）。
+- 購読は、購読を求めた MCP クライアント（トークンの `azp`）に結び付ける。そのクライアントを失効すると購読も消える（[mcp-clients.md](mcp-clients.md#失効)）。
+- 購読の id は人・クライアント・URL・イベント名から決める（`sub_` + SHA-256）。同じ購読をし直すと同じ行の期限と鍵を更新し、確かめ直さない（冪等）。
 - 期限は望まれた `ttlMs` を 1 分〜30 日に収めたもの（省いたとき・`null` のときは 30 日）。クライアントは `refreshBefore` より前に購読し直す。WHY NOT 期限なし: 使われなくなった購読へ送り続けないよう、購読し直しで生きていることを示させる。期限を過ぎた購読は配らず、次の購読のときに消す。
 - し直しで鍵が変わったら、24 時間は前の鍵でも署名する（`webhook-signature` に空白区切りで並べる）。入れ替えの前に送り始めた配信も受け手が確かめられるように。
 - `events/unsubscribe` は無い購読をやめても成功する。
 
 ## データ
 
-`mcp_event_subscriptions`（[data-model.md](../data-model.md)）。購読 1 件に 1 行で、購読した人・イベント名・URL・鍵（入れ替え中は前の鍵と、それを使う期限）・期限を持つ。人が消えれば購読も消える。
+`mcp_event_subscriptions`（[data-model.md](../data-model.md)）。購読 1 件に 1 行で、購読した人・MCP クライアント・イベント名・URL・鍵（入れ替え中は前の鍵と、それを使う期限）・期限を持つ。人が消えれば購読も消える。
 
 ## API
 

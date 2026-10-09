@@ -1,0 +1,41 @@
+# MCP クライアント（mcp-clients）
+
+## 目的
+
+LifeHub への接続を許可した MCP クライアント（AI アプリなど）を見えるようにし、1 つずつ失効させる。見覚えの無いクライアントに気づけること、漏れたと分かったクライアントだけをその場で止められることが目的。
+
+MCP の認可（OAuth 2.1・CIMD・トークン）そのものは [mcp.md](mcp.md#エンドポイント)。
+
+## 画面
+
+設定（`/settings`）の「外部連携」に、カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と API キー（[api-keys.md](api-keys.md)）と並べて置く（`src/features/mcp-clients/components/McpClientList.tsx`）。外の仕組みに渡したアクセスを 1 か所にまとめる。
+
+- ログイン中のユーザーが許可したクライアントが、許可した順に並ぶ。行は名前と「配布元のホスト・許可した日時」で、右に失効のボタン。
+- 名前はクライアントのメタデータ文書の `client_name`（無ければ配布元のホスト）。名前は誰でも自由に名乗れるので、本物かどうかは配布元のホスト（クライアント ID の URL のホスト）で見分ける。
+- 追加のボタンは無い。接続はクライアントの側から認可フローを始めて、同意画面で許可する。
+- 失効は確認してから消す。オフラインでは溜めない（API キーと同じく、送れたかどうか分からないまま消えて見えるのは困る）。
+
+## 失効
+
+- 失効は、そのユーザーとそのクライアントの組について、同意（`oauth_consents`）・リフレッシュトークン（`oauth_refresh_tokens`）・アクセストークン（`oauth_access_tokens`）・[MCP Events](mcp-events.md) の購読（`mcp_event_subscriptions`）を 1 回の原子的な操作で消す（`server/features/mcp-clients/repository.ts` の `remove`）。
+  - リフレッシュトークンを消すのは、oauth-provider がリフレッシュのときに元のセッションも同意も確かめないため。リフレッシュトークンは使うたびに入れ替わるので、消さなければ実質無期限に使える。
+  - 購読を消すのは、トークンが無くても購読の期限まで webhook へ記録の変化を送り続けるため。
+  - 他のユーザーの許可には触れない（家族の片方が失効しても、もう片方の接続は残る）。
+- `/api/mcp` は要求ごとに、トークンのユーザーがトークンのクライアント（`azp`）を今も許可しているか（同意があるか）を DB で確かめ、無ければ 401 にする（`server/mcp.ts`）。アクセストークンは JWT で DB を見ずに検証するので、確かめなければ失効した後も期限（1 時間）まで使えてしまう。応答は無効なトークンと同じ 401（RFC 9728 の `WWW-Authenticate`）なので、クライアントは認可をやり直す。
+- WHY NOT oauth-provider の同意を管理する口（`/oauth2/get-consents`・`/oauth2/delete-consent`）を開けて使う: `delete-consent` は同意の行を消すだけで、トークンも購読も残る。一覧もクライアントの名前と配布元を返さない。
+- WHY NOT パスワードの変更で一緒に止める: パスワードはアカウントの資格で、MCP クライアントへの許可とは別に扱う。まとめると、どのクライアントが止まるのかが見えず、正規のクライアントまで巻き込んで止まる。
+
+## データ
+
+自分の表は持たない。読み書きするのは oauth-provider の表（`oauth_clients`・`oauth_consents`・`oauth_refresh_tokens`・`oauth_access_tokens`。[mcp.md](mcp.md#エンドポイント)）と、MCP Events の購読（[mcp-events.md](mcp-events.md#データ)）。1 つのクライアントの許可は「そのユーザーの同意の行」で表し、一覧の 1 行は同意 1 件。
+
+## API
+
+| 手続き | 種類 | 内容 |
+|---|---|---|
+| `mcpClients.list` | 読み出し | 自分が許可したクライアントの一覧（id（同意の id）, name, site（配布元のホスト）, authorizedAt） |
+| `mcpClients.revoke` | 書き込み | 失効（入力は `id`。自分のものだけ） |
+
+## MCP ツール
+
+無し。許可の取り消しは人が画面で行う（MCP クライアントに自分や他のクライアントの許可を扱わせない）。

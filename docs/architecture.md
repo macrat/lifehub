@@ -110,6 +110,7 @@ server/                       # サーバー（Hono）
                               #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
                               # 分けた業務ロジックも、ほかの feature と server/ 直下の入口からは service.ts（の再 export）で読む
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
+  features/mcp-clients/       # 接続を許可した MCP クライアントの一覧と失効（自分の表は持たず、OAuth の表と MCP Events の購読を消す）
   features/mcp-events/        # MCP Events の配信（service）、購読の作成と取り消し（subscriptions.ts）、購読の台帳（repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）
@@ -160,7 +161,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
   - `/api/health`: 認証不要（下記）。
   - Vercel Cron（`/api/cron/*`）: Cron secret（`server/cron.ts`）。
   - QStash の配信コールバック（`/api/qstash/*`）: QStash の署名（`server/qstash.ts`）。
-  - MCP（`/api/mcp`）: OAuth のアクセストークン（[features/mcp.md](features/mcp.md)）。
+  - MCP（`/api/mcp`）: OAuth のアクセストークンと、そのクライアントが失効していないこと（[features/mcp.md](features/mcp.md)）。
   - カレンダーの ics 配信 `/api/calendar/<token>.ics`: URL のトークンだけ（[features/calendar-feeds.md](features/calendar-feeds.md)）。
   - 記録投入 `/api/records`: API キーだけ（[features/api-keys.md](features/api-keys.md)）。
   - WHY NOT `/api` 全体にセッションを検査するミドルウェアを掛け、外の口だけを除く: 除く口の一覧という、外し忘れの起きる場所が 1 つ増える。

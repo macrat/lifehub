@@ -15,11 +15,11 @@ function base64url(buffer: Buffer): string {
  * クライアントの登録は、本番で受け付ける Client ID Metadata Documents だと LifeHub が公開の https の URL から
  * メタデータ文書を取りに行くので、E2E の中では用意できない。代わりにサーバー内部から better-auth の
  * `createOAuthClient` で作る（HTTP の口は閉じている）。
- * 登録した後の認可・トークン・MCP は登録の仕方に依らず同じ。
+ * 登録した後の認可・トークン・MCP・失効は登録の仕方に依らず同じ。
  */
 test.use({ storageState: SIGNED_OUT });
 
-test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる', async ({
+test('OAuth 2.1 で認可した MCP クライアントがツールを呼べ、設定で失効すると呼べなくなる', async ({
   page,
   request,
   server,
@@ -103,4 +103,19 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
     expect(users.find((u) => u.isMe)?.name).toBe(E2E_USER.name);
     await client.close();
   }
+
+  // 許可したクライアントが設定の「外部連携」に並び、失効すると期限内のトークンでも呼べなくなる
+  await page.goto('/settings');
+  const section = page.getByRole('region', { name: '外部連携' });
+  page.once('dialog', (dialog) => void dialog.accept());
+  await section.getByRole('button', { name: 'E2E MCP Client を失効' }).click();
+  await expect(section.getByText('E2E MCP Client')).toBeHidden();
+  const revoked = await request.post('/api/mcp', {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      accept: 'application/json, text/event-stream',
+    },
+    data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+  });
+  expect(revoked.status()).toBe(401);
 });

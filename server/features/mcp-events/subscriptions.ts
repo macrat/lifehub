@@ -17,13 +17,16 @@ const MIN_TTL_MS = 60 * 1000;
 /** 鍵を入れ替えた後、前の鍵でも署名する間 */
 const SECRET_ROTATION_GRACE_MS = 24 * 60 * 60 * 1000;
 
+/** 購読する人と、購読を求めた MCP クライアント（OAuth のクライアント ID） */
+type Subscriber = { userId: string; clientId: string };
+
 /**
- * 購読の id。購読の素性（人・通知先・イベント名）から決めるので、同じ購読をし直すと同じ id になり、
+ * 購読の id。購読の素性（人・クライアント・通知先・イベント名）から決めるので、同じ購読をし直すと同じ id になり、
  * 行を増やさずに期限と鍵を更新できる（MCP Events の冪等な購読）
  */
-function subscriptionIdOf(userId: string, url: string, name: EventName): string {
+function subscriptionIdOf({ userId, clientId }: Subscriber, url: string, name: EventName): string {
   const digest = createHash('sha256')
-    .update(JSON.stringify([userId, url, name]))
+    .update(JSON.stringify([userId, clientId, url, name]))
     .digest('hex');
   return `sub_${digest.slice(0, 32)}`;
 }
@@ -42,11 +45,11 @@ type SubscribeInput = {
  * WHY NOT 期限なしを認める: 使われなくなった購読に送り続けないように、購読し直しで生きていることを示させる。
  */
 export async function subscribe(
-  userId: string,
+  subscriber: Subscriber,
   { name, url, secret, ttlMs }: SubscribeInput,
 ): Promise<{ ok: true; id: string; refreshBefore: Date } | { ok: false; reason: string }> {
   const now = new Date();
-  const id = subscriptionIdOf(userId, url, name);
+  const id = subscriptionIdOf(subscriber, url, name);
   const [current] = await Promise.all([repository.findById(id), repository.removeExpired(now)]);
   if (!current) {
     const verified = await verifyEndpoint(id, url, secret);
@@ -56,7 +59,7 @@ export async function subscribe(
   const expiresAt = new Date(now.getTime() + ttl);
   const rotated = current && current.secret !== secret;
   await repository.upsert(
-    { id, userId, name, url },
+    { id, ...subscriber, name, url },
     {
       secret,
       expiresAt,
@@ -106,8 +109,8 @@ function echoes(body: string, challenge: string): boolean {
 
 /** 購読をやめる。無い購読をやめても何もしない（冪等） */
 export async function unsubscribe(
-  userId: string,
+  subscriber: Subscriber,
   { name, url }: { name: EventName; url: string },
 ): Promise<void> {
-  await repository.remove(subscriptionIdOf(userId, url, name));
+  await repository.remove(subscriptionIdOf(subscriber, url, name));
 }

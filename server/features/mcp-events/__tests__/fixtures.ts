@@ -47,3 +47,8 @@ export function holdDeliveries(): () => Promise<void> {
     for (const task of held.splice(0)) await task();
   };
 }
+
+/** 購読する人。MCP クライアントはどのテストでも同じものにする（`server/__tests__/mcp-client.ts` の既定と同じ） */
+export function subscriber(userId: string) {
+  return { userId, clientId: 'test-client' };
+}

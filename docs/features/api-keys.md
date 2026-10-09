@@ -8,7 +8,7 @@
 
 ## 画面
 
-設定（`/settings`）の「外部連携」に、カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と並べて置く（`src/features/api-keys/components/ApiKeyList.tsx`）。外の仕組みに渡す秘密（読むための配信 URL と、書くための API キー）を 1 か所にまとめる。
+設定（`/settings`）の「外部連携」に、カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と MCP クライアント（[mcp-clients.md](mcp-clients.md)）と並べて置く（`src/features/api-keys/components/ApiKeyList.tsx`）。外の仕組みに渡したアクセスを 1 か所にまとめる。
 
 - 発行したキーが一覧に並ぶ。行は名前と「最後に使われた日時」（まだなら「まだ一度も使われていません」）で、右に失効のボタン。
 - 「API キーを発行」で名前を決めると 1 本増え、**キーはそのとき 1 度だけ表示される**（欄かコピーのボタンを押すとコピーする。`src/lib/ui/CopyField.tsx`）。サーバーはキーのハッシュしか持たないので、閉じたら二度と出せない。なくしたら発行し直して古いほうを失効させる。

@@ -9,7 +9,7 @@
 | 画面 | パス | 内容 |
 |---|---|---|
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
-| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）と記録投入用の API キー（[api-keys.md](api-keys.md)））、お金（取り込みルール（[money.md](money.md#取り込みルール)）と立替スケジュール（[money.md](money.md#立替スケジュール)）へのリンク）、アカウント（ユーザー管理へのリンク）、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
+| 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）、記録投入用の API キー（[api-keys.md](api-keys.md)）、接続を許可した MCP クライアント（[mcp-clients.md](mcp-clients.md)））、お金（取り込みルール（[money.md](money.md#取り込みルール)）と立替スケジュール（[money.md](money.md#立替スケジュール)）へのリンク）、アカウント（ユーザー管理へのリンク）、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
 | ユーザー管理 | `/admin/users` | 設定の「アカウント」セクションから開く（AppBar と一覧の形は [ui.md](../ui.md#見た目) の「設定から開く管理の画面」）。ユーザー一覧（色付きのアバター）、登録（右下の追加ボタン。名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
 

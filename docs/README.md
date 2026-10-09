@@ -36,6 +36,7 @@
 | [api-keys.md](features/api-keys.md) | `api-keys`（API キー）、`records`（記録投入の入口） |
 | [mcp.md](features/mcp.md) | MCP サーバー（`server/mcp.ts`、`server/lib/mcp/`、各 feature の `mcp.ts`） |
 | [mcp-events.md](features/mcp-events.md) | `mcp-events`（MCP Events の購読と webhook 配信） |
+| [mcp-clients.md](features/mcp-clients.md) | `mcp-clients`（接続を許可した MCP クライアントの一覧と失効） |
 
 機能の文書は次の見出しをこの順で持つ。どの文書も同じ順に並ぶので、読む人は探す場所を迷わない。
 

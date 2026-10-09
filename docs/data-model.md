@@ -37,5 +37,5 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 | `weather` | `date`(PK), `code`, `temp_max`, `temp_min`, `pop` | 日ごとの天気・最高／最低気温・降水確率（東京）。気温と降水確率は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#日ごとの天気weather) |
 | `weather_hourly` | `starts_at`(PK), `weather`, `temp` | 3 時間ごとの天気と気温（東京地方）。`temp` は null を許す。取得・上書きの規則は [features/weather.md](features/weather.md#3-時間ごとの天気と気温weather_hourly) |
 | `weather_pop` | `starts_at`(PK), `pop` | 6 時間ごとの降水確率（東京地方）。取得・上書きの規則は [features/weather.md](features/weather.md#6-時間ごとの降水確率weather_pop) |
-| `mcp_event_subscriptions` | `id`(PK。`sub_` + 人・URL・イベント名の SHA-256), `user_id`, `name`(index), `url`, `secret`, `previous_secret`, `previous_secret_expires_at`, `expires_at` | MCP Events の購読（[features/mcp-events.md](features/mcp-events.md)）。購読し直すと同じ行を更新する。`user_id` が持ち主そのもの（作成者を別に持たない）。期限を過ぎた行は次の購読のときに消す |
+| `mcp_event_subscriptions` | `id`(PK。`sub_` + 人・クライアント・URL・イベント名の SHA-256), `user_id`, `client_id`(OAuth のクライアント ID。外部キーは張らない), `name`(index), `url`, `secret`, `previous_secret`, `previous_secret_expires_at`, `expires_at` | MCP Events の購読（[features/mcp-events.md](features/mcp-events.md)）。購読し直すと同じ行を更新する。`user_id` が持ち主そのもの（作成者を別に持たない）。期限を過ぎた行は次の購読のときに消す |
 | `sent_notifications` | `key`(PK), `sent_at` | 送信済み通知の台帳（QStash の再送時の重複防止）。古い行は日次 Cron で削除 |

@@ -1,8 +1,11 @@
 import { requireMcpAuth } from '@better-auth/mcp';
+import { createResourceServerChallenge } from '@better-auth/oauth-provider';
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
+import { APIError } from 'better-auth/api';
 import { Hono } from 'hono';
 import { registerEventTools } from './features/events/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
+import { isAuthorized } from './features/mcp-clients/service.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerExpenseTools } from './features/money/mcp.ts';
@@ -39,7 +42,7 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-function createMcpServer({ userId, clientId }: { userId: string; clientId?: string }): McpServer {
+function createMcpServer({ userId, clientId }: { userId: string; clientId: string }): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -47,12 +50,13 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId?: stri
   let people: Promise<Person[]> | undefined;
   const ctx: McpContext = {
     userId,
+    clientId,
     people: () => {
       people ??= listPeople();
       return people;
     },
-    // 名前の無いクライアント（とトークンが azp を持たない要求）は "MCP" とだけ出す
-    clientName: async () => (clientId && (await getOAuthClientName(clientId))) || 'MCP',
+    // 名前の無いクライアントは "MCP" とだけ出す
+    clientName: async () => (await getOAuthClientName(clientId)) || 'MCP',
   };
   for (const register of registrars) register(server, ctx);
   return server;
@@ -64,8 +68,10 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId?: stri
  */
 const handler = createMcpHandler(({ authInfo }) => {
   const userId = authInfo?.extra?.userId;
-  if (typeof userId !== 'string') throw new Error('MCP request without a verified user');
-  return createMcpServer({ userId, clientId: authInfo?.clientId });
+  if (typeof userId !== 'string' || !authInfo?.clientId) {
+    throw new Error('MCP request without a verified user and client');
+  }
+  return createMcpServer({ userId, clientId: authInfo.clientId });
 });
 
 /**
@@ -73,7 +79,7 @@ const handler = createMcpHandler(({ authInfo }) => {
  * 誰の要求かは `authInfo.extra.userId`、どの MCP クライアントからかは `authInfo.clientId` で組み立て関数に渡す。
  * ツールが読むのはユーザーとクライアントだけなので、AuthInfo のほかの項目（トークン・スコープ）は空にする。
  */
-export function serveMcp(request: Request, userId: string, clientId = ''): Promise<Response> {
+export function serveMcp(request: Request, userId: string, clientId: string): Promise<Response> {
   return handler.fetch(request, {
     authInfo: { token: '', clientId, scopes: [], extra: { userId } },
   });
@@ -84,17 +90,36 @@ export function serveMcp(request: Request, userId: string, clientId = ''): Promi
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * トークンの sub をユーザー、azp（トークンを受け取った OAuth クライアント）を MCP クライアントとしてツールに渡す。
+ * そのユーザーがそのクライアントを今も許可しているか（設定で失効していないか）を要求ごとに DB で確かめ、
+ * 失効していれば 401 にする。JWT は DB を見ずに検証するので、確かめなければ失効後も期限（1 時間）まで使える。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
   const authorize = requireMcpAuth(
     await getAuth(),
     async (request, claims) => {
       const userId = claims.sub;
-      if (!userId) return new Response('invalid token', { status: 401 });
+      const clientId = typeof claims.azp === 'string' ? claims.azp : undefined;
+      if (!userId || !clientId || !(await isAuthorized(userId, clientId))) return unauthorized();
       setSentryUser(userId);
-      return serveMcp(request, userId, typeof claims.azp === 'string' ? claims.azp : undefined);
+      return serveMcp(request, userId, clientId);
     },
     { resource: MCP_RESOURCE },
   );
   return authorize(c.req.raw);
 });
+
+/**
+ * 失効したクライアントへの応答。requireMcpAuth が無効なトークンに返すのと同じ 401（RFC 9728 の
+ * WWW-Authenticate と JSON-RPC のエラー）にして、クライアントに認可をやり直させる。
+ */
+function unauthorized(): Response {
+  const message = 'the client is no longer authorized';
+  const challenge = createResourceServerChallenge(
+    new APIError('UNAUTHORIZED', { message }),
+    MCP_RESOURCE,
+  );
+  return Response.json(
+    { jsonrpc: '2.0', error: { code: -32000, message }, id: null },
+    { status: 401, headers: challenge?.headers },
+  );
+}

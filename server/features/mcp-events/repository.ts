@@ -13,10 +13,10 @@ export function findById(id: string): Promise<McpEventSubscriptionRow | undefine
 
 /**
  * 購読を作るか、同じ id の購読の鍵と期限を書き換える（購読し直し）。
- * 購読の素性（id・人・イベント名・URL）は id から決まるので書き換えない
+ * 購読の素性（id・人・クライアント・イベント名・URL）は id から決まるので書き換えない
  */
 export async function upsert(
-  identity: Pick<NewMcpEventSubscriptionRow, 'id' | 'userId' | 'name' | 'url'>,
+  identity: Pick<NewMcpEventSubscriptionRow, 'id' | 'userId' | 'clientId' | 'name' | 'url'>,
   values: Pick<
     NewMcpEventSubscriptionRow,
     'secret' | 'expiresAt' | 'previousSecret' | 'previousSecretExpiresAt'
