@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays, today } from '../../shared/date.ts';
 import { newId } from '../../shared/id.ts';
+import { grantConsent } from '../features/mcp-clients/__tests__/fixtures.ts';
 import { moneyRecords } from '../features/money/schema.ts';
 import { db } from '../lib/db/client.ts';
-import { oauthClients } from '../lib/db/oauth-schema.ts';
 import { resetUsers } from '../lib/db/test-db.ts';
 import { call, connect, type Day, type Entry, fail, readDays, run } from './mcp-client.ts';
 
@@ -193,12 +193,7 @@ describe('MCP server', () => {
     });
 
     it('メモには書いた MCP クライアントの登録の名前を残す', async () => {
-      await db.insert(oauthClients).values({
-        id: newId(),
-        clientId: 'claude',
-        name: 'Claude',
-        redirectUris: ['https://claude.ai/api/mcp/auth_callback'],
-      });
+      await grantConsent(userId, 'claude', { name: 'Claude' });
       const memo = await call<Entry>(await connect(userId, 'claude'), 'add_memo', { body: 'ねじ' });
       expect(memo).toMatchObject({ by: 'A', via: 'Claude' });
     });

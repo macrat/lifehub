@@ -111,7 +111,7 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
         !userId ||
         !clientId ||
         typeof consentId !== 'string' ||
-        !(await isAuthorized(consentId, userId, clientId))
+        !(await isAuthorized(consentId))
       ) {
         return unauthorized();
       }

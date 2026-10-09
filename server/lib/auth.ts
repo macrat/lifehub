@@ -34,7 +34,8 @@ export const CONSENT_ID_CLAIM = 'consent_id';
 
 /**
  * アクセストークンを発行するたび（認可コードの交換とリフレッシュ）に、そのユーザーのそのクライアントへの
- * 今の同意の id をトークンに入れ、同意が無ければ発行しない（理由は docs/features/mcp-clients.md の「失効」）。
+ * 今の同意の id をトークンに入れる（理由は docs/features/mcp-clients.md の「失効」）。同意が無ければ発行しない。
+ * これは oauth-provider がリフレッシュのときに同意を確かめないことを補う、発行の可否の確かめでもある。
  * WHY NOT mcp-clients の repository で引く: lib は features を読まない。同意の表は better-auth のものなので、
  * better-auth のアダプタで引く。
  */

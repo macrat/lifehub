@@ -68,9 +68,9 @@ describe('mcp-clients service', () => {
   });
 
   it('失効すると、そのクライアントの自分の許可・トークン・購読だけが消え、許可していないことになる', async () => {
-    const claude = await authorizeClient(userId, CLAUDE);
-    const other = await authorizeClient(userId, OTHER);
-    const partners = await authorizeClient(partnerId, CLAUDE);
+    const { consentId: claude } = await authorizeClient(userId, CLAUDE);
+    const { consentId: other } = await authorizeClient(userId, OTHER);
+    const { consentId: partners } = await authorizeClient(partnerId, CLAUDE);
 
     await revokeClient(claude, userId);
 
@@ -79,16 +79,16 @@ describe('mcp-clients service', () => {
       expect(await remaining(table)).toEqual(kept);
     }
     expect(await remainingSubscriptions()).toEqual(kept);
-    expect(await isAuthorized(claude, userId, CLAUDE)).toBe(false);
-    expect(await isAuthorized(other, userId, OTHER)).toBe(true);
-    expect(await isAuthorized(partners, partnerId, CLAUDE)).toBe(true);
+    expect(await isAuthorized(claude)).toBe(false);
+    expect(await isAuthorized(other)).toBe(true);
+    expect(await isAuthorized(partners)).toBe(true);
   });
 
   it('他のユーザーの許可と、無い許可は失効できない', async () => {
-    const partners = await authorizeClient(partnerId, CLAUDE);
+    const { consentId: partners } = await authorizeClient(partnerId, CLAUDE);
 
     await expect(revokeClient(partners, userId)).rejects.toBeInstanceOf(NotFoundError);
     await expect(revokeClient(newId(), userId)).rejects.toBeInstanceOf(NotFoundError);
-    expect(await isAuthorized(partners, partnerId, CLAUDE)).toBe(true);
+    expect(await isAuthorized(partners)).toBe(true);
   });
 });

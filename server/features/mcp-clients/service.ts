@@ -31,15 +31,12 @@ export async function revokeClient(id: string, userId: string): Promise<void> {
 }
 
 /**
- * アクセストークンの発行のもとになった許可（同意の id）が、そのユーザーのそのクライアントへの許可として今もあるか。
- * MCP の要求ごとに確かめる（理由は docs/features/mcp-clients.md の「失効」）。
+ * アクセストークンの発行のもとになった許可（同意の id）が今もあるか。MCP の要求ごとに確かめる
+ * （理由は docs/features/mcp-clients.md の「失効」）。同意の id はトークンのユーザーとクライアントの組から
+ * 発行時に引いたもので、トークンは LifeHub が署名するので、ユーザーとクライアントを重ねて確かめなくてよい。
  */
-export function isAuthorized(
-  consentId: string,
-  userId: string,
-  clientId: string,
-): Promise<boolean> {
-  return repository.existsConsent(consentId, userId, clientId);
+export function isAuthorized(consentId: string): Promise<boolean> {
+  return repository.existsConsent(consentId);
 }
 
 /** クライアント ID は CIMD のメタデータ文書の URL（cimd だけを受け付ける。docs/features/mcp.md）。URL でなければそのまま */
