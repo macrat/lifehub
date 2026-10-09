@@ -92,6 +92,11 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   await expect(detail).toContainText('¥-3,200');
   // 取り込んだ物は直せない
   await expect(detail.getByRole('button', { name: '編集' })).toHaveCount(0);
+
+  // 精算は他のテストと共有するので片付ける（settlements.spec.ts は精算済みから始まる前提）
+  const api = apiOf(page.request);
+  const { items } = await api.money.list.query({ q: description });
+  for (const { id } of items) await api.money.delete.mutate({ id });
 });
 
 test('取り込んだ入出金はホームのタイムラインに金融機関と金額で並ぶ', async ({ page }) => {

@@ -24,10 +24,11 @@
 6. Money Forward ME（有料プラン）のログインに使うメールアドレスとパスワード、取り込む口座の並び（書き方は [features/money.md](features/money.md#口座の指定)）を用意する。Money Forward ID で 2 段階認証（認証アプリ）を使うなら、その秘密鍵（base32）も控える。新しい端末からのログインでメールの確認コードを求められると取り込めないので、認証アプリの 2 段階認証を設定しておく。
 7. 上記を GitHub Secrets に登録する:
    `VERCEL_TOKEN`, `NEON_API_KEY`, `TF_API_TOKEN`, `SENTRY_AUTH_TOKEN`, `TF_VAR_neon_org_id`, `TF_VAR_vercel_team`, `TF_VAR_qstash_token`, `TF_VAR_qstash_current_signing_key`, `TF_VAR_qstash_next_signing_key`, `TF_VAR_vapid_public_key`, `TF_VAR_vapid_private_key`, `TF_VAR_moneyforward_email`, `TF_VAR_moneyforward_password`, `TF_VAR_moneyforward_accounts`（2 段階認証を使うなら `TF_VAR_moneyforward_totp_secret`、グループで絞るなら `TF_VAR_moneyforward_group` も）
-8. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
-9. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
-10. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
-11. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
+8. GitHub リポジトリの Settings → Actions → General で **Require actions to be pinned to a full-length commit SHA** を有効にする（理由は [development.md](development.md#依存の取り込み)）。
+9. main へ最初のプッシュ → `deploy.yml` が Terraform apply を実行し、Vercel プロジェクトと Neon プロジェクトが作られる。
+10. `terraform output dns_cname_target` の値を、外部 DNS の `lifehub.crat.jp` CNAME に登録する。
+11. `pnpm user:create --email ... --name ... --password ...` を本番の `DATABASE_URL` に対して実行し、最初のユーザーを作る（`DATABASE_URL` は `terraform output -raw database_url`）。
+12. ブラウザでログインし、`/admin/users` から 2 人目を登録する。
 
 ## Terraform（`infra/`）
 
@@ -46,6 +47,7 @@
 - GitHub Secrets はワークフローやジョブの `env` に置かず、それを使うステップの `env` にだけ渡す。テストやアプリのビルドなど依存パッケージのコードが動くステップにクレデンシャルを渡さないため。`typecheck / lint / test` ジョブは Secrets を一切受け取らず、`vercel build` にはトークンを渡さない。Terraform の出力（DB 接続文字列など）も `GITHUB_ENV` ではなくステップ出力にして、使うステップにだけ渡す。
 - Terraform 対象外: Vercel Cron の定義（`vercel.json`）、外部 DNS の CNAME、DB マイグレーション、初期ユーザー作成。
 - state は HCP Terraform（Free）のワークスペース `lifehub` にリモート保存し、GitHub Actions からは `TF_API_TOKEN` で接続する。
+- CI の Terraform 本体は `.github/actions/setup-terraform/action.yml` で 1 つの版に固定する（理由はそのファイル）。上げるときはその値を変える PR で行う。
 - プロバイダの更新はバージョン制約を編集する PR で行い、CI では `terraform init -upgrade` を使わない（Neon 公式が警告するリソース再作成事故を防ぐ）。PR の `terraform plan` に replace が含まれる場合はマージしない。
 
 ## デプロイフロー（GitHub Actions）
@@ -53,7 +55,7 @@
 ### PR（`ci.yml`）
 
 1. `typecheck` → `lint` → `test` → `e2e`。並行して `gitleaks`（`gitleaks/gitleaks-action`）が PR のコミットに秘密情報が入っていないかを調べる
-2. `terraform plan`（結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたとき・ラベルの付いた PR に push したとき・ラベルの付いた PR を開き直したときで、関係ないラベルの付け外しでは作り直さない（Vercel の 1 日あたりのデプロイ数には上限があり、push のたびにすべての PR を作り直すとそれに当たるので、Preview が要る PR だけをラベルで選ぶ）
+2. `terraform plan`（Dependabot の PR では動かさない。理由は `ci.yml`。結果を PR コメントに投稿。差分が意図通りか、replace が無いかを人と LLM が確認する）。以下 3〜6 は PR に `preview` ラベルが付いていて、かつ main への最初の `terraform apply` が済んでいるとき（state に Vercel プロジェクトがあるとき）だけ実行する。きっかけは `preview` ラベルを付けたとき・ラベルの付いた PR に push したとき・ラベルの付いた PR を開き直したときで、関係ないラベルの付け外しでは作り直さない（Vercel の 1 日あたりのデプロイ数には上限があり、push のたびにすべての PR を作り直すとそれに当たるので、Preview が要る PR だけをラベルで選ぶ）
 3. Neon ブランチ `preview/pr-<番号>` を `main` から作成（既にあれば再利用。`neondatabase/create-branch-action`）
 4. そのブランチに `drizzle-kit migrate` を適用（本番相当のデータに対してマイグレーションを検証する）
 5. `vercel pull --environment=preview` → `vercel build` → `vercel deploy --prebuilt` に `--env DATABASE_URL=<PR ブランチの接続文字列>` を付けて Preview デプロイ
