@@ -20,7 +20,9 @@ server.route('/', app);
 if (process.env.SERVE_STATIC) {
   const vercel: { headers: { source: string; headers: { key: string; value: string }[] }[] } =
     JSON.parse(readFileSync('vercel.json', 'utf8'));
-  const headers = vercel.headers.find(({ source }) => source === '/(.*)')?.headers ?? [];
+  // 見つからないときに黙ってヘッダ無しで配信すると、E2E が CSP の下で走らなくなっても気づけないので、起動を止める
+  const headers = vercel.headers.find(({ source }) => source === '/(.*)')?.headers;
+  if (!headers) throw new Error('vercel.json に全パス（source: "/(.*)"）へのヘッダが無い');
   const vercelHeaders: MiddlewareHandler = async (c, next) => {
     for (const { key, value } of headers) c.header(key, value);
     await next();
