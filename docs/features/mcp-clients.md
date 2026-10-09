@@ -17,17 +17,17 @@ MCP の認可（OAuth 2.1・CIMD・トークン）そのものは [mcp.md](mcp.m
 
 ## 失効
 
-- 失効は、そのユーザーとそのクライアントの組について、同意（`oauth_consents`）・リフレッシュトークン（`oauth_refresh_tokens`）・アクセストークン（`oauth_access_tokens`）・[MCP Events](mcp-events.md) の購読（`mcp_event_subscriptions`）を 1 回の原子的な操作で消す（`server/features/mcp-clients/repository.ts` の `remove`）。
+- 失効は、そのユーザーとそのクライアントの組について、同意（`oauth_consents`）・リフレッシュトークン（`oauth_refresh_tokens`）・アクセストークン（`oauth_access_tokens`）を 1 回の原子的な操作で消す（`server/features/mcp-clients/repository.ts` の `remove`）。[MCP Events](mcp-events.md#購読) の購読は同意への外部キーで一緒に消える。
   - リフレッシュトークンを消すのは、oauth-provider がリフレッシュのときに元のセッションも同意も確かめないため。リフレッシュトークンは使うたびに入れ替わるので、消さなければ実質無期限に使える。
-  - 購読を消すのは、トークンが無くても購読の期限まで webhook へ記録の変化を送り続けるため。
+  - 購読も消えるのは、トークンが無くても購読の期限まで webhook へ記録の変化を送り続けるため。外部キーにしているので、失効以外の経路で同意が消えても残らない。
   - 他のユーザーの許可には触れない（家族の片方が失効しても、もう片方の接続は残る）。
-- `/api/mcp` は要求ごとに、トークンのユーザーがトークンのクライアント（`azp`）を今も許可しているか（同意があるか）を DB で確かめ、無ければ 401 にする（`server/mcp.ts`）。アクセストークンは JWT で DB を見ずに検証するので、確かめなければ失効した後も期限（1 時間）まで使えてしまう。応答は無効なトークンと同じ 401（RFC 9728 の `WWW-Authenticate`）なので、クライアントは認可をやり直す。
+- `/api/mcp` は要求ごとに、トークンのユーザーがトークンのクライアント（`azp`）を今も許可しているか（同意があるか）を DB で確かめ、無ければ 401 にする（`server/mcp.ts`）。見つけた同意の id はツールの文脈に渡し、MCP Events の購読がそれを持つ。アクセストークンは JWT で DB を見ずに検証するので、確かめなければ失効した後も期限（1 時間）まで使えてしまう。応答は無効なトークンと同じ 401（RFC 9728 の `WWW-Authenticate`）なので、クライアントは認可をやり直す。
 - WHY NOT oauth-provider の同意を管理する口（`/oauth2/get-consents`・`/oauth2/delete-consent`）を開けて使う: `delete-consent` は同意の行を消すだけで、トークンも購読も残る。一覧もクライアントの名前と配布元を返さない。
 - WHY NOT パスワードの変更で一緒に止める: パスワードはアカウントの資格で、MCP クライアントへの許可とは別に扱う。まとめると、どのクライアントが止まるのかが見えず、正規のクライアントまで巻き込んで止まる。
 
 ## データ
 
-自分の表は持たない。読み書きするのは oauth-provider の表（`oauth_clients`・`oauth_consents`・`oauth_refresh_tokens`・`oauth_access_tokens`。[mcp.md](mcp.md#エンドポイント)）と、MCP Events の購読（[mcp-events.md](mcp-events.md#データ)）。1 つのクライアントの許可は「そのユーザーの同意の行」で表し、一覧の 1 行は同意 1 件。
+自分の表は持たない。読み書きするのは oauth-provider の表（`oauth_clients`・`oauth_consents`・`oauth_refresh_tokens`・`oauth_access_tokens`。[mcp.md](mcp.md#エンドポイント)）。MCP Events の購読は同意を参照する（[mcp-events.md](mcp-events.md#データ)）。1 つのクライアントの許可は「そのユーザーの同意の行」で表し、一覧の 1 行は同意 1 件。
 
 ## API
 

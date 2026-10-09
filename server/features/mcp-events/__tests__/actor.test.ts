@@ -31,7 +31,7 @@ describe('別の人が直す・消したときの data.by', () => {
 
   /** 試す種類のイベントを購読する */
   async function subscribeTo(name: EventName) {
-    await subscribe(subscriber(a), {
+    await subscribe(await subscriber(a), {
       name,
       url: 'https://receiver.example.com/hook',
       secret: newSecret(),

@@ -146,15 +146,12 @@ export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
         value: delivery.mode,
       });
     }
-    const result = await subscribe(
-      { userId: ctx.userId, clientId: ctx.clientId },
-      {
-        name,
-        url: delivery.url,
-        secret: delivery.secret,
-        ttlMs: params.ttlMs,
-      },
-    );
+    const result = await subscribe(ctx, {
+      name,
+      url: delivery.url,
+      secret: delivery.secret,
+      ttlMs: params.ttlMs,
+    });
     if (!result.ok) {
       throw new ProtocolError(CALLBACK_ENDPOINT_ERROR, 'callback endpoint verification failed', {
         reason: result.reason,
@@ -171,10 +168,7 @@ export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
 
   server.setRequestHandler('events/unsubscribe', { params: unsubscribeParams }, async (params) => {
     const name = eventNameOf(params.name);
-    await unsubscribe(
-      { userId: ctx.userId, clientId: ctx.clientId },
-      { name, url: params.delivery.url },
-    );
+    await unsubscribe(ctx, { name, url: params.delivery.url });
     return {};
   });
 };

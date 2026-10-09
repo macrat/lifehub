@@ -5,7 +5,7 @@ import { APIError } from 'better-auth/api';
 import { Hono } from 'hono';
 import { registerEventTools } from './features/events/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
-import { isAuthorized } from './features/mcp-clients/service.ts';
+import { findAuthorization } from './features/mcp-clients/service.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerExpenseTools } from './features/money/mcp.ts';
@@ -42,7 +42,10 @@ const INSTRUCTIONS = [
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-function createMcpServer({ userId, clientId }: { userId: string; clientId: string }): McpServer {
+/** 検証した要求の主: ユーザー、MCP クライアント（OAuth のクライアント ID）、そのクライアントへのユーザーの許可（同意の id） */
+type McpCaller = { userId: string; clientId: string; consentId: string };
+
+function createMcpServer({ userId, clientId, consentId }: McpCaller): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
     { instructions: INSTRUCTIONS },
@@ -50,7 +53,7 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId: strin
   let people: Promise<Person[]> | undefined;
   const ctx: McpContext = {
     userId,
-    clientId,
+    consentId,
     people: () => {
       people ??= listPeople();
       return people;
@@ -67,21 +70,25 @@ function createMcpServer({ userId, clientId }: { userId: string; clientId: strin
  * どちらも要求ごとに `createMcpServer` でサーバーを組み立て、セッションは持たない（サーバーレスのため）。
  */
 const handler = createMcpHandler(({ authInfo }) => {
-  const userId = authInfo?.extra?.userId;
-  if (typeof userId !== 'string' || !authInfo?.clientId) {
+  const { userId, consentId } = authInfo?.extra ?? {};
+  if (typeof userId !== 'string' || typeof consentId !== 'string' || !authInfo?.clientId) {
     throw new Error('MCP request without a verified user and client');
   }
-  return createMcpServer({ userId, clientId: authInfo.clientId });
+  return createMcpServer({ userId, clientId: authInfo.clientId, consentId });
 });
 
 /**
  * 検証済みのユーザーとして MCP の要求を処理する（MCP エンドポイントとテストが同じ口を通る）。
- * 誰の要求かは `authInfo.extra.userId`、どの MCP クライアントからかは `authInfo.clientId` で組み立て関数に渡す。
- * ツールが読むのはユーザーとクライアントだけなので、AuthInfo のほかの項目（トークン・スコープ）は空にする。
+ * 誰の要求かは `authInfo.extra.userId`、どの MCP クライアントからかは `authInfo.clientId`、その許可は
+ * `authInfo.extra.consentId` で組み立て関数に渡す。ツールが読むのはこれらだけなので、AuthInfo のほかの項目
+ * （トークン・スコープ）は空にする。
  */
-export function serveMcp(request: Request, userId: string, clientId: string): Promise<Response> {
+export function serveMcp(
+  request: Request,
+  { userId, clientId, consentId }: McpCaller,
+): Promise<Response> {
   return handler.fetch(request, {
-    authInfo: { token: '', clientId, scopes: [], extra: { userId } },
+    authInfo: { token: '', clientId, scopes: [], extra: { userId, consentId } },
   });
 }
 
@@ -99,9 +106,10 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
     async (request, claims) => {
       const userId = claims.sub;
       const clientId = typeof claims.azp === 'string' ? claims.azp : undefined;
-      if (!userId || !clientId || !(await isAuthorized(userId, clientId))) return unauthorized();
+      const consentId = userId && clientId && (await findAuthorization(userId, clientId));
+      if (!userId || !clientId || !consentId) return unauthorized();
       setSentryUser(userId);
-      return serveMcp(request, userId, clientId);
+      return serveMcp(request, { userId, clientId, consentId });
     },
     { resource: MCP_RESOURCE },
   );

@@ -1,5 +1,5 @@
 {
-  "id": "3d46fc67-e500-4934-af0b-715e496e3019",
+  "id": "853eadb5-741c-45bf-bb69-208b5d89a16c",
   "prevId": "edeeb38f-5484-4445-a355-f29b7367a3b1",
   "version": "7",
   "dialect": "postgresql",
@@ -614,9 +614,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "client_id": {
-          "name": "client_id",
-          "type": "text",
+        "consent_id": {
+          "name": "consent_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -695,6 +695,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "mcp_event_subscriptions_consent_id_oauth_consents_id_fk": {
+          "name": "mcp_event_subscriptions_consent_id_oauth_consents_id_fk",
+          "tableFrom": "mcp_event_subscriptions",
+          "tableTo": "oauth_consents",
+          "columnsFrom": [
+            "consent_id"
           ],
           "columnsTo": [
             "id"

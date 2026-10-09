@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../../../shared/id.ts';
 import { db } from '../../../lib/db/client.ts';
@@ -9,7 +10,7 @@ import {
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
 import { mcpEventSubscriptions } from '../../mcp-events/schema.ts';
-import { isAuthorized, listClients, revokeClient } from '../service.ts';
+import { findAuthorization, listClients, revokeClient } from '../service.ts';
 import { authorizeClient } from './fixtures.ts';
 
 const CLAUDE = 'https://claude.example.com/oauth/client.json';
@@ -18,25 +19,26 @@ const OTHER = 'https://other.example.net/client.json';
 let userId: string;
 let partnerId: string;
 
-/** 残っている行の (ユーザー, クライアント)。表ごと */
-async function remaining() {
-  const pairs = async (
-    table: typeof oauthConsents | typeof oauthRefreshTokens | typeof oauthAccessTokens,
-  ) =>
-    (await db.select({ userId: table.userId, clientId: table.clientId }).from(table)).map(
-      (row) => `${row.userId === userId ? 'me' : 'partner'} ${row.clientId}`,
-    );
-  const subscriptions = await db
-    .select({ userId: mcpEventSubscriptions.userId, clientId: mcpEventSubscriptions.clientId })
-    .from(mcpEventSubscriptions);
-  return {
-    consents: (await pairs(oauthConsents)).sort(),
-    refreshTokens: (await pairs(oauthRefreshTokens)).sort(),
-    accessTokens: (await pairs(oauthAccessTokens)).sort(),
-    subscriptions: subscriptions
-      .map((row) => `${row.userId === userId ? 'me' : 'partner'} ${row.clientId}`)
-      .sort(),
-  };
+/** 行を「人 クライアント」の並びにする */
+function labels(rows: { userId: string | null; clientId: string }[]): string[] {
+  return rows.map((row) => `${row.userId === userId ? 'me' : 'partner'} ${row.clientId}`).sort();
+}
+
+/** その表に残っている行の「人 クライアント」 */
+async function remaining(
+  table: typeof oauthConsents | typeof oauthRefreshTokens | typeof oauthAccessTokens,
+): Promise<string[]> {
+  const rows = await db.select({ userId: table.userId, clientId: table.clientId }).from(table);
+  return labels(rows);
+}
+
+/** 残っている MCP Events の購読の「人 クライアント」 */
+async function remainingSubscriptions(): Promise<string[]> {
+  const rows = await db
+    .select({ userId: mcpEventSubscriptions.userId, clientId: oauthConsents.clientId })
+    .from(mcpEventSubscriptions)
+    .innerJoin(oauthConsents, eq(oauthConsents.id, mcpEventSubscriptions.consentId));
+  return labels(rows);
 }
 
 describe('mcp-clients service', () => {
@@ -76,15 +78,13 @@ describe('mcp-clients service', () => {
     await revokeClient(claude?.id ?? '', userId);
 
     const kept = [`me ${OTHER}`, `partner ${CLAUDE}`];
-    expect(await remaining()).toEqual({
-      consents: kept,
-      refreshTokens: kept,
-      accessTokens: kept,
-      subscriptions: kept,
-    });
-    expect(await isAuthorized(userId, CLAUDE)).toBe(false);
-    expect(await isAuthorized(userId, OTHER)).toBe(true);
-    expect(await isAuthorized(partnerId, CLAUDE)).toBe(true);
+    for (const table of [oauthConsents, oauthRefreshTokens, oauthAccessTokens]) {
+      expect(await remaining(table)).toEqual(kept);
+    }
+    expect(await remainingSubscriptions()).toEqual(kept);
+    expect(await findAuthorization(userId, CLAUDE)).toBeUndefined();
+    expect(await findAuthorization(userId, OTHER)).toBeDefined();
+    expect(await findAuthorization(partnerId, CLAUDE)).toBeDefined();
   });
 
   it('他のユーザーの許可と、無い許可は失効できない', async () => {
@@ -93,6 +93,6 @@ describe('mcp-clients service', () => {
 
     await expect(revokeClient(partners?.id ?? '', userId)).rejects.toBeInstanceOf(NotFoundError);
     await expect(revokeClient(newId(), userId)).rejects.toBeInstanceOf(NotFoundError);
-    expect(await isAuthorized(partnerId, CLAUDE)).toBe(true);
+    expect(await findAuthorization(partnerId, CLAUDE)).toBeDefined();
   });
 });

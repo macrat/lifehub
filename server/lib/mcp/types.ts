@@ -5,8 +5,8 @@ import type { Person } from '../people.ts';
 export type McpContext = {
   /** OAuth のアクセストークンから得た、ツールを呼んでいるユーザーの ID */
   userId: string;
-  /** OAuth のアクセストークンから得た、ツールを呼んでいる MCP クライアントの ID（トークンの azp） */
-  clientId: string;
+  /** ツールを呼んでいる MCP クライアントへの、そのユーザーの許可（OAuth の同意の id） */
+  consentId: string;
   /** ユーザーの一覧（登録順）。1 回の要求の中では 1 度だけ読む */
   people(): Promise<Person[]>;
   /** ツールを呼んでいる MCP クライアントの名前（書いたメモに残す） */

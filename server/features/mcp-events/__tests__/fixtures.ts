@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { vi } from 'vitest';
 import * as afterResponse from '../../../lib/after-response.ts';
+import { grantConsent } from '../../mcp-clients/__tests__/fixtures.ts';
 import * as webhook from '../webhook.ts';
 
 /** MCP Events のテストが共有する受け手・鍵・応答の後の配信 */
@@ -48,7 +49,7 @@ export function holdDeliveries(): () => Promise<void> {
   };
 }
 
-/** 購読する人。MCP クライアントはどのテストでも同じものにする（`server/__tests__/mcp-client.ts` の既定と同じ） */
-export function subscriber(userId: string) {
-  return { userId, clientId: 'test-client' };
+/** 購読する人と、MCP のテストが既定で使うクライアントへのその人の許可（無ければ作る） */
+export async function subscriber(userId: string) {
+  return { userId, consentId: await grantConsent(userId) };
 }

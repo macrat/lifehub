@@ -110,7 +110,7 @@ server/                       # サーバー（Hono）
                               #   money/moneyforward.ts（Money Forward をブラウザで開いて読む）・money/parse.ts（読んだ文字の読み方）
                               # 分けた業務ロジックも、ほかの feature と server/ 直下の入口からは service.ts（の再 export）で読む
   features/notifications/     # 通知の予約・配信（service）、送信済み台帳（repository）、QStash への予約（publisher.ts）
-  features/mcp-clients/       # 接続を許可した MCP クライアントの一覧と失効（自分の表は持たず、OAuth の表と MCP Events の購読を消す）
+  features/mcp-clients/       # 接続を許可した MCP クライアントの一覧と失効（自分の表は持たず、OAuth の同意とトークンを読み書きする）
   features/mcp-events/        # MCP Events の配信（service）、購読の作成と取り消し（subscriptions.ts）、購読の台帳（repository）、webhook の署名と送信（webhook.ts）、MCP のメソッド（mcp.ts）
     __tests__/
   lib/                        # 横断の土台。features を読まない（DB の表の定義 `features/*/schema.ts` だけは例外。biome が禁じる）

@@ -31,7 +31,7 @@ describe('MCP Events の購読と配信', () => {
   it('初めての購読は受け手を challenge で確かめ、署名付きで送る', async () => {
     const { received } = receiver();
     const secret = newSecret();
-    const result = await subscribe(subscriber(userId), {
+    const result = await subscribe(await subscriber(userId), {
       name: 'memo.changed',
       url: URL_A,
       secret,
@@ -50,7 +50,7 @@ describe('MCP Events の購読と配信', () => {
   it('challenge を返さない受け手は購読できず、送られない', async () => {
     const post = vi.spyOn(webhook, 'postWebhook').mockResolvedValue({ status: 200, body: '{}' });
     expect(
-      await subscribe(subscriber(userId), {
+      await subscribe(await subscriber(userId), {
         name: 'memo.changed',
         url: URL_A,
         secret: newSecret(),
@@ -63,8 +63,12 @@ describe('MCP Events の購読と配信', () => {
 
   it('購読した種類の記録の追加・編集・削除を、ツールと同じ形のエントリーで届ける', async () => {
     const { events } = receiver();
-    await subscribe(subscriber(userId), { name: 'memo.changed', url: URL_A, secret: newSecret() });
-    await subscribe(subscriber(userId), {
+    await subscribe(await subscriber(userId), {
+      name: 'memo.changed',
+      url: URL_A,
+      secret: newSecret(),
+    });
+    await subscribe(await subscriber(userId), {
       name: 'expense.changed',
       url: URL_A,
       secret: newSecret(),
@@ -115,7 +119,11 @@ describe('MCP Events の購読と配信', () => {
 
   it('繰り返しの回を消したときは、その回のエントリーと消した範囲を届ける', async () => {
     const { events } = receiver();
-    await subscribe(subscriber(userId), { name: 'event.changed', url: URL_A, secret: newSecret() });
+    await subscribe(await subscriber(userId), {
+      name: 'event.changed',
+      url: URL_A,
+      secret: newSecret(),
+    });
     const series = await createEvent(
       createEventSchema.parse({
         kind: 'event',
@@ -144,12 +152,12 @@ describe('MCP Events の購読と配信', () => {
   it('プッシュ通知を送ったとき、同じ宛先の購読に通知した予定・タスクを届ける', async () => {
     const { events } = receiver();
     const partnerId = await createTestUser('B');
-    await subscribe(subscriber(userId), {
+    await subscribe(await subscriber(userId), {
       name: 'event.reminder',
       url: URL_A,
       secret: newSecret(),
     });
-    await subscribe(subscriber(partnerId), {
+    await subscribe(await subscriber(partnerId), {
       name: 'event.reminder',
       url: URL_A,
       secret: newSecret(),
@@ -199,8 +207,12 @@ describe('MCP Events の購読と配信', () => {
   it('購読し直しは確かめ直さず、鍵が変わればしばらく両方の鍵で署名する', async () => {
     const { received, events } = receiver();
     const [oldSecret, newerSecret] = [newSecret(), newSecret()];
-    await subscribe(subscriber(userId), { name: 'memo.changed', url: URL_A, secret: oldSecret });
-    const again = await subscribe(subscriber(userId), {
+    await subscribe(await subscriber(userId), {
+      name: 'memo.changed',
+      url: URL_A,
+      secret: oldSecret,
+    });
+    const again = await subscribe(await subscriber(userId), {
       name: 'memo.changed',
       url: URL_A,
       secret: newerSecret,
@@ -223,7 +235,11 @@ describe('MCP Events の購読と配信', () => {
     const flaky = receiver((r) =>
       r.body.includes('"verification"') ? 200 : (statuses.shift() ?? 200),
     );
-    await subscribe(subscriber(userId), { name: 'memo.changed', url: URL_A, secret: newSecret() });
+    await subscribe(await subscriber(userId), {
+      name: 'memo.changed',
+      url: URL_A,
+      secret: newSecret(),
+    });
     const memo = await addMemo({ body: '牛乳' }, { userId });
     // 送り直しの間（数秒）はフェイクタイマーで飛ばす。1 度目が届いてから、送り直すまでの時間を進める
     vi.useFakeTimers({ toFake: ['setTimeout'] });
@@ -255,9 +271,13 @@ describe('MCP Events の購読と配信', () => {
 
   it('購読をやめると届かず、無い購読をやめても失敗しない', async () => {
     const { events } = receiver();
-    await subscribe(subscriber(userId), { name: 'memo.changed', url: URL_A, secret: newSecret() });
-    await unsubscribe(subscriber(userId), { name: 'memo.changed', url: URL_A });
-    await unsubscribe(subscriber(userId), { name: 'memo.changed', url: URL_A });
+    await subscribe(await subscriber(userId), {
+      name: 'memo.changed',
+      url: URL_A,
+      secret: newSecret(),
+    });
+    await unsubscribe(await subscriber(userId), { name: 'memo.changed', url: URL_A });
+    await unsubscribe(await subscriber(userId), { name: 'memo.changed', url: URL_A });
     await addMemo({ body: '牛乳' }, { userId });
     await deliver();
     expect(events()).toEqual([]);

@@ -20,7 +20,10 @@ export async function listClients(userId: string): Promise<McpClient[]> {
   });
 }
 
-/** 許可を取り消す。そのクライアントは、そのユーザーとしては何もできなくなる。他のユーザーの許可は消せない */
+/**
+ * 許可を取り消す。そのクライアントは、そのユーザーとしては何もできなくなり、張っていた MCP Events の購読も消える。
+ * 他のユーザーの許可は消せない
+ */
 export async function revokeClient(id: string, userId: string): Promise<void> {
   if (!(await repository.remove(id, userId))) {
     throw new NotFoundError('MCP クライアントが見つかりません');
@@ -28,11 +31,11 @@ export async function revokeClient(id: string, userId: string): Promise<void> {
 }
 
 /**
- * そのユーザーがそのクライアントを許可しているか。MCP の要求ごとに確かめ、失効をその場で効かせる
- * （アクセストークンは JWT で DB を見ずに検証するので、確かめなければ期限まで使えてしまう）。
+ * そのユーザーのそのクライアントへの許可（同意）の id。失効していれば undefined。MCP の要求ごとに確かめ、
+ * 失効をその場で効かせる（アクセストークンは JWT で DB を見ずに検証するので、確かめなければ期限まで使えてしまう）。
  */
-export function isAuthorized(userId: string, clientId: string): Promise<boolean> {
-  return repository.exists(userId, clientId);
+export function findAuthorization(userId: string, clientId: string): Promise<string | undefined> {
+  return repository.findConsentId(userId, clientId);
 }
 
 /** クライアント ID は CIMD のメタデータ文書の URL（cimd だけを受け付ける。docs/features/mcp.md）。URL でなければそのまま */
