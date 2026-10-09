@@ -110,7 +110,9 @@ function registerOverview(server: McpServer, ctx: McpContext) {
         '今日と明日のタイムライン（予定・自分のやるべきタスク・記録・天気。自分以外のタスクは read_timeline の includeOthersTasks で読む）。',
         '立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）。',
         'レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）。',
-        `Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、その ${BALANCE_CHANGE_DAYS} 日前の値からの増減を balanceChange（増えたら正。${BALANCE_CHANGE_DAYS} 日前の記録が無ければ省く）、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）。`,
+        'Money Forward から日に 1 度取り込む口座の今の値（moneyAccounts。kind は bank=銀行・securities=証券・card=クレジットカード。fetchedAt は取り込んだ日時）。',
+        `銀行と証券は、balance が残高・評価額（円）、balanceChange が ${BALANCE_CHANGE_DAYS} 日前の値からの増減（円。増えたら正。${BALANCE_CHANGE_DAYS} 日前の記録が無ければ省く）。`,
+        'クレジットカードは、withdrawalAmount が次回の引き落とし額（円）、withdrawalOn がその日。読めていない値は省く。',
         'あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       ].join(' '),
       inputSchema: z.object({}),
@@ -188,7 +190,7 @@ function registerDeleteEntry(server: McpServer, ctx: McpContext) {
     {
       title: 'エントリーを消す',
       description:
-        'タイムラインのエントリー（予定・タスク・立替・レモンの世話・メモ）を ref で消す。取り消せないので、消す物が合っているかを確かめてから呼ぶ。繰り返しの予定・タスクの回（ref に @ を含む）は scope で範囲を選ぶ。メモは書いた本人しか消せない。',
+        'タイムラインのエントリー（予定・タスク・立替・レモンの世話・メモ）を ref で消す。取り消せないので、消す物が合っているかを確かめてから呼ぶ。繰り返しの予定・タスクの回（ref に @ を含む）は scope で範囲を選ぶ。メモは書いた本人しか消せない。Money Forward から取り込んだ入出金は ref を持たず、消せない。消せたら「消しました」とだけ返す。',
       inputSchema: z.object({ ref: refSchema, scope: scopeSchema }),
       annotations: { ...EDITING, idempotentHint: false },
     },

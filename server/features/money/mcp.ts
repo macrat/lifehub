@@ -87,7 +87,7 @@ export const registerExpenseTools: McpRegistrar = (server, ctx) => {
     {
       title: '立替を直す',
       description:
-        '立替を ref で直す。変える項目だけを渡し、省いた項目は今のまま。直した立替と、直した後の精算を返す。',
+        '手で記録した立替を ref で直す（金額・内容・払った人・誰のためか・日付）。変える項目だけを渡し、省いた項目は今のまま。Money Forward から取り込んだ入出金は ref を持たず、直せない。直した立替と、直した後の精算（add_expense と同じ形）を返す。',
       inputSchema: z.object({
         ref: refSchema.describe('立替の ref'),
         amount: fields.amount.optional(),
