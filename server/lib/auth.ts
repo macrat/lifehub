@@ -6,6 +6,7 @@ import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
 import { newId } from '../../shared/id.ts';
+import { afterResponse } from './after-response.ts';
 import { authDatabase } from './db/auth-adapter.ts';
 import { env, resolveBaseUrl } from './env.ts';
 
@@ -126,6 +127,11 @@ const options = {
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
     disableOriginCheck: false,
+    // better-auth の後始末（レート制限の古い行の刈り込みなど）を応答の後に回す。渡さないと要求の中で待つ。
+    // 刈り込みは前の試行から窓（15 分）を過ぎたログインで走るので、普段のログインはほぼ毎回これに当たる
+    backgroundTasks: {
+      handler: (task) => afterResponse('better-auth: background task', () => task),
+    },
   },
   session: {
     // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ
