@@ -144,7 +144,7 @@
 
 ## MCP ツール
 
-`add_expense`, `update_expense`（`server/features/money/mcp.ts`。書けるのは立替だけ）。払った人・誰のためかの共有は `"shared"`。精算は `get_overview`（と書いた後の結果）、記録は `read_timeline`（種類は `expense`）、消すのは `delete_entry`（[mcp.md](mcp.md)）。口座の今の値（銀行・証券は 30 日前の値からの差 `balanceChange` も）は `get_overview` の `moneyAccounts`。
+`add_expense`, `update_expense`（`server/features/money/mcp.ts`。書けるのは立替だけ）。払った人・誰のためかの共有は `"shared"`。精算は `get_overview`（と書いた後の結果）、記録は `read_timeline`（種類は `expense`）、消すのは `delete_entry`（[mcp.md](mcp.md)）。口座の今の値は `get_overview` の `moneyAccounts`（項目は `money.accounts` と同じ）。
 
 取り込んだ入出金も `read_timeline` の `expense` として返し、`account`（金融機関）を持つ。金額は入金が正・出金が負で、直せないので ref を持たない（書くツールに渡せる物を渡さない）。ルールで「共有」との立替にしたものは、立替と同じ `paidBy`・`paidFor` を持ち、精算（`expenseSettlements`）にも入る。
 

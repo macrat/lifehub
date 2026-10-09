@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { addDays, type DateRange, today } from '../../../shared/date.ts';
+import { BALANCE_CHANGE_DAYS } from '../../../shared/money.ts';
 import {
   type FormattedEntry,
   formatEntry,
@@ -109,7 +110,7 @@ function registerOverview(server: McpServer, ctx: McpContext) {
         '今日と明日のタイムライン（予定・自分のやるべきタスク・記録・天気。自分以外のタスクは read_timeline の includeOthersTasks で読む）。',
         '立替の精算（payer が payee に amount 円払う移動をすべて行えば帳消し。空なら精算済み。"shared" は共有口座）。',
         'レモンの木の世話の状況（項目ごとの最終実施日時と経過日数。一度もしていない項目は lastDoneAt が無い）。',
-        'Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、その 30 日前の値からの増減を balanceChange（増えたら正。30 日前の記録が無ければ省く）、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）。',
+        `Money Forward から取り込んだ口座（moneyAccounts。銀行は残高、証券は評価額を balance、その ${BALANCE_CHANGE_DAYS} 日前の値からの増減を balanceChange（増えたら正。${BALANCE_CHANGE_DAYS} 日前の記録が無ければ省く）、クレジットカードは次回の引き落とし額と日を withdrawalAmount・withdrawalOn。fetchedAt は取り込んだ日時）。`,
         'あなたは今日の日付を知らないので、「明日」「来週」などの日付はここの today から数える。人は users の名前で指す。3 時間ごとの天気や週間予報は get_weather で読む。',
       ].join(' '),
       inputSchema: z.object({}),
