@@ -38,13 +38,13 @@ const INSTRUCTIONS = [
   '日付は JST の YYYY-MM-DD、日時は JST の YYYY-MM-DDTHH:mm（タイムゾーンは省ける）。人は名前（自分は "me"）で指す。',
 ].join('\n');
 
+/** 検証した要求の主: ユーザー、MCP クライアント（OAuth のクライアント ID）、そのクライアントへのユーザーの許可（同意の id） */
+type McpCaller = { userId: string; clientId: string; consentId: string };
+
 /**
  * リクエストごとに MCP サーバーを組み立てる（ステートレス。サーバーレスのためセッションを持たない）。
  * ツールは UI と同じ service 層を呼ぶ。
  */
-/** 検証した要求の主: ユーザー、MCP クライアント（OAuth のクライアント ID）、そのクライアントへのユーザーの許可（同意の id） */
-type McpCaller = { userId: string; clientId: string; consentId: string };
-
 function createMcpServer({ userId, clientId, consentId }: McpCaller): McpServer {
   const server = new McpServer(
     { name: 'lifehub', version: '2.0.0' },
