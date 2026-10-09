@@ -4,9 +4,49 @@ import { newId } from '../../../../shared/id.ts';
 import { createUserSchema } from '../../../../shared/validation/users.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
+import { db } from '../../../lib/db/client.ts';
+import {
+  oauthAccessTokens,
+  oauthClients,
+  oauthRefreshTokens,
+} from '../../../lib/db/oauth-schema.ts';
 import { clearTables, createTestUser } from '../../../lib/db/test-db.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.ts';
+import { mcpEventSubscriptions } from '../../mcp-events/schema.ts';
 import { createUser, listUsers, updateUser } from '../service.ts';
+
+/** MCP クライアントに渡したアクセス（リフレッシュトークン・アクセストークン・MCP Events の購読）を 1 組ずつ作る */
+async function grantMcpAccess(userId: string): Promise<void> {
+  const clientId = `https://${userId}.example.com/client.json`;
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  const token = { clientId, userId, expiresAt, createdAt: new Date(), scopes: ['offline_access'] };
+  await db.insert(oauthClients).values({ id: newId(), clientId, redirectUris: [] });
+  const refreshId = newId();
+  await db.insert(oauthRefreshTokens).values({ ...token, id: refreshId, token: newId() });
+  await db.insert(oauthAccessTokens).values({ ...token, id: newId(), token: newId(), refreshId });
+  await db.insert(oauthAccessTokens).values({ ...token, id: newId(), token: newId() });
+  await db.insert(mcpEventSubscriptions).values({
+    id: newId(),
+    userId,
+    name: 'events/changed',
+    url: 'https://example.com/webhook',
+    secret: 'whsec_test',
+    expiresAt,
+  });
+}
+
+async function mcpAccessOwners() {
+  const [refresh, access, subscriptions] = await Promise.all([
+    db.select({ userId: oauthRefreshTokens.userId }).from(oauthRefreshTokens),
+    db.select({ userId: oauthAccessTokens.userId }).from(oauthAccessTokens),
+    db.select({ userId: mcpEventSubscriptions.userId }).from(mcpEventSubscriptions),
+  ]);
+  return {
+    refresh: refresh.map((row) => row.userId),
+    access: access.map((row) => row.userId),
+    subscriptions: subscriptions.map((row) => row.userId),
+  };
+}
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };
 
@@ -64,6 +104,23 @@ describe('users service', () => {
       expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
     expect((await login(alice.email, alice.password)).status).toBe(401);
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
+  });
+
+  it('パスワードを変えると、本人が MCP クライアントに渡したアクセスを止め、他人の分とプロフィールだけの変更では止めない', async () => {
+    const created = await createUser(alice);
+    const other = await createTestUser('B');
+    await grantMcpAccess(created.id);
+    await grantMcpAccess(other);
+
+    await updateUser(created.id, { name: 'Alicia' }, created.id);
+    expect((await mcpAccessOwners()).refresh).toHaveLength(2);
+
+    await updateUser(created.id, { password: 'new-password-123' }, created.id);
+    expect(await mcpAccessOwners()).toEqual({
+      refresh: [other],
+      access: [other, other],
+      subscriptions: [other],
+    });
   });
 
   it('いないユーザーは変更できない', async () => {

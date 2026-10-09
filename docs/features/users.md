@@ -40,6 +40,11 @@
 - 公開のサインアップ経路は `disabledPaths` で閉じる。ユーザー作成は users service（サーバー内部から `auth.api.signUpEmail` を呼ぶ。`disableSignUp` は内部呼び出しも拒否するため使わない）経由で、`/admin/users` と `scripts/create-user.ts` だけが行う。メールの重複は service が事前に確認する（`autoSignIn: false` の better-auth は列挙対策として重複時も成功を装うため）。
 - 名前・色・通知時刻は家族で共有するプロフィールなので他人の分も変更できるが、パスワードは本人だけが変更できる（片方のセッションを奪われたときにもう片方のアカウントまで奪われないように）。判定は `service.updateUser` が変更する人（ログイン中のユーザー）を受け取って行い、他人のパスワードなら `ForbiddenError`（手続きの失敗としては `FORBIDDEN`）にする。better-auth の API は本人のセッションを前提にするので使わず、repository で直接更新する（パスワードは `better-auth/crypto` の `hashPassword`）。
 - パスワード変更時は対象ユーザーの全ブラウザセッションを失効させる。即時反映のため Cookie によるセッションキャッシュは使わず、要求ごとにセッションを DB で確かめる（セッションとユーザーを結合して 1 回で読む。[architecture.md](../architecture.md#通信の往復)）。
+- パスワード変更時は、対象ユーザーが MCP クライアントに渡したアクセスも止める（`server/features/users/repository.ts` の `update`）。漏れたトークンや購読に気づいたとき、パスワードを変えれば止まるようにするため。
+  - リフレッシュトークンと不透明なアクセストークン（`oauth_refresh_tokens`・`oauth_access_tokens`）を消す。oauth-provider はリフレッシュのときに元のセッションが生きているかを確かめず、リフレッシュトークンは使うたびに入れ替わるので、消さなければ実質無期限に使える。
+  - [MCP Events](mcp-events.md) の購読を消す。トークンが無くても、購読の期限まで webhook へ記録の変化を送り続けるため。
+  - JWT のアクセストークンは DB を見ずに検証するので止められず、期限（oauth-provider の既定で 1 時間）まで使える。
+  - WHY NOT 同意（`oauth_consents`）も消す: 同意だけではトークンを得られず、次の認可にもログインが要る。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。
 - ID は UUID v7（`advanced.database.generateId`）。他テーブルの `created_by` 等が `users.id` を参照する。
 
