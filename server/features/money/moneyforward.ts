@@ -1,7 +1,14 @@
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { TOTP } from 'otpauth';
 import type { Browser, Page } from 'playwright-core';
 import type { DateString } from '../../../shared/types.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
+import { fetchOk } from '../../lib/fetch.ts';
 import { matchAccount, parseWithdrawalAmount, parseWithdrawalDate, parseYen } from './parse.ts';
 import type { MoneyAccountRow } from './schema.ts';
 
@@ -21,10 +28,19 @@ const ME = 'https://moneyforward.com';
  * （`@sparticuz/chromium-min`）を取り込みのたびに配布元から /tmp に展開して使う。
  * WHY NOT 本体を同梱する `@sparticuz/chromium`: 全 API が 1 つの関数なので（docs/architecture.md）、
  * 1 日 1 回しか使わない 60MB を、どの要求のコールドスタートにも背負わせることになる。
- * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げる）。
+ * 落としたアーカイブは SHA-256 を確かめてから展開する。WHY: この Chromium には Money Forward の資格情報を入力させ、
+ * 関数の環境変数（DB の接続文字列などの秘密）も読める。配布元のアセットが差し替えられたら、それを動かさずに止める。
+ * 版は `@sparticuz/chromium-min` と同じにする（上げたら SHA-256 も替える。食い違いはテストで落とす）。
  */
-const CHROMIUM_PACK_URL =
-  'https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar';
+const CHROMIUM_VERSION = '153.0.0';
+export const CHROMIUM_PACK = {
+  version: CHROMIUM_VERSION,
+  url: `https://github.com/Sparticuz/chromium/releases/download/v${CHROMIUM_VERSION}/chromium-v${CHROMIUM_VERSION}-pack.x64.tar`,
+  sha256: '91b9f56d35a2cbb14279a1cbdaf1c86c0faa5fd82315bdd7334ff93bf35f224d',
+};
+
+/** 落とすのを待つ長さ（約 70MB） */
+const CHROMIUM_DOWNLOAD_TIMEOUT_MS = 300_000;
 
 /** 画面 1 つを待つ長さ。ログインの遷移は Money Forward ID を経るので長めにする */
 const TIMEOUT_MS = 30_000;
@@ -96,10 +112,33 @@ async function launch(): Promise<Browser> {
   const { chromium } = await import('playwright-core');
   if (!env.VERCEL) return chromium.launch();
   const { default: lambdaChromium } = await import('@sparticuz/chromium-min');
+  const packDir = join(tmpdir(), 'chromium-pack');
+  // 同じインスタンスで前に展開していれば、chromium-min はそれ（/tmp/chromium）を返すので、落とし直さない。
+  // WHY NOT URL を chromium-min に渡す: chromium-min は落としながら展開し、中身を確かめる手段が無い。
+  if (!existsSync(join(tmpdir(), 'chromium'))) await extractVerifiedPack(packDir);
   return chromium.launch({
-    executablePath: await lambdaChromium.executablePath(CHROMIUM_PACK_URL),
+    executablePath: await lambdaChromium.executablePath(packDir),
     args: lambdaChromium.args,
   });
+}
+
+/**
+ * Chromium のアーカイブを落とし、SHA-256 が `CHROMIUM_PACK` と合うときだけ dir に展開する。
+ * 確かめる前のものを 1 バイトもディスクに置かないよう、メモリに受けてから確かめる。
+ */
+async function extractVerifiedPack(dir: string): Promise<void> {
+  const response = await fetchOk(CHROMIUM_PACK.url, {
+    signal: AbortSignal.timeout(CHROMIUM_DOWNLOAD_TIMEOUT_MS),
+  });
+  const pack = Buffer.from(await response.arrayBuffer());
+  const sha256 = createHash('sha256').update(pack).digest('hex');
+  if (sha256 !== CHROMIUM_PACK.sha256) {
+    throw new Error(
+      `moneyforward: Chromium のアーカイブが想定と違うので動かしません（SHA-256: ${sha256}）`,
+    );
+  }
+  const { extract } = await import('tar-fs');
+  await pipeline(Readable.from(pack), extract(dir));
 }
 
 /**

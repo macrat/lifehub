@@ -19,10 +19,15 @@ updates:
 
     # 更新をまとめて 1 つの PR にする。PR を分けると、そのたびに CI が走り、人が見てマージする
     # 手間も増えるため。まとめても個々の変更はロックファイルの差分で追える。
+    # @sparticuz/chromium-min だけは分ける。上げるときはアーカイブの版と SHA-256 も手で替える
+    # （server/features/money/moneyforward.ts の CHROMIUM_PACK）ので、それまでその PR のテストが落ちる。
+    # まとめると、ほかの依存の更新まで止まる。
     groups:
       npm:
         patterns:
           - '*'
+        exclude-patterns:
+          - '@sparticuz/chromium-min'
 
   # GitHub Actions（uses は SHA で固定。docs/development.md）。猶予とまとめ方は npm と同じ理由。
   # Action の更新は npm より少ないので月次にし、CI の実行回数を増やしすぎない。
