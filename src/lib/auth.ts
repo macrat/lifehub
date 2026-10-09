@@ -127,6 +127,26 @@ export function useLogin(redirectTo: string | undefined) {
  * WHY networkMode: 'always': オフラインで保留させず、その場で失敗させる。保留すると同意の画面が
  * 「送信中」のまま止まり、オンラインに戻るまで何も起きない。
  */
+/**
+ * 同意画面に出す、許可を求めているクライアントの見分け方。
+ * - `clientHost`: client_id の URL（Client ID Metadata Documents）のホスト。メタデータ文書はここから取るので、
+ *   クライアントを配っているのがどこかを表す。URL でない client_id（サーバー内部から登録したクライアント）は、
+ *   client_id をそのまま出す。
+ * - `redirectHost`: 許可した後に認可コードを送る先（redirect_uri）のホスト。コードを受け取った者がトークンを得る。
+ *
+ * WHY ホストを出す: client_id と redirect_uri はどちらも better-auth が確かめた値（クエリは署名付きで、書き換えると
+ * 同意が通らない）で、偽れない。WHY NOT メタデータ文書の `client_name` を出す: 誰でも自由に名乗れるので、
+ * 正規のクライアントに似せた名前で許可を押させる同意フィッシングの手がかりにしかならない。
+ */
+export type ConsentClient = { clientHost: string; redirectHost: string | null };
+
+export function consentClientOf(clientId: string, redirectUri: string | undefined): ConsentClient {
+  return {
+    clientHost: URL.parse(clientId)?.host || clientId,
+    redirectHost: (redirectUri && URL.parse(redirectUri)?.host) || null,
+  };
+}
+
 export function useConsent() {
   return useMutation({
     networkMode: 'always',

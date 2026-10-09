@@ -65,6 +65,8 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べる',
   await page.getByRole('button', { name: 'ログイン' }).click();
   await expect(page).toHaveURL(/\/consent\?/);
   await expect(page.getByRole('heading', { name: 'アクセスの許可' })).toBeVisible();
+  // 見分けに使う戻り先のホストを出す
+  await expect(page.getByText(`127.0.0.1:${server.port}`)).toBeVisible();
   await page.getByRole('button', { name: '許可' }).click();
   await page.waitForURL(/\/oauth-callback\?/);
   const callback = new URL(page.url());
