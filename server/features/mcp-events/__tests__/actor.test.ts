@@ -8,7 +8,7 @@ import { logCare, patchLog } from '../../lemon/service.ts';
 import { addExpense, deleteExpense, patchExpense } from '../../money/service.ts';
 import type { EventName } from '../service.ts';
 import { subscribe } from '../subscriptions.ts';
-import { holdDeliveries, newSecret, receiver } from './fixtures.ts';
+import { holdDeliveries, newSecret, receiver, subscriber } from './fixtures.ts';
 
 /**
  * 作った人とは別の人が直す・消したとき、知らせる data.by は直した・消した人になる。
@@ -31,7 +31,11 @@ describe('別の人が直す・消したときの data.by', () => {
 
   /** 試す種類のイベントを購読する */
   async function subscribeTo(name: EventName) {
-    await subscribe(a, { name, url: 'https://receiver.example.com/hook', secret: newSecret() });
+    await subscribe(await subscriber(a), {
+      name,
+      url: 'https://receiver.example.com/hook',
+      secret: newSecret(),
+    });
   }
 
   /** 書いた後の配信を待ち、最後に届いた data を返す */

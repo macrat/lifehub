@@ -146,7 +146,7 @@ export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
         value: delivery.mode,
       });
     }
-    const result = await subscribe(ctx.userId, {
+    const result = await subscribe(ctx, {
       name,
       url: delivery.url,
       secret: delivery.secret,
@@ -168,7 +168,7 @@ export const registerEventSubscriptions: McpRegistrar = (mcp, ctx) => {
 
   server.setRequestHandler('events/unsubscribe', { params: unsubscribeParams }, async (params) => {
     const name = eventNameOf(params.name);
-    await unsubscribe(ctx.userId, { name, url: params.delivery.url });
+    await unsubscribe(ctx, { name, url: params.delivery.url });
     return {};
   });
 };
