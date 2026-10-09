@@ -53,9 +53,9 @@ async function sendAsAuthor({ request, author }: Write<unknown>): Promise<void> 
  * 溜めない書き込み（`queue: false`）の mutationKey。溜める書き込みと別のキーにして、
  * 溜める書き込みの順番待ち（scope）にも、端末に残す対象（`persistOptions`）にも入れない。
  * WHY: 同じキーだと、オフラインで溜めた書き込みがある間はその後ろで順番を待ち、待つ間は
- * 保留中として端末に残ってしまう。パスワードを含むユーザーの変更が IndexedDB に書かれ、
+ * 保留中として端末に残ってしまう（パスワードが IndexedDB に書かれる）うえ、
  * フォームもオンラインに戻るまで結果が出ない。溜めない書き込みはどれも溜める書き込みと
- * 独立している（ユーザー、カレンダーの配信 URL）ので、順番を待つ必要も無い。
+ * 独立しているので、順番を待つ必要も無い。
  */
 const DIRECT_WRITE_MUTATION_KEY = ['direct-write'] as const;
 
@@ -118,9 +118,8 @@ type OptimisticMutationOptions<TInput> = {
   /** 送信と同時にキャッシュへ書き込む、サーバーが返すはずの値。取得済みのクエリだけを書き換える */
   apply?: (client: QueryClient, input: NoInfer<TInput>) => void;
   /**
-   * オフラインで溜めずにその場で失敗させる。溜めても意味が無い書き込みを false にする:
-   * 端末に残したくないもの（パスワードを含むユーザーの登録・変更）と、
-   * 送れるまで結果を出せないもの（カレンダーの配信 URL は、発行されるまで渡す URL が無い）。
+   * オフラインで溜めずにその場で失敗させる。端末に残したくないものと、送れるまで結果を出せないものを
+   * false にする（どれがそうかは docs/architecture.md の「溜めないもの」）。
    */
   queue?: boolean;
 };

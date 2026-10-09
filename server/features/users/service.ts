@@ -2,7 +2,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
 import { getAuth } from '../../lib/auth.ts';
-import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
+import { ConflictError, NotFoundError } from '../../lib/errors.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
 import * as repository from './repository.ts';
 
@@ -28,7 +28,7 @@ export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: nu
 
 /**
  * ユーザーを作る。パスワードのハッシュは better-auth に任せる。
- * 公開のサインアップ経路は閉じているので、この関数と scripts/create-user.ts だけが作成経路になる。
+ * 公開のサインアップ経路は閉じているので、画面（`users.create`）と scripts/create-user.ts だけが作成経路になる。
  * メールの重複は事前に確認する（autoSignIn を切った better-auth は列挙対策として重複時も成功を装うため）。
  */
 export async function createUser(input: CreateUserInput): Promise<repository.UserRow> {
@@ -47,27 +47,16 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
   return user;
 }
 
-/**
- * ユーザーを変更する。actorId は変更する人（ログイン中のユーザー）。
- * 名前・色・通知時刻は家族で管理する共有プロフィールなので誰でも変えられるが、パスワードは本人だけが変えられる。
- * これが無いと、片方のセッションを得た攻撃者がもう片方のパスワードも奪える。
- */
-export async function updateUser(
-  id: string,
-  input: UpdateUserInput,
-  actorId: string,
-): Promise<void> {
-  if (input.password !== undefined && id !== actorId) {
-    throw new ForbiddenError('他のユーザーのパスワードは変更できません');
-  }
-  const { password, ...profile } = input;
-  const updated = await repository.update(
-    id,
-    profile,
-    password === undefined ? undefined : await hashPassword(password),
-  );
+/** 共有プロフィール（名前・色・通知時刻）を変える。他人の分も変えられる（docs/features/users.md#認証） */
+export async function updateUser(id: string, input: UpdateUserInput): Promise<void> {
+  const updated = await repository.update(id, input);
   if (!updated) throw new NotFoundError('ユーザーが見つかりません');
   // 通知時刻が変われば終日の項目の配信予定時刻も変わるので、当日〜翌日の分をその場で予約し直す
   // （古い時刻の予約は配信時の再検証で捨てられる）
   if (input.allDayNotifyMinutes !== undefined) scheduleUpcoming();
+}
+
+/** 本人のパスワードを変え、全端末のセッションを失効させる（`me.changePassword`。docs/features/users.md#認証） */
+export async function changePassword(userId: string, newPassword: string): Promise<void> {
+  await repository.replacePassword(userId, await hashPassword(newPassword));
 }

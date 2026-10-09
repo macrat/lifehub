@@ -174,3 +174,15 @@ export function getAuth(): Promise<Auth> {
   });
   return initializing;
 }
+
+/**
+ * そのユーザーの今のパスワードか確かめる（本人の確認。`lib/trpc.ts` の `reauthedProcedure`）。
+ * 手順は better-auth の `/verify-password` と同じで、資格情報の行の読み方もハッシュの照合もログインと揃う。
+ * WHY NOT `auth.api.verifyPassword` を呼ぶ: 要求のヘッダーからセッションを引き直すので、
+ * 確かめ済みのセッション（ctx.user）があるのにもう一度 DB を読む。
+ */
+export async function verifyUserPassword(userId: string, password: string): Promise<boolean> {
+  const { internalAdapter, password: hasher } = await (await getAuth()).$context;
+  const hash = (await internalAdapter.findCredentialAccount(userId))?.password;
+  return !!hash && (await hasher.verify({ hash, password }));
+}

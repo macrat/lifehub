@@ -161,7 +161,7 @@ export function useConsent() {
  * オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗する（送り直すのは通信断だけ）。
  * 残しても通る見込みが無い。
  * クエリのキャッシュはここでは消さない。401 を受けた画面はまだ表示中で、消すと表示中のクエリが
- * 取り直しに走るため（消すのは画面を離れるログアウトだけ。`useLogout`）。
+ * 取り直しに走るため（消すのは画面を離れるとき。`useLeaveToLogin`）。
  */
 export function markSignedOut(client: QueryClient): void {
   client.setQueryData(meQueryOptions.queryKey, null);
@@ -169,15 +169,13 @@ export function markSignedOut(client: QueryClient): void {
 }
 
 /**
- * ログアウト。キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残し、
- * 次回起動で即ログイン画面に出す）。
+ * ログアウト。サーバーが受け付けたら `useLeaveToLogin` でログイン画面へ送る。
  * サーバーがログアウトを受け付けなかったとき（オフラインなど）は、知らせを出して何も変えない。
  * WHY NOT 手元だけログアウトした状態にする: セッションの Cookie は有効なまま残るので、
  * ログイン画面の確かめ直しがすぐアプリへ戻してしまい、ログアウトできたように見えて実はできていない。
  */
 export function useLogout() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const leave = useLeaveToLogin();
   return async () => {
     // 通信の失敗は例外で、サーバーの拒否は error で返る。どちらもログアウトできていない
     const result = await authClient.signOut().catch(() => null);
@@ -185,6 +183,19 @@ export function useLogout() {
       notify('error', 'ログアウトできませんでした。通信できる所でもう一度試してください');
       return;
     }
+    await leave();
+  };
+}
+
+/**
+ * サインアウトした後始末: キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残し、
+ * 次回起動で即ログイン画面に出す）。ログアウトと、全端末のセッションが切れるパスワードの変更
+ * （`useChangePassword`）が使う
+ */
+export function useLeaveToLogin() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  return async () => {
     markSignedOut(queryClient);
     queryClient.removeQueries({
       predicate: (q) => !partialMatchKey(q.queryKey, meQueryOptions.queryKey),
