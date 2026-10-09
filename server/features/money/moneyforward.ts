@@ -8,6 +8,7 @@ import { TOTP } from 'otpauth';
 import type { Browser, Page } from 'playwright-core';
 import type { DateString } from '../../../shared/types.ts';
 import { env, type MoneyForwardAccount } from '../../lib/env.ts';
+import { fetchOk } from '../../lib/fetch.ts';
 import { matchAccount, parseWithdrawalAmount, parseWithdrawalDate, parseYen } from './parse.ts';
 import type { MoneyAccountRow } from './schema.ts';
 
@@ -29,9 +30,10 @@ const ME = 'https://moneyforward.com';
  * 1 日 1 回しか使わない 60MB を、どの要求のコールドスタートにも背負わせることになる。
  * 落としたアーカイブは SHA-256 を確かめてから展開する。WHY: この Chromium には Money Forward の資格情報を入力させ、
  * 関数の環境変数（DB の接続文字列などの秘密）も読める。配布元のアセットが差し替えられたら、それを動かさずに止める。
- * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げ、新しいアーカイブの SHA-256 に替える）。
+ * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げ、新しいアーカイブの SHA-256 に替える。
+ * 版の食い違いはテストで落とす）。
  */
-const CHROMIUM_PACK = {
+export const CHROMIUM_PACK = {
   url: 'https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar',
   sha256: '91b9f56d35a2cbb14279a1cbdaf1c86c0faa5fd82315bdd7334ff93bf35f224d',
 };
@@ -124,12 +126,9 @@ async function launch(): Promise<Browser> {
  * 確かめる前のものを 1 バイトもディスクに置かないよう、メモリに受けてから確かめる。
  */
 async function extractVerifiedPack(dir: string): Promise<void> {
-  const response = await fetch(CHROMIUM_PACK.url, {
+  const response = await fetchOk(CHROMIUM_PACK.url, {
     signal: AbortSignal.timeout(CHROMIUM_DOWNLOAD_TIMEOUT_MS),
   });
-  if (!response.ok) {
-    throw new Error(`moneyforward: Chromium を落とせません（HTTP ${response.status}）`);
-  }
   const pack = Buffer.from(await response.arrayBuffer());
   const sha256 = createHash('sha256').update(pack).digest('hex');
   if (sha256 !== CHROMIUM_PACK.sha256) {
