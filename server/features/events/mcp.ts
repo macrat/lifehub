@@ -225,7 +225,7 @@ function registerUpdate(server: McpServer, ctx: McpContext) {
     {
       title: 'タスクを完了にする',
       description:
-        'タスクを ref で完了にする（done=false で完了を取り消す）。完了したタスクは今日に出続けなくなり、完了した日に出る。予定（kind が event）は完了にできない。繰り返しのタスクは、read_timeline が返した回の ref（@ を含む）が必須で、その回だけが完了になる（繰り返し全体の ref は渡せない）。完了にしたタスクの ref と done を返す。',
+        'タスクを ref で完了にする（done=false で完了を取り消す）。予定（kind が event）は完了にできない。繰り返しのタスクは、read_timeline が返した回の ref（@ を含む）が必須で、その回だけが完了になる（繰り返し全体の ref は渡せない）。',
       inputSchema: z.object({
         ref: refSchema.describe('タスクの ref。繰り返しのタスクは回の ref（@ を含む）'),
         done: z.boolean().default(true).describe('true で完了、false で未完了に戻す'),
