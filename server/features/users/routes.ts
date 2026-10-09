@@ -10,7 +10,7 @@ import * as service from './service.ts';
 /** ログイン中のユーザー自身のこと。一覧は画面が必ず一緒に使うので `get` の 1 つの応答にまとめる */
 export const meRouter = router({
   get: procedure.query(({ ctx }) => service.getMe(ctx.user)),
-  /** 本人のパスワードの変更。全端末（この端末も）のセッションが切れる */
+  /** 本人のパスワードの変更（docs/features/users.md#認証） */
   changePassword: reauthedProcedure.input(changePasswordSchema).mutation(async ({ ctx, input }) => {
     await service.changePassword(ctx.user.id, input.newPassword);
   }),

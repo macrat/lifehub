@@ -3,14 +3,17 @@ import { HUE_MAX } from '../color.ts';
 import { DAY_MINUTES, PASSWORD_MIN_LENGTH } from '../constants.ts';
 import { nameSchema } from './common.ts';
 
+/** パスワードの長さの上限（決めるときも、入力されたものを確かめるときも） */
+const PASSWORD_MAX_LENGTH = 128;
+
 const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, `パスワードは${PASSWORD_MIN_LENGTH}文字以上にしてください`)
-  .max(128);
+  .max(PASSWORD_MAX_LENGTH);
 
 /** 本人の確認に添える、操作する人の今のパスワード（`server/lib/trpc.ts` の `reauthedProcedure`） */
 export const reauthSchema = z.object({
-  currentPassword: z.string().min(1, '今のパスワードを入力してください').max(128),
+  currentPassword: z.string().min(1, '今のパスワードを入力してください').max(PASSWORD_MAX_LENGTH),
 });
 
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
@@ -61,6 +64,6 @@ export const loginSchema = z.object({
    * 同じ形で行うため（大文字だけ違うメールも同じ人と見る）
    */
   email: z.email('メールアドレスの形式が正しくありません').toLowerCase(),
-  password: z.string().min(1, 'パスワードを入力してください'),
+  password: z.string().min(1, 'パスワードを入力してください').max(PASSWORD_MAX_LENGTH),
 });
 export type LoginInput = z.infer<typeof loginSchema>;

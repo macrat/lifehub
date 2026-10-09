@@ -4,6 +4,7 @@ import TextField from '@mui/material/TextField';
 import { type LoginInput, loginSchema } from '../../../../shared/validation/users.ts';
 import { formValues, useFormSubmit } from '../../../lib/form.ts';
 import { SubmitButton } from '../../../lib/ui/SubmitButton.tsx';
+import { PasswordField } from './PasswordField.tsx';
 
 type Props = {
   onSubmit: (input: LoginInput) => Promise<void>;
@@ -31,15 +32,7 @@ export function LoginForm({ onSubmit }: Props) {
           autoFocus
           fullWidth
         />
-        <TextField
-          name="password"
-          label="パスワード"
-          type="password"
-          autoComplete="current-password"
-          error={Boolean(errors.password)}
-          helperText={errors.password}
-          fullWidth
-        />
+        <PasswordField name="password" label="パスワード" kind="current" error={errors.password} />
         <SubmitButton size="large" disabled={submitted}>
           ログイン
         </SubmitButton>
