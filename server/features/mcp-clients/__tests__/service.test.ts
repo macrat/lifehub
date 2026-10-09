@@ -10,7 +10,7 @@ import {
 import { resetUsers } from '../../../lib/db/test-db.ts';
 import { NotFoundError } from '../../../lib/errors.ts';
 import { mcpEventSubscriptions } from '../../mcp-events/schema.ts';
-import { findAuthorization, listClients, revokeClient } from '../service.ts';
+import { isAuthorized, listClients, revokeClient } from '../service.ts';
 import { authorizeClient } from './fixtures.ts';
 
 const CLAUDE = 'https://claude.example.com/oauth/client.json';
@@ -68,31 +68,39 @@ describe('mcp-clients service', () => {
   });
 
   it('失効すると、そのクライアントの自分の許可・トークン・購読だけが消え、許可していないことになる', async () => {
-    await authorizeClient(userId, CLAUDE);
-    await authorizeClient(userId, OTHER);
-    await authorizeClient(partnerId, CLAUDE);
-    const claude = (await listClients(userId)).find(
-      (client) => client.site === 'claude.example.com',
-    );
+    const claude = await authorizeClient(userId, CLAUDE);
+    const other = await authorizeClient(userId, OTHER);
+    const partners = await authorizeClient(partnerId, CLAUDE);
 
-    await revokeClient(claude?.id ?? '', userId);
+    await revokeClient(claude, userId);
 
     const kept = [`me ${OTHER}`, `partner ${CLAUDE}`];
     for (const table of [oauthConsents, oauthRefreshTokens, oauthAccessTokens]) {
       expect(await remaining(table)).toEqual(kept);
     }
     expect(await remainingSubscriptions()).toEqual(kept);
-    expect(await findAuthorization(userId, CLAUDE)).toBeUndefined();
-    expect(await findAuthorization(userId, OTHER)).toBeDefined();
-    expect(await findAuthorization(partnerId, CLAUDE)).toBeDefined();
+    expect(await isAuthorized(claude, userId, CLAUDE)).toBe(false);
+    expect(await isAuthorized(other, userId, OTHER)).toBe(true);
+    expect(await isAuthorized(partners, partnerId, CLAUDE)).toBe(true);
   });
 
   it('他のユーザーの許可と、無い許可は失効できない', async () => {
-    await authorizeClient(partnerId, CLAUDE);
-    const [partners] = await listClients(partnerId);
+    const partners = await authorizeClient(partnerId, CLAUDE);
 
-    await expect(revokeClient(partners?.id ?? '', userId)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(revokeClient(partners, userId)).rejects.toBeInstanceOf(NotFoundError);
     await expect(revokeClient(newId(), userId)).rejects.toBeInstanceOf(NotFoundError);
-    expect(await findAuthorization(partnerId, CLAUDE)).toBeDefined();
+    expect(await isAuthorized(partners, partnerId, CLAUDE)).toBe(true);
+  });
+
+  it('許可は、発行のもとになった同意の id・ユーザー・クライアントの組がそろって今もあるときだけ有効', async () => {
+    const consent = await authorizeClient(userId, CLAUDE);
+    await authorizeClient(userId, OTHER);
+
+    expect(await isAuthorized(consent, partnerId, CLAUDE)).toBe(false);
+    expect(await isAuthorized(consent, userId, OTHER)).toBe(false);
+    await revokeClient(consent, userId);
+    const renewed = await authorizeClient(userId, CLAUDE);
+    expect(await isAuthorized(consent, userId, CLAUDE)).toBe(false);
+    expect(await isAuthorized(renewed, userId, CLAUDE)).toBe(true);
   });
 });

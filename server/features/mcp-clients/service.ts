@@ -31,11 +31,16 @@ export async function revokeClient(id: string, userId: string): Promise<void> {
 }
 
 /**
- * そのユーザーのそのクライアントへの許可（同意）の id。失効していれば undefined。MCP の要求ごとに確かめ、
- * 失効をその場で効かせる（アクセストークンは JWT で DB を見ずに検証するので、確かめなければ期限まで使えてしまう）。
+ * アクセストークンの発行のもとになった許可（同意の id）が、そのユーザーのそのクライアントへの許可として今もあるか。
+ * MCP の要求ごとに確かめ、失効をその場で効かせる（アクセストークンは JWT で DB を見ずに検証するので、確かめなければ
+ * 期限まで使えてしまう）。失効した後に許可し直しても同意の id が変わるので、失効した許可のトークンは通さない。
  */
-export function findAuthorization(userId: string, clientId: string): Promise<string | undefined> {
-  return repository.findConsentId(userId, clientId);
+export function isAuthorized(
+  consentId: string,
+  userId: string,
+  clientId: string,
+): Promise<boolean> {
+  return repository.existsConsent(consentId, userId, clientId);
 }
 
 /** クライアント ID は CIMD のメタデータ文書の URL（cimd だけを受け付ける。docs/features/mcp.md）。URL でなければそのまま */

@@ -39,13 +39,13 @@ export async function grantConsent(
 
 /**
  * テスト用: ユーザーが MCP クライアントを許可した状態（better-auth が認可フローで書く同意とトークンの行と、
- * そのクライアントが張った MCP Events の購読）を直接書く。
+ * そのクライアントが張った MCP Events の購読）を直接書き、同意の id を返す。subscribe: false なら購読は書かない。
  */
 export async function authorizeClient(
   userId: string,
   clientId: string,
-  options: { name?: string | null; at?: Date } = {},
-): Promise<void> {
+  options: { name?: string | null; at?: Date; subscribe?: boolean } = {},
+): Promise<string> {
   const at = options.at ?? new Date();
   const consentId = await grantConsent(userId, clientId, options);
   const expiresAt = new Date(at.getTime() + 60 * 60 * 1000);
@@ -53,6 +53,7 @@ export async function authorizeClient(
   const refreshId = newId();
   await db.insert(oauthRefreshTokens).values({ ...token, id: refreshId, token: newId() });
   await db.insert(oauthAccessTokens).values({ ...token, id: newId(), token: newId(), refreshId });
+  if (options.subscribe === false) return consentId;
   await db.insert(mcpEventSubscriptions).values({
     id: newId(),
     userId,
@@ -62,4 +63,5 @@ export async function authorizeClient(
     secret: 'whsec_test',
     expiresAt,
   });
+  return consentId;
 }

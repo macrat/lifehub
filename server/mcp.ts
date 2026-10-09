@@ -5,14 +5,14 @@ import { APIError } from 'better-auth/api';
 import { Hono } from 'hono';
 import { registerEventTools } from './features/events/mcp.ts';
 import { registerLemonTools } from './features/lemon/mcp.ts';
-import { findAuthorization } from './features/mcp-clients/service.ts';
+import { isAuthorized } from './features/mcp-clients/service.ts';
 import { registerEventSubscriptions } from './features/mcp-events/mcp.ts';
 import { registerMemoTools } from './features/memos/mcp.ts';
 import { registerExpenseTools } from './features/money/mcp.ts';
 import { registerTimelineTools } from './features/timeline/mcp.ts';
 import { getOAuthClientName, listPeople } from './features/users/people.ts';
 import { registerWeatherTools } from './features/weather/mcp.ts';
-import { getAuth, MCP_RESOURCE } from './lib/auth.ts';
+import { CONSENT_ID_CLAIM, getAuth, MCP_RESOURCE } from './lib/auth.ts';
 import type { McpContext, McpRegistrar } from './lib/mcp/types.ts';
 import type { Person } from './lib/people.ts';
 import { setSentryUser } from './lib/sentry.ts';
@@ -97,8 +97,10 @@ export function serveMcp(
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * トークンの sub をユーザー、azp（トークンを受け取った OAuth クライアント）を MCP クライアントとしてツールに渡す。
- * そのユーザーがそのクライアントを今も許可しているか（設定で失効していないか）を要求ごとに DB で確かめ、
- * 失効していれば 401 にする。JWT は DB を見ずに検証するので、確かめなければ失効後も期限（1 時間）まで使える。
+ * トークンの発行のもとになった許可（consent_id。`server/lib/auth.ts` の `CONSENT_ID_CLAIM`）が今もあるか
+ * （設定で失効していないか）を要求ごとに DB で確かめ、無ければ 401 にする。JWT は DB を見ずに検証するので、
+ * 確かめなければ失効後も期限（1 時間）まで使える。許可の有無ではなく発行のもとの許可で確かめるので、
+ * 失効した後に許可し直しても、失効した許可のトークンは通さない。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
   const authorize = requireMcpAuth(
@@ -106,8 +108,15 @@ export const mcpRoutes = new Hono().all('/', async (c) => {
     async (request, claims) => {
       const userId = claims.sub;
       const clientId = typeof claims.azp === 'string' ? claims.azp : undefined;
-      const consentId = userId && clientId && (await findAuthorization(userId, clientId));
-      if (!userId || !clientId || !consentId) return unauthorized();
+      const consentId = claims[CONSENT_ID_CLAIM];
+      if (
+        !userId ||
+        !clientId ||
+        typeof consentId !== 'string' ||
+        !(await isAuthorized(consentId, userId, clientId))
+      ) {
+        return unauthorized();
+      }
       setSentryUser(userId);
       return serveMcp(request, { userId, clientId, consentId });
     },
