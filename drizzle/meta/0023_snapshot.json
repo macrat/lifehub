@@ -1,5 +1,5 @@
 {
-  "id": "57132c32-aaf6-4774-b649-d1e2e8e5d8ad",
+  "id": "1627ebfe-6b22-44d1-b6fb-90bf3f19df7f",
   "prevId": "853eadb5-741c-45bf-bb69-208b5d89a16c",
   "version": "7",
   "dialect": "postgresql",
@@ -1549,23 +1549,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "rate_limits_last_request_idx": {
-          "name": "rate_limits_last_request_idx",
-          "columns": [
-            {
-              "expression": "last_request",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
