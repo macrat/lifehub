@@ -100,12 +100,18 @@ export const verifications = pgTable(
  * better-auth のレート制限の数え（`server/lib/auth.ts` の `rateLimit`）。`key` は「IP|パス」。
  * `last_request` はその窓の最後の要求の時刻（Unix ミリ秒。better-auth が数値で比べる）。
  */
-export const rateLimits = pgTable('rate_limits', {
-  id: uuid('id').primaryKey(),
-  key: text('key').notNull().unique(),
-  count: integer('count').notNull(),
-  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
-});
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    id: uuid('id').primaryKey(),
+    key: text('key').notNull().unique(),
+    count: integer('count').notNull(),
+    lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+  },
+  // 窓を過ぎた行の刈り込み（`last_request` が古い行を消す）に使う。行が増えるのは多数の IP から試される
+  // ときで、そのときに刈り込みのたびに全行を読まずに済ませる
+  (table) => [index('rate_limits_last_request_idx').on(table.lastRequest)],
+);
 
 /**
  * ユーザー・セッション・アカウントの結び付き。better-auth が結合して 1 回の問い合わせで読むのに使う

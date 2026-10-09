@@ -1,6 +1,7 @@
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { mcp } from '@better-auth/mcp';
+import { waitUntil } from '@vercel/functions';
 import { type BetterAuthOptions, betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
@@ -120,6 +121,10 @@ const options = {
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
     disableOriginCheck: false,
+    // better-auth が応答を待たせずに済ませる後始末（レート制限の古い行の刈り込みなど）を、応答の後に回す。
+    // Vercel Function は応答を返すと止まりうるので、`waitUntil` で終わるまで生かしておく（`server/lib/after-response.ts` と同じ）。
+    // 渡さないと better-auth は要求の中で待つ
+    backgroundTasks: { handler: waitUntil },
   },
   session: {
     // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ
