@@ -37,6 +37,13 @@ export const test = base.extend<
     { scope: 'worker' },
   ],
   baseURL: async ({ server }, use) => use(server.url),
+  // 差し替え（`page.route`）の処理が、テストの終わりにページを閉じた後で応答を読んで落ちないよう、閉じる前に外す。
+  // WHY: 終わる直前に出た要求の差し替えは、本物の応答（`route.fetch`）を待っている間にページが閉じると
+  // 「Response has been disposed」で落ち、テストは通っていても失敗として数えられる。
+  page: async ({ page }, use) => {
+    await use(page);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  },
   storageState: async ({ signedIn }, use) => use(signedIn),
 });
 
