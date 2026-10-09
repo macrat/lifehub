@@ -1,12 +1,12 @@
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { mcp } from '@better-auth/mcp';
-import { waitUntil } from '@vercel/functions';
 import { type BetterAuthOptions, betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
 import { newId } from '../../shared/id.ts';
+import { afterResponse } from './after-response.ts';
 import { authDatabase } from './db/auth-adapter.ts';
 import { env, resolveBaseUrl } from './env.ts';
 
@@ -66,7 +66,9 @@ const options = {
   },
   /**
    * 要求の数え（IP とパスごと）を DB の `rate_limits` に置き、Vercel Function のどのインスタンスでも同じ数えを使う。
-   * 掛けるのは本番ビルドだけ。開発とテストでは、同じ IP からの大量のログインを止めない。
+   * 掛けるのは本番ビルド（Preview も含む）だけ。開発とテストでは、同じ IP からの大量のログインを止めない。
+   * WHY 既定（better-auth も NODE_ENV で決める）に任せず書く: better-auth は読み込み時に一度だけ決めるので、
+   *   テストで本番の設定に作り直しても変わらない（server/__tests__/auth.test.ts）。
    * - ログインは IP ごとに 15 分で 10 回まで。既定（10 秒で 3 回）だと 1 つの IP から 1 日に 2 万回以上試せる。
    *   家族の打ち間違いには十分な回数を残す。
    * - WHY NOT メモリ（既定）: インスタンスごとに別々に数え、起動し直すと消えるので、数を絞っても効かない。
@@ -121,10 +123,10 @@ const options = {
     // better-auth は NODE_ENV=test のとき origin チェックを止める。受け入れるオリジンが
     // 環境で変わる以上テストで確かめたいので、本番と同じく常に有効にする。
     disableOriginCheck: false,
-    // better-auth が応答を待たせずに済ませる後始末（レート制限の古い行の刈り込みなど）を、応答の後に回す。
-    // Vercel Function は応答を返すと止まりうるので、`waitUntil` で終わるまで生かしておく（`server/lib/after-response.ts` と同じ）。
-    // 渡さないと better-auth は要求の中で待つ
-    backgroundTasks: { handler: waitUntil },
+    // better-auth の後始末（レート制限の古い行の刈り込みなど）を応答の後に回す。渡さないと要求の中で待つ
+    backgroundTasks: {
+      handler: (task) => afterResponse('better-auth: background task', () => task),
+    },
   },
   session: {
     // 2 人がヘビーに使う端末なので、ログイン状態は長く保つ

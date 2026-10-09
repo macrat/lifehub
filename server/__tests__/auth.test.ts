@@ -1,10 +1,11 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../app.ts';
 import { memos } from '../features/memos/schema.ts';
 import { rateLimits } from '../features/users/schema.ts';
 import { getAuth } from '../lib/auth.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
+import { appWith } from './app-with.ts';
 import { loginAs, signIn } from './login.ts';
 import { recordStatements } from './statements.ts';
 
@@ -70,26 +71,14 @@ describe('ログインと認証の口', () => {
   });
 
   describe('ログインのレート制限', () => {
-    /** レート制限は本番ビルドでだけ掛かるので、本番の設定でモジュールを作り直す（作り直し方は auth-origin.test.ts） */
-    let productionApp: typeof app;
-    beforeAll(async () => {
-      vi.resetModules();
-      vi.stubEnv('NODE_ENV', 'production');
-      try {
-        productionApp = (await import('../app.ts')).app;
-      } finally {
-        vi.unstubAllEnvs();
-      }
-    });
-    afterAll(() => {
-      vi.resetModules();
-    });
+    /** レート制限は本番ビルドでだけ掛かるので、本番の設定でアプリを作り直す */
+    const productionApp = appWith({ NODE_ENV: 'production' });
 
-    /** 形の正しくないメールで試す。数えはパスワードの検証より前なので、scrypt を待たずに済む */
+    /** 形の正しくないメールで試す（WHY は auth-origin.test.ts の `status`） */
     const signInFrom = async (ip: string) =>
       (
         await signIn('nobody', 'password', {
-          app: productionApp,
+          app: productionApp(),
           headers: { 'x-forwarded-for': ip },
         })
       ).status;
