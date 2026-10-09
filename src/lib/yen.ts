@@ -25,5 +25,10 @@ export function formatGrouped(amount: bigint): string {
 
 /** 入金と出金のある金額の表示（「¥+300,000」「¥-3,200」）。入出金の一覧・詳細・タイムラインで同じ書き方にする */
 export function formatSignedYen(amount: number): string {
-  return SYMBOL + signed.format(amount);
+  return SYMBOL + formatSignedGrouped(amount);
+}
+
+/** 円記号を付けない、符号付きの桁区切り（「+300,000」「-3,200」「0」）。円だと分かる狭い所の増減（口座のタイル）に使う */
+export function formatSignedGrouped(amount: number): string {
+  return signed.format(amount);
 }
