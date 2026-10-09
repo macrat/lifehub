@@ -121,6 +121,19 @@ export function useLogin(redirectTo: string | undefined) {
 }
 
 /**
+ * 同意画面に出す、許可を求めているクライアントの見分け方（理由は docs/features/mcp.md）。
+ * - `clientHost`: 配布元。client_id の URL（Client ID Metadata Documents）のホスト。URL でない client_id
+ *   （サーバー内部から登録したクライアント）はそのまま。
+ * - `redirectHost`: 戻り先。許可した後に認可コードを送る redirect_uri のホスト。
+ */
+export function consentHostsOf(clientId: string | undefined, redirectUri: string | undefined) {
+  return {
+    clientHost: (clientId && (URL.parse(clientId)?.host || clientId)) || null,
+    redirectHost: (redirectUri && URL.parse(redirectUri)?.host) || null,
+  };
+}
+
+/**
  * OAuth の同意（MCP クライアントの認可）への返事。受け付けられたら better-auth が返す URL
  * （クライアントへの戻り先）へ移る。同意の API 呼び出しには oauthProviderClient が
  * window.location.search（署名付きクエリ）を oauth_query として自動で添える。
