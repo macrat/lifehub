@@ -34,6 +34,8 @@ const moneyAccountsSchema = z
  */
 const envObject = z.object({
   DATABASE_URL: z.string().min(1),
+  /** 本番ビルドかどうか。better-auth のレート制限を本番だけで掛ける（server/lib/auth.ts の `rateLimit`） */
+  NODE_ENV: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().min(32),
   /** アプリの公開 URL。Vercel では VERCEL_URL から導出する（下記 resolveBaseUrl）。 */
   APP_URL: z.url().optional(),

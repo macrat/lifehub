@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../app.ts';
 import { memos } from '../features/memos/schema.ts';
 import { rateLimits } from '../features/users/schema.ts';
 import { getAuth } from '../lib/auth.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
-import { loginAs } from './login.ts';
+import { loginAs, signIn } from './login.ts';
 import { recordStatements } from './statements.ts';
 
 describe('ログインと認証の口', () => {
@@ -70,36 +70,43 @@ describe('ログインと認証の口', () => {
   });
 
   describe('ログインのレート制限', () => {
-    /** 形の正しくないメールで試す。数えはパスワードの検証より前なので、scrypt を待たずに済む */
-    const signInFrom = (ip: string) =>
-      app.request('/api/auth/sign-in/email', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
-        body: JSON.stringify({ email: 'nobody', password: 'password' }),
-      });
-
-    /** レート制限は本番ビルドでだけ有効なので、このテストの間だけ有効にする */
-    beforeEach(async () => {
-      const context = await (await getAuth()).$context;
-      context.rateLimit.enabled = true;
-      return () => {
-        context.rateLimit.enabled = false;
-      };
+    /** レート制限は本番ビルドでだけ掛かるので、本番の設定でモジュールを作り直す（作り直し方は auth-origin.test.ts） */
+    let productionApp: typeof app;
+    beforeAll(async () => {
+      vi.resetModules();
+      vi.stubEnv('NODE_ENV', 'production');
+      try {
+        productionApp = (await import('../app.ts')).app;
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+    afterAll(() => {
+      vi.resetModules();
     });
 
+    /** 形の正しくないメールで試す。数えはパスワードの検証より前なので、scrypt を待たずに済む */
+    const signInFrom = async (ip: string) =>
+      (
+        await signIn('nobody', 'password', {
+          app: productionApp,
+          headers: { 'x-forwarded-for': ip },
+        })
+      ).status;
+
     it('IP ごとに 15 分で 10 回まで試せて、数えは DB に残る', async () => {
-      for (let i = 0; i < 10; i++) expect((await signInFrom('203.0.113.1')).status).toBe(400);
-      expect((await signInFrom('203.0.113.1')).status).toBe(429);
-      expect((await signInFrom('203.0.113.2')).status).toBe(400);
-      // インスタンスのメモリではなく DB で数える（どのインスタンスに届いても同じ数えを使う）
+      for (let i = 0; i < 10; i++) expect(await signInFrom('203.0.113.1')).toBe(400);
+      expect(await signInFrom('203.0.113.1')).toBe(429);
+      expect(await signInFrom('203.0.113.2')).toBe(400);
       expect(
-        await db.select({ key: rateLimits.key, count: rateLimits.count }).from(rateLimits),
-      ).toEqual(
-        expect.arrayContaining([
-          { key: '203.0.113.1|/sign-in/email', count: 10 },
-          { key: '203.0.113.2|/sign-in/email', count: 1 },
-        ]),
-      );
+        await db
+          .select({ key: rateLimits.key, count: rateLimits.count })
+          .from(rateLimits)
+          .orderBy(rateLimits.key),
+      ).toEqual([
+        { key: '203.0.113.1|/sign-in/email', count: 10 },
+        { key: '203.0.113.2|/sign-in/email', count: 1 },
+      ]);
     });
   });
 });
