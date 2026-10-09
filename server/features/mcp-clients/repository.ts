@@ -44,8 +44,7 @@ export async function existsConsent(
         eq(oauthConsents.userId, userId),
         eq(oauthConsents.clientId, clientId),
       ),
-    )
-    .limit(1);
+    );
   return !!row;
 }
 

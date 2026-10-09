@@ -32,8 +32,7 @@ export async function revokeClient(id: string, userId: string): Promise<void> {
 
 /**
  * アクセストークンの発行のもとになった許可（同意の id）が、そのユーザーのそのクライアントへの許可として今もあるか。
- * MCP の要求ごとに確かめ、失効をその場で効かせる（アクセストークンは JWT で DB を見ずに検証するので、確かめなければ
- * 期限まで使えてしまう）。失効した後に許可し直しても同意の id が変わるので、失効した許可のトークンは通さない。
+ * MCP の要求ごとに確かめる（理由は docs/features/mcp-clients.md の「失効」）。
  */
 export function isAuthorized(
   consentId: string,

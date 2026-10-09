@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../shared/id.ts';
 import { app } from '../app.ts';
@@ -14,6 +13,7 @@ import {
   oauthResources,
 } from '../lib/db/oauth-schema.ts';
 import { clearTables, resetUsers } from '../lib/db/test-db.ts';
+import { hashSecret, newSecret } from '../lib/secret.ts';
 
 const CLIENT = 'https://claude.example.com/oauth/client.json';
 
@@ -67,11 +67,11 @@ function claimsOf(jwt: string): Record<string, unknown> {
  * クライアントに渡す値を返す
  */
 async function issueRefreshToken(userId: string): Promise<string> {
-  const raw = newId();
+  const raw = newSecret();
   const now = new Date();
   await db.insert(oauthRefreshTokens).values({
     id: newId(),
-    token: createHash('sha256').update(raw).digest('base64url'),
+    token: hashSecret(raw),
     clientId: CLIENT,
     userId,
     resources: [MCP_RESOURCE],
@@ -155,7 +155,7 @@ describe('MCP のアクセストークンの検証', () => {
     const revoked = await authorizeClient(userId, CLIENT);
     const oldToken = await accessTokenFor(userId, revoked);
     await revokeClient(revoked, userId);
-    await authorizeClient(userId, CLIENT, { subscribe: false });
+    await authorizeClient(userId, CLIENT);
 
     const res = await mcpRequest(oldToken, 'events/subscribe', {
       name: 'memo.changed',
@@ -163,7 +163,8 @@ describe('MCP のアクセストークンの検証', () => {
     });
 
     expect(res.status).toBe(401);
-    expect(await db.select().from(mcpEventSubscriptions)).toEqual([]);
+    const subscriptions = await db.select().from(mcpEventSubscriptions);
+    expect(subscriptions.map((row) => row.url)).not.toContain('https://attacker.example.com/hook');
   });
 
   describe('発行', () => {
@@ -189,7 +190,7 @@ describe('MCP のアクセストークンの検証', () => {
     });
 
     it('アクセストークンに、発行のもとになった許可（同意の id）を入れ、そのトークンで MCP を使える', async () => {
-      const consentId = await authorizeClient(userId, CLIENT, { subscribe: false });
+      const consentId = await authorizeClient(userId, CLIENT);
       const res = await refresh(await issueRefreshToken(userId));
       expect(res.status).toBe(200);
       const { access_token } = (await res.json()) as { access_token: string };

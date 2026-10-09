@@ -34,12 +34,9 @@ export const CONSENT_ID_CLAIM = 'consent_id';
 
 /**
  * アクセストークンを発行するたび（認可コードの交換とリフレッシュ）に、そのユーザーのそのクライアントへの
- * 今の同意の id をトークンに入れる。同意が無ければ（失効した後に古い認可コードを交換するなど）発行しない。
- *
- * - WHY 同意の id: 失効は同意の行を消し、許可し直すと別の id の行ができる。id で結び付ければ、失効した許可の
- *   トークンは許可し直した後も受け付けない。
- * - WHY NOT 失効の時刻とトークンの `iat` を比べる: `iat` は秒の精度なので、失効と許可し直しが同じ秒に起きると
- *   古いトークンと新しいトークンを見分けられない。
+ * 今の同意の id をトークンに入れ、同意が無ければ発行しない（理由は docs/features/mcp-clients.md の「失効」）。
+ * WHY NOT mcp-clients の repository で引く: lib は features を読まない。同意の表は better-auth のものなので、
+ * better-auth のアダプタで引く。
  */
 async function bindConsent({ ctx, user, client }: OAuthClaimExtensionInput) {
   if (!user) return {};

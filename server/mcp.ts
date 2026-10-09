@@ -97,10 +97,8 @@ export function serveMcp(
  * requireMcpAuth が Bearer の JWT を JWKS で検証し（署名・issuer・audience・期限）、未認証には
  * RFC 9728 の WWW-Authenticate を返してクライアントに認可フローを始めさせる。
  * トークンの sub をユーザー、azp（トークンを受け取った OAuth クライアント）を MCP クライアントとしてツールに渡す。
- * トークンの発行のもとになった許可（consent_id。`server/lib/auth.ts` の `CONSENT_ID_CLAIM`）が今もあるか
- * （設定で失効していないか）を要求ごとに DB で確かめ、無ければ 401 にする。JWT は DB を見ずに検証するので、
- * 確かめなければ失効後も期限（1 時間）まで使える。許可の有無ではなく発行のもとの許可で確かめるので、
- * 失効した後に許可し直しても、失効した許可のトークンは通さない。
+ * トークンの発行のもとになった許可（`CONSENT_ID_CLAIM`）が今もあるか（設定で失効していないか）を要求ごとに
+ * DB で確かめ、無ければ 401 にする（理由は docs/features/mcp-clients.md の「失効」）。
  */
 export const mcpRoutes = new Hono().all('/', async (c) => {
   const authorize = requireMcpAuth(
