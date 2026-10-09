@@ -1,14 +1,19 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { expect } from 'vitest';
+import { grantConsent, TEST_CLIENT_ID } from '../features/mcp-clients/__tests__/fixtures.ts';
 import { serveMcp } from '../mcp.ts';
 
 /** MCP のテストで、サーバーにつないでツールを呼ぶための共通の手順 */
 
-/** clientId はアクセストークンを受け取った OAuth クライアント（登録していなければ名前は "MCP"） */
-export async function connect(userId: string, clientId = 'test-client'): Promise<Client> {
-  // 本番と同じ口（serveMcp）を通す。トークンの検証（requireMcpAuth）だけを飛ばす
+/**
+ * clientId はアクセストークンを受け取った OAuth クライアント（名前を登録していなければ "MCP"）。
+ * ユーザーがそのクライアントを許可した同意の行を書いてからつなぐ。
+ */
+export async function connect(userId: string, clientId = TEST_CLIENT_ID): Promise<Client> {
+  const consentId = await grantConsent(userId, clientId);
+  // 本番と同じ口（serveMcp）を通す。トークンと許可の検証（requireMcpAuth と同意の確認）だけを飛ばす
   const transport = new StreamableHTTPClientTransport(new URL('http://localhost/api/mcp'), {
-    fetch: (url, init) => serveMcp(new Request(url, init), userId, clientId),
+    fetch: (url, init) => serveMcp(new Request(url, init), { userId, clientId, consentId }),
   });
   // 2026-07-28 の MCP でつなぐ（つながらなければ失敗させ、黙って 2025 年版に落ちないように）
   const client = new Client(

@@ -10,7 +10,7 @@ URL ごとに**載せる参加者**を選ぶ。選んだ人の誰かが入って
 
 ## 画面
 
-設定（`/settings`）の「外部連携」（`src/features/calendar-feeds/components/CalendarFeedList.tsx`）。同じ区切りに記録投入用の API キー（[api-keys.md](api-keys.md)）も並ぶ。
+設定（`/settings`）の「外部連携」（`src/features/calendar-feeds/components/CalendarFeedList.tsx`）。同じ区切りに記録投入用の API キー（[api-keys.md](api-keys.md)）と MCP クライアント（[mcp-clients.md](mcp-clients.md)）も並ぶ。
 
 - 発行した URL が一覧に並ぶ。行は名前と「載せている参加者・最後に読まれた日時」（まだなら「一度も読まれていません」）で、右にコピー・編集・失効のボタン。
 - 「配信 URL を発行」で名前と参加者を決めると 1 本増える。名前は渡した先を見分けるためだけのもの（「スマホのカレンダー」など）。

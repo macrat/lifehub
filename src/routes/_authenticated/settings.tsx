@@ -13,6 +13,8 @@ import { ApiKeyList } from '../../features/api-keys/components/ApiKeyList.tsx';
 import { apiKeysQueryOptions } from '../../features/api-keys/queries.ts';
 import { CalendarFeedList } from '../../features/calendar-feeds/components/CalendarFeedList.tsx';
 import { calendarFeedsQueryOptions } from '../../features/calendar-feeds/queries.ts';
+import { McpClientList } from '../../features/mcp-clients/components/McpClientList.tsx';
+import { mcpClientsQueryOptions } from '../../features/mcp-clients/queries.ts';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { pushStatusQueryOptions, pushSupported } from '../../features/push/queries.ts';
 import { AllDayNotifySection } from '../../features/users/components/AllDayNotifySection.tsx';
@@ -31,14 +33,15 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
- * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL と API キー）、
+ * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL・API キー・MCP クライアント）、
  * 取り込みルールと立替スケジュール、ユーザー管理、ログアウト、バージョン。
  */
 function SettingsPage() {
-  // この画面が読むもの: 配信 URL と API キーの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
+  // この画面が読むもの: 配信 URL・API キー・MCP クライアントの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
   useScreenQueries([
     calendarFeedsQueryOptions,
     apiKeysQueryOptions,
+    mcpClientsQueryOptions,
     { ...pushStatusQueryOptions, enabled: pushSupported },
   ]);
   const { data: me } = useStoreQuery(meQueryOptions);
@@ -48,10 +51,11 @@ function SettingsPage() {
       <MyColorSection />
       <PushSection />
       <AllDayNotifySection />
-      {/* 外の仕組みに渡す秘密（読むための配信 URL と、書くための API キー）を 1 か所にまとめる */}
+      {/* 外の仕組みに渡したアクセス（読むための配信 URL、書くための API キー、MCP クライアントへの許可）を 1 か所にまとめる */}
       <SettingsSection title="外部連携">
         <CalendarFeedList />
         <ApiKeyList />
+        <McpClientList />
       </SettingsSection>
       <SettingsSection title="お金">
         <ListItem disablePadding>

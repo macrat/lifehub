@@ -8,6 +8,7 @@ import { calendarRouter } from './features/calendar/routes.ts';
 import { calendarFeedsRouter, calendarIcsRoutes } from './features/calendar-feeds/routes.ts';
 import { eventsRouter } from './features/events/routes.ts';
 import { lemonRouter } from './features/lemon/routes.ts';
+import { mcpClientsRouter } from './features/mcp-clients/routes.ts';
 import { memosRouter } from './features/memos/routes.ts';
 import { moneyRouter } from './features/money/routes.ts';
 import { pushRouter } from './features/push/routes.ts';
@@ -38,6 +39,7 @@ const appRouter = router({
   events: eventsRouter,
   calendarFeeds: calendarFeedsRouter,
   apiKeys: apiKeysRouter,
+  mcpClients: mcpClientsRouter,
   money: moneyRouter,
   lemon: lemonRouter,
   memos: memosRouter,
