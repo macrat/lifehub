@@ -83,10 +83,14 @@ describe('ログインと認証の口', () => {
         })
       ).status;
 
-    it('IP ごとに 15 分で 10 回まで試せて、数えは DB に残る', async () => {
+    it('ログインだけを IP ごとに 15 分で 10 回まで試せて、数えは DB に残る', async () => {
       for (let i = 0; i < 10; i++) expect(await signInFrom('203.0.113.1')).toBe(400);
       expect(await signInFrom('203.0.113.1')).toBe(429);
       expect(await signInFrom('203.0.113.2')).toBe(400);
+      // ログイン以外の口は数えない
+      await productionApp().request('/api/auth/ok', {
+        headers: { 'x-forwarded-for': '203.0.113.1' },
+      });
       expect(
         await db
           .select({ key: rateLimits.key, count: rateLimits.count })
