@@ -5,7 +5,6 @@ import { useUserLabels } from '../users/use-user-labels.ts';
 import {
   type CalendarFeed,
   calendarFeedsQueryOptions,
-  type IssuedCalendarFeed,
   useCreateCalendarFeed,
   useRevokeCalendarFeed,
   useUpdateCalendarFeed,
@@ -26,8 +25,6 @@ export function useCalendarFeedList() {
   const creating = useToggle();
   const editing = useOpenWith<CalendarFeed>();
   const editingFeed = editing.value;
-  // 発行した URL は閉じるまでここだけが持つ（サーバーにもキャッシュにも残らない）
-  const issued = useOpenWith<IssuedCalendarFeed>();
 
   return {
     feedsQuery,
@@ -47,8 +44,7 @@ export function useCalendarFeedList() {
     createForm: creating.value
       ? {
           onClose: creating.off,
-          onSubmit: async (input: CalendarFeedInput) =>
-            issued.open(await createFeed.mutateAsync(input)),
+          onSubmit: (input: CalendarFeedInput) => createFeed.issue(input),
         }
       : null,
     editForm: editingFeed
@@ -59,8 +55,7 @@ export function useCalendarFeedList() {
             updateFeed.mutateAsync({ ...input, id: editingFeed.id }),
         }
       : null,
-    /** 発行した URL。閉じるまで出したままにする */
-    issued: issued.value,
-    closeIssued: issued.close,
+    issued: createFeed.issued,
+    closeIssued: createFeed.closeIssued,
   };
 }

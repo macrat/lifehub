@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { SecretHash } from '../../lib/secret.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -22,7 +23,7 @@ export const apiKeys = pgTable('api_keys', {
   /** 渡した先を見分けるための名前 */
   name: text('name').notNull(),
   /** キーの SHA-256（base64url） */
-  keyHash: text('key_hash').notNull().unique(),
+  keyHash: text('key_hash').$type<SecretHash>().notNull().unique(),
   /** 最後に使われた日時。まだ使われていないキーと、使われなくなったキーを見分ける。null = 未使用 */
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

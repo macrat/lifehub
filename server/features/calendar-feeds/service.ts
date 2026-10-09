@@ -3,7 +3,7 @@ import { newId } from '../../../shared/id.ts';
 import type { CalendarFeedInput } from '../../../shared/validation/calendar-feeds.ts';
 import { resolveBaseUrl } from '../../lib/env.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import { hashSecret, newSecret } from '../../lib/secret.ts';
+import { hashSecret, type Issued, newSecret } from '../../lib/secret.ts';
 import { listOccurrences } from '../events/service.ts';
 import { toIcs } from './ics.ts';
 import type { CalendarFeedWithParticipants } from './repository.ts';
@@ -27,9 +27,6 @@ export type CalendarFeed = {
   lastAccessedAt: string | null;
 };
 
-/** 発行した直後だけ返す形。URL を見られるのはこの 1 回だけ */
-export type IssuedCalendarFeed = CalendarFeed & { url: string };
-
 export async function listFeeds(userId: string): Promise<CalendarFeed[]> {
   return (await repository.findByUser(userId)).map(toFeed);
 }
@@ -37,13 +34,13 @@ export async function listFeeds(userId: string): Promise<CalendarFeed[]> {
 export async function createFeed(
   input: CalendarFeedInput,
   userId: string,
-): Promise<IssuedCalendarFeed> {
+): Promise<Issued<CalendarFeed>> {
   const token = newSecret();
   const values = { id: newId(), userId, name: input.name, createdAt: new Date() };
   await repository.insert({ ...values, tokenHash: hashSecret(token) }, input.participantIds);
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
   const row = { ...values, participantIds: input.participantIds, lastAccessedAt: null };
-  return { ...toFeed(row), url: feedUrl(token) };
+  return { item: toFeed(row), secret: feedUrl(token) };
 }
 
 /** 名前と参加者の変更。渡した先を変えずに、その URL が配る範囲だけを絞り直せる */

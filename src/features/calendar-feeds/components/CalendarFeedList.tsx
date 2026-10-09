@@ -50,8 +50,8 @@ export function CalendarFeedList() {
           label="発行した配信 URL"
           copy="配信 URL をコピー"
           copied="配信 URL をコピーしました"
-          name={list.issued.name}
-          secret={list.issued.url}
+          name={list.issued.item.name}
+          secret={list.issued.secret}
           onClose={list.closeIssued}
         />
       )}

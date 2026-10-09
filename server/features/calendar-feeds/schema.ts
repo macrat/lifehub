@@ -1,4 +1,5 @@
 import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { SecretHash } from '../../lib/secret.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -20,7 +21,7 @@ export const calendarFeeds = pgTable('calendar_feeds', {
   /** 渡した先を見分けるための名前 */
   name: text('name').notNull(),
   /** URL に載る秘密（トークン）のハッシュ。トークンを知っていることだけが配信を受け取る資格になる */
-  tokenHash: text('token_hash').notNull().unique(),
+  tokenHash: text('token_hash').$type<SecretHash>().notNull().unique(),
   /** 最後に配信した日時。まだ使われていない URL と、使われなくなった URL を見分ける。null = 未配信 */
   lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

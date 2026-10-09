@@ -13,9 +13,9 @@ describe('カレンダー配信のルート', () => {
 
   it('ics はログイン無しで読め、配信 URL の管理はログインが要る', async () => {
     const userId = await createTestUser('A');
-    const feed = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
+    const { secret: url } = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
 
-    const ics = await app.request(new URL(feed.url).pathname);
+    const ics = await app.request(new URL(url).pathname);
     expect(ics.status).toBe(200);
     expect(ics.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
     expect(await ics.text()).toContain('BEGIN:VCALENDAR');

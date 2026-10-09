@@ -1,15 +1,19 @@
 import {
+  type DataTag,
   type MutationOptions,
   type QueryClient,
+  type QueryKey,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import { newId } from '../../shared/id.ts';
 import { isNetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { signedInUserId } from './auth.ts';
+import { putById } from './list.ts';
 import { withMoveAnimation } from './move-animation.ts';
 import { queryClient, WRITE_MUTATION_KEY } from './query-client.ts';
 import { notify } from './ui/notice.ts';
+import { useOpenWith } from './ui/use-toggle.ts';
 
 /**
  * 書き込み（mutation）: 楽観的更新、オフラインで溜めて順に送る書き込みのキュー、失敗の扱い。
@@ -213,4 +217,38 @@ export function useCreateMutation<TInput>(
     prepare: (input: TInput) => ({ ...input, id: newId() }),
   });
   return { mutateAsync: create.mutateAsync };
+}
+
+/**
+ * 秘密を発行する書き込み（API キー、配信 URL）。サーバーはハッシュしか持たず、秘密を見られるのは発行の応答だけ。
+ *
+ * - 応答の本文を画面に出すので、値を返さない共通の書き込み（`useOptimisticMutation`）ではなく応答を待つ。
+ * - オフラインでは溜めずにその場で失敗する（秘密はサーバーが作るので、送れるまで出せるものが無い）。
+ * - 応答の一覧の 1 行（`item`）を一覧の末尾（作成日時の昇順）へ足し、一覧は取り直さない。秘密（`secret`）は
+ *   一覧に入れない（キャッシュは端末の IndexedDB に残るので、秘密を置かない）。応答が 2 つを分けて返すので、
+ *   秘密を一覧へ入れる書き方は型が通らない（`server/lib/secret.ts` の `Issued`）。
+ * - 発行した応答は閉じるまで `issued` だけが持つ（サーバーにもキャッシュにも残らない）。
+ */
+export function useIssueMutation<TInput, TItem extends { id: string }>({
+  request,
+  queryKey,
+}: {
+  request: (input: TInput) => Promise<{ item: TItem; secret: string }>;
+  queryKey: DataTag<QueryKey, TItem[], Error>;
+}) {
+  const client = useQueryClient();
+  const issued = useOpenWith<{ item: TItem; secret: string }>();
+  const mutation = useMutation({
+    mutationFn: request,
+    networkMode: 'always',
+    onSuccess: ({ item }) => {
+      client.setQueryData(queryKey, (items) => items && putById(items, item.id, item));
+    },
+  });
+  return {
+    issue: async (input: TInput) => issued.open(await mutation.mutateAsync(input)),
+    /** 発行した直後の応答（秘密を含む）。閉じるまで出したままにする */
+    issued: issued.value,
+    closeIssued: issued.close,
+  };
 }

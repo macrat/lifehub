@@ -39,8 +39,8 @@ export function ApiKeyList() {
           label="発行した API キー"
           copy="API キーをコピー"
           copied="API キーをコピーしました"
-          name={list.issued.name}
-          secret={list.issued.key}
+          name={list.issued.item.name}
+          secret={list.issued.secret}
           onClose={list.closeIssued}
         />
       )}

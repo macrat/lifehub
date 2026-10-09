@@ -1,6 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db, runBatch } from '../../lib/db/client.ts';
 import { keepUpdatedAt, participantsOf } from '../../lib/db/query.ts';
+import type { SecretHash } from '../../lib/secret.ts';
 import { type CalendarFeedRow, calendarFeedParticipants, calendarFeeds } from './schema.ts';
 
 /** 行と参加者。参加者は常に行と一緒に読む（別の問い合わせにすると往復が増えるだけで得が無い） */
@@ -30,7 +31,7 @@ export async function findByUser(userId: string): Promise<CalendarFeedWithPartic
 
 /** 行と参加者を原子的に作る */
 export async function insert(
-  values: { id: string; userId: string; name: string; tokenHash: string; createdAt: Date },
+  values: Pick<CalendarFeedRow, 'id' | 'userId' | 'name' | 'tokenHash' | 'createdAt'>,
   participantIds: string[],
 ): Promise<void> {
   await runBatch((tx) => [
@@ -77,7 +78,7 @@ export async function remove(id: string, userId: string): Promise<boolean> {
  * 予定の読み取りと合わせて 2 回で済む。
  */
 export async function touchByHash(
-  tokenHash: string,
+  tokenHash: SecretHash,
   now: Date,
 ): Promise<{ participantIds: string[] } | undefined> {
   const touched = await db

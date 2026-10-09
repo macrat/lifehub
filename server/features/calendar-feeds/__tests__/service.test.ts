@@ -31,9 +31,11 @@ const valuesOf = (ics: string, name: string) =>
     .filter((line) => line.startsWith(`${name}:`) || line.startsWith(`${name};`))
     .map((line) => line.slice(line.indexOf(':') + 1));
 
-/** 発行する。URL を受け取れるのは発行の応答だけ */
-const issue = (input: { name: string; participantIds: string[] }, by: string) =>
-  createFeed(input, by);
+/** 発行し、一覧の 1 行と、発行の応答でしか受け取れない URL をまとめて返す */
+async function issue(input: { name: string; participantIds: string[] }, by: string) {
+  const { item, secret } = await createFeed(input, by);
+  return { ...item, url: secret };
+}
 
 let userId: string;
 /** 相手のユーザー。参加者で絞るテストが「自分ではない誰か」として使う */
@@ -61,8 +63,8 @@ describe('calendar-feeds service', () => {
     expect(feed.url).toMatch(/\/api\/calendar\/[\w-]{43}\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
     // 一覧には URL を出さない（トークンを保存していないので出せない）
-    const { url: _url, ...withoutUrl } = feed;
-    expect(await listFeeds(userId)).toStrictEqual([withoutUrl]);
+    const { url: _url, ...listed } = feed;
+    expect(await listFeeds(userId)).toStrictEqual([listed]);
 
     const ics = await icsOf(feed);
     expect(lines(ics)[0]).toBe('BEGIN:VCALENDAR');

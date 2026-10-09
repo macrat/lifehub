@@ -7,7 +7,7 @@ import * as service from './service.ts';
 /** 配信 URL の管理。ログイン中のユーザー自身の URL だけを扱う */
 export const calendarFeedsRouter = router({
   list: procedure.query(async ({ ctx }) => service.listFeeds(ctx.user.id)),
-  /** 発行した URL は、この応答でしか見せられないので返す */
+  /** 発行した URL は、この応答でしか見せられないので返す（`secret`） */
   create: procedure
     .input(calendarFeedSchema)
     .mutation(async ({ ctx, input }) => service.createFeed(input, ctx.user.id)),

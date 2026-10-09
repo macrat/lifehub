@@ -36,7 +36,6 @@ test('発行した API キーで記録でき、失効すると記録できなく
     (await post({ type: 'lemon', careTypes: ['mist', 'water'], note: 'E2E のボタン' })).status(),
   ).toBe(201);
 
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/settings');
   await expect(section.getByText('最後に使われたのは', { exact: false })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
