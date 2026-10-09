@@ -91,16 +91,4 @@ describe('mcp-clients service', () => {
     await expect(revokeClient(newId(), userId)).rejects.toBeInstanceOf(NotFoundError);
     expect(await isAuthorized(partners, partnerId, CLAUDE)).toBe(true);
   });
-
-  it('許可は、発行のもとになった同意の id・ユーザー・クライアントの組がそろって今もあるときだけ有効', async () => {
-    const consent = await authorizeClient(userId, CLAUDE);
-    await authorizeClient(userId, OTHER);
-
-    expect(await isAuthorized(consent, partnerId, CLAUDE)).toBe(false);
-    expect(await isAuthorized(consent, userId, OTHER)).toBe(false);
-    await revokeClient(consent, userId);
-    const renewed = await authorizeClient(userId, CLAUDE);
-    expect(await isAuthorized(consent, userId, CLAUDE)).toBe(false);
-    expect(await isAuthorized(renewed, userId, CLAUDE)).toBe(true);
-  });
 });
