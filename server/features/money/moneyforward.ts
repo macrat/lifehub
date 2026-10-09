@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { TOTP } from 'otpauth';
 import type { Browser, Page } from 'playwright-core';
 import type { DateString } from '../../../shared/types.ts';
@@ -21,10 +26,14 @@ const ME = 'https://moneyforward.com';
  * （`@sparticuz/chromium-min`）を取り込みのたびに配布元から /tmp に展開して使う。
  * WHY NOT 本体を同梱する `@sparticuz/chromium`: 全 API が 1 つの関数なので（docs/architecture.md）、
  * 1 日 1 回しか使わない 60MB を、どの要求のコールドスタートにも背負わせることになる。
- * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げる）。
+ * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げ、新しいアーカイブの SHA-256 を書く）。
+ * WHY ハッシュを固定する: このブラウザには Money Forward の資格情報を入れ、関数の環境変数（DB の接続文字列など）も
+ * 読める。配布元のアセットが差し替えられても、確かめずに動かさない。
  */
-const CHROMIUM_PACK_URL =
-  'https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar';
+const CHROMIUM_PACK = {
+  url: 'https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar',
+  sha256: '91b9f56d35a2cbb14279a1cbdaf1c86c0faa5fd82315bdd7334ff93bf35f224d',
+};
 
 /** 画面 1 つを待つ長さ。ログインの遷移は Money Forward ID を経るので長めにする */
 const TIMEOUT_MS = 30_000;
@@ -97,9 +106,30 @@ async function launch(): Promise<Browser> {
   if (!env.VERCEL) return chromium.launch();
   const { default: lambdaChromium } = await import('@sparticuz/chromium-min');
   return chromium.launch({
-    executablePath: await lambdaChromium.executablePath(CHROMIUM_PACK_URL),
+    executablePath: await lambdaChromium.executablePath(await downloadChromiumPack()),
     args: lambdaChromium.args,
   });
+}
+
+/**
+ * `CHROMIUM_PACK` を落とし、SHA-256 が合ったときだけ /tmp に展開して、その場所を返す。
+ * WHY NOT URL を `executablePath` に渡す: `@sparticuz/chromium-min` は落としたものを確かめずに展開する。
+ * 確かめ終わるまで 1 バイトも書かないよう、ストリームで展開せずにメモリに読み切ってから確かめる（70MB ほど）。
+ */
+async function downloadChromiumPack(): Promise<string> {
+  const response = await fetch(CHROMIUM_PACK.url);
+  if (!response.ok) {
+    throw new Error(`moneyforward: Chromium を取得できません（${response.status}）`);
+  }
+  const pack = Buffer.from(await response.arrayBuffer());
+  const sha256 = createHash('sha256').update(pack).digest('hex');
+  if (sha256 !== CHROMIUM_PACK.sha256) {
+    throw new Error(`moneyforward: Chromium のハッシュが合いません（${sha256}）`);
+  }
+  const { extract } = await import('tar-fs');
+  const dir = join(tmpdir(), 'chromium-pack');
+  await pipeline(Readable.from(pack), extract(dir));
+  return dir;
 }
 
 /**
