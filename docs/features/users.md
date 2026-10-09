@@ -39,7 +39,7 @@
 - better-auth（メール＋パスワード、Drizzle アダプタ）。テーブルは `server/lib/db/auth-adapter.ts` の `schema` で明示的に対応付ける（OAuth プラグインのテーブルも同じマップで渡すため）。セッション Cookie、同一オリジン。
 - 公開のサインアップ経路は `disabledPaths` で閉じる。ユーザー作成は users service（サーバー内部から `auth.api.signUpEmail` を呼ぶ。`disableSignUp` は内部呼び出しも拒否するため使わない）経由で、`/admin/users` と `scripts/create-user.ts` だけが行う。メールの重複は service が事前に確認する（`autoSignIn: false` の better-auth は列挙対策として重複時も成功を装うため）。
 - 名前・色・通知時刻は家族で共有するプロフィールなので他人の分も変更できるが、パスワードは本人だけが変更できる（片方のセッションを奪われたときにもう片方のアカウントまで奪われないように）。判定は `service.updateUser` が変更する人（ログイン中のユーザー）を受け取って行い、他人のパスワードなら `ForbiddenError`（手続きの失敗としては `FORBIDDEN`）にする。better-auth の API は本人のセッションを前提にするので使わず、repository で直接更新する（パスワードは `better-auth/crypto` の `hashPassword`）。
-- パスワードの変更とユーザーの登録には、操作する人の今のパスワードが要る（入力の `currentPassword`。違えば `ForbiddenError`）。セッションを奪われたときに、パスワードを変えて持ち主を締め出したり、別のユーザーという気づかれにくい入口を作ったりできないようにするため。確かめるのは `service.verifyActorPassword`（`better-auth/crypto` の `verifyPassword`）。`scripts/create-user.ts` は DB に直接つなぐ経路なので求めない。
+- パスワードの変更とユーザーの登録には、操作する人の今のパスワードが要る（入力の `currentPassword`。違えば `ForbiddenError`）。セッションを奪われたときに、パスワードを変えて持ち主を締め出したり、別のユーザーという気づかれにくい入口を作ったりできないようにするため。確かめるのは `service.verifyActorPassword`（better-auth の `/verify-password` と同じく、better-auth の資格情報の読み出しとハッシュの照合を使う）。`scripts/create-user.ts` は DB に直接つなぐ経路なので求めない。
   - この確かめはログインの試行回数の制限（下）に数えない。パスワードを試すにはセッションが要り、12 文字以上のパスワードを要求ごとの scrypt で総当たりするのは現実的でない。
 - パスワード変更時は対象ユーザーの全ブラウザセッションを失効させる。即時反映のため Cookie によるセッションキャッシュは使わず、要求ごとにセッションを DB で確かめる（セッションとユーザーを結合して 1 回で読む。[architecture.md](../architecture.md#通信の往復)）。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。

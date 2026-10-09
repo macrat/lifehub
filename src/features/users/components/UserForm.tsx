@@ -15,15 +15,15 @@ import { HueSlider } from './HueSlider.tsx';
 type Props<S extends z.ZodType> = {
   /** 編集するユーザー。登録なら null */
   user: User | null;
-  /** 編集するのが自分か。パスワードは本人だけが変えられるので、他人の編集ではパスワードの欄を出さない */
-  ownAccount: boolean;
+  /** パスワードの欄（新しいパスワードと、本人の確認の今のパスワード）を出すか */
+  passwordFields: boolean;
   schema: S;
   onClose: () => void;
   onSubmit: (input: z.output<S>) => Promise<unknown>;
 };
 
 /** ユーザーの登録（user が null）と、名前・パスワード・色の変更を 1 つのシートで扱う。 */
-export function UserForm<S extends z.ZodType>({ user, ownAccount, ...options }: Props<S>) {
+export function UserForm<S extends z.ZodType>({ user, passwordFields, ...options }: Props<S>) {
   const { errors, sheet, hue } = useUserForm({ user, ...options });
 
   return (
@@ -49,7 +49,7 @@ export function UserForm<S extends z.ZodType>({ user, ownAccount, ...options }: 
           fullWidth
         />
       )}
-      {(!user || ownAccount) && (
+      {passwordFields && (
         <>
           <TextField
             name="password"

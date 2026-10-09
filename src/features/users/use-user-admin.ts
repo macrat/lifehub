@@ -14,7 +14,7 @@ import { type User, useCreateUser, useUpdateUser, useUsers } from './queries.ts'
  */
 export function useUserAdmin() {
   const usersQuery = useUsers();
-  const { data: me } = useStoreQuery(meQueryOptions);
+  const { data: meId } = useStoreQuery({ ...meQueryOptions, select: (me) => me?.id });
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const creating = useToggle();
@@ -28,7 +28,7 @@ export function useUserAdmin() {
     createForm: creating.value
       ? {
           user: null,
-          ownAccount: false,
+          passwordFields: true,
           schema: registerUserSchema,
           onClose: creating.off,
           onSubmit: createUser.mutateAsync,
@@ -37,7 +37,8 @@ export function useUserAdmin() {
     editForm: editingUser
       ? {
           user: editingUser,
-          ownAccount: editingUser.id === me?.id,
+          // パスワードは本人だけが変えられるので、他人の編集では欄を出さない
+          passwordFields: editingUser.id === meId,
           schema: updateUserSchema,
           onClose: editing.close,
           onSubmit: (input: UpdateUserInput) =>

@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from 'better-auth/crypto';
+import { hashPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
 import type {
   CreateUserInput,
@@ -34,13 +34,17 @@ export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: nu
  * 操作する人（ログイン中のユーザー）が今のパスワードを知っていることを確かめる。違えば ForbiddenError。
  * パスワードの変更とユーザーの登録の前に呼び、奪ったセッションだけでは持ち主を締め出したり
  * 別のユーザーという入口を作ったりできないようにする。
- * WHY NOT better-auth の changePassword: 登録の確認には使えず、確かめ方が 2 通りになる。
+ * 確かめ方は better-auth の `/verify-password` と同じ（資格情報の行の読み方もハッシュの照合もログインと揃う）。
+ * WHY NOT `auth.api.verifyPassword` を呼ぶ: 要求のヘッダーからセッションを引き直すので、
+ * 確かめ済みのセッション（ctx.user）があるのにもう一度 DB を読む。
  */
 async function verifyActorPassword(actorId: string, password: string | undefined): Promise<void> {
-  const hash = await repository.findPasswordHash(actorId);
-  if (password === undefined || !hash || !(await verifyPassword({ hash, password }))) {
-    throw new ForbiddenError('今のパスワードが違います');
+  if (password !== undefined) {
+    const { internalAdapter, password: hasher } = await (await getAuth()).$context;
+    const hash = (await internalAdapter.findCredentialAccount(actorId))?.password;
+    if (hash && (await hasher.verify({ hash, password }))) return;
   }
+  throw new ForbiddenError('今のパスワードが違います');
 }
 
 /** 画面からユーザーを作る。actorId は登録する人（ログイン中のユーザー）で、その人の今のパスワードを確かめてから作る */
