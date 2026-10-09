@@ -31,13 +31,9 @@ const valuesOf = (ics: string, name: string) =>
     .filter((line) => line.startsWith(`${name}:`) || line.startsWith(`${name};`))
     .map((line) => line.slice(line.indexOf(':') + 1));
 
-/** 発行して、画面と同じく一覧から読み直す（発行は何も返さない） */
-async function issue(input: { name: string; participantIds: string[] }, by: string) {
-  await createFeed(input, by);
-  const feed = (await listFeeds(by)).find((f) => f.name === input.name);
-  if (!feed) throw new Error(`発行した配信 URL が一覧に無い: ${input.name}`);
-  return feed;
-}
+/** 発行する。URL を受け取れるのは発行の応答だけ */
+const issue = (input: { name: string; participantIds: string[] }, by: string) =>
+  createFeed(input, by);
 
 let userId: string;
 /** 相手のユーザー。参加者で絞るテストが「自分ではない誰か」として使う */
@@ -62,8 +58,11 @@ describe('calendar-feeds service', () => {
       userId,
     );
     const feed = await issue({ name: 'スマホ', participantIds: [userId] }, userId);
-    expect(feed.url).toMatch(/\/api\/calendar\/[\w-]+\.ics$/);
+    expect(feed.url).toMatch(/\/api\/calendar\/[\w-]{43}\.ics$/);
     expect(feed.lastAccessedAt).toBeNull();
+    // 一覧には URL を出さない（トークンを保存していないので出せない）
+    const { url: _url, ...withoutUrl } = feed;
+    expect(await listFeeds(userId)).toStrictEqual([withoutUrl]);
 
     const ics = await icsOf(feed);
     expect(lines(ics)[0]).toBe('BEGIN:VCALENDAR');
@@ -246,8 +245,7 @@ describe('calendar-feeds service', () => {
     const [changed] = await listFeeds(userId);
     expect(changed?.name).toBe('2 人のカレンダー');
     expect(changed?.participantIds.sort()).toEqual([userId, otherId].sort());
-    // 渡した先が登録し直さずに済むよう、URL は発行したときのまま
-    expect(changed?.url).toBe(feed.url);
+    // 渡した先が登録し直さずに済むよう、発行したときの URL のまま読める
     expect(valuesOf(await icsOf(feed), 'SUMMARY')).toEqual(['B だけ']);
   });
 

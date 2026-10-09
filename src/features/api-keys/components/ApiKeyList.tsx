@@ -5,11 +5,11 @@ import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import { formatDateTime } from '../../../lib/date.ts';
+import { IssuedSecretDialog } from '../../../lib/ui/IssuedSecretDialog.tsx';
 import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import type { ApiKey } from '../queries.ts';
 import { useApiKeyList } from '../use-api-key-list.ts';
 import { ApiKeyForm } from './ApiKeyForm.tsx';
-import { IssuedApiKeyDialog } from './IssuedApiKeyDialog.tsx';
 
 /**
  * 設定画面の「外部連携」の API キーの行。記録投入用エンドポイントを呼ぶデバイスやサービスに渡すキーを
@@ -34,7 +34,16 @@ export function ApiKeyList() {
         </Button>
       </ListItem>
       {list.createForm && <ApiKeyForm {...list.createForm} />}
-      {list.issued && <IssuedApiKeyDialog apiKey={list.issued} onClose={list.closeIssued} />}
+      {list.issued && (
+        <IssuedSecretDialog
+          label="発行した API キー"
+          copy="API キーをコピー"
+          copied="API キーをコピーしました"
+          name={list.issued.name}
+          secret={list.issued.key}
+          onClose={list.closeIssued}
+        />
+      )}
     </>
   );
 }

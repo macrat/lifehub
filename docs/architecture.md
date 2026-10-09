@@ -122,7 +122,7 @@ server/                       # サーバー（Hono）
     auth.ts（better-auth）  actor.ts（記録を書いた人か API キー）  people.ts（ID・書いた人を名前にする規則）  env.ts  trpc.ts（画面の API の土台: router / procedure・ログインの検証・業務エラーの置き換え・手続きのスパン）  errors.ts（NotFound / Forbidden / Conflict / Validation と、失敗の種類への対応）
     mcp/（LLM 向けの形。types.ts = 登録関数・文脈・結果の形、refs.ts = エントリーの ref と繰り返しの回の指定、time.ts = JST の日付・日時の入出力、
         people.ts = 人の名前と ID、entries.ts = エントリーの出力の形）  patch.ts（部分更新と組み合わせの規則）  qstash.ts（QStash の署名検証）  after-response.ts（応答を返した後に続ける処理。Vercel の waitUntil）  sentry.ts（Sentry への報告。本番のエントリで Hono アプリを包む）
-    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）  fetch.ts（外部への GET。2xx 以外は失敗）  secret.ts（推測できない秘密の値 `newSecret`）
+    recurrence/（RRULE 展開）  timeline-source.ts（タイムラインが各 feature から記録を集める口の型と、1 件 1 日時の記録の口を作る recordTimelineSource）  validator.ts（入力検証。`validate`）  fetch.ts（外部への GET。2xx 以外は失敗）  secret.ts（推測できない秘密の値 `newSecret` と、それを保存するときのハッシュ `hashSecret`）
 shared/                       # クライアント・サーバー共通
   validation/<feature>.ts     # Zod スキーマ（入力）
   id.ts（UUID v7 の採番。サーバーとクライアントが同じものを使う）
@@ -225,7 +225,7 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 - **同じ行に何度書いても同じ結果にする**: 追加する行の ID はクライアントが決めて送り（`shared/id.ts` の `newId`、`shared/validation/*.ts` の作成リクエスト）、サーバーは同じ ID の作成が既にあれば何も書かない（送られた値で上書きしない。作った後に編集してから古い作成が再送されると、上書きでは編集が巻き戻るため）。オフラインで作った項目をその場で編集・削除でき（仮の ID を後から差し替えずに済む）、送り直しても二重に作られない。
 - **未ログインになったら捨てる**: ログアウトしたとき、API が 401 を返したときは、溜めた書き込みを捨てる（`src/lib/auth.ts` の `markSignedOut`）。書き込みは送る時点のセッションで送られるので、残すと次にログインした別のユーザーとして送られてしまう。401 のときに残して同じユーザーの再ログインを待つことはしない: 401 はオンラインでしか起きず、オンラインでは溜めた書き込みはすぐ送られて同じ 401 で失敗するので、残しても通る見込みが無い。
 - **書いた人のものとしてだけ送る**: 書き込みは送る時点のセッションで送られるので、書き込みごとに書いたときのユーザーを持ち、送る試行のたびに今のユーザーと比べる（`sendAsAuthor`）。違えば送らずに諦める。ログアウトは溜めた書き込みを捨てるが、送り直しを待っている書き込みは TanStack Query では止められず、その間に別のユーザーでログインすると、その人の記録として保存されてしまうため。
-- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録とパスワードの変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の発行・変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、発行されるまで渡す URL が無く、変更と失効は効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。API キーの失効も同じ理由で溜めない（発行は応答のキーを画面に出すので、この仕組みを使わずに応答を待つ）。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。溜めない書き込みは溜める書き込みと別の mutationKey（`direct-write`）で送り、溜めた書き込みの順番待ち（scope）にも端末に残す対象にも入れない。同じキーだと、溜めた書き込みがある間はその後ろで待ち、待つ間は保留中として端末に残る（パスワードが IndexedDB に書かれる）うえ、オンラインに戻るまで結果が出ない。
+- **溜めないもの**（`queue: false`）: 溜めても意味が無い書き込み。ユーザーの登録とパスワードの変更はパスワードを含むので端末に残さず、オフラインではその場で失敗させる。カレンダーの配信 URL の変更・失効（[features/calendar-feeds.md](features/calendar-feeds.md)）は、効いたことをその場で確かめたい（誰の予定が配られるかが変わる）。API キーの失効も同じ理由で溜めない。配信 URL と API キーの発行は応答の秘密を画面に出すので、この仕組みを使わずに応答を待つ。プッシュ通知の購読はブラウザとサーバーの両方に繋がる操作なので溜めない。溜めない書き込みは溜める書き込みと別の mutationKey（`direct-write`）で送り、溜めた書き込みの順番待ち（scope）にも端末に残す対象にも入れない。同じキーだと、溜めた書き込みがある間はその後ろで待ち、待つ間は保留中として端末に残る（パスワードが IndexedDB に書かれる）うえ、オンラインに戻るまで結果が出ない。
 
 
 ## PWA

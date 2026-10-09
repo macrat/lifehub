@@ -10,16 +10,21 @@ import { expect, test } from './test.ts';
  */
 test('発行した API キーで記録でき、失効すると記録できなくなる', async ({
   page,
+  context,
   playwright,
   baseURL,
 }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/settings');
   const section = page.getByRole('region', { name: '外部連携' });
 
   await section.getByRole('button', { name: 'API キーを発行' }).click();
   await page.getByLabel('名前').fill('E2E のボタン');
   await page.getByRole('button', { name: '保存' }).click();
-  const key = await page.getByLabel('API キー', { exact: true }).inputValue();
+  // キーを受け取れるのは発行したときのダイアログだけ。字面は出さず、コピーで渡す
+  await page.getByRole('button', { name: 'API キーをコピー' }).click();
+  await expect(page.getByText('API キーをコピーしました')).toBeVisible();
+  const key = await page.evaluate(() => navigator.clipboard.readText());
   expect(key).toMatch(/^[\w-]{43}$/);
   await page.getByRole('button', { name: '閉じる' }).click();
   await expect(section.getByText('まだ一度も使われていません')).toBeVisible();
@@ -31,6 +36,7 @@ test('発行した API キーで記録でき、失効すると記録できなく
     (await post({ type: 'lemon', careTypes: ['mist', 'water'], note: 'E2E のボタン' })).status(),
   ).toBe(201);
 
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/settings');
   await expect(section.getByText('最後に使われたのは', { exact: false })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());

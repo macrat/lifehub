@@ -5,6 +5,7 @@ import { useUserLabels } from '../users/use-user-labels.ts';
 import {
   type CalendarFeed,
   calendarFeedsQueryOptions,
+  type IssuedCalendarFeed,
   useCreateCalendarFeed,
   useRevokeCalendarFeed,
   useUpdateCalendarFeed,
@@ -12,7 +13,7 @@ import {
 
 /**
  * 設定画面の配信 URL の一覧（`CalendarFeedList`）の状態と操作。発行・編集のフォームを開いているか、
- * それぞれの保存先、失効（確かめてから送る）と、行に出す参加者の名前を持つ。
+ * それぞれの保存先、発行した URL、失効（確かめてから送る）と、行に出す参加者の名前を持つ。
  * 発行と編集は別の状態にする（ユーザーの管理画面と同じ持ち方）。
  * フォームに渡すもの（`createForm` / `editForm`）は、閉じていれば null。
  */
@@ -25,6 +26,8 @@ export function useCalendarFeedList() {
   const creating = useToggle();
   const editing = useOpenWith<CalendarFeed>();
   const editingFeed = editing.value;
+  // 発行した URL は閉じるまでここだけが持つ（サーバーにもキャッシュにも残らない）
+  const issued = useOpenWith<IssuedCalendarFeed>();
 
   return {
     feedsQuery,
@@ -41,7 +44,13 @@ export function useCalendarFeedList() {
         return;
       revokeFeed.mutate(feed.id);
     },
-    createForm: creating.value ? { onClose: creating.off, onSubmit: createFeed.mutateAsync } : null,
+    createForm: creating.value
+      ? {
+          onClose: creating.off,
+          onSubmit: async (input: CalendarFeedInput) =>
+            issued.open(await createFeed.mutateAsync(input)),
+        }
+      : null,
     editForm: editingFeed
       ? {
           feed: editingFeed,
@@ -50,5 +59,8 @@ export function useCalendarFeedList() {
             updateFeed.mutateAsync({ ...input, id: editingFeed.id }),
         }
       : null,
+    /** 発行した URL。閉じるまで出したままにする */
+    issued: issued.value,
+    closeIssued: issued.close,
   };
 }

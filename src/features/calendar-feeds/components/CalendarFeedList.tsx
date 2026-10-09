@@ -1,5 +1,4 @@
 import AddIcon from '@mui/icons-material/Add';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import Button from '@mui/material/Button';
@@ -8,7 +7,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import { formatDateTime } from '../../../lib/date.ts';
-import { copyToClipboard } from '../../../lib/ui/clipboard.ts';
+import { IssuedSecretDialog } from '../../../lib/ui/IssuedSecretDialog.tsx';
 import { ListItemSkeleton, QueryView } from '../../../lib/ui/QueryView.tsx';
 import type { CalendarFeed } from '../queries.ts';
 import { useCalendarFeedList } from '../use-calendar-feed-list.ts';
@@ -46,11 +45,21 @@ export function CalendarFeedList() {
       </ListItem>
       {list.createForm && <CalendarFeedForm {...list.createForm} />}
       {list.editForm && <CalendarFeedForm {...list.editForm} />}
+      {list.issued && (
+        <IssuedSecretDialog
+          label="発行した配信 URL"
+          copy="配信 URL をコピー"
+          copied="配信 URL をコピーしました"
+          name={list.issued.name}
+          secret={list.issued.url}
+          onClose={list.closeIssued}
+        />
+      )}
     </>
   );
 }
 
-/** 1 本の配信 URL。コピー・編集・失効をその場で行う（URL は長いので字面は出さない。失効は確かめてから送る） */
+/** 1 本の配信 URL。編集・失効をその場で行う（失効は確かめてから送る。URL は保存していないので出せない） */
 function FeedItem({
   feed,
   participants,
@@ -71,12 +80,6 @@ function FeedItem({
     <ListItem
       secondaryAction={
         <Stack direction="row">
-          <IconButton
-            aria-label={`${feed.name} の URL をコピー`}
-            onClick={() => copyToClipboard(feed.url, '配信 URL をコピーしました')}
-          >
-            <ContentCopyIcon />
-          </IconButton>
           <IconButton aria-label={`${feed.name} を編集`} onClick={onEdit}>
             <EditIcon />
           </IconButton>
@@ -87,8 +90,8 @@ function FeedItem({
       }
     >
       <ListItemText
-        // secondaryAction の既定の余白ではボタン 3 つと説明文が重なる
-        sx={{ pr: 15 }}
+        // secondaryAction の既定の余白ではボタン 2 つと説明文が重なる
+        sx={{ pr: 10 }}
         primary={feed.name}
         secondary={participants ? `${participants} の予定・${read}` : read}
       />

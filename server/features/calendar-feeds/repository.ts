@@ -30,7 +30,7 @@ export async function findByUser(userId: string): Promise<CalendarFeedWithPartic
 
 /** 行と参加者を原子的に作る */
 export async function insert(
-  values: { id: string; userId: string; name: string; token: string },
+  values: { id: string; userId: string; name: string; tokenHash: string; createdAt: Date },
   participantIds: string[],
 ): Promise<void> {
   await runBatch((tx) => [
@@ -72,18 +72,18 @@ export async function remove(id: string, userId: string): Promise<boolean> {
 }
 
 /**
- * トークンに対応する行の最終アクセス日時を更新し、その URL に載せる参加者を返す（無ければ undefined）。
+ * トークンのハッシュに対応する行の最終アクセス日時を更新し、その URL に載せる参加者を返す（無ければ undefined）。
  * 照合・記録・参加者の読み取りを 1 文にまとめるので、配信 1 回あたりの問い合わせは
  * 予定の読み取りと合わせて 2 回で済む。
  */
-export async function touchByToken(
-  token: string,
+export async function touchByHash(
+  tokenHash: string,
   now: Date,
 ): Promise<{ participantIds: string[] } | undefined> {
   const touched = await db
     .update(calendarFeeds)
     .set({ lastAccessedAt: now, updatedAt: keepUpdatedAt(calendarFeeds) })
-    .where(eq(calendarFeeds.token, token))
+    .where(eq(calendarFeeds.tokenHash, tokenHash))
     .returning({ participantIds: participantIdsOfRow() });
   return touched[0];
 }

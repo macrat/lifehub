@@ -1,18 +1,19 @@
-import { apiOf } from './api.ts';
 import { SIGNED_OUT } from './auth.ts';
 import { carries } from './network.ts';
 import { expect, test } from './test.ts';
 
 /**
- * 配信 URL の発行 → その URL で ics が読める → 名前と参加者を変えても同じ URL のまま
- * → 失効すると読めなくなる、を通しで確かめる。
+ * 配信 URL の発行 → 発行したときだけ URL をコピーできる → その URL で ics が読める
+ * → 名前と参加者を変えても同じ URL のまま → 失効すると読めなくなる、を通しで確かめる。
  * ics を読むのはログインを持たない別のアプリなので、Cookie を持たないクライアント
  * （`playwright.request.newContext`）で読み、ブラウザのセッションに寄りかかっていないことも見る。
  */
 test('発行した配信 URL で ics を読め、編集しても URL は変わらず、失効すると読めなくなる', async ({
   page,
+  context,
   playwright,
 }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: '外部連携' })).toBeVisible();
 
@@ -21,10 +22,12 @@ test('発行した配信 URL で ics を読め、編集しても URL は変わ�
   // 既定は全員。相手を外して、自分の予定だけを配る URL にする
   await page.getByRole('checkbox', { name: '相手' }).uncheck();
   await page.getByRole('button', { name: '保存' }).click();
-  await expect(page.getByText('E2E のカレンダー')).toBeVisible();
-  // 発行は値を返さないので、画面と同じく一覧から読む
-  const feeds = await apiOf(page.request).calendarFeeds.list.query();
-  const url = feeds.find((feed) => feed.name === 'E2E のカレンダー')?.url ?? '';
+  // URL を受け取れるのは発行したときのダイアログだけ。字面は出さず、コピーで渡す
+  await page.getByRole('button', { name: '配信 URL をコピー' }).click();
+  await expect(page.getByText('配信 URL をコピーしました')).toBeVisible();
+  const url = await page.evaluate(() => navigator.clipboard.readText());
+  expect(url).toMatch(/\/api\/calendar\/[\w-]{43}\.ics$/);
+  await page.getByRole('button', { name: '閉じる' }).click();
   await expect(page.getByText('E2E の予定・', { exact: false })).toBeVisible();
 
   const anonymous = await playwright.request.newContext({ storageState: SIGNED_OUT });
