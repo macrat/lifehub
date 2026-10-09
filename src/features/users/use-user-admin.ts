@@ -1,8 +1,10 @@
 import {
-  createUserSchema,
+  registerUserSchema,
   type UpdateUserInput,
   updateUserSchema,
 } from '../../../shared/validation/users.ts';
+import { meQueryOptions } from '../../lib/auth.ts';
+import { useStoreQuery } from '../../lib/screen-data.ts';
 import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
 import { type User, useCreateUser, useUpdateUser, useUsers } from './queries.ts';
 
@@ -12,6 +14,7 @@ import { type User, useCreateUser, useUpdateUser, useUsers } from './queries.ts'
  */
 export function useUserAdmin() {
   const usersQuery = useUsers();
+  const { data: me } = useStoreQuery(meQueryOptions);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const creating = useToggle();
@@ -25,7 +28,8 @@ export function useUserAdmin() {
     createForm: creating.value
       ? {
           user: null,
-          schema: createUserSchema,
+          ownAccount: false,
+          schema: registerUserSchema,
           onClose: creating.off,
           onSubmit: createUser.mutateAsync,
         }
@@ -33,6 +37,7 @@ export function useUserAdmin() {
     editForm: editingUser
       ? {
           user: editingUser,
+          ownAccount: editingUser.id === me?.id,
           schema: updateUserSchema,
           onClose: editing.close,
           onSubmit: (input: UpdateUserInput) =>

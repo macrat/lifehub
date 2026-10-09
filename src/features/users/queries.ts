@@ -45,8 +45,8 @@ export function useUpdateUser() {
     request: write.users.update,
     queue: false,
     keys: [meQueryOptions.queryKey],
-    apply: (client, { id, password: _password, ...input }) => {
-      // パスワードは表示に関わらないので当てない。送らなかった項目（undefined）で今の値を消さない
+    apply: (client, { id, password: _password, currentPassword: _currentPassword, ...input }) => {
+      // パスワードは表示に関わらないので当てない（キャッシュは端末に残るので、載せてもいけない）。送らなかった項目（undefined）で今の値を消さない
       const changes = Object.fromEntries(
         Object.entries(input).filter(([, value]) => value !== undefined),
       ) as Partial<typeof input>;

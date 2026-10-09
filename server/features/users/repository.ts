@@ -32,6 +32,15 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
+/** そのユーザーのパスワードのハッシュ（better-auth の規約どおり accounts の credential の行）。無ければ undefined */
+export async function findPasswordHash(userId: string): Promise<string | undefined> {
+  const [row] = await db
+    .select({ password: accounts.password })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential')));
+  return row?.password ?? undefined;
+}
+
 /**
  * 共有プロフィール（名前・色・通知時刻）を変え、passwordHash があればパスワードも置き換えて、
  * そのユーザーの全端末のセッションを失効させる。変えた後の行を返す（ユーザーがいなければ undefined）。
@@ -44,7 +53,7 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
  */
 export async function update(
   id: string,
-  profile: Omit<UpdateUserInput, 'password'>,
+  profile: Omit<UpdateUserInput, 'password' | 'currentPassword'>,
   passwordHash?: string,
 ): Promise<UserRow | undefined> {
   const [updated] = await runBatch((tx) => [

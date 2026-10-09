@@ -15,13 +15,15 @@ import { HueSlider } from './HueSlider.tsx';
 type Props<S extends z.ZodType> = {
   /** 編集するユーザー。登録なら null */
   user: User | null;
+  /** 編集するのが自分か。パスワードは本人だけが変えられるので、他人の編集ではパスワードの欄を出さない */
+  ownAccount: boolean;
   schema: S;
   onClose: () => void;
   onSubmit: (input: z.output<S>) => Promise<unknown>;
 };
 
 /** ユーザーの登録（user が null）と、名前・パスワード・色の変更を 1 つのシートで扱う。 */
-export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
+export function UserForm<S extends z.ZodType>({ user, ownAccount, ...options }: Props<S>) {
   const { errors, sheet, hue } = useUserForm({ user, ...options });
 
   return (
@@ -47,15 +49,29 @@ export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
           fullWidth
         />
       )}
-      <TextField
-        name="password"
-        label={user ? '新しいパスワード（変更する場合）' : 'パスワード'}
-        type="password"
-        autoComplete="new-password"
-        error={Boolean(errors.password)}
-        helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
-        fullWidth
-      />
+      {(!user || ownAccount) && (
+        <>
+          <TextField
+            name="password"
+            label={user ? '新しいパスワード（変更する場合）' : 'パスワード'}
+            type="password"
+            autoComplete="new-password"
+            error={Boolean(errors.password)}
+            helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
+            fullWidth
+          />
+          {/* 本人の確認（`server/features/users/service.ts` の `verifyActorPassword`）。登録では登録する人のもの */}
+          <TextField
+            name="currentPassword"
+            label={user ? '今のパスワード（変更する場合）' : 'あなたの今のパスワード'}
+            type="password"
+            autoComplete="current-password"
+            error={Boolean(errors.currentPassword)}
+            helperText={errors.currentPassword}
+            fullWidth
+          />
+        </>
+      )}
       <HueSlider {...hue} />
       {/* Sentry の記録（`server/lib/sentry.ts` の `setSentryUser`）や DB と見比べるために出す */}
       {user && (

@@ -1,5 +1,5 @@
 import { withId } from '../../../shared/validation/common.ts';
-import { createUserSchema, updateUserSchema } from '../../../shared/validation/users.ts';
+import { registerUserSchema, updateUserSchema } from '../../../shared/validation/users.ts';
 import { procedure, router } from '../../lib/trpc.ts';
 import * as service from './service.ts';
 
@@ -10,8 +10,8 @@ export const meRouter = router({
 
 /** ユーザーの登録と変更。一覧はログイン中のユーザーと一緒に `me.get` が返す */
 export const usersRouter = router({
-  create: procedure.input(createUserSchema).mutation(async ({ input }) => {
-    await service.createUser(input);
+  create: procedure.input(registerUserSchema).mutation(async ({ ctx, input }) => {
+    await service.registerUser(input, ctx.user.id);
   }),
   update: procedure
     .input(withId(updateUserSchema))

@@ -11,7 +11,7 @@
 | ログイン | `/login` | メールアドレス＋パスワード。ログイン後は `redirect` 検索パラメータの画面（既定はホーム）へ |
 | 設定 | `/settings` | 自分の色（スライダーと保存ボタン）、この端末のプッシュ通知、終日の通知時刻（時刻と保存ボタン。既定 7:00。[notifications.md](notifications.md)）、外部連携（カレンダーの配信 URL（[calendar-feeds.md](calendar-feeds.md)）、記録投入用の API キー（[api-keys.md](api-keys.md)）、接続を許可した MCP クライアント（[mcp-clients.md](mcp-clients.md)））、お金（取り込みルール（[money.md](money.md#取り込みルール)）と立替スケジュール（[money.md](money.md#立替スケジュール)）へのリンク）、アカウント（ユーザー管理へのリンク）、ログアウト、バージョン（ビルドしたコミットと日時、最新版に更新するボタン）。開き方は [ui.md](../ui.md#レイアウトとナビゲーション) |
 | OAuth 同意 | `/consent` | MCP クライアントの認可（[mcp.md](mcp.md)） |
-| ユーザー管理 | `/admin/users` | 設定の「アカウント」セクションから開く（AppBar と一覧の形は [ui.md](../ui.md#見た目) の「設定から開く管理の画面」）。ユーザー一覧（色付きのアバター）、登録（右下の追加ボタン。名前・メール・パスワード・色）、名前・色・パスワードの変更。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
+| ユーザー管理 | `/admin/users` | 設定の「アカウント」セクションから開く（AppBar と一覧の形は [ui.md](../ui.md#見た目) の「設定から開く管理の画面」）。ユーザー一覧（色付きのアバター）、登録（右下の追加ボタン。名前・メール・パスワード・色と、登録する人の今のパスワード）、名前・色の変更、自分のパスワードの変更（今のパスワードも入れる。他人の編集ではパスワードの欄を出さない）。編集ではユーザー ID も出し（編集はできない）、押すとコピーする。Sentry の記録（[operations.md](../operations.md#監視sentry)）や DB と見比べるため |
 
 - 未認証で保護ページを開くと `/login?redirect=<元のパス>` へ遷移する（UX 目的のガード。防御はサーバーの 401）。
 - API が 401 を返したら、クライアントは `/login` へ遷移する。ログアウトと 401 のどちらでも、端末に溜めた未送信の書き込みは捨てる（別のユーザーのセッションで送らないため。[architecture.md](../architecture.md#オフラインの書き込み)）。
@@ -39,6 +39,8 @@
 - better-auth（メール＋パスワード、Drizzle アダプタ）。テーブルは `server/lib/db/auth-adapter.ts` の `schema` で明示的に対応付ける（OAuth プラグインのテーブルも同じマップで渡すため）。セッション Cookie、同一オリジン。
 - 公開のサインアップ経路は `disabledPaths` で閉じる。ユーザー作成は users service（サーバー内部から `auth.api.signUpEmail` を呼ぶ。`disableSignUp` は内部呼び出しも拒否するため使わない）経由で、`/admin/users` と `scripts/create-user.ts` だけが行う。メールの重複は service が事前に確認する（`autoSignIn: false` の better-auth は列挙対策として重複時も成功を装うため）。
 - 名前・色・通知時刻は家族で共有するプロフィールなので他人の分も変更できるが、パスワードは本人だけが変更できる（片方のセッションを奪われたときにもう片方のアカウントまで奪われないように）。判定は `service.updateUser` が変更する人（ログイン中のユーザー）を受け取って行い、他人のパスワードなら `ForbiddenError`（手続きの失敗としては `FORBIDDEN`）にする。better-auth の API は本人のセッションを前提にするので使わず、repository で直接更新する（パスワードは `better-auth/crypto` の `hashPassword`）。
+- パスワードの変更とユーザーの登録には、操作する人の今のパスワードが要る（入力の `currentPassword`。違えば `ForbiddenError`）。セッションを奪われたときに、パスワードを変えて持ち主を締め出したり、別のユーザーという気づかれにくい入口を作ったりできないようにするため。確かめるのは `service.verifyActorPassword`（`better-auth/crypto` の `verifyPassword`）。`scripts/create-user.ts` は DB に直接つなぐ経路なので求めない。
+  - この確かめはログインの試行回数の制限（下）に数えない。パスワードを試すにはセッションが要り、12 文字以上のパスワードを要求ごとの scrypt で総当たりするのは現実的でない。
 - パスワード変更時は対象ユーザーの全ブラウザセッションを失効させる。即時反映のため Cookie によるセッションキャッシュは使わず、要求ごとにセッションを DB で確かめる（セッションとユーザーを結合して 1 回で読む。[architecture.md](../architecture.md#通信の往復)）。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。
 - ログインの試行回数を IP ごとに絞る。設定と WHY / WHY NOT は `server/lib/auth.ts` の `rateLimit`。
@@ -61,8 +63,8 @@
 | 手続き | 種類 | 内容 |
 |---|---|---|
 | `me.get` | 読み出し | ログイン中のユーザー（id, name, email, hue, allDayNotifyMinutes）と、ユーザーの一覧（`users`。id, name, email, hue）。本人は `hue` と `allDayNotifyMinutes` を better-auth の `additionalFields` に登録してあるので、セッション検証で読んだ行をそのまま返す。一覧を載せるのは、名前と色を出す所（`use-user-labels.ts` など）が本人と一覧を必ず一緒に読むため（別々に問い合わせると起動のたびに 2 本になる）。クライアントは一覧も `meQueryOptions` のキャッシュから読む（`useUsers` は `select` で一覧を取り出すだけ） |
-| `users.create` | 書き込み | ユーザー作成（`hue` は任意）。値は返さない |
-| `users.update` | 書き込み | 名前・色相・パスワード・終日の通知時刻（`allDayNotifyMinutes`、0:00 からの分）の変更（入力はユーザーの `id` と変える項目）。値は返さない |
+| `users.create` | 書き込み | ユーザー作成（`hue` は任意。登録する人の今のパスワード `currentPassword` が要る）。値は返さない |
+| `users.update` | 書き込み | 名前・色相・パスワード・終日の通知時刻（`allDayNotifyMinutes`、0:00 からの分）の変更（入力はユーザーの `id` と変える項目。パスワードを変えるときは今のパスワード `currentPassword` も）。値は返さない |
 
 `me` と `users` は `server/features/users/routes.ts`。入力スキーマは `shared/validation/users.ts`。
 

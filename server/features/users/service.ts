@@ -1,6 +1,10 @@
-import { hashPassword } from 'better-auth/crypto';
+import { hashPassword, verifyPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
-import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
+import type {
+  CreateUserInput,
+  RegisterUserInput,
+  UpdateUserInput,
+} from '../../../shared/validation/users.ts';
 import { getAuth } from '../../lib/auth.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
@@ -27,8 +31,30 @@ export async function getMe(user: repository.UserRow & { allDayNotifyMinutes: nu
 }
 
 /**
+ * 操作する人（ログイン中のユーザー）が今のパスワードを知っていることを確かめる。違えば ForbiddenError。
+ * パスワードの変更とユーザーの登録の前に呼び、奪ったセッションだけでは持ち主を締め出したり
+ * 別のユーザーという入口を作ったりできないようにする。
+ * WHY NOT better-auth の changePassword: 登録の確認には使えず、確かめ方が 2 通りになる。
+ */
+async function verifyActorPassword(actorId: string, password: string | undefined): Promise<void> {
+  const hash = await repository.findPasswordHash(actorId);
+  if (password === undefined || !hash || !(await verifyPassword({ hash, password }))) {
+    throw new ForbiddenError('今のパスワードが違います');
+  }
+}
+
+/** 画面からユーザーを作る。actorId は登録する人（ログイン中のユーザー）で、その人の今のパスワードを確かめてから作る */
+export async function registerUser(
+  { currentPassword, ...input }: RegisterUserInput,
+  actorId: string,
+): Promise<repository.UserRow> {
+  await verifyActorPassword(actorId, currentPassword);
+  return createUser(input);
+}
+
+/**
  * ユーザーを作る。パスワードのハッシュは better-auth に任せる。
- * 公開のサインアップ経路は閉じているので、この関数と scripts/create-user.ts だけが作成経路になる。
+ * 公開のサインアップ経路は閉じているので、`registerUser`（画面）と scripts/create-user.ts だけが作成経路になる。
  * メールの重複は事前に確認する（autoSignIn を切った better-auth は列挙対策として重複時も成功を装うため）。
  */
 export async function createUser(input: CreateUserInput): Promise<repository.UserRow> {
@@ -49,18 +75,20 @@ export async function createUser(input: CreateUserInput): Promise<repository.Use
 
 /**
  * ユーザーを変更する。actorId は変更する人（ログイン中のユーザー）。
- * 名前・色・通知時刻は家族で管理する共有プロフィールなので誰でも変えられるが、パスワードは本人だけが変えられる。
- * これが無いと、片方のセッションを得た攻撃者がもう片方のパスワードも奪える。
+ * 名前・色・通知時刻は家族で管理する共有プロフィールなので誰でも変えられるが、パスワードは本人だけが、
+ * 今のパスワードを添えたときだけ変えられる。本人だけに絞らないと、片方のセッションを得た攻撃者がもう片方の
+ * パスワードも奪える。今のパスワードを求めないと、セッションを得た攻撃者がパスワードを変えて持ち主を締め出せる。
  */
 export async function updateUser(
   id: string,
   input: UpdateUserInput,
   actorId: string,
 ): Promise<void> {
-  if (input.password !== undefined && id !== actorId) {
-    throw new ForbiddenError('他のユーザーのパスワードは変更できません');
+  const { password, currentPassword, ...profile } = input;
+  if (password !== undefined) {
+    if (id !== actorId) throw new ForbiddenError('他のユーザーのパスワードは変更できません');
+    await verifyActorPassword(actorId, currentPassword);
   }
-  const { password, ...profile } = input;
   const updated = await repository.update(
     id,
     profile,
