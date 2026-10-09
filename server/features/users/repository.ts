@@ -32,37 +32,28 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
+/** 共有プロフィール（名前・色・通知時刻）を変える。変えた後の行を返す（ユーザーがいなければ undefined） */
+export async function update(id: string, profile: UpdateUserInput): Promise<UserRow | undefined> {
+  const [updated] = await db
+    .update(users)
+    .set({ ...profile, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning(publicColumns);
+  return updated;
+}
+
 /**
- * 共有プロフィール（名前・色・通知時刻）を変え、passwordHash があればパスワードも置き換えて、
- * そのユーザーの全端末のセッションを失効させる。変えた後の行を返す（ユーザーがいなければ undefined）。
- *
- * すべてを 1 回の原子的な操作で行う。パスワードの置き換えとセッションの失効は片方だけ通ると困り
- * （新しいパスワードなのに古い端末が使える）、プロフィールと分けると「名前は変わったのにパスワードは
- * 変わらない」が起こる。存在の確認も読み直しも別の往復にせず、更新の returning で済ませる。
+ * パスワードを置き換え、そのユーザーの全端末のセッションを失効させる。
+ * 2 つを 1 回の原子的な操作で行う（片方だけ通ると、新しいパスワードなのに古い端末が使えてしまう）。
  * パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く。
  * セッション行は OAuth の参照のため消さずに期限切れにする。
  */
-export async function update(
-  id: string,
-  profile: Omit<UpdateUserInput, 'password' | 'currentPassword'>,
-  passwordHash?: string,
-): Promise<UserRow | undefined> {
-  const [updated] = await runBatch((tx) => [
-    // updatedAt を必ず含めるので、パスワードだけの変更でも更新文が空にならず、存在を returning で確かめられる
+export async function replacePassword(id: string, passwordHash: string): Promise<void> {
+  await runBatch((tx) => [
     tx
-      .update(users)
-      .set({ ...profile, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning(publicColumns),
-    ...(passwordHash === undefined
-      ? []
-      : [
-          tx.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, id)),
-          tx
-            .update(accounts)
-            .set({ password: passwordHash })
-            .where(and(eq(accounts.userId, id), eq(accounts.providerId, 'credential'))),
-        ]),
+      .update(accounts)
+      .set({ password: passwordHash })
+      .where(and(eq(accounts.userId, id), eq(accounts.providerId, 'credential'))),
+    tx.update(sessions).set({ expiresAt: new Date() }).where(eq(sessions.userId, id)),
   ]);
-  return updated[0];
 }

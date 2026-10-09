@@ -60,7 +60,7 @@ describe('条件付き要求', () => {
 
   it('me.get は色の変更に追従する（セッションから返しても古くならない）', async () => {
     expect(await dataOf(await get('me.get', undefined))).toMatchObject({ name: 'A', hue: 335 });
-    await updateUser(userId, { hue: 120 }, userId);
+    await updateUser(userId, { hue: 120 });
     expect(await dataOf(await get('me.get', undefined))).toMatchObject({ hue: 120 });
   });
 });

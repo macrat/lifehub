@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { redirect, useNavigate } from '@tanstack/react-router';
 import { createAuthClient } from 'better-auth/react';
-import type { LoginInput } from '../../shared/validation/users.ts';
+import type { ChangePasswordInput, LoginInput } from '../../shared/validation/users.ts';
 import { type ApiOutputs, api, apiRequestFetch, isUnauthorized } from './api.ts';
 import { notify } from './ui/notice.ts';
 
@@ -176,8 +176,7 @@ export function markSignedOut(client: QueryClient): void {
  * ログイン画面の確かめ直しがすぐアプリへ戻してしまい、ログアウトできたように見えて実はできていない。
  */
 export function useLogout() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const leave = useLeaveToLogin();
   return async () => {
     // 通信の失敗は例外で、サーバーの拒否は error で返る。どちらもログアウトできていない
     const result = await authClient.signOut().catch(() => null);
@@ -185,6 +184,32 @@ export function useLogout() {
       notify('error', 'ログアウトできませんでした。通信できる所でもう一度試してください');
       return;
     }
+    await leave();
+  };
+}
+
+/**
+ * 自分のパスワードの変更（`me.changePassword`。今のパスワードも送る）。サーバーは全端末のセッションを切るので、
+ * 変えられたらログアウトと同じくキャッシュを捨ててログイン画面へ送る。
+ * オフラインでは溜めずにその場で失敗する（パスワードを端末に残さない。ユーザーの登録と同じ）。
+ */
+export function useChangePassword() {
+  const leave = useLeaveToLogin();
+  return useMutation({
+    mutationFn: (input: ChangePasswordInput) => api.me.changePassword.mutate(input),
+    networkMode: 'always',
+    onSuccess: async () => {
+      await leave();
+      notify('info', 'パスワードを変更しました。新しいパスワードでログインしてください');
+    },
+  });
+}
+
+/** サインアウトした後始末: キャッシュを捨ててログイン画面へ送る（me だけは「未ログイン」として残す） */
+function useLeaveToLogin() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  return async () => {
     markSignedOut(queryClient);
     queryClient.removeQueries({
       predicate: (q) => !partialMatchKey(q.queryKey, meQueryOptions.queryKey),

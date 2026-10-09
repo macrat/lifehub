@@ -15,15 +15,13 @@ import { HueSlider } from './HueSlider.tsx';
 type Props<S extends z.ZodType> = {
   /** 編集するユーザー。登録なら null */
   user: User | null;
-  /** パスワードの欄（新しいパスワードと、本人の確認の今のパスワード）を出すか */
-  passwordFields: boolean;
   schema: S;
   onClose: () => void;
   onSubmit: (input: z.output<S>) => Promise<unknown>;
 };
 
-/** ユーザーの登録（user が null）と、名前・パスワード・色の変更を 1 つのシートで扱う。 */
-export function UserForm<S extends z.ZodType>({ user, passwordFields, ...options }: Props<S>) {
+/** ユーザーの登録（user が null）と、名前・色の変更を 1 つのシートで扱う。パスワードの変更は設定画面（`ChangePasswordItem`） */
+export function UserForm<S extends z.ZodType>({ user, ...options }: Props<S>) {
   const { errors, sheet, hue } = useUserForm({ user, ...options });
 
   return (
@@ -39,31 +37,29 @@ export function UserForm<S extends z.ZodType>({ user, passwordFields, ...options
         fullWidth
       />
       {!user && (
-        <TextField
-          name="email"
-          label="メールアドレス"
-          type="email"
-          autoComplete="off"
-          error={Boolean(errors.email)}
-          helperText={errors.email}
-          fullWidth
-        />
-      )}
-      {passwordFields && (
         <>
           <TextField
+            name="email"
+            label="メールアドレス"
+            type="email"
+            autoComplete="off"
+            error={Boolean(errors.email)}
+            helperText={errors.email}
+            fullWidth
+          />
+          <TextField
             name="password"
-            label={user ? '新しいパスワード（変更する場合）' : 'パスワード'}
+            label="パスワード"
             type="password"
             autoComplete="new-password"
             error={Boolean(errors.password)}
             helperText={errors.password ?? `${PASSWORD_MIN_LENGTH}文字以上`}
             fullWidth
           />
-          {/* 本人の確認（`server/features/users/service.ts` の `verifyActorPassword`）。登録では登録する人のもの */}
+          {/* 本人の確認（`server/lib/trpc.ts` の `reauthedProcedure`）。登録する人のパスワード */}
           <TextField
             name="currentPassword"
-            label={user ? '今のパスワード（変更する場合）' : 'あなたの今のパスワード'}
+            label="あなたの今のパスワード"
             type="password"
             autoComplete="current-password"
             error={Boolean(errors.currentPassword)}

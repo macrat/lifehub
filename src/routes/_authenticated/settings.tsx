@@ -18,6 +18,7 @@ import { mcpClientsQueryOptions } from '../../features/mcp-clients/queries.ts';
 import { PushSection } from '../../features/push/components/PushSection.tsx';
 import { pushStatusQueryOptions, pushSupported } from '../../features/push/queries.ts';
 import { AllDayNotifySection } from '../../features/users/components/AllDayNotifySection.tsx';
+import { ChangePasswordItem } from '../../features/users/components/ChangePasswordItem.tsx';
 import { MyColorSection } from '../../features/users/components/MyColorSection.tsx';
 import { meQueryOptions, useLogout } from '../../lib/auth.ts';
 import { formatDateWithYear, formatTime } from '../../lib/date.ts';
@@ -34,7 +35,7 @@ export const Route = createFileRoute('/_authenticated/settings')({
 /**
  * 設定。Google 系アプリの設定画面と同じ「見出し + 行」の並び（`SettingsSection`）。
  * 自分の色（アクセントカラー）、この端末のプッシュ通知、終日の通知時刻、外部連携（カレンダーの配信 URL・API キー・MCP クライアント）、
- * 取り込みルールと立替スケジュール、ユーザー管理、ログアウト、バージョン。
+ * 取り込みルールと立替スケジュール、ユーザー管理、パスワードの変更、ログアウト、バージョン。
  */
 function SettingsPage() {
   // この画面が読むもの: 配信 URL・API キー・MCP クライアントの一覧、この端末のプッシュ通知の購読（対応するブラウザだけ）
@@ -84,6 +85,7 @@ function SettingsPage() {
             <ListItemText primary="ユーザー管理" />
           </ListItemButton>
         </ListItem>
+        <ChangePasswordItem />
         <ListItem disablePadding>
           <ListItemButton onClick={() => void logout()}>
             <ListItemIcon>

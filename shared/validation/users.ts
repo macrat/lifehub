@@ -9,10 +9,13 @@ const passwordSchema = z
   .max(128);
 
 /**
- * 操作する人（ログイン中のユーザー）の今のパスワード。パスワードの変更とユーザーの登録で、本人であることを
- * 確かめ直すのに使う（users service）。奪ったセッションだけでは持ち主を締め出したり、別の入口を作ったりできないようにする
+ * 本人の確認。操作する人（ログイン中のユーザー）の今のパスワードを添えさせる。
+ * ユーザーの登録とパスワードの変更に使い（`server/lib/trpc.ts` の `reauthedProcedure`）、奪ったセッションだけでは
+ * 持ち主を締め出したり、別のユーザーという入口を作ったりできないようにする
  */
-const currentPasswordSchema = z.string().min(1, '今のパスワードを入力してください').max(128);
+export const reauthSchema = z.object({
+  currentPassword: z.string().min(1, '今のパスワードを入力してください').max(128),
+});
 
 /** ユーザーの色。OKLCH の色相だけを選ぶ（shared/color.ts） */
 const hueSchema = z.number().int().min(0).max(HUE_MAX);
@@ -41,30 +44,23 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
  * 画面の API（`users.create`）からの登録。登録する人の今のパスワードも受け取る。
  * scripts/create-user.ts は DB に直接つなぐ（ログインしている人がいない）ので `createUserSchema` を使う
  */
-export const registerUserSchema = createUserSchema.extend({
-  currentPassword: currentPasswordSchema,
-});
-export type RegisterUserInput = z.infer<typeof registerUserSchema>;
+export const registerUserSchema = createUserSchema.extend(reauthSchema.shape);
 
+/** 共有プロフィールの変更（他人の分も変えられる）。パスワードは含めない（`changePasswordSchema`） */
 export const updateUserSchema = z
   .object({
     name: nameSchema.optional(),
-    password: passwordSchema.optional(),
     hue: hueSchema.optional(),
     allDayNotifyMinutes: allDayNotifyMinutesSchema.optional(),
-    /** パスワードを変えるときだけ要る */
-    currentPassword: currentPasswordSchema.optional(),
   })
-  .refine(
-    ({ currentPassword: _, ...changes }) =>
-      Object.values(changes).some((value) => value !== undefined),
-    { message: '変更する項目がありません' },
-  )
-  .refine((v) => v.password === undefined || v.currentPassword !== undefined, {
-    message: '今のパスワードを入力してください',
-    path: ['currentPassword'],
+  .refine((v) => Object.values(v).some((value) => value !== undefined), {
+    message: '変更する項目がありません',
   });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+/** 自分のパスワードの変更（`me.changePassword`） */
+export const changePasswordSchema = reauthSchema.extend({ newPassword: passwordSchema });
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const loginSchema = z.object({
   /**

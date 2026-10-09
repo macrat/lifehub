@@ -1,8 +1,9 @@
 import * as Sentry from '@sentry/hono/node';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { ZodError } from 'zod';
-import { type AuthUser, getAuth } from './auth.ts';
-import { domainErrorOf, INTERNAL_ERROR_MESSAGE, issueMessage } from './errors.ts';
+import { reauthSchema } from '../../shared/validation/users.ts';
+import { type AuthUser, getAuth, verifyUserPassword } from './auth.ts';
+import { domainErrorOf, ForbiddenError, INTERNAL_ERROR_MESSAGE, issueMessage } from './errors.ts';
 import { setSentryUser } from './sentry.ts';
 
 /**
@@ -123,3 +124,25 @@ const traced = t.middleware(({ path, type, next }) =>
 
 export const router = t.router;
 export const procedure = t.procedure.use(authed).use(traced).use(domainErrors);
+
+/**
+ * 本人の確認（`reauthedProcedure`）。手続きの入力はこの前の `.input(reauthSchema)` で検証済みで、
+ * ここでは型を付けるためだけに読み直す（`t.middleware` は入力の型を知らない）。
+ * ログイン中のユーザーは `authed` が始めた検証の結果を分け合う（`verifySession` は同じ Promise を返す）
+ */
+const verifyCurrentPassword = t.middleware(async ({ ctx, input, next }) => {
+  const user = await ctx.verifySession();
+  if (!(await verifyUserPassword(user.id, reauthSchema.parse(input).currentPassword))) {
+    throw new ForbiddenError('今のパスワードが違います');
+  }
+  return next();
+});
+
+/**
+ * 本人の確認が要る手続き。入力に操作する人の今のパスワード（`currentPassword`。`reauthSchema`）を求め、
+ * 合わなければ手続きを走らせずに FORBIDDEN にする。手続きの入力（`.input()` で足すもの）はこれと合わさる。
+ * 使うのは、奪ったセッションだけで持ち主を締め出したり居座ったりできる操作（ユーザーの登録・パスワードの変更）。
+ * 確かめはログインの試行回数の制限（`lib/auth.ts` の `rateLimit`）に数えない。試すにはセッションが要り、
+ * 12 文字以上のパスワードを要求ごとの scrypt で総当たりするのは現実的でない。
+ */
+export const reauthedProcedure = procedure.input(reauthSchema).use(verifyCurrentPassword);

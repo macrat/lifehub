@@ -69,12 +69,12 @@ describe('書き込みの後の通知の予約', () => {
   });
 
   it('終日の通知時刻の変更で予約し直す', async () => {
-    await updateUser(userId, { allDayNotifyMinutes: 8 * 60 }, userId);
+    await updateUser(userId, { allDayNotifyMinutes: 8 * 60 });
     expect(schedule).toHaveBeenCalledTimes(1);
     // すべての予定・タスクの通知時刻が変わりうるので、絞らずに予約する
     expect(schedule).toHaveBeenLastCalledWith();
     schedule.mockClear();
-    await updateUser(userId, { name: '名前だけ' }, userId);
+    await updateUser(userId, { name: '名前だけ' });
     expect(schedule).not.toHaveBeenCalled();
   });
 });

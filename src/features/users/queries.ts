@@ -39,14 +39,13 @@ export function useCreateUser() {
   });
 }
 
-/** ユーザーの変更。パスワードを含みうるので、登録と同じくオフラインでは溜めない */
+/** 共有プロフィール（名前・色・通知時刻）の変更。ほかの記録と同じく、オフラインでは溜めて後で送る */
 export function useUpdateUser() {
   return useOptimisticMutation<UpdateUserInput & { id: string }>({
     request: write.users.update,
-    queue: false,
     keys: [meQueryOptions.queryKey],
-    apply: (client, { id, password: _password, currentPassword: _currentPassword, ...input }) => {
-      // パスワードは表示に関わらないので当てない（キャッシュは端末に残るので、載せてもいけない）。送らなかった項目（undefined）で今の値を消さない
+    apply: (client, { id, ...input }) => {
+      // 送らなかった項目（undefined）で今の値を消さない
       const changes = Object.fromEntries(
         Object.entries(input).filter(([, value]) => value !== undefined),
       ) as Partial<typeof input>;
