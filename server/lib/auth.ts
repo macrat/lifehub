@@ -1,7 +1,9 @@
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { mcp } from '@better-auth/mcp';
+import type { OAuthClaimExtensionInput } from '@better-auth/oauth-provider';
 import { type BetterAuthOptions, betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { jwt } from 'better-auth/plugins';
 import { DEFAULT_HUE } from '../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES, PASSWORD_MIN_LENGTH } from '../../shared/constants.ts';
@@ -23,6 +25,37 @@ import { env, resolveBaseUrl } from './env.ts';
  */
 const baseUrl = resolveBaseUrl();
 export const MCP_RESOURCE = `${baseUrl}/api/mcp`;
+
+/**
+ * MCP のアクセストークン（JWT）に入れる、発行のもとになった許可（`oauth_consents` の行）の id のクレーム名。
+ * `/api/mcp` はこの id の同意が今もあるかで失効を判定する（`server/mcp.ts`）。
+ */
+export const CONSENT_ID_CLAIM = 'consent_id';
+
+/**
+ * アクセストークンを発行するたび（認可コードの交換とリフレッシュ）に、そのユーザーのそのクライアントへの
+ * 今の同意の id をトークンに入れる（理由は docs/features/mcp-clients.md の「失効」）。同意が無ければ発行しない。
+ * これは oauth-provider がリフレッシュのときに同意を確かめないことを補う、発行の可否の確かめでもある。
+ * WHY NOT mcp-clients の repository で引く: lib は features を読まない。同意の表は better-auth のものなので、
+ * better-auth のアダプタで引く。
+ */
+async function bindConsent({ ctx, user, client }: OAuthClaimExtensionInput) {
+  if (!user) return {};
+  const consent = await ctx.context.adapter.findOne<{ id: string }>({
+    model: 'oauthConsent',
+    where: [
+      { field: 'userId', value: user.id },
+      { field: 'clientId', value: client.clientId },
+    ],
+  });
+  if (!consent) {
+    throw new APIError('BAD_REQUEST', {
+      error: 'invalid_grant',
+      error_description: 'the client is no longer authorized',
+    });
+  }
+  return { [CONSENT_ID_CLAIM]: consent.id };
+}
 
 /** このデプロイの Vercel 上の URL。Vercel のシステム環境変数なので、公開設定が無ければ空になる。 */
 const vercelHosts = [env.VERCEL_URL, env.VERCEL_BRANCH_URL].filter(
@@ -113,6 +146,7 @@ const options = {
       loginPage: '/login',
       consentPage: '/consent',
       resource: MCP_RESOURCE,
+      extensions: [{ claims: { accessToken: bindConsent } }],
     }),
     cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
   ],

@@ -29,14 +29,13 @@ export async function findByUser(userId: string): Promise<ConnectionRow[]> {
     .orderBy(asc(oauthConsents.createdAt));
 }
 
-/** そのユーザーのそのクライアントへの許可（同意）の id。許可していなければ undefined */
-export async function findConsentId(userId: string, clientId: string): Promise<string | undefined> {
+/** その id の同意（許可）が今もあるか */
+export async function existsConsent(id: string): Promise<boolean> {
   const [row] = await db
     .select({ id: oauthConsents.id })
     .from(oauthConsents)
-    .where(and(eq(oauthConsents.userId, userId), eq(oauthConsents.clientId, clientId)))
-    .limit(1);
-  return row?.id;
+    .where(eq(oauthConsents.id, id));
+  return !!row;
 }
 
 /**
