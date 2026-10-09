@@ -30,7 +30,7 @@ const authHandler: Handler = async (c) => (await getAuth()).handler(c.req.raw);
  * 画面専用の API（tRPC。`lib/trpc.ts`）。互換性や REST としての形より通信の本数と量を優先する
  * （docs/architecture.md）。`AppRouter` をクライアント（src/lib/api.ts）が型として参照する。
  * 書き込みは値を返さない。画面は送った内容で先に書き換え、後で取り直して揃えるので、返しても読まれない。
- * 例外は API キーの発行で、キーそのものを見せられるのは発行の応答だけなので返す。
+ * 例外は秘密の発行で、秘密を見せられるのは発行の応答だけなので返す（docs/architecture.md の「書き込み」）。
  */
 const appRouter = router({
   me: meRouter,

@@ -25,7 +25,7 @@ describe('記録投入のルート', () => {
 
   it('API キーで記録でき、記録した人は不明になり、キーの名前が残る', async () => {
     const userId = await createTestUser('A');
-    const { key } = await createKey({ name: 'ボタン' }, userId);
+    const { secret: key } = await createKey({ name: 'ボタン' }, userId);
 
     const before = Date.now();
     const res = await post({ type: 'lemon', careTypes: ['water', 'mist'] }, key);
@@ -41,7 +41,7 @@ describe('記録投入のルート', () => {
 
   it('同じ id で送り直しても二重に作られない', async () => {
     const userId = await createTestUser('A');
-    const { key } = await createKey({ name: 'ボタン' }, userId);
+    const { secret: key } = await createKey({ name: 'ボタン' }, userId);
     const body = { type: 'lemon', id: newId(), careTypes: ['mist'] };
 
     expect((await post(body, key)).status).toBe(201);
@@ -58,7 +58,7 @@ describe('記録投入のルート', () => {
 
   it('知らない種類や規則に合わない記録は 400', async () => {
     const userId = await createTestUser('A');
-    const { key } = await createKey({ name: 'ボタン' }, userId);
+    const { secret: key } = await createKey({ name: 'ボタン' }, userId);
     expect((await post({ type: 'unknown' }, key)).status).toBe(400);
     expect((await post({ type: 'lemon', careTypes: [] }, key)).status).toBe(400);
   });

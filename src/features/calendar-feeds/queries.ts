@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { type ApiOutputs, api, write } from '../../lib/api.ts';
 import { putById } from '../../lib/list.ts';
-import { useOptimisticMutation } from '../../lib/mutation.ts';
+import { useIssueMutation, useOptimisticMutation } from '../../lib/mutation.ts';
 
 /** カレンダーの ics 配信 URL（[docs/features/calendar-feeds.md](../../../docs/features/calendar-feeds.md)） */
 export type CalendarFeed = ApiOutputs['calendarFeeds']['list'][number];
@@ -11,16 +11,11 @@ export const calendarFeedsQueryOptions = queryOptions({
   queryFn: ({ signal }) => api.calendarFeeds.list.query(undefined, { signal }),
 });
 
-/**
- * 発行。オフラインでは溜めずにその場で失敗させる（`queue: false`）。
- * 発行された URL はサーバーが作る乱数なので、送れるまで待っても画面には何も出せない。
- * 同じ理由で楽観的更新の `apply` も持たない（出す値を先に作れない）。
- */
+/** 発行。URL を見られるのは発行の応答だけ（`useIssueMutation`） */
 export function useCreateCalendarFeed() {
-  return useOptimisticMutation({
-    request: write.calendarFeeds.create,
-    queue: false,
-    keys: [calendarFeedsQueryOptions.queryKey],
+  return useIssueMutation({
+    request: api.calendarFeeds.create.mutate,
+    queryKey: calendarFeedsQueryOptions.queryKey,
   });
 }
 

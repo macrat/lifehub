@@ -169,6 +169,13 @@
       "when": 1791530985619,
       "tag": "0023_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791543391109,
+      "tag": "0024_calendar_feed_token_hash",
+      "breakpoints": true
     }
   ]
 }

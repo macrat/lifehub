@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { newId } from '../../../shared/id.ts';
+import type { Issued } from '../../../shared/types.ts';
 import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { NotFoundError } from '../../lib/errors.ts';
-import { newSecret } from '../../lib/secret.ts';
+import { hashSecret, newSecret } from '../../lib/secret.ts';
 import * as repository from './repository.ts';
 import type { ApiKeyRow } from './schema.ts';
 
@@ -14,19 +14,16 @@ export type ApiKey = {
   lastUsedAt: string | null;
 };
 
-/** 発行した直後だけ返す形。キーを見られるのはこの 1 回だけ */
-export type IssuedApiKey = ApiKey & { key: string };
-
 export async function listKeys(userId: string): Promise<ApiKey[]> {
   return (await repository.findByUser(userId)).map(toApiKey);
 }
 
-export async function createKey(input: ApiKeyInput, userId: string): Promise<IssuedApiKey> {
+export async function createKey(input: ApiKeyInput, userId: string): Promise<Issued<ApiKey>> {
   const key = newSecret();
   const values = { id: newId(), userId, name: input.name, createdAt: new Date() };
-  await repository.insert({ ...values, keyHash: hashOf(key) });
+  await repository.insert({ ...values, keyHash: hashSecret(key) });
   // 保存した値はすべて手元にあるので読み直さない（往復を 1 回減らす）
-  return { ...toApiKey({ ...values, lastUsedAt: null }), key };
+  return { item: toApiKey({ ...values, lastUsedAt: null }), secret: key };
 }
 
 /** 失効。他のユーザーのキーは消せない（見えてもいない） */
@@ -44,11 +41,7 @@ export async function authenticate(
   key: string,
   now: Date = new Date(),
 ): Promise<{ userId: string; name: string } | undefined> {
-  return repository.touchByHash(hashOf(key), now);
-}
-
-function hashOf(key: string): string {
-  return createHash('sha256').update(key).digest('base64url');
+  return repository.touchByHash(hashSecret(key), now);
 }
 
 function toApiKey(row: Pick<ApiKeyRow, 'id' | 'name' | 'createdAt' | 'lastUsedAt'>): ApiKey {

@@ -1,4 +1,5 @@
 import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { SecretHash } from '../../lib/secret.ts';
 import { users } from '../users/schema.ts';
 
 /**
@@ -6,11 +7,9 @@ import { users } from '../users/schema.ts';
  *
  * `user_id` は作成者ではなく持ち主なので `created_by` を別に持たない（`push_subscriptions` と同じ）。
  *
- * トークンはハッシュ化せずそのまま置く。DB を読める者はカレンダーの中身もそのまま読めるので
- * ハッシュ化しても守れるものは増えない一方、発行した瞬間にしか URL を出せなくなり、
- * 別の端末に登録し直すたびに発行し直すことになるため。
+ * トークンそのものは置かず、ハッシュだけを置く（理由は docs/features/calendar-feeds.md の「トークン」）。
  *
- * 索引は `token` の一意制約だけにする。配信のたびに引くのはトークンで、一覧は数本しかない行の
+ * 索引は `token_hash` の一意制約だけにする。配信のたびに引くのはトークンのハッシュで、一覧は数本しかない行の
  * 全走査で足りる（`docs/data-model.md` の共通規約）。
  */
 export const calendarFeeds = pgTable('calendar_feeds', {
@@ -20,8 +19,8 @@ export const calendarFeeds = pgTable('calendar_feeds', {
     .references(() => users.id, { onDelete: 'cascade' }),
   /** 渡した先を見分けるための名前 */
   name: text('name').notNull(),
-  /** URL に載る秘密。これを知っていることだけが配信を受け取る資格になる */
-  token: text('token').notNull().unique(),
+  /** URL に載る秘密（トークン）のハッシュ。トークンを知っていることだけが配信を受け取る資格になる */
+  tokenHash: text('token_hash').$type<SecretHash>().notNull().unique(),
   /** 最後に配信した日時。まだ使われていない URL と、使われなくなった URL を見分ける。null = 未配信 */
   lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

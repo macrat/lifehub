@@ -1,13 +1,6 @@
-import type { ApiKeyInput } from '../../../shared/validation/api-keys.ts';
 import { useStoreQuery } from '../../lib/screen-data.ts';
-import { useOpenWith, useToggle } from '../../lib/ui/use-toggle.ts';
-import {
-  type ApiKey,
-  apiKeysQueryOptions,
-  type IssuedApiKey,
-  useCreateApiKey,
-  useRevokeApiKey,
-} from './queries.ts';
+import { useToggle } from '../../lib/ui/use-toggle.ts';
+import { type ApiKey, apiKeysQueryOptions, useCreateApiKey, useRevokeApiKey } from './queries.ts';
 
 /**
  * 設定画面の API キーの一覧（`ApiKeyList`）の状態と操作。発行のフォームを開いているか、発行したキー、
@@ -18,8 +11,6 @@ export function useApiKeyList() {
   const createKey = useCreateApiKey();
   const revokeKey = useRevokeApiKey();
   const creating = useToggle();
-  // 発行したキーは閉じるまでここだけが持つ（サーバーにもキャッシュにも残らない）
-  const issued = useOpenWith<IssuedApiKey>();
 
   return {
     keysQuery,
@@ -32,11 +23,10 @@ export function useApiKeyList() {
     createForm: creating.value
       ? {
           onClose: creating.off,
-          onSubmit: async (input: ApiKeyInput) => issued.open(await createKey.mutateAsync(input)),
+          onSubmit: createKey.issue,
         }
       : null,
-    /** 発行したキー。閉じるまで出したままにする */
-    issued: issued.value,
-    closeIssued: issued.close,
+    issued: createKey.issued,
+    closeIssued: createKey.closeIssued,
   };
 }

@@ -18,3 +18,10 @@ export type HistoryPage<T> = {
   items: T[];
   nextCursor: DateString | null;
 };
+
+/**
+ * 秘密の発行（API キー、カレンダーの配信 URL）の応答。秘密を見られるのはこの 1 回だけ。
+ * 一覧の 1 行（`item`）と秘密を分けて返し、画面が一覧のキャッシュへ秘密を入れずに済むようにする
+ * （docs/architecture.md の「書き込み」の秘密の発行）。
+ */
+export type Issued<T> = { item: T; secret: string };

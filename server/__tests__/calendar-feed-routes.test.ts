@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../app.ts';
-import { createFeed, listFeeds } from '../features/calendar-feeds/service.ts';
+import { createFeed } from '../features/calendar-feeds/service.ts';
 import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 
 /**
@@ -13,11 +13,9 @@ describe('カレンダー配信のルート', () => {
 
   it('ics はログイン無しで読め、配信 URL の管理はログインが要る', async () => {
     const userId = await createTestUser('A');
-    await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
-    const [feed] = await listFeeds(userId);
-    if (!feed) throw new Error('発行した配信 URL が一覧に無い');
+    const { secret: url } = await createFeed({ name: 'スマホ', participantIds: [userId] }, userId);
 
-    const ics = await app.request(new URL(feed.url).pathname);
+    const ics = await app.request(new URL(url).pathname);
     expect(ics.status).toBe(200);
     expect(ics.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
     expect(await ics.text()).toContain('BEGIN:VCALENDAR');

@@ -18,12 +18,12 @@ describe('api-keys service', () => {
   });
 
   it('発行したキーで持ち主と名前が分かり、最後に使われた日時を記録する', async () => {
-    const issued = await createKey({ name: 'レモンのボタン' }, userId);
-    expect(issued.key).toMatch(/^[\w-]{43}$/);
+    const { item: issued, secret: key } = await createKey({ name: 'レモンのボタン' }, userId);
+    expect(key).toMatch(/^[\w-]{43}$/);
     expect(issued.lastUsedAt).toBeNull();
     const updatedAt = await updatedAtOf();
 
-    expect(await authenticate(issued.key, now)).toEqual({ userId, name: 'レモンのボタン' });
+    expect(await authenticate(key, now)).toEqual({ userId, name: 'レモンのボタン' });
     // 使った日時の記録は行の中身を変えたのではないので、変えた日時（updated_at）は進めない
     expect(await updatedAtOf()).toEqual(updatedAt);
     const [listed] = await listKeys(userId);
@@ -47,12 +47,12 @@ describe('api-keys service', () => {
   });
 
   it('失効したキーは通らず、他人のキーは失効できない', async () => {
-    const issued = await createKey({ name: 'ボタン' }, userId);
+    const { item: issued, secret: key } = await createKey({ name: 'ボタン' }, userId);
     await expect(revokeKey(issued.id, otherId)).rejects.toThrow(NotFoundError);
-    expect(await authenticate(issued.key, now)).toMatchObject({ userId });
+    expect(await authenticate(key, now)).toMatchObject({ userId });
 
     await revokeKey(issued.id, userId);
-    expect(await authenticate(issued.key, now)).toBeUndefined();
+    expect(await authenticate(key, now)).toBeUndefined();
     expect(await listKeys(userId)).toEqual([]);
   });
 

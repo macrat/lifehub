@@ -6,7 +6,7 @@ import * as service from './service.ts';
 /** API キーの管理。ログイン中のユーザー自身のキーだけを扱う */
 export const apiKeysRouter = router({
   list: procedure.query(async ({ ctx }) => service.listKeys(ctx.user.id)),
-  /** 発行したキーそのものは、この応答でしか見せられないので返す */
+  /** 発行したキーそのものは、この応答でしか見せられないので返す（`secret`） */
   create: procedure
     .input(apiKeySchema)
     .mutation(async ({ ctx, input }) => service.createKey(input, ctx.user.id)),

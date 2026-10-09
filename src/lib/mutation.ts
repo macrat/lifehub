@@ -1,15 +1,20 @@
 import {
+  type DataTag,
   type MutationOptions,
   type QueryClient,
+  type QueryKey,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import { newId } from '../../shared/id.ts';
+import type { Issued } from '../../shared/types.ts';
 import { isNetworkError, sendWrite, type WriteRequest } from './api.ts';
 import { signedInUserId } from './auth.ts';
+import { putById } from './list.ts';
 import { withMoveAnimation } from './move-animation.ts';
 import { queryClient, WRITE_MUTATION_KEY } from './query-client.ts';
 import { notify } from './ui/notice.ts';
+import { useOpenWith } from './ui/use-toggle.ts';
 
 /**
  * 書き込み（mutation）: 楽観的更新、オフラインで溜めて順に送る書き込みのキュー、失敗の扱い。
@@ -213,4 +218,32 @@ export function useCreateMutation<TInput>(
     prepare: (input: TInput) => ({ ...input, id: newId() }),
   });
   return { mutateAsync: create.mutateAsync };
+}
+
+/**
+ * 秘密の発行（API キー、配信 URL）。仕組みは docs/architecture.md の「書き込み」の秘密の発行。
+ * 応答を待ち、一覧の 1 行（`item`）だけを一覧のキャッシュの末尾へ足し、応答そのものは閉じるまで `issued` だけが持つ。
+ */
+export function useIssueMutation<TInput, TItem extends { id: string }>({
+  request,
+  queryKey,
+}: {
+  request: (input: TInput) => Promise<Issued<TItem>>;
+  queryKey: DataTag<QueryKey, TItem[], Error>;
+}) {
+  const client = useQueryClient();
+  const issued = useOpenWith<Issued<TItem>>();
+  const mutation = useMutation({
+    mutationFn: request,
+    networkMode: 'always',
+    onSuccess: ({ item }) => {
+      client.setQueryData(queryKey, (items) => items && putById(items, item.id, item));
+    },
+  });
+  return {
+    issue: async (input: TInput) => issued.open(await mutation.mutateAsync(input)),
+    /** 発行した直後の応答（秘密を含む）。閉じるまで出したままにする */
+    issued: issued.value,
+    closeIssued: issued.close,
+  };
 }
