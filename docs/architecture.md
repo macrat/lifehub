@@ -143,7 +143,8 @@ e2e/                          # Playwright（ワーカーごとのサーバー�
 - 2 人だけが使う非公開のアプリなので、検索エンジンに載せない。クロールは `public/robots.txt`（全パスを `Disallow`）で断り、索引は `vercel.json` の全パスへの `X-Robots-Tag: noindex, nofollow` ヘッダで断る。ヘッダは HTML 以外（API の JSON やアイコン）にも効き、`<meta name="robots">` と違って `index.html` を経ない応答も覆えるため、meta タグではなくヘッダで付ける。robots.txt を守らないクローラーでもヘッダで索引から外れ、robots.txt を守るクローラーはそもそも取りに来ない。
 - `vercel.json` の全パスへの `Content-Security-Policy` で、スクリプトを同じオリジンのファイルだけに限る（`script-src 'self'`）。
   - XSS は React のエスケープで防いでいる。依存ライブラリの不具合などで穴が 1 つできても、差し込まれたインラインスクリプトや外部のスクリプトを動かさないための 2 つ目の層。動けばセッションのまま全 API を呼べる。
-  - Vite のビルドが出す HTML はインラインスクリプトを含まず、バンドルも `eval` や `new Function` を使わないので、`'unsafe-inline'`・`'unsafe-eval'`・nonce は要らない。Service Worker（`/sw.js`）は `worker-src` が無ければ `script-src` に従うので、同じ指定で動く。
+  - Vite のビルドが出す HTML はインラインスクリプトを含まず、バンドルも `eval` や `new Function` を使わないので、`'unsafe-inline'`・`'unsafe-eval'`・nonce は要らない。依存の更新などでこれが崩れていないことは E2E が確かめる（`server/dev.ts` が `vercel.json` の同じヘッダを付けて `dist/` を配信する）。
+  - Service Worker（`/sw.js`）は `worker-src` が無ければ `script-src` に従うので、同じ指定で動く。
   - WHY NOT `default-src` で全種類を絞る: スタイル（Emotion がインラインの `<style>` を差し込む）や Sentry への送信など、守りたいもの（スクリプトの実行）と関係の薄い指定が増え、指定漏れで画面や監視が黙って壊れるため。
 - OAuth の探索メタデータ（`/.well-known/*`）はオリジン直下に必要なため、`vercel.json` の rewrite で `/api` の関数へ振り向ける。関数は元の URL を受け取るので、Hono は `/.well-known/*` のまま受ける（詳細は [features/mcp.md](features/mcp.md)）。
 - サーバーとクライアントと E2E で tsconfig を分け（`tsconfig.server.json` / `tsconfig.client.json` / `tsconfig.shared.json` / `tsconfig.e2e.json`）、サーバーに DOM 型を、クライアントに Node 型を明示的には入れない。E2E は Playwright（Node）とページの中で動くコード（DOM）の両方を書くので、両方の型を入れる。クライアントは `server/app.ts` の `AppRouter` を型としてだけ参照する。
