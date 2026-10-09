@@ -30,11 +30,12 @@ const ME = 'https://moneyforward.com';
  * 1 日 1 回しか使わない 60MB を、どの要求のコールドスタートにも背負わせることになる。
  * 落としたアーカイブは SHA-256 を確かめてから展開する。WHY: この Chromium には Money Forward の資格情報を入力させ、
  * 関数の環境変数（DB の接続文字列などの秘密）も読める。配布元のアセットが差し替えられたら、それを動かさずに止める。
- * 版は `@sparticuz/chromium-min` と同じにする（依存を上げたらここも上げ、新しいアーカイブの SHA-256 に替える。
- * 版の食い違いはテストで落とす）。
+ * 版は `@sparticuz/chromium-min` と同じにする（上げたら SHA-256 も替える。食い違いはテストで落とす）。
  */
+const CHROMIUM_VERSION = '153.0.0';
 export const CHROMIUM_PACK = {
-  url: 'https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar',
+  version: CHROMIUM_VERSION,
+  url: `https://github.com/Sparticuz/chromium/releases/download/v${CHROMIUM_VERSION}/chromium-v${CHROMIUM_VERSION}-pack.x64.tar`,
   sha256: '91b9f56d35a2cbb14279a1cbdaf1c86c0faa5fd82315bdd7334ff93bf35f224d',
 };
 
