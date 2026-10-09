@@ -7,7 +7,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { consentClientOf, requireSignedIn, useConsent } from '../lib/auth.ts';
+import { consentHostsOf, requireSignedIn, useConsent } from '../lib/auth.ts';
 import { CenteredPage } from '../lib/ui/CenteredPage.tsx';
 
 // 署名付きの OAuth クエリ（未知のキー）をそのまま残すため loose にする
@@ -35,8 +35,11 @@ const SCOPE_LABELS: Record<string, string> = {
   offline_access: '継続的なアクセス（更新トークン。毎回の許可なしに使い続けられる）',
 };
 
-/** 見分けに使うホストは大きく出す。長いホストでも画面からはみ出さないよう、どこででも折り返す */
-const HOST_SLOT_PROPS = { primary: { variant: 'h6', sx: { wordBreak: 'break-all' } } } as const;
+/** 見分けに使うホスト（`consentHostsOf`）と、その見出し */
+const HOST_LABELS = [
+  ['clientHost', 'アプリの配布元'],
+  ['redirectHost', '許可した後の戻り先'],
+] as const;
 
 function ConsentPage() {
   const { client_id: clientId, redirect_uri: redirectUri, scope } = Route.useSearch();
@@ -44,7 +47,7 @@ function ConsentPage() {
   // 受け付けられたら画面を離れるので、移り終わるまで押せないままにする
   const submitting = consent.isPending || consent.isSuccess;
   const scopes = (scope ?? '').split(' ').filter(Boolean);
-  const client = clientId ? consentClientOf(clientId, redirectUri) : null;
+  const hosts = consentHostsOf(clientId, redirectUri);
 
   return (
     <CenteredPage maxWidth={420}>
@@ -57,26 +60,20 @@ function ConsentPage() {
             '自分でアプリに LifeHub をつないでいる途中のときだけ許可してください。届いたリンクから開いたときや、心当たりの無いときは拒否してください。'
           }
         </Alert>
-        {client && (
-          <List dense disablePadding>
-            <ListItem disablePadding>
-              <ListItemText
-                secondary="アプリの配布元"
-                primary={client.clientHost}
-                slotProps={HOST_SLOT_PROPS}
-              />
-            </ListItem>
-            {client.redirectHost && (
-              <ListItem disablePadding>
-                <ListItemText
-                  secondary="許可した後の戻り先"
-                  primary={client.redirectHost}
-                  slotProps={HOST_SLOT_PROPS}
-                />
-              </ListItem>
-            )}
-          </List>
-        )}
+        <List dense disablePadding>
+          {HOST_LABELS.map(
+            ([key, label]) =>
+              hosts[key] && (
+                <ListItem key={key} disablePadding>
+                  <ListItemText
+                    secondary={label}
+                    primary={hosts[key]}
+                    slotProps={{ primary: { variant: 'h6', sx: { overflowWrap: 'anywhere' } } }}
+                  />
+                </ListItem>
+              ),
+          )}
+        </List>
         <Typography>
           許可すると、このアプリは LifeHub
           のすべての記録（予定・タスク・お金の記録と口座の入出金・レモンの世話・メモ）を、あなたとして読み書きできるようになります。

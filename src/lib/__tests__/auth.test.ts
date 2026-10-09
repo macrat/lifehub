@@ -7,7 +7,7 @@ import {
   redirect,
 } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
-import { afterLogin, consentClientOf, type Me, markSignedOut, meQueryOptions } from '../auth.ts';
+import { afterLogin, consentHostsOf, type Me, markSignedOut, meQueryOptions } from '../auth.ts';
 
 describe('未ログインの反映', () => {
   /**
@@ -66,7 +66,7 @@ describe('ログインの後の移動先', () => {
 describe('同意画面に出すクライアントの見分け方', () => {
   it('client_id の URL と redirect_uri のホストを出す', () => {
     expect(
-      consentClientOf(
+      consentHostsOf(
         'https://claude.ai/oauth/mcp-oauth-client-metadata',
         'https://claude.ai/api/mcp/auth_callback',
       ),
@@ -76,15 +76,19 @@ describe('同意画面に出すクライアントの見分け方', () => {
   /** ループバックへ戻す native クライアントは、ポートまで出して見分ける */
   it('ポートもホストに含める', () => {
     expect(
-      consentClientOf('https://example.com/client.json', 'http://127.0.0.1:3000/callback'),
+      consentHostsOf('https://example.com/client.json', 'http://127.0.0.1:3000/callback'),
     ).toEqual({ clientHost: 'example.com', redirectHost: '127.0.0.1:3000' });
   });
 
   /** サーバー内部から登録したクライアントの client_id は URL ではない */
   it('URL でない client_id はそのまま出し、redirect_uri が無ければ戻り先を出さない', () => {
-    expect(consentClientOf('abc123', undefined)).toEqual({
+    expect(consentHostsOf('abc123', undefined)).toEqual({
       clientHost: 'abc123',
       redirectHost: null,
     });
+  });
+
+  it('client_id が無ければ配布元を出さない', () => {
+    expect(consentHostsOf(undefined, undefined)).toEqual({ clientHost: null, redirectHost: null });
   });
 });
