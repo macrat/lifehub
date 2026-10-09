@@ -1,8 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { UpdateUserInput } from '../../../shared/validation/users.ts';
 import { db, runBatch } from '../../lib/db/client.ts';
-import { oauthAccessTokens, oauthClients, oauthRefreshTokens } from '../../lib/db/oauth-schema.ts';
-import { mcpEventSubscriptions } from '../mcp-events/schema.ts';
+import { oauthClients } from '../../lib/db/oauth-schema.ts';
 import { accounts, sessions, users } from './schema.ts';
 
 export type UserRow = { id: string; name: string; email: string; hue: number };
@@ -35,17 +34,13 @@ export async function findByEmail(email: string): Promise<UserRow | undefined> {
 
 /**
  * 共有プロフィール（名前・色・通知時刻）を変え、passwordHash があればパスワードも置き換えて、
- * そのユーザーの全端末のセッションと、MCP クライアントに渡したアクセスを止める。
- * 変えた後の行を返す（ユーザーがいなければ undefined）。
+ * そのユーザーの全端末のセッションを失効させる。変えた後の行を返す（ユーザーがいなければ undefined）。
  *
  * すべてを 1 回の原子的な操作で行う。パスワードの置き換えとセッションの失効は片方だけ通ると困り
  * （新しいパスワードなのに古い端末が使える）、プロフィールと分けると「名前は変わったのにパスワードは
  * 変わらない」が起こる。存在の確認も読み直しも別の往復にせず、更新の returning で済ませる。
  * パスワードハッシュは better-auth の規約どおり accounts（provider_id = 'credential'）に置く。
  * セッション行は OAuth の参照のため消さずに期限切れにする。
- *
- * MCP クライアントに渡したアクセス（リフレッシュトークン・不透明なアクセストークン・MCP Events の購読）は、
- * パスワードを変えても残るので消す（何を消し、何を消さないかの理由は docs/features/users.md の「認証」）。
  */
 export async function update(
   id: string,
@@ -67,9 +62,6 @@ export async function update(
             .update(accounts)
             .set({ password: passwordHash })
             .where(and(eq(accounts.userId, id), eq(accounts.providerId, 'credential'))),
-          tx.delete(oauthAccessTokens).where(eq(oauthAccessTokens.userId, id)),
-          tx.delete(oauthRefreshTokens).where(eq(oauthRefreshTokens.userId, id)),
-          tx.delete(mcpEventSubscriptions).where(eq(mcpEventSubscriptions.userId, id)),
         ]),
   ]);
   return updated[0];
