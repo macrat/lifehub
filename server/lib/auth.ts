@@ -63,6 +63,23 @@ const options = {
     minPasswordLength: PASSWORD_MIN_LENGTH,
     autoSignIn: false,
   },
+  /**
+   * 要求の数え（IP とパスごと）を DB の `rate_limits` に置き、Vercel Function のどのインスタンスでも同じ数えを使う。
+   * 有効になるのは本番ビルド（NODE_ENV=production）だけ（better-auth の既定。開発とテストでは止まる）。
+   * - ログインは IP ごとに 15 分で 10 回まで。既定（10 秒で 3 回）だと 1 つの IP から 1 日に 2 万回以上試せる。
+   *   家族の打ち間違いには十分な回数を残す。
+   * - WHY NOT メモリ（既定）: インスタンスごとに別々に数え、起動し直すと消えるので、数を絞っても効かない。
+   * - WHY NOT secondary-storage（Redis など）: そのためだけに外部サービスを足すことになる。要求は 2 人分しかなく、
+   *   認証の口で DB を 1〜2 回多く引く費用は小さい。
+   * - WHY NOT アカウント（メールアドレス）ごとの制限: リスト型攻撃はアカウントごとに数回しか試さないので防げず、
+   *   攻撃者が家族のメールアドレスを知っていればログインを締め出せてしまう。
+   */
+  rateLimit: {
+    storage: 'database',
+    customRules: {
+      '/sign-in/email': { window: 15 * 60, max: 10 },
+    },
+  },
   disabledPaths: [
     '/sign-up/email',
     // jwt プラグインのセッション → JWT 交換。OAuth プロバイダとして動くときは閉じる（公式の推奨）

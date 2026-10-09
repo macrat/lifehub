@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../app.ts';
 import { memos } from '../features/memos/schema.ts';
+import { rateLimits } from '../features/users/schema.ts';
 import { getAuth } from '../lib/auth.ts';
 import { db } from '../lib/db/client.ts';
 import { clearTables } from '../lib/db/test-db.ts';
@@ -66,5 +67,39 @@ describe('ログインと認証の口', () => {
     } finally {
       process.off('unhandledRejection', rejected);
     }
+  });
+
+  describe('ログインのレート制限', () => {
+    /** 形の正しくないメールで試す。数えはパスワードの検証より前なので、scrypt を待たずに済む */
+    const signInFrom = (ip: string) =>
+      app.request('/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+        body: JSON.stringify({ email: 'nobody', password: 'password' }),
+      });
+
+    /** レート制限は本番ビルドでだけ有効なので、このテストの間だけ有効にする */
+    beforeEach(async () => {
+      const context = await (await getAuth()).$context;
+      context.rateLimit.enabled = true;
+      return () => {
+        context.rateLimit.enabled = false;
+      };
+    });
+
+    it('IP ごとに 15 分で 10 回まで試せて、数えは DB に残る', async () => {
+      for (let i = 0; i < 10; i++) expect((await signInFrom('203.0.113.1')).status).toBe(400);
+      expect((await signInFrom('203.0.113.1')).status).toBe(429);
+      expect((await signInFrom('203.0.113.2')).status).toBe(400);
+      // インスタンスのメモリではなく DB で数える（どのインスタンスに届いても同じ数えを使う）
+      expect(
+        await db.select({ key: rateLimits.key, count: rateLimits.count }).from(rateLimits),
+      ).toEqual(
+        expect.arrayContaining([
+          { key: '203.0.113.1|/sign-in/email', count: 10 },
+          { key: '203.0.113.2|/sign-in/email', count: 1 },
+        ]),
+      );
+    });
   });
 });

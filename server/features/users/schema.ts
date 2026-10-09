@@ -1,5 +1,14 @@
 import { relations } from 'drizzle-orm';
-import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { DEFAULT_HUE } from '../../../shared/color.ts';
 import { DEFAULT_ALL_DAY_NOTIFY_MINUTES } from '../../../shared/constants.ts';
 
@@ -86,6 +95,17 @@ export const verifications = pgTable(
   },
   (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
+
+/**
+ * better-auth のレート制限の数え（`server/lib/auth.ts` の `rateLimit`）。`key` は「IP|パス」。
+ * `last_request` はその窓の最後の要求の時刻（Unix ミリ秒。better-auth が数値で比べる）。
+ */
+export const rateLimits = pgTable('rate_limits', {
+  id: uuid('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+});
 
 /**
  * ユーザー・セッション・アカウントの結び付き。better-auth が結合して 1 回の問い合わせで読むのに使う

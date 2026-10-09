@@ -13,6 +13,7 @@ export const authDatabase = drizzleAdapter(db, {
     session: schema.sessions,
     account: schema.accounts,
     verification: schema.verifications,
+    rateLimit: schema.rateLimits,
     jwks: schema.jwks,
     oauthClient: schema.oauthClients,
     oauthResource: schema.oauthResources,

@@ -41,6 +41,7 @@
 - 名前・色・通知時刻は家族で共有するプロフィールなので他人の分も変更できるが、パスワードは本人だけが変更できる（片方のセッションを奪われたときにもう片方のアカウントまで奪われないように）。判定は `service.updateUser` が変更する人（ログイン中のユーザー）を受け取って行い、他人のパスワードなら `ForbiddenError`（手続きの失敗としては `FORBIDDEN`）にする。better-auth の API は本人のセッションを前提にするので使わず、repository で直接更新する（パスワードは `better-auth/crypto` の `hashPassword`）。
 - パスワード変更時は対象ユーザーの全ブラウザセッションを失効させる。即時反映のため Cookie によるセッションキャッシュは使わず、要求ごとにセッションを DB で確かめる（セッションとユーザーを結合して 1 回で読む。[architecture.md](../architecture.md#通信の往復)）。
 - パスワードは最低 12 文字。ハッシュは better-auth 標準（scrypt）。
+- 認証の口（`/api/auth/*`）は better-auth のレート制限で IP とパスごとに数を絞る。ログイン（`/sign-in/email`）は 15 分で 10 回まで。数えは DB（`rate_limits`）に置き、Vercel Function のどのインスタンスに届いても同じ数えを使う。設定と WHY NOT は `server/lib/auth.ts` の `rateLimit`。
 - ID は UUID v7（`advanced.database.generateId`）。他テーブルの `created_by` 等が `users.id` を参照する。
 
 ## 初期ユーザー

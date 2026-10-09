@@ -19,7 +19,7 @@ Drizzle のスキーマ（`server/features/*/schema.ts`、`server/lib/db/schema.
 
 | テーブル | 主な列 | 備考 |
 |---|---|---|
-| `users` / `sessions` / `accounts` / `verifications` / OAuth 関連 | better-auth 管理 + `users.hue`, `users.all_day_notify_minutes` | `users.name` を表示名として使う。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。`users.all_day_notify_minutes`（integer, 0〜1439, 既定 420 = 7:00）は終日の予定・タスクを通知する時刻（[notifications.md](features/notifications.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
+| `users` / `sessions` / `accounts` / `verifications` / `rate_limits` / OAuth 関連 | better-auth 管理 + `users.hue`, `users.all_day_notify_minutes` | `users.name` を表示名として使う。`users.hue`（integer, 0〜359, 既定 335）はユーザーの色（OKLCH の色相。[users.md](features/users.md)）。`users.all_day_notify_minutes`（integer, 0〜1439, 既定 420 = 7:00）は終日の予定・タスクを通知する時刻（[notifications.md](features/notifications.md)）。パスワードハッシュは `accounts.password`（`provider_id = 'credential'`） |
 | `push_subscriptions` | `user_id`(index), `endpoint`(unique), `p256dh`, `auth`, `user_agent` | 端末ごとに 1 行。配信失敗（410/404）で削除 |
 | `calendar_feeds` | `user_id`, `name`, `token`(unique), `last_accessed_at` | カレンダーを ics で配る URL（[features/calendar-feeds.md](features/calendar-feeds.md)）。1 ユーザーが何本でも持ち、行を消せばその URL だけが失効する。`token` はハッシュ化せず保存する（理由は calendar-feeds.md の「トークン」）。索引は `token` の一意制約だけ（配信のたびに引くのはトークンで、一覧は数本の全走査で足りる） |
 | `api_keys` | `user_id`, `name`, `key_hash`(unique), `last_used_at` | 記録投入用エンドポイント（`POST /api/records`）を呼ぶ API キー（[features/api-keys.md](features/api-keys.md)）。1 ユーザーが何本でも持ち、行を消せばそのキーだけが失効する。キーそのものは保存せず、SHA-256 を base64url にしたものだけを置く（理由は api-keys.md の「キー」）。索引は `key_hash` の一意制約だけ |
