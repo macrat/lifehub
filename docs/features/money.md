@@ -16,7 +16,7 @@
   - 取り込んだ入出金の行: 内容はルールで読み替えた後の内容欄、補足は金融機関。金額は入金に + を付け、符号は円記号の後ろ（「¥+50,000」「¥-3,200」。`src/lib/yen.ts` の `formatSignedYen`）。
   - 行を単押しすると詳細が開き、長押しするとその詳細が入力欄で開く（アプリ全体の「単押しは閲覧、長押しは編集」。[ui.md](../ui.md#記録のシート)。取り込んだ入出金は読むだけなので長押しでも閲覧）。どちらの詳細を開くかは `MoneyRecordSheet` が決める（ホームのタイムラインからも同じものを開く）。一覧に操作ボタンは置かない（行が主役で、操作は詳細に集める）。
 - 精算のタイル（`src/features/money/components/SettlementGrid.tsx`）: 帳消しにする資金移動（[精算](#精算)）を 1 つ 1 枚のタイルで出す。タイルはレモン画面の状況のタイルと同じもの（`src/lib/ui/StatusTile.tsx` の `StatusTile` と `TileGrid`）で、見出しは「債権者 ← 債務者」（一覧の「To ← From」と同じ向き。債務者が債権者に払えば消える）、その下に大きく金額。貸し借りのある組だけを出し、1 つも無ければ「精算済み」。タップすると、その精算（From = 債務者、To = 債権者、金額、内容「精算」。`src/features/money/parties.ts` の `settlementExpense`）を入れた立替の入力が開く。精算は専用の記録を持たず、From に払った人、To に受け取った人を選んで立替として追加する。
-- 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 3 列、PC は 4 列。スマホの 3 列でも 7 桁の金額が収まるよう、値の字はほかのタイルより小さい）。タイルは精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額で、補足は「残高」「評価額」、カードは次回の引き落とし日（「次回 10/27」。スマホの 3 列に収まるよう曜日は付けない。日が読めなければ「次回」）。まだ取り込んでいない値や読めなかった値は「—」。押すとその口座の推移（下記）が開く。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
+- 口座のタイル（`src/features/money/components/AccountGrid.tsx`）: 取り込む口座（[口座の指定](#口座の指定)）を 1 つ 1 枚、環境変数に書いた順に並べる（スマホは 3 列、PC は 4 列。スマホの 3 列でも 7 桁の金額が収まるよう、値の字はほかのタイルより小さい）。タイルは精算と同じもの（`StatusTile`）で、名前（金融機関）・値・補足の 3 段。値は銀行なら残高、証券なら評価額、クレジットカードなら次回の引き落とし額。補足は、銀行と証券は 30 日前の値からの差（「+12,345」「-3,200」。スマホの 3 列に収まるよう円記号は付けない。30 日前の値は、その日までの最後の口座の値の記録 `money_balances`。取り込みに失敗した日は記録が無いが、値は前に読んだ値のままとみなす。記録がその日より後にしか無ければ「—」）、カードは次回の引き落とし日（「次回 10/27」。スマホの 3 列に収まるよう曜日は付けない。日が読めなければ「次回」）。まだ取り込んでいない値や読めなかった値は「—」。押すとその口座の推移（下記）が開く。取り込む口座が無ければ（環境変数が無ければ）段ごと出さない。
 - 口座の推移 `/money/balances?accounts=名前&accounts=名前`（`src/routes/_authenticated/money_.balances.tsx`。口座のタイルから開く。下部ナビには置かず、お金のタブの中の画面として扱う）: 選んだ口座の値の推移を積み上げた、塗りつぶし付きの折れ線グラフ（`src/features/money/components/BalanceChart.tsx`）。値は銀行なら残高、証券なら評価額、クレジットカードなら負債額（Money Forward の利用残高の大きさに - を付けた負の数）。負債は 0 より下へ積み、残高・評価額は 0 より上へ積む（ECharts の積み上げは正と負を別々に積む）。押したときの合計は負債を引いた額。
   - AppBar は戻るボタン・出している期間（「2026/7/6 〜 10/6」。年をまたげば両方に年）・絞り込みボタン。絞り込みでは出す口座をチェックで選ぶ（URL の accounts。タイルから開いたときは押したタイルの口座だけ。選び直しは履歴に積まないので、戻るでお金の画面へ戻る）。どれも選んでいなければ「表示する口座を選んでください」。
   - 最初は今日までの過去 3 か月を出す。ピンチ・マウスホイールで期間を拡大縮小し（最短 1 週間）、ドラッグで前後へ動かす。出している期間の始まりより、期間の長さの半分手前まで読んでいなければ古いほうの記録を読み足す（`src/features/money/use-balance-chart.ts`）ので、過去へ動かし続けられる（記録を始めた日まで）。
@@ -131,7 +131,7 @@
 | `money.createSchedule` | 書き込み | 立替スケジュールを追加（項目は立替と同じで、日付の代わりに `startsOn`（最初の日）と `frequency`。組み合わせの規則も立替と同じ。`expenseScheduleSchema`）。今日までの回をその場で立替として記録する。`id` を指定するとその ID で作る（同じ ID の再送は二重に作らない）。値は返さない |
 | `money.updateSchedule` | 書き込み | 変更。入力は `id` と全項目で、全項目を置き換える（まだ記録していない回にだけ効く）。値は返さない |
 | `money.deleteSchedule` | 書き込み | 削除（入力は `id`）。記録した立替は残る |
-| `money.accounts` | 読み出し | 口座のタイル（`[{ name, kind, balance, withdrawalAmount, withdrawalOn, fetchedAt }]`）。環境変数に書いた順で、まだ取り込んでいない口座も値を null にして並べる |
+| `money.accounts` | 読み出し | 口座のタイル（`[{ name, kind, balance, balanceChange, withdrawalAmount, withdrawalOn, fetchedAt }]`。balanceChange は 30 日前の値からの差）。環境変数に書いた順で、まだ取り込んでいない口座も値を null にして並べる |
 | `money.balances` | 読み出し | 口座の値の推移の 1 ページ（入力 `{ before? }`。`{ items: [{ account, on, amount }], nextCursor }`）。before（省けば明日）より前の 6 か月の記録を日の古い順に、今取り込んでいる口座すべての分。nextCursor はそのページの始まりの日で、それより前の記録が無ければ null。WHY 件数ではなく期間で区切る: グラフは期間で見るもので、開いたときに要る期間（最初に出す 3 か月と、その半分手前までの先読み）が 1 回の取得で揃う（`shared/money.ts` の `BALANCE_PAGE_MONTHS`） |
 | `money.rules` | 読み出し | 取り込みルールの並び（上から順。`[{ id, pattern, replaceDescription, replacement, kind, userId, hidden }]`） |
 | `money.saveRules` | 書き込み | ルールの並び全体を置き換え（入力は `moneyRulesSchema`）、取り込み済みの入出金を読み替え直す。値は返さない |
@@ -144,7 +144,7 @@
 
 ## MCP ツール
 
-`add_expense`, `update_expense`（`server/features/money/mcp.ts`。書けるのは立替だけ）。払った人・誰のためかの共有は `"shared"`。精算は `get_overview`（と書いた後の結果）、記録は `read_timeline`（種類は `expense`）、消すのは `delete_entry`（[mcp.md](mcp.md)）。口座の今の値は `get_overview` の `moneyAccounts`。
+`add_expense`, `update_expense`（`server/features/money/mcp.ts`。書けるのは立替だけ）。払った人・誰のためかの共有は `"shared"`。精算は `get_overview`（と書いた後の結果）、記録は `read_timeline`（種類は `expense`）、消すのは `delete_entry`（[mcp.md](mcp.md)）。口座の今の値は `get_overview` の `moneyAccounts`（項目は `money.accounts` と同じ）。
 
 取り込んだ入出金も `read_timeline` の `expense` として返し、`account`（金融機関）を持つ。金額は入金が正・出金が負で、直せないので ref を持たない（書くツールに渡せる物を渡さない）。ルールで「共有」との立替にしたものは、立替と同じ `paidBy`・`paidFor` を持ち、精算（`expenseSettlements`）にも入る。
 

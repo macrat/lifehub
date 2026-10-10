@@ -12,7 +12,7 @@ import {
   parseWithdrawalDate,
   parseYen,
 } from '../parse.ts';
-import { moneyAccounts, moneyRecords } from '../schema.ts';
+import { moneyAccounts, moneyBalances, moneyRecords } from '../schema.ts';
 import {
   addExpense,
   getBalancePage,
@@ -253,6 +253,33 @@ describe('money service', () => {
     const older = await getBalancePage(latest.nextCursor ?? undefined, NOW);
     expect(older.items.map((b) => b.on)).toEqual(['2026-04-01', '2026-04-01', '2026-04-01']);
     expect(older.nextCursor).toBeNull();
+  });
+
+  it('口座の値に、30 日前までの最後の記録からの差を付ける（記録が無ければ null、カードには付けない）', async () => {
+    serve([csv([])]);
+    await syncMoneyForward(NOW);
+    expect((await listAccounts(NOW)).map((a) => a.balanceChange)).toEqual([null, null, null]);
+
+    // 今日（10/6）の 30 日前は 9/6。銀行はその日の記録が無いので前の 9/1、9/7 は後なので使わない
+    await db.insert(moneyBalances).values([
+      {
+        account: 'テスト銀行',
+        recordedOn: dateStringSchema.parse('2026-09-01'),
+        balance: 1_000_000,
+      },
+      { account: 'テスト銀行', recordedOn: dateStringSchema.parse('2026-09-07'), balance: 1 },
+      { account: 'テスト証券', recordedOn: dateStringSchema.parse('2026-09-06'), balance: 900_000 },
+      {
+        account: 'テストカード',
+        recordedOn: dateStringSchema.parse('2026-09-06'),
+        balance: -1_000,
+      },
+    ]);
+    expect((await listAccounts(NOW)).map((a) => [a.name, a.balanceChange])).toEqual([
+      ['テスト銀行', 234_567],
+      ['テスト証券', -10_000],
+      ['テストカード', null],
+    ]);
   });
 
   it('Money Forward が読めなければ投げ、前回の値を残す', async () => {
