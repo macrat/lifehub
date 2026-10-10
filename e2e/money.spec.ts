@@ -23,6 +23,7 @@ const ACCOUNTS: MoneyAccount[] = [
     name: 'テスト銀行',
     kind: 'bank',
     balance: 1_234_567,
+    balanceChange: 12_345,
     withdrawalAmount: null,
     withdrawalOn: null,
     fetchedAt: new Date().toISOString(),
@@ -31,6 +32,7 @@ const ACCOUNTS: MoneyAccount[] = [
     name: 'テストカード',
     kind: 'card',
     balance: null,
+    balanceChange: null,
     withdrawalAmount: 42_000,
     withdrawalOn: TODAY,
     fetchedAt: new Date().toISOString(),
@@ -72,6 +74,7 @@ test('お金の画面に口座の残高とカードの次回の引き落とし�
   const accounts = page.getByRole('region', { name: '口座' });
   await expect(accounts).toContainText('テスト銀行');
   await expect(accounts).toContainText('¥1,234,567');
+  await expect(accounts).toContainText('+12,345');
   await expect(accounts).toContainText('¥42,000');
   // カードの引き落とし日は曜日を付けずに「次回 10/27」
   await expect(accounts).toContainText(

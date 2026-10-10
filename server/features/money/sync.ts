@@ -1,6 +1,7 @@
 import { addCalendarMonths, addDays, today } from '../../../shared/date.ts';
 import { newId } from '../../../shared/id.ts';
 import {
+  BALANCE_CHANGE_DAYS,
   BALANCE_PAGE_MONTHS,
   type MoneyAccount,
   type MoneyBalance,
@@ -79,10 +80,21 @@ export async function syncMoneyForward(
   return { records: saved.records.length, accounts: saved.accountRows.length };
 }
 
-/** お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる */
-export async function listAccounts(): Promise<MoneyAccount[]> {
-  const rows = new Map((await repository.findAccounts()).map((row) => [row.name, row]));
-  return configuredAccounts.map((account) => toAccount(account, rows.get(account.name)));
+/**
+ * お金の画面のカード（環境変数に書いた順）。まだ取り込んでいない口座は値を null にして並べる。
+ * 差（balanceChange）は今日（JST）の BALANCE_CHANGE_DAYS 日前までの最後の記録と比べ、記録が無ければ null。
+ * WHY その日までの最後の記録: 取り込みに失敗した日は記録が無いが、口座の値はその前に読んだ値のままとみなせる
+ */
+export async function listAccounts(now: Date = new Date()): Promise<MoneyAccount[]> {
+  const [rows, past] = await Promise.all([
+    repository.findAccounts(),
+    repository.findBalancesAsOf(addDays(today(now), -BALANCE_CHANGE_DAYS)),
+  ]);
+  const byName = new Map(rows.map((row) => [row.name, row]));
+  const pastByName = new Map(past.map((row) => [row.account, row.balance]));
+  return configuredAccounts.map((account) =>
+    toAccount(account, byName.get(account.name), pastByName.get(account.name)),
+  );
 }
 
 /**
@@ -132,15 +144,18 @@ export async function saveRules(rules: MoneyRule[], userId: string): Promise<voi
   await repository.replaceRules(rules, userId, changed);
 }
 
-/** カードの利用残高は出さない（カードのタイルは次回の引き落とし。引き落としの値はカードの行だけが持つ。`moneyforward.ts`） */
+/** カードの利用残高とその差は出さない（カードのタイルは次回の引き落とし。引き落としの値はカードの行だけが持つ。`moneyforward.ts`） */
 function toAccount(
   { name, kind }: MoneyForwardAccount,
   row: MoneyAccountRow | undefined,
+  pastBalance: number | undefined,
 ): MoneyAccount {
+  const balance = kind === 'card' ? null : (row?.balance ?? null);
   return {
     name,
     kind,
-    balance: kind === 'card' ? null : (row?.balance ?? null),
+    balance,
+    balanceChange: balance === null || pastBalance === undefined ? null : balance - pastBalance,
     withdrawalAmount: row?.withdrawalAmount ?? null,
     withdrawalOn: row?.withdrawalOn ?? null,
     fetchedAt: row?.fetchedAt.toISOString() ?? null,

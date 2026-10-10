@@ -127,7 +127,7 @@ export function formatMemo(memo: Memo, people: Person[]) {
 }
 
 /**
- * 口座の今の値。銀行は残高（balance）、証券は評価額（balance）、クレジットカードは次回の引き落とし
+ * 口座の今の値。銀行は残高、証券は評価額（balance）とその過去の値からの差（balanceChange）、クレジットカードは次回の引き落とし
  * （withdrawalAmount・withdrawalOn）。読めていない値は省く
  */
 export function formatMoneyAccount(account: MoneyAccount) {
@@ -136,6 +136,7 @@ export function formatMoneyAccount(account: MoneyAccount) {
     kind: account.kind,
     ...compact({
       balance: account.balance,
+      balanceChange: account.balanceChange,
       withdrawalAmount: account.withdrawalAmount,
       withdrawalOn: account.withdrawalOn,
       fetchedAt: account.fetchedAt && jstDateTime(account.fetchedAt),
