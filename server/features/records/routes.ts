@@ -23,6 +23,7 @@ export const recordsRoutes = new Hono<RecordsEnv>()
       },
     }),
   )
-  .post('/', validate('json', recordSchema), async (c) =>
-    c.json(await service.ingest(c.req.valid('json'), c.get('apiKeyName')), 201),
-  );
+  .post('/', validate('json', recordSchema), async (c) => {
+    await service.ingest(c.req.valid('json'), c.get('apiKeyName'));
+    return c.json({ ok: true }, 201);
+  });

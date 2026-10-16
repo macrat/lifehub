@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../../shared/id.ts';
-import type { CareLog } from '../../shared/lemon.ts';
 import { app } from '../app.ts';
 import { createKey } from '../features/api-keys/service.ts';
-import { listLogs } from '../features/lemon/service.ts';
+import { listLogs, logCare, updateLog } from '../features/lemon/service.ts';
 import { clearTables, createTestUser } from '../lib/db/test-db.ts';
 
 /**
@@ -30,23 +29,51 @@ describe('記録投入のルート', () => {
     const before = Date.now();
     const res = await post({ type: 'lemon', careTypes: ['water', 'mist'] }, key);
     expect(res.status).toBe(201);
-    const log = (await res.json()) as CareLog;
-    expect(log.careTypes).toEqual(['mist', 'water']);
+    expect(await res.json()).toEqual({ ok: true });
+    const { items } = await listLogs({});
+    expect(items).toHaveLength(1);
     // ボタンは誰が押しても同じキーで送るので、キーの持ち主を記録者にしない
-    expect(log.createdBy).toBeNull();
-    expect(log.apiKeyName).toBe('ボタン');
+    expect(items).toMatchObject([
+      { careTypes: ['mist', 'water'], createdBy: null, apiKeyName: 'ボタン' },
+    ]);
     // 日時を省くと受け取った時刻になる
-    expect(new Date(log.doneAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(new Date(items[0]?.doneAt ?? 0).getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
 
-  it('同じ id で送り直しても二重に作られない', async () => {
+  it('編集後に同じ id で送り直しても、中身を返さず二重作成も上書きもしない', async () => {
     const userId = await createTestUser('A');
     const { secret: key } = await createKey({ name: 'ボタン' }, userId);
     const body = { type: 'lemon', id: newId(), careTypes: ['mist'] };
 
-    expect((await post(body, key)).status).toBe(201);
-    expect((await post(body, key)).status).toBe(201);
-    expect((await listLogs({})).items).toHaveLength(1);
+    const first = await post(body, key);
+    expect(first.status).toBe(201);
+    expect(await first.json()).toEqual({ ok: true });
+    await updateLog(
+      body.id,
+      { careTypes: ['water'], doneAt: new Date(), note: '画面で追記' },
+      userId,
+    );
+
+    const replay = await post(body, key);
+    expect(replay.status).toBe(201);
+    expect(await replay.json()).toEqual({ ok: true });
+    expect((await listLogs({})).items).toMatchObject([
+      { id: body.id, careTypes: ['water'], note: '画面で追記' },
+    ]);
+  });
+
+  it('画面で作った記録の id を指定しても、中身を返さず上書きもしない', async () => {
+    const userId = await createTestUser('A');
+    const { secret: key } = await createKey({ name: 'ボタン' }, userId);
+    const log = await logCare(
+      { careTypes: ['water'], doneAt: new Date(), note: '画面の記録' },
+      { userId },
+    );
+
+    const res = await post({ type: 'lemon', id: log.id, careTypes: ['mist'], note: '投入' }, key);
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ ok: true });
+    expect((await listLogs({})).items).toEqual([log]);
   });
 
   it('キーが無い・知らないキーは 401', async () => {
