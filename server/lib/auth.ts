@@ -132,6 +132,7 @@ const options = {
     '/oauth2/get-clients',
     '/oauth2/update-client',
     '/oauth2/client/rotate-secret',
+    '/oauth2/client/rotate-keys',
     '/oauth2/delete-client',
     '/oauth2/public-client',
     '/oauth2/public-client-prelogin',
@@ -185,27 +186,21 @@ let initializing: Promise<Auth> | undefined;
 /**
  * 初期化を終えた better-auth を返す。最初の呼び出しで作り、以後は同じものを返す。
  *
- * better-auth は作った時点で初期化（oauth-provider の MCP リソースの登録で DB に問い合わせる）を始め、
- * その結果を持ち続ける。一度失敗すると、そのインスタンスは認証の要求をすべて同じエラーで失敗させる。
- * - モジュールの読み込み時に作らず、要求の中で作って初期化を待つ。Vercel Function は応答を返すと止まる
- *   ので、要求の外で始めた DB への問い合わせは止まっている間に接続が切れて失敗する。
- * - 初期化に失敗したら持たずに捨て、次の要求で作り直す。一時的な接続の失敗でインスタンスが止まるまで
- *   認証が使えなくなるのを防ぐ。
+ * better-auth は作った時点で初期化（oauth-provider の MCP リソースの登録で DB に問い合わせる）を始める。
+ * モジュールの読み込み時に作らず、要求の中で作って初期化を待つ。Vercel Function は応答を返すと止まる
+ * ので、要求の外で始めた DB への問い合わせは止まっている間に接続が切れて失敗する。
+ * 登録に失敗してもインスタンスは壊れず、oauth-provider が次にリソースを使うときに登録をやり直す。
  *
  * WHY NOT 初期化時の登録を止める・遅らせる: oauth-provider にその設定は無い（`resourceSeedMode` は既存の行を
  * 上書きするかどうかだけを決める）。@better-auth/mcp は `resource` を必ず登録対象に加える。
- * WHY NOT Neon への fetch を失敗時に再送する: 送った後に切れた要求は DB 側で実行済みかもしれず、書き込みを
- * 二重に実行しうる。要求の外で問い合わせを始める限り、再送しても止まっている間に切れうる。
+ * WHY NOT 失敗したインスタンスを捨てて作り直す: oauth-provider が登録を遅延して再試行するので要らない。
  */
 export function getAuth(): Promise<Auth> {
   initializing ??= (async () => {
     const auth = createAuth();
     await auth.$context;
     return auth;
-  })().catch((error: unknown) => {
-    initializing = undefined;
-    throw error;
-  });
+  })();
   return initializing;
 }
 
