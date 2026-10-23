@@ -37,8 +37,14 @@ export function historyQueryOptions<T, F extends object>(source: HistorySource<T
   const filtered = isFiltered(filter);
   return {
     queryKey: [...source.key, filter],
-    queryFn: ({ pageParam, signal }: { pageParam: string | undefined; signal: AbortSignal }) =>
-      source.fetch(filter, pageParam, signal),
+    // 端末に保存したキャッシュを戻すと、最初のページの pageParam（undefined）は JSON を通って null になる
+    queryFn: ({
+      pageParam,
+      signal,
+    }: {
+      pageParam: string | null | undefined;
+      signal: AbortSignal;
+    }) => source.fetch(filter, pageParam ?? undefined, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last: HistoryPage<T>) => last.nextCursor ?? undefined,
     ...(filtered ? { gcTime: 1000 * 60 } : {}),
