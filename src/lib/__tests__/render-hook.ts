@@ -17,6 +17,7 @@ export function renderHook<T, P = undefined>(
   { props, client }: { props?: P; client?: QueryClient } = {},
 ) {
   let value!: T;
+  // biome-ignore lint/correctness/noComponentHookFactories: 渡されたフックを描くための部品で、呼び出しごとに作る
   function Probe({ props }: { props: P }) {
     value = hook(props);
     return null;

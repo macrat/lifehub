@@ -151,6 +151,7 @@ export async function addExpenseSchedule(
   const before = addDays(input.startsOn, -1);
   const due = dueExpenses({ ...schedule, generatedThrough: before }, through);
   const rows = await repository.insertSchedule(
+    // biome-ignore lint/complexity/useMathMinMax: 日付の文字列（YYYY-MM-DD）の比較で、Math.min/max は数にしか使えない
     { ...schedule, generatedThrough: through > before ? through : before },
     due,
   );

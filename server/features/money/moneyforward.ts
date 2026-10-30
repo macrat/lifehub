@@ -174,6 +174,7 @@ async function signIn(page: Page, credentials: Credentials): Promise<void> {
       const text = (
         await page
           .locator('body')
+          // biome-ignore lint/performance/useDomNodeTextContent: Playwright の innerText は画面に見えている文字を読む（ログインの画面の判別に要る）
           .innerText()
           .catch(() => '')
       ).slice(0, 100);

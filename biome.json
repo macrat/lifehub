@@ -6,7 +6,17 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!src/routeTree.gen.ts", "!drizzle", "!dist", "!dev-dist", "!infra"]
+    "includes": [
+      "**",
+      "!src/routeTree.gen.ts",
+      "!drizzle",
+      "!dist",
+      "!dev-dist",
+      "!infra",
+      "!**/*.md",
+      "!**/*.yaml",
+      "!**/*.yml"
+    ]
   },
   "formatter": {
     "enabled": true,

@@ -29,6 +29,7 @@ export function createStore<T>(initial: T) {
    */
   function useValue(): T;
   function useValue<S>(select: (value: T) => S): S;
+  // biome-ignore lint/correctness/noComponentHookFactories: 値ごとにフックを作るのがこの store の役目
   function useValue<S>(select?: (value: T) => S): T | S {
     const read = select ?? ((value: T) => value);
     return useSyncExternalStore(
