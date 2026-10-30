@@ -23,7 +23,9 @@ export function calendarLoader(): DataLoader<DateRange, CalendarPeriod> {
 /** 期間ごとの中身（並びは ranges と同じ）。すべての期間を覆う範囲を 1 組の問い合わせで読み、期間で分ける */
 async function readPeriods(ranges: readonly DateRange[]): Promise<CalendarPeriod[]> {
   const whole = {
+    // biome-ignore lint/complexity/useMathMinMax: 日付の文字列（YYYY-MM-DD）の比較で、Math.min/max は数にしか使えない
     from: ranges.map((range) => range.from).reduce((a, b) => (a < b ? a : b)),
+    // biome-ignore lint/complexity/useMathMinMax: 日付の文字列（YYYY-MM-DD）の比較で、Math.min/max は数にしか使えない
     to: ranges.map((range) => range.to).reduce((a, b) => (a > b ? a : b)),
   };
   const [items, holidays, weather] = await Promise.all([
