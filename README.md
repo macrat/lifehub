@@ -40,6 +40,7 @@ pnpm dev                          # http://localhost:5173
 | `pnpm db:studio` | drizzle-kit studio でローカルの DB を見る |
 | `pnpm db:dump <file>` / `pnpm db:restore <file>` | `DATABASE_URL` の DB をまるごと SQL に書き出す／書き出した SQL を戻す（`pg_dump` / `psql` を使う。[docs/operations.md](docs/operations.md#バックアップ)） |
 | `pnpm user:create` | 初期ユーザー作成（`--email` `--name` `--password`） |
+| `pnpm user:reset-password` | パスワードを忘れたユーザーのパスワードを書き換える（`--email` `--password`。[docs/operations.md](docs/operations.md#パスワードを忘れたとき)） |
 | `pnpm calendar:export <file>` | `DATABASE_URL` の DB にある全員の全予定を ics に書き出す |
 | `pnpm db:seed` | ローカル用のサンプルデータ投入（全テーブルを空にしてから。本番では実行できない）。最後に `pnpm data:refresh` も走る |
 | `pnpm data:refresh` | `DATABASE_URL` の DB に祝日と天気を配布元から取り直して入れる（作り直した DB に手で実行する。カレンダーは表を読むだけで取りに行かないため） |

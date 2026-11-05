@@ -58,6 +58,17 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export const changePasswordSchema = reauthSchema.extend({ newPassword: passwordSchema });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+/**
+ * パスワードを忘れた人のパスワードの書き換え（scripts/reset-password.ts）。DB に直接つなぐ経路なので、
+ * ログイン中の本人も今のパスワードも無く、相手はメールアドレスで指す
+ */
+export const resetPasswordSchema = z.object({
+  /** 小文字にそろえる（`createUserSchema` の email と同じ理由） */
+  email: z.email('メールアドレスの形式が正しくありません').toLowerCase(),
+  password: passwordSchema,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
 export const loginSchema = z.object({
   /**
    * 小文字にそろえる。better-auth もメールを小文字にして保存・照合するので、重複の確認（users service）を

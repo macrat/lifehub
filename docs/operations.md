@@ -112,6 +112,17 @@ DATABASE_URL='postgresql://...' pnpm db:dump lifehub.sql
 
 戻した DB では本番のパスワードでログインできる。セッションは `BETTER_AUTH_SECRET` が違うので引き継がれない。
 
+## パスワードを忘れたとき
+
+忘れた人のパスワードを、DB に直接つないで書き換える（仕組みと、画面から戻せない理由は [features/users.md](features/users.md#認証)）。
+
+```sh
+DATABASE_URL="$(terraform -chdir=infra output -raw database_url)" \
+  pnpm user:reset-password --email you@example.com --password 'xxxxxxxxxxxx'
+```
+
+その人の全端末のセッションが切れるので、新しいパスワードでログインし直す。MCP クライアントの許可と API キーは残るので、要らないものは設定画面の一覧から失効させる。
+
 ## 監視（Sentry）
 
 - 送るのは本番だけ。DSN（`SENTRY_DSN`）は production にしか無く、無ければ SDK は何も送らない（ローカル・テスト・Preview）。ブラウザへはビルド時に `vite.config.ts` の define で埋め込む（`vercel pull` で落とした値を `vercel build` が渡す）。サーバーとブラウザで同じ変数を読む。

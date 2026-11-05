@@ -1,6 +1,10 @@
 import { hashPassword } from 'better-auth/crypto';
 import { pickDistinctHue } from '../../../shared/color.ts';
-import type { CreateUserInput, UpdateUserInput } from '../../../shared/validation/users.ts';
+import type {
+  CreateUserInput,
+  ResetPasswordInput,
+  UpdateUserInput,
+} from '../../../shared/validation/users.ts';
 import { getAuth } from '../../lib/auth.ts';
 import { ConflictError, NotFoundError } from '../../lib/errors.ts';
 import { scheduleUpcoming } from '../notifications/service.ts';
@@ -59,4 +63,18 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<vo
 /** 本人のパスワードを変え、全端末のセッションを失効させる（`me.changePassword`。docs/features/users.md#認証） */
 export async function changePassword(userId: string, newPassword: string): Promise<void> {
   await repository.replacePassword(userId, await hashPassword(newPassword));
+}
+
+/**
+ * パスワードを忘れた人のパスワードを、メールアドレスで指して書き換える（scripts/reset-password.ts）。
+ * セッションの失効など、本人の変更（`changePassword`）と同じことをする。docs/features/users.md#認証
+ */
+export async function resetPassword({
+  email,
+  password,
+}: ResetPasswordInput): Promise<repository.UserRow> {
+  const user = await repository.findByEmail(email);
+  if (!user) throw new NotFoundError('ユーザーが見つかりません');
+  await changePassword(user.id, password);
+  return user;
 }

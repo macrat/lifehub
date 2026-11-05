@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_HUE } from '../../../../shared/color.ts';
 import { newId } from '../../../../shared/id.ts';
-import { createUserSchema } from '../../../../shared/validation/users.ts';
+import { createUserSchema, resetPasswordSchema } from '../../../../shared/validation/users.ts';
 import { cookieOf, signIn as login } from '../../../__tests__/login.ts';
 import { app } from '../../../app.ts';
 import { clearTables } from '../../../lib/db/test-db.ts';
 import { ConflictError, NotFoundError } from '../../../lib/errors.ts';
-import { changePassword, createUser, listUsers, updateUser } from '../service.ts';
+import { changePassword, createUser, listUsers, resetPassword, updateUser } from '../service.ts';
 
 const alice = { email: 'alice@example.com', name: 'Alice', password: 'password-alice-1' };
 
@@ -64,6 +64,25 @@ describe('users service', () => {
       expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
     expect((await login(alice.email, alice.password)).status).toBe(401);
     expect((await login(alice.email, 'new-password-123')).status).toBe(200);
+  });
+
+  it('パスワードをメールアドレスで指して書き換えると、旧セッションと旧パスワードを拒否する', async () => {
+    await createUser(alice);
+    const cookie = cookieOf(await login(alice.email, alice.password));
+
+    // 書き換える経路（scripts/reset-password.ts）は入力をスキーマで読む
+    await resetPassword(
+      resetPasswordSchema.parse({ email: 'Alice@Example.com', password: 'new-password-123' }),
+    );
+    expect((await app.request('/api/trpc/me.get', { headers: { cookie } })).status).toBe(401);
+    expect((await login(alice.email, alice.password)).status).toBe(401);
+    expect((await login(alice.email, 'new-password-123')).status).toBe(200);
+  });
+
+  it('いないユーザーのパスワードは書き換えられない', async () => {
+    await expect(
+      resetPassword({ email: 'nobody@example.com', password: 'new-password-123' }),
+    ).rejects.toThrow(NotFoundError);
   });
 
   it('いないユーザーは変更できない', async () => {
