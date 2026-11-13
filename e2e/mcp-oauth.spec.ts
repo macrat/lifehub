@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { SIGNED_OUT } from './auth.ts';
+import { carries } from './network.ts';
 import { serverEnv } from './servers.ts';
 import { expect, test } from './test.ts';
 import { E2E_USER } from './users.ts';
@@ -118,8 +119,11 @@ test('OAuth 2.1 で認可した MCP クライアントがツールを呼べ、�
     .getByRole('listitem')
     .filter({ hasText: clientId });
   page.once('dialog', (dialog) => void dialog.accept());
+  // 行は送信を待たずに消える（楽観的更新）ので、サーバーが失効を終えてからトークンを試す
+  const revocation = page.waitForResponse(carries('mcpClients.revoke'));
   await row.getByRole('button', { name: 'E2E MCP Client を失効' }).click();
   await expect(row).toHaveCount(0);
+  expect((await revocation).ok()).toBe(true);
   const revoked = await request.post('/api/mcp', {
     headers: {
       authorization: `Bearer ${accessToken}`,
