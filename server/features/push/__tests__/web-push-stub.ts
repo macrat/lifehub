@@ -1,5 +1,5 @@
 import { onTestFinished, vi } from 'vitest';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import type { PushMessage } from '../../../../shared/push.ts';
 import { env } from '../../../lib/env.ts';
 

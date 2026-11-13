@@ -46,6 +46,11 @@ export default defineConfig({
           // 並列度の違うプロジェクトは同じ組で走らせられないので、client・shared の後に回す
           fileParallelism: false,
           sequence: { groupOrder: 1 },
+          // web-push は ESM で、送信を名前付き export で出す。Node にそのまま読ませると module の名前空間は
+          // 書き換えられず、送信を差し替えられない（`server/features/push/__tests__/web-push-stub.ts`）ので、
+          // Vitest に変換させる。
+          // WHY NOT vi.mock: 巻き上げの都合で、送信を止めたいテストファイルごとに書くことになる
+          server: { deps: { inline: ['web-push'] } },
         },
       },
     ],

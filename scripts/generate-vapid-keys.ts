@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 
 /**
  * Web Push の VAPID 鍵ペアを生成する。一度だけ実行し、GitHub Secrets（TF_VAR_vapid_public_key / TF_VAR_vapid_private_key）に登録する。

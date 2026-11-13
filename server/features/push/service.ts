@@ -1,4 +1,4 @@
-import webpush, { WebPushError } from 'web-push';
+import * as webpush from 'web-push';
 import type { PushMessage } from '../../../shared/push.ts';
 import { type PushSubscriptionInput, pushEndpointSchema } from '../../../shared/validation/push.ts';
 import { afterResponse } from '../../lib/after-response.ts';
@@ -85,7 +85,7 @@ export async function sendToUsers(
         return 'sent';
       } catch (error) {
         if (
-          error instanceof WebPushError &&
+          error instanceof webpush.WebPushError &&
           (error.statusCode === 404 || error.statusCode === 410)
         ) {
           // 失効した購読の片付けは応答の後に回し、失敗してもログに残すだけにする（`afterResponse`）。
